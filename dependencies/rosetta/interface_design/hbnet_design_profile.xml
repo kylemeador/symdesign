@@ -89,7 +89,7 @@
 		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
 		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
 		<AddConstraints name="add_csts">
-			<CoordinateConstraintGenerator name="coord_cst_gen" native="true" residue_selector="full_pose" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false"/> # bounded_width="0". sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
+			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
 		<SavePoseMover name="save_core_pack" restore_pose="0" reference_name="core_pack"/>
 		<SavePoseMover name="restore_core_pack" restore_pose="1" reference_name="core_pack"/>
@@ -260,7 +260,7 @@
 					<FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_hbnet_core" report_as="sc_hbnet_core" filter_name="shape_complementarity_hbnet_core"/>
 					<FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density_filter" report_as="ie_density_hbnet_core" filter_name="interaction_energy_density_filter"/>
 					<FilterReportAsPoseExtraScoresMover name="RP_core_design_residue_count" report_as="residue_count_hbnet_core" filter_name="core_design_residue_count"/>
-					<DumpPdb name="dump_pdb" fname="hbnet_interface_neighbors_and_core_packing.pdb" scorefxn="2015_nano_cst" tag_time="1"/>
+<!--					<DumpPdb name="dump_pdb" fname="hbnet_interface_neighbors_and_core_packing.pdb" scorefxn="2015_nano_cst" tag_time="1"/>-->
 				</MOVERS>
 
 				<PROTOCOLS>
@@ -269,13 +269,13 @@
 					<Add mover_name="hbnet_core_design"/> # packing should reach ideal levels here
 <!--					<Add filter_name="shape_complementarity_hbnet_core" report_at_end="false"/> # if not, throw away, move on-->
 <!--					<Add filter_name="time"/>-->
-					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # if not, throw away, move on. THIS SHOULD FILTER although it is saved to pose
+					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # THIS DOESN'T FILTER, it is saved to pose and bad SC will be thrown out in "trim" step
 <!--					<Add mover_name="run_core_design_metrics"/>-->
-					<Add mover_name="RP_core_design_residue_count"/> # calculation above may be redundant when done here TESTING
+					<Add mover_name="RP_core_design_residue_count"/>
 <!--					<Add filter_name="interaction_energy_filter"/>-->
 <!--					<Add mover_name="run_core_design_average_residue_energy"/>-->
 					<Add mover_name="RP_interaction_energy_density_filter"/>
-					<Add mover_name="dump_pdb"/>
+<!--					<Add mover_name="dump_pdb"/>-->
 				</PROTOCOLS>
 			</ROSETTASCRIPTS>
         </MultiplePoseMover>
@@ -283,17 +283,80 @@
 		<MultiplePoseMover name="hbnet_trim_design_pool" max_input_poses="1000">
 			<SELECT>
 				<AndSelector>
-					<TopNByProperty n="50" order="descending">
+					<TopNByProperty n="100" order="descending">
 						<FilterReporter filter="read_sc_hbnet_core"/>
 					</TopNByProperty>
-					<TopNByProperty n="50" order="ascending">
+					<TopNByProperty n="100" order="ascending">
 						<FilterReporter filter="read_interaction_energy_density_filter"/>
 					</TopNByProperty>
 				</AndSelector>
 			</SELECT>
 		</MultiplePoseMover>
+		<MultiplePoseMover name="output_10" max_input_poses="10" max_output_poses="10" cached="true">
+			<ROSETTASCRIPTS>
+				<SCOREFXNS>
+					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+				</SCOREFXNS>
+				<RESIDUE_SELECTORS>
+<!--					<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--					<SymmetricalResidue name="core_residues_sym" selector="core_residues" />-->
+<!--					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...-->
+					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+<!--					<SymmetricalResidue name="interface1_sym" selector="interface1" />-->
+<!--					# same, but for residues from chain "B"-->
+					<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+<!--					<SymmetricalResidue name="interface2_sym" selector="interface2" />-->
+<!--					# combined group of all identified interface residues-->
+					<Or name="tot_interface" selectors="interface1,interface2"/>
+					<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
+<!--					<SymmetricalResidue name="tot_interface_sym" selector="tot_interface"/>-->
+<!--					# the negation of all interface residues-->
+					<Not name="not_interface" selector="tot_interface"/>
+<!--					# other residues that may be designable-->
+					<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					# all designable residues
+					<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
+<!--					<And name="core_interface1_sym" selectors="core_residues_sym,interface1_sym"/>-->
+<!--					<And name="core_interface2_sym" selectors="core_residues_sym,interface2_sym"/>-->
+<!--					# the negation of all designable residues-->
+<!--					<Not name="not_designable" selector="all_designable"/>-->
+<!--					<Not name="not_core_residues" selector="core_residues"/>-->
+<!--					# all residues-->
+<!--					<True name="full_pose"/>-->
+				</RESIDUE_SELECTORS>
+				<TASKOPERATIONS>
+					<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
+					<OperateOnResidueSubset name="hbnet_rtr" selector="hbnet_residues"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
+				</TASKOPERATIONS>
+				<FILTERS>  # TODO change min_sc to ~0.65 or 0.7
+					<Time name="time"/>
+<!--					<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.7" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
+				</FILTERS>
+				<MOVE_MAP_FACTORIES>
+					<MoveMapFactory name="design_map" bb="0" chi="1">
+<!--						<Backbone residue_selector="all_designable" enable="true"/>-->
+					</MoveMapFactory>
+				</MOVE_MAP_FACTORIES>
+<!--				<IMPORT movers="" filters=""/>-->
 
-		<MultiplePoseMover name="finalize_interface_packing" max_input_poses="50">
+				<MOVERS>
+					# the main routine to perform metropolis criteria monte carlo, uses full design space
+<!--					<FastDesign name="int_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--					<FastDesign name="int_design" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+					# sample all rotamers to find minimum
+					<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="hbnet_rtr,design_start"/> # init,
+					# minimize all residues in design_map (move map)
+					<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1
+<!--					<FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_hbnet_core" report_as="sc_hbnet_core" filter_name="shape_complementarity_hbnet_core"/>-->
+				</MOVERS>
+				<PROTOCOLS>
+					<Add mover_name="RT" filter_name="time"/>
+					<Add mover_name="min" filter_name="time"/>
+				</PROTOCOLS>
+			</ROSETTASCRIPTS>
+		</MultiplePoseMover>
+
+		<MultiplePoseMover name="finalize_interface_packing" max_input_poses="100">
 			<SELECT>
 				<AndSelector>
 					<TopNByProperty n="20" order="descending">
@@ -361,7 +424,8 @@
 
 				<MOVERS>
 					# the main routine to perform metropolis criteria monte carlo, uses full design space
-					<FastDesign name="int_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+<!--					<FastDesign name="int_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+					<FastDesign name="int_design" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 					# sample all rotamers to find minimum
 					<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>
 					# minimize all residues in design_map (move map)
@@ -408,15 +472,16 @@
 		<Add mover_name="add_csts"/>
 <!--		<Add mover_name="core_pack"/>-->
 <!--		<Add mover_name="save_core_pack"/>-->
-		<Add mover_name="design_start"/>
+<!--		<Add mover_name="design_start"/>-->
 		# Might be unnecessary with the mechanism of FastDesign
-		<Add mover_name="interface_core_design"/> # packing should reach ideal interior levels here
-<!--		<Add filter_name="shape_complementarity_core"/> # if not, throw away this pose and move on-->
+<!--		<Add mover_name="interface_core_design"/> # packing should reach ideal interior levels here-->
+		<Add filter_name="shape_complementarity_core" report_at_end="false"/> # if not, throw away this pose and move on
 		<Add mover_name="hbnet"/>
 		<Add filter_name="time"/>
-  		<Add mover_name="hbnet_corepack"/>
-  		<Add mover_name="hbnet_trim_design_pool"/>
-  		<Add mover_name="finalize_interface_packing"/>
+<!--  		<Add mover_name="hbnet_corepack"/>-->
+<!--  		<Add mover_name="hbnet_trim_design_pool"/>-->
+<!--  		<Add mover_name="finalize_interface_packing"/>-->
+  		<Add mover_name="output_10"/>
 		<Add mover_name="job_info"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
