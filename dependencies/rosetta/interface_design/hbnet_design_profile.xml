@@ -470,7 +470,7 @@
 		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry_switch"/>
 		<Add mover_name="add_csts"/>
-<!--		<Add mover_name="core_pack"/>-->
+		<Add mover_name="core_pack"/>
 <!--		<Add mover_name="save_core_pack"/>-->
 <!--		<Add mover_name="design_start"/>-->
 		# Might be unnecessary with the mechanism of FastDesign
