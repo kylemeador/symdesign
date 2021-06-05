@@ -470,11 +470,11 @@
 		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry_switch"/>
 		<Add mover_name="add_csts"/>
-		<Add mover_name="core_pack"/>
+<!--		<Add mover_name="core_pack"/>-->
 <!--		<Add mover_name="save_core_pack"/>-->
 <!--		<Add mover_name="design_start"/>-->
 		# Might be unnecessary with the mechanism of FastDesign
-<!--		<Add mover_name="interface_core_design"/> # packing should reach ideal interior levels here-->
+		<Add mover_name="interface_core_design"/> # packing should reach ideal interior levels here
 		<Add filter_name="shape_complementarity_core" report_at_end="false"/> # if not, throw away this pose and move on
 		<Add mover_name="hbnet"/>
 		<Add filter_name="time"/>
