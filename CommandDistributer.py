@@ -9,7 +9,7 @@ import subprocess
 from itertools import repeat
 
 from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
-    program_name
+    program_name, interface_design
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors
 
 # Globals
@@ -52,12 +52,14 @@ rosetta_flags = extras_flags[rosetta_extras] + \
 
 # Those jobs having a scale of 2 utilize two threads. Therefore two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
-process_scale = {stage[1]: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
+process_scale = {stage[1]: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
                  stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
-                 stage[11]: 1, stage[12]: 2, 'metrics_bound': 2, 'interface_metrics': 2
+                 stage[11]: 1, stage[12]: 2, stage[13]: 2,
+                 'metrics_bound': 2, 'interface_metrics': 2
                  }
 # Cluster Dependencies and Multiprocessing
 sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
+                    interface_design: os.path.join(sbatch_template_dir, stage[2]),
                     stage[2]: os.path.join(sbatch_template_dir, stage[2]),
                     stage[12]: os.path.join(sbatch_template_dir, stage[2]),
                     stage[3]: os.path.join(sbatch_template_dir, stage[2]),
@@ -145,7 +147,7 @@ def run(cmd, log_file_name, program=None, srun=None):
 
 
 def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, failure_file=None, max_jobs=80,
-               number_of_commands=None, **kwargs):
+               number_of_commands=None, mpi=None, **kwargs):
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Keyword Args:
@@ -156,6 +158,7 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
         failure_file=None (str): What file to write the failed jobs to for job organization
         max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once
         number_of_commands=None (int): The size of the job array
+        mpi=None (int): The number of processes to run concurrently with MPI
     Returns:
         (str): The name of the sbatch script that was written
     """
@@ -169,21 +172,20 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
     if number_of_commands:
         _commands = [0 for _ in range(number_of_commands)]
         script_present = '-c'
-    elif file:
-        # here using collect directories get the commands from the provided file
+    elif file:  # use collect directories get the commands from the provided file and verify content
         _commands, location = collect_designs(files=[file], directory=out_path)
         # Automatically detect if the commands file has executable scripts or errors
         script_present = None
         for idx, _command in enumerate(_commands):
-            if not os.path.exists(_command):  # check for any missing commands and report
-                raise DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
-                                  % (file, idx + 1, _command))
-            if not _command.endswith('.sh'):  # if the command string is not a shell script (end with .sh)
+            if not _command.endswith('.sh'):  # if the command string is not a shell script (doesn't end with .sh)
                 if idx != 0 and script_present:  # There was a change from script files to non-script files
                     raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
                                       'or not. Cannot mix!\n' % (file, idx + 1))
                 # break
             else:  # the command string is a shell script
+                if not os.path.exists(_command):  # check for any missing commands and report
+                    raise DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
+                                      % (file, idx + 1, _command))
                 if idx != 0 and not script_present:  # There was a change from non-script files to script files
                     raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
                                       'or not. Cannot mix!\n' % (file, idx + 1))
@@ -206,7 +208,9 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
     # Make sbatch file from template, array details, and command distribution script
     filename = os.path.join(out_path, '%s_%s.sh' % (name, sbatch))
     with open(filename, 'w') as new_f:
-        # Todo check for mpi flag and set up sbatch accordingly. Must include a multiplier for the number of CPU's
+        # Todo set up sbatch accordingly. Include a multiplier for the number of CPU's. Actually, might be passed
+        # if mpi:
+        #     do_mpi_stuff = True
         # grab and write sbatch template
         with open(sbatch_templates[scale]) as template_f:
             new_f.write(''.join(template_f.readlines()))
