@@ -115,6 +115,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.query_fragments = False
         self.write_frags = True
         self.scout = kwargs.get('scout', False)
+        self.legacy = kwargs.get('legacy', False)
         self.pre_refine = True
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
@@ -1154,16 +1155,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Set up the command base (rosetta bin and database paths)
         if self.scout:
             protocol = PUtils.stage[12]
-            generate_files_cmd = []
             nstruct_instruct = ['-no_nstruct_label', 'true']
-            metrics_pdb = ['-in:file:s', self.scouted_pdb]
+            generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
             metrics_flags = 'repack=no'
-        else:
+        elif self.legacy:
             protocol = PUtils.stage[2]
-            generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list]
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
+            generate_files_cmd = \
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', self.pdb_list]  # todo make so that different protocols produce different lists
+            metrics_flags = 'repack=yes'
+        else:  # run hbnet protocol
+            protocol = PUtils.stage[13]
+            nstruct_instruct = ['-no_nstruct_label', 'true']
+            generate_files_cmd = \
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', self.pdb_list]
-            metrics_flags = ''
+            metrics_flags = 'repack=yes'
 
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
@@ -1193,7 +1201,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
-            ['-in:file:s', self.refined_pdb, '@%s' % flags, '-out:suffix', '_%s' % protocol,
+            ['-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
+             '@%s' % flags, '-out:suffix', '_%s' % protocol,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)] + nstruct_instruct
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
@@ -1378,16 +1387,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # list(iter_chain.from_iterable([oligomer.entities for oligomer in self.oligomers]))
             asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log)
-            # asu.write(out_path=os.path.join(self.path, 'ENT_ASU.pdb'))  # This looks great
-            self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
-                                      design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
-                                      ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
+            # self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
+            #                           design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
+            #                           ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
             # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() making new entities...
         else:    # ,                            pass names if available v
             asu = PDB.from_file(self.source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
-            self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
-                                      design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
-                                      ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
+
+        self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
+                                  design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
+                                  ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
         if not self.entity_names:  # store the entity names if they were never generated
             self.entity_names = [entity.name for entity in self.pose.entities]
             self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
