@@ -428,12 +428,11 @@ def terminate(module, designs, location=None, results=None, output=True):
 
     if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
         master_directory = next(iter(designs))
-        program_root = master_directory.program_root
         job_paths = master_directory.job_paths
         if not location:
-            location_name = os.path.basename(master_directory.project_designs)
+            design_source = os.path.basename(master_directory.project_designs)
         else:
-            location_name = os.path.splitext(os.path.basename(location))[0]
+            design_source = os.path.splitext(os.path.basename(location))[0]
         if low and high:
             timestamp = '%s-%.2f-%.2f' % (timestamp, low, high)
         # Make single file with names of each directory where all_docked_poses can be found
@@ -442,7 +441,7 @@ def terminate(module, designs, location=None, results=None, output=True):
         if args.output_design_file:
             designs_file = args.output_design_file
         else:
-            designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % (module, location_name, timestamp))
+            designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % (module, design_source, timestamp))
 
         with open(designs_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design.path for design in success))
@@ -472,29 +471,24 @@ def terminate(module, designs, location=None, results=None, output=True):
                 if save:
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
-        module_files = \
-            {PUtils.interface_design: [PUtils.stage[12] if getattr(args, 'scout', None) else PUtils.stage[2]],
-             PUtils.nano: [PUtils.nano], 'interface_metrics': ['interface_metrics'],
-             'custom_script': [os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]]}
-        # 'nanohedra_initialization': PUtils.stage[1]
-        if module in module_files:
-            if len(success) > 0:
-                sbatch_scripts = master_directory.sbatch_scripts
-                all_commands = {stage: [os.path.join(design.scripts, '%s.sh' % stage) for design in success]
-                                for stage in module_files[module]}
-                command_files = {stage: SDUtils.write_commands(commands, out_path=job_paths,
-                                                               name='%s_%s_%s' % (stage, location_name, timestamp))
-                                 for stage, commands in all_commands.items()}
-                sbatch_files = {stage: distribute(file=command_file, out_path=sbatch_scripts,
-                                                  scale=(stage if module != 'custom_script' else PUtils.stage[2]))
-                                # ^ for sbatch template
-                                for stage, command_file in command_files.items()}
-                logger.critical(
-                    'Ensure the created SBATCH script(s) are correct. Specifically, check that the job array and any'
-                    ' node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help)'
-                    ' to understand the variables or ask for help if you are still unsure.')
-                logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
-                            % ('\n\t'.join('sbatch %s' % value for value in sbatch_files.values())))
+        design_stage = PUtils.stage[12] if getattr(args, 'scout', None) \
+            else (PUtils.stage[2] if getattr(args, 'legacy', None) else PUtils.stage[13])  # hbnet_design
+        module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano,
+                        'interface_metrics': 'interface_metrics',
+                        'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]}
+        stage = module_files.get(module)
+        if stage:
+            if len(success) == 0:
+                exit(exit_code)
+            # sbatch_scripts = master_directory.sbatch_scripts
+            command_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % stage) for design in success],
+                                                  out_path=job_paths, name='_'.join((module, design_source, timestamp)))
+            sbatch_file = distribute(file=command_file, out_path=master_directory.sbatch_scripts, scale=module)
+            #                                                                    ^ for sbatch template
+            logger.critical('Ensure the created SBATCH script(s) are correct. Specifically, check that the job array '
+                            'and any node specifications are accurate. You can look at the SBATCH manual (man sbatch or'
+                            ' sbatch --help) to understand the variables or ask for help if you are still unsure.')
+            logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
     print('\n')
     exit(exit_code)
 
@@ -1193,7 +1187,8 @@ if __name__ == '__main__':
         else:
             logger.info('Writing modelling commands out to file, no modelling will occur until commands are executed.')
 
-    if queried_flags.get(Flags.generate_frags, None) or args.module == PUtils.generate_fragments:
+    if queried_flags.get(Flags.generate_frags, None) or args.module == PUtils.generate_fragments \
+            or queried_flags.get('design_with_fragments', None):
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing %s FragmentDatabase\n' % interface_type)
         fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
