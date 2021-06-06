@@ -713,14 +713,14 @@ def dirty_hbond_processing(score_data, offset=None):  # columns
         # for column in columns:
         for column, value in data.items():
             if column.startswith('hbonds_res_selection'):
-                hbonds = value.split(',')
+                # hbonds = value.split(',')
                 meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
                 # ensure there are hbonds present
                 # if hbonds[0] == '' and len(hbonds) == 1:
                 # parsed_hbonds = set()
                 # else:
                 parsed_hbonds = set(int(hbond.translate(digit_translate_table))
-                                    for hbond in hbonds.split(',') if hbond != '')  # check if '' in case no hbonds
+                                    for hbond in value.split(',') if hbond != '')  # check if '' in case no hbonds
                 if meta_data[-1] == 'bound' and offset:  # find offset according to chain
                     res_offset = offset[meta_data[-2]]
                     parsed_hbonds = set(residue + res_offset for residue in parsed_hbonds)
