@@ -571,8 +571,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['nanohedra'] = True
                 self.info['oligomer_names'] = self.oligomer_names
                 self.entity_names = ['%s_1' % name for name in self.oligomer_names]
-                self.info['entity_names'] = self.entity_names  # Todo remove after T33
-                self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
+                # self.info['entity_names'] = self.entity_names  # Todo remove after T33
+                # self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
                 self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
@@ -591,7 +591,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.oligomer_names = self.info.get('oligomer_names', list())
                 self.entity_names = self.info.get('entity_names', list())
                 # self._info = self.info.copy()  # create a copy of the state upon initialization
-                self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
+                # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
                 self.interface_residue_ids = self.info.get('interface_residues', {})
         if self.pre_refine:
