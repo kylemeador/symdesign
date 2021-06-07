@@ -1623,6 +1623,9 @@ if __name__ == '__main__':
                 queried_flags['skip_logging'] = True
             design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
                                   for pose in final_poses]
+
+            for design in design_directories:
+                design.set_up_design_directory()
             location = program_root
             # write out the chosen poses to a pose.paths file
             terminate(args.module, design_directories, location=location, results=design_directories)
