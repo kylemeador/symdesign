@@ -496,7 +496,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.nano:
             self.path = os.path.join(root, pose_id.replace('-', os.sep))
         else:
-            self.path = os.path.join(root, pose_id.replace('_Designs-', '_Designs%s' % os.sep))
+            self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
         # .replace('Projects-', 'Projects%s' % os.sep)  .replace('-', os.sep))
 
     def link_master_directory(self):
