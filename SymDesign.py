@@ -521,6 +521,8 @@ if __name__ == '__main__':
     # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
     #                                                             'include %s' % ', '.join(SDUtils.possible_symmetries))
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to stdout?\nDefault=False')
+    parser.add_argument('-C', '--cluster_map', type=os.path.abspath,
+                        help='The location of a serialized file containing spatially or interfacially clustered poses')
     parser.add_argument('-c', '--cores', type=int,
                         help='Number of cores to use with --multiprocessing. If -mp is run in a cluster environment, '
                              'the number of cores will reflect the allocation provided by the cluster, otherwise, '
