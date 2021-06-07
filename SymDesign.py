@@ -899,6 +899,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     all_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
     initial_iter = None
+    low, high, low_range, high_range = None, None, None, None
     # nanohedra_initialization = False
     if not args.directory and not args.file and not args.project and not args.single:
         raise SDUtils.DesignError('No designs were specified!\nPlease specify --directory, --file, '
@@ -926,8 +927,6 @@ if __name__ == '__main__':
                 raise SDUtils.DesignError('The input --design_range is outside of the acceptable bounds [0-%d]'
                                           % len(all_poses))
             logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
-        else:
-            low, high, low_range, high_range = None, None, None, None
 
         if all_poses:
             if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
@@ -1534,7 +1533,7 @@ if __name__ == '__main__':
             # Figure out poses from a dataframe, filters, and weights. Returns pose id's
             selected_poses_df = filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
             selected_poses = selected_poses_df.index.to_list()
-            logger.info('%d poses were selected:\n\t%s' % (len(selected_poses_df), '\n\t'.join(selected_poses)))
+            logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
             if args.filter or args.weight:
                 new_dataframe = os.path.join(args.directory, '%s%sDesignPoseMetrics-%s.csv'
                                              % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
@@ -1612,13 +1611,15 @@ if __name__ == '__main__':
                                    'poses that were selected in %s? Adding all of these to your final poses...'
                                    % ('\n\t'.join(pose_not_found), PUtils.cluster_poses, args.dataframe))
                     final_poses.extend(pose_not_found)
-                logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(final_poses))
+                logger.info('Found %d poses after clustering' % len(final_poses))
             else:
                 logger.info('Grabbing all selected poses.')
                 final_poses = selected_poses
 
             if args.number_poses and len(final_poses) > args.number_poses:
                 final_poses = final_poses[:args.number_poses]
+                logger.info('Found %d poses after applying your number_of_poses selection criteria' % len(final_poses))
+
             if len(final_poses) > 1000:
                 queried_flags['skip_logging'] = True
             design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
