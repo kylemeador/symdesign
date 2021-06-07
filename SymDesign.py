@@ -1504,10 +1504,14 @@ if __name__ == '__main__':
     elif args.module == PUtils.select_designs:
         # -df dataframe, -f filter, -m metric, -p pose_design_file, -s selection_string, -w weight
         # program_root = next(iter(design_directories)).program_root
+        # if not args.directory or not args.project or not args.single:  Todo
         if not args.directory:
             logger.critical('If using a --dataframe for selection, you must include the directory where the designs are'
                             'located in order to properly select designs. Please specify -d/--directory on the command '
                             'line')
+            # logger.critical('If using a --dataframe for selection, you must include the directory where the designs are'
+            #                 'located in order to properly select designs. Please specify -d/--directory, -p/--project, '
+            #                 'or -s/--single on the command line') TODO
             exit(1)
             program_root = None
             # Todo change this mechanism so not reliant on args.directory and outputs pose IDs/ Alternatives fix csv

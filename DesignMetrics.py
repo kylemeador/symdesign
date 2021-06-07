@@ -269,6 +269,9 @@ master_metrics = {'average_fragment_z_score':
                   'rmsd':
                       {'description': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
                                       'designed states', 'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'rmsd_complex':
+                      {'description': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
+                                      'designed states', 'direction': 'min', 'function': 'normalize', 'filter': True},
                   'shape_complementarity':
                       {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
