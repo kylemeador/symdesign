@@ -1154,24 +1154,37 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         # Set up the command base (rosetta bin and database paths)
         if self.scout:
-            protocol = PUtils.stage[12]
+            protocol, protocol_xml1 = PUtils.stage[12], PUtils.stage[12]
             nstruct_instruct = ['-no_nstruct_label', 'true']
             generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
             metrics_flags = 'repack=no'
+            additional_cmds, out_file = [], []
         elif self.legacy:
-            protocol = PUtils.stage[2]
+            protocol, protocol_xml1 = PUtils.stage[2], PUtils.stage[2]
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', self.pdb_list]  # todo make so that different protocols produce different lists
             metrics_flags = 'repack=yes'
+            additional_cmds, out_file = [], []
         else:  # run hbnet protocol
-            protocol = PUtils.stage[13]
+            protocol, protocol_xml1 = PUtils.stage[13], 'hbnet_scout'  # PUtils.stage[14]
             nstruct_instruct = ['-no_nstruct_label', 'true']
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', self.pdb_list]
             metrics_flags = 'repack=yes'
+            out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
+                        '-out:file:silent_struct_type', 'binary']
+            additional_cmds = \
+                [[PUtils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'), str(self.number_of_trajectories)]]
+            # silent_file = os.path.join(self.data, 'hbnet_silent.o')
+            # additional_commands = \
+            #     [
+            #      # ['grep', '^SCORE', silent_file, '>', os.path.join(self.data, 'hbnet_scores.sc')],
+            #      main_cmd + [os.path.join(self.data, 'hbnet_selected.o')]
+            #      [os.path.join(self.data, 'hbnet_selected.tags')]
+            #     ]
 
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
@@ -1203,13 +1216,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         design_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
             ['-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
              '@%s' % flags, '-out:suffix', '_%s' % protocol,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)] + nstruct_instruct
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct + \
+            out_file
+        if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
+            additional_cmds.append(
+                main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) +
+                ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), '@%s' % flags,
+                 '-in:file:silent_struct_type', 'binary'
+                 # '-out:suffix', '_%s' % protocol,
+                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)])  # + nstruct_instruct)
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         metric_cmd = main_cmd + metrics_pdb + \
-            ['@%s' % flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol',
-             os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
+            ['@%s' % flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
         if self.mpi and not self.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
@@ -1232,7 +1253,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.script:
             write_shell_script(subprocess.list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
-                               additional=[subprocess.list2cmdline(generate_files_cmd)] +
+                               additional=[subprocess.list2cmdline(command) for command in additional_cmds] +
+                               [subprocess.list2cmdline(generate_files_cmd)] +
                                [subprocess.list2cmdline(command) for command in metric_cmds])
             #                  status_wrap=self.serialized_info,
         else:
