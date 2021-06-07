@@ -46,8 +46,8 @@
 		<OperateOnResidueSubset name="not_core_no_repack" selector="not_core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
-		<SeqprofConsensus chain_num="1" name="evolution_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
-		<SeqprofConsensus chain_num="2" name="evolution_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="1" name="evolution_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="evolution_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="1" name="fssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="2" name="fssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="1" name="pssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
@@ -68,9 +68,9 @@
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
-		<MoveMapFactory name="core_map" bb="0" chi="1">
-			<Backbone residue_selector="core_residues" enable="true"/>
-		</MoveMapFactory>
+<!--		<MoveMapFactory name="core_map" bb="0" chi="1">-->
+<!--			<Backbone residue_selector="core_residues" enable="true"/>-->
+<!--		</MoveMapFactory>-->
 		<MoveMapFactory name="design_map" bb="0" chi="1">
 			<Backbone residue_selector="all_designable" enable="true"/>
 		</MoveMapFactory>
@@ -107,16 +107,16 @@
 <!--			<Add mover_name="rotamer_trials_min_mover"/>-->
 <!--		</ParsedProtocol>-->
 		# evolution_cutoff, fssm_cutoff have an and effect when applied to core fragment residue possibilities due to the nature of task_operations
-		<FastDesign name="interface_core_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,not_core_no_repack" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
-		<ConstraintSetMover name="add_file_csts" add_constraints="1" cst_file="%%cst_file%%"/>
+<!--		<FastDesign name="interface_core_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,not_core_no_repack" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--		<ConstraintSetMover name="add_file_csts" add_constraints="1" cst_file="%%cst_file%%"/>-->
 		# the main hbnet mover with new recommended generation method of monte_carlo="true",
 		# hb_threshold is not cut in half as the symmetry scoring is doubled, then halved, so the threshold seems to be correct scale.
 		Modified to -0.65 as reported in the literature (-ex1-ex2 sampling is on)
 		# using -ex1-ex2 might need threshold=-0.75
 		# need to ensure a scorefunction with csts "on"
 		# may not need required_residues which gets pulled from design around total. start_selector would prevent much downside though
-		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="1000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="1"/>
-        <MultiplePoseMover name="hbnet_corepack" max_input_poses="10"> # scale to 250-500 after testing
+		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="50000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="0"/>
+        <MultiplePoseMover name="hbnet_corepack" max_input_poses="250"> # scale to 250-500 after testing
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
 				<SCOREFXNS>
@@ -196,8 +196,8 @@
 					# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
 					<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
 					# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
-					<SeqprofConsensus chain_num="1" name="evolution_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
-					<SeqprofConsensus chain_num="2" name="evolution_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+					<SeqprofConsensus chain_num="1" name="evolution_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+					<SeqprofConsensus chain_num="2" name="evolution_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 					<SeqprofConsensus chain_num="1" name="fssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 					<SeqprofConsensus chain_num="2" name="fssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 <!--					<SeqprofConsensus chain_num="1" name="pssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle-->
@@ -269,72 +269,6 @@
 				</PROTOCOLS>
 			</ROSETTASCRIPTS>
         </MultiplePoseMover>
-		<MultiplePoseMover name="output_10" max_input_poses="10" max_output_poses="10"> # cached="true">
-			<ROSETTASCRIPTS>
-				<SCOREFXNS>
-					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
-				</SCOREFXNS>
-				<RESIDUE_SELECTORS>
-<!--					<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
-<!--					<SymmetricalResidue name="core_residues_sym" selector="core_residues" />-->
-<!--					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...-->
-					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
-					<SymmetricalResidue name="interface1_sym" selector="interface1" />
-<!--					# same, but for residues from chain "B"-->
-					<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
-					<SymmetricalResidue name="interface2_sym" selector="interface2" />
-<!--					# combined group of all identified interface residues-->
-					<Or name="tot_interface" selectors="interface1,interface2"/>
-					<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
-<!--					<SymmetricalResidue name="tot_interface_sym" selector="tot_interface"/>-->
-<!--					# the negation of all interface residues-->
-					<Not name="not_interface" selector="tot_interface"/>
-<!--					# other residues that may be designable-->
-					<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
-					# all designable residues
-					<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
-<!--					<And name="core_interface1_sym" selectors="core_residues_sym,interface1_sym"/>-->
-<!--					<And name="core_interface2_sym" selectors="core_residues_sym,interface2_sym"/>-->
-<!--					# the negation of all designable residues-->
-<!--					<Not name="not_designable" selector="all_designable"/>-->
-<!--					<Not name="not_core_residues" selector="core_residues"/>-->
-<!--					# all residues-->
-<!--					<True name="full_pose"/>-->
-				</RESIDUE_SELECTORS>
-				<TASKOPERATIONS>
-					<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
-					<OperateOnResidueSubset name="hbnet_rtr" selector="hbnet_residues"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
-					<OperateOnResidueSubset name="prevent_repack" selector="not_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>
-				</TASKOPERATIONS>
-				<FILTERS>  # TODO change min_sc to ~0.65 or 0.7
-					<Time name="time"/>
-					<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-				</FILTERS>
-				<MOVE_MAP_FACTORIES>
-					<MoveMapFactory name="design_map" bb="0" chi="1">
-<!--						<Backbone residue_selector="all_designable" enable="true"/>-->
-					</MoveMapFactory>
-				</MOVE_MAP_FACTORIES>
-<!--				<IMPORT movers="" filters=""/>-->
-
-				<MOVERS>
-					# the main routine to perform metropolis criteria monte carlo, uses full design space
-<!--					<FastDesign name="int_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
-<!--					<FastDesign name="int_design" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
-					# sample all rotamers to find minimum
-					<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="hbnet_rtr,prevent_repack"/> # init,
-					# minimize all residues in design_map (move map)
-					<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1
-					<FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_hbnet_core" report_as="sc_hbnet_core" filter_name="shape_complementarity"/>
-				</MOVERS>
-				<PROTOCOLS>
-					<Add mover_name="RT" filter_name="time"/>
-					<Add mover_name="min" filter_name="time"/>
-					<Add mover_name="RP_shape_complementarity_hbnet_core"/>
-<!--					<Add filter_name="shape_complementarity"/>-->
-				</PROTOCOLS>
-			</ROSETTASCRIPTS>
-		</MultiplePoseMover>
 	</MOVERS>
 
 	<FILTERS>
