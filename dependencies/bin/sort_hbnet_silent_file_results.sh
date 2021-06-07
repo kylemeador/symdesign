@@ -8,9 +8,13 @@ grep "^SCORE" $1 > $hbnet_scores
 
 # find the column number from the scores file
 decoy=$(awk -v field=description 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
-hbnet_sc=$(awk -v field=sc_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
-khbnet_density=$(awk -v field=ie_density_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
-khbnet_res_count=$(awk -v field=residue_count_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+hbnet_sc=$(awk -v field=R_shape_complementarity_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+hbnet_density=$(awk -v field=R_interaction_energy_density 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+hbnet_res_count=$(awk -v field=R_core_design_residue_count 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+# Symmetrized descriptors
+# hbnet_sc=$(awk -v field=sc_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+# hbnet_density=$(awk -v field=ie_density_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
+# hbnet_res_count=$(awk -v field=residue_count_hbnet_core 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)
 # hbnet_density=$(awk -v field=score 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)								# test
 # hbnet_res_count=$(awk -v field=fa_rep 'NR==1{for(i=1 ; i<=NF ; i++){if($i==field){print i;exit}}}' $hbnet_scores)								# test
 
@@ -22,7 +26,7 @@ density_array=($(tail +2 $hbnet_scores | sort -k"$hbnet_density"n | head -n $(($
 residue_count_array=($(tail +2 $hbnet_scores | sort -k"$hbnet_res_count"nr | awk -v field=$decoy '{print $field}'))
 
 
-# sort the elements in both density and sc (shape complementarity) array by the sc order in "overlap"
+# sort the elements in both density and sc (shape complementarity) array by the sc order adding to "overlap"
 regex_string=" ${density_array[*]} "            # add framing blanks
 for item in ${sc_array[@]}; do
   if [[ $regex_string =~ " $item " ]] ; then    # use $item as regexp
@@ -30,9 +34,11 @@ for item in ${sc_array[@]}; do
   fi
 done
 # incase that the overlap is shorter than the requested amount in $2, add all the members from the sc array
-for item in ${sc_array[@]}; do
-	overlap+=($item) 
-done
+if [[ ${#overlap[@]} < 1 ]] ; then
+  for ((i=0 ; i<$2 ; i++)); do
+	overlap+=${sc_array[$i]}
+  done
+fi
 # echo  ${overlap[@]}  																															# test
 
 
