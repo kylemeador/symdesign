@@ -472,7 +472,7 @@ def terminate(module, designs, location=None, results=None, output=True):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         design_stage = PUtils.stage[12] if getattr(args, 'scout', None) \
-            else (PUtils.stage[2] if getattr(args, 'legacy', None) else PUtils.stage[13])  # hbnet_design
+            else (PUtils.stage[2] if getattr(args, 'legacy', None) else PUtils.stage[13])  # hbnet_design_profile
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano,
                         'interface_metrics': 'interface_metrics',
                         'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]}
@@ -1536,8 +1536,11 @@ if __name__ == '__main__':
                 logger.info('New DataFrame was written to %s' % new_dataframe)
 
             # Sort results according to clustered poses if clustering exists  # Todo parameterize name
-            # cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
-            cluster_map = os.path.join(program_root, PUtils.data.title(), '%s.pkl' % PUtils.clustered_poses)
+            if args.cluster_map:
+                cluster_map = args.cluster_map
+            else:
+                # cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
+                cluster_map = os.path.join(program_root, PUtils.data.title(), '%s.pkl' % PUtils.clustered_poses)
             if os.path.exists(cluster_map):
                 cluster_representative_pose_member_map = SDUtils.unpickle(cluster_map)
             else:
@@ -1587,16 +1590,16 @@ if __name__ == '__main__':
                 for idx, pose in enumerate(selected_poses):
                     cluster_membership = pose_cluster_membership_map.get(pose, None)
                     if cluster_membership:
-                        if cluster_membership in pose_clusters_found:
-                            # This pose has already been found and it was identified again. We should only include the
-                            # representative in the output as it can provide information on all occurrences
-                            pose_clusters_found[cluster_membership] = cluster_membership
-                        else:  # include this pose as it hasn't been identified
-                            pose_clusters_found[cluster_membership] = pose
+                        if cluster_membership not in pose_clusters_found:  # include as this pose hasn't been identified
+                            pose_clusters_found[cluster_membership] = [pose]
+                        else:  # This cluster has already been found and it was identified again. Report and only
+                            # include the highest ranked pose in the output as it provides info on all occurrences
+                            pose_clusters_found[cluster_membership].append(pose)
                     else:
                         pose_not_found.append(pose)
 
-                final_poses = list(pose_clusters_found.values())
+                # Todo report the clusters and the number of instances
+                final_poses = [members[0] for members in pose_clusters_found.values()]
                 if pose_not_found:
                     logger.warning('Couldn\'t locate the following poses:\n\t%s\nWas %s only run on a subset of the '
                                    'poses that were selected in %s? Adding all of these to your final poses...'
