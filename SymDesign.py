@@ -1525,7 +1525,7 @@ if __name__ == '__main__':
                 csv_lines = [line for line in reader(csv_file)]
             all_poses, pose_design_numbers = zip(*csv_lines)
 
-            design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
+            design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
                                   for pose in all_poses]
             # design_directories = set_up_directory_objects(all_poses, project=args.project)  # **queried_flags
             results.append(zip(design_directories, pose_design_numbers))
@@ -1564,7 +1564,7 @@ if __name__ == '__main__':
                 if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
                     if len(selected_poses) > 1000:
                         queried_flags['skip_logging'] = True
-                    design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
+                    design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
                                           for pose in selected_poses]
                     compositions = group_compositions(design_directories)
                     if args.multi_processing:
@@ -1621,7 +1621,7 @@ if __name__ == '__main__':
                 final_poses = final_poses[:args.number_poses]
             if len(final_poses) > 1000:
                 queried_flags['skip_logging'] = True
-            design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
+            design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
                                   for pose in final_poses]
             location = program_root
             # write out the chosen poses to a pose.paths file
@@ -1688,7 +1688,7 @@ if __name__ == '__main__':
         #         csv_lines = [line for line in reader(csv_file)]
         #     all_poses, pose_design_numbers = zip(*csv_lines)
         #
-        #     design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
+        #     design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
         #                           for pose in all_poses]
         #     # design_directories = set_up_directory_objects(all_poses, project=args.project)  # **queried_flags
         #     results.append(zip(design_directories, pose_design_numbers))
@@ -1742,7 +1742,7 @@ if __name__ == '__main__':
         #     #     if len(final_poses) > args.number_poses:
         #     #         final_poses = final_poses[:args.number_poses]
         #     #
-        #     #     design_directories = [DesignDirectory.from_pose_id(pose_id=pose, root=program_root, **queried_flags)
+        #     #     design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
         #     #                           for pose in final_poses]
 
         if args.weight:
