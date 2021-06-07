@@ -223,14 +223,17 @@
 <!--				<IMPORT movers="extract_asymmetric_unit"/> # movers="design_block" shape_complementarity-->
 
 				<FILTERS>  # TODO change min_sc to ~0.65 or 0.7
-					<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.7" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-<!--					<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
-					<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+					<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.7" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="0" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+<!--					<SimpleMetricFilter name="interaction_energy_density" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+					<SimpleMetricFilter name="interaction_energy" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
 					<SimpleMetricFilter name="core_design_residue_count" metric="M_core_design_residue_count" comparison_type="gt" cutoff="10" confidence="1"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
-					<CalculatorFilter name="interaction_energy_density_filter" equation="E / Number"> # threshold="(real 0)"
-						<Var name="E" filter="interaction_energy_filter"/>
+					<CalculatorFilter name="interaction_energy_density" equation="E / Number"> # threshold="(real 0)"
+						<Var name="E" filter="interaction_energy"/>
 						<Var name="Number" filter="core_design_residue_count"/>
 					</CalculatorFilter>
+					<Report name="R_shape_complementarity_hbnet_core" 	filter="shape_complementarity_hbnet_core"/>
+					<Report name="R_core_design_residue_count" 			filter="core_design_residue_count"/>
+					<Report name="R_interaction_energy_density" 		filter="interaction_energy_density"/>
 				</FILTERS>
 
 				<MOVERS>
@@ -241,7 +244,7 @@
 					<RunSimpleMetrics name="run_core_design_metrics" metrics="M_interaction_energy" prefix="" suffix="" override="false"/> # M_core_design_residue_count
 <!--					<RunSimpleMetrics name="run_core_design_average_residue_energy" metrics="M_interaction_energy_density_metric" prefix="" suffix="" override="false"/>-->
 					<FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_hbnet_core" report_as="sc_hbnet_core" filter_name="shape_complementarity_hbnet_core"/>
-					<FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density_filter" report_as="ie_density_hbnet_core" filter_name="interaction_energy_density_filter"/>
+					<FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density" report_as="ie_density_hbnet_core" filter_name="interaction_energy_density"/>
 					<FilterReportAsPoseExtraScoresMover name="RP_core_design_residue_count" report_as="residue_count_hbnet_core" filter_name="core_design_residue_count"/>
 <!--					<DumpPdb name="dump_pdb" fname="hbnet_interface_neighbors_and_core_packing.pdb" scorefxn="2015_nano_cst" tag_time="1"/>-->
 				</MOVERS>
@@ -252,13 +255,16 @@
 					<Add mover_name="hbnet_core_design"/> # packing should reach ideal levels here
 <!--					<Add filter_name="shape_complementarity_hbnet_core" report_at_end="false"/> # if not, throw away, move on-->
 <!--					<Add filter_name="time"/>-->
-					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # THIS DOESN'T FILTER, it is saved to pose and bad SC will be thrown out in "trim" step
-<!--					<Add mover_name="run_core_design_metrics"/>-->
-					<Add mover_name="RP_core_design_residue_count"/>
-<!--					<Add filter_name="interaction_energy_filter"/>-->
-<!--					<Add mover_name="run_core_design_average_residue_energy"/>-->
-					<Add mover_name="RP_interaction_energy_density_filter"/>
-<!--					<Add mover_name="dump_pdb"/>-->
+<!--					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # THIS DOESN'T FILTER, it is saved to pose and bad SC will be thrown out in "trim" step-->
+<!--&lt;!&ndash;					<Add mover_name="run_core_design_metrics"/>&ndash;&gt;-->
+<!--					<Add mover_name="RP_core_design_residue_count"/>-->
+<!--&lt;!&ndash;					<Add filter_name="interaction_energy"/>&ndash;&gt;-->
+<!--&lt;!&ndash;					<Add mover_name="run_core_design_average_residue_energy"/>&ndash;&gt;-->
+<!--					<Add mover_name="RP_interaction_energy_density"/>-->
+<!--&lt;!&ndash;					<Add mover_name="dump_pdb"/>&ndash;&gt;-->
+					<Add filter_name="R_shape_complementarity_hbnet_core"/>
+					<Add filter_name="R_core_design_residue_count"/>
+					<Add filter_name="R_interaction_energy_density"/>
 					<Add mover_name="extract_asymmetric_unit"/>
 				</PROTOCOLS>
 			</ROSETTASCRIPTS>
@@ -334,21 +340,21 @@
 	<FILTERS>
 		<Time name="time"/>
 		<ReadPoseExtraScoreFilter name="read_sc_hbnet_core" term_name="sc_hbnet_core" threshold="-1"/>
-		<ReadPoseExtraScoreFilter name="read_interaction_energy_density_filter" term_name="ie_density_hbnet_core" threshold="-1"/>
+		<ReadPoseExtraScoreFilter name="read_interaction_energy_density" term_name="ie_density_hbnet_core" threshold="-1"/>
 		<ReadPoseExtraScoreFilter name="read_interface_residue_count" term_name="residue_count_hbnet_core" threshold="-1"/>
 <!--		<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.65" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
 		<ShapeComplementarity name="shape_complementarity_core" min_sc="0.70" min_interface="0" residue_selector1="core_interface1_sym" residue_selector2="core_interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.65" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-<!--		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
-<!--		<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
-<!--		<CalculatorFilter name="interaction_energy_density_filter" equation="E / IA" threshold="(&real 0)" >-->
-<!--		  <Var name="E" filter="interaction_energy_filter"/>-->
+<!--		<SimpleMetricFilter name="interaction_energy" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<SimpleMetricFilter name="interaction_energy_density" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<CalculatorFilter name="interaction_energy_density" equation="E / IA" threshold="(&real 0)" >-->
+<!--		  <Var name="E" filter="interaction_energy"/>-->
 <!--		  <Var name="IA" filter="interface_area"/>-->
 <!--		</CalculatorFilter>-->
 	</FILTERS>
 
 	<PROTOCOLS>
-		<Add filter_name="time" report_at_end="false"/>
+<!--		<Add filter_name="time" report_at_end="false"/>-->
 		<Add mover_name="symmetry_switch"/>
 		<Add mover_name="add_csts"/>
 		<Add mover_name="job_info"/>
