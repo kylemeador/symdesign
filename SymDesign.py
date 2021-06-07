@@ -1181,7 +1181,8 @@ if __name__ == '__main__':
         logger.info('%d unique building block docking combinations found in \'%s\''
                     % (len(design_directories), location))
     else:
-        raise SDUtils.DesignError('This logic is impossible?!')
+        # raise SDUtils.DesignError('This logic is impossible?!')
+        pass  # this logic is possible with select_designs without --metric
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
