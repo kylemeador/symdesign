@@ -18,13 +18,24 @@
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
-		<Neighborhood name="interface1_sym_neighbor" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<Neighborhood name="interface1_neighbor" selector="interface1" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<Not name="full_pose_without_interface1" selector="interface1"/>
+		<And name="interface1_sym_only" selectors="interface1_sym,full_pose_without_interface1"/>
+		<And name="interface1_sym_only_interface1_neighbors" selectors="interface1_sym_only,interface1_neighbor"/>
+		<Neighborhood name="interface1_sym_neighbor" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/>
 		<Or name="interface_or_neighbors1_sym" selectors="interface1_sym,interface1_sym_neighbor"/>
 		# same, but for residues from interface 2
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
+		<Neighborhood name="interface2_neighbor" selector="interface2" distance="8.0" include_focus_in_subset="false"/>
+		<Not name="full_pose_without_interface2" selector="interface2"/>
+		<And name="interface2_sym_only" selectors="interface2_sym,full_pose_without_interface2"/>
+		<And name="interface2_sym_only_interface2_neighbors" selectors="interface2_sym_only,interface2_neighbor"/>
 		<Neighborhood name="interface2_sym_neighbor" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
 		<Or name="interface_or_neighbors2_sym" selectors="interface2_sym,interface2_sym_neighbor"/>
+		# odd overlaps of the two interfaces with symmetry specifically for generating shape_complementarity surfaces
+		<Or name="interface1_sym_neighbors_and_interface2_sym" selectors="interface1_sym_only_interface1_neighbors,interface2_sym"/>
+		<Or name="interface2_sym_neighbors_and_interface1_sym" selectors="interface2_sym_only_interface2_neighbors,interface1_sym"/>
 		# combined groups of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
 <!--		<And name="symmetric_self_interface_residues" selectors="interface1,interface2"/>-->
@@ -127,7 +138,9 @@
 		# find the number of carbon carbon contacts with specified residues
 		<AtomicContactCount name="contact_count" partition="none" taskA="design_around1,init,vrt,non_neighbor_no_repack_sym" taskB="design_around2,init,vrt,non_neighbor_no_repack_sym" distance="5.0" normalize_by_carbon_count="1"/>
 		# find the shape complementarity between residues in an interface. report the median distance (or interface area, but this seems inaccurate) between the two
-		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+<!--		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
+		# This variant adequately captures self symmetric interactions where as ^ missed self symmetric interactions
+		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface2_sym_neighbors_and_interface1_sym" residue_selector2="interface1_sym_neighbors_and_interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
 		# find the solvent accessable surface area across an interface specified by a chain-chain jump. can be hydrophobic, polar or if not specified, the total SASA
 		<Sasa name="interface_area_asu_hydrophobic" threshold="10" hydrophobic="1" polar="0" jump="1"/>
 		<Sasa name="interface_area_asu_polar" threshold="10" hydrophobic="0" polar="1" jump="1"/>
