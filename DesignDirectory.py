@@ -108,15 +108,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.transform_d = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
         self.cryst_record = None
         # Design flags
-        self.number_of_trajectories = None
+        self.command_only = kwargs.get('command_only', False)
         self.consensus = None  # Whether to run consensus or not
         self.design_with_fragments = False
         self.evolution = False
-        self.query_fragments = False
-        self.write_frags = True
-        self.scout = kwargs.get('scout', False)
+        self.force_flags = kwargs.get('force_flags', False)
         self.legacy = kwargs.get('legacy', False)
+        self.number_of_trajectories = None
         self.pre_refine = True
+        self.query_fragments = False
+        self.scout = kwargs.get('scout', False)
+        self.write_frags = True
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
         self.script = True
@@ -541,6 +543,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
         self.scripts = os.path.join(self.path, PUtils.scripts)
         self.frags = os.path.join(self.path, PUtils.frag_dir)
+        self.flags = os.path.join(self.scripts, 'flags')
         self.data = os.path.join(self.path, PUtils.data)
         self.scores_file = os.path.join(self.data, '%s.sc' % self.name)
         self.serialized_info = os.path.join(self.data, 'info.pkl')
@@ -947,11 +950,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return out_file
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def rosetta_interface_metrics(self, force_flags=False, development=False):
+    def rosetta_interface_metrics(self, development=False):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         main_cmd = copy.copy(script_cmd)
         flags = os.path.join(self.scripts, 'flags')
-        if force_flags or not os.path.exists(flags):  # Generate a new flags_design file
+        if self.force_flags or not os.path.exists(flags):  # Generate a new flags_design file
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
             self.prepare_symmetry_for_rosetta()
@@ -997,13 +1000,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                            out_path=self.scripts,  # status_wrap=self.serialized_info,
                            additional=[subprocess.list2cmdline(command) for command in metric_cmds])
 
-    def custom_rosetta_script(self, script, force_flags=False, file_list=None, native=None, suffix=None,
+    def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
                               score_only=None, variables=None, **kwargs):
         """Generate a custom script to dispatch to the design using a variety of parameters"""
         cmd = copy.copy(script_cmd)
         script_name = os.path.splitext(os.path.basename(script))[0]
         flags = os.path.join(self.scripts, 'flags')
-        if force_flags or not os.path.exists(flags):  # Generate a new flags_design file
+        if self.force_flags or not os.path.exists(flags):  # Generate a new flags_design file
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
             self.prepare_symmetry_for_rosetta()
@@ -1191,12 +1194,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.prepare_symmetry_for_rosetta()
         self.get_fragment_metrics()
         self.make_path(self.scripts)
-        flags = self.prepare_rosetta_flags(out_path=self.scripts)
+        if not os.path.exists(self.flags) or self.force_flags:
+            self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
             if self.design_with_fragments:
                 consensus_cmd = main_cmd + relax_flags + \
-                    ['@%s' % flags, '-in:file:s', self.consensus_pdb, '-in:file:native', self.refined_pdb,
+                    ['@%s' % self.flags, '-in:file:s', self.consensus_pdb, '-in:file:native', self.refined_pdb,
                      '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[5]),
                      '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
                 self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
@@ -1215,13 +1219,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
             ['-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-             '@%s' % flags, '-out:suffix', '_%s' % protocol,
+             '@%s' % self.flags, '-out:suffix', '_%s' % protocol,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct + \
             out_file
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
             additional_cmds.append(
                 main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) +
-                ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), '@%s' % flags,
+                ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), '@%s' % self.flags,
                  '-in:file:silent_struct_type', 'binary',
                  # '-out:suffix', '_%s' % protocol,
                  '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)])  # + nstruct_instruct)
@@ -1229,7 +1233,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         metric_cmd = main_cmd + metrics_pdb + \
-            ['@%s' % flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
+            ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
         if self.mpi and not self.scout:
@@ -1471,7 +1475,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return oriented_pdb.write(out_path=path)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def refine(self, to_design_directory=False, force_flags=False):
+    def refine(self, to_design_directory=False):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         relax_cmd = copy.copy(script_cmd)
         stage = PUtils.stage[1]
@@ -1511,7 +1515,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             refine_pdb = self.source
             additional_flags = ['-no_scorefile', 'true']
 
-        if force_flags or not os.path.exists(flags):  # Generate a new flags file
+        if self.force_flags or not os.path.exists(flags):  # Generate a new flags file
             self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()
             self.make_path(flag_dir)
@@ -1627,32 +1631,33 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         interfacial redesign between between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
-        self.identify_interface()
-        if self.query_fragments:
-            self.make_path(self.frags)
-            # self.info['fragments'] = True
-        elif self.fragment_observations or self.fragment_observations == list():
-            pass  # fragment generation was run and maybe succeeded. If not ^
-        elif self.design_with_fragments and not self.fragment_observations and os.path.exists(self.frag_file):
-            self.retrieve_fragment_info_from_file()
-        elif not self.design_with_fragments:
-            pass
-        else:
-            raise DesignError('Fragments were specified during design, but observations have not been yet been '
-                              'generated for this Design! Try with the flag --generate_fragments or run %s'
-                              % PUtils.generate_fragments)
-        self.make_path(self.data)
-        self.pose.interface_design(evolution=self.evolution, fragments=self.design_with_fragments,
-                                   query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
-                                   write_fragments=self.write_frags, des_dir=self)  # Todo frag_db=self.frag_db.source
-        self.make_path(self.designs)
-        # self.make_path(self.scores)
-        self.info['fragments'] = self.pose.return_fragment_observations()
-        self.info['design_profile'] = self.pose.design_pssm_file
-        self.info['evolutionary_profile'] = self.pose.pssm_file
-        self.info['fragment_data'] = self.pose.interface_data_file
-        self.info['fragment_profile'] = self.pose.fragment_pssm_file
-        self.info['fragment_database'] = self.pose.frag_db.source
+        if not self.command_only:
+            self.identify_interface()
+            if self.query_fragments:
+                self.make_path(self.frags)
+                # self.info['fragments'] = True
+            elif self.fragment_observations or self.fragment_observations == list():
+                pass  # fragment generation was run and maybe succeeded. If not ^
+            elif self.design_with_fragments and not self.fragment_observations and os.path.exists(self.frag_file):
+                self.retrieve_fragment_info_from_file()
+            elif not self.design_with_fragments:
+                pass
+            else:
+                raise DesignError('Fragments were specified during design, but observations have not been yet been '
+                                  'generated for this Design! Try with the flag --generate_fragments or run %s'
+                                  % PUtils.generate_fragments)
+            self.make_path(self.data)
+            self.pose.interface_design(evolution=self.evolution, fragments=self.design_with_fragments,
+                                       query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
+                                       write_fragments=self.write_frags, des_dir=self)  # Todo frag_db=self.frag_db.source
+            self.make_path(self.designs)
+            # self.make_path(self.scores)
+            self.info['fragments'] = self.pose.return_fragment_observations()
+            self.info['design_profile'] = self.pose.design_pssm_file
+            self.info['evolutionary_profile'] = self.pose.pssm_file
+            self.info['fragment_data'] = self.pose.interface_data_file
+            self.info['fragment_profile'] = self.pose.fragment_pssm_file
+            self.info['fragment_database'] = self.pose.frag_db.source
         # if self.scout:
         #     self.scout_interface()
         # else:
