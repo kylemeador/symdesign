@@ -228,6 +228,9 @@ if __name__ == '__main__':
             failure = reference_array.difference(failure)
             other = reference_array.difference(other)
             all_array = reference_array.difference(all_array)
+            logger.info('INVERTED Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, memory)))
+            logger.info('INVERTED Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, failure)))
+            logger.info('INVERTED Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, other)))
 
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
