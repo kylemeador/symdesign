@@ -216,14 +216,19 @@ if __name__ == '__main__':
             script_with_new_array = change_script_array(args.script, all_array)
             logger.info('\n\nRun new script with:\nsbatch %s' % script_with_new_array)
             if len(memory) > 0:
-                logger.info('Memory failures may require you to rerun with a higher memory. It is suggested to edit the above'
-                      ' script to include ~10-20% more memory')
+                logger.info('Memory failures may require you to rerun with a higher memory. It is suggested to edit the'
+                            ' above script to include ~10-20% more memory')
         else:
             reference_commands = SDUtils.to_iterable(args.file)
-            logger.info('There are %d total commands' % len(reference_commands))
+            logger.info('There are %d total commands found in %s' % (len(reference_commands), args.file))
         # if args.array:
 
         # else:
+            if args.exclue:
+                reference_set = set(reference_commands)
+                memory = reference_set.difference(memory)
+                failure = reference_set.difference(failure)
+                other = reference_set.difference(other)
             restart_memory = [reference_commands[idx] for idx in memory]
             restart_failure = [reference_commands[idx] for idx in failure]
             restart_other = [reference_commands[idx] for idx in other]
