@@ -238,7 +238,7 @@ if __name__ == '__main__':
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
             args.file = parse_script(args.script)
-            script_with_new_array = change_script_array(args.script, all_array)
+            script_with_new_array = change_script_array(args.script, map(operator.add, all_array, repeat(1)))
             logger.info('\n\nRun new script with:\nsbatch %s' % script_with_new_array)
             if len(memory) > 0:
                 logger.info('Memory failures may require you to rerun with a higher memory. It is suggested to edit the'
