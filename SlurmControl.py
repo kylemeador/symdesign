@@ -200,7 +200,7 @@ if __name__ == '__main__':
     # parser_link.add_argument('-F', '--force', action='store_true')
 
     args, additional_flags = parser.parse_known_args()
-    if args.sub_module == 'fail':  # -j job_id, -s script # -a array, -m mode,
+    if args.sub_module == 'fail':  # -j job_id, -s script, -a array  # -m mode,
         # do array
         memory, failure, other = investigate_job_array_failure(args.job_id, output_dir=args.directory)
         logger.info('Memory error size: %d' % len(memory))
@@ -210,6 +210,25 @@ if __name__ == '__main__':
         logger.info('Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, memory)))
         logger.info('Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, failure)))
         logger.info('Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, other)))
+        if args.file:
+            reference_commands = SDUtils.to_iterable(args.file)
+            logger.info('There are %d total commands found in %s' % (len(reference_commands), args.file))
+            reference_array = set(range(1, 1 + len(reference_commands)))
+        else:
+            reference_commands = []
+            job_output_files = glob(os.path.join(args.directory, '*%s*' % args.job_id))
+            try:
+                last_job_array = sorted(job_output_files)[-1]
+            except IndexError:
+                raise IndexError('No jobs with ID %s found in the directory %s' % (args.job_id, args.directory))
+            reference_array = set(range(1, 1 + len(last_job_array)))
+
+        if args.exclude:
+            memory = reference_array.difference(memory)
+            failure = reference_array.difference(failure)
+            other = reference_array.difference(other)
+            all_array = reference_array.difference(all_array)
+
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
             args.file = parse_script(args.script)
@@ -218,17 +237,7 @@ if __name__ == '__main__':
             if len(memory) > 0:
                 logger.info('Memory failures may require you to rerun with a higher memory. It is suggested to edit the'
                             ' above script to include ~10-20% more memory')
-        else:
-            reference_commands = SDUtils.to_iterable(args.file)
-            logger.info('There are %d total commands found in %s' % (len(reference_commands), args.file))
-        # if args.array:
-
-        # else:
-            if args.exclude:
-                reference_set = set(reference_commands)
-                memory = reference_set.difference(memory)
-                failure = reference_set.difference(failure)
-                other = reference_set.difference(other)
+        elif reference_commands:
             restart_memory = [reference_commands[idx] for idx in memory]
             restart_failure = [reference_commands[idx] for idx in failure]
             restart_other = [reference_commands[idx] for idx in other]
