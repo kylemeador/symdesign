@@ -161,6 +161,8 @@ if __name__ == '__main__':
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('-e', '--exclude', action='store_true',
+                        help='Whether to exclude ID\'s identified through job search')
     subparsers = parser.add_subparsers(title='SubModules', dest='sub_module',
                                        description='These are the different modes that designs are processed',
                                        help='Chose one of the SubModules followed by SubModule specific flags. To get '
@@ -188,8 +190,6 @@ if __name__ == '__main__':
                                                        'specified in --query')
     # parser_fail.add_argument('-f', '--file', type=str, help='File where the commands for the array were kept',
     #                          default=None, required=True)
-    parser_fail.add_argument('-e', '--exclude', action='store_true',
-                             help='Whether to exclude the ID\'s specified in --query')
     # parser_fail.add_argument('-r', '--running', action='store_true',
     #                          help='Whether to exclude the ID\'s specified in --query')
     parser_fail.add_argument('-q', '--query',  type=str, help='File with the query ID\'s for reference commands',
@@ -224,7 +224,7 @@ if __name__ == '__main__':
         # if args.array:
 
         # else:
-            if args.exclue:
+            if args.exclude:
                 reference_set = set(reference_commands)
                 memory = reference_set.difference(memory)
                 failure = reference_set.difference(failure)
