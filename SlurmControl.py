@@ -1,4 +1,5 @@
 import argparse
+import operator
 import os
 import subprocess
 import sys
@@ -207,13 +208,14 @@ if __name__ == '__main__':
         logger.info('Node Failure error size: %d' % len(failure))
         logger.info('Other error size: %d' % len(other))
         all_array = sorted(set(memory + failure + other))
-        logger.info('Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, memory)))
-        logger.info('Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, failure)))
-        logger.info('Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, other)))
+        logger.info('Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, map(operator.add, memory, repeat(1)))))
+        logger.info('Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, map(operator.add, failure, repeat(1)))))
+        logger.info('Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, map(operator.add, other, repeat(1)))))
+        logger.info('Job Array ID\'s with failed outcome:\n\t%s' % ','.join(map(str, map(operator.add, all_array, repeat(1)))))
         if args.file:
             reference_commands = SDUtils.to_iterable(args.file)
             logger.info('There are %d total commands found in %s' % (len(reference_commands), args.file))
-            reference_array = set(range(1, 1 + len(reference_commands)))
+            reference_array = set(range(len(reference_commands)))
         else:
             reference_commands = []
             job_output_files = glob(os.path.join(args.directory, '*%s*' % args.job_id))
@@ -221,16 +223,17 @@ if __name__ == '__main__':
                 last_job_array = sorted(job_output_files)[-1]
             except IndexError:
                 raise IndexError('No jobs with ID %s found in the directory %s' % (args.job_id, args.directory))
-            reference_array = set(range(1, 1 + len(last_job_array)))
+            reference_array = set(range(len(last_job_array)))
 
         if args.exclude:
             memory = reference_array.difference(memory)
             failure = reference_array.difference(failure)
             other = reference_array.difference(other)
             all_array = reference_array.difference(all_array)
-            logger.info('INVERTED Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, memory)))
-            logger.info('INVERTED Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, failure)))
-            logger.info('INVERTED Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, other)))
+            logger.info('INVERTED Job Array ID\'s withOUT error due to memory:\n\t%s' % ','.join(map(str, map(operator.add, memory, repeat(1)))))
+            logger.info('INVERTED Job Array ID\'s withOUT error due to node failure:\n\t%s' % ','.join(map(str, map(operator.add, failure, repeat(1)))))
+            logger.info('INVERTED Job Array ID\'s withOUT other outcome:\n\t%s' % ','.join(map(str, map(operator.add, other, repeat(1)))))
+            logger.info('INVERTED Job Array ID\'s with SUCCESSFUL outcome:\n\t%s' % ','.join(map(str, map(operator.add, all_array, repeat(1)))))
 
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
