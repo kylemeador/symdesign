@@ -21,11 +21,10 @@ hbnet_res_count=$(awk -v field=R_core_design_residue_count 'NR==1{for(i=1 ; i<=N
 
 # sort -k"$khbnet_sc"n -k"$khbnet_density"n $hbnet_scores	# nr sorts each key (k) numerically (n) in descending (r) order->Higher at the top	# test
 # sort the scores by the respective column numbers identified, then extract the decoy name
-tail +3 $hbnet_scores
-tail +4 "$hbnet_scores"
-sc_array=($(tail +2 $hbnet_scores | sort -k"$hbnet_sc"nr | head -n $(($2 * 3)) | awk -v field=$decoy '{print $field}'))
-density_array=($(tail +2 $hbnet_scores | sort -k"$hbnet_density"n | head -n $(($2 * 3)) | awk -v field=$decoy '{print $field}'))
-residue_count_array=($(tail +2 $hbnet_scores | sort -k"$hbnet_res_count"nr | awk -v field=$decoy '{print $field}'))
+tail -n +3 $hbnet_scores
+sc_array=($(tail -n +2 $hbnet_scores | sort -k"$hbnet_sc"nr | head -n $(($2 * 3)) | awk -v field=$decoy '{print $field}'))
+density_array=($(tail -n +2 $hbnet_scores | sort -k"$hbnet_density"n | head -n $(($2 * 3)) | awk -v field=$decoy '{print $field}'))
+residue_count_array=($(tail -n +2 $hbnet_scores | sort -k"$hbnet_res_count"nr | awk -v field=$decoy '{print $field}'))
 
 
 # sort the elements in both density and sc (shape complementarity) array by the sc order adding to "overlap"
