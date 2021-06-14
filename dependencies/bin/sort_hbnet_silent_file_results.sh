@@ -33,7 +33,7 @@ for item in ${sc_array[@]}; do
     overlap+=($item)
   fi
 done
-# incase that the overlap is shorter than the requested amount in $2, add all the members from the sc array
+# in case the overlap is shorter than the requested amount in $2, add all the members from the sc array
 if [[ ${#overlap[@]} < 1 ]] ; then
   for ((i=0 ; i<$2 ; i++)); do
 	overlap+=${sc_array[$i]}
@@ -57,10 +57,11 @@ if [ -f $hbnet_tags_to_grab ]; then
   rm $hbnet_tags_to_grab
 fi
 final_silent_file=$(dirname -- "$1")/hbnet_selected.o
+if [ -f $final_silent_file ]; then
+  rm $final_silent_file
+fi
 grep "^SEQUENCE" --max-count=1 $1 > $final_silent_file
 grep "^SCORE" --max-count=1 $1 >> $final_silent_file
-# rm $final_silent_file
-
 
 # finally, create the decoys of interest adding each decoy until the specified number provided in $2 is reached
 for ((i=0 ; i<$2 ; i++)); do
