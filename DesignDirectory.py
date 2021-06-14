@@ -88,6 +88,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.scripts = None  # /program_root/Projects/project_Designs/design/scripts
         # self.sdf_dir = None  # path/to/directory/sdf/
         self.frags = None  # /program_root/Projects/project_Designs/design/matching_fragments
+        self.flags = None  # /program_root/Projects/project_Designs/design/scripts/flags
         self.frag_file = None  # /program_root/Projects/project_Designs/design/
         self.pose_file = None  # /program_root/Projects/project_Designs/design/
         self.data = None  # /program_root/Projects/project_Designs/design/data
@@ -1631,8 +1632,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         interfacial redesign between between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
+        self.identify_interface()
         if not self.command_only:
-            self.identify_interface()
             if self.query_fragments:
                 self.make_path(self.frags)
                 # self.info['fragments'] = True
