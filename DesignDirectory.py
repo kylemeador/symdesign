@@ -1222,7 +1222,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             additional_cmds.append(
                 main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) +
                 ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), '@%s' % flags,
-                 '-in:file:silent_struct_type', 'binary'
+                 '-in:file:silent_struct_type', 'binary',
                  # '-out:suffix', '_%s' % protocol,
                  '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)])  # + nstruct_instruct)
 
