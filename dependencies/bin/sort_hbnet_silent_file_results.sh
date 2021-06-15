@@ -74,7 +74,9 @@ for ((i=0 ; i<$2 ; i++)); do
   for ((array_num=0 ; array_num<${#structure_line_numbers[@]} ; array_num++)); do
     # is the next line way different than the last and 100 away from line start?
     # assumes that the silent file has at least 100 lines present thus allows 99 REMARK lines to be read (current investigation shows >300 lines usually)
-    if [[ $((${structure_line_numbers[$array_num]} - 1)) != $last_array_num && $array_num > 100 ]]; then
+    if [ $((${structure_line_numbers[$array_num]} - 1)) != $last_array_num ] && [ $array_num -gt 100 ]; then
+#      echo "The array number is $array_num which gives the value $((${structure_line_numbers[$array_num]})) and the last array number was $last_array_num"
+#      [ $array_num -lt 100 ] && echo "all is good"
       duplicate_structure=$last_array_num  #${structure_line_numbers[$array_num]}
       break
     fi
