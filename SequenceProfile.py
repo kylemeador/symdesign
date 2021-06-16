@@ -59,13 +59,13 @@ class SequenceProfile:
         return self.number_of_residues
 
     @property
-    def entity_offset(self):
-        """Return the starting index for the Entitiy based on pose numbering of the residues"""
+    def offset(self):
+        """Return the starting index for the Entity based on pose numbering of the residues"""
         # return self.structure.residues[0].number - 1
         return self.residues[0].number - 1
 
-    # @entity_offset.setter
-    # def entity_offset(self, offset):
+    # @offset.setter
+    # def offset(self, offset):
     #     self._entity_offset = offset
 
     # def set_structure(self, structure):
@@ -484,9 +484,9 @@ class SequenceProfile:
         #     print('New fragment_map')
         # print(fragments)
         # print(self.name)
-        # print(self.entity_offset)
+        # print(self.offset)
         for fragment in fragments:
-            residue_number = fragment[alignment_type] - self.entity_offset
+            residue_number = fragment[alignment_type] - self.offset
             for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
                 self.fragment_map[residue_number + j][j].append({'chain': alignment_type,
                                                                  'cluster': fragment['cluster'],
@@ -941,7 +941,8 @@ class SequenceProfile:
         gap_penalty = -10
         gap_ext_penalty = -1
         # Create sequence alignment
-        return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+        return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+        # return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
     # def generate_design_mutations(self, all_design_files, wild_type_file, pose_num=False):
     #     """From a wild-type sequence (original PDB structure), and a collection of structure sequences that have
@@ -1913,8 +1914,7 @@ def distribution_divergence(freq, bgd_freq, lambda_=0.5):
 def create_bio_msa(named_sequences):
     """
     Args:
-        named_sequences (dict): {name: sequence, ...}
-            ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+        named_sequences (dict): {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
     Returns:
         (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
                                  SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
@@ -2025,7 +2025,8 @@ def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
     gap_penalty = -10
     gap_ext_penalty = -1
     # Create sequence alignment
-    return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+    return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+    # return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
 def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
@@ -2555,24 +2556,24 @@ def multi_chain_alignment(mutated_sequences):
 #     return generate_multiple_mutations(wild_type_pdb.atom_sequences, pdb_sequences, pose_num=pose_num)
 
 
-def pdb_to_pose_num(reference):
+def pdb_to_pose_offset(reference_sequence):
     """Take a dictionary with chain name as keys and return the length of Pose numbering offset
 
     Args:
-        reference (dict(iter)): {'A': 'MSGKLDA...', ...} or {'A': {1: 'A', 2: 'S', ...}, ...}
+        reference_sequence (dict(iter)): {key1: 'MSGKLDA...', ...} or {key2: {1: 'A', 2: 'S', ...}, ...}
     Order of dictionary must maintain chain order, so 'A', 'B', 'C'. Python 3.6+ should be used
     Returns:
-        (dict): {'A': 0, 'B': 123, ...}
+        (dict): {key1: 0, key2: 123, ...}
     """
     offset = {}
     # prior_chain = None
     prior_chains_len = 0
-    for i, chain in enumerate(reference):
+    for i, key in enumerate(reference_sequence):
         if i > 0:
-            prior_chains_len += len(reference[prior_chain])
-        offset[chain] = prior_chains_len
+            prior_chains_len += len(reference_sequence[prior_key])
+        offset[key] = prior_chains_len
         # insert function here? Make this a decorator!?
-        prior_chain = chain
+        prior_key = key
 
     return offset
 
@@ -2606,7 +2607,7 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
         raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
                           'reference' % chain)
     if pose_num:
-        offset_dict = pdb_to_pose_num(reference)
+        offset_dict = pdb_to_pose_offset(reference)
         # pose_mutations = {}
         # for chain, offset in offset_dict.items():
         #     for pdb_code in mutations:

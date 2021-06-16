@@ -732,7 +732,7 @@ def concatenate_fasta_files(file_names, output='concatenated_fasta'):
     return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
 
 
-def write_fasta_file(sequence, name, outpath=os.getcwd()):
+def write_fasta_file(sequence, name, out_path=os.getcwd()):
     """Write a fasta file from sequence(s)
 
     Args:
@@ -744,7 +744,7 @@ def write_fasta_file(sequence, name, outpath=os.getcwd()):
     Returns:
         (str): The name of the output file
     """
-    file_name = os.path.join(outpath, name + '.fasta')
+    file_name = os.path.join(out_path, name + '.fasta')
     with open(file_name, 'w') as outfile:
         if type(sequence) is list:
             if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)

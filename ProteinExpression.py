@@ -12,7 +12,9 @@ import SequenceProfile
 
 # Globals
 SDUtils.start_log(name=__name__)
-# uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
+uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
+with open(PUtils.affinity_tags, 'r') as f:
+    expression_tags = {row[0]: row[1] for row in csv.reader(f)}
 
 
 def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate find and user input functionality
@@ -203,53 +205,33 @@ def pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=None):
     return None
 
 
-def find_expression_tags(seq, tag_file=PUtils.affinity_tags, alignment_length=12):
-    """Find all tags on an input sequence from a reference set of tags
+def find_expression_tags(sequence, alignment_length=12):
+    """Find all expression_tags on an input sequence from a reference set of expression_tags. Returns the matching tag
+    sequence with additional protein sequence context equal to the passed alignment_length
 
     Args:
-        seq (str): 'MSGHHHHHHGKLKPNDLRI...'
+        sequence (str): 'MSGHHHHHHGKLKPNDLRI...'
     Keyword Args:
-        tag_file=PathUtils.affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
+        # tag_file=PathUtils.affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
         alignment_length=12 (int): length to perform the clipping of the native sequence in addition to found tag
     Returns:
-        (dict): {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}, ...} if tags are found,
-         {} if none are found
+        (list[dict]): [{'name': tag_name, 'termini': 'n', 'seq': 'MSGHHHHHHGKLKPNDLRI'}, ...], [] if none are found
     """
-    with open(tag_file, 'r') as f:
-        reader = csv.reader(f)
-        tags = {row[0]: row[1] for row in reader}
+    matching_tags = []
+    for tag in expression_tags:
+        tag_index = sequence.find(expression_tags[tag])
+        if tag_index == -1:  # no match was found
+            continue
+        # save the tag name, the termini of the sequence it is closest to, and the source sequence context
+        found_tag = {'name': tag}
+        # matching_tags[count]['name'] = tag_name
+        alignment_index = len(expression_tags[tag]) + alignment_length
+        if tag_index == 0 or tag_index < len(sequence)/2:
+            found_tag['termini'] = 'n'
+            found_tag['seq'] = sequence[tag_index:tag_index + alignment_index]
+        else:
+            found_tag['termini'] = 'c'
+            found_tag['seq'] = sequence[tag_index - alignment_index:tag_index + len(expression_tags[tag])]
+        matching_tags.append(found_tag)
 
-    tag_dict = {}
-    count = 1
-    # for j, tag in enumerate(tags):
-    for tag in tags:
-        # tag_name = tag[0]
-        # tag_seq = tag[1]
-        if seq.find(tags[tag]) > -1:
-            # if tag is found save the tag name, the termini it is closer to, and the source sequence concatenation
-            tag_dict[count] = {}
-            tag_index = seq.find(tags[tag])
-            tag_dict[count]['name'] = tag
-            # tag_dict[count]['name'] = tag_name
-            alignment_index = len(tags[tag]) + alignment_length
-
-            if tag_index == 0 or tag_index < len(seq)/2:
-                # print('Tag is at the N-term. \n')
-                tag_dict[count]['termini'] = 'N'
-                # tag_dict[chain][tag_name]['termini'] = 'N'
-                # while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
-                #     alignment_index -= 1
-                tag_dict[count]['seq'] = seq[tag_index:tag_index + alignment_index]
-                # tag_dict[chain][tag_name]['seq'] = seq[tag_index:alignment_index]
-            else:  # tag_index + len(tag_seq) == len(test_seq):
-                # print('Tag is at the C-term.\n')
-                tag_dict[count]['termini'] = 'C'
-                # op = operator.sub()
-                # while tag_index - alignment_index > len(seq) or tag_index - alignment_index < 0:
-                #     alignment_index -= 1
-                tag_dict[count]['seq'] = seq[tag_index - alignment_index:tag_index + len(tags[tag])]
-            # print('Original Seq: %s' % seq)
-            # print('Alignment index are from %d to +/- %d' % (tag_index, alignment_index))
-            # print('Final Seq: %s' % tag_dict[count]['seq'])
-
-    return tag_dict
+    return matching_tags

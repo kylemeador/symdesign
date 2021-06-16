@@ -330,7 +330,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 if errors[name]:
                     logger.warning('%s: Sequence generation ran into the following residue errors: %s'
                                    % (des_dir.path, ', '.join(errors[name])))
-                pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
+                pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, out_path=des_dir.sequences)
                 if not pdb_seq_file[name]:
                     logger.critical('%s: Unable to parse sequence. Check if PDB \'%s\' is valid' % (des_dir.path, name))
                     raise SDUtils.DesignError('Unable to parse sequence')
@@ -650,7 +650,7 @@ def gather_profile_info(pdb, des_dir, names):
         if errors[name]:
             logger.warning('Sequence generation ran into the following residue errors: %s' % ', '.join(errors[name]))
         pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name + '_' + os.path.basename(des_dir.path),
-                                              outpath=des_dir.sequences)
+                                              out_path=des_dir.sequences)
         if not pdb_seq_file[name]:
             logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
             raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)
