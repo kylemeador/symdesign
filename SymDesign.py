@@ -472,7 +472,9 @@ def terminate(module, designs, location=None, results=None, output=True):
                     logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
 
         design_stage = PUtils.stage[12] if getattr(args, 'scout', None) \
-            else (PUtils.stage[2] if getattr(args, 'legacy', None) else PUtils.stage[13])  # hbnet_design_profile
+            else (PUtils.stage[2] if getattr(args, 'legacy', None)
+                  else (PUtils.stage[14] if getattr(args, 'structure_background', None)
+                        else PUtils.stage[13]))  # hbnet_design_profile
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano,
                         'interface_metrics': 'interface_metrics',
                         'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]}
@@ -928,7 +930,7 @@ if __name__ == '__main__':
                                           % len(all_poses))
             logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
 
-        if all_poses:
+        if all_poses:  # TODO fetch a state from files that have already been SymDesigned...
             if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
                 if nano:
                     queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(args.directory)
@@ -1685,7 +1687,8 @@ if __name__ == '__main__':
         #                            for pose1 in pose_map[protein_pair]]))
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == 'sequence_selection':  # -c consensus, -f filters, -n number
-        program_root = next(iter(design_directories)).program_root
+        # master_directory = next(iter(design_directories))
+        program_root = master_directory.program_root
         # if args.pose_design_file:        # -s selection_string, -w weights
         #     # Grab all poses (directories) to be processed from either directory name or file
         #     with open(args.pose_design_file) as csv_file:
