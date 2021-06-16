@@ -119,6 +119,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pre_refine = True
         self.query_fragments = False
         self.scout = kwargs.get('scout', False)
+        self.structure_background = kwargs.get('structure_background', False)
+        self.sequence_background = kwargs.get('sequence_background', False)
         self.write_frags = True
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
@@ -1163,20 +1165,31 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
             metrics_flags = 'repack=no'
             additional_cmds, out_file = [], []
+        elif self.structure_background:
+            protocol, protocol_xml1 = PUtils.stage[14], PUtils.stage[14]
+            nstruct_instruct = ['-no_nstruct_label', 'true']
+            design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
+            generate_files_cmd = \
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
+            metrics_flags = 'repack=yes'
+            additional_cmds, out_file = [], []
         elif self.legacy:
             protocol, protocol_xml1 = PUtils.stage[2], PUtils.stage[2]
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
+            design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list, '-s', '_' + protocol]
-            metrics_pdb = ['-in:file:l', self.pdb_list]  # todo make so that different protocols produce different lists
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
             metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
-        else:  # run hbnet protocol
+        else:  # run hbnet_design_profile protocol
             protocol, protocol_xml1 = PUtils.stage[13], 'hbnet_scout'  # PUtils.stage[14]
             nstruct_instruct = ['-no_nstruct_label', 'true']
+            design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', self.pdb_list, '-s', '_' + protocol]
-            metrics_pdb = ['-in:file:l', self.pdb_list]
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
             metrics_flags = 'repack=yes'
             out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
                         '-out:file:silent_struct_type', 'binary']
