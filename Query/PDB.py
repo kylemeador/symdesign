@@ -105,6 +105,25 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                           }
 
 
+def verify_choice():
+    """Provide a user prompt to ensure the user input is what is desired
+
+    Returns:
+        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
+    """
+    while True:
+        confirm = input(confirmation_string).lower()
+        if confirm in bool_d:  # we can find the answer
+            break
+        else:
+            print('\'%s\' is not a valid choice! Chose either [y/n]' % confirm)
+    # if bool_d[confirm]:
+    #     return True
+    return bool_d[confirm]
+    # else:
+    #     return False
+
+
 def retrieve_entity_id_by_sequence(sequence):
     """From a given sequence, retrieve the top matching Entity ID from the PDB API
 

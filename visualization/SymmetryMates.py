@@ -38,6 +38,7 @@ def expand(name=None, symmetry=None):
         return None
     elif not name:
         name = cmd.get_object_list()[0]
+
     generate_symmetry_mates_pymol(name, expand_matrices)
 
 
