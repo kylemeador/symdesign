@@ -1,94 +1,221 @@
 <ROSETTASCRIPTS>
 
-	<SCOREFXNS>
-		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
-<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
-<!--		</ScoreFunction>-->
-	</SCOREFXNS>
-
-	<RESIDUE_SELECTORS>
-		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
-		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
-<!--		<SymmetricalResidue name="interface1_sym" selector="interface1" />-->
-		# same, but for residues from chain "B"
-		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
-<!--		<SymmetricalResidue name="interface2_sym" selector="interface2" />-->
-		# combined group of all identified interface residues
-		<Or name="tot_interface" selectors="interface1,interface2"/>
-		# the negation of all interface residues
-		<Not name="not_interface" selector="tot_interface"/>
-		# other residues that may be designable
-		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		# all designable residues
-		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
-		# the negation of all designable residues
-		<Not name="not_designable" selector="all_designable"/>
-		# all residues
-		<True name="full_pose"/>
-	</RESIDUE_SELECTORS>
-
-	<TASKOPERATIONS>
-		# standard task operation to pull in commandline options
-		<InitializeFromCommandline name="init"/>
-		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
-		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
-		# standard operation to restrict all residues to repacking
-		<RestrictToRepacking name="rtr"/>
-		# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues
-		<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
-<!--		# disable repacking of the interface only-->
-<!--		<OperateOnResidueSubset name="designable_no_repack" selector="all_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>-->
-<!--		# restrict all non-interface residues to repacking only, no design-->
-<!--		<OperateOnResidueSubset name="not_designable_rtr" selector="not_designable"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>-->
-		# restrict all non-interface residues to no repacking and no design
-		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+<!--	<SCOREFXNS>-->
+<!--		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy-->
+<!--		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>-->
+<!--&lt;!&ndash;			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		</ScoreFunction>&ndash;&gt;-->
+<!--	</SCOREFXNS>-->
+<!---->
+<!--	<RESIDUE_SELECTORS>-->
+<!--		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...-->
+<!--		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--&lt;!&ndash;		<SymmetricalResidue name="interface1_sym" selector="interface1" />&ndash;&gt;-->
+<!--		# same, but for residues from chain "B"-->
+<!--		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--&lt;!&ndash;		<SymmetricalResidue name="interface2_sym" selector="interface2" />&ndash;&gt;-->
+<!--		# combined group of all identified interface residues-->
+<!--		<Or name="tot_interface" selectors="interface1,interface2"/>-->
+<!--		# the negation of all interface residues-->
+<!--		<Not name="not_interface" selector="tot_interface"/>-->
+<!--		# other residues that may be designable-->
+<!--		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		# all designable residues-->
+<!--		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>-->
+<!--		# the negation of all designable residues-->
+<!--		<Not name="not_designable" selector="all_designable"/>-->
+<!--		# all residues-->
+<!--		<True name="full_pose"/>-->
+<!--	</RESIDUE_SELECTORS>-->
+<!---->
+<!--	<TASKOPERATIONS>-->
+<!--		# standard task operation to pull in commandline options-->
+<!--		<InitializeFromCommandline name="init"/>-->
+<!--		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless-->
+<!--		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>-->
+<!--		# standard operation to restrict all residues to repacking-->
+<!--		<RestrictToRepacking name="rtr"/>-->
 <!--		# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues-->
-<!--		<DesignRestrictions name="interface_start"> <Action residue_selector="tot_interface" aas="G"/> </DesignRestrictions>		-->
-<!--		# disable repacking of the interface only-->
-<!--		<OperateOnResidueSubset name="int_no_repack" selector="tot_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>-->
-<!--		# restrict all non-interface residues to repacking only, no design-->
-<!--		<OperateOnResidueSubset name="non_int_rtr" selector="not_interface"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>-->
+<!--		<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>-->
+<!--&lt;!&ndash;		# disable repacking of the interface only&ndash;&gt;-->
+<!--&lt;!&ndash;		<OperateOnResidueSubset name="designable_no_repack" selector="all_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>&ndash;&gt;-->
+<!--&lt;!&ndash;		# restrict all non-interface residues to repacking only, no design&ndash;&gt;-->
+<!--&lt;!&ndash;		<OperateOnResidueSubset name="not_designable_rtr" selector="not_designable"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>&ndash;&gt;-->
 <!--		# restrict all non-interface residues to no repacking and no design-->
-<!--		<OperateOnResidueSubset name="non_int_no_repack" selector="not_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>-->
-		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
-		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
-		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
-		<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
-	</TASKOPERATIONS>
-
-	<MOVE_MAP_FACTORIES>
-		<MoveMapFactory name="design_map" bb="0" chi="1">
-			<Backbone residue_selector="all_designable" enable="true"/>
-		</MoveMapFactory>
-	</MOVE_MAP_FACTORIES>
+<!--		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>-->
+<!--&lt;!&ndash;		# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues&ndash;&gt;-->
+<!--&lt;!&ndash;		<DesignRestrictions name="interface_start"> <Action residue_selector="tot_interface" aas="G"/> </DesignRestrictions>		&ndash;&gt;-->
+<!--&lt;!&ndash;		# disable repacking of the interface only&ndash;&gt;-->
+<!--&lt;!&ndash;		<OperateOnResidueSubset name="int_no_repack" selector="tot_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>&ndash;&gt;-->
+<!--&lt;!&ndash;		# restrict all non-interface residues to repacking only, no design&ndash;&gt;-->
+<!--&lt;!&ndash;		<OperateOnResidueSubset name="non_int_rtr" selector="not_interface"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>&ndash;&gt;-->
+<!--&lt;!&ndash;		# restrict all non-interface residues to no repacking and no design&ndash;&gt;-->
+<!--&lt;!&ndash;		<OperateOnResidueSubset name="non_int_no_repack" selector="not_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>&ndash;&gt;-->
+<!--		# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on-->
+<!--		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>-->
+<!--		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design-->
+<!--		<SeqprofConsensus name="pssm_cutoff" min_aa_probability="0" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle-->
+<!--	</TASKOPERATIONS>-->
+<!---->
+<!--	<MOVE_MAP_FACTORIES>-->
+<!--		<MoveMapFactory name="design_map" bb="0" chi="1">-->
+<!--			<Backbone residue_selector="all_designable" enable="true"/>-->
+<!--		</MoveMapFactory>-->
+<!--	</MOVE_MAP_FACTORIES>-->
 	
 	<MOVERS>
 		<AddJobPairData name="job_info" key="protocol" value="design_profile" value_type="string"/>
-		# set all interface residues to GLY, leave everything else untouched
-		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
-		# the main routine to perform metropolis criteria monte carlo
-		<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
-		# sample all rotamers to find minimum
-		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>
-		# minimize all residues in design_map (move map)
-		<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
-		# the main protocol to loop over for interface design
-		<ParsedProtocol name="rotamer_trials_min_mover">
-			<Add mover_name="RT"/>
-			<Add mover_name="min"/> # Min unused in P432
-		</ParsedProtocol>
-		<ParsedProtocol name="design_block">
-			<Add mover_name="int_design"/>
-			<Add mover_name="rotamer_trials_min_mover"/>
-		</ParsedProtocol>
-		<LoopOver name="design_loop" iterations="4" mover_name="design_block"/>
+<!--		# set all interface residues to GLY, leave everything else untouched-->
+<!--		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>-->
+<!--		# the main routine to perform metropolis criteria monte carlo-->
+<!--		<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--		# sample all rotamers to find minimum-->
+<!--		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>-->
+<!--		# minimize all residues in design_map (move map)-->
+<!--		<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"-->
+<!--		# the main protocol to loop over for interface design-->
+<!--		<ParsedProtocol name="rotamer_trials_min_mover">-->
+<!--			<Add mover_name="RT"/>-->
+<!--			<Add mover_name="min"/> # Min unused in P432-->
+<!--		</ParsedProtocol>-->
+<!--		<ParsedProtocol name="design_block">-->
+<!--			<Add mover_name="int_design"/>-->
+<!--			<Add mover_name="rotamer_trials_min_mover"/>-->
+<!--		</ParsedProtocol>-->
+<!--		<LoopOver name="design_loop" iterations="4" mover_name="design_block"/>-->
+		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="5">
+			<ROSETTASCRIPTS>
+
+				<SCOREFXNS>
+					# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
+					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+				</SCOREFXNS>
+
+				<RESIDUE_SELECTORS>
+					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					# same, but for residues from chain "B"
+					<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					# combined group of all identified interface residues
+					<Or name="tot_interface" selectors="interface1,interface2"/>
+					# the negation of all interface residues
+					<Not name="not_interface" selector="tot_interface"/>
+					# other residues that may be designable
+					<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					# all designable residues
+					<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
+					# the negation of all designable residues
+					<Not name="not_designable" selector="all_designable"/>
+				</RESIDUE_SELECTORS>
+
+				<TASKOPERATIONS>
+					# standard task operation to pull in commandline options
+					<InitializeFromCommandline name="init"/>
+					# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
+					<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
+					# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues
+					<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
+					# restrict all non-interface residues to no repacking and no design
+					<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+				</TASKOPERATIONS>
+
+				<MOVERS>
+					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
+				</MOVERS>
+
+				<PROTOCOLS>
+					<Add mover_name="design_start"/>
+<!--					<Add mover_name="design_loop"/>-->
+				</PROTOCOLS>
+
+			</ROSETTASCRIPTS>
+		</MultipleOutputWrapper>
+		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="5">
+			<ROSETTASCRIPTS>
+
+				<SCOREFXNS>
+					# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
+					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+				</SCOREFXNS>
+
+				<RESIDUE_SELECTORS>
+					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					# same, but for residues from chain "B"
+					<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					# combined group of all identified interface residues
+					<Or name="tot_interface" selectors="interface1,interface2"/>
+					# the negation of all interface residues
+					<Not name="not_interface" selector="tot_interface"/>
+					# other residues that may be designable
+					<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+					# all designable residues
+					<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
+					# the negation of all designable residues
+					<Not name="not_designable" selector="all_designable"/>
+					# all residues
+					<True name="full_pose"/>
+				</RESIDUE_SELECTORS>
+
+				<TASKOPERATIONS>
+					# standard task operation to pull in commandline options
+					<InitializeFromCommandline name="init"/>
+					# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
+					<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
+					# standard operation to restrict all residues to repacking
+					<RestrictToRepacking name="rtr"/>
+					# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues
+					<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
+					# restrict all non-interface residues to no repacking and no design
+					<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+					# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
+					<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
+					# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
+					<SeqprofConsensus chain_num="1" name="pssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+					<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+				</TASKOPERATIONS>
+
+				<MOVE_MAP_FACTORIES>
+					<MoveMapFactory name="design_map" bb="0" chi="1">
+						<Backbone residue_selector="all_designable" enable="true"/>
+					</MoveMapFactory>
+				</MOVE_MAP_FACTORIES>
+
+				<MOVERS>
+<!--					<AddJobPairData name="job_info" key="protocol" value="design_profile" value_type="string"/>-->
+					# set all interface residues to GLY, leave everything else untouched
+					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
+					# the main routine to perform metropolis criteria monte carlo
+					<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+					# sample all rotamers to find minimum
+					<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>
+					# minimize all residues in design_map (move map)
+					<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
+					# the main protocol to loop over for interface design
+					<ParsedProtocol name="rotamer_trials_min_mover">
+						<Add mover_name="RT"/>
+						<Add mover_name="min"/> # Min unused in P432
+					</ParsedProtocol>
+					<ParsedProtocol name="design_block">
+						<Add mover_name="int_design"/>
+						<Add mover_name="rotamer_trials_min_mover"/>
+					</ParsedProtocol>
+					<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
+				</MOVERS>
+
+				<PROTOCOLS>
+					<Add mover_name="design_block"/>
+					<Add mover_name="measure_interface_bound"/>
+				</PROTOCOLS>
+
+			</ROSETTASCRIPTS>
+        </MultiplePoseMover>
 	</MOVERS>
 
 	<PROTOCOLS>
-		<Add mover_name="design_start"/>
-		<Add mover_name="design_loop"/>
 		<Add mover_name="job_info"/>
+		<Add mover_name="generate_multiple_poses"/>
+		<Add mover_name="design_with_interface_metrics"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
