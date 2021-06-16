@@ -25,7 +25,7 @@ rosetta = os.environ.get('ROSETTA')
 nstruct = 20  # Todo back to 50?
 stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
-         11: 'all_to_cluster', 12: 'scout', 13: 'hbnet_design_profile'}
+         11: 'all_to_cluster', 12: 'scout', 13: 'hbnet_design_profile', 14: 'structure_background'}
 stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
            stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
            stage[5]: {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
@@ -102,6 +102,7 @@ disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 data_dir = os.path.join(source, data)
 reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')
+reference_aa_pickle = os.path.join(data_dir, 'AAreference.pkl')
 uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
 # filter_and_sort = os.path.join(data_dir, 'filter_and_sort_df.csv')
 pdb_uniprot_map = os.path.join(data_dir, 'pdb_uniprot_map')  # TODO
