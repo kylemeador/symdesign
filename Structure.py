@@ -1485,10 +1485,8 @@ class Entity(Chain, SequenceProfile):
             # self.structure_containers.extend(['chains'])
         self.api_entry = None
         self.reference_sequence = kwargs.get('sequence', self.get_structure_sequence())
-        if uniprot_id:
-            self.uniprot_id = uniprot_id
-        else:
-            self.uniprot_id = '%s%d' % ('R', randint(10000, 99999))  # Make a random pseudo UniProtID
+        # self._uniprot_id = None
+        self.uniprot_id = uniprot_id
 
     @classmethod
     def from_representative(cls, representative=None, uniprot_id=None, **kwargs):  # chains=None,
@@ -1523,6 +1521,27 @@ class Entity(Chain, SequenceProfile):
         else:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Structure, use the private attribute _coords')
+
+    @property
+    def uniprot_id(self):
+        try:
+            return self._uniprot_id
+        except AttributeError:
+            try:
+                chain_api_data = self.api_entry[next(iter(self.api_entry))]
+                if chain_api_data.get('db', None) == 'UNP':
+                    self._uniprot_id = chain_api_data.get('accession', None)
+                return self._uniprot_id
+            except AttributeError:
+                self.log.warning('No uniprot_id found for Entity %s' % self.name)
+                return
+                # # Make a random pseudo UniProtID
+                # self.uniprot_id = '%s%d' % ('R', randint(10000, 99999))
+
+    @uniprot_id.setter
+    def uniprot_id(self, uniprot_id):
+        if uniprot_id:
+            self._uniprot_id = uniprot_id
 
     @property
     def chain_id(self):
@@ -1576,17 +1595,18 @@ class Entity(Chain, SequenceProfile):
 
     def retrieve_sequence_from_api(self, entity_id=None):
         if not entity_id:
-            self.log.warning('For Entity method .%s, the entity_id must be passed!'
-                             % self.retrieve_sequence_from_api.__name__)
-            return None
-        self.reference_sequence = get_sequence_by_entity_id(entity_id)
-        # self.sequence_source = 'seqres'
+            if len(self.name.split('_')) != 2:
+                self.log.warning('For Entity method .%s, if an entity_id isn\'t passed and the Entity name %s is not '
+                                 'the correct format (1abc_1), the query will surely fail. Ensure this is the desired '
+                                 'behavior!' % (self.retrieve_sequence_from_api.__name__, self.name))
+            entity_id = self.name
+        self.reference_sequence = get_entity_reference_sequence(entity_id)
 
     def retrieve_info_from_api(self):
         """Retrieve information from the PDB API about the Entity
 
         Sets:
-            self.api_entry (dict): {chain: db_reference, ...}
+            self.api_entry (dict): {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         """
         self.api_entry = get_pdb_info_by_entity(self.name)
 
