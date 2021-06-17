@@ -29,7 +29,7 @@ from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, 
     columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
     stats_metrics, significance_columns, protocols_of_interest, df_permutation_test, calc_relative_sa, \
-    clean_up_intermediate_columns, master_metrics, fragment_metric_template, protocol_specific_columns
+    clean_up_intermediate_columns, fragment_metric_template, protocol_specific_columns, rank_dataframe_by_metric_weights
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence,\
     multi_chain_alignment  # , format_mutations, generate_sequences, make_mutations_chain_agnostic,
@@ -402,8 +402,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not self.pose.assembly.sasa:
             self.pose.assembly.get_sasa()
 
-        # debug Todo remove
-        self.pose.assembly.write(out_path=os.path.join(self.path, 'POSE_ASSEMBLY.pdb'))
+        # self.pose.assembly.write(out_path=os.path.join(self.path, 'POSE_ASSEMBLY.pdb'))
         entity_chain = self.pose.assembly.chain(entity.chain_id)
         n_term, c_term = False, False
         # Todo add reference when in a crystalline environment  # reference=pose_transformation[idx].get('translation2')
@@ -2313,7 +2312,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 else:
                     residue_df.to_csv(self.residues)
                 trajectory_df.to_csv(self.trajectories)
-                seq_file = pickle_object(chain_sequences, '%s_Sequences' % str(self), out_path=self.all_scores)
+                self.design_sequences = pickle_object(chain_sequences, self.design_sequences, out_path='')
 
             # Create figures
             # if figures:  # Todo include relevant .ipynb figures
@@ -2369,24 +2368,25 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.log.info('Number of starting trajectories = %d' % len(trajectory_df))
 
         if weights:
-            filter_df = pd.DataFrame(master_metrics)
+            # filter_df = pd.DataFrame(master_metrics)
             # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
             # _df = trajectory_df.loc[final_indices, :]
             df = trajectory_df.loc[designs, :]
             self.log.info('Using weighting parameters: %s' % str(weights))
-            _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
-                        for metric in weights}
-            weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
-            # weights_s = pd.Series(weights)
-            weight_score_s_d = {}
-            for metric in _weights:
-                weight_score_s_d[metric] = \
-                    df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
-                                    method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
-
-            # design_score_df = pd.DataFrame(weight_score_s_d)  # Todo simplify
-            score_df = pd.concat(weight_score_s_d.values(), axis=1)
-            design_list = score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+            design_list = rank_dataframe_by_metric_weights(df, weights=weights)
+            # _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
+            #             for metric in weights}
+            # weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
+            # # weights_s = pd.Series(weights)
+            # weight_score_s_d = {}
+            # for metric in _weights:
+            #     weight_score_s_d[metric] = \
+            #         df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+            #                         method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
+            #
+            # # design_score_df = pd.DataFrame(weight_score_s_d)  # Todo simplify
+            # score_df = pd.concat(weight_score_s_d.values(), axis=1)
+            # design_list = score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
             self.log.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
 
             return list(zip(repeat(self), design_list[:number]))
@@ -2466,11 +2466,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # If final designs contains more sequences than specified, find the one with the lowest energy
             if len(final_designs) > number:
-                energy_s = trajectory_df.loc[final_designs.keys(), 'interface_energy']  # includes solvation energy
-                # try:
-                #     energy_s = pd.Series(energy_s)
-                # except ValueError:
-                #     raise DesignError('no dataframe')
+                energy_s = trajectory_df.loc[final_designs.keys(), 'interface_energy']
                 energy_s.sort_values(inplace=True)
                 final_seqs = zip(repeat(self), energy_s.index.to_list()[:number])
             else:
