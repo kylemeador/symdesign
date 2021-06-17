@@ -438,6 +438,8 @@ if __name__ == '__main__':
     all_pdb_uniprot_file = os.path.join(current_interface_file_path, pdb_uniprot_file_name)
     if os.path.exists(all_pdb_uniprot_file):  # retrieve the pdb, DBreference, resolution, and crystal dictionary
         pdb_uniprot_info = unpickle(all_pdb_uniprot_file)
+        pdb_uniprot_info.update({pdb_code: qPDB.get_pdb_info_by_entry(pdb_code)
+                                 for pdb_code in set(pdbs_of_interest).difference(pdb_uniprot_info.keys())})
     else:
         # if args.query_web:  # Retrieve from the PDB web
         pdb_uniprot_info = {pdb_code: qPDB.get_pdb_info_by_entry(pdb_code) for pdb_code in pdbs_of_interest}
