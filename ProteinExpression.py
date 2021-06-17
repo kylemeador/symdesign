@@ -1,14 +1,15 @@
 """Add expression tags onto the termini of specific designs"""
 import csv
+from itertools import chain as iter_chain  # combinations,
 
 from Bio.SeqUtils import IUPACData
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from PDB import PDB
-import Pose
+# from PDB import PDB
+# import Pose
 import SequenceProfile
-
+from Query.PDB import input_string, get_entity_reference_sequence, pdb_id_matching_uniprot_id
 
 # Globals
 SDUtils.start_log(name=__name__)
@@ -17,132 +18,162 @@ with open(PUtils.affinity_tags, 'r') as f:
     expression_tags = {row[0]: row[1] for row in csv.reader(f)}
 
 
-def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate find and user input functionality
+def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     """Take a pose and find expression tags from each PDB reference asking user for input on tag choice
 
     Args:
-        pdb_code (str): The pdb to query tags from
-        chain (str): The chain to query tags from
+        uniprot_id=None (str): The uniprot_id to query tags from
+        pdb_code=None (str): The pdb to query tags from. Requires chain argument as well
+        chain=None (str): The chain to query tags from. Requires pdb argument as well
     Returns:
-        (dict): {pdb: {'name': 'His Tag', 'seq': 'MSGHHHHHHGKLKPNDLRI'}, ...}
+        (dict): {'n': {His Tag: 2}, 'c': {Spy Catcher: 1},
+                 'matching_tags': [[{'name': His Tag, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], ...]}
     """
-    uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
-    # 'all' gives PDB.Chain, 'unique' gives only PDB handle
-    uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
-    if uniprot_id not in uniprot_pdb_d:
-        return {'name': None, 'seq': None}
-        # return AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(pdb_code), chain=chain,
-        #                                                  source='seqres')
-    else:
-        all_matching_pdb_chain = uniprot_pdb_d[uniprot_id]['all']
+    # uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
+    if not uniprot_id:
+        if not pdb_code or not chain:
+            raise AttributeError('One of uniprot_id or pdb_code AND chain is required')
+        uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
 
-    # {pdb: [{'A': 'MSGHHHHHHGKLKPNDLRI...'}, ...], ...}
-    pdb_chain_d = {}
-    for matching_pdb_chain in all_matching_pdb_chain:
-        matching_pdb, chain = matching_pdb_chain.split('.')
-        pdb_chain_d[matching_pdb] = chain  # This is essentially a set as duplicates are overwritten
+    # from PDB API
+    partner_sequences = [get_entity_reference_sequence(entity_id=entity_id)
+                         for entity_id in pdb_id_matching_uniprot_id(uniprot_id=uniprot_id)]
+    # # from internal data storage
+    # if uniprot_id not in uniprot_pdb_d:
+    #     return {'name': None, 'seq': None}
+    #     # return AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(pdb_code), chain=chain,
+    #     #                                                  source='seqres')
+    #
+    # # {pdb: [{'A': 'MSGHHHHHHGKLKPNDLRI...'}, ...], ...}
+    # # pdb_chain_d = {}
+    # partner_sequences = []  # v in this dictionary 'all' gives PDB.Chain, 'unique' gives only PDB handle
+    # for matching_pdb_chain in uniprot_pdb_d[uniprot_id]['all']:
+    #     matching_pdb, chain = matching_pdb_chain.split('.')
+    #     # pdb_chain_d[matching_pdb] = chain  # This is essentially a set as duplicates are overwritten
+    # # # for matching_pdb, chain in pdb_chain_d.items():
+    # #     partner_pdb = PDB.from_file(Pose.fetch_pdb_file(matching_pdb), log=None, lazy=True, entities=False)
+    # #     # partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
+    # #     #                                                       chain=pdb_chain_d[matching_pdb], source='seqres')
+    # #     partner_sequences.append(partner_pdb.reference_sequence[chain])
+    #     # api_info = get_pdb_info_by_entry(matching_pdb)
+    #     # chain_entity = {chain: entity_idx for entity_idx, chains in api_info.get('entity').items() for ch in chains}
+    #     partner_sequences.append(get_entity_reference_sequence(pdb=matching_pdb, chain=chain))
 
-    partner_sequences = []
-    for matching_pdb in pdb_chain_d:
-        partner_pdb = PDB.from_file(Pose.fetch_pdb_file(matching_pdb), log=None, )
-        # partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
-        #                                                       chain=pdb_chain_d[matching_pdb], source='seqres')
-        partner_sequences.append(partner_pdb.reference_sequence[pdb_chain_d[matching_pdb]])
-        # TODO chain can be not found... Should this be available based on Uniprot-PDB Map creation? Need to extend this
-
-    # {0: {1: {'name': tag_name, 'termini': 'N', 'seq': 'MSGHHHHHHGKLKPNDLRI'}}, ...}
-    matching_pdb_tags = {idx: find_expression_tags(seq) for idx, seq in enumerate(partner_sequences)}
-    # can return an empty dict
+    # matching_pdb_tags = {idx: find_expression_tags(seq) for idx, seq in enumerate(partner_sequences)}
+    # [[{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], ...]
+    matching_pdb_tags = [find_expression_tags(sequence) for sequence in partner_sequences]
+    # can return empty dict ^
 
     # Next, align all the tags to the reference sequence and tally the tag location and type
-    pdb_tag_tally = {'N': {}, 'C': {}}
-    for partner in matching_pdb_tags:
-        if matching_pdb_tags[partner] != dict():
-            for partner_tag in matching_pdb_tags[partner]:
-                if matching_pdb_tags[partner][partner_tag]['name'] \
-                        in pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']]:
-                    pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']][
-                        matching_pdb_tags[partner][partner_tag]['name']] += 1
+    pdb_tag_tally = {'n': {}, 'c': {}, 'matching_tags': matching_pdb_tags}
+    for partner_pdb_tags in matching_pdb_tags:
+        if partner_pdb_tags:
+            for partner_tag in partner_pdb_tags:
+                if partner_tag['name'] in pdb_tag_tally[partner_tag['termini']]:
+                    pdb_tag_tally[partner_tag['termini']][partner_tag['name']] += 1
                 else:
-                    pdb_tag_tally[matching_pdb_tags[partner][partner_tag]['termini']][
-                        matching_pdb_tags[partner][partner_tag]['name']] = 1
+                    pdb_tag_tally[partner_tag['termini']][partner_tag['name']] = 1
 
-    final_tags = {}
-    n_term, c_term = 0, 0
-    if pdb_tag_tally['N'] != dict():
-        n_term = [pdb_tag_tally['N'][_type] for _type in pdb_tag_tally['N']]
-        n_term = sum(n_term)
-    if pdb_tag_tally['C'] != dict():
-        c_term = [pdb_tag_tally['C'][_type] for _type in pdb_tag_tally['C']]
-        c_term = sum(c_term)
+    return pdb_tag_tally
+
+
+def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
+    """From a list of possible tags, solve for the tag with the most observations in the PDB. If there are
+    discrepancies, query the user for a solution
+
+    Args:
+        sequence_id (str): The sequence identifier
+        pdb_tag_tally (dict): {'n': {His Tag: 2}, 'c': {Spy Catcher: 1},
+                               'matching_tags': [[{'name': His Tag, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'},
+                                                  ...], ...]}
+    Keyword Args:
+        n=True (bool): Whether the n-termini can be tagged
+        c=True (bool): Whether the c-termini can be tagged
+    Returns:
+        (dict): {'name': 'His Tag', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}
+    """
+    final_tag_sequence = {'name': None, 'sequence': None}
+    # n_term, c_term = 0, 0
+    # if pdb_tag_tally['n']:
+    n_term = sum([pdb_tag_tally['n'][tag_name] for tag_name in pdb_tag_tally.get('n', {})])
+    # if pdb_tag_tally['c']:
+    c_term = sum([pdb_tag_tally['c'][tag_name] for tag_name in pdb_tag_tally.get('c', {})])
     if n_term == 0 and c_term == 0:  # No tags found
-        return {'name': None, 'seq': None}
+        return final_tag_sequence
     if n_term > c_term:
-        termini = 'N'
+        termini = 'n'
     elif n_term < c_term:
-        termini = 'C'
+        termini = 'c'
     else:  # termini = 'Both'
         while True:
-            termini = input('For %s, BOTH termini have the same number of matched tags.\n'
-                            'The tag options are as follows {terminus:{tag name: count}}:\n%s\n'
-                            'Which termini would you prefer?\n[n/c]:' % (pdb_code, pdb_tag_tally))
-            termini = termini.upper()
-            if termini == 'N' or termini == 'C':
+            termini = \
+                input('For sequence target %s, BOTH termini have the same number of matched tags.\nThe tag options, '
+                      'formatted as, termini: {tag name: count}}, are as follows:\n%s\nWhich termini would you prefer '
+                      '[n/c]?%s' %
+                      (sequence_id, '\n'.join('\t%s: %s' % item for item in pdb_tag_tally.items()),
+                       input_string)).lower()
+            if termini == 'n' or termini == 'c':
                 break
+            else:
+                print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
 
     # Find the most common tag at the specific termini
     all_tags = []
-    max_type = None
-    max_count = 0
-    for _type in pdb_tag_tally[termini]:
-        if pdb_tag_tally[termini][_type] > max_count:
-            max_count = pdb_tag_tally[termini][_type]
-            max_type = _type
+    max_type, max_count = None, 0
+    for tag_name in pdb_tag_tally[termini]:
+        if pdb_tag_tally[termini][tag_name] > max_count:
+            max_count = pdb_tag_tally[termini][tag_name]
+            max_type = tag_name
     all_tags.append(max_type)
 
     # Check if there are equally represented tags
-    for _type in pdb_tag_tally[termini]:
-        if pdb_tag_tally[termini][_type] == max_count and _type != max_type:
-            all_tags.append(_type)
-    final_tags['name'] = all_tags
-    final_tags['termini'] = termini
+    for tag_name in pdb_tag_tally[termini]:
+        if pdb_tag_tally[termini][tag_name] == max_count and tag_name != max_type:
+            all_tags.append(tag_name)
 
+    final_tags = {'termini': termini, 'name': all_tags}
     # Finally report results to the user and solve ambiguous tags
     final_choice = {}
     while True:
-        default = input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is '
-                        'undesired, you can see the underlying options by specifying \'o\'. Otherwise, \'%s\' will be '
-                        'chosen.\nIf you would like to proceed with the RECOMMENDED options, enter \'y\'.\nInput [o/y]:'
-                        % (pdb_code, final_tags['termini'], final_tags['name'], final_tags['name'][0]))
-        if default.lower() == 'y':
-            if len(final_tags['name']) > 1:
-                if 'His Tag' in final_tags:
-                    final_choice['name'] = 'His Tag'
-                # else choose the first choice
+        default = \
+            input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is '
+                  'undesired, you can see the underlying options by specifying \'options\'. Otherwise, \'%s\' will be '
+                  'chosen.\nIf you would like to proceed with the RECOMMENDED options, enter \'y\'.%s'
+                  % (sequence_id, final_tags['termini'], final_tags['name'], final_tags['name'][0],
+                     input_string)).lower()
+        if default == 'y':
+            # if len(final_tags['name']) > 1:
+            #     if 'His Tag' in final_tags:
+            #         final_choice['name'] = 'His Tag'
+            #     # else choose the first choice
             final_choice['name'] = final_tags['name'][0]
             final_choice['termini'] = final_tags['termini']
             break
-        elif default.lower() == 'o':
-            _input = input('For %s, the FULL tag options are: %s\nIf none of these are appealing, enter \'n\', '
-                           'otherwise hit enter.' % (pdb_code, pdb_tag_tally))
-            if _input.upper() == 'N':
-                return {'name': None, 'seq': None}
+        elif default == 'options':
+            _input = input('\nFor %s, all tag options are:\n\tTermini Tag:\tCount\n%s\nAll tags:\n%s\nIf none of these '
+                           'are appealing, enter \'none\', otherwise hit ENTER.%s'
+                           % (sequence_id, '\n'.join('\t%s:\t%s' % item for item in pdb_tag_tally.items()
+                                                     if item[0] != 'matching_tags'),
+                              list(iter_chain.from_iterable(pdb_tag_tally['matching_tags'])), input_string)).lower()
+            # Todo pretty_table_format on the .values() from each item in above list() ('name', 'termini', 'sequence')
+            if _input == 'none':
+                return final_tag_sequence
             else:
                 while True:
-                    termini_input = input('What termini would you like to use?\nInput [n/c]:')
-                    termini_input = termini_input.upper()
-                    if termini_input == 'N' or termini_input == 'C':
+                    termini_input = input('What termini would you like to use [n/c]?%s' % input_string).lower()
+                    if termini_input == 'n' or termini_input == 'c':
                         final_choice['termini'] = termini_input
                         break
                     else:
                         print('Input doesn\'t match. Please try again')
                 while True:
-                    tag_input = input('What tag would you like to use? Enter the number of the below options.\n%s' %
-                                      '\n'.join(['%d - %s' % (i, tag)
-                                                 for i, tag in enumerate(pdb_tag_tally[termini_input])]))
-                    tag_input = int(tag_input)
-                    if tag_input < len(pdb_tag_tally[termini_input]):
-                        final_choice['name'] = pdb_tag_tally[termini_input][tag_input]
+                    tag_input = int(input('What tag would you like to use? Enter the number of the below options.\n%s%s'
+                                          % ('\n'.join(['%d - %s' % (i, tag)
+                                                       for i, tag in enumerate(pdb_tag_tally[termini_input], 1)]),
+                                             input_string)))
+                    # tag_input = int(tag_input)
+                    if tag_input <= len(pdb_tag_tally[termini_input]):
+                        final_choice['name'] = list(pdb_tag_tally[termini_input].keys())[tag_input - 1]
                         break
                     else:
                         print('Input doesn\'t match. Please try again')
@@ -150,12 +181,28 @@ def find_all_matching_pdb_expression_tags(pdb_code, chain):  # Todo separate fin
         else:
             print('Input doesn\'t match. Please try again')
 
-    final_tag_sequence = {'name': final_choice['name'], 'seq': None}
-    for partner_idx in matching_pdb_tags:
-        for partner_tag in matching_pdb_tags[partner_idx]:
-            if final_choice['name'] == matching_pdb_tags[partner_idx][partner_tag]['name']:
-                final_tag_sequence['seq'] = matching_pdb_tags[partner_idx][partner_tag]['seq']
-                # TODO align multiple and choose the consensus?
+    final_tag_sequence['name'] = final_choice['name']
+    all_matching_tags = []
+    # [{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
+    for pdb_match in pdb_tag_tally['matching_tags']:
+        for tag in pdb_match:
+            if final_choice['name'] == tag['name'] and final_choice['termini'] == tag['termini']:
+                all_matching_tags.append(tag['sequence'])
+
+    # TODO align multiple and choose the consensus
+    # all_alignments = []
+    # max_tag_idx, max_len = None, []  # 0
+    # for idx, (tag1, tag2) in enumerate(combinations(all_matching_tags, 2)):
+    #     alignment = SequenceProfile.generate_alignment(tag1, tag2)
+    #     all_alignments.append(alignment)
+    #     # if max_len < alignment[0][4]:  # the length of alignment
+    #     max_len.append(alignment[0][4])
+    #     # have to find the alignment with the max length, then find which one of the sequences has the max length for
+    #     # multiple alignments, then need to select all alignments to this sequence to generate the MSA
+    #
+    # total_alignment = SequenceProfile.create_bio_msa({idx: tag for idx, tag in enumerate(all_matching_tags)})
+    # tag_msa = SequenceProfile.process_alignment(total_alignment)
+    final_tag_sequence['seq'] = all_matching_tags[0]  # for now grab the first
 
     return final_tag_sequence
 
@@ -215,23 +262,41 @@ def find_expression_tags(sequence, alignment_length=12):
         # tag_file=PathUtils.affinity_tags (list): List of tuples where tuple[0] is the name and tuple[1] is the string
         alignment_length=12 (int): length to perform the clipping of the native sequence in addition to found tag
     Returns:
-        (list[dict]): [{'name': tag_name, 'termini': 'n', 'seq': 'MSGHHHHHHGKLKPNDLRI'}, ...], [] if none are found
+        (list[dict]): [{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], [] if none are found
     """
     matching_tags = []
-    for tag in expression_tags:
-        tag_index = sequence.find(expression_tags[tag])
+    for tag, tag_sequence in expression_tags.items():
+        tag_index = sequence.find(tag_sequence)
         if tag_index == -1:  # no match was found
             continue
         # save the tag name, the termini of the sequence it is closest to, and the source sequence context
-        found_tag = {'name': tag}
-        # matching_tags[count]['name'] = tag_name
-        alignment_index = len(expression_tags[tag]) + alignment_length
+        tag_length = len(tag_sequence)
+        alignment_index = tag_length + alignment_length
         if tag_index == 0 or tag_index < len(sequence)/2:
-            found_tag['termini'] = 'n'
-            found_tag['seq'] = sequence[tag_index:tag_index + alignment_index]
+            termini = 'n'
+            matching_sequence = sequence[tag_index:tag_index + alignment_index]
         else:
-            found_tag['termini'] = 'c'
-            found_tag['seq'] = sequence[tag_index - alignment_index:tag_index + len(expression_tags[tag])]
-        matching_tags.append(found_tag)
+            termini = 'c'
+            matching_sequence = sequence[tag_index - alignment_index:tag_index + tag_length]
+        matching_tags.append({'name': tag, 'termini': termini, 'sequence': matching_sequence})
 
     return matching_tags
+
+
+def remove_expression_tags(sequence, tags):
+    """Find all expression_tags on an input sequence from a reference set of expression_tags. Returns the matching tag
+    sequence with additional protein sequence context equal to the passed alignment_length
+
+    Args:
+        sequence (str): 'MSGHHHHHHGKLKPNDLRI...'
+        tags (list): A list with the sequences of found tags
+    Returns:
+        (str): The modified sequence without the tag
+    """
+    for tag in tags:
+        tag_index = sequence.find(tag)
+        if tag_index == -1:  # no match was found
+            continue
+        sequence = sequence[:tag_index] + sequence[:tag_index + len(tag)]
+
+    return sequence
