@@ -1124,47 +1124,51 @@ class PDB(Structure):
                 except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
                     continue
 
-    def insert_residue(self, chain_id, residue_number, residue_type):  # Todo make Structure compatible
-        """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
-        indexed"""
-        # Convert 3 letter aa to uppercase, 1 letter aa
-        if residue_type.title() in IUPACData.protein_letters_3to1_extended:
-            residue_type_1 = IUPACData.protein_letters_3to1_extended[residue_type.title()]
-        else:
-            residue_type_1 = residue_type.upper()
-        residue_index = IUPACData.protein_letters.find(residue_type_1) + 1  # offset
-        # Find atom insertion index, should be last atom in preceding residue
-        if residue_number == 1:
-            insert_atom_idx = 0
-        else:
-            try:
-                residue_atoms = self.chain(chain_id).residue(residue_number).atoms
-                # residue_atoms = self.get_residue_atoms(chain_id, residue_number)
-                # if residue_atoms:
-                insert_atom_idx = residue_atoms[0].number - 1  # subtract 1 from first atom number to get insertion idx
-            # else:  # Atom index is not an insert operation as the location is at the C-term of the chain
-            except AttributeError:  # Atom index is not an insert operation as the index is at the C-term
-                # prior_index = self.getResidueAtoms(chain, residue)[0].number - 1
-                prior_chain_length = self.chain(chain_id).residues[0].atoms[0].number - 1
-                # chain_atoms = self.chain(chain_id).atoms
-                # chain_atoms = self.get_chain_atoms(chain_id)
+    def insert_residue_type(self, residue_type, at=None, chain=None):
+        """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
+        No structural alignment is performed!
 
-                # use length of all prior chains + length of all_chain_atoms
-                insert_atom_idx = prior_chain_length + self.chain(chain_id).number_of_atoms  # ()
-                # insert_atom_idx = len(chain_atoms) + chain_atoms[0].number - 1
-
-            # insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number
-
-        # Change all downstream residues
-        for atom in self.atoms[insert_atom_idx:]:
-            # atom.number += len(insert_atoms)
-            # if atom.chain == chain: TODO uncomment for pdb numbering
-            atom.residue_number += 1
-
-        # Grab the reference atom coordinates and push into the atom list
-        if not self.reference_aa:
-            self.reference_aa = PDB.from_file(reference_aa_file, log=None, entities=False)
-        insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms())
+        Args:
+            residue_type (str): Either the 1 or 3 letter amino acid code for the residue in question
+        Keyword Args:
+            at=None (int): The pose numbered location which a new Residue should be inserted into the Structure
+            chain=None (str): The chain identifier to associate the new Residue with
+        """
+        new_residue = super().insert_residue_type(residue_type, at=at, chain=chain)
+        # If other structures, must update their atom_indices!
+        residue_index = at - 1  # since at is one-indexed integer
+        for structures in [self.chains, self.entities]:
+            for idx, structure in enumerate(structures):
+                try:  # update each Structures residue_ and atom_indices with additional indices
+                    res_insert_idx = structure.residue_indices.index(residue_index)
+                    structure.insert_indices(at=res_insert_idx, new_indices=[residue_index], dtype='residue')
+                    atom_insert_idx = structure.atom_indices.index(new_residue.start_index)
+                    structure.insert_indices(at=atom_insert_idx, new_indices=new_residue.atom_indices, dtype='atom')
+                    break  # must move to the next container to update the indices by a set increment
+                    # structure.residue_indices = structure.residue_indices.insert(res_insertion_idx, residue_index)
+                    # for idx in reversed(new_residue.atom_indices):
+                    #     structure.atom_indices = structure.atom_indices.insert(new_residue.start_index, idx)
+                    # below are not necessary
+                    # structure.coords_indexed_residues = \
+                    #     [(res_idx, res_atom_idx) for res_idx, residue in enumerate(structure.residues)
+                    #      for res_atom_idx in residue.range]
+                except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
+                    # try:  # edge case where the index is being appended to the c-terminus
+                    if residue_index - 1 == structure.residue_indices[-1] and new_residue.chain == structure.chain_id:
+                        res_insert_idx, atom_insert_idx = len(structure.residue_indices), len(structure.atom_indices)
+                        # res_insertion_idx = structure.residue_indices.index(residue_index - 1)
+                        structure.insert_indices(at=res_insert_idx, new_indices=[residue_index], dtype='residue')
+                        # atom_insertion_idx = structure.atom_indices.index(new_residue.start_index - 1)
+                        structure.insert_indices(at=atom_insert_idx, new_indices=new_residue.atom_indices, dtype='atom')
+                        break  # must move to the next container to update the indices by a set increment
+                    # except (ValueError, IndexError):
+                    # else:
+                    #     continue
+            # for each subsequent structure in the structure container, update the indices with the last indices from
+            # the prior structure
+            for prior_idx, structure in enumerate(structures[idx + 1:], idx):
+                structure.start_indices(dtype='residue', at=structures[prior_idx].residue_indices[-1] + 1)
+                structure.start_indices(dtype='atom', at=structures[prior_idx].atom_indices[-1] + 1)
 
     # def insert_residue(self, chain_id, number, residue_type):
     #     """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly

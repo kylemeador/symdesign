@@ -166,8 +166,19 @@ class Structure(StructureBase):
             raise AttributeError('The dtype %s_indices was not found the Structure object. Possible values of dtype are'
                                  ' atom or residue' % dtype)
         first_index = indices[0]
-        setattr(self, '%s_indices' % dtype, [at + idx - first_index for idx in indices])
-        # setattr(self, '%s_indices' % dtype, [idx + integer for idx in indices])  # modify my integer
+        setattr(self, '%s_indices' % dtype, [at + prior_idx - first_index for prior_idx in indices])
+
+    def insert_indices(self, at=0, new_indices=None, dtype=None):
+        """Modify Structure container indices by a set integer amount"""
+        if new_indices is None:
+            new_indices = []
+        try:
+            indices = getattr(self, '%s_indices' % dtype)
+        except AttributeError:
+            raise AttributeError('The dtype %s_indices was not found the Structure object. Possible values of dtype are'
+                                 ' atom or residue' % dtype)
+        number_new = len(new_indices)
+        setattr(self, '%s_indices' % dtype, indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
     @property
     def atoms(self):
@@ -759,6 +770,78 @@ class Structure(StructureBase):
         self.reindex_atoms(start_at=atom_delete_index, offset=len(delete_indices))
 
         return delete_indices
+
+    def insert_residue_type(self, residue_type, at=None, chain=None):
+        """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
+        No structural alignment is performed!
+
+        Args:
+            residue_type (str): Either the 1 or 3 letter amino acid code for the residue in question
+        Keyword Args:
+            at=None (int): The pose numbered location which a new Residue should be inserted into the Structure
+            chain=None (str): The chain identifier to associate the new Residue with
+        """
+        if not self.is_structure_owner:
+            raise DesignError('This Structure \'%s\' is not the owner of it\'s attributes and therefore cannot handle '
+                              'residue insertion!' % self.name)
+        # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
+        reference_index = IUPACData.protein_letters.find(
+            IUPACData.protein_letters_3to1_extended.get(residue_type.title(), residue_type.upper()))
+        # Grab the reference atom coordinates and push into the atom list
+        new_residue = copy(reference_aa.residue(reference_index))
+        # new_residue = copy(Structure.reference_aa.residue(reference_index))
+        new_residue.number = at
+        residue_index = at - 1  # since at is one-indexed integer
+        # insert the new_residue atoms and coords into the Structure Atoms
+        # new_atoms = new_residue.atoms
+        # new_coords = new_residue.coords
+        self._atoms.insert(new_residue.atoms, at=new_residue.start_index)
+        self._coords.insert(new_residue.coords, at=new_residue.start_index)
+        # insert the new_residue into the Structure Residues
+        self._residues.insert(new_residue, at=residue_index)  # take from pose numbering to zero-indexed
+        self._residues.reindex_residue_atoms(start_at=residue_index)
+        # self._atoms.insert(new_atoms, at=self._residues)
+        new_residue._atoms = self._atoms
+        new_residue.coords = self._coords
+        # set this Structures new residue_indices. Must be the owner of all residues for this to work
+        # self._residue_indices.insert(residue_index, residue_index)
+        self.insert_indices(at=residue_index, new_indices=[residue_index], dtype='residue')
+        # self.residue_indices = self.residue_indices.insert(residue_index, residue_index)
+        # set this Structures new atom_indices. Must be the owner of all residues for this to work
+        # for idx in reversed(range(new_residue.number_of_atoms)):
+        #     self._atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
+        self.insert_indices(at=new_residue.start_index, new_indices=new_residue.atom_indices, dtype='atom')
+        # self.atom_indices = self.atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
+        self.renumber_structure()
+
+        # n_termini, c_termini = False, False
+        prior_residue = self.residues[residue_index - 1]
+        try:
+            next_residue = self.residues[residue_index + 1]
+        except IndexError:  # c_termini = True
+            next_residue = None
+        # if n_termini and not c_termini:
+        # set the residues new chain_id, must occur after self.residue_indices update if chain isn't provided
+        if chain:
+            new_residue.chain = chain
+        elif not next_residue:
+            new_residue.chain = prior_residue.chain
+        elif prior_residue.number > new_residue.number:  # we have a negative index, n_termini = True
+            new_residue.chain = next_residue.chain
+        elif prior_residue.chain == next_residue.chain:
+            new_residue.chain = prior_residue.chain
+        else:
+            raise DesignError('Can\'t solve for the new Residue polymer association automatically! If the new '
+                              'Residue is at a Structure termini in a multi-Structure Structure container, you must'
+                              ' specify which Structure it belongs to by passing chain=')
+        new_residue.number_pdb = prior_residue.number_pdb + 1
+        # re-index the coords and residues map
+        if self.secondary_structure:
+            self.secondary_structure.insert('C', residue_index)  # ASSUME the insertion is disordered and coiled segment
+        self.coords_indexed_residues = [(res_idx, res_atom_idx) for res_idx, residue in enumerate(self.residues)
+                                        for res_atom_idx in residue.range]
+
+        return new_residue
 
     def get_structure_sequence(self):
         """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
@@ -1877,27 +1960,30 @@ class Residues:
     def __init__(self, residues):
         self.residues = np.array(residues)
 
-    def reindex_residues(self, start_at=0, offset=None):
+    def reindex_residue_atoms(self, start_at=0):  # , offset=None):
         """Set each member Residue indices according to incremental Atoms/Coords index"""
-        if start_at:
-            if start_at < self.residues.shape[0]:  # not 0 and in the Residues index range
-                if offset:
-                    prior_residue = self.residues[start_at - 1]
-                    # prior_residue.start_index = start_at
-                    for residue in self.residues[start_at:].tolist():
-                        residue.start_index = prior_residue._atom_indices[-1] + 1
-                        prior_residue = residue
-                else:
-                    raise DesignError('Must include an offset when re-indexing Residues from a start_at position!')
+        if start_at > 0:  # if not 0 or negative
+            if start_at < self.residues.shape[0]:  # if in the Residues index range
+                prior_residue = self.residues[start_at - 1]
+                # prior_residue.start_index = start_at
+                for residue in self.residues[start_at:].tolist():
+                    residue.start_index = prior_residue._atom_indices[-1] + 1
+                    prior_residue = residue
             else:
-                raise DesignError('%s - Starting index is outside of the allowable indices in the Residues object!'
-                                  % self.reindex_residues.__name__)
-        else:  # start_at is 0
+                # self.residues[-1].start_index = self.residues[-2]._atom_indices[-1] + 1
+                raise DesignError('%s: Starting index is outside of the allowable indices in the Residues object!'
+                                  % Residues.reindex_residue_atoms.__name__)
+        else:  # when start_at is 0 or less
             prior_residue = self.residues[start_at]
             prior_residue.start_index = start_at
             for residue in self.residues[start_at + 1:].tolist():
                 residue.start_index = prior_residue._atom_indices[-1] + 1
                 prior_residue = residue
+
+    def insert(self, new_residues, at=None):
+        self.residues = np.concatenate((self.residues[:at] if 0 <= at <= len(self.residues) else self.residues,
+                                        new_residues if isinstance(new_residues, Iterable) else [new_residues],
+                                        self.residues[at:] if at is not None else []))
 
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
@@ -2555,6 +2641,11 @@ class Atoms:
     def delete(self, indices):
         self.atoms = np.delete(self.atoms, indices)
 
+    def insert(self, new_atoms, at=None):
+        self.atoms = np.concatenate((self.atoms[:at] if 0 <= at <= len(self.atoms) else self.atoms,
+                                     new_atoms if isinstance(new_atoms, Iterable) else [new_atoms],
+                                     self.atoms[at:] if at is not None else []))
+
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
         # other.__dict__ = self.__dict__.copy()
@@ -2762,6 +2853,12 @@ class Coords:
 
     def delete(self, indices):
         self._coords = np.delete(self._coords, indices, axis=0)
+
+    def insert(self, new_coords, at=None):
+        self._coords = \
+            np.concatenate((self._coords[:at] if 0 <= at <= len(self._coords) else self._coords, new_coords,
+                            self._coords[at:])
+                           if at else (self._coords[:at] if 0 <= at <= len(self._coords) else self._coords, new_coords))
 
     def __len__(self):
         return self._coords.shape[0]
