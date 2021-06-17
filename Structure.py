@@ -11,9 +11,9 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
 from Bio.SeqUtils import IUPACData
 
-from PathUtils import free_sasa_exe_path, stride_exe_path, make_symmdef, scout_symmdef
-from SymDesignUtils import start_log, null_log, DesignError
-from Query.PDB import get_sequence_by_entity_id, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
+from PathUtils import free_sasa_exe_path, stride_exe_path, make_symmdef, scout_symmdef, reference_residues_pkl
+from SymDesignUtils import start_log, null_log, DesignError, unpickle
+from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
 from classes.SymEntry import identity_matrix, get_rot_matrices, RotRangeDict, flip_x_matrix, get_degen_rotmatrices
 from utils.GeneralUtils import transform_coordinate_sets
@@ -98,8 +98,8 @@ class Structure(StructureBase):
         return cls(atoms=atoms, coords=coords, **kwargs)
 
     @classmethod
-    def from_residues(cls, residues=None, coords=None, **kwargs):
-        return cls(residues=residues, coords=coords, **kwargs)
+    def from_residues(cls, residues=None, residue_indices=None, coords=None, **kwargs):
+        return cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
 
     @property  # Todo these do nothing and could be removed
     def name(self):
@@ -159,12 +159,12 @@ class Structure(StructureBase):
         self._atom_indices = indices
 
     def start_indices(self, dtype=None, at=0):
-        """Modify the Structure container indices by a set integer amount"""
+        """Modify Structure container indices by a set integer amount"""
         try:
             indices = getattr(self, '%s_indices' % dtype)
         except AttributeError:
-            raise AttributeError('The type %s_indices was not found the Structure object. Possible values of dtype are '
-                                 'atom or residue' % dtype)
+            raise AttributeError('The dtype %s_indices was not found the Structure object. Possible values of dtype are'
+                                 ' atom or residue' % dtype)
         first_index = indices[0]
         setattr(self, '%s_indices' % dtype, [at + idx - first_index for idx in indices])
         # setattr(self, '%s_indices' % dtype, [idx + integer for idx in indices])  # modify my integer
