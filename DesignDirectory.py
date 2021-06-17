@@ -389,6 +389,40 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return metrics
 
+    def return_termini_accessibility(self, entity=None, report_if_helix=False):
+        """Return the termini which are not buried in the Pose
+
+        Keyword Args:
+            entity=None (Structure): The Structure to query which originates in the pose
+            report_if_helix=False (bool): Whether the query should additionally report on the helicity of the termini
+        Returns:
+            (dict): {'n': True, 'c': False}
+        """
+        # self.pose.get_assembly_symmetry_mates()
+        if not self.pose.assembly.sasa:
+            self.pose.assembly.get_sasa()
+
+        # debug Todo remove
+        self.pose.assembly.write(out_path=os.path.join(self.path, 'POSE_ASSEMBLY.pdb'))
+        entity_chain = self.pose.assembly.chain(entity.chain_id)
+        n_term, c_term = False, False
+        # Todo add reference when in a crystalline environment  # reference=pose_transformation[idx].get('translation2')
+        n_termini_orientation = entity.terminal_residue_orientation_from_reference()
+        if n_termini_orientation == 1:  # if outward
+            if entity_chain.n_terminal_residue.relative_sasa > 0.25:
+                n_term = True
+        # Todo add reference when in a crystalline environment
+        c_termini_orientation = entity.terminal_residue_orientation_from_reference(termini='c')
+        if c_termini_orientation == 1:  # if outward
+            if entity_chain.c_terminal_residue.relative_sasa > 0.25:
+                c_term = True
+
+        if report_if_helix:
+            n_term = True if n_term and entity.is_termini_helical() else False
+            c_term = True if c_term and entity.is_termini_helical(termini='c') else False
+
+        return {'n': n_term, 'c': c_term}
+
     @property
     def pose_transformation(self):
         """Provide the transformation parameters for the design in question
