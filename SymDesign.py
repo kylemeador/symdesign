@@ -1997,36 +1997,32 @@ if __name__ == '__main__':
             # Check for expression tag addition to the designed sequences
             for idx, (entity, pretag_sequence) in enumerate(zip(des_dir.pose.entities, pretag_sequences.values())):
                 # pdb_code = entity.name[:4]
+                sequence_id = '%s_%s' % (des_dir, entity.name)
                 design_string = '%s_design_%s_%s' % (des_dir, design, entity.name)  # [i])), pdb_code)
+                uniprot_id = entity.uniprot_id
+                termini_availability = des_dir.return_termini_accessibility(entity)
+                logger.debug('Design %s has the following termini accessible for tags: %s'
+                             % (sequence_id, termini_availability))
+                if args.avoid_tagging_helices:
+                    termini_helix_availability = des_dir.return_termini_accessibility(entity, report_if_helix=True)
+                    logger.debug('Design %s has the following helical termini available: %s'
+                                 % (sequence_id, termini_helix_availability))
+                    termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
+                                            'c': termini_availability['c'] and not termini_helix_availability['c']}
+                logger.debug('The termini %s are available for tagging' % termini_availability)
                 available_tags = find_expression_tags(pretag_sequence)
                 if available_tags:  # use existing tag
                     # remove_expression_tags(pretag_sequence, [tag['sequence'] for tag in available_tags])
                     design_sequence = pretag_sequence
                 else:  # find compatible tags from matching PDB observations
-                    sequence_id = '%s_%s' % (des_dir, entity.name)
-                    uniprot_id = entity.uniprot_id
-                    termini_availability = des_dir.return_termini_accessibility(entity)
-                    logger.debug('Design %s has the following termini accessible for tags: %s'
-                                 % (sequence_id, termini_availability))
-                    if args.avoid_tagging_helices:
-                        termini_helix_availability = des_dir.return_termini_accessibility(entity, report_if_helix=True)
-                        logger.debug('Design %s has the following helical termini available: %s'
-                                     % (sequence_id, termini_helix_availability))
-                        termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
-                                                'c': termini_availability['c'] and not termini_helix_availability['c']}
-                    logger.debug('The termini %s are available for tagging' % termini_availability)
-                    matching_tags_by_unp_id = tag_sequences.get(uniprot_id, None)
                     # if uniprot_id in tag_sequences.get(uniprot_id, None)
+                    matching_tags_by_unp_id = tag_sequences.get(uniprot_id, None)
                     if not matching_tags_by_unp_id:
-                        matching_uniprot_id_tags = find_matching_expression_tags(uniprot_id=uniprot_id)
-                        tag_sequences[uniprot_id] = matching_uniprot_id_tags
+                        matching_tags_by_unp_id = find_matching_expression_tags(uniprot_id=uniprot_id)
+                        tag_sequences[uniprot_id] = matching_tags_by_unp_id
                     selected_tag = select_tags_for_sequence(sequence_id, matching_tags_by_unp_id, **termini_availability)
-                    # tag_sequences[pdb_code] = \
-                    #     find_all_matching_pdb_expression_tags(pdb=pdb_code,
-                    #                                           chain=entity_chain_database_chain_mapping[entity.chain_id])
-                    # seq = add_expression_tag(tag_with_some_overlap, ORF adjusted design mutation sequence)
+                    # Todo remove from this inner else to use the response from both if and else
                     design_sequence = add_expression_tag(selected_tag['sequence'], pretag_sequence)
-
 
                 # tag_sequences = {pdb: find_all_matching_pdb_expression_tags(pdb,
                 #                                                             entity_chain_database_chain_mapping[chain])
@@ -2041,8 +2037,8 @@ if __name__ == '__main__':
                 if design_sequence[0] != 'M':
                     design_sequence = 'M%s' % design_sequence
                 if 'X' in design_sequence:
-                    logger.warning('An unrecognized amino acid was specified in the sequence %s. '
-                                   'This will require manual intervention!' % sequence_id)
+                    logger.critical('An unrecognized amino acid was specified in the sequence %s. '
+                                    'This will require manual intervention!' % sequence_id)
 
                 # For a final manual check of sequence generation, find sequence additions compared to the design model
                 # and save to view where additions lie on sequence. Cross these additions with design structure to check
@@ -2054,26 +2050,10 @@ if __name__ == '__main__':
                                                                 design_sequence)
                 final_sequences[design_string] = design_sequence
 
-            # full_insertions = {pdb: Ams.generate_mutations_from_seq(design_sequences[chains[j]],
-            #                                                         final_sequences['%s_design_%s_%s' %
-            #                                             (des_dir, design[i], pdb)], offset=True, blanks=True)
-            #                    for j, pdb in enumerate(tag_sequences)}
-            # for pdb in full_insertions:
-            #     inserted_sequences['%s_design_%s_%s' % (des_dir, design[i], pdb)] = '%s\n%s' % \
-            #         (''.join([full_insertions[pdb][idx]['to'] for idx in full_insertions[pdb]]),
-            #          final_sequences['%s_design_%s_%s' % (des_dir, design[i], pdb)])
-
-            # final_sequences[design] = {pdb: add_expression_tag(tag_sequences[pdb]['seq'],
-            #                                                    design_sequences[chains[j]])
-            #                            for j, pdb in enumerate(tag_sequences)}
-
         # Write output sequences to fasta file
-        # additions_sequence = os.path.join(outdir, '%sSelectedSequencesExpressionAdditions.fasta'
-        #                                   % args.selection_string)
         seq_comparison_file = SDUtils.write_fasta_file(inserted_sequences, '%sSelectedSequencesExpressionAdditions'
                                                        % args.selection_string, out_path=outdir)
         logger.info('Design insertions for expression comparison written to %s' % seq_comparison_file)
-        # final_sequence = os.path.join(outdir, '%sSelectedSequences.fasta' % args.selection_string)
         seq_file = SDUtils.write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
                                             out_path=outdir)
         logger.info('Final Design sequences written to %s' % seq_file)
