@@ -216,6 +216,19 @@ class SymmetricModel(Model):
             return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms),
                              np.split(self.model_coords, self.number_of_models))
 
+    @property
+    def assembly(self):
+        """Provides the PDB object containing all symmetric chains in the assembly"""
+        try:
+            return self._assembly
+        except AttributeError:
+            if not self.models:
+                self.get_assembly_symmetry_mates()
+            # self._assembly = PDB.from_chains(list(iter_chain.from_iterable(self.models)), name='assembly', log=self.log)
+            self._assembly = PDB.from_chains(list(iter_chain.from_iterable(model.chains for model in self.models)),
+                                             name='assembly', log=self.log)
+            return self._assembly
+
     def set_symmetry(self, sym_entry=None, expand_matrices=None, symmetry=None, cryst1=None, uc_dimensions=None,
                      generate_assembly=True, generate_symmetry_mates=False, **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
