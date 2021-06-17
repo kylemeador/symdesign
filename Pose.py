@@ -2147,7 +2147,8 @@ def fetch_pdb_file(pdb_code, location=PUtils.pdb_db, out_dir=os.getcwd(), asu=Tr
     Returns:
         (str): path/to/your_pdb.pdb if located/downloaded successfully (alphabetical characters in lowercase)
     """
-    if location == PUtils.pdb_db and asu:
+    # if location == PUtils.pdb_db and asu:
+    if os.path.exists(location) and asu:
         get_pdb = (lambda pdb_code, out_dir=None, asu=None:
                    glob(os.path.join(out_dir, 'pdb%s.ent' % pdb_code.split('_')[0].lower())))
         #                                      remove any biological assembly data and make lowercase
