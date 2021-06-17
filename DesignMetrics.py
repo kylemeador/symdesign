@@ -1,6 +1,9 @@
+import os
 import math
 import operator
+import time
 from copy import copy, deepcopy
+from itertools import repeat
 from json import loads
 
 import numpy as np
@@ -9,7 +12,7 @@ import pandas as pd
 from Structure import gxg_sasa
 from SymDesignUtils import start_log, DesignError, index_intersection, handle_errors, \
     pretty_format_table, digit_translate_table
-from Query.PDB import header_string, input_string, confirmation_string, bool_d, invalid_string
+from Query.PDB import header_string, input_string, verify_choice
 
 # Globals
 logger = start_log(name=__name__)
@@ -1496,7 +1499,6 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
     Returns:
         (dict)
     """
-    # if mode == 'filter':
     filter_df = pd.DataFrame(master_metrics)
     direction = {'max': 'higher', 'min': 'lower'}
     instructions = {'filter': '\nFor each metric, choose values based on supported literature or design goals to '
@@ -1519,43 +1521,65 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
     print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
           'To \'%s\' designs, which metrics would you like to utilize?' % (level, mode))
 
-    metric_values, chosen_metrics = {}, []
-    end = False
-    metrics_input = 'start'
     print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
           'comma separated input or alternatively, you can check out the available metrics by entering \'metrics\'.'
           '\nEx: \'shape_complementarity, contact_count, etc.\'')
-    while not end:
-        if metrics_input.lower() == 'metrics':
-            print('Available Metrics\n%s\n' % ', '.join(available_metrics))
-        metrics_input = input('%s' % input_string)
-        chosen_metrics = set(map(str.strip, map(str.lower, metrics_input.split(','))))
-        unsupported_metrics = chosen_metrics - set(available_metrics)
-        if metrics_input == 'metrics':
-            pass
+    metrics_input = input('%s' % input_string)
+    chosen_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
+                                             repeat(' '), repeat('_'))))
+    while True:  # unsupported_metrics or 'metrics' in chosen_metrics:
+        # while not end:
+        #     chosen_metrics = map(str.lower, map(str.replace, map(str.strip, metrics_input.split(',')), ' ', '_'))
+        #     if 'metrics' in chosen_metrics:
+        #         print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
+        #         continue
+        # unsupported_metrics = True , end = False  # metrics_input = 'start'
+        unsupported_metrics = set(chosen_metrics).difference(available_metrics)
+        if 'metrics' in chosen_metrics:
+            print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
+            metrics_input = input('%s' % input_string)
         elif unsupported_metrics:
-            print('\'%s\' not found in the DataFrame! Is your spelling correct? Have you used the correct '
-                  'underscores? Please try again.' % ', '.join(unsupported_metrics))
+            # TODO catch value error in dict comprehension upon string input
+            metrics_input = input('Metric%s \'%s\' not found in the DataFrame! Is your spelling correct? Have you used'
+                                  ' the correct underscores? Please input these metrics again. Specify \'metrics\' to '
+                                  'view available metrics%s'
+                                  % ('s' if len(unsupported_metrics) > 1 else '', ', '.join(unsupported_metrics),
+                                     input_string))
+        elif len(chosen_metrics) > 0:
+            break
         else:
-            end = True
-    correct = False
-    print(instructions[mode])
-    while not correct:
-        for metric in chosen_metrics:
-            metric_values[metric] = float(input('For \'%s\' what value of should be used for %s %sing?%s%s'
-                                                % (metric, level, mode,
-                                                   ' Designs with metrics %s than this value will be included'
-                                                   % direction[filter_df.loc['direction', metric]].upper()
-                                                   if mode == 'filter' else '', input_string)))
-
-        print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
-        while True:
-            confirm = input(confirmation_string)
-            if confirm.lower() in bool_d:
+            print('No metrics were provided... If this is what you want, you can run this module without '
+                  'the %s flag' % '-f/--filter' if mode == 'filter' else '-w/--weight')
+            if verify_choice():
                 break
-            else:
-                print('%s %s is not a valid choice!' % (invalid_string, confirm))
-        if bool_d[confirm]:
-            correct = True
+        fixed_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
+                                                repeat(' '), repeat('_'))))
+        chosen_metrics = set(chosen_metrics).difference(unsupported_metrics).union(fixed_metrics)
+        # unsupported_metrics = set(chosen_metrics).difference(available_metrics)
+
+    print(instructions[mode])
+    while True:  # not correct:  # correct = False
+        metric_values = {metric: float(input('For \'%s\' what value should be used for %s %sing?%s%s'
+                                             % (metric, level, mode,
+                                                ' Designs with metrics %s than this value will be included'
+                                                % direction[filter_df.loc['direction', metric]].upper()
+                                                if mode == 'filter' else '', input_string)))
+                         for metric in chosen_metrics}
+        if metric_values:
+            print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
+        else:
+            # print('No metrics were provided, skipping value input')
+            metric_values = None
+            break
+        if verify_choice():
+            break
+        # while True:
+        #     confirm = input(confirmation_string)
+        #     if confirm.lower() in bool_d:
+        #         break
+        #     else:
+        #         print('%s %s is not a valid choice!' % (invalid_string, confirm))
+        # if bool_d[confirm]:
+        #     correct = True
 
     return metric_values
