@@ -130,14 +130,23 @@ class Structure(StructureBase):
                                                     % (self.name, len(self.atoms), len(self.coords))
 
     def set_coords(self, coords):
-        """Set the coordinates for the Structure as a Coord object. Updates all Residues with the Coords object and
-        maps Coords index to the Residue, atom_index pair"""
+        """Set the coordinates for the Structure as a Coord object. Additionally, updates all member Residues with the
+        Coords object and maps the atom/coordinate index to each Residue, residue atom index pair.
+
+        Only use set_coords once per Structure object creation otherwise Structures with multiple containers will be
+        corrupted"""
         self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
         # self.store_coordinate_index_residue_map()
         self.coords_indexed_residues = [(res_idx, res_atom_idx) for res_idx, residue in enumerate(self.residues)
                                         for res_atom_idx in residue.range]
+
+    @property
+    def is_structure_owner(self):
+        """Check to see if the Structure is the owner of it's Coord and Atom attributes or if there is a larger
+        Structure that maintains them"""
+        return True if self._coords_residue_index is not None else False
 
     @property
     def atom_indices(self):  # In Residue too
@@ -219,8 +228,13 @@ class Structure(StructureBase):
         Returns:
             (list[tuple[Residue, int]]): Indexed by the by the Residue position in the corresponding .coords attribute
         """
-        return [(self._residues.residues[res_idx], res_atom_idx)
-                for res_idx, res_atom_idx in self._coords_residue_index[self.atom_indices].tolist()]
+        try:
+            return [(self._residues.residues[res_idx], res_atom_idx)
+                    for res_idx, res_atom_idx in self._coords_residue_index[self.atom_indices].tolist()]
+        except AttributeError:
+            raise AttributeError('The current Structure object \'%s\' doesn\'t "own" it\'s coordinates. The attribute '
+                                 '.coords_indexed_residues can only be accessed by the Structure object that owns these'
+                                 ' coordinates and therefore owns this Structure' % self.name)  # Todo self.owner
 
     @coords_indexed_residues.setter
     def coords_indexed_residues(self, index_pairs):
@@ -316,7 +330,7 @@ class Structure(StructureBase):
         # Todo need to add the atoms to coords
 
     def update_attributes(self, **kwargs):
-        """Update attributes specified by keyword args for all member containers"""
+        """Update attributes specified by keyword args for all Structure container members"""
         for structure_type in self.structure_containers:
             structure = getattr(self, structure_type)
             # print('Updating %s attributes %s' % (structure, kwargs))
@@ -380,7 +394,8 @@ class Structure(StructureBase):
             (list[Residue])
         """
         if indices:
-            return [residue for residue, atom_index in self._coords_indexed_residues[indices].tolist()]
+            residues = set(residue for residue, atom_index in self._coords_residue_index[indices].tolist())
+            return sorted(residues, key=lambda residue: residue.number)
         else:
             return self.residues
         # residue_numbers = set(atom.residue_number for atom in atoms)
@@ -696,8 +711,8 @@ class Structure(StructureBase):
             (list[int]): The indices of the Atoms being removed from the Structure
         """
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
-        if to.upper() in IUPACData.protein_letters_1to3:
-            to = IUPACData.protein_letters_1to3[to.upper()]
+        # if to.upper() in IUPACData.protein_letters_1to3:
+        to = IUPACData.protein_letters_1to3.get(to.upper(), to).upper()
 
         if not residue:
             if not number:
@@ -708,7 +723,7 @@ class Structure(StructureBase):
         # for atom in residue.backbone_atoms:
         # residue.type = to.upper()
         for atom in residue.atoms:
-            atom.residue_type = to.upper()
+            atom.residue_type = to
 
         # Find the corresponding Residue Atom indices to delete (side-chain only)
         delete_indices = residue.sidechain_indices
@@ -721,7 +736,7 @@ class Structure(StructureBase):
             residue._atom_indices.pop(residue_delete_index)
         # must re-index all succeeding residues
         # This applies to all Residue objects, not only Structure Residue objects because modifying Residues object
-        self._residues.reindex_residues()  # Todo start_at=residue.index)
+        self._residues.reindex_residue_atoms()  # Todo start_at=residue.index)
         # self.log.debug('Deleting indices from Atoms: %s' % delete_indices)
         # self.log.debug('Range of indices in Atoms: %s' % self._atoms.atoms.shape[0])
         # self.log.debug('Last Residue atom_indices: %s' % self._residues.residues[-1].atom_indices)
@@ -751,9 +766,7 @@ class Structure(StructureBase):
         Returns:
             (str): The amino acid sequence of the Structure Residues
         """
-        sequence_list = [residue.type for residue in self.residues]
-        return ''.join([IUPACData.protein_letters_3to1_extended[k.title()]
-                        if k.title() in IUPACData.protein_letters_3to1_extended else '-' for k in sequence_list])
+        return ''.join([IUPACData.protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
 
     def translate(self, tx):
         new_coords = self.coords + tx
@@ -1271,7 +1284,7 @@ class Structure(StructureBase):
                 structure[idx] = copy(instance)
 
     def __key(self):
-        return (self.name, *self._residue_indices)
+        return self.name, (*self._residue_indices)
         # return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
 
     def __copy__(self):
@@ -1919,18 +1932,18 @@ class Residue:
         return list(range(self.number_of_atoms))
 
     @property
-    def atom_indices(self):  # in structure too
+    def atom_indices(self):
         """Returns: (list[int])"""
         return self._atom_indices
 
     @atom_indices.setter
-    def atom_indices(self, indices):  # in structure too
+    def atom_indices(self, indices):
         """Set the Structure atom indices to a list of integers"""
         self._atom_indices = indices
         try:
             self._start_index = indices[0]
         except (TypeError, IndexError):
-            raise IndexError('The Residue wasn\'t passed any atom_indices which are required for creation!')
+            raise IndexError('The Residue wasn\'t passed any atom_indices which are required for initialization')
 
     @property
     def atoms(self):
@@ -1941,14 +1954,8 @@ class Residue:
         if isinstance(atoms, Atoms):
             self._atoms = atoms
         else:
-            raise AttributeError('The passed atoms are not of the class Atoms! Pass the member variable _atoms instead')
-        # self._n = None
-        # self._h = None
-        # self._ca = None
-        # self._cb = None
-        # self._c = None
-        # self._o = None
-
+            raise AttributeError('The supplied atoms are not of the class Atoms! Pass an Atoms object not a Atoms view.'
+                                 ' To pass the Atoms object for a Structure, use the private attribute ._atoms')
         side_chain = []
         for idx, atom in enumerate(self.atoms):
             if atom.type == 'N':
@@ -2044,8 +2051,8 @@ class Residue:
         if isinstance(coords, Coords):
             self._coords = coords
         else:
-            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
+            raise AttributeError('The supplied coordinates are not of class Coords! Pass a Coords object not a Coords '
+                                 'view. To pass the Coords object for a Structure, use the private attribute ._coords')
 
     @property
     def backbone_atoms(self):
@@ -2199,7 +2206,7 @@ class Residue:
         self._o = index
 
     @property
-    def number(self):
+    def number(self):  # Todo remove these properties to standard attributes
         return self._number
         # try:
         #     return self.ca.residue_number
@@ -2264,7 +2271,7 @@ class Residue:
             return self._sasa
         except AttributeError:
             raise DesignError('Residue %d%s has no \'.sasa\' attribute! Ensure you call Structure.get_sasa() on your '
-                              'Structure before you request Residue specific sasa information'
+                              'Structure before you request Residue specific SASA information'
                               % (self.number, self.chain))
 
     @sasa.setter
@@ -2738,6 +2745,7 @@ class Atom:
 
 class Coords:
     def __init__(self, coords=None):
+        # self.coords = np.array(coords)  # Todo simplify to this, remove properties
         if coords is not None:
             self.coords = coords
         else:
@@ -2756,7 +2764,7 @@ class Coords:
         self._coords = np.delete(self._coords, indices, axis=0)
 
     def __len__(self):
-        return self.coords.shape[0]
+        return self._coords.shape[0]
 
 
 def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=False, report_quaternion=False):
@@ -2946,3 +2954,8 @@ def parse_stride(stride_file, **kwargs):
         stride_output = f.readlines()
 
     return ''.join(line[24:25] for line in stride_output if line[0:3] == 'ASG')
+
+
+reference_residues = unpickle(reference_residues_pkl)  # zero-indexed 1 letter alphabetically sorted aa at the origin
+reference_aa = Structure.from_residues(residues=reference_residues, residue_indices=list(range(len(reference_residues))))
+# pickle_object(ref, '/home/kylemeador/symdesign/data/AAreferenceStruct.pkl', out_path='')

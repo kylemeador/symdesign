@@ -2,11 +2,9 @@ import copy
 import math
 import os
 import subprocess
-# import time
 from collections.abc import Iterable
 from copy import copy, deepcopy
-from itertools import repeat, chain as iter_chain
-# from random import random
+from itertools import chain as iter_chain  # repeat,
 from shutil import move
 
 import numpy as np
@@ -14,7 +12,7 @@ from sklearn.neighbors import BallTree
 from Bio import pairwise2
 from Bio.SeqUtils import IUPACData
 
-from PathUtils import scout_symmdef, make_symmdef, orient_exe_path, orient_log_file, orient_dir, reference_aa_file
+from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Structure import Structure, Chain, Entity, Atom, Residues
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_pairs
@@ -58,7 +56,7 @@ class PDB(Structure):
         # ^ ZERO-indexed for recap project!!!
         self.filepath = file  # PDB filepath if instance is read from PDB file
         self.header = []
-        self.reference_aa = None  # object for reference residue coordinates
+        # self.reference_aa = None  # object for reference residue coordinates
         self.resolution = kwargs.get('resolution', None)
         self.reference_sequence = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.sasa_chain = []
@@ -112,22 +110,22 @@ class PDB(Structure):
                 self.residues = copy(residues)
                 # set residue attributes, index according to new Atoms/Coords index
                 self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
-                self._residues.reindex_residues()
+                self._residues.reindex_residue_atoms()
                 self.set_coords(np.concatenate([chain.coords for chain in chains]))
 
                 self.chains = copy(chains)
                 self.copy_structures()
-                available_chain_ids = (first + second for first in [''] + [i for i in PDB.available_letters]
-                                       for second in PDB.available_letters)
-                for idx, chain in enumerate(self.chains):
-                    chain.chain_id = next(available_chain_ids)
+                # available_chain_ids = (first + second for first in [''] + list(PDB.available_letters)
+                #                        for second in PDB.available_letters)
+                # for idx, chain in enumerate(self.chains):
+                #     chain.chain_id = next(available_chain_ids)
                 self.chain_id_list = [chain.name for chain in self.chains]  # ([res.chain for res in residues])
 
-                self.chains[0].start_indices(dtype='atom', at=0)
                 self.chains[0].start_indices(dtype='residue', at=0)
+                self.chains[0].start_indices(dtype='atom', at=0)
                 for prior_idx, chain in enumerate(self.chains[1:]):
-                    chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
                     chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
+                    chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 # rename chains
@@ -154,7 +152,7 @@ class PDB(Structure):
                 self.residues = copy(residues)
                 # set residue attributes, index according to new Atoms/Coords index
                 self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
-                self._residues.reindex_residues()
+                self._residues.reindex_residue_atoms()
                 self.set_coords(np.concatenate([entity.coords for entity in entities]))
 
                 self.entities = copy(entities)  # copy the passed Structure list
@@ -176,15 +174,15 @@ class PDB(Structure):
                     # for entity in self.entities:
                     #     entity.set_up_captain_chain()
                 # print('Entity %s start indices' % self.entities[0].name, self.entities[0].atom_indices)
-                self.entities[0].start_indices(dtype='atom', at=0)
                 self.entities[0].start_indices(dtype='residue', at=0)
+                self.entities[0].start_indices(dtype='atom', at=0)
                 for prior_idx, entity in enumerate(self.entities[1:]):
-                    entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
                     entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
+                    entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 # set each successive Entity to have an incrementally higher chain id
-                available_chain_ids = (first + second for first in [''] + [i for i in PDB.available_letters]
+                available_chain_ids = (first + second for first in [''] + list(PDB.available_letters)
                                        for second in PDB.available_letters)
                 for idx, entity in enumerate(self.entities):
                     # print('Entity %s update indices' % entity.name, entity.atom_indices)
@@ -268,7 +266,7 @@ class PDB(Structure):
              'space_group': other.__dict__['space_group'],
              'uc_dimensions': other.__dict__['uc_dimensions'],
              'header': other.__dict__['header'],
-             'reference_aa': other.__dict__['reference_aa'],
+             # 'reference_aa': other.__dict__['reference_aa'],
              'resolution': other.__dict__['resolution'],
              'rotation_d': other.__dict__['rotation_d'],
              'max_symmetry': other.__dict__['max_symmetry'],
@@ -357,8 +355,8 @@ class PDB(Structure):
                 start_of_new_model = True
                 if not multimodel:
                     multimodel = True
-                    available_chain_ids = (second + first for second in [''] + [i for i in PDB.available_letters]
-                                           for first in PDB.available_letters)
+                    available_chain_ids = (first + second for first in [''] + list(PDB.available_letters)
+                                           for second in PDB.available_letters)
             elif lazy:
                 continue
             elif line[0:6] == 'SEQRES':
@@ -632,19 +630,18 @@ class PDB(Structure):
     def reorder_chains(self, exclude_chains=None):
         """Renames chains using PDB.available_letter. Caution, doesn't update self.reference_sequence chain info
         """
+        available_chain_ids = [first + second for first in [''] + list(PDB.available_letters)
+                               for second in PDB.available_letters]
         if exclude_chains:
-            available_chains = list(set(PDB.available_letters).difference(exclude_chains))
+            available_chains = sorted(set(available_chain_ids).difference(exclude_chains))
         else:
-            available_chains = PDB.available_letters  # todo make more than available letters with first/second
+            available_chains = available_chain_ids
 
-        # Update chain_id_list
+        # Update chain_id_list, then each chain
         self.chain_id_list = available_chains[:self.number_of_chains]
-
         for idx, chain in enumerate(self.chains):
-            # chain.name = self.chain_id_list[idx]
             chain.chain_id = self.chain_id_list[idx]
-            # chain.set_atoms_attributes(chain=self.chain_id_list[idx])
-            # chain.set_residues_attributes(chain=self.chain_id_list[idx])
+
         self.get_chain_sequences()
 
     def renumber_residues_by_chain(self):
@@ -704,7 +701,7 @@ class PDB(Structure):
                 else:
                     chain_residues[chain_idx].append(prior_idx + 1)  # residue.index)
                     # chain_residues[chain_idx].append(residue)
-            available_chain_ids = (first + second for first in [''] + [i for i in PDB.available_letters]
+            available_chain_ids = (first + second for first in [''] + list(PDB.available_letters)
                                    for second in PDB.available_letters)
             for idx, (chain_idx, residue_indices) in enumerate(chain_residues.items()):
                 if chain_idx < len(self.chain_id_list):  # Todo this logic is flawed when chains come in out of order
@@ -1114,7 +1111,7 @@ class PDB(Structure):
         """
         delete_indices = super().mutate_residue(residue=residue, number=number, to=to, **kwargs)
         if not delete_indices:  # there are no indices
-            return None
+            return
         delete_length = len(delete_indices)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         for structures in [self.chains, self.entities]:
@@ -1124,8 +1121,7 @@ class PDB(Structure):
                     for _ in iter(delete_indices):
                         structure._atom_indices.pop(atom_delete_index)
                     structure.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
-                except (ValueError, IndexError):
-                    # this should happen if the Atom is not in the Structure of interest
+                except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
                     continue
 
     def insert_residue(self, chain_id, residue_number, residue_type):  # Todo make Structure compatible
@@ -1170,14 +1166,53 @@ class PDB(Structure):
             self.reference_aa = PDB.from_file(reference_aa_file, log=None, entities=False)
         insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms())
 
-        raise DesignError('This function \'%s\' is currently broken' % self.insert_residue.__name__)  # TODO BROKEN
-        for atom in reversed(insert_atoms):  # essentially a push
-            atom.chain = chain_id
-            atom.residue_number = residue_number
-            atom.occ = 0
-            self.atoms = np.concatenate((self.atoms[:insert_atom_idx], insert_atoms, self.atoms[insert_atom_idx:]))
-
-        self.renumber_structure()
+    # def insert_residue(self, chain_id, number, residue_type):
+    #     """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
+    #     indexed"""
+    #     # Find atom insertion index, should be last atom in preceding residue
+    #     if number == 1:
+    #         insert_atom_idx = 0
+    #     else:
+    #         try:
+    #             residue_atoms = self.chain(chain_id).residue(number).atoms
+    #             # residue_atoms = self.get_residue_atoms(chain_id, residue_number)
+    #             # if residue_atoms:
+    #             insert_atom_idx = residue_atoms[0].number - 1  # subtract 1 from first atom number to get insertion idx
+    #         # else:  # Atom index is not an insert operation as the location is at the C-term of the chain
+    #         except AttributeError:  # Atom index is not an insert operation as the index is at the C-term
+    #             # prior_index = self.getResidueAtoms(chain, residue)[0].number - 1
+    #             prior_chain_length = self.chain(chain_id).residues[0].atoms[0].number - 1
+    #             # chain_atoms = self.chain(chain_id).atoms
+    #             # chain_atoms = self.get_chain_atoms(chain_id)
+    #
+    #             # use length of all prior chains + length of all_chain_atoms
+    #             insert_atom_idx = prior_chain_length + self.chain(chain_id).number_of_atoms  # ()
+    #             # insert_atom_idx = len(chain_atoms) + chain_atoms[0].number - 1
+    #
+    #         # insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number
+    #
+    #     # Change all downstream residues
+    #     for atom in self.atoms[insert_atom_idx:]:
+    #         # atom.number += len(insert_atoms)
+    #         # if atom.chain == chain: TODO uncomment for pdb numbering
+    #         atom.residue_number += 1
+    #
+    #     # Grab the reference atom coordinates and push into the atom list
+    #     if not self.reference_aa:
+    #         self.reference_aa = PDB.from_file(reference_aa_file, log=None, entities=False)
+    #     # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
+    #     residue_index = protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(),
+    #                                                                            residue_type.upper())) + 1  # offset
+    #     insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms)
+    #
+    #     raise DesignError('This function \'%s\' is currently broken' % self.insert_residue.__name__)  # TODO BROKEN
+    #     for atom in reversed(insert_atoms):  # essentially a push
+    #         atom.chain = chain_id
+    #         atom.residue_number = residue_number
+    #         atom.occ = 0
+    #         self.atoms = np.concatenate((self.atoms[:insert_atom_idx], insert_atoms, self.atoms[insert_atom_idx:]))
+    #
+    #     self.renumber_structure()
 
     def delete_residue(self, chain_id, residue_number):
         # raise DesignError('This function is broken')  # TODO TEST
@@ -1193,7 +1228,7 @@ class PDB(Structure):
         # chain._residues.remove(residue)  # deletes Residue from Chain
         # self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_structure()
-        self._residues.reindex_residues()
+        self._residues.reindex_residue_atoms()
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
         atom_delete_index = self._atom_indices.index(delete[0])
         for iteration in range(len(delete)):
@@ -1226,7 +1261,7 @@ class PDB(Structure):
                 self.log.debug('PDB code \'%s\' was not found with the PDB API.' % self.name)
         else:
             self.log.debug('PDB code \'%s\' is not of the required format and will not be found with the PDB API.'
-                          % self.name)
+                           % self.name)
         return False
         # if not self.api_entry and self.name and len(self.name) == 4:
         #     self.api_entry = get_pdb_info_by_entry(self.name)
@@ -1808,3 +1843,6 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
             # Todo edit this mechanism! ^
 
     return interface_pdb
+
+# ref_aa = PDB.from_file('/home/kylemeador/symdesign/data/AAreference.pdb', log=None, lazy=True, entities=False)
+# pickle_object(ref_aa.residues, name='/home/kylemeador/symdesign/data/AAreferenceResidues.pkl', out_path='')
