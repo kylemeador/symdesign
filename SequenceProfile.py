@@ -25,6 +25,7 @@ aa_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K'
 aa_weighted_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
                       'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
 add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
+subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 
 class SequenceProfile:
@@ -866,83 +867,84 @@ class SequenceProfile:
         # mutated_pdb.write(consensus_pdb)
         # mutated_pdb.write(consensus_pdb, cryst1=cryst)
 
-    @staticmethod
-    def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
-                           only_gaps=False):
-        """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from'
-        and 'to' keywords. By default all gapped sequences are excluded from returned mutations
+    # @staticmethod
+    # def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
+    #                        only_gaps=False):
+    #     """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from'
+    #     and 'to' keywords. By default all gaped sequences are excluded from returned mutations
+    #
+    #     For PDB file comparison, mutant should be crystal sequence (ATOM), reference should be expression sequence
+    #     (SEQRES). only_gaps=True will return only the gaped area while blanks=True will return all differences between
+    #     the alignment sequences. termini=True returns missing alignments at the termini
+    #
+    #     Args:
+    #         mutant (str): Mutant sequence. Will be in the 'to' key
+    #         reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
+    #     Keyword Args:
+    #         offset=True (bool): Whether sequences are different lengths. Creates a new alignment
+    #         blanks=False (bool): Whether to include indices that are outside the reference sequence or missing residues
+    #         termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
+    #         reference_gaps=False (bool): Whether to include indices with missing residues inside the reference sequence
+    #         only_gaps=False (bool): Whether to only include indices that are missing residues
+    #     Returns:
+    #         (dict): {index: {'from': 'A', 'to': 'K'}, ...}
+    #     """
+    #     # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
+    #     if offset:
+    #         alignment = generate_alignment(mutant, reference)
+    #         align_seq_1 = alignment[0][0]
+    #         align_seq_2 = alignment[0][1]
+    #     else:
+    #         align_seq_1 = mutant
+    #         align_seq_2 = reference
+    #
+    #     # Extract differences from the alignment
+    #     starting_index_of_seq2 = align_seq_2.find(reference[0])
+    #     ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
+    #     mutations = {}
+    #     for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
+    #         if seq1_aa != seq2_aa:
+    #             mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
+    #             # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
+    #
+    #     remove_mutation_list = []
+    #     if only_gaps:  # remove the actual mutations
+    #         for entry in mutations:
+    #             if entry > 0 or entry <= ending_index_of_seq2:
+    #                 if mutations[entry]['to'] != '-':
+    #                     remove_mutation_list.append(entry)
+    #         blanks = True
+    #     if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
+    #         termini, reference_gaps = True, True
+    #     if not termini:  # Remove indices outside of sequence 2
+    #         for entry in mutations:
+    #             if entry < 0 or entry > ending_index_of_seq2:
+    #                 remove_mutation_list.append(entry)
+    #     if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
+    #         for entry in mutations:
+    #             if entry > 0 or entry <= ending_index_of_seq2:
+    #                 if mutations[entry]['to'] == '-':
+    #                     remove_mutation_list.append(entry)
+    #
+    #     for entry in remove_mutation_list:
+    #         mutations.pop(entry, None)
+    #
+    #     return mutations
 
-        For PDB file comparison, mutant should be crystal sequence (ATOM), reference should be expression sequence
-        (SEQRES). only_gaps=True will return only the gapped area while blanks=True will return all differences between
-        the alignment sequences. termini=True returns missing alignments at the termini
-
-        Args:
-            mutant (str): Mutant sequence. Will be in the 'to' key
-            reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
-        Keyword Args:
-            offset=True (bool): Whether sequences are different lengths. Creates a new alignment
-            blanks=False (bool): Whether to include indices that are outside the reference sequence or missing residues
-            termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
-            reference_gaps=False (bool): Whether to include indices with missing residues inside the reference sequence
-            only_gaps=False (bool): Whether to only include indices that are missing residues
-        Returns:
-            (dict): {index: {'from': 'A', 'to': 'K'}, ...}
-        """
-        # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
-        if offset:
-            alignment = generate_alignment(mutant, reference)
-            align_seq_1 = alignment[0][0]
-            align_seq_2 = alignment[0][1]
-        else:
-            align_seq_1 = mutant
-            align_seq_2 = reference
-
-        # Extract differences from the alignment
-        starting_index_of_seq2 = align_seq_2.find(reference[0])
-        ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
-        mutations = {}
-        for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
-            if seq1_aa != seq2_aa:
-                mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
-                # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
-
-        remove_mutation_list = []
-        if only_gaps:  # remove the actual mutations
-            for entry in mutations:
-                if entry > 0 or entry <= ending_index_of_seq2:
-                    if mutations[entry]['to'] != '-':
-                        remove_mutation_list.append(entry)
-            blanks = True
-        if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
-            termini, reference_gaps = True, True
-        if not termini:  # Remove indices outside of sequence 2
-            for entry in mutations:
-                if entry < 0 or entry > ending_index_of_seq2:
-                    remove_mutation_list.append(entry)
-        if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
-            for entry in mutations:
-                if entry > 0 or entry <= ending_index_of_seq2:
-                    if mutations[entry]['to'] == '-':
-                        remove_mutation_list.append(entry)
-
-        for entry in remove_mutation_list:
-            mutations.pop(entry, None)
-
-        return mutations
-
-    @staticmethod
-    def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
-        """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
-
-        Returns:
-            # TODO
-        """
-        _matrix = substitution_matrices.load(matrix)
-        gap_penalty = -10
-        gap_ext_penalty = -1
-        # Create sequence alignment
-        return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
-        # return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+    # @staticmethod
+    # def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
+    #     """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
+    #
+    #     Returns:
+    #         # TODO
+    #     """
+    #     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
+    #     gap_penalty = -10
+    #     gap_ext_penalty = -1
+    #     logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
+    #     # Create sequence alignment
+    #     return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+    #     # return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
     # def generate_design_mutations(self, all_design_files, wild_type_file, pose_num=False):
     #     """From a wild-type sequence (original PDB structure), and a collection of structure sequences that have
@@ -1974,7 +1976,7 @@ def find_orf_offset(seq, mutations):
     methionine_positions = list(met_offset_d.keys())
 
     while True:
-        if met_offset_d:  # == dict():  # MET is missing/not the ORF start
+        if not met_offset_d:  # == dict():  # MET is missing/not the ORF start
             met_offset_d = {start_idx: 0 for start_idx in range(0, 50)}
 
         # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
@@ -2021,9 +2023,10 @@ def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
     Returns:
 
     """
-    _matrix = substitution_matrices.load(matrix)
+    _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
     gap_penalty = -10
     gap_ext_penalty = -1
+    logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
     # Create sequence alignment
     return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
     # return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
@@ -2032,11 +2035,12 @@ def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
 def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
                        only_gaps=False):
     """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from' and
-        'to' keywords. By default all gapped sequences are excluded from returned mutations
+    'to' keywords. By default all gaped sequences are excluded from returned mutations
 
     For PDB file comparison, mutant should be crystal sequence (ATOM), reference should be expression sequence (SEQRES).
-     only_gaps=True will return only the gapped area while blanks=True will return all differences between the alignment
-      sequences. termini=True returns missing alignments at the termini
+    only_gaps=True will return only the gaped area while blanks=True will return all differences between the alignment
+    sequences. termini=True returns missing alignments at the termini
+
     Args:
         mutant (str): Mutant sequence. Will be in the 'to' key
         reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
@@ -2047,7 +2051,7 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
         reference_gaps=False (bool): Whether to include indices that are missing residues inside the reference sequence
         only_gaps=False (bool): Whether to only include all indices that are missing residues
     Returns:
-        mutations (dict): {index: {'from': 'A', 'to': 'K'}, ...}
+        (dict): {index: {'from': 'A', 'to': 'K'}, ...}
     """
     # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
     if offset:
