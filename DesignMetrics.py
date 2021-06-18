@@ -556,7 +556,7 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
 
 # Current protocols in use in design.xml
 protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'no_constraint_switch']
-protocols_of_interest = {'design_profile', 'no_constraint'}
+protocols_of_interest = {'design_profile', 'no_constraint', 'hbnet_design_profile'}  # Todo adapt to any user protocol!
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
 
 # Specific columns of interest to distinguish between design trajectories
