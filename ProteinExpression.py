@@ -15,7 +15,7 @@ from Query.PDB import input_string, get_entity_reference_sequence, pdb_id_matchi
 SDUtils.start_log(name=__name__)
 uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 with open(PUtils.affinity_tags, 'r') as f:
-    expression_tags = {row[0]: row[1] for row in csv.reader(f)}
+    expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}
 
 
 def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
@@ -61,8 +61,11 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
 
     # matching_pdb_tags = {idx: find_expression_tags(seq) for idx, seq in enumerate(partner_sequences)}
     # [[{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], ...]
-    matching_pdb_tags = [find_expression_tags(sequence) for sequence in partner_sequences]
-    # can return empty dict ^
+    # matching_pdb_tags = list(iter_chain.from_iterable(find_expression_tags(sequence) for sequence in partner_sequences))
+    # reduce the iter of iterables for missing values. ^ can return empty lists
+    matching_pdb_tags = []
+    for sequence in partner_sequences:
+        matching_pdb_tags.extend(find_expression_tags(sequence))
 
     # Next, align all the tags to the reference sequence and tally the tag location and type
     pdb_tag_tally = {'n': {}, 'c': {}, 'matching_tags': matching_pdb_tags}
@@ -100,22 +103,42 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
     c_term = sum([pdb_tag_tally['c'][tag_name] for tag_name in pdb_tag_tally.get('c', {})])
     if n_term == 0 and c_term == 0:  # No tags found
         return final_tag_sequence
-    if n_term > c_term:
+    if n_term > c_term and n or (n_term < c_term and n and not c):
         termini = 'n'
-    elif n_term < c_term:
+    elif n_term < c_term and c or (n_term > c_term and c and not n):
         termini = 'c'
-    else:  # termini = 'Both'
+    elif not c and not n:
         while True:
             termini = \
-                input('For sequence target %s, BOTH termini have the same number of matched tags.\nThe tag options, '
+                input('For sequence target %s, NEITHER termini are available for tagging.\n\n'
+                      'You can set up tags anyway and modify this sequence later, or skip tagging.\nThe tag options, '
                       'formatted as, termini: {tag name: count}}, are as follows:\n%s\nWhich termini would you prefer '
-                      '[n/c]?%s' %
+                      '[n/c]? To skip, input \'skip\'%s' %
                       (sequence_id, '\n'.join('\t%s: %s' % item for item in pdb_tag_tally.items()),
                        input_string)).lower()
-            if termini == 'n' or termini == 'c':
+            if termini in ['n', 'c']:
                 break
+            elif termini == 'skip':
+                return final_tag_sequence
             else:
-                print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
+                print('\'%s\' is an invalid input, one of \'n\', \'c\', or \'skip\' is required.')
+    else:  # termini = 'Both'
+        if c and not n:
+            termini = 'c'
+        elif not c and n:
+            termini = 'n'
+        else:
+            while True:
+                termini = \
+                    input('For sequence target %s, BOTH termini are available and have the same number of matched tags.'
+                          '\nThe tag options formatted as, termini: {tag name: count}}, are as follows:\n%s'
+                          '\nWhich termini would you prefer [n/c]?%s' %
+                          (sequence_id, '\n'.join('\t%s: %s' % item for item in pdb_tag_tally.items()),
+                           input_string)).lower()
+                if termini in ['n', 'c']:
+                    break
+                else:
+                    print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
 
     # Find the most common tag at the specific termini
     all_tags = []
@@ -133,6 +156,7 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
 
     final_tags = {'termini': termini, 'name': all_tags}
     # Finally report results to the user and solve ambiguous tags
+    custom = False
     final_choice = {}
     while True:
         default = \
@@ -150,33 +174,46 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
             final_choice['termini'] = final_tags['termini']
             break
         elif default == 'options':
-            _input = input('\nFor %s, all tag options are:\n\tTermini Tag:\tCount\n%s\nAll tags:\n%s\nIf none of these '
-                           'are appealing, enter \'none\', otherwise hit ENTER.%s'
-                           % (sequence_id, '\n'.join('\t%s:\t%s' % item for item in pdb_tag_tally.items()
-                                                     if item[0] != 'matching_tags'),
-                              list(iter_chain.from_iterable(pdb_tag_tally['matching_tags'])), input_string)).lower()
+            print('\nFor %s, all tag options are:\n\tTermini Tag:\tCount\n%s\nAll tags:\n%s\n'
+                  % (sequence_id, '\n'.join('\t%s:\t%s' % item for item in pdb_tag_tally.items()
+                                            if item[0] != 'matching_tags'), pdb_tag_tally['matching_tags']))
             # Todo pretty_table_format on the .values() from each item in above list() ('name', 'termini', 'sequence')
-            if _input == 'none':
-                return final_tag_sequence
-            else:
-                while True:
-                    termini_input = input('What termini would you like to use [n/c]?%s' % input_string).lower()
-                    if termini_input == 'n' or termini_input == 'c':
-                        final_choice['termini'] = termini_input
-                        break
-                    else:
-                        print('Input doesn\'t match. Please try again')
-                while True:
-                    tag_input = int(input('What tag would you like to use? Enter the number of the below options.\n%s%s'
-                                          % ('\n'.join(['%d - %s' % (i, tag)
-                                                       for i, tag in enumerate(pdb_tag_tally[termini_input], 1)]),
-                                             input_string)))
-                    # tag_input = int(tag_input)
-                    if tag_input <= len(pdb_tag_tally[termini_input]):
-                        final_choice['name'] = list(pdb_tag_tally[termini_input].keys())[tag_input - 1]
-                        break
-                    else:
-                        print('Input doesn\'t match. Please try again')
+            while True:
+                termini_input = input('What termini would you like to use [n/c]? If no tag option is appealing, '
+                                      'enter \'none\' or specify the termini and select \'custom\' at the next step %s'
+                                      % input_string).lower()
+                if termini in ['n', 'c']:
+                    final_choice['termini'] = termini_input
+                    break
+                elif termini == 'none':
+                    return final_tag_sequence
+                else:
+                    print('Input doesn\'t match. Please try again')
+            while True:
+                tag_input = int(input('What tag would you like to use? Enter the number of the below options.\n\t%s%s'
+                                      '\n%s'
+                                      % ('\n\t'.join(['%d - %s' % (i, tag)
+                                                     for i, tag in enumerate(pdb_tag_tally[termini_input], 1)]),
+                                         '\n\t%d - %s' % (len(pdb_tag_tally[termini_input]) + 1, 'CUSTOM'),
+                                         input_string)))
+                if tag_input <= len(pdb_tag_tally[termini_input]):
+                    final_choice['name'] = list(pdb_tag_tally[termini_input].keys())[tag_input - 1]
+                    break
+                elif tag_input == len(pdb_tag_tally[termini_input]) + 1:
+                    custom = True
+                    while True:
+                        tag_input = int(input('What tag would you like to use? Enter the number of the below options.'
+                                              '\n\t%s\n%s'
+                                              % ('\n\t'.join(['%d - %s' % (i, tag)
+                                                              for i, tag in enumerate(expression_tags, 1)]),
+                                                 input_string)))
+                        if tag_input <= len(expression_tags):
+                            final_choice['name'] = list(expression_tags.keys())[tag_input - 1]
+                            break
+                        else:
+                            print('Input doesn\'t match. Please try again')
+                else:
+                    print('Input doesn\'t match. Please try again')
             break
         else:
             print('Input doesn\'t match. Please try again')
@@ -202,7 +239,10 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
     #
     # total_alignment = SequenceProfile.create_bio_msa({idx: tag for idx, tag in enumerate(all_matching_tags)})
     # tag_msa = SequenceProfile.process_alignment(total_alignment)
-    final_tag_sequence['seq'] = all_matching_tags[0]  # for now grab the first
+    if custom:
+        final_tag_sequence['sequence'] = expression_tags[final_choice['name']]
+    else:
+        final_tag_sequence['sequence'] = all_matching_tags[0]  # for now grab the first
 
     return final_tag_sequence
 
@@ -284,8 +324,7 @@ def find_expression_tags(sequence, alignment_length=12):
 
 
 def remove_expression_tags(sequence, tags):
-    """Find all expression_tags on an input sequence from a reference set of expression_tags. Returns the matching tag
-    sequence with additional protein sequence context equal to the passed alignment_length
+    """Remove all specified tags from an input sequence
 
     Args:
         sequence (str): 'MSGHHHHHHGKLKPNDLRI...'
