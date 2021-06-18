@@ -66,7 +66,12 @@ grep "^SCORE" --max-count=1 $1 >> $final_silent_file
 echo "REMARK BINARY SILENTFILE" >> $final_silent_file
 
 # finally, create the decoys of interest adding each decoy until the specified number provided in $2 is reached
-for ((i=0 ; i<$2 ; i++)); do
+if [ ${#final_overlap[@]} -lt $2 ]; then
+    max_length=${#final_overlap[@]}
+  else
+    max_length=$2
+fi
+for ((i=0 ; i<$max_length ; i++)); do
   echo ${final_overlap[$i]} >> $hbnet_tags_to_grab
   structure_line_numbers=($(grep "${final_overlap[$i]}" -n $1 | cut --fields=1 --delimiter=:))
   duplicate_structure=0
