@@ -706,7 +706,7 @@ def get_pdb_info_by_entity(entity_id):
                 uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
                 database = 'UNP'
                 if len(uniprot_id) > 1:
-                    logger.warning('Fro Entity %s, found multiple UniProt Entries %s. Selecting the first'
+                    logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
                                    % (entity_id, uniprot_id))
                 db_d = {'db': database, 'accession': uniprot_id[0]}  # may be an issue where there is more than one
             except KeyError:  # if no uniprot_id
