@@ -417,6 +417,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 c_term = True
 
         if report_if_helix:
+            if self.database:
+                parsed_secondary_structure = self.database.stride.retrieve_data(name=entity.name)
+                if parsed_secondary_structure:
+                    entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
+                else:
+                    entity.stride()
             n_term = True if n_term and entity.is_termini_helical() else False
             c_term = True if c_term and entity.is_termini_helical(termini='c') else False
 
