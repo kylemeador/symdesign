@@ -1720,7 +1720,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             save_trajectories=False (bool): Whether to save trajectory and residue DataFrames
             figures=True (bool): Whether to make and save pose figures
         Returns:
-            scores_df (pandas.DataFrame): DataFrame containing the average values from the input design directory
+            (pandas.Series): Series containing summary metrics for all designs in the design directory
         """
         # Gather miscellaneous pose specific metrics
         # ensure oligomers are present and if so, their metrics are pulled out. Happens when pose is scored.
@@ -1805,13 +1805,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # chain_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
             # chain_sequences = {chain: keys_from_trajectory_number(named_sequences)
             #                         for chain, named_sequences in chain_sequences.items()}
-            entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
-                                   for entity in self.pose.entities]
-            # # chain_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
-            # #                         for design, scores in all_design_scores.items()}
-            chain_sequences = {entity.chain_id: {design: sequence[n_term - 1:c_term]
-                                                 for design, sequence in pose_sequences.items()}
-                               for entity, n_term, c_term in entity_chain_breaks}
+            # entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
+            #                        for entity in self.pose.entities]
+            # # # chain_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
+            # # #                         for design, scores in all_design_scores.items()}
+            # chain_sequences = {entity.chain_id: {design: sequence[n_term - 1:c_term]
+            #                                      for design, sequence in pose_sequences.items()}
+            #                    for entity, n_term, c_term in entity_chain_breaks}
             # for chain in chain_break
             # self.log.debug('Design sequences by chain: %s' % chain_sequences)
             # self.log.debug('All designs with sequences: %s'
@@ -1977,7 +1977,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
             scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True,
                            errors='ignore')
-
+            if scores_df.get('repacking') is not None:
+                # set interface_bound_activation_energy = NaN where repacking is 0
+                # Currently is -1 for True (Rosetta Filter quirk...)
+                scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = \
+                    np.nan
+                scores_df.drop('repacking', axis=1, inplace=True)
             # Process dataframes for missing values and drop refine trajectory if present
             scores_df[groups] = protocol_s
             refine_index = scores_df[scores_df[groups] == PUtils.stage[1]].index
@@ -1992,25 +1997,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_na_index = scores_df.index[scores_df.isna().any(axis=1)]  # scores_df.where()
             residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
             drop_na_index = np.union1d(scores_na_index, residue_na_index)
-            if drop_na_index.any():
-                self.log.debug('Missing information in score columns: %s'
-                               % scores_df.columns[scores_df.isna().any(axis=0)].tolist())
-                self.log.debug('Missing information in residue columns: %s'
-                               % residue_df.columns[residue_df.isna().any(axis=0)].tolist())
-                protocol_s.drop(drop_na_index, inplace=True, errors='ignore')
-                scores_df.drop(drop_na_index, inplace=True, errors='ignore')
-                residue_df.drop(drop_na_index, inplace=True, errors='ignore')
-                for idx in drop_na_index:
-                    residue_info.pop(idx, None)
-                self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
-                # might have to remove these from all_design_scores in the case that that is used as a dictionary again
+            # if drop_na_index.any():
+            #     self.log.debug('Missing information in score columns: %s'
+            #                    % scores_df.columns[scores_df.isna().any(axis=0)].tolist())
+            #     self.log.debug('Missing information in residue columns: %s'
+            #                    % residue_df.columns[residue_df.isna().any(axis=0)].tolist())
+            #     protocol_s.drop(drop_na_index, inplace=True, errors='ignore')
+            #     scores_df.drop(drop_na_index, inplace=True, errors='ignore')
+            #     residue_df.drop(drop_na_index, inplace=True, errors='ignore')
+            #     for idx in drop_na_index:
+            #         residue_info.pop(idx, None)
+            #     self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
+            #     # might have to remove these from all_design_scores in the case that that is used as a dictionary again
             other_pose_metrics['observations'] = len(scores_df)
-            if scores_df.get('repacking') is not None:
-                # set interface_bound_activation_energy = NaN where repacking is 0
-                # Currently is -1 for True (Rosetta Filter quirk...)
-                scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = \
-                    np.nan
-                scores_df.drop('repacking', axis=1, inplace=True)
+
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
@@ -2048,6 +2048,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Calculate sequence statistics
             # first for entire pose
+            entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
+                                   for entity in self.pose.entities]
+            # # chain_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
+            # #                         for design, scores in all_design_scores.items()}
+            chain_sequences = {entity.chain_id: {design: sequence[n_term - 1:c_term]
+                                                 for design, sequence in pose_sequences.items()
+                                                 if design not in drop_na_index}  # remove if the design was dropped
+                               for entity, n_term, c_term in entity_chain_breaks}
             pose_alignment = multi_chain_alignment(chain_sequences)
             mutation_frequencies = filter_dictionary_keys(pose_alignment['counts'], interface_residues)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
@@ -2061,34 +2069,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                 for divergence_type, stat in divergence.items()}
             # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI to a single metric?
 
-            # next for each protocol
-            # designs_by_protocol = {}
-            # stats_by_protocol = {protocol: {} for protocol in unique_protocols}
-            # divergence_by_protocol = copy.deepcopy(stats_by_protocol)
+            # Next, for each protocol
             divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
             for protocol, designs in designs_by_protocol.items():
-                # designs_by_protocol[protocol] = protocol_s.index[protocol_s == protocol].tolist()
-                # All of this is DONE FOR WHOLE POSE ABOVE, PULLED BY PROTOCOL instead of this extra work
-                # Get per design observed background metric by protocol
-                # for profile in profile_background:
-                #     stats_by_protocol[protocol]['observed_%s' % profile] = per_res_metric(
-                #         {design: pose_observed_bkd[profile][design] for design in designs_by_protocol[protocol]})
-
-                # Gather the average number of residue classifications for each protocol
-                # for res_class in residue_classificiation:
-                #     stats_by_protocol[protocol][res_class] = \
-                #         residue_df.loc[designs_by_protocol[protocol],
-                #                        idx_slice[:, residue_df.columns.get_level_values(1) == res_class]].mean().sum()
-                # stats_by_protocol[protocol]['observations'] = len(designs_by_protocol[protocol])
-                # Get the interface composition similarity for each protocol
-                # composition_d = {metric: stats_by_protocol[protocol][metric] for metric in residue_classificiation}
-                # composition_d['interface_area_total'] = trajectory_df.loc[protocol, 'interface_area_total']
-                # stats_by_protocol[protocol]['interface_composition_similarity'] = \
-                #     interface_residue_composition_similarity(composition_d)
-
-                # protocol_sequences = {chain: {design: sequence for design, sequence in design_sequences.items()
-                #                               if design in designs_by_protocol[protocol]}
-                #                       for chain, design_sequences in chain_sequences.items()}
                 protocol_alignment = multi_chain_alignment({chain: {design: design_seqs[design] for design in designs}
                                                             for chain, design_seqs in chain_sequences.items()})
                 protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['counts'], interface_residues)

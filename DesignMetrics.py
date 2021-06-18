@@ -516,7 +516,8 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                # 'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'buns_total',
                'angle_constraint', 'atom_pair_constraint', 'chainbreak', 'coordinate_constraint', 'dihedral_constraint',
                'metalbinding_constraint', 'rmsd', 'repack_switch', 'sym_status',
-               'maxsub', 'repacking', 'rms', 'score']
+               'maxsub', 'rms', 'score']
+               # 'repacking',
 # remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unbound']
 #                'full_stability_oligomer_A', 'full_stability_oligomer_B']
 
