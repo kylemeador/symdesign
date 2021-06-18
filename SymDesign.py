@@ -38,7 +38,7 @@ from Pose import fetch_pdb_file
 from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map, \
     group_compositions
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
-    select_tags_for_sequence, remove_expression_tags
+    select_tags_for_sequence, remove_expression_tags, expression_tags
 from DesignMetrics import filter_pose, master_metrics, query_user_for_metrics, rank_dataframe_by_metric_weights
 from SequenceProfile import generate_mutations, find_orf_offset  # , pdb_to_pose_offset
 
@@ -741,6 +741,9 @@ if __name__ == '__main__':
                                  help='Is there a specific protocol to grab sequences from?')
     parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
                                  help='String to prepend to output for custom sequence selection name')
+    parser_sequence.add_argument('-t', '--preferred_tag', type=str,
+                                 help='The name of your preferred expression tag. Default=his_tag',
+                                 choices=expression_tags.keys(), default='his_tag')
     parser_sequence.add_argument('-w', '--weight', action='store_true',
                                  help='Whether to weight sequence selection using metrics from DataFrame')
     # ---------------------------------------------------
@@ -1841,6 +1844,7 @@ if __name__ == '__main__':
             #     pass
 
         # Format sequences for expression
+        missing_tags = {}  # result: [True, True] for result in results
         tag_sequences, final_sequences, inserted_sequences = {}, {}, {}
         for des_dir, design in results:
             # pose_des_dirs, design = zip(*pose)
@@ -1851,6 +1855,7 @@ if __name__ == '__main__':
                 logger.error('No file found for %s' % '%s/*%s*' % (des_dir.designs, design))  # [i]))
                 continue
             design_pose = PDB.from_file(file[0])
+            designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
             # v {chain: sequence, ...}
             # design_sequences = design_pose.atom_sequences
 
@@ -1862,9 +1867,9 @@ if __name__ == '__main__':
             # source_pose.reorder_chains()  # Do I need to modify chains?
             # source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
             # source_seqres = {}
-            for entity in des_dir.pose.entities:
-                entity.retrieve_info_from_api()
-                entity.retrieve_sequence_from_api(entity_id=entity.name)
+            # for source_entity in des_dir.pose.entities:
+            #     source_entity.retrieve_info_from_api()
+            #     source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
                 # source_seqres[entity.chain_id] = entity.reference_sequence
 
             # for entity in source_pose.entities:
@@ -1909,10 +1914,10 @@ if __name__ == '__main__':
             #                           for chain in design_sequences}
 
             # Find all gaps between the ATOM record and SEQRES (reference sequence)
-            all_missing_residues_d = \
-                {source_entity: generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
-                                                   only_gaps=True)
-                 for source_entity in des_dir.pose.entities}
+            # all_missing_residues_d = \
+            #     {source_entity: generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
+            #                                        only_gaps=True)
+            #      for source_entity in des_dir.pose.entities}
             # all_missing_residues_d = {chain: generate_mutations(source_pose.atom_sequences[chain],
             #                                                     source_seqres[chain], offset=True, only_gaps=True)
             #                           for chain in source_seqres}
@@ -1928,12 +1933,35 @@ if __name__ == '__main__':
             #     {source_entity: {residue + source_entity.offset: mutation for residue, mutation in mutations.items()}
             #      for source_entity, mutations in all_missing_residues_d.items()}
             # Have to modify residue indices to include prior inserts length into pose numbering
-            all_missing_residues, prior_offset = {}, 0
-            for source_entity, mutations in all_missing_residues_d.items():
-                all_missing_residues[source_entity] = {}
-                for residue, mutation in mutations.items():
-                    all_missing_residues[source_entity][residue + source_entity.offset + prior_offset] = mutation
-                prior_offset += len(mutations)
+        # prior_offset = 0
+        # all_missing_residues = {}
+        # mutations = []
+        # referenced_design_sequences = {}
+        # # for source_entity, mutations in all_missing_residues_d.items():
+        # # for source_entity in des_dir.pose.entities:
+        # for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
+        #     source_entity.retrieve_info_from_api()
+        #     source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
+        #     disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
+        #                                   only_gaps=True)
+        #     # all_missing_residues[source_entity] = \
+        #     #     {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
+        #     indexed_disordered_residues = \
+        #         {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
+        #     # for residue, mutation in mutations.items():
+        #     #     all_missing_residues[source_entity][residue + source_entity.offset + prior_offset] = mutation
+        #     prior_offset += len(disorder)
+        #     mutations.append(generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence,
+        #                                         offset=False))
+        #     # insert the disordered residues into the design pose
+        #     for residue_number, mutation in indexed_disordered_residues.items():
+        #         logger.debug('Inserting %s into position %d on chain %s'
+        #                      % (mutation['from'], residue_number, source_entity.chain_id))
+        #         design_pose.insert_residue_type(mutation['from'], at=residue_number,
+        #                                         chain=source_entity.chain_id)
+        #     # find the offset using the structure sequence after insertion
+        #     offset = find_orf_offset(design_entity.structure_sequence, mutations[idx])
+        #     referenced_design_sequences[source_entity] = design_entity.structure_sequence[offset:]
             # Modify residue indices to include prior inserts length into pose numbering
             # all_missing_residues_d = {chain: {residue + pose_insert_offset_d[chain]: all_missing_residues_d[chain][residue]
             #                                   for residue in all_missing_residues_d[chain]}
@@ -1942,16 +1970,15 @@ if __name__ == '__main__':
             #       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
             #                  for chain in all_missing_residues_d]))
 
-            design_atomic_sequences = [entity.structure_sequence for entity in design_pose.entities]
-            # Compare the source entity, reference sequence as reference to the designed sequence to get mutations
-            # returns the designed residue identities in the index of the reference sequence
-            # MAYBE THIS SHOULD BE PERFORMED ON DESIGN SEQUENCE AFTER INSERTION TO BYPASS DIFFICULTY WITH GAPPED ALIGNS
-            # mutations = \
-            #     {idx: generate_mutations(source_entity.reference_sequence, design_seq)
-            #      for idx, (source_entity, design_seq) in enumerate(zip(des_dir.pose.entities, design_atomic_sequences))}
-            mutations = \
-                {idx: generate_mutations(source_entity.structure_sequence, design_seq, offset=False)
-                 for idx, (source_entity, design_seq) in enumerate(zip(des_dir.pose.entities, design_atomic_sequences))}
+            # designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
+            # # Compare the source entity, reference sequence as reference to the designed sequence to get mutations
+            # # returns the designed residue identities in the index of the reference sequence
+            # # MAYBE THIS SHOULD BE PERFORMED ON DESIGN SEQUENCE AFTER INSERTION TO BYPASS DIFFICULTY WITH GAPPED ALIGNS
+            # # mutations = \
+            # #     {idx: generate_mutations(source_entity.reference_sequence, design_seq)
+            # #      for idx, (source_entity, design_seq) in enumerate(zip(des_dir.pose.entities, designed_atom_sequences))}
+            # mutations = [generate_mutations(source_entity.structure_sequence, design_seq, offset=False)
+            #              for source_entity, design_seq in zip(des_dir.pose.entities, designed_atom_sequences)]
 
             # print('Mutations:\n%s' %
             #       '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
@@ -1960,12 +1987,12 @@ if __name__ == '__main__':
 
             # Insert missing reference sequence records (residue in mutations 'from' key) into design Structure
             # for source_entity, missing_mutations in reversed(all_missing_residues.items()):
-            for source_entity, missing_mutations in all_missing_residues.items():
-                # for residue_number, mutation in reversed(missing_mutations.items()):
-                for residue_number, mutation in missing_mutations.items():
-                    logger.debug('Inserting %s into position %d on chain %s'
-                                 % (mutation['from'], residue_number, source_entity.chain_id))
-                    design_pose.insert_residue_type(mutation['from'], at=residue_number, chain=source_entity.chain_id)
+            # for source_entity, missing_mutations in all_missing_residues.items():
+            #     # for residue_number, mutation in reversed(missing_mutations.items()):
+            #     for residue_number, mutation in missing_mutations.items():
+            #         logger.debug('Inserting %s into position %d on chain %s'
+            #                      % (mutation['from'], residue_number, source_entity.chain_id))
+            #         design_pose.insert_residue_type(mutation['from'], at=residue_number, chain=source_entity.chain_id)
 
             # Get modified sequence
             # design_pose.get_chain_sequences()
@@ -1975,64 +2002,128 @@ if __name__ == '__main__':
             #                  for chain in design_sequences_disordered]))
 
             # Next find the correct start MET using the modified (residue inserted) design sequence
-            coding_offset = {design_entity: find_orf_offset(design_entity.structure_sequence, mutations[idx])
-                             for idx, design_entity in enumerate(design_pose.entities)}
+            # coding_offset = {design_entity: find_orf_offset(design_entity.structure_sequence, mutations[idx])
+            #                  for idx, design_entity in enumerate(design_pose.entities)}
             # print('Coding Offset:\n%s'
             #       % '\n'.join(['%s: %s' % (chain, coding_offset[chain]) for chain in coding_offset]))
 
             # Remove all residues preceding ORF start from the inserted design sequence
-            pretag_sequences = {design_entity: design_entity.structure_sequence[offset:]
-                                for design_entity, offset in coding_offset.items()}
-            # # TODO TEMPORARY DEBUGGING
-            # pretag_sequences = {design_entity: design_entity.structure_sequence
+            # referenced_design_sequences = {design_entity: design_entity.structure_sequence[offset:]
+            #                                for design_entity, offset in coding_offset.items()}
+            # Next, find the correct ORF using the modified (residue inserted) design sequence and
+            # remove residues preceding ORF start
+            # referenced_design_sequences = {}
+            # for idx, design_entity in enumerate(design_pose.entities):
+            #     offset = find_orf_offset(design_entity.structure_sequence, mutations[idx])
+            #     referenced_design_sequences[design_entity] = design_entity.structure_sequence[offset:]
+
+            # referenced_design_sequences = {design_entity: design_entity.structure_sequence
             #                     for design_entity, offset in coding_offset.items()}
-            # print('Pre-tag Sequences:\n%s' % '\n'.join([pretag_sequences[chain] for chain in pretag_sequences]))
+            # print('Pre-tag Sequences:\n%s' % '\n'.join([referenced_design_sequences[chain] for chain in referenced_design_sequences]))
 
             # for residue in all_missing_residues_d:
             #     if all_missing_residues_d[residue]['from'] == 'M':
 
             # for chain in gapped_residues_d:
             #     for residue in gapped_residues_d[chain]:
-
-            # Check for expression tag addition to the designed sequences
-            for idx, (entity, pretag_sequence) in enumerate(zip(des_dir.pose.entities, pretag_sequences.values())):
-                # pdb_code = entity.name[:4]
-                sequence_id = '%s_%s' % (des_dir, entity.name)
-                design_string = '%s_design_%s_%s' % (des_dir, design, entity.name)  # [i])), pdb_code)
-                uniprot_id = entity.uniprot_id
-                termini_availability = des_dir.return_termini_accessibility(entity)
+            missing_tags[(des_dir, design)] = [True for _ in des_dir.pose.entities]
+            prior_offset = 0
+            # all_missing_residues = {}
+            # mutations = []
+            # referenced_design_sequences = {}
+            sequences_and_tags = {}
+            # for source_entity, mutations in all_missing_residues_d.items():
+            # for source_entity in des_dir.pose.entities:
+            for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
+                source_entity.retrieve_info_from_api()
+                source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
+                sequence_id = '%s_%s' % (des_dir, source_entity.name)
+                design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
+                uniprot_id = source_entity.uniprot_id
+                termini_availability = des_dir.return_termini_accessibility(source_entity)
                 logger.debug('Design %s has the following termini accessible for tags: %s'
                              % (sequence_id, termini_availability))
                 if args.avoid_tagging_helices:
-                    termini_helix_availability = des_dir.return_termini_accessibility(entity, report_if_helix=True)
+                    termini_helix_availability = des_dir.return_termini_accessibility(source_entity, report_if_helix=True)
                     logger.debug('Design %s has the following helical termini available: %s'
                                  % (sequence_id, termini_helix_availability))
                     termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
                                             'c': termini_availability['c'] and not termini_helix_availability['c']}
+                true_termini = [term for term, is_true in termini_availability.items() if is_true]
                 logger.debug('The termini %s are available for tagging' % termini_availability)
-                available_tags = find_expression_tags(pretag_sequence)
-                if available_tags:  # use existing tag
-                    # remove_expression_tags(pretag_sequence, [tag['sequence'] for tag in available_tags])
-                    design_sequence = pretag_sequence
-                else:  # find compatible tags from matching PDB observations
-                    # if uniprot_id in tag_sequences.get(uniprot_id, None)
+                # Find sequence specifid attributes required for expression formatting
+                disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
+                                              only_gaps=True)
+                # all_missing_residues[source_entity] = \
+                #     {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
+                indexed_disordered_residues = \
+                    {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
+                # for residue, mutation in mutations.items():
+                #     all_missing_residues[source_entity][residue + source_entity.offset + prior_offset] = mutation
+                prior_offset += len(disorder)
+                # mutations.append(generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence,
+                #                                     offset=False))
+                mutations = \
+                    generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence, offset=False)
+                # insert the disordered residues into the design pose
+                for residue_number, mutation in indexed_disordered_residues.items():
+                    logger.debug('Inserting %s into position %d on chain %s'
+                                 % (mutation['from'], residue_number, source_entity.chain_id))
+                    design_pose.insert_residue_type(mutation['from'], at=residue_number,
+                                                    chain=source_entity.chain_id)
+                # find the offset using the structure sequence after insertion
+                # offset = find_orf_offset(design_entity.structure_sequence, mutations[idx])
+                offset = find_orf_offset(design_entity.structure_sequence, mutations)
+                # referenced_design_sequences[source_entity] = design_entity.structure_sequence[offset:]
+                formatted_design_sequence = design_entity.structure_sequence[offset:]
+            # Check for expression tag addition to the designed sequences
+            # for idx, (entity, formatted_design_sequence) in enumerate(zip(des_dir.pose.entities, referenced_design_sequences.values())):
+            # for idx, (source_entity, formatted_design_sequence) in enumerate(referenced_design_sequences.items()):
+                # pdb_code = entity.name[:4]
+                selected_tag = {}
+                available_tags = find_expression_tags(formatted_design_sequence)
+                if available_tags:  # try to use existing tag
+                    tag_names, tag_termini, tag_sequences = zip((tag['name'], tag['termini'], tag['sequence'])
+                                                                for tag in available_tags)
+                    preferred_tag_index = tag_names.index(args.preferred_tag)
+                    if preferred_tag_index != -1:
+                        if tag_termini[preferred_tag_index] in true_termini:
+                            selected_tag = available_tags[preferred_tag_index]
+                    pretag_sequence = remove_expression_tags(formatted_design_sequence, tag_sequences)
+                    # design_sequence = formatted_design_sequence
+                else:
+                    pretag_sequence = formatted_design_sequence
+
+                if not selected_tag:  # find compatible tags from matching PDB observations
                     matching_tags_by_unp_id = tag_sequences.get(uniprot_id, None)
                     if not matching_tags_by_unp_id:
                         matching_tags_by_unp_id = find_matching_expression_tags(uniprot_id=uniprot_id)
                         tag_sequences[uniprot_id] = matching_tags_by_unp_id
+#   File "/home/kylemeador/symdesign/SymDesign.py", line 2103, in <module>
+#     tag_names, tag_termini, tag_sequences = zip((tag['name'], tag['termini'], tag['sequence'])
+# ValueError: not enough values to unpack (expected 3, got 0)
+                    tag_names, tag_termini, tag_sequences = zip((tag['name'], tag['termini'], tag['sequence'])
+                                                                for tag in matching_tags_by_unp_id['matching_tags'])
+                    iteration = 0
+                    while iteration < len(tag_names):
+                        preferred_tag_index = tag_names[iteration:].index(args.preferred_tag)
+                        if preferred_tag_index == -1:
+                            break
+                        elif tag_termini[preferred_tag_index] in true_termini:
+                            selected_tag = available_tags[preferred_tag_index]
+                            break
+                        iteration += 1
+
                     selected_tag = select_tags_for_sequence(sequence_id, matching_tags_by_unp_id, **termini_availability)
+
+                if selected_tag.get('name'):
+                    missing_tags[(des_dir, design)][idx] = False
                     # Todo remove from this inner else to use the response from both if and else
-                    design_sequence = add_expression_tag(selected_tag['sequence'], pretag_sequence)
+                sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': selected_tag}
 
-                # tag_sequences = {pdb: find_all_matching_pdb_expression_tags(pdb,
-                #                                                             entity_chain_database_chain_mapping[chain])
-                #                  for pdb, chain in zip(pose_entities, source_pose.chain_id_list)}
+            for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
+                design_sequence = add_expression_tag(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
 
-                # for j, pdb_code in enumerate(tag_sequences):
-                #     if tag_sequences[pdb_code]:
-                #         seq = add_expression_tag(tag_sequences[pdb_code]['seq'], pretag_sequences[chains[j]])
-                #     else:
-                #         seq = pretag_sequences[chains[j]]
                 # If no MET start site, include one
                 if design_sequence[0] != 'M':
                     design_sequence = 'M%s' % design_sequence
@@ -2044,7 +2135,7 @@ if __name__ == '__main__':
                 # and save to view where additions lie on sequence. Cross these additions with design structure to check
                 # if insertions are compatible
                 all_insertions = {residue: {'to': aa} for residue, aa in enumerate(design_sequence, 1)}
-                all_insertions.update(generate_mutations(design_atomic_sequences[idx], design_sequence, blanks=True))
+                all_insertions.update(generate_mutations(designed_atom_sequences[idx], design_sequence, blanks=True))
                 # Reduce to sequence only
                 inserted_sequences[design_string] = '%s\n%s' % (''.join([res['to'] for res in all_insertions.values()]),
                                                                 design_sequence)
