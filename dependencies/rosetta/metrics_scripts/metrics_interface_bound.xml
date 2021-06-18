@@ -239,7 +239,17 @@
 <!--		<Report name="R_buns_total" filter="buns_total"/>-->
 	</FILTERS>
 
+<!--	# Symmetry set up section-->
+<!--	<FILTERS>-->
+<!--		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>-->
+<!--	</FILTERS>-->
+<!--	<MOVERS>-->
+<!--		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>-->
+<!--		<If name="if_symmetry" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>-->
+<!--	</MOVERS>-->
+
 	<PROTOCOLS>
+<!--		<Add mover_name="if_symmetry"/>-->
 <!--		<Add mover_name="save_nanohedra"/>-->
 		## ASU analysis
 <!--		<Add mover_name="extract_asu"/>-->

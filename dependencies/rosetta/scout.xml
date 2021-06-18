@@ -147,17 +147,27 @@
         <Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
     </MOVERS>
 
-    <PROTOCOLS>
-        <Add mover_name="symmetry_switch"/>
-<!--        <Add mover_name="scout_switch"/>-->
+	# Symmetry set up section
+	<FILTERS>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+	</FILTERS>
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+<!--		<If name="" filter_name="read_sym" true_mover_name="sym_" false_mover_name="asymmetric_"/>-->
+	</MOVERS>
+
+	<PROTOCOLS>
+		<Add mover_name="symmetry"/>
+        <!--        <Add mover_name="symmetry_switch"/>-->
+        <Add mover_name="job_info"/>
+        <!--        <Add mover_name="scout_switch"/>-->
         <Add mover_name="design_start"/>
         <Add mover_name="core_design"/>
-<!--        <Add mover_name="RP_shape_complementarity_core"/> # save info to pose-->
+        <!--        <Add mover_name="RP_shape_complementarity_core"/> # save info to pose-->
         <Add filter_name="R_shape_complementarity_core"/>
         <Add mover_name="rim_design"/>
         <Add mover_name="rotamer_trials_min_mover"/>
-		<Add mover_name="measure_interface_bound"/>
-		<Add mover_name="job_info"/>
+        <Add mover_name="measure_interface_bound"/>
 <!--        <Add mover_name="design_block"/>-->
 <!--					<Add mover_name="run_core_design_metrics"/>-->
 <!--        <Add mover_name="RP_core_design_residue_count"/>-->
