@@ -2009,6 +2009,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #         residue_info.pop(idx, None)
             #     self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
             #     # might have to remove these from all_design_scores in the case that that is used as a dictionary again
+            viable_designs = scores_df.index.to_list()
+            self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
             other_pose_metrics['observations'] = len(scores_df)
 
             # POSE ANALYSIS
@@ -2054,7 +2056,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # #                         for design, scores in all_design_scores.items()}
             chain_sequences = {entity.chain_id: {design: sequence[n_term - 1:c_term]
                                                  for design, sequence in pose_sequences.items()
-                                                 if design not in drop_na_index}  # remove if the design was dropped
+                                                 if design in viable_designs}  # only include if design is viable
                                for entity, n_term, c_term in entity_chain_breaks}
             pose_alignment = multi_chain_alignment(chain_sequences)
             mutation_frequencies = filter_dictionary_keys(pose_alignment['counts'], interface_residues)
