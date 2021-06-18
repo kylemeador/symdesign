@@ -2095,7 +2095,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
             # Calculate protocol significance
             pvalue_df = pd.DataFrame()
-            scout_protocols = filter(re.compile('.*scout').match, protocol_s.columns.to_list())  # list()
+            scout_protocols = filter(re.compile('.*scout').match, protocol_s.index.to_list())  # list()
             similarity_protocols = set(unique_protocols).difference(scout_protocols)
             if background_protocol not in unique_protocols:
                 self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
