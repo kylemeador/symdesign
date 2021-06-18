@@ -1767,8 +1767,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Gather mutations for residue specific processing and design sequences Todo won't work if poses change len
-            pose_sequences = {design: data.get('final_sequence')[:self.pose.number_of_residues]
-                              for design, data in all_design_scores.items()}
+            # pose_sequences = {design: data.get('final_sequence')[:self.pose.number_of_residues]
+            #                   for design, data in all_design_scores.items()}
+            pose_length = self.pose.number_of_residues
+            pose_sequences = {}
+            for design, data in list(all_design_scores.items()):
+                sequence = data.get('final_sequence')
+                if sequence:
+                    if len(sequence) >= pose_length:
+                        pose_sequences[design] = sequence[:pose_length]
+                    else:
+                        pose_sequences[design] = sequence
+                else:
+                    self.log.info('Design %s is missing sequence data' % design)
+                    all_design_scores.pop(design)
             # Find all designs which have corresponding pdb files and collect their sequences
             # for file in glob(self.designs):
             #     if file in all_design_scores:
