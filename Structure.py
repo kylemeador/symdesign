@@ -1167,6 +1167,9 @@ class Structure(StructureBase):
             (int): Whether the termini has a stretch of helical residues with length of the window (1) or not (0)
         """
         residues = list(reversed(self.residues)) if termini.lower() == 'c' else self.residues
+        if not residues[0].secondary_structure:
+            raise DesignError('You must call .get_secondary_structure on %s before querying for helical termini'
+                              % self.name)
         term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
         if 'H' * window in term_window:
             return 1  # True
