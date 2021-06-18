@@ -1779,7 +1779,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     else:
                         pose_sequences[design] = sequence
                 else:
-                    self.log.info('Design %s is missing sequence data' % design)
+                    self.log.debug('Design %s is missing sequence data' % design)
                     all_design_scores.pop(design)
             # Find all designs which have corresponding pdb files and collect their sequences
             # for file in glob(self.designs):
