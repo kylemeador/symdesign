@@ -28,8 +28,8 @@ from Pose import Pose
 from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, necessary_metrics, division_pairs, \
     columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
-    stats_metrics, significance_columns, protocols_of_interest, df_permutation_test, calc_relative_sa, \
-    clean_up_intermediate_columns, fragment_metric_template, protocol_specific_columns, rank_dataframe_by_metric_weights
+    stats_metrics, significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
+    protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol  # calc_relative_sa,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence,\
     multi_chain_alignment  # , format_mutations, generate_sequences, make_mutations_chain_agnostic,
@@ -2095,18 +2095,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
             # Calculate protocol significance
             pvalue_df = pd.DataFrame()
-            missing_protocols = protocols_of_interest.difference(unique_protocols)
-            if missing_protocols:
-                self.log.warning('Missing protocol%s \'%s\'. No protocol significance measurements for this design!'
-                                 % ('s' if len(missing_protocols) > 1 else '', ', '.join(missing_protocols)))
-            elif len(protocols_of_interest) == 1:
-                self.log.warning('Can\'t measure protocol significance, only one protocol of interest!')
-            else:
-                # Test significance between all combinations of protocols by grabbing mean entries per protocol
-                for prot1, prot2 in combinations(sorted(protocols_of_interest), 2):
-                    select_df = trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2],
-                                                  significance_columns]
-                    # difference_s = sig_df.loc[prot1, significance_columns].sub(sig_df.loc[prot2, significance_columns])
+            scout_protocols = filter(re.compile('.*scout').match, protocol_s.columns.to_list())  # list()
+            similarity_protocols = set(unique_protocols).difference(scout_protocols)
+            if background_protocol not in unique_protocols:
+                self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
+                                 'for this design' % background_protocol)
+            elif len(similarity_protocols) == 1:  # measure significance
+                self.log.warning('Can\'t measure protocol significance, only one protocol of interest')
+            # missing_protocols = protocols_of_interest.difference(unique_protocols)
+            # if missing_protocols:
+            #     self.log.warning('Missing protocol%s \'%s\'. No protocol significance measurements for this design!'
+            #                      % ('s' if len(missing_protocols) > 1 else '', ', '.join(missing_protocols)))
+            # elif len(protocols_of_interest) == 1:
+            else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
+                # for prot1, prot2 in combinations(sorted(protocols_of_interest), 2):
+                for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
+                    select_df = \
+                        trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2], significance_columns]
                     difference_s = trajectory_df.loc[prot1, :].sub(trajectory_df.loc[prot2, :])
                     pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
                                                                     group1_size=len(designs_by_protocol[prot1]))
