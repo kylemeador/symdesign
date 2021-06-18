@@ -72,12 +72,13 @@
 	</MOVE_MAP_FACTORIES>
 
 	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
 		<AddJobPairData name="job_info" key="protocol" value="hbnet_design_profile" value_type="string"/>
 		# generates symmetry for the system in question using %%sdf%% or %%dist%%
-		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0" preserve_datacache="1" keep_pdb_info_labels="1"/>
-		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
-		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
-		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
+<!--		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0" preserve_datacache="1" keep_pdb_info_labels="1"/>-->
+<!--		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>-->
+<!--		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>-->
+<!--		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>-->
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 			<AtomPairConstraintGenerator name="atom_pair_cst_gen" residue_selector="hbnet_residues" max_distance="3.3" sd="0.4" ca_only="0" min_seq_sep="2"/> # meant to recapitulate the constraints imposed by the HBNet protocol when the pose is reconstructed
@@ -102,9 +103,19 @@
 		<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
 	</MOVERS>
 
+	# Symmetry set up section
+	<FILTERS>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+	</FILTERS>
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+<!--		<If name="" filter_name="read_sym" true_mover_name="sym_" false_mover_name="asymmetric_"/>-->
+	</MOVERS>
+
 	<PROTOCOLS>
+		<Add mover_name="symmetry"/>
 <!--		<Add filter_name="time" report_at_end="false"/>-->
-		<Add mover_name="symmetry_switch"/>
+<!--		<Add mover_name="symmetry_switch"/>-->
 		<Add mover_name="add_csts"/>
 		# Might be unnecessary with the mechanism of FastDesign
 <!--		<Add mover_name="interface_core_design"/> # packing should reach ideal interior levels here-->
