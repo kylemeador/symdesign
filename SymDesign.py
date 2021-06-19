@@ -1779,7 +1779,9 @@ if __name__ == '__main__':
             all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
             # logger.info([design for idx, df in enumerate(all_dfs[:3]) for design in df.index.to_list() if design_directories[idx].name in design])
             for idx, df in enumerate(all_dfs):
-                all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
+                # all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
+                df.drop([design for design in df.index.to_list() if design_directories[idx].name not in design],
+                        inplace=True)
             logger.info([df.index for df in all_dfs[:3]])
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
             # df.index = [' '.join(col).strip() for col in df.index.values]
