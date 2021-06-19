@@ -69,13 +69,13 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
 
     # Next, align all the tags to the reference sequence and tally the tag location and type
     pdb_tag_tally = {'n': {}, 'c': {}, 'matching_tags': matching_pdb_tags}
-    for partner_pdb_tags in matching_pdb_tags:
-        if partner_pdb_tags:
-            for partner_tag in partner_pdb_tags:
-                if partner_tag['name'] in pdb_tag_tally[partner_tag['termini']]:
-                    pdb_tag_tally[partner_tag['termini']][partner_tag['name']] += 1
-                else:
-                    pdb_tag_tally[partner_tag['termini']][partner_tag['name']] = 1
+    for partner_tag in matching_pdb_tags:
+        # if partner_pdb_tags:
+        #     for partner_tag in partner_pdb_tags:
+        if partner_tag['name'] in pdb_tag_tally[partner_tag['termini']]:
+            pdb_tag_tally[partner_tag['termini']][partner_tag['name']] += 1
+        else:
+            pdb_tag_tally[partner_tag['termini']][partner_tag['name']] = 1
 
     return pdb_tag_tally
 
