@@ -1840,9 +1840,10 @@ if __name__ == '__main__':
                 # add to exceptions
                 exceptions.append((des_dir.path, 'No file found for \'%s/*%s*\'' % (des_dir.designs, design)))  # [i])))
                 continue
-            shutil.copy(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
-            shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
-            shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
+            if not os.path.exists(os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design))):
+                shutil.copy(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
+                shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
+                shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
             # try:
             #     # Create symbolic links to the output PDB's
             #     os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
