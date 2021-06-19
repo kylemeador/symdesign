@@ -92,6 +92,7 @@ binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_l
 # Stop Inheritance ####
 orient_dir = os.path.join(dependency_dir, 'orient')
 orient_exe_path = os.path.join(orient_dir, orient_exe)
+errat_exe_path = os.path.join(dependency_dir, 'errat', 'errat')
 orient_log_file = 'orient_oligomer_log.txt'
 stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 binaries = os.path.join(dependency_dir, 'bin')

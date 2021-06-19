@@ -11,7 +11,8 @@ from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
 from Bio.SeqUtils import IUPACData
 
-from PathUtils import free_sasa_exe_path, stride_exe_path, make_symmdef, scout_symmdef, reference_residues_pkl
+from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
+    reference_residues_pkl
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile
@@ -1062,6 +1063,29 @@ class Structure(StructureBase):
 
         # return sum([sasa for residue_number, sasa in zip(self.sasa_residues, self.sasa) if residue_number in numbers])
         return sum([residue.sasa for residue in self.residues if residue.number in numbers])
+
+    def errat(self, to_file=None):  # TODO
+        current_struc_file = self.write(out_path='errat_input-%s-%d.pdb' % (self.name, random() * 100000))
+        p = subprocess.Popen([errat_exe_path, os.path.splitext(os.path.basename(current_struc_file))[0],
+                              os.path.dirname(current_struc_file)], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        out, err = p.communicate()
+        os.system('rm %s' % current_struc_file)
+
+        if out:
+            if to_file:
+                with open(to_file, 'wb') as f:
+                    f.write(out)
+            # errat_output = out.decode('utf-8').split('\n')
+            errat_output_file = os.path.join(os.getcwd(), 'errat.ps')
+        else:
+            self.log.warning('%s: Failed to generate ERRAT measurement' % self.name)
+            return
+
+        p = subprocess.Popen(['grep', 'Overall', errat_output_file], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        errat_out, errat_err = p.communicate()
+        overall_score = list(set(errat_out.decode().split('\n')))
+
+        return overall_score[0]
 
     def stride(self, to_file=None):
         """Use Stride to calculate the secondary structure of a PDB.
