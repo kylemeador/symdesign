@@ -2019,6 +2019,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
             other_pose_metrics['observations'] = len(scores_df)
 
+            atomic_deviation = {}
+            for file in self.get_designs():
+                decoy_name = os.path.splitext(os.path.basename(file))[0]
+                if decoy_name not in scores_df.index:
+                    continue
+                pdb = PDB.from_file(file, name=decoy_name, log=None, entities=False, lazy=True)
+                atomic_deviation[pdb.name] = pdb.errat()
+
+            scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
+
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
