@@ -1060,8 +1060,14 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
 def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Validate
     """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return a HCI array
 
+    Args:
+        sequence (str): The sequence to measure
+    Keyword Args:
+        hydrophobicity='standard' (str): The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FILMVWY)
+    Returns:
+        (np.ndarray): 1D array with the mean collapse score for every position on the input sequence
     """
-    seq_length = len(sequence)
+    sequence_length = len(sequence)
     lower_range, upper_range, range_correction = 3, 9, 1
     range_size = upper_range - lower_range  # + range_correction
     yes = 1
@@ -1072,63 +1078,60 @@ def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Val
         hydrophobic = ['F', 'I', 'L', 'V']
 
     sequence_array = [yes if aa in hydrophobic else no for aa in sequence]
-    # for aa in sequence:
-    #     if aa in hydrophobic:
-    #         sequence_array.append(yes)
-    #     else:
-    #         sequence_array.append(no)
 
     # make an array with # of rows equal to upper range (+1 for indexing), length equal to # of letters in sequence
-    window_array = np.zeros((range_size, seq_length))  # [[0] * (seq_length + 1) for i in range(upper_range + 1)]
-    for idx, j in enumerate(range(lower_range, upper_range + range_correction), 0):
+    window_array = np.zeros((range_size, sequence_length))  # [[0] * (sequence_length + 1) for i in range(upper_range + 1)]
+    for array_idx, window_size in enumerate(range(lower_range, upper_range + range_correction)):
         # iterate over the window range
-        window_len = math.floor(j / 2)
-        modulus = j % 2
+        window_spread = math.floor(window_size / 2)
         # check if the range is odd or even, then calculate score accordingly, with cases for N- and C-terminal windows
-        if modulus == 1:  # range is odd
-            for k in range(seq_length):
-                s = 0
-                if k < window_len:  # N-terminus
-                    for n in range(k + window_len + range_correction):
-                        s += sequence_array[n]
-                elif k + window_len >= seq_length:  # C-terminus
-                    for n in range(k - window_len, seq_length):
-                        s += sequence_array[n]
+        if window_size % 2 == 1:  # range is odd
+            for seq_idx in range(sequence_length):
+                position_sum = 0
+                if seq_idx < window_spread:  # N-terminus
+                    for window_position in range(seq_idx + window_spread + range_correction):
+                        position_sum += sequence_array[window_position]
+                elif seq_idx + window_spread >= sequence_length:  # C-terminus
+                    for window_position in range(seq_idx - window_spread, sequence_length):
+                        position_sum += sequence_array[window_position]
                 else:
-                    for n in range(k - window_len, k + window_len + range_correction):
-                        s += sequence_array[n]
-                window_array[idx][k] = s / j
+                    for window_position in range(seq_idx - window_spread, seq_idx + window_spread + range_correction):
+                        position_sum += sequence_array[window_position]
+                window_array[array_idx][seq_idx] = position_sum / window_size
         else:  # range is even
-            for k in range(seq_length):
-                s = 0
-                if k < window_len:  # N-terminus
-                    for n in range(k + window_len + range_correction):
-                        if n == k + window_len:
-                            s += 0.5 * sequence_array[n]
+            for seq_idx in range(sequence_length):
+                position_sum = 0
+                if seq_idx < window_spread:  # N-terminus
+                    for window_position in range(seq_idx + window_spread + range_correction):
+                        if window_position == seq_idx + window_spread:
+                            position_sum += 0.5 * sequence_array[window_position]
                         else:
-                            s += sequence_array[n]
-                elif k + window_len >= seq_length:  # C-terminus
-                    for n in range(k - window_len, seq_length):
-                        if n == k - window_len:
-                            s += 0.5 * sequence_array[n]
+                            position_sum += sequence_array[window_position]
+                elif seq_idx + window_spread >= sequence_length:  # C-terminus
+                    for window_position in range(seq_idx - window_spread, sequence_length):
+                        if window_position == seq_idx - window_spread:
+                            position_sum += 0.5 * sequence_array[window_position]
                         else:
-                            s += sequence_array[n]
+                            position_sum += sequence_array[window_position]
                 else:
-                    for n in range(k - window_len, k + window_len + range_correction):
-                        if n == k - window_len or n == k + window_len + range_correction:
-                            s += 0.5 * sequence_array[n]
+                    for window_position in range(seq_idx - window_spread, seq_idx + window_spread + range_correction):
+                        if window_position == seq_idx - window_spread \
+                                or window_position == seq_idx + window_spread + range_correction:
+                            position_sum += 0.5 * sequence_array[window_position]
                         else:
-                            s += sequence_array[n]
-                window_array[idx][k] = s / j
-    logger.debug(window_array)
-    # return the mean score for each sequence position
-    return window_array.mean(axis=0)
-    # hci = np.zeros(seq_length)  # [0] * (seq_length + 1)
-    # for k in range(seq_length):
-    #     for j in range(lower_range, upper_range + range_correction):
-    #         hci[k] += window_array[j][k]
-    #     hci[k] /= range_size
-    #     hci[k] = round(hci[k], 3)
+                            position_sum += sequence_array[window_position]
+                window_array[array_idx][seq_idx] = position_sum / window_size
+    logger.debug('Hydrophobic Collapse window values:\n%s' % window_array)
+    hci = window_array.mean(axis=0)
+    logger.debug('Hydrophobic Collapse Index:\n%s' % hci)
+
+    return hci
+    # hci = np.zeros(sequence_length)  # [0] * (sequence_length + 1)
+    # for seq_idx in range(sequence_length):
+    #     for window_size in range(lower_range, upper_range + range_correction):
+    #         hci[seq_idx] += window_array[window_size][seq_idx]
+    #     hci[seq_idx] /= range_size
+    #     hci[seq_idx] = round(hci[seq_idx], 3)
 
     # return hci
 
