@@ -1782,11 +1782,11 @@ if __name__ == '__main__':
                 # all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
                 df.drop([design for design in df.index.to_list() if design_directories[idx].name not in design],
                         inplace=True)
-            logger.info([df.index for df in all_dfs[:3]])
+            # logger.info([df.index for df in all_dfs[:3]])
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
             # df.index = [' '.join(col).strip() for col in df.index.values]
 
-            logger.info(df.index[:5])
+            # logger.info(df.index[:5])
             design_list = rank_dataframe_by_metric_weights(df, weights=sequence_weights)
             number_chosen = 0
             results, selected_designs = [], []
@@ -2114,6 +2114,7 @@ if __name__ == '__main__':
                         tag_sequences[uniprot_id] = matching_tags_by_unp_id
                     tag_names, tag_termini, tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
                                                                   for tag in matching_tags_by_unp_id['matching_tags']])
+                    tag_names, tag_termini, tag_sequences = list(tag_names), list(tag_termini), list(tag_sequences)
                     iteration = 0
                     while iteration < len(tag_names):
                         preferred_tag_index = tag_names[iteration:].index(args.preferred_tag)
