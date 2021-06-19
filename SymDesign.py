@@ -2092,8 +2092,12 @@ if __name__ == '__main__':
                 selected_tag = {}
                 available_tags = find_expression_tags(formatted_design_sequence)
                 if available_tags:  # try to use existing tag
-                    tag_names, tag_termini, tag_sequences = zip((tag['name'], tag['termini'], tag['sequence'])
-                                                                for tag in available_tags)
+                    tag_namea = list(zip(*[(tag['name'], tag['termini'], tag['sequence'])
+                                                                  for tag in available_tags]))
+                    print(tag_namea)
+
+                    tag_names, tag_termini, tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
+                                                                  for tag in available_tags])
                     preferred_tag_index = tag_names.index(args.preferred_tag)
                     if preferred_tag_index != -1:
                         if tag_termini[preferred_tag_index] in true_termini:
@@ -2108,11 +2112,8 @@ if __name__ == '__main__':
                     if not matching_tags_by_unp_id:
                         matching_tags_by_unp_id = find_matching_expression_tags(uniprot_id=uniprot_id)
                         tag_sequences[uniprot_id] = matching_tags_by_unp_id
-#   File "/home/kylemeador/symdesign/SymDesign.py", line 2103, in <module>
-#     tag_names, tag_termini, tag_sequences = zip((tag['name'], tag['termini'], tag['sequence'])
-# ValueError: not enough values to unpack (expected 3, got 0)
-                    tag_names, tag_termini, tag_sequences = zip((tag['name'], tag['termini'], tag['sequence'])
-                                                                for tag in matching_tags_by_unp_id['matching_tags'])
+                    tag_names, tag_termini, tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
+                                                                  for tag in matching_tags_by_unp_id['matching_tags']])
                     iteration = 0
                     while iteration < len(tag_names):
                         preferred_tag_index = tag_names[iteration:].index(args.preferred_tag)
