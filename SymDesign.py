@@ -1776,9 +1776,14 @@ if __name__ == '__main__':
             sequence_weights = None
 
         if args.global_sequences:
-            df = pd.concat([pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories],
+            all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
+            logger.info([df for df in all_dfs[:3]])
+            logger.info([df.index for df in all_dfs[:3]])
+            df = pd.concat([df.drop(inplace=True) for df in all_dfs],
                            keys=design_directories)  # must add the design directory string to each index
             # df.index = [' '.join(col).strip() for col in df.index.values]
+
+            logger.info(df.index[:5])
             design_list = rank_dataframe_by_metric_weights(df, weights=sequence_weights)
             number_chosen = 0
             results, selected_designs = [], []
