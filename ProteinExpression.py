@@ -147,7 +147,8 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
         if pdb_tag_tally[termini][tag_name] > max_count:
             max_count = pdb_tag_tally[termini][tag_name]
             max_type = tag_name
-    all_tags.append(max_type)
+    if max_type:
+        all_tags.append(max_type)
 
     # Check if there are equally represented tags
     for tag_name in pdb_tag_tally[termini]:
@@ -158,6 +159,8 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
     # Finally report results to the user and solve ambiguous tags
     custom = False
     final_choice = {}
+    if not final_tags['name']:
+        return final_tag_sequence
     while True:
         default = \
             input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is '
