@@ -2098,10 +2098,15 @@ if __name__ == '__main__':
 
                     tag_names, tag_termini, tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
                                                                   for tag in available_tags])
-                    preferred_tag_index = tag_names.index(args.preferred_tag)
-                    if preferred_tag_index != -1:
+                    try:
+                        preferred_tag_index = tag_names.index(args.preferred_tag)
                         if tag_termini[preferred_tag_index] in true_termini:
                             selected_tag = available_tags[preferred_tag_index]
+                    except ValueError:
+                        pass
+                    # if preferred_tag_index != -1:
+                    #     if tag_termini[preferred_tag_index] in true_termini:
+                    #         selected_tag = available_tags[preferred_tag_index]
                     pretag_sequence = remove_expression_tags(formatted_design_sequence, tag_sequences)
                     # design_sequence = formatted_design_sequence
                 else:
@@ -2117,12 +2122,17 @@ if __name__ == '__main__':
                     tag_names, tag_termini, tag_sequences = list(tag_names), list(tag_termini), list(tag_sequences)
                     iteration = 0
                     while iteration < len(tag_names):
-                        preferred_tag_index = tag_names[iteration:].index(args.preferred_tag)
-                        if preferred_tag_index == -1:
+                        try:
+                            preferred_tag_index = tag_names[iteration:].index(args.preferred_tag)
+                            if tag_termini[preferred_tag_index] in true_termini:
+                                selected_tag = available_tags[preferred_tag_index]
+                                break
+                        except ValueError:
+                        # if preferred_tag_index == -1:
                             break
-                        elif tag_termini[preferred_tag_index] in true_termini:
-                            selected_tag = available_tags[preferred_tag_index]
-                            break
+                        # elif tag_termini[preferred_tag_index] in true_termini:
+                        #     selected_tag = available_tags[preferred_tag_index]
+                        #     break
                         iteration += 1
 
                     selected_tag = select_tags_for_sequence(sequence_id, matching_tags_by_unp_id, **termini_availability)
