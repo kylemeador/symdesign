@@ -2123,15 +2123,15 @@ if __name__ == '__main__':
                     iteration = 0
                     while iteration < len(tag_names):
                         try:
-                            preferred_tag_index = tag_names[iteration:].index(args.preferred_tag)
-                            if tag_termini[preferred_tag_index] in true_termini:
-                                selected_tag = available_tags[preferred_tag_index]
+                            preferred_tag_index_2 = tag_names[iteration:].index(args.preferred_tag)
+                            if tag_termini[preferred_tag_index_2] in true_termini:
+                                selected_tag = available_tags[preferred_tag_index_2]
                                 break
                         except ValueError:
                         # if preferred_tag_index == -1:
                             break
                         # elif tag_termini[preferred_tag_index] in true_termini:
-                        #     selected_tag = available_tags[preferred_tag_index]
+                        #     selected_tag = available_tags[preferred_tag_index_2]
                         #     break
                         iteration += 1
 
