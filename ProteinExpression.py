@@ -221,10 +221,10 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
     final_tag_sequence['name'] = final_choice['name']
     all_matching_tags = []
     # [{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
-    for pdb_match in pdb_tag_tally['matching_tags']:
-        for tag in pdb_match:
-            if final_choice['name'] == tag['name'] and final_choice['termini'] == tag['termini']:
-                all_matching_tags.append(tag['sequence'])
+    for tag in pdb_tag_tally['matching_tags']:
+        # for tag in pdb_match:
+        if final_choice['name'] == tag['name'] and final_choice['termini'] == tag['termini']:
+            all_matching_tags.append(tag['sequence'])
 
     # TODO align multiple and choose the consensus
     # all_alignments = []
