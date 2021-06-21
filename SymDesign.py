@@ -729,10 +729,7 @@ if __name__ == '__main__':
                                                  'required. If both are provided, -p will be prioritized')
     parser_sequence.add_argument('-a', '--avoid_tagging_helices', action='store_true',
                                  help='Should tags be avoided at termini with helices?')
-    parser_sequence.add_argument('-g', '--global_sequences', action='store_true',
-                                 help='Should sequences be selected based on their ranking in the total design pool. '
-                                      'This will search for the top sequences from all poses and then choose only one '
-                                      'sequence per pose')
+    parser_sequence.add_argument('-c', '--csv', action='store_true', help='Write the sequences file as a .csv')
     parser_sequence.add_argument('-e', '--entity_specification', type=str,
                                  help='If there are specific entities in the designs you want to tag, indicate how '
                                       'tagging should occur. Viable options include \'single\'- a single entity, '
@@ -741,6 +738,10 @@ if __name__ == '__main__':
                                       ' tag is required.')
     parser_sequence.add_argument('-f', '--filter', action='store_true',
                                  help='Whether to filter sequence selection using metrics from DataFrame')
+    parser_sequence.add_argument('-g', '--global_sequences', action='store_true',
+                                 help='Should sequences be selected based on their ranking in the total design pool. '
+                                      'This will search for the top sequences from all poses and then choose only one '
+                                      'sequence per pose')
     parser_sequence.add_argument('-m', '--multicistronic', action='store_true',
                                  help='Whether to output nucleotide sequences in multicistronic format. '
                                       'Use without --multicistronic_intergenic_sequence by default uses the intergeneic '
@@ -771,13 +772,14 @@ if __name__ == '__main__':
                                                 help='Generate nucleotide sequences for selected designs by codon '
                                                      'optimizing protein sequences, then concatenating nucleotide '
                                                      'sequences. Requires an input fasta file specified as -f/--file')
+    parser_multicistron.add_argument('-c', '--csv', action='store_true', help='Write the sequences file as a .csv')
     parser_multicistron.add_argument('-ms', '--multicistronic_intergenic_sequence', type=str,
                                      help='The sequence to use in the intergenic region of a multicistronic expression '
                                           'output')
     parser_multicistron.add_argument('-n', '--number_of_genes', type=int,
                                      help='The number of protein sequences to concatenate into a multicistronic '
                                           'expression output')
-    parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
+    parser_multicistron.add_argument('-s', '--selection_string', type=str, metavar='string',
                                  help='String to prepend to output for custom sequence selection name')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
@@ -2190,15 +2192,15 @@ if __name__ == '__main__':
 
         # Write output sequences to fasta file
         seq_file = SDUtils.write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
-                                            out_path=outdir)
+                                            out_path=outdir, csv=args.csv)
         logger.info('Final Design protein sequences written to %s' % seq_file)
         seq_comparison_file = SDUtils.write_fasta_file(inserted_sequences, '%sSelectedSequencesExpressionAdditions'
-                                                       % args.selection_string, out_path=outdir)
+                                                       % args.selection_string, out_path=outdir, csv=args.csv)
         logger.info('Final Expression sequence comparison to Design sequence written to %s' % seq_comparison_file)
         # check for protein or nucleotide output
         if args.nucleotide:
             nucleotide_sequence_file = SDUtils.write_fasta_file(nucleotide_sequences, '%sSelectedSequencesNucleotide'
-                                                                % args.selection_string, out_path=outdir)
+                                                                % args.selection_string, out_path=outdir, csv=args.csv)
             logger.info('Final Design nucleotide sequences written to %s' % nucleotide_sequence_file)
     # ---------------------------------------------------
     elif args.module == 'multicistronic':
@@ -2225,7 +2227,7 @@ if __name__ == '__main__':
         outdir = os.path.join(os.getcwd(), '%sSelectedDesigns' % args.selection_string)
 
         nucleotide_sequence_file = SDUtils.write_fasta_file(nucleotide_sequences, '%sSelectedSequencesNucleotide'
-                                                            % args.selection_string, out_path=os.getcwd())
+                                                            % args.selection_string, out_path=os.getcwd(), csv=args.csv)
         logger.info('Final Design nucleotide sequences written to %s' % nucleotide_sequence_file)
     # ---------------------------------------------------
     elif args.module == 'rename_scores':

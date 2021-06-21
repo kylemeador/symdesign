@@ -732,7 +732,7 @@ def concatenate_fasta_files(file_names, output='concatenated_fasta'):
     return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
 
 
-def write_fasta_file(sequence, name, out_path=os.getcwd()):
+def write_fasta_file(sequence, name, out_path=os.getcwd(), csv=False):
     """Write a fasta file from sequence(s)
 
     Args:
@@ -741,6 +741,7 @@ def write_fasta_file(sequence, name, out_path=os.getcwd()):
         name (str): The name of the file to output
     Keyword Args:
         path=os.getcwd() (str): The location on disk to output file
+        csv=False (bool): Whether the file should be written as a .csv
     Returns:
         (str): The name of the output file
     """
@@ -761,7 +762,10 @@ def write_fasta_file(sequence, name, out_path=os.getcwd()):
             else:
                 raise DesignError('Cannot parse data to make fasta')
         elif isinstance(sequence, dict):
-            outfile.write('\n'.join('>%s\n%s' % (seq_name, sequence[seq_name]) for seq_name in sequence))
+            if csv:
+                outfile.write('\n'.join('%s,%s' % item for item in sequence.items))
+            else:
+                outfile.write('\n'.join('>%s\n%s' % item for item in sequence.items))
         elif isinstance(sequence, str):
             outfile.write('>%s\n%s\n' % (name, sequence))
         else:
