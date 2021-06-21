@@ -381,9 +381,8 @@ def optimize_protein_sequence(sequence, species='e_coli'):
                                                   AvoidPattern('GGGGGGGGGG', location=(1, seq_length, 0)),  # homopoly
                                                   # AvoidPattern('CCCCCCCCCC', location=(1, seq_length)),  # homopoly
                                                   UniquifyAllKmers(20),  # twist required
-                                                  AvoidRareCodons(0.8)
-                                                  ],
-                                     objectives=[CodonOptimize(species=species)], logger=None)
+                                                  AvoidRareCodons(0.8, species=species)
+                                                  ], objectives=[CodonOptimize(species=species)], logger=None)
 
     # Solve constraints and solve with regards to the objective
     problem.resolve_constraints()

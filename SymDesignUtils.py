@@ -745,7 +745,8 @@ def write_fasta_file(sequence, name, out_path=os.getcwd(), csv=False):
     Returns:
         (str): The name of the output file
     """
-    file_name = os.path.join(out_path, name + '.fasta')
+    extension = '%s.fasta' if not csv else '%s.csv'
+    file_name = os.path.join(out_path, extension % name)
     with open(file_name, 'w') as outfile:
         if type(sequence) is list:
             if type(sequence[0]) is list:  # where inside list is of alphabet (AA or DNA)
