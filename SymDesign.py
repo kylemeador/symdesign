@@ -1897,7 +1897,7 @@ if __name__ == '__main__':
             if not file:
                 logger.error('No file found for %s' % '%s/*%s*' % (des_dir.designs, design))  # [i]))
                 continue
-            design_pose = PDB.from_file(file[0])
+            design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
             designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
             # v {chain: sequence, ...}
             # design_sequences = design_pose.atom_sequences
@@ -2129,9 +2129,8 @@ if __name__ == '__main__':
                 selected_tag = {}
                 available_tags = find_expression_tags(formatted_design_sequence)
                 if available_tags:  # try to use existing tag
-                    tag_namea = list(zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags]))
-                    print('Found some tags', tag_namea)
-
+                    # tag_namea = list(zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags]))
+                    # print('Found some tags', tag_namea)
                     if available_tags:
                         tag_names, tag_termini, ind_tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
                                                                         for tag in available_tags])
