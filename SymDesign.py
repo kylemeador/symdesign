@@ -1866,7 +1866,7 @@ if __name__ == '__main__':
             print(SDUtils.digit_translate_table)
             for i in split_set:
                 print(i.translate(SDUtils.digit_translate_table))
-            tag_specified_list2 = list(map(str.translate, split_set, SDUtils.digit_translate_table))
+            tag_specified_list2 = list(map(str.translate, split_set, repeat(SDUtils.digit_translate_table)))
             tag_specified_list1 = \
                 list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
                                   SDUtils.digit_translate_table))
