@@ -10,7 +10,7 @@ import SymDesignUtils as SDUtils
 # import Pose
 import SequenceProfile
 from Query.PDB import input_string, get_entity_reference_sequence, pdb_id_matching_uniprot_id
-from dependencies.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize
+from dependencies.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate
 
 # Globals
 logger = SDUtils.start_log(name=__name__)
@@ -368,7 +368,7 @@ def optimize_protein_sequence(sequence, species='e_coli'):
     Returns:
         (str): The input sequence optimized to nucleotides for expression considerations
     """
-    problem = DnaOptimizationProblem(sequence=sequence, objectives=[CodonOptimize(species=species)])
+    problem = DnaOptimizationProblem(sequence=reverse_translate(sequence), objectives=[CodonOptimize(species=species)])
     # constraints=[
     #     AvoidPattern("BsaI_site"),
     #     EnforceGCContent(mini=0.3, maxi=0.7, window=50),
