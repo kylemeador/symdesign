@@ -1878,15 +1878,11 @@ if __name__ == '__main__':
                         tag_specified_list[idx] = int(item)
                     except ValueError:
                         continue
-                # tag_specified_list = \
-                #     list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(['']),
-                #                       repeat(SDUtils.digit_translate_table))))
-                # print(tag_specified_list)
+
                 for _ in range(len(master_directory.pose.entities) - len(tag_specified_list)):
                     tag_specified_list.append(0)
-                if tag_specified_list:
-                    tag_index = [True if is_tag else False for is_tag in args.entity_specification]
-                    number_of_tags = sum(tag_specified_list)
+                tag_index = [True if is_tag else False for is_tag in tag_specified_list]
+                number_of_tags = sum(tag_specified_list)
         else:
             tag_index = [False for _ in master_directory.pose.entities]
             number_of_tags = None
@@ -2079,6 +2075,7 @@ if __name__ == '__main__':
             # mutations = []
             # referenced_design_sequences = {}
             sequences_and_tags = {}
+            entity_termini_availability = {}
             # for source_entity, mutations in all_missing_residues_d.items():
             # for source_entity in des_dir.pose.entities:
             for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
@@ -2098,7 +2095,8 @@ if __name__ == '__main__':
                                             'c': termini_availability['c'] and not termini_helix_availability['c']}
                 true_termini = [term for term, is_true in termini_availability.items() if is_true]
                 logger.debug('The termini %s are available for tagging' % termini_availability)
-                # Find sequence specifid attributes required for expression formatting
+                entity_termini_availability[design_string] = termini_availability
+                # Find sequence specified attributes required for expression formatting
                 disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
                                               only_gaps=True)
                 # all_missing_residues[source_entity] = \
@@ -2131,7 +2129,7 @@ if __name__ == '__main__':
                 available_tags = find_expression_tags(formatted_design_sequence)
                 if available_tags:  # try to use existing tag
                     tag_namea = list(zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags]))
-                    print(tag_namea)
+                    print('Found some tags', tag_namea)
 
                     if available_tags:
                         tag_names, tag_termini, ind_tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
@@ -2189,13 +2187,16 @@ if __name__ == '__main__':
             if number_of_tags:
                 number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
                 if number_of_tags > number_of_found_tags:
-                    print('There were %d requested tags for design %s and only %d were found'
+                    print('There were %d requested tags for design %s and %d were found'
                           % (number_of_tags, des_dir, number_of_found_tags))
                     current_tag_options = \
-                        '\n\t'.join(['%d - %s\n\t\t%s' % (i, entity_name, tag_options['tag'])
+                        '\n\t'.join(['%d - %s\n\nTERMINI: %s\n\t   TAGS: %s'
+                                     % (i, entity_name, entity_termini_availability[entity_name], tag_options['tag'])
                                      for i, (entity_name, tag_options) in enumerate(sequences_and_tags.items(), 1)])
                     print('Current Tag Options:%s' % current_tag_options)
-                    satisfied = input('If this is acceptable, enter \'continue\' to move on to the next design. Otherwise, '
+                    # print('Termini Availability:\n\t%s'
+                    #       % '\n\t'.join('%s\t%s' % item for item in entity_termini_availability.items()))
+                    satisfied = input('If this is acceptable, enter \'continue\', otherwise, '
                                       'you can modify the tagging options with any other input.%s' % input_string)
                     if satisfied == 'continue':
                         number_of_found_tags = number_of_tags
@@ -2214,8 +2215,7 @@ if __name__ == '__main__':
                                 tag = args.preferred_tag
                                 while True:
                                     termini = input('Your preferred tag will be added to one of the termini. Which '
-                                                    'termini would you prefer? [n/c]%s'
-                                                    % (sequence_id, input_string))
+                                                    'termini would you prefer? [n/c]%s' % input_string)
                                     if termini in ['n', 'c']:
                                         break
                                     else:
