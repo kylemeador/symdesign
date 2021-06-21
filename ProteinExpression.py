@@ -10,7 +10,8 @@ import SymDesignUtils as SDUtils
 # import Pose
 import SequenceProfile
 from Query.PDB import input_string, get_entity_reference_sequence, pdb_id_matching_uniprot_id
-from dependencies.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate
+from dependencies.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
+    EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers
 
 # Globals
 logger = SDUtils.start_log(name=__name__)
@@ -368,26 +369,33 @@ def optimize_protein_sequence(sequence, species='e_coli'):
     Returns:
         (str): The input sequence optimized to nucleotides for expression considerations
     """
-    problem = DnaOptimizationProblem(sequence=reverse_translate(sequence), objectives=[CodonOptimize(species=species)])
-    # constraints=[
-    #     AvoidPattern("BsaI_site"),
-    #     EnforceGCContent(mini=0.3, maxi=0.7, window=50),
-    #     EnforceTranslation(location=(500, 1400))
-    # ],
+    seq_length = len(sequence)
+    problem = DnaOptimizationProblem(sequence=reverse_translate(sequence),
+                                     constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # twist required
+                                                  EnforceGCContent(mini=0.35, maxi=0.65, window=50),  # twist required
+                                                  AvoidHairpins(stem_size=20, hairpin_window=48),  # efficient translate
+                                                  AvoidPattern('GGAGG', location=(1, seq_length, 1)),  # ribosome bind
+                                                  AvoidPattern('TAAGGAG', location=(1, seq_length, 1)),  # ribosome bind
+                                                  AvoidPattern('AAAAA', location=(1, seq_length, 0)),  # terminator
+                                                  # AvoidPattern('TTTTT', location=(1, seq_length, 1)),  # terminator
+                                                  AvoidPattern('GGGGGGGGGG', location=(1, seq_length, 0)),  # homopoly
+                                                  # AvoidPattern('CCCCCCCCCC', location=(1, seq_length)),  # homopoly
+                                                  UniquifyAllKmers(20),  # twist required
+                                                  AvoidRareCodons(0.8)
+                                                  ],
+                                     objectives=[CodonOptimize(species=species)], logger=None)
 
-    # SOLVE THE CONSTRAINTS, OPTIMIZE WITH RESPECT TO THE OBJECTIVE
+    # Solve constraints and solve with regards to the objective
     problem.resolve_constraints()
     problem.optimize()
 
-    # PRINT SUMMARIES TO CHECK THAT CONSTRAINTS PASS
+    # Display summaries of constraints that pass
     # print(problem.constraints_text_summary())
     # print(problem.objectives_text_summary())
 
-    # GET THE FINAL SEQUENCE (AS STRING OR ANNOTATED BIOPYTHON RECORDS)
-    final_sequence = problem.sequence  # string
-    # print('1', final_sequence)
-    # final_sequence = problem.sequence.seq  # string
-    # print('2', final_sequence)
-
+    # Get final sequence as string
+    final_sequence = problem.sequence
+    # Get final sequene as BioPython record
     # final_record = problem.to_record(with_sequence_edits=True)
+
     return final_sequence
