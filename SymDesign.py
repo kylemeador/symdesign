@@ -2127,8 +2127,11 @@ if __name__ == '__main__':
                     tag_namea = list(zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags]))
                     print(tag_namea)
 
-                    tag_names, tag_termini, ind_tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                                                    for tag in available_tags])
+                    if available_tags:
+                        tag_names, tag_termini, ind_tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
+                                                                        for tag in available_tags])
+                    else:
+                        tag_names, tag_termini, ind_tag_sequences = [], [], []
                     try:
                         preferred_tag_index = tag_names.index(args.preferred_tag)
                         if tag_termini[preferred_tag_index] in true_termini:
@@ -2148,10 +2151,13 @@ if __name__ == '__main__':
                     if not matching_tags_by_unp_id:
                         matching_tags_by_unp_id = find_matching_expression_tags(uniprot_id=uniprot_id)
                         tag_sequences[uniprot_id] = matching_tags_by_unp_id
-                    tag_names, tag_termini, ind_tag_sequences = \
-                        zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                              for tag in matching_tags_by_unp_id['matching_tags']])
-                    tag_names, tag_termini, ind_tag_sequences = list(tag_names), list(tag_termini), list(ind_tag_sequences)
+                    if matching_tags_by_unp_id['matching_tags']:
+                        tag_names, tag_termini, ind_tag_sequences = \
+                            zip(*[(tag['name'], tag['termini'], tag['sequence'])
+                                  for tag in matching_tags_by_unp_id['matching_tags']])
+                        tag_names, tag_termini, ind_tag_sequences = list(tag_names), list(tag_termini), list(ind_tag_sequences)
+                    else:
+                        tag_names, tag_termini, ind_tag_sequences = [], [], []
                     iteration = 0
                     while iteration < len(tag_names):
                         try:
