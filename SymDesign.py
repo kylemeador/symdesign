@@ -2148,15 +2148,16 @@ if __name__ == '__main__':
                     if not matching_tags_by_unp_id:
                         matching_tags_by_unp_id = find_matching_expression_tags(uniprot_id=uniprot_id)
                         tag_sequences[uniprot_id] = matching_tags_by_unp_id
-                    tag_names, tag_termini, ind_tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                                                  for tag in matching_tags_by_unp_id['matching_tags']])
+                    tag_names, tag_termini, ind_tag_sequences = \
+                        zip(*[(tag['name'], tag['termini'], tag['sequence'])
+                              for tag in matching_tags_by_unp_id['matching_tags']])
                     tag_names, tag_termini, ind_tag_sequences = list(tag_names), list(tag_termini), list(ind_tag_sequences)
                     iteration = 0
                     while iteration < len(tag_names):
                         try:
                             preferred_tag_index_2 = tag_names[iteration:].index(args.preferred_tag)
                             if tag_termini[preferred_tag_index_2] in true_termini:
-                                selected_tag = matching_tags_by_unp_id[preferred_tag_index_2]
+                                selected_tag = matching_tags_by_unp_id['matching_tags'][preferred_tag_index_2]
                                 break
                         except ValueError:
                         # if preferred_tag_index == -1:
