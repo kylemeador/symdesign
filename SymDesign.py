@@ -1859,9 +1859,10 @@ if __name__ == '__main__':
             #     pass
 
         # Format sequences for expression
-        tag_specified_list = \
-            list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(''),
-                              SDUtils.digit_translate_table)))
+        if args.entity_specification:
+            tag_specified_list = \
+                list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(''),
+                                  SDUtils.digit_translate_table)))
         for _ in range(len(des_dir.pose.entities) - len(tag_specified_list)):
             tag_specified_list.append(0)
         if args.entity_specification == 'all':
