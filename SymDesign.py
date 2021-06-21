@@ -2075,7 +2075,7 @@ if __name__ == '__main__':
             # mutations = []
             # referenced_design_sequences = {}
             sequences_and_tags = {}
-            entity_termini_availability = {}
+            entity_termini_availability, entity_helical_termini = {}, {}
             # for source_entity, mutations in all_missing_residues_d.items():
             # for source_entity in des_dir.pose.entities:
             for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
@@ -2093,6 +2093,7 @@ if __name__ == '__main__':
                                  % (sequence_id, termini_helix_availability))
                     termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
                                             'c': termini_availability['c'] and not termini_helix_availability['c']}
+                    entity_helical_termini[design_string] = termini_helix_availability
                 true_termini = [term for term, is_true in termini_availability.items() if is_true]
                 logger.debug('The termini %s are available for tagging' % termini_availability)
                 entity_termini_availability[design_string] = termini_availability
@@ -2177,7 +2178,8 @@ if __name__ == '__main__':
                         #     break
                         iteration += 1
 
-                    selected_tag = select_tags_for_sequence(sequence_id, matching_tags_by_unp_id, **termini_availability)
+                    selected_tag = select_tags_for_sequence(sequence_id, matching_tags_by_unp_id,
+                                                            preferred=args.preferred_tag, **termini_availability)
 
                 if selected_tag.get('name'):
                     missing_tags[(des_dir, design)][idx] = 0
@@ -2190,12 +2192,13 @@ if __name__ == '__main__':
                     print('There were %d requested tags for design %s and %d were found'
                           % (number_of_tags, des_dir, number_of_found_tags))
                     current_tag_options = \
-                        '\n\t'.join(['%d - %s\n\nTERMINI: %s\n\t   TAGS: %s'
+                        '\n\t'.join(['%d - %s\n\tAvailable Termini: %s\n\t\t   TAGS: %s'
                                      % (i, entity_name, entity_termini_availability[entity_name], tag_options['tag'])
                                      for i, (entity_name, tag_options) in enumerate(sequences_and_tags.items(), 1)])
-                    print('Current Tag Options:%s' % current_tag_options)
-                    # print('Termini Availability:\n\t%s'
-                    #       % '\n\t'.join('%s\t%s' % item for item in entity_termini_availability.items()))
+                    print('Current Tag Options:\n\t%s' % current_tag_options)
+                    if args.avoid_tagging_helices:
+                        print('Helical Termini:\n\t%s'
+                              % '\n\t'.join('%s\t%s' % item for item in entity_helical_termini.items()))
                     satisfied = input('If this is acceptable, enter \'continue\', otherwise, '
                                       'you can modify the tagging options with any other input.%s' % input_string)
                     if satisfied == 'continue':
@@ -2282,7 +2285,8 @@ if __name__ == '__main__':
                             if tag_input <= len(sequences_and_tags):
                                 missing_tags[(des_dir, design)][tag_input - 1] = 1
                                 selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
-                                sequences_and_tags[selected_entity]['tag'] = None
+                                sequences_and_tags[selected_entity]['tag'] = \
+                                    {'name': None, 'termini': None, 'sequence': None}
                                 # tag = list(expression_tags.keys())[tag_input - 1]
                                 break
                             else:
