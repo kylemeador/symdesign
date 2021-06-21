@@ -25,7 +25,7 @@ confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
 user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
 additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
-boolean_input_string = '\nPlease specify [y/n]%s' % ('%s', input_string)
+boolean_input_string = '\nPlease specify [y/n]%s' % input_string
 instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
 
 # Websites
