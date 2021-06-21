@@ -20,6 +20,7 @@ import pandas as pd
 import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
+from Bio.SeqUtils import IUPACData
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
@@ -38,7 +39,8 @@ from Pose import fetch_pdb_file
 from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map, \
     group_compositions
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
-    select_tags_for_sequence, remove_expression_tags, expression_tags
+    select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
+    default_multicistronic_sequence
 from DesignMetrics import filter_pose, master_metrics, query_user_for_metrics, rank_dataframe_by_metric_weights
 from SequenceProfile import generate_mutations, find_orf_offset  # , pdb_to_pose_offset
 
@@ -739,10 +741,22 @@ if __name__ == '__main__':
                                       ' tag is required.')
     parser_sequence.add_argument('-f', '--filter', action='store_true',
                                  help='Whether to filter sequence selection using metrics from DataFrame')
+    parser_sequence.add_argument('-m', '--multicistronic', action='store_true',
+                                 help='Whether to output nucleotide sequences in multicistronic format. '
+                                      'Use without --multicistronic_intergenic_sequence by default uses the intergeneic '
+                                      'sequence from the pET-Duet systems')
+    parser_sequence.add_argument('-ms', '--multicistronic_intergenic_sequence', type=str,
+                                 help='The sequence to use in the intergenic region of a multicistronic expression '
+                                      'output')
+    parser_sequence.add_argument('-n', '--nucleotide', action='store_true',
+                                 help='Whether to output codon optimized nucleotide sequences')
     parser_sequence.add_argument('-ns', '--number_sequences', type=int, default=sys.maxsize, metavar='INT',
                                  help='Number of top sequences to return. If global_sequences is True, returns the '
                                       'specified number_sequences sequences (Default=No Limit).\nOtherwise the '
                                       'specified number will be found from each pose (Default=1)')
+    parser_sequence.add_argument('-o', '--optimize_species', type=str, default='e_coli',
+                                 help='The organism where expression will occur and nucleotide usage should be '
+                                      'optimized')
     parser_sequence.add_argument('-p', '--protocol', type=str,
                                  help='Is there a specific protocol to grab sequences from?')
     parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
@@ -752,6 +766,17 @@ if __name__ == '__main__':
                                  choices=expression_tags.keys(), default='his_tag')
     parser_sequence.add_argument('-w', '--weight', action='store_true',
                                  help='Whether to weight sequence selection using metrics from DataFrame')
+    # ---------------------------------------------------
+    parser_multicistron = subparsers.add_parser('multicistronic',
+                                                help='Generate nucleotide sequences for selected designs by codon '
+                                                     'optimizing protein sequences, then concatenating nucleotide '
+                                                     'sequences. Requires an input fasta file specified as -f/--file')
+    parser_multicistron.add_argument('-ms', '--multicistronic_intergenic_sequence', type=str,
+                                     help='The sequence to use in the intergenic region of a multicistronic expression '
+                                          'output')
+    parser_multicistron.add_argument('-n', '--number_of_genes', type=int,
+                                     help='The number of protein sequences to concatenate into a multicistronic '
+                                          'expression output')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
@@ -915,7 +940,8 @@ if __name__ == '__main__':
         if args.module == 'query':
             args.directory = True
 
-    if not args.guide and args.module not in ['distribute', 'query', 'guide', 'flags', 'residue_selector']:
+    if not args.guide and args.module not in ['distribute', 'query', 'guide', 'flags', 'residue_selector',
+                                              'multicistronic']:
         options_table = SDUtils.pretty_format_table(queried_flags.items())
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
     # -----------------------------------------------------------------------------------------------------------------
@@ -1869,7 +1895,7 @@ if __name__ == '__main__':
                 number_of_tags = 1
             elif args.entity_specification == 'none':
                 tag_index = [False for _ in master_directory.pose.entities]
-                number_of_tags = 0
+                number_of_tags = None
             else:
                 tag_specified_list = list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
                                               repeat(SDUtils.digit_translate_table)))
@@ -1887,188 +1913,27 @@ if __name__ == '__main__':
             tag_index = [False for _ in master_directory.pose.entities]
             number_of_tags = None
 
+        if args.multicistronic or args.multicistronic_intergenic_sequence:
+            args.multicistronic = True
+            if args.multicistronic_intergenic_sequence:
+                intergenic_sequence = args.multicistronic_intergenic_sequence
+            else:
+                intergenic_sequence = default_multicistronic_sequence
+        else:
+            intergenic_sequence = ''
+
         missing_tags = {}  # result: [True, True] for result in results
-        tag_sequences, final_sequences, inserted_sequences = {}, {}, {}
+        tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
         for des_dir, design in results:
-            # pose_des_dirs, design = zip(*pose)
-            # for i, des_dir in enumerate(pose_des_dirs):
-            # coming in as (chain: seq}
-            file = glob('%s/*%s*' % (des_dir.designs, design))  # [i]))
+            file = glob('%s/*%s*' % (des_dir.designs, design))
             if not file:
-                logger.error('No file found for %s' % '%s/*%s*' % (des_dir.designs, design))  # [i]))
+                logger.error('No file found for %s' % '%s/*%s*' % (des_dir.designs, design))
                 continue
             design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
             designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
-            # v {chain: sequence, ...}
-            # design_sequences = design_pose.atom_sequences
 
-            # need the original pose chain identity
-            # source_pose = PDB(file=des_dir.asu)  # Why can't I use design_sequences? localds quality!
             des_dir.load_pose()  # des_dir.source)
             des_dir.pose.pdb.reorder_chains()  # Do I need to modify chains?
-            # source_pose = PDB.from_file(des_dir.source)  # Think this works the best
-            # source_pose.reorder_chains()  # Do I need to modify chains?
-            # source_pose.atom_sequences = AnalyzeMutatedSequences.get_pdb_sequences(source_pose)
-            # source_seqres = {}
-            # for source_entity in des_dir.pose.entities:
-            #     source_entity.retrieve_info_from_api()
-            #     source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
-                # source_seqres[entity.chain_id] = entity.reference_sequence
-
-            # for entity in source_pose.entities:
-            #     entity.retrieve_sequence_from_api(entity_id=entity.name)
-            #     entity.retrieve_info_from_api()
-            #     source_seqres[entity.chain_id] = entity.reference_sequence
-            # if not source_pose.sequences:
-            # oligomers = [PDB.from_file(Pose.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
-            # oligomers = [SDUtils.read_pdb(SDUtils.retrieve_pdb_file_path(pdb)) for pdb in pose_entities]
-            # entity_chain_database_chain_mapping = {entity.chain_id: next(iter(entity.api_entry))
-            #                                        for entity in des_dir.pose.entities}
-            # entity_chain_database_chain_mapping = {entity.chain_id: next(iter(entity.api_entry))
-            #                                      for entity in source_pose.entities}
-            # print('SEQRES:\n%s' % '\n'.join(['%s - %s' % (chain, oligomer.sequences[chain])
-            #                                  for oligomer in oligomers for chain in oligomer.chain_id_list]))
-
-            # seqres_pose = PDB.PDB()
-            # for oligomer, _chain in zip(oligomers, reversed(chains)):
-            #     # print('Before', oligomer.chain_id_list)
-            #     oligomer.rename_chain(oligomer.chain_id_list[0], _chain)
-            #     # print('After', oligomer.chain_id_list)
-            #     seqres_pose.read_atom_list(oligomer.chain(_chain))
-            #     # print('In', seqres_pose.chain_id_list)
-            # # print('Out', seqres_pose.chain_id_list)
-            # seqres_pose.renumber_residues()  # Why is this necessary
-            # seqres_pose.seqres_sequences = source_seqres  # Ams.get_pdb_sequences(seqres_pose,source='seqres')
-            # print('Reorder', seqres_pose.chain_id_list)
-            # Insert loops identified by comparison of SEQRES and ATOM
-
-            # missing_termini_d = {chain: Ams.generate_mutations_from_seq(pdb_atom_seq[chain],
-            #                                                         template_pdb.sequences[chain],
-            #                                                         offset=True,
-            #                                                         termini=True)
-            #                      for chain in template_pdb.chain_id_list}
-            # print('Source ATOM Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_pose.atom_sequences[chain])
-            #                                                 for chain in design_sequences]))
-            # print('Source SEQRES Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, source_seqres[chain])
-            #                                                   for chain in source_seqres]))
-            # all_missing_residues_d = {chain: Ams.generate_mutations_from_seq(design_sequences[chain],
-            #                                                                  seqres_pose.seqres_sequences[chain],
-            #                                                                  offset=True, only_gaps=True)
-            #                           for chain in design_sequences}
-
-            # Find all gaps between the ATOM record and SEQRES (reference sequence)
-            # all_missing_residues_d = \
-            #     {source_entity: generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
-            #                                        only_gaps=True)
-            #      for source_entity in des_dir.pose.entities}
-            # all_missing_residues_d = {chain: generate_mutations(source_pose.atom_sequences[chain],
-            #                                                     source_seqres[chain], offset=True, only_gaps=True)
-            #                           for chain in source_seqres}
-            # pose_insert_offset_d = Ams.pdb_to_pose_num(all_missing_residues_d)
-
-            # print('Pre-pose numbering:\n%s' %
-            #       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
-            #                  for chain in all_missing_residues_d]))
-
-            # pose_offset = pdb_to_pose_offset(source_seqres)
-            # # Modify residue indices to pose numbering for every Entity after the first
-            # all_missing_residues = \
-            #     {source_entity: {residue + source_entity.offset: mutation for residue, mutation in mutations.items()}
-            #      for source_entity, mutations in all_missing_residues_d.items()}
-            # Have to modify residue indices to include prior inserts length into pose numbering
-        # prior_offset = 0
-        # all_missing_residues = {}
-        # mutations = []
-        # referenced_design_sequences = {}
-        # # for source_entity, mutations in all_missing_residues_d.items():
-        # # for source_entity in des_dir.pose.entities:
-        # for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
-        #     source_entity.retrieve_info_from_api()
-        #     source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
-        #     disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
-        #                                   only_gaps=True)
-        #     # all_missing_residues[source_entity] = \
-        #     #     {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
-        #     indexed_disordered_residues = \
-        #         {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
-        #     # for residue, mutation in mutations.items():
-        #     #     all_missing_residues[source_entity][residue + source_entity.offset + prior_offset] = mutation
-        #     prior_offset += len(disorder)
-        #     mutations.append(generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence,
-        #                                         offset=False))
-        #     # insert the disordered residues into the design pose
-        #     for residue_number, mutation in indexed_disordered_residues.items():
-        #         logger.debug('Inserting %s into position %d on chain %s'
-        #                      % (mutation['from'], residue_number, source_entity.chain_id))
-        #         design_pose.insert_residue_type(mutation['from'], at=residue_number,
-        #                                         chain=source_entity.chain_id)
-        #     # find the offset using the structure sequence after insertion
-        #     offset = find_orf_offset(design_entity.structure_sequence, mutations[idx])
-        #     referenced_design_sequences[source_entity] = design_entity.structure_sequence[offset:]
-            # Modify residue indices to include prior inserts length into pose numbering
-            # all_missing_residues_d = {chain: {residue + pose_insert_offset_d[chain]: all_missing_residues_d[chain][residue]
-            #                                   for residue in all_missing_residues_d[chain]}
-            #                           for chain in all_missing_residues_d}
-            # print('Post-pose numbering:\n%s' %
-            #       '\n'.join(['%s - %s' % (chain, ', '.join([str(res) for res in all_missing_residues_d[chain]]))
-            #                  for chain in all_missing_residues_d]))
-
-            # designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
-            # # Compare the source entity, reference sequence as reference to the designed sequence to get mutations
-            # # returns the designed residue identities in the index of the reference sequence
-            # # MAYBE THIS SHOULD BE PERFORMED ON DESIGN SEQUENCE AFTER INSERTION TO BYPASS DIFFICULTY WITH GAPPED ALIGNS
-            # # mutations = \
-            # #     {idx: generate_mutations(source_entity.reference_sequence, design_seq)
-            # #      for idx, (source_entity, design_seq) in enumerate(zip(des_dir.pose.entities, designed_atom_sequences))}
-            # mutations = [generate_mutations(source_entity.structure_sequence, design_seq, offset=False)
-            #              for source_entity, design_seq in zip(des_dir.pose.entities, designed_atom_sequences)]
-
-            # print('Mutations:\n%s' %
-            #       '\n'.join(['%s - %s' % (chain, mutations[chain]) for chain in mutations]))
-            # print('Design Sequences:\n%s' % '\n'.join(['%s - %s' % (chain, design_sequences[chain])
-            #                                            for chain in design_sequences]))
-
-            # Insert missing reference sequence records (residue in mutations 'from' key) into design Structure
-            # for source_entity, missing_mutations in reversed(all_missing_residues.items()):
-            # for source_entity, missing_mutations in all_missing_residues.items():
-            #     # for residue_number, mutation in reversed(missing_mutations.items()):
-            #     for residue_number, mutation in missing_mutations.items():
-            #         logger.debug('Inserting %s into position %d on chain %s'
-            #                      % (mutation['from'], residue_number, source_entity.chain_id))
-            #         design_pose.insert_residue_type(mutation['from'], at=residue_number, chain=source_entity.chain_id)
-
-            # Get modified sequence
-            # design_pose.get_chain_sequences()
-            # design_sequences_disordered = design_pose.atom_sequences
-            # print('Disordered Insertions:\n%s' %
-            #       '\n'.join(['%s - %s' % (chain, design_sequences_disordered[chain])
-            #                  for chain in design_sequences_disordered]))
-
-            # Next find the correct start MET using the modified (residue inserted) design sequence
-            # coding_offset = {design_entity: find_orf_offset(design_entity.structure_sequence, mutations[idx])
-            #                  for idx, design_entity in enumerate(design_pose.entities)}
-            # print('Coding Offset:\n%s'
-            #       % '\n'.join(['%s: %s' % (chain, coding_offset[chain]) for chain in coding_offset]))
-
-            # Remove all residues preceding ORF start from the inserted design sequence
-            # referenced_design_sequences = {design_entity: design_entity.structure_sequence[offset:]
-            #                                for design_entity, offset in coding_offset.items()}
-            # Next, find the correct ORF using the modified (residue inserted) design sequence and
-            # remove residues preceding ORF start
-            # referenced_design_sequences = {}
-            # for idx, design_entity in enumerate(design_pose.entities):
-            #     offset = find_orf_offset(design_entity.structure_sequence, mutations[idx])
-            #     referenced_design_sequences[design_entity] = design_entity.structure_sequence[offset:]
-
-            # referenced_design_sequences = {design_entity: design_entity.structure_sequence
-            #                     for design_entity, offset in coding_offset.items()}
-            # print('Pre-tag Sequences:\n%s' % '\n'.join([referenced_design_sequences[chain] for chain in referenced_design_sequences]))
-
-            # for residue in all_missing_residues_d:
-            #     if all_missing_residues_d[residue]['from'] == 'M':
-
-            # for chain in gapped_residues_d:
-            #     for residue in gapped_residues_d[chain]:
             missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]
             prior_offset = 0
             # all_missing_residues = {}
@@ -2076,8 +1941,6 @@ if __name__ == '__main__':
             # referenced_design_sequences = {}
             sequences_and_tags = {}
             entity_termini_availability, entity_helical_termini = {}, {}
-            # for source_entity, mutations in all_missing_residues_d.items():
-            # for source_entity in des_dir.pose.entities:
             for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
                 source_entity.retrieve_info_from_api()
                 source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
@@ -2100,37 +1963,25 @@ if __name__ == '__main__':
                 # Find sequence specified attributes required for expression formatting
                 disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
                                               only_gaps=True)
-                # all_missing_residues[source_entity] = \
-                #     {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
+                prior_offset += len(disorder)
                 indexed_disordered_residues = \
                     {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
-                # for residue, mutation in mutations.items():
-                #     all_missing_residues[source_entity][residue + source_entity.offset + prior_offset] = mutation
-                prior_offset += len(disorder)
-                # mutations.append(generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence,
-                #                                     offset=False))
                 mutations = \
                     generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence, offset=False)
-                # insert the disordered residues into the design pose
+                # Insert the disordered residues into the design pose
                 for residue_number, mutation in indexed_disordered_residues.items():
                     logger.debug('Inserting %s into position %d on chain %s'
                                  % (mutation['from'], residue_number, source_entity.chain_id))
                     design_pose.insert_residue_type(mutation['from'], at=residue_number,
                                                     chain=source_entity.chain_id)
-                # find the offset using the structure sequence after insertion
-                # offset = find_orf_offset(design_entity.structure_sequence, mutations[idx])
+                # Find the offset using the structure sequence after insertion
                 offset = find_orf_offset(design_entity.structure_sequence, mutations)
-                # referenced_design_sequences[source_entity] = design_entity.structure_sequence[offset:]
                 formatted_design_sequence = design_entity.structure_sequence[offset:]
-            # Check for expression tag addition to the designed sequences
-            # for idx, (entity, formatted_design_sequence) in enumerate(zip(des_dir.pose.entities, referenced_design_sequences.values())):
-            # for idx, (source_entity, formatted_design_sequence) in enumerate(referenced_design_sequences.items()):
-                # pdb_code = entity.name[:4]
+
+                # Check for expression tag addition to the designed sequences
                 selected_tag = {}
                 available_tags = find_expression_tags(formatted_design_sequence)
-                if available_tags:  # try to use existing tag
-                    # tag_namea = list(zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags]))
-                    # print('Found some tags', tag_namea)
+                if available_tags:  # look for existing tag to remove from sequence and save identity
                     if available_tags:
                         tag_names, tag_termini, ind_tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
                                                                         for tag in available_tags])
@@ -2142,13 +1993,13 @@ if __name__ == '__main__':
                             selected_tag = available_tags[preferred_tag_index]
                     except ValueError:
                         pass
-                    # if preferred_tag_index != -1:
-                    #     if tag_termini[preferred_tag_index] in true_termini:
-                    #         selected_tag = available_tags[preferred_tag_index]
                     pretag_sequence = remove_expression_tags(formatted_design_sequence, ind_tag_sequences)
-                    # design_sequence = formatted_design_sequence
                 else:
                     pretag_sequence = formatted_design_sequence
+
+                if number_of_tags is None:  # don't solve tags
+                    sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': {}}
+                    continue
 
                 if not selected_tag:  # find compatible tags from matching PDB observations
                     matching_tags_by_unp_id = tag_sequences.get(uniprot_id, None)
@@ -2159,7 +2010,8 @@ if __name__ == '__main__':
                         tag_names, tag_termini, ind_tag_sequences = \
                             zip(*[(tag['name'], tag['termini'], tag['sequence'])
                                   for tag in matching_tags_by_unp_id['matching_tags']])
-                        tag_names, tag_termini, ind_tag_sequences = list(tag_names), list(tag_termini), list(ind_tag_sequences)
+                        # tag_names, tag_termini, ind_tag_sequences =
+                        # list(tag_names), list(tag_termini), list(ind_tag_sequences)
                     else:
                         tag_names, tag_termini, ind_tag_sequences = [], [], []
                     iteration = 0
@@ -2170,22 +2022,17 @@ if __name__ == '__main__':
                                 selected_tag = matching_tags_by_unp_id['matching_tags'][preferred_tag_index_2]
                                 break
                         except ValueError:
-                        # if preferred_tag_index == -1:
                             break
-                        # elif tag_termini[preferred_tag_index] in true_termini:
-                        #     selected_tag = available_tags[preferred_tag_index_2]
-                        #     break
                         iteration += 1
 
                     selected_tag = select_tags_for_sequence(sequence_id, matching_tags_by_unp_id,
                                                             preferred=args.preferred_tag, **termini_availability)
-
                 if selected_tag.get('name'):
                     missing_tags[(des_dir, design)][idx] = 0
                 sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': selected_tag}
 
             # after selecting all tags, consider tagging the design as a whole
-            if number_of_tags:
+            if number_of_tags is not None:
                 number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
                 if number_of_tags > number_of_found_tags:
                     print('There were %d requested tags for design %s and %d were found'
@@ -2205,6 +2052,16 @@ if __name__ == '__main__':
 
                     iteration_idx = 0
                     while number_of_tags != number_of_found_tags:
+                        if iteration_idx == len(missing_tags[(des_dir, design)]):
+                            print('You have seen all options, but the number of requested tags (%d) doesn\'t equal the '
+                                  'number selected (%d)' % (number_of_tags, number_of_found_tags))
+                            satisfied = input('If you are satisfied with this, enter \'continue\', otherwise enter '
+                                              'anything and you can view all remaining options starting from the first '
+                                              'entity%s' % input_string)
+                            if satisfied == 'continue':
+                                break
+                            else:
+                                iteration_idx = 0
                         for idx, entity_missing_tag in enumerate(missing_tags[(des_dir, design)][iteration_idx:]):
                             sequence_id = '%s_%s' % (des_dir, des_dir.pose.entities[idx].name)
                             if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
@@ -2255,16 +2112,6 @@ if __name__ == '__main__':
                             break
 
                         iteration_idx += 1
-                        if iteration_idx == len(missing_tags[(des_dir, design)]):
-                            print('You have seen all options, but the number of requested tags (%d) doesn\t equal the '
-                                  'number selected (%d)' % (number_of_tags, number_of_found_tags))
-                            satisfied = input('If you are satisfied with this, enter \'continue\', otherwise enter anything'
-                                              ' and you can view all remaining options starting from the first entity%s'
-                                              % input_string)
-                            if satisfied == 'continue':
-                                break
-                            else:
-                                iteration_idx = 0
                         number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
                 elif number_of_tags < number_of_found_tags:
@@ -2293,6 +2140,7 @@ if __name__ == '__main__':
                         number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
             # apply all tags to the sequences
+            cistronic_sequence = ''
             for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
                 design_sequence = add_expression_tag(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
 
@@ -2301,7 +2149,23 @@ if __name__ == '__main__':
                     design_sequence = 'M%s' % design_sequence
                 if 'X' in design_sequence:
                     logger.critical('An unrecognized amino acid was specified in the sequence %s. '
-                                    'This will require manual intervention!' % sequence_id)
+                                    'This requires manual intervention!' % design_string)
+                    idx = 0
+                    seq_length = len(design_sequence)
+                    while True:
+                        idx = design_sequence[idx:].find('X')
+                        idx_range = (idx - 6 if idx - 6 > 0 else 0, idx + 6 if idx + 6 < seq_length else seq_length)
+                        while True:
+                            new_amino_acid = input('What amino acid should be swapped for \'X\' in this sequence '
+                                                   'context?\n\t%s\n\t%s%s'
+                                                   % ('%d%s%d' % (idx_range[0] + 1, ' ' * (len(range(idx_range)) - 2),
+                                                                  idx_range[1] + 1),
+                                                       design_sequence[idx_range[0]:idx_range[1]],
+                                                      input_string)).upper()
+                            if new_amino_acid in IUPACData.protein_letters:
+                                design_sequence[idx] = new_amino_acid
+                            else:
+                                print('Input doesn\'t match a canonical amino acid. Please try again')
 
                 # For a final manual check of sequence generation, find sequence additions compared to the design model
                 # and save to view where additions lie on sequence. Cross these additions with design structure to check
@@ -2312,14 +2176,55 @@ if __name__ == '__main__':
                 inserted_sequences[design_string] = '%s\n%s' % (''.join([res['to'] for res in all_insertions.values()]),
                                                                 design_sequence)
                 final_sequences[design_string] = design_sequence
+                if args.nucleotide:
+                    if args.multicistronic:
+                        cistronic_sequence += nucleotide_sequences[design_string]
+                        cistronic_sequence += intergenic_sequence
+                    else:
+                        nucleotide_sequences[design_string] = \
+                            optimize_protein_sequence(design_sequence, species=args.optimize_species)
+            if args.multicistronic:
+                nucleotide_sequences[str(des_dir)] = cistronic_sequence
 
         # Write output sequences to fasta file
-        seq_comparison_file = SDUtils.write_fasta_file(inserted_sequences, '%sSelectedSequencesExpressionAdditions'
-                                                       % args.selection_string, out_path=outdir)
-        logger.info('Design insertions for expression comparison written to %s' % seq_comparison_file)
         seq_file = SDUtils.write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
                                             out_path=outdir)
-        logger.info('Final Design sequences written to %s' % seq_file)
+        logger.info('Final Design protein sequences written to %s' % seq_file)
+        seq_comparison_file = SDUtils.write_fasta_file(inserted_sequences, '%sSelectedSequencesExpressionAdditions'
+                                                       % args.selection_string, out_path=outdir)
+        logger.info('Final Expression sequence comparison to Design sequence written to %s' % seq_comparison_file)
+        # check for protein or nucleotide output
+        if args.nucleotide:
+            nucleotide_sequence_file = SDUtils.write_fasta_file(nucleotide_sequences, '%sSelectedSequencesNucleotide'
+                                                                % args.selection_string, out_path=outdir)
+            logger.info('Final Design nucleotide sequences written to %s' % nucleotide_sequence_file)
+    # ---------------------------------------------------
+    elif args.module == 'multicistronic':
+        if args.multicistronic_intergenic_sequence:
+            intergenic_sequence = args.multicistronic_intergenic_sequence
+        else:
+            intergenic_sequence = default_multicistronic_sequence
+
+        design_sequences = SDUtils.read_fasta_file(args.file)
+        nucleotide_sequences = {}
+        for design_group_start_idx in list(range(len(design_sequences)))[::args.number_of_genes]:
+            cistronic_sequence = ''
+            for protein_sequence in design_sequences[design_group_start_idx: design_group_start_idx + args.number_of_genes]:
+                # if args.multicistronic:
+                # gene_sequence = optimize_protein_sequence(protein_sequence, species=args.optimize_species)
+                cistronic_sequence += optimize_protein_sequence(protein_sequence, species=args.optimize_species)
+                cistronic_sequence += intergenic_sequence
+            nucleotide_sequences['%s_cistronic' % design_sequences[design_group_start_idx]] = cistronic_sequence
+
+        if not args.selection_string:
+            args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
+        else:
+            args.selection_string += '_'
+        outdir = os.path.join(os.getcwd(), '%sSelectedDesigns' % args.selection_string)
+
+        nucleotide_sequence_file = SDUtils.write_fasta_file(nucleotide_sequences, '%sSelectedSequencesNucleotide'
+                                                            % args.selection_string, out_path=os.getcwd())
+        logger.info('Final Design nucleotide sequences written to %s' % nucleotide_sequence_file)
     # ---------------------------------------------------
     elif args.module == 'rename_scores':
         rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
