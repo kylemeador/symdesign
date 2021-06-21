@@ -25,6 +25,7 @@ confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
 user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
 additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
+boolean_input_string = '\nPlease specify [y/n]%s' % ('%s', input_string)
 instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
 
 # Websites
@@ -105,6 +106,22 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                           }
 
 
+def boolean_choice():
+    """Provide a user prompt to ensure the user input is what is desired
+
+    Returns:
+        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
+    """
+    while True:
+        confirm = input(boolean_input_string).lower()
+        if confirm in bool_d:  # we can find the answer
+            break
+        else:
+            print('\'%s\' is not a valid choice! Chose either [y/n]' % confirm)
+
+    return bool_d[confirm]
+
+
 def verify_choice():
     """Provide a user prompt to ensure the user input is what is desired
 
@@ -117,8 +134,7 @@ def verify_choice():
             break
         else:
             print('\'%s\' is not a valid choice! Chose either [y/n]' % confirm)
-    # if bool_d[confirm]:
-    #     return True
+
     return bool_d[confirm]
     # else:
     #     return False
