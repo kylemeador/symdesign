@@ -27,7 +27,7 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
         chain=None (str): The chain to query tags from. Requires pdb argument as well
     Returns:
         (dict): {'n': {His Tag: 2}, 'c': {Spy Catcher: 1},
-                 'matching_tags': [[{'name': His Tag, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], ...]}
+                 'matching_tags': [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]}
     """
     # uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
     if not uniprot_id:
@@ -82,7 +82,7 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     return pdb_tag_tally
 
 
-def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
+def select_tags_for_sequence(sequence_id, pdb_tag_tally, preferred=None, n=True, c=True):
     """From a list of possible tags, solve for the tag with the most observations in the PDB. If there are
     discrepancies, query the user for a solution
 
@@ -92,12 +92,13 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
                                'matching_tags': [[{'name': His Tag, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'},
                                                   ...], ...]}
     Keyword Args:
+        preferred=None (str): The name of a preferred tag provided by the user
         n=True (bool): Whether the n-termini can be tagged
         c=True (bool): Whether the c-termini can be tagged
     Returns:
-        (dict): {'name': 'His Tag', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}
+        (dict): {'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}
     """
-    final_tag_sequence = {'name': None, 'sequence': None}
+    final_tag_sequence = {'name': None, 'termini': None, 'sequence': None}
     # n_term, c_term = 0, 0
     # if pdb_tag_tally['n']:
     n_term = sum([pdb_tag_tally['n'][tag_name] for tag_name in pdb_tag_tally.get('n', {})])
@@ -161,15 +162,18 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
     # Finally report results to the user and solve ambiguous tags
     custom = False
     final_choice = {}
-    if not final_tags['name']:
+    if not final_tags['name']:  # ensure list has at least one element
         return final_tag_sequence
     while True:
-        default = \
-            input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is '
-                  'undesired, you can see the underlying options by specifying \'options\'. Otherwise, \'%s\' will be '
-                  'chosen.\nIf you would like to proceed with the RECOMMENDED options, enter \'y\'.%s'
-                  % (sequence_id, final_tags['termini'], final_tags['name'], final_tags['name'][0],
-                     input_string)).lower()
+        if preferred and preferred == final_tags['name'][0]:
+            default = 'y'
+        else:
+            default = \
+                input('For %s, the RECOMMENDED tag options are: Termini-%s Type-%s\nIf the Termini or Type is '
+                      'undesired, you can see the underlying options by specifying \'options\'. Otherwise, \'%s\' will '
+                      'be chosen.\nIf you would like to proceed with the RECOMMENDED options, enter \'y\'.%s'
+                      % (sequence_id, final_tags['termini'], final_tags['name'][0], final_tags['name'][0],
+                         input_string)).lower()
         if default == 'y':
             # if len(final_tags['name']) > 1:
             #     if 'His Tag' in final_tags:
@@ -224,6 +228,7 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
             print('Input doesn\'t match. Please try again')
 
     final_tag_sequence['name'] = final_choice['name']
+    final_tag_sequence['termini'] = final_choice['termini']
     all_matching_tags = []
     # [{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]
     for tag in pdb_tag_tally['matching_tags']:
