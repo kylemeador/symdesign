@@ -191,7 +191,7 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
                 elif termini == 'none':
                     return final_tag_sequence
                 else:
-                    print('Input doesn\'t match. Please try again')
+                    print('Input doesn\'t match available options. Please try again')
             while True:
                 tag_input = int(input('What tag would you like to use? Enter the number of the below options.\n\t%s%s'
                                       '\n%s'
@@ -214,9 +214,9 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, n=True, c=True):
                             final_choice['name'] = list(expression_tags.keys())[tag_input - 1]
                             break
                         else:
-                            print('Input doesn\'t match. Please try again')
+                            print('Input doesn\'t match available options. Please try again')
                 else:
-                    print('Input doesn\'t match. Please try again')
+                    print('Input doesn\'t match available options. Please try again')
             break
         else:
             print('Input doesn\'t match. Please try again')
