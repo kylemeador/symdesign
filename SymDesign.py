@@ -2174,107 +2174,108 @@ if __name__ == '__main__':
                 sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': selected_tag}
 
             # after selecting all tags, consider tagging the design as a whole
-            number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
-            if number_of_tags > number_of_found_tags:
-                print('There were %d requested tags for design %s and only %d were found'
-                      % (number_of_tags, des_dir, number_of_found_tags))
-                current_tag_options = \
-                    '\n\t'.join(['%d - %s\n\t\t%s' % (i, entity_name, tag_options['tag'])
-                                 for i, (entity_name, tag_options) in enumerate(sequences_and_tags.items(), 1)])
-                print('Current Tag Options:%s' % current_tag_options)
-                satisfied = input('If this is acceptable, enter \'continue\' to move on to the next design. Otherwise, '
-                                  'you can modify the tagging options with any other input.%s' % input_string)
-                if satisfied == 'continue':
-                    number_of_found_tags = number_of_tags
+            if number_of_tags:
+                number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+                if number_of_tags > number_of_found_tags:
+                    print('There were %d requested tags for design %s and only %d were found'
+                          % (number_of_tags, des_dir, number_of_found_tags))
+                    current_tag_options = \
+                        '\n\t'.join(['%d - %s\n\t\t%s' % (i, entity_name, tag_options['tag'])
+                                     for i, (entity_name, tag_options) in enumerate(sequences_and_tags.items(), 1)])
+                    print('Current Tag Options:%s' % current_tag_options)
+                    satisfied = input('If this is acceptable, enter \'continue\' to move on to the next design. Otherwise, '
+                                      'you can modify the tagging options with any other input.%s' % input_string)
+                    if satisfied == 'continue':
+                        number_of_found_tags = number_of_tags
 
-                iteration_idx = 0
-                while number_of_tags != number_of_found_tags:
-                    for idx, entity_missing_tag in enumerate(missing_tags[(des_dir, design)][iteration_idx:]):
-                        sequence_id = '%s_%s' % (des_dir, des_dir.pose.entities[idx].name)
-                        if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
-                            print('The entity %s is missing a tag. Would you like to tag this entity?' % sequence_id)
-                            if not boolean_choice():
+                    iteration_idx = 0
+                    while number_of_tags != number_of_found_tags:
+                        for idx, entity_missing_tag in enumerate(missing_tags[(des_dir, design)][iteration_idx:]):
+                            sequence_id = '%s_%s' % (des_dir, des_dir.pose.entities[idx].name)
+                            if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
+                                print('The entity %s is missing a tag. Would you like to tag this entity?' % sequence_id)
+                                if not boolean_choice():
+                                    continue
+                            else:
                                 continue
-                        else:
-                            continue
-                        if args.preferred_tag:
-                            tag = args.preferred_tag
-                            while True:
-                                termini = input('Your preferred tag will be added to one of the termini. Which '
-                                                'termini would you prefer? [n/c]%s'
-                                                % (sequence_id, input_string))
-                                if termini in ['n', 'c']:
-                                    break
-                                else:
-                                    print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
-                        else:
-                            while True:
-                                tag_input = int(
-                                    input('What tag would you like to use? Enter the number of the below options.'
-                                          '\n\t%s\n%s'
-                                          % ('\n\t'.join(['%d - %s' % (i, tag)
-                                                          for i, tag in enumerate(expression_tags, 1)]),
-                                             input_string)))
-                                if tag_input <= len(expression_tags):
-                                    tag = list(expression_tags.keys())[tag_input - 1]
-                                    break
-                                else:
-                                    print('Input doesn\'t match available options. Please try again')
-                            while True:
-                                termini = input('Your tag will be added to one of the termini. Which termini would '
-                                                'you prefer? [n/c]%s' % input_string)
-                                if termini in ['n', 'c']:
-                                    break
-                                else:
-                                    print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
+                            if args.preferred_tag:
+                                tag = args.preferred_tag
+                                while True:
+                                    termini = input('Your preferred tag will be added to one of the termini. Which '
+                                                    'termini would you prefer? [n/c]%s'
+                                                    % (sequence_id, input_string))
+                                    if termini in ['n', 'c']:
+                                        break
+                                    else:
+                                        print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
+                            else:
+                                while True:
+                                    tag_input = int(
+                                        input('What tag would you like to use? Enter the number of the below options.'
+                                              '\n\t%s\n%s'
+                                              % ('\n\t'.join(['%d - %s' % (i, tag)
+                                                              for i, tag in enumerate(expression_tags, 1)]),
+                                                 input_string)))
+                                    if tag_input <= len(expression_tags):
+                                        tag = list(expression_tags.keys())[tag_input - 1]
+                                        break
+                                    else:
+                                        print('Input doesn\'t match available options. Please try again')
+                                while True:
+                                    termini = input('Your tag will be added to one of the termini. Which termini would '
+                                                    'you prefer? [n/c]%s' % input_string)
+                                    if termini in ['n', 'c']:
+                                        break
+                                    else:
+                                        print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
 
-                        selected_entity = list(sequences_and_tags.keys())[idx]
-                        if termini == 'n':
-                            new_tag_sequence = \
-                                expression_tags[tag] + 'SG' + sequences_and_tags[selected_entity]['sequence'][:12]
-                        else:  # termini == 'c'
-                            new_tag_sequence = \
-                                sequences_and_tags[selected_entity]['sequence'][-12:] + 'GS' + expression_tags[tag]
-                        sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
-                        missing_tags[(des_dir, design)][idx] = 0
-                        break
+                            selected_entity = list(sequences_and_tags.keys())[idx]
+                            if termini == 'n':
+                                new_tag_sequence = \
+                                    expression_tags[tag] + 'SG' + sequences_and_tags[selected_entity]['sequence'][:12]
+                            else:  # termini == 'c'
+                                new_tag_sequence = \
+                                    sequences_and_tags[selected_entity]['sequence'][-12:] + 'GS' + expression_tags[tag]
+                            sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
+                            missing_tags[(des_dir, design)][idx] = 0
+                            break
 
-                    iteration_idx += 1
-                    if iteration_idx == len(missing_tags[(des_dir, design)]):
-                        print('You have seen all options, but the number of requested tags (%d) doesn\t equal the '
-                              'number selected (%d)' % (number_of_tags, number_of_found_tags))
-                        satisfied = input('If you are satisfied with this, enter \'continue\', otherwise enter anything'
-                                          ' and you can view all remaining options starting from the first entity%s'
-                                          % input_string)
-                        if satisfied == 'continue':
+                        iteration_idx += 1
+                        if iteration_idx == len(missing_tags[(des_dir, design)]):
+                            print('You have seen all options, but the number of requested tags (%d) doesn\t equal the '
+                                  'number selected (%d)' % (number_of_tags, number_of_found_tags))
+                            satisfied = input('If you are satisfied with this, enter \'continue\', otherwise enter anything'
+                                              ' and you can view all remaining options starting from the first entity%s'
+                                              % input_string)
+                            if satisfied == 'continue':
+                                break
+                            else:
+                                iteration_idx = 0
+                        number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+
+                elif number_of_tags < number_of_found_tags:
+                    print('There were only %d requested tags for design %s and %d were found'
+                          % (number_of_tags, des_dir, number_of_found_tags))
+                    while number_of_tags != number_of_found_tags:
+                        tag_input = input('Which tag would you like to remove? Enter the number of the currently '
+                                          'configured tag option that you would like to remove. If you would like to '
+                                          'keep all, specify \'keep\' \n\t%s\n%s'
+                                          % ('\n\t'.join(['%d - %s\n\t\t%s' % (i, entity_name, tag_options['tag'])
+                                                          for i, (entity_name, tag_options)
+                                                          in enumerate(sequences_and_tags.items(), 1)]), input_string))
+                        if tag_input == 'keep':
                             break
                         else:
-                            iteration_idx = 0
-                    number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
-
-            elif number_of_tags < number_of_found_tags:
-                print('There were only %d requested tags for design %s and %d were found'
-                      % (number_of_tags, des_dir, number_of_found_tags))
-                while number_of_tags != number_of_found_tags:
-                    tag_input = input('Which tag would you like to remove? Enter the number of the currently '
-                                      'configured tag option that you would like to remove. If you would like to '
-                                      'keep all, specify \'keep\' \n\t%s\n%s'
-                                      % ('\n\t'.join(['%d - %s\n\t\t%s' % (i, entity_name, tag_options['tag'])
-                                                      for i, (entity_name, tag_options)
-                                                      in enumerate(sequences_and_tags.items(), 1)]), input_string))
-                    if tag_input == 'keep':
-                        break
-                    else:
-                        tag_input = int(tag_input)
-                        if tag_input <= len(sequences_and_tags):
-                            missing_tags[(des_dir, design)][tag_input - 1] = 1
-                            selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
-                            sequences_and_tags[selected_entity]['tag'] = None
-                            # tag = list(expression_tags.keys())[tag_input - 1]
-                            break
-                        else:
-                            print('Input doesn\'t match available options. Please try again')
-                    number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+                            tag_input = int(tag_input)
+                            if tag_input <= len(sequences_and_tags):
+                                missing_tags[(des_dir, design)][tag_input - 1] = 1
+                                selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
+                                sequences_and_tags[selected_entity]['tag'] = None
+                                # tag = list(expression_tags.keys())[tag_input - 1]
+                                break
+                            else:
+                                print('Input doesn\'t match available options. Please try again')
+                        number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
             # apply all tags to the sequences
             for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
