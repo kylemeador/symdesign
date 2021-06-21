@@ -2216,11 +2216,12 @@ if __name__ == '__main__':
         design_sequences = list(SDUtils.read_fasta_file(file))
         nucleotide_sequences = {}
         for design_group_start_idx in list(range(len(design_sequences)))[::args.number_of_genes]:
-            cistronic_sequence = ''
-            for idx, protein_sequence in enumerate(design_sequences[design_group_start_idx: design_group_start_idx + args.number_of_genes], 1):
-                cistronic_sequence += optimize_protein_sequence(protein_sequence, species=args.optimize_species)
+            cistronic_sequence = optimize_protein_sequence(design_sequences[design_group_start_idx],
+                                                           species=args.optimize_species)
+            for protein_sequence in design_sequences[design_group_start_idx + 1:
+                                                     design_group_start_idx + args.number_of_genes]:
                 cistronic_sequence += intergenic_sequence
-                print(idx, cistronic_sequence)
+                cistronic_sequence += optimize_protein_sequence(protein_sequence, species=args.optimize_species)
             nucleotide_sequences['%s_cistronic' % design_sequences[design_group_start_idx].name] = cistronic_sequence
 
         location = file
