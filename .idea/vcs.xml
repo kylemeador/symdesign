@@ -2,6 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/dependencies/DnaChisel" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/hh-suite" vcs="Git" />
     <mapping directory="$PROJECT_DIR$/dependencies/nanohedra" vcs="Git" />
   </component>
