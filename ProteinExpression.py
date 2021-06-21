@@ -12,7 +12,7 @@ import SequenceProfile
 from Query.PDB import input_string, get_entity_reference_sequence, pdb_id_matching_uniprot_id
 
 # Globals
-SDUtils.start_log(name=__name__)
+logger = SDUtils.start_log(name=__name__)
 uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 with open(PUtils.affinity_tags, 'r') as f:
     expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}
@@ -32,7 +32,9 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     # uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
     if not uniprot_id:
         if not pdb_code or not chain:
-            raise AttributeError('One of uniprot_id or pdb_code AND chain is required')
+            # raise AttributeError('One of uniprot_id or pdb_code AND chain is required')
+            logger.error('One of uniprot_id or pdb_code AND chain is required')
+            return {'n': {}, 'c': {}, 'matching_tags': []}
         uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
 
     # from PDB API
