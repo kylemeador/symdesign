@@ -777,6 +777,8 @@ if __name__ == '__main__':
     parser_multicistron.add_argument('-n', '--number_of_genes', type=int,
                                      help='The number of protein sequences to concatenate into a multicistronic '
                                           'expression output')
+    parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
+                                 help='String to prepend to output for custom sequence selection name')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
