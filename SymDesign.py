@@ -1859,6 +1859,7 @@ if __name__ == '__main__':
             #     pass
 
         # Format sequences for expression
+        master_directory.load_pose()
         if args.entity_specification:
             tag_specified_list = \
                 list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(''),
