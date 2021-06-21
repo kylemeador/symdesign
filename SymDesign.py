@@ -1861,9 +1861,14 @@ if __name__ == '__main__':
         # Format sequences for expression
         master_directory.load_pose()
         if args.entity_specification:
+            tag_specified_list1 = \
+                list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
+                                  SDUtils.digit_translate_table))
+            print(tag_specified_list1)
             tag_specified_list = \
-                list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(''),
+                list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(['']),
                                   SDUtils.digit_translate_table)))
+            print(tag_specified_list)
             for _ in range(len(master_directory.pose.entities) - len(tag_specified_list)):
                 tag_specified_list.append(0)
         else:
