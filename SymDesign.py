@@ -779,6 +779,9 @@ if __name__ == '__main__':
     parser_multicistron.add_argument('-n', '--number_of_genes', type=int,
                                      help='The number of protein sequences to concatenate into a multicistronic '
                                           'expression output')
+    parser_multicistron.add_argument('-o', '--optimize_species', type=str, default='e_coli',
+                                     help='The organism where expression will occur and nucleotide usage should be '
+                                          'optimized')
     parser_multicistron.add_argument('-s', '--selection_string', type=str, metavar='string',
                                  help='String to prepend to output for custom sequence selection name')
     # ---------------------------------------------------
