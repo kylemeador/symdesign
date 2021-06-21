@@ -1861,20 +1861,20 @@ if __name__ == '__main__':
         # Format sequences for expression
         master_directory.load_pose()
         if args.entity_specification:
-            split_set = set(args.entity_specification.split(',')).difference([''])
-            print(split_set)
-            print(SDUtils.digit_translate_table)
-            for i in split_set:
-                print(i.translate(SDUtils.digit_translate_table))
-            tag_specified_list2 = list(map(str.translate, split_set, repeat(SDUtils.digit_translate_table)))
-            tag_specified_list1 = \
-                list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
-                                  SDUtils.digit_translate_table))
-            print(tag_specified_list1)
+            # split_set = set(args.entity_specification.split(',')).difference([''])
+            # print(split_set)
+            # print(SDUtils.digit_translate_table)
+            # for i in split_set:
+            #     print(i.translate(SDUtils.digit_translate_table))
+            # tag_specified_list2 = list(map(str.translate, split_set, repeat(SDUtils.digit_translate_table)))
+            # tag_specified_list1 = \
+            #     list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
+            #                       SDUtils.digit_translate_table))
+            # print(tag_specified_list1)
             tag_specified_list = \
                 list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(['']),
-                                  SDUtils.digit_translate_table)))
-            print(tag_specified_list)
+                                  repeat(SDUtils.digit_translate_table))))
+            # print(tag_specified_list)
             for _ in range(len(master_directory.pose.entities) - len(tag_specified_list)):
                 tag_specified_list.append(0)
         else:
