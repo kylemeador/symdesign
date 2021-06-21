@@ -1861,37 +1861,32 @@ if __name__ == '__main__':
         # Format sequences for expression
         master_directory.load_pose()
         if args.entity_specification:
-            # split_set = set(args.entity_specification.split(',')).difference([''])
-            # print(split_set)
-            # print(SDUtils.digit_translate_table)
-            # for i in split_set:
-            #     print(i.translate(SDUtils.digit_translate_table))
-            # tag_specified_list2 = list(map(str.translate, split_set, repeat(SDUtils.digit_translate_table)))
-            # tag_specified_list1 = \
-            #     list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
-            #                       SDUtils.digit_translate_table))
-            # print(tag_specified_list1)
-            tag_specified_list = \
-                list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(['']),
-                                  repeat(SDUtils.digit_translate_table))))
-            # print(tag_specified_list)
-            for _ in range(len(master_directory.pose.entities) - len(tag_specified_list)):
-                tag_specified_list.append(0)
-        else:
-            tag_specified_list = []
-
-        if args.entity_specification == 'all':
-            tag_index = [True for _ in master_directory.pose.entities]
-            number_of_tags = len(master_directory.pose.entities)
-        elif args.entity_specification == 'single':
-            tag_index = [True for _ in master_directory.pose.entities]
-            number_of_tags = 1
-        elif args.entity_specification == 'none':
-            tag_index = [False for _ in master_directory.pose.entities]
-            number_of_tags = 0
-        elif tag_specified_list:
-            tag_index = [True if is_tag else False for is_tag in args.entity_specification]
-            number_of_tags = sum(tag_specified_list)
+            if args.entity_specification == 'all':
+                tag_index = [True for _ in master_directory.pose.entities]
+                number_of_tags = len(master_directory.pose.entities)
+            elif args.entity_specification == 'single':
+                tag_index = [True for _ in master_directory.pose.entities]
+                number_of_tags = 1
+            elif args.entity_specification == 'none':
+                tag_index = [False for _ in master_directory.pose.entities]
+                number_of_tags = 0
+            else:
+                tag_specified_list = list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
+                                              repeat(SDUtils.digit_translate_table)))
+                for idx, item in enumerate(tag_specified_list):
+                    try:
+                        tag_specified_list[idx] = int(item)
+                    except ValueError:
+                        continue
+                # tag_specified_list = \
+                #     list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(['']),
+                #                       repeat(SDUtils.digit_translate_table))))
+                # print(tag_specified_list)
+                for _ in range(len(master_directory.pose.entities) - len(tag_specified_list)):
+                    tag_specified_list.append(0)
+                if tag_specified_list:
+                    tag_index = [True if is_tag else False for is_tag in args.entity_specification]
+                    number_of_tags = sum(tag_specified_list)
         else:
             tag_index = [False for _ in master_directory.pose.entities]
             number_of_tags = None
