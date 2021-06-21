@@ -1878,7 +1878,7 @@ if __name__ == '__main__':
             tag_index = [False for _ in master_directory.pose.entities]
             number_of_tags = 0
         elif tag_specified_list:
-            tag_index = [True if is_tag else False for is_tag in args.tag_specification]
+            tag_index = [True if is_tag else False for is_tag in args.entity_specification]
             number_of_tags = sum(tag_specified_list)
         else:
             tag_index = [False for _ in master_directory.pose.entities]
