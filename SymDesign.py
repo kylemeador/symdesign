@@ -1864,10 +1864,11 @@ if __name__ == '__main__':
             tag_specified_list = \
                 list(map(int, map(str.translate, set(args.entity_specification.split(',')).difference(''),
                                   SDUtils.digit_translate_table)))
+            for _ in range(len(master_directory.pose.entities) - len(tag_specified_list)):
+                tag_specified_list.append(0)
         else:
             tag_specified_list = []
-        for _ in range(len(master_directory.pose.entities) - len(tag_specified_list)):
-            tag_specified_list.append(0)
+
         if args.entity_specification == 'all':
             tag_index = [True for _ in master_directory.pose.entities]
             number_of_tags = len(master_directory.pose.entities)
