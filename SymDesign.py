@@ -2217,12 +2217,11 @@ if __name__ == '__main__':
         nucleotide_sequences = {}
         for design_group_start_idx in list(range(len(design_sequences)))[::args.number_of_genes]:
             cistronic_sequence = ''
-            for protein_sequence in design_sequences[design_group_start_idx: design_group_start_idx + args.number_of_genes]:
-                # if args.multicistronic:
-                # gene_sequence = optimize_protein_sequence(protein_sequence, species=args.optimize_species)
+            for idx, protein_sequence in enumerate(design_sequences[design_group_start_idx: design_group_start_idx + args.number_of_genes], 1):
                 cistronic_sequence += optimize_protein_sequence(protein_sequence, species=args.optimize_species)
                 cistronic_sequence += intergenic_sequence
-            nucleotide_sequences['%s_cistronic' % design_sequences[design_group_start_idx]] = cistronic_sequence
+                print(idx, cistronic_sequence)
+            nucleotide_sequences['%s_cistronic' % design_sequences[design_group_start_idx].name] = cistronic_sequence
 
         location = file
         if not args.selection_string:
