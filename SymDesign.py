@@ -2212,7 +2212,8 @@ if __name__ == '__main__':
         else:
             intergenic_sequence = default_multicistronic_sequence
 
-        design_sequences = list(SDUtils.read_fasta_file(args.file[0]))
+        file = args.file[0]
+        design_sequences = list(SDUtils.read_fasta_file(file))
         nucleotide_sequences = {}
         for design_group_start_idx in list(range(len(design_sequences)))[::args.number_of_genes]:
             cistronic_sequence = ''
@@ -2223,6 +2224,7 @@ if __name__ == '__main__':
                 cistronic_sequence += intergenic_sequence
             nucleotide_sequences['%s_cistronic' % design_sequences[design_group_start_idx]] = cistronic_sequence
 
+        location = file
         if not args.selection_string:
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
         else:
