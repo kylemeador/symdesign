@@ -10,12 +10,18 @@ import SymDesignUtils as SDUtils
 # import Pose
 import SequenceProfile
 from Query.PDB import input_string, get_entity_reference_sequence, pdb_id_matching_uniprot_id
+from dependencies.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize
 
 # Globals
 logger = SDUtils.start_log(name=__name__)
 uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 with open(PUtils.affinity_tags, 'r') as f:
     expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}
+default_multicistronic_sequence = \
+    'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
+    'taatacgactcactataggggaattgtgagcggataacaattccccatcttagtatattagttaagtataagaaggagatatacat'
+#    ^ Start of T7 promoter
+#                       ^ start of LacO       ^ last nucleotid of LacO
 
 
 def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
@@ -117,7 +123,8 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, preferred=None, n=True,
                       'You can set up tags anyway and modify this sequence later, or skip tagging.\nThe tag options, '
                       'formatted as, termini: {tag name: count}}, are as follows:\n%s\nWhich termini would you prefer '
                       '[n/c]? To skip, input \'skip\'%s' %
-                      (sequence_id, '\n'.join('\t%s: %s' % item for item in pdb_tag_tally.items()),
+                      (sequence_id, '\n'.join('\t%s: %s' % item for item in pdb_tag_tally.items()
+                                              if item[0] != 'matching_tags'),
                        input_string)).lower()
             if termini in ['n', 'c']:
                 break
@@ -349,3 +356,34 @@ def remove_expression_tags(sequence, tags):
         sequence = sequence[:tag_index] + sequence[:tag_index + len(tag)]
 
     return sequence
+
+
+def optimize_protein_sequence(sequence, species='e_coli'):
+    """Optimize a sequence for expression in a desired organism
+
+    Args:
+        sequence (str): The sequence of interest
+    Keyword Args:
+        species='e_coli' (str): The species context to optimize nucleotide sequence usage
+    Returns:
+        (str): The input sequence optimized to nucleotides for expression considerations
+    """
+    problem = DnaOptimizationProblem(sequence=sequence, objectives=[CodonOptimize(species=species)])
+    # constraints=[
+    #     AvoidPattern("BsaI_site"),
+    #     EnforceGCContent(mini=0.3, maxi=0.7, window=50),
+    #     EnforceTranslation(location=(500, 1400))
+    # ],
+
+    # SOLVE THE CONSTRAINTS, OPTIMIZE WITH RESPECT TO THE OBJECTIVE
+    problem.resolve_constraints()
+    problem.optimize()
+
+    # PRINT SUMMARIES TO CHECK THAT CONSTRAINTS PASS
+    print(problem.constraints_text_summary())
+    print(problem.objectives_text_summary())
+
+    # GET THE FINAL SEQUENCE (AS STRING OR ANNOTATED BIOPYTHON RECORDS)
+    final_sequence = problem.sequence  # string
+    # final_record = problem.to_record(with_sequence_edits=True)
+    return final_sequence
