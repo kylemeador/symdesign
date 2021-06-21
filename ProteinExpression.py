@@ -385,9 +385,9 @@ def optimize_protein_sequence(sequence, species='e_coli'):
 
     # GET THE FINAL SEQUENCE (AS STRING OR ANNOTATED BIOPYTHON RECORDS)
     final_sequence = problem.sequence  # string
-    print('1', final_sequence)
-    final_sequence = problem.sequence.seq  # string
-    print('2', final_sequence)
+    # print('1', final_sequence)
+    # final_sequence = problem.sequence.seq  # string
+    # print('2', final_sequence)
 
     # final_record = problem.to_record(with_sequence_edits=True)
     return final_sequence
