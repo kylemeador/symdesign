@@ -1088,7 +1088,7 @@ class Structure(StructureBase):
         overall_score = list(set(errat_out.decode().split('\n')))
         overall_score = overall_score[0]
 
-        return overall_score[overall_score.rfind('Overall quality factor**: '):overall_score.rfind(')')]
+        return float(overall_score[overall_score.rfind('**: ') + 4:overall_score.rfind(')')])
 
     def stride(self, to_file=None):
         """Use Stride to calculate the secondary structure of a PDB.
