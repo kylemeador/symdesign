@@ -2184,12 +2184,13 @@ if __name__ == '__main__':
                                                                 design_sequence)
                 final_sequences[design_string] = design_sequence
                 if args.nucleotide:
+                    nucleotide_sequence = optimize_protein_sequence(design_sequence, species=args.optimize_species)
                     if args.multicistronic:
-                        cistronic_sequence += nucleotide_sequences[design_string]
-                        cistronic_sequence += intergenic_sequence
+                        if idx > 0:
+                            cistronic_sequence += intergenic_sequence
+                        cistronic_sequence += nucleotide_sequence
                     else:
-                        nucleotide_sequences[design_string] = \
-                            optimize_protein_sequence(design_sequence, species=args.optimize_species)
+                        nucleotide_sequences[design_string] = nucleotide_sequence
             if args.multicistronic:
                 nucleotide_sequences[str(des_dir)] = cistronic_sequence
 
