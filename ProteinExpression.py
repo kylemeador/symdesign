@@ -11,7 +11,7 @@ import SymDesignUtils as SDUtils
 import SequenceProfile
 from Query.PDB import input_string, get_entity_reference_sequence, pdb_id_matching_uniprot_id
 from dependencies.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
-    EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers
+    EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation
 
 # Globals
 logger = SDUtils.start_log(name=__name__)
@@ -381,7 +381,8 @@ def optimize_protein_sequence(sequence, species='e_coli'):
                                                   AvoidPattern('GGGGGGGGGG', location=(1, seq_length, 0)),  # homopoly
                                                   # AvoidPattern('CCCCCCCCCC', location=(1, seq_length)),  # homopoly
                                                   UniquifyAllKmers(20),  # twist required
-                                                  AvoidRareCodons(0.08, species=species)
+                                                  AvoidRareCodons(0.08, species=species),
+                                                  EnforceTranslation()
                                                   ], objectives=[CodonOptimize(species=species)], logger=None)
 
     # Solve constraints and solve with regards to the objective
