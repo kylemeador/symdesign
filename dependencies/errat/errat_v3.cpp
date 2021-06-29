@@ -23,6 +23,9 @@
 #include <math.h>
 #include <ctype.h>
 #include <iomanip>
+// KM fix for segmentation fault
+#include <sys/time.h>
+#include <sys/resource.h>
 
 using std::cout;
 using std::endl;
@@ -44,6 +47,11 @@ double matrixdb (double matrix[6]);
 
 int main(int argc, char* argv[])
 {//1
+    struct rlimit *lim;
+    lim.rlim_cur = RLIM_INFINITY;
+    if setrlimit(RLIMIT_STACK, &lim) == -1);{
+        puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
+    }
 	//all arrays upon their import to UNIX must be modified to ensure proper load.
 	//STAGE 1 VARS
 	//char	file [100] = "pdb.pdb\0";
@@ -126,7 +134,7 @@ int main(int argc, char* argv[])
 // COMMAND LINE ARGS STUFF HERE
 	char file[100], logfilename[100],psfilename[100], seed[100], path[100];
 	//char tyfile[100];
-        if(argc != 3) { puts("\n2 arguments required: errat_v2 pdbid localpath\n"); exit(1); }
+        if(argc != 3) { puts("\n2 arguments required: errat pdb_filename_without_extension path/to/file/\n"); exit(1); }
         strcpy(seed, argv[1]);
 	strcpy(path, argv[2]);
         // file is the pdb file name, logf is the output logfile
