@@ -101,7 +101,7 @@
 <!--					<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
         <SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
         <SimpleMetricFilter name="interface_residue_count" metric="M_interface_residue_count" comparison_type="gt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
-        <CalculatorFilter name="interaction_energy_density_filter" equation="E / Number"> # threshold="(real 0)"
+        <CalculatorFilter name="interaction_energy_per_residue" equation="E / Number"> # threshold="(real 0)"
             <Var name="E" filter="interaction_energy_filter"/>
             <Var name="Number" filter="interface_residue_count"/>
         </CalculatorFilter>
@@ -141,7 +141,7 @@
         <RunSimpleMetrics name="run_core_design_metrics" metrics="M_interaction_energy" prefix="" suffix="" override="false"/> # M_core_design_residue_count
 <!--        <RunSimpleMetrics name="run_core_design_average_residue_energy" metrics="M_interaction_energy_density_metric" prefix="" suffix="" override="false"/>-->
         <FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_core" report_as="sc_hbnet_core" filter_name="shape_complementarity_core"/>
-        <FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density_filter" report_as="ie_density_hbnet_core" filter_name="interaction_energy_density_filter"/>
+        <FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density_filter" report_as="ie_density_hbnet_core" filter_name="interaction_energy_per_residue"/>
 <!--        <FilterReportAsPoseExtraScoresMover name="RP_core_design_residue_count" report_as="residue_count_hbnet_core" filter_name="core_design_residue_count"/>-->
 <!--        <DumpPdb name="dump_pdb" fname="hbnet_interface_neighbors_and_core_packing.pdb" scorefxn="2015_nano_cst" tag_time="1"/>-->
         <Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
