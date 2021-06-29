@@ -1064,7 +1064,7 @@ class Structure(StructureBase):
         # return sum([sasa for residue_number, sasa in zip(self.sasa_residues, self.sasa) if residue_number in numbers])
         return sum([residue.sasa for residue in self.residues if residue.number in numbers])
 
-    def errat(self, out_path=None):
+    def errat(self, out_path=os.getcwd()):
         name = 'errat_input-%s-%d.pdb' % (self.name, random() * 100000)
         current_struc_file = self.write(out_path=os.path.join(out_path, name))
         p = subprocess.Popen([errat_exe_path, os.path.splitext(name)[0], out_path],
@@ -1072,23 +1072,26 @@ class Structure(StructureBase):
         out, err = p.communicate()
         os.system('rm %s' % current_struc_file)
 
-        if out:
+        # if out:
             # if to_file:
             #     with open(to_file, 'wb') as f:
             #         f.write(out)
             # errat_output = out.decode('utf-8').split('\n')
-            errat_output_file = os.path.join(os.getcwd(), 'errat.ps')
-        else:
-            self.log.warning('%s: Failed to generate ERRAT measurement' % self.name)
-            return
+        errat_output_file = os.path.join(out_path, '%s.ps' % name)
+        # else:
 
         p = subprocess.Popen(['grep', 'Overall quality factor**: ', errat_output_file],
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         errat_out, errat_err = p.communicate()
-        overall_score = list(set(errat_out.decode().split('\n')))
-        overall_score = overall_score[0]
-
-        return float(overall_score[overall_score.rfind('**: ') + 4:overall_score.rfind(')')])
+        print(errat_out)
+        print(errat_err)
+        try:
+            overall_score = list(set(errat_out.decode().split('\n')))
+            overall_score = overall_score[0]
+            return float(overall_score[overall_score.rfind('**: ') + 4:overall_score.rfind(')')])
+        except AttributeError:
+            self.log.warning('%s: Failed to generate ERRAT measurement' % self.name)
+            return
 
     def stride(self, to_file=None):
         """Use Stride to calculate the secondary structure of a PDB.
