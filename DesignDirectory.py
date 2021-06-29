@@ -2190,10 +2190,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         #               [1, 1, 0],
                         #               [1, 1, 1]])
                         # b = np.array([[0.1, 0.2, 0.4]])
-                        background_distance = cdist(residue_energy_pc_df.values,
-                                                    grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
-                        print('Energy PCA', residue_energy_pc_df.values)
+                        print('Energy PCA', residue_energy_pc)
                         print('background', grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
+                        background_distance = cdist(residue_energy_pc,
+                                                    grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
                         print('Found the distance from background:', background_distance)
                         trajectory_df = \
                             pd.concat([trajectory_df,
