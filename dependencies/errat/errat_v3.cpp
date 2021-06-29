@@ -54,6 +54,7 @@ int main(int argc, char* argv[])
     lim.rlim_cur = RLIM_INFINITY;
     lim.rlim_max = RLIM_INFINITY;
     if (setrlimit(RLIMIT_STACK, &lim) == -1);{
+        printf ("\nFound error %s\n", strerror(errno));
         puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
     }
 	//all arrays upon their import to UNIX must be modified to ensure proper load.
