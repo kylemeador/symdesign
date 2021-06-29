@@ -41,7 +41,7 @@ from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_desig
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
-from DesignMetrics import filter_pose, master_metrics, query_user_for_metrics, rank_dataframe_by_metric_weights
+from DesignMetrics import prioritize_design_indices, master_metrics, query_user_for_metrics, rank_dataframe_by_metric_weights
 from SequenceProfile import generate_mutations, find_orf_offset  # , pdb_to_pose_offset
 
 
@@ -719,17 +719,25 @@ if __name__ == '__main__':
                                help='Whether to filter sequence selection using metrics from DataFrame')
     parser_filter.add_argument('-np', '--number_poses', type=int, default=0, metavar='INT',
                                help='Number of top poses to return per pool of designs.\nDefault=All')
+    parser_filter.add_argument('-p', '--protocol', type=str, help='Use a specific protocol to grab designs from?')
     parser_filter.add_argument('-s', '--selection_string', type=str, metavar='string',
                                help='String to prepend to output for custom design selection name')
     parser_filter.add_argument('-w', '--weight', action='store_true',
                                help='Whether to weight sequence selection using metrics from DataFrame')
     # ---------------------------------------------------
     parser_sequence = subparsers.add_parser('sequence_selection',
-                                            help='Generate protein sequences for selected designs. Either -df or -p is '
-                                                 'required. If both are provided, -p will be prioritized')
-    parser_sequence.add_argument('-a', '--avoid_tagging_helices', action='store_true',
+                                            help='From the provided Design Poses, generate nucleotide/protein sequences'
+                                                 ' based on specified selection criteria and prioritized metrics. '
+                                                 'Generation of output sequences can take multiple forms depending on '
+                                                 'downstream needs. By default, disordered region insertion, tagging '
+                                                 'for expression, and codon optimization (--nucleotide) are performed')
+    parser_sequence.add_argument('-amp', '--allow_multiple_poses', action='store_true',
+                                 help='Allow multiple sequences to be selected from the same Pose when using '
+                                      '--global_sequences. By default, --global_sequences filters the selected '
+                                      'sequences by a single sequence/Pose')
+    parser_sequence.add_argument('-ath', '--avoid_tagging_helices', action='store_true',
                                  help='Should tags be avoided at termini with helices?')
-    parser_sequence.add_argument('-c', '--csv', action='store_true', help='Write the sequences file as a .csv')
+    parser_sequence.add_argument('--csv', action='store_true', help='Write the sequences file as a .csv')
     parser_sequence.add_argument('-e', '--entity_specification', type=str,
                                  help='If there are specific entities in the designs you want to tag, indicate how '
                                       'tagging should occur. Viable options include \'single\'- a single entity, '
@@ -744,8 +752,8 @@ if __name__ == '__main__':
                                       'sequence per pose')
     parser_sequence.add_argument('-m', '--multicistronic', action='store_true',
                                  help='Whether to output nucleotide sequences in multicistronic format. '
-                                      'Use without --multicistronic_intergenic_sequence by default uses the intergeneic '
-                                      'sequence from the pET-Duet systems')
+                                      'By default, use without --multicistronic_intergenic_sequence uses the pET-Duet '
+                                      'intergeneic sequence containing a T7 promoter, LacO, and RBS')
     parser_sequence.add_argument('-ms', '--multicistronic_intergenic_sequence', type=str,
                                  help='The sequence to use in the intergenic region of a multicistronic expression '
                                       'output')
@@ -759,7 +767,7 @@ if __name__ == '__main__':
                                  help='The organism where expression will occur and nucleotide usage should be '
                                       'optimized')
     parser_sequence.add_argument('-p', '--protocol', type=str,
-                                 help='Is there a specific protocol to grab sequences from?')
+                                 help='Use a specific protocol to grab sequences from?')
     parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
                                  help='String to prepend to output for custom sequence selection name')
     parser_sequence.add_argument('-t', '--preferred_tag', type=str,
@@ -783,7 +791,7 @@ if __name__ == '__main__':
                                      help='The organism where expression will occur and nucleotide usage should be '
                                           'optimized')
     parser_multicistron.add_argument('-s', '--selection_string', type=str, metavar='string',
-                                 help='String to prepend to output for custom sequence selection name')
+                                     help='String to prepend to output for custom sequence selection name')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
     parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
@@ -794,19 +802,19 @@ if __name__ == '__main__':
     parser_status.add_argument('-u', '--update', type=str, choices=('check', 'set', 'remove'),
                                help='Provide an update to the serialized state of the specified stage', default=None)
     # ---------------------------------------------------
-    parser_dist = subparsers.add_parser('distribute',
-                                        help='Distribute specific design step commands to computational resources. '
-                                             'In distribution mode, the --file or --directory argument specifies which '
-                                             'pose commands should be distributed.')
-    parser_dist.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
-                             help='The stage of design to be prepared. One of %s' %
-                                  ', '.join(list(v for v in PUtils.stage_f.keys())), required=True)
-    parser_dist.add_argument('-y', '--success_file', help='The name/location of file containing successful commands\n'
-                                                          'Default={--stage}_stage_pose_successes', default=None)
-    parser_dist.add_argument('-n', '--failure_file', help='The name/location of file containing failed commands\n'
-                                                          'Default={--stage}_stage_pose_failures', default=None)
-    parser_dist.add_argument('-m', '--max_jobs', type=int, help='How many jobs to run at once?\nDefault=80',
-                             default=80)
+    # parser_dist = subparsers.add_parser('distribute',
+    #                                     help='Distribute specific design step commands to computational resources. '
+    #                                        'In distribution mode, the --file or --directory argument specifies which '
+    #                                          'pose commands should be distributed.')
+    # parser_dist.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
+    #                          help='The stage of design to be prepared. One of %s' %
+    #                               ', '.join(list(v for v in PUtils.stage_f.keys())), required=True)
+    # parser_dist.add_argument('-y', '--success_file', help='The name/location of file containing successful commands\n'
+    #                                                       'Default={--stage}_stage_pose_successes', default=None)
+    # parser_dist.add_argument('-n', '--failure_file', help='The name/location of file containing failed commands\n'
+    #                                                       'Default={--stage}_stage_pose_failures', default=None)
+    # parser_dist.add_argument('-m', '--max_jobs', type=int, help='How many jobs to run at once?\nDefault=80',
+    #                          default=80)
     # ---------------------------------------------------
     # parser_merge = subparsers.add_parser('merge',
     #                                      help='Merge all completed designs from location 2 (-f2/-d2) to location '
@@ -1281,8 +1289,8 @@ if __name__ == '__main__':
         else:
             Flags.query_user_for_flags(mode=args.flags_module)
     # ---------------------------------------------------
-    elif args.module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
-        distribute(**vars(args))
+    # elif args.module == 'distribute':  # -s stage, -y success_file, -n failure_file, -m max_jobs
+    #     distribute(**vars(args))
     # ---------------------------------------------------
     elif args.module == 'residue_selector':  # Todo
         if not args.single:
@@ -1449,41 +1457,6 @@ if __name__ == '__main__':
 
         terminate(args.module, design_directories, location=location, results=results)
 
-        # if not args.run_in_shell and len(success) > 0:  # any(success): ALL success are None type
-        #     design_name = os.path.basename(next(iter(design_directories)).project_designs)
-        #     program_root = next(iter(design_directories)).program_root
-        #     all_commands = [[] for s in PUtils.stage_f]
-        #     command_files = [[] for s in PUtils.stage_f]
-        #     sbatch = [[] for s in PUtils.stage_f]
-        #     for des_directory in design_directories:
-        #         for idx, stage in enumerate(PUtils.stage_f, 1):
-        #             if idx > 3:  # No analysis or higher
-        #                 break
-        #             all_commands[idx].append(os.path.join(des_directory.scripts, '%s.sh' % stage))
-        #     for idx, stage in enumerate(PUtils.stage_f, 1):  # 1 - refine, 2 - design, 3 - metrics
-        #         if idx > 3:  # No analysis or higher
-        #             break
-        #         command_files[idx] = SDUtils.write_commands(all_commands[idx], name='%s_%s' % (stage, design_name)
-        #                                                     , out_path=program_root)
-        #         sbatch[idx] = distribute(stage=stage, directory=program_root, file=command_files[idx])
-        #         # logger.info('All \'%s\' commands were written to \'%s\'' % (stage, sbatch[idx]))
-        #
-        #     logger.info('\nTo process all commands in correct order, execute:\n\t%s' %
-        #                 ('\n\t'.join('sbatch %s' % sbatch[idx]
-        #                              for idx, stage in enumerate(list(PUtils.stage_f.keys())[:3], 1))))
-        #     print('\n' * 5)
-        # WHEN ONE FILE RUNS ALL THREE MODES
-        # all_commands = []
-        # for des_directory in design_directories:
-        #     all_commands.append(os.path.join(des_directory.scripts, '%s.sh' % PUtils.interface_design))
-        # command_file = SDUtils.write_commands(all_commands, name=PUtils.interface_design, out_path=args.directory)
-        # args.success_file = None
-        # args.failure_file = None
-        # args.max_jobs = 80
-        # TODO add interface_design to PUtils.stage_f
-        # distribute(stage=PUtils.interface_design, directory=args.directory, file=command_file,
-        #            success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
-        # logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.interface_design, command_file))
     # ---------------------------------------------------
     elif args.module == PUtils.analysis:  # -o output, -f figures, -n no_save, -j join
         if args.no_save:
@@ -1587,8 +1560,9 @@ if __name__ == '__main__':
             results.append(zip(design_directories, pose_design_numbers))
             location = args.pose_design_file
         elif args.dataframe:
-            # Figure out poses from a dataframe, filters, and weights. Returns pose id's
-            selected_poses_df = filter_pose(args.dataframe, filter=args.filter, weight=args.weight)
+            # Figure out poses from a dataframe, filters, and weights
+            selected_poses_df = prioritize_design_indices(args.dataframe, filter=args.filter, weight=args.weight,
+                                                          protocol=args.protocol)
             selected_poses = selected_poses_df.index.to_list()
             logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
             if args.filter or args.weight:
@@ -1741,107 +1715,61 @@ if __name__ == '__main__':
         #                                                          for pose2 in pose_map[protein_pair][pose1]]))
         #                            for pose1 in pose_map[protein_pair]]))
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
-    elif args.module == 'sequence_selection':  # -c consensus, -f filters, -n number
-        # master_directory = next(iter(design_directories))
+    elif args.module == 'sequence_selection':  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = master_directory.program_root
-        # if args.pose_design_file:        # -s selection_string, -w weights
-        #     # Grab all poses (directories) to be processed from either directory name or file
-        #     with open(args.pose_design_file) as csv_file:
-        #         csv_lines = [line for line in reader(csv_file)]
-        #     all_poses, pose_design_numbers = zip(*csv_lines)
-        #
-        #     design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
-        #                           for pose in all_poses]
-        #     # design_directories = set_up_directory_objects(all_poses, project=args.project)  # **queried_flags
-        #     results.append(zip(design_directories, pose_design_numbers))
-        #     location = args.pose_design_file
-        # else:
-        #     # sequence_weights = None
-        #     # # TODO moved all of this to 'filter_designs' module
-        #     # if args.dataframe:  # Figure out poses from a dataframe, filters, and weights
-        #     #     # TODO parameterize
-        #     #     # if args.filters:
-        #     #     #     exit('Vy made this and I am going to put in here!')
-        #     #     # design_requirements = {'percent_int_area_polar': 0.2, 'buns_per_ang': 0.002}
-        #     #     # crystal_means1 = {'int_area_total': 570, 'shape_complementarity': 0.63, 'number_hbonds': 5}
-        #     #     # crystal_means2 = {'shape_complementarity': 0.63, 'number_hbonds': 5}
-        #     #     # symmetry_requirements = crystal_means1
-        #     #     # filters = {}
-        #     #     # filters.update(design_requirements)
-        #     #     # filters.update(symmetry_requirements)
-        #     #     # if args.consensus:
-        #     #     #     consensus_weights1 = {'interaction_energy_complex': 0.5, 'percent_fragment': 0.5}
-        #     #     #     consensus_weights2 = {'interaction_energy_complex': 0.33, 'percent_fragment': 0.33,
-        #     #     #                           'shape_complementarity': 0.33}
-        #     #     #     filters = {'percent_int_area_polar': 0.2}
-        #     #     #     weights = consensus_weights2
-        #     #     # else:
-        #     #     #     weights1 = {'protocol_energy_distance_sum': 0.25, 'shape_complementarity': 0.25,
-        #     #     #                 'observed_evolution': 0.25, 'int_composition_diff': 0.25}
-        #     #     #     # Used without the interface area filter
-        #     #     #     weights2 = {'protocol_energy_distance_sum': 0.20, 'shape_complementarity': 0.20,
-        #     #     #                 'observed_evolution': 0.20, 'int_composition_diff': 0.20, 'int_area_total': 0.20}
-        #     #     #     weights = weights1
-        #     #
-        #     #     selected_poses = Ams.filter_pose(args.dataframe, filter=args.filter, weight=args.weight,
-        #     #                                      consensus=args.consensus)
-        #     #
-        #     #     # Sort results according to clustered poses
-        #     #     cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
-        #     #     if os.path.exists(cluster_map):
-        #     #         pose_cluster_map = SDUtils.unpickle(cluster_map)
-        #     #         # {composition: {design_string: cluster_representative}, ...}
-        #     #         pose_clusters_found, final_poses = [], []
-        #     #         # for des_dir in design_directories:
-        #     #         for pose in selected_poses:
-        #     #             if pose_cluster_map[pose.split('-')[0]][pose] not in pose_clusters_found:
-        #     #                 pose_clusters_found.append(pose_cluster_map[pose.split('-')[0]][pose])
-        #     #                 final_poses.append(pose)
-        #     #         logger.info('Final poses after clustering:\n\t%s' % '\n\t'.join(final_poses))
-        #     #     else:
-        #     #         final_poses = selected_poses
-        #     #
-        #     #     if len(final_poses) > args.number_poses:
-        #     #         final_poses = final_poses[:args.number_poses]
-        #     #
-        #     #     design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
-        #     #                           for pose in final_poses]
-
-        if args.weight:
-            trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
-            sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
-            sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
-        else:
-            sequence_weights = None
-
         if args.global_sequences:
             all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
-            # logger.info([design for idx, df in enumerate(all_dfs[:3]) for design in df.index.to_list() if design_directories[idx].name in design])
             for idx, df in enumerate(all_dfs):
                 # all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
                 df.drop([design for design in df.index.to_list() if design_directories[idx].name not in design],
                         inplace=True)
-            # logger.info([df.index for df in all_dfs[:3]])
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
-            # df.index = [' '.join(col).strip() for col in df.index.values]
 
-            # logger.info(df.index[:5])
-            design_list = rank_dataframe_by_metric_weights(df, weights=sequence_weights)
-            number_chosen = 0
-            results, selected_designs = [], []
-            for design_directory, design in design_list:
-                if design_directory not in selected_designs:
-                    selected_designs.append(design_directory)
-                    results.append((design_directory, design))
-                    number_chosen += 1
-                    if number_chosen == args.number_sequences:
-                        break
-        else:
+            # Figure out designs from dataframe, filters, and weights
+            selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
+                                                          protocol=args.protocol)
+            logger.info('%d designs were selected' % len(selected_poses_df))
+            design_indices = selected_poses_df.index.to_list()
+            if args.filter or args.weight:
+                new_dataframe = os.path.join(args.directory, '%s%sDesignPoseMetrics-%s.csv'
+                                             % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
+                                                timestamp))
+                selected_poses_df.to_csv(new_dataframe)
+                logger.info('New DataFrame with selected designs was written to %s' % new_dataframe)
+            # design_series = rank_dataframe_by_metric_weights(df, weights=sequence_weights)
+            # design_indices = design_series.index.to_list()
+            if args.avoid_multiple_poses:
+                number_chosen = 0
+                results, selected_designs = [], []
+                for design_directory, design in design_indices:
+                    if design_directory not in selected_designs:
+                        selected_designs.append(design_directory)
+                        results.append((design_directory, design))
+                        number_chosen += 1
+                        if number_chosen == args.number_sequences:
+                            break
+            else:
+                results = design_indices[:args.number_sequences]
+        else:  # select sequences from all poses provided in DesignDirectories
+            if args.filter:
+                trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
+                sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
+                sequence_filters = query_user_for_metrics(sequence_metrics, mode='filter', level='sequence')
+            else:
+                sequence_filters = None
+
+            if args.weight:
+                trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
+                sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
+                sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
+            else:
+                sequence_weights = None
+
             if args.multi_processing:
                 # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                 #                     'int_energy_res_summary_delta': 0.25}
-                zipped_args = zip(design_directories, repeat(sequence_weights), repeat(args.number_sequences),
-                                  repeat(args.protocol))
+                zipped_args = zip(design_directories, repeat(sequence_filters), repeat(sequence_weights),
+                                  repeat(args.number_sequences), repeat(args.protocol))
                 # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, threads))
                 # returns [[], [], ...]
                 result_mp = SDUtils.mp_starmap(DesignDirectory.select_sequences, zipped_args, threads)
@@ -1853,9 +1781,8 @@ if __name__ == '__main__':
             else:
                 results = []
                 for design in design_directories:
-                    results.extend(design.select_sequences(weights=sequence_weights, number=args.number_sequences,
-                                                           protocol=args.protocol))
-
+                    results.extend(design.select_sequences(filters=sequence_filters, weights=sequence_weights,
+                                                           number=args.number_sequences, protocol=args.protocol))
         if not args.selection_string:
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
         else:
