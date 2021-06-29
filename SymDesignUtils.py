@@ -1102,12 +1102,12 @@ def all_vs_all(iterable, func, symmetrize=True):
     """Calculate an all versus all comparison using a defined function. Matrix is symmetrized by default
 
     Args:
-        iterable (iter): Dict or array like object
+        iterable (Iterable): Dict or array like object
         func (function): Function to calculate different iterations of the iterable
     Keyword Args:
         symmetrize=True (Bool): Whether or not to make the resulting matrix symmetric
     Returns:
-        all_vs_all (numpy array): Matrix with resulting calculations
+        (numpy.ndarray): Matrix with resulting calculations
     """
     if type(iterable) == dict:
         # func(iterable[obj1], iterable[obj2])

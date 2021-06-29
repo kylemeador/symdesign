@@ -152,7 +152,7 @@
 		<TotalSasa name="interface_area_all_nano_polar" threshold="10" hydrophobic="0" polar="1" task_operations="init,vrt,non_int_no_repack"/>
 		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
         <SimpleMetricFilter name="interface_residue_count" metric="M_interface_residue_count" comparison_type="gt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
-        <CalculatorFilter name="interaction_energy_density_filter" equation="E / Number"> # threshold="(real 0)"
+        <CalculatorFilter name="interaction_energy_per_residue" equation="E / Number"> # threshold="(real 0)"
             <Var name="E" filter="interaction_energy_filter"/>
             <Var name="Number" filter="interface_residue_count"/>
         </CalculatorFilter>
@@ -184,7 +184,7 @@
 		<Report name="R_shape_complementarity" 				filter="shape_complementarity"/>
 		<Report name="R_contact_count" 						filter="contact_count"/>
 		<Report name="R_buns_complex" 						filter="buns_complex"/>
-		<Report name="R_interaction_energy_density_filter"  filter="interaction_energy_density_filter"/>
+		<Report name="R_interaction_energy_per_residue"  filter="interaction_energy_per_residue"/>
 <!--		<Report name="R_buns_hpol" 					filter="buns_hpol"/>-->
 <!--		<Report name="R_buns_nano" 						filter="buns_nano"/>-->
 <!--		<Report name="R_buns_nano_hpol" 				filter="buns_nano_hpol"/>-->
@@ -272,7 +272,7 @@
 		<Add mover_name="run_metrics_complex_sum_sasa_hydrophobic"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_polar"/>
 		<Add mover_name="run_metrics_complex_sum_sasa_total"/>
-		<Add filter_name="R_interaction_energy_density_filter"/>
+		<Add filter_name="R_interaction_energy_per_residue"/>
 <!--		<Add filter_name="R_buns_nano"/>-->
 <!--		<Add filter_name="R_buns_nano_hpol"/>-->
 <!--		<Add filter_name="R_interface_area_asu_total"/>-->
