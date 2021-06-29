@@ -1216,7 +1216,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     else:
         protocol = 'pose'
         simple_df = df.loc[:, idx_slice['pose', df.columns.get_level_values(1) != 'std', :]]
-    simple_df.droplevel(0, axis=1).droplevel(0, axis=1)
+    simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)
 
     if filter:
         if isinstance(filter, dict):
