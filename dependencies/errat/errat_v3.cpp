@@ -49,6 +49,7 @@ int main(int argc, char* argv[])
 {//1
     struct rlimit lim;
     lim.rlim_cur = RLIM_INFINITY;
+    lim.rlim_max = RLIM_INFINITY;
     if (setrlimit(RLIMIT_STACK, &lim) == -1);{
         puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
     }
