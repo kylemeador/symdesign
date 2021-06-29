@@ -2179,25 +2179,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     if stat == 'mean':
                         # for each measurement in residue_energy_pc_df, need to take the distance between it and the
                         # structure background mean (if structure background, is the mean is useful too?)
-                        # grouped_pc_energy_df.loc[background_protocol, :]  # structure background mean
-                        # residue_energy_pc_df
-                        # a = np.array([[0, 0, 0],
-                        #               [0, 0, 1],
-                        #               [0, 1, 0],
-                        #               [0, 1, 1],
-                        #               [1, 0, 0],
-                        #               [1, 0, 1],
-                        #               [1, 1, 0],
-                        #               [1, 1, 1]])
-                        # b = np.array([[0.1, 0.2, 0.4]])
-                        print('Energy PCA', residue_energy_pc)
-                        print('background', grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
                         background_distance = cdist(residue_energy_pc,
                                                     grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
-                        print('Found the distance from background:', background_distance)
                         trajectory_df = \
                             pd.concat([trajectory_df,
-                                       pd.Series(background_distance, index=residue_energy_pc_df.index,
+                                       pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
                                                  name='energy_distance_from_%s_mean' % background_protocol)], axis=1)
 
                         # if renaming is necessary
