@@ -1744,7 +1744,9 @@ if __name__ == '__main__':
                 logger.info('New DataFrame with selected designs was written to %s' % new_dataframe)
             # design_series = rank_dataframe_by_metric_weights(df, weights=sequence_weights)
             # design_indices = design_series.index.to_list()
-            if args.avoid_multiple_poses:
+            if args.allow_multiple_poses:
+                results = design_indices[:args.number_sequences]
+            else:
                 number_chosen = 0
                 results, selected_designs = [], []
                 for design_directory, design in design_indices:
@@ -1754,8 +1756,6 @@ if __name__ == '__main__':
                         number_chosen += 1
                         if number_chosen == args.number_sequences:
                             break
-            else:
-                results = design_indices[:args.number_sequences]
         else:  # select sequences from all poses provided in DesignDirectories
             if args.filter:
                 trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
