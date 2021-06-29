@@ -1159,8 +1159,9 @@ def filter_df_for_index_by_value(df, metrics):
     """
     filtered_indices = {}
     for column, value in metrics.items():
-        specification = value.get('direction')
-        if specification:
+        if isinstance(value, dict):
+            specification = value.get('direction')
+        # if specification:
             value = value.get('value')
         else:
             specification = filter_df.loc['direction', column]
