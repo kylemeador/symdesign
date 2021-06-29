@@ -1729,7 +1729,6 @@ if __name__ == '__main__':
                 df.drop([design for design in df.index.to_list() if design_directories[idx].name not in design],
                         inplace=True)
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
-            print(df)
             df = pd.concat([df], axis=1, keys=['pose', 'metric'])
 
             # Figure out designs from dataframe, filters, and weights
