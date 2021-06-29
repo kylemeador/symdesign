@@ -768,6 +768,9 @@ if __name__ == '__main__':
                                       'optimized')
     parser_sequence.add_argument('-p', '--protocol', type=str,
                                  help='Use a specific protocol to grab sequences from?')
+    parser_sequence.add_argument('-S', '--skip_sequence_generation', action='store_true',
+                                 help='Should sequence generation be skipped? Only selected structure files will be '
+                                      'collected')
     parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
                                  help='String to prepend to output for custom sequence selection name')
     parser_sequence.add_argument('-t', '--preferred_tag', type=str,
@@ -1819,6 +1822,9 @@ if __name__ == '__main__':
             #     pass
 
         # Format sequences for expression
+        if args.skip_sequence_generation:
+            terminate(args.module, design_directories, location=location, output=False)
+
         master_directory.load_pose()
         if args.entity_specification:
             if args.entity_specification == 'all':
