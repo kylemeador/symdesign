@@ -389,7 +389,7 @@ master_metrics = {'average_fragment_z_score':
                   'yhh_planarity':
                       {'description': 'Rosetta Energy Term - favor planarity of tyrosine alcohol hydrogen',
                        'direction': None, 'function': None, 'filter': None}}
-
+filter_df = pd.DataFrame(master_metrics)
 nanohedra_metrics = ['nanohedra_score_normalized', 'nanohedra_score_center_normalized', 'nanohedra_score',
                      'nanohedra_score_center', 'number_fragment_residues_total', 'number_fragment_residues_center',
                      'multiple_fragment_ratio', 'percent_fragment_helix', 'percent_fragment_strand',
@@ -560,6 +560,7 @@ background_protocol = 'no_constraint'
 protocols_of_interest = {'design_profile', 'no_constraint', 'hbnet_design_profile'}  # Todo adapt to any user protocol!
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
 
+protocol_column_types = ['mean', 'sequence_design']  # 'stats',
 # Specific columns of interest to distinguish between design trajectories
 significance_columns = ['interface_buried_hbonds',
                         'contact_count', 'interface_energy', 'interface_area_total', 'number_hbonds',
@@ -1146,65 +1147,88 @@ def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
     return total
 
 
-def df_filter_index_by_value(df, **kwargs):
-    """Take a df and retrieve the indices which have column values greater_equal/less_equal to a value depending
-    on whether the column should be sorted max/min
+def filter_df_for_index_by_value(df, metrics):
+    """Retrieve the indices from a DataFrame which have column values greater_equal/less_equal to an indicated threshold
 
     Args:
         df (pandas.DataFrame): DataFrame to filter indices on
-    Keyword Args:
-        kwargs (dict): {column: {'direction': 'min', 'value': 0.3}, ...}
+        metrics (dict): {column: 0.3, ...} OR {column: {'direction': 'min', 'value': 0.3}, ...} to specify a sorting
+            direction
     Returns:
-        (dict): {column: {'direction': 'min', 'value': 0.3, 'idx': ['0001', '0002', ...]}, ...}
+        (dict): {column: ['0001', '0002', ...], ...}
     """
-    for idx in kwargs:
-        if kwargs[idx]['direction'] == 'max':
-            kwargs[idx]['idx'] = df[df[idx] >= kwargs[idx]['value']].index.to_list()
-        if kwargs[idx]['direction'] == 'min':
-            kwargs[idx]['idx'] = df[df[idx] <= kwargs[idx]['value']].index.to_list()
+    filtered_indices = {}
+    for column, value in metrics.items():
+        specification = value.get('direction')
+        if specification:
+            value = value.get('value')
+        else:
+            specification = filter_df.loc['direction', column]
 
-    return kwargs
+        if specification == 'max':
+            filtered_indices[column] = df[df[column] >= value].index.to_list()
+        elif specification == 'min':
+            filtered_indices[column] = df[df[column] <= value].index.to_list()
+
+    return filtered_indices
 
 
-def filter_pose(df_file, filter=None, weight=None, consensus=False, sort_df=True):
-    """Return the indices from a dataframe that pass an set of filters (optional) and are ranked according to weight as
-    specified by user values.
+def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # , sort_df=True
+    """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
+    according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
     Args:
-        df_file (union[str, pandas.DataFrame]): DataFrame to filter/weight indices
+        df (union[str, pandas.DataFrame]): DataFrame to filter/weight indices
     Keyword Args:
-        filter=False (bool): Whether filters are going to remove viable candidates
-        weight=False (bool): Whether weights are going to select the poses
-        consensus=False (bool): Whether consensus designs should be chosen
+        filter=False (bool): Whether to remove viable candidates by metric filters
+        weight=False (bool): Whether to rank the designs by certain metrics
+        protocol=None (str): Whether a specific design protocol should be chosen
     Returns:
         (pandas.DataFrame): The dataframe of selected designs based on the provided filters and weights
     """
     idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
-    if isinstance(df_file, pd.DataFrame):
-        df = df_file
+    if isinstance(df, pd.DataFrame):
+        df = df
     else:
-        df = pd.read_csv(df_file, index_col=0, header=[0, 1, 2])
+        df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
     logger.info('Number of starting designs = %d' % len(df))
-    _df = df.loc[:, idx_slice['pose',
-                              df.columns.get_level_values(1) != 'std', :]].droplevel(1, axis=1).droplevel(0, axis=1)
 
-    filter_df = pd.DataFrame(master_metrics)
+    if protocol:
+        if isinstance(protocol, str):
+            protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
+        else:
+            available_protocols = df.columns.get_level_values(0).unique()
+            while True:
+                protocol = input('What protocol would you like to choose?\nAvailable options are: %s%s'
+                                 % (', '.join(available_protocols), input_string))
+                if protocol in available_protocols:
+                    break
+                else:
+                    print('Invalid protocol %s. Please choose one of %s' % (protocol, ', '.join(available_protocols)))
+            protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
+        simple_df = pd.merge(df.loc[:, idx_slice['pose', 'dock', :]],
+                             protocol_df, left_index=True, right_index=True)
+    else:
+        protocol = 'pose'
+        simple_df = df.loc[:, idx_slice['pose', df.columns.get_level_values(1) != 'std', :]]
+    simple_df.droplevel(0, axis=1).droplevel(0, axis=1)
+
     if filter:
-        available_filters = _df.columns.to_list()
         if isinstance(filter, dict):
             filters = filter
         else:
+            available_filters = simple_df.columns.to_list()
             filters = query_user_for_metrics(available_filters, mode='filter', level='design')
         logger.info('Using filter parameters: %s' % str(filters))
 
         # When df is not ranked by percentage
-        _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
-                    for metric, value in filters.items()}
+        # _filters = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
+        #             for metric, value in filters.items()}
 
         # Filter the DataFrame to include only those values which are le/ge the specified filter
-        filters_with_idx = df_filter_index_by_value(_df, **_filters)
-        filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
+        filtered_indices = filter_df_for_index_by_value(simple_df, filters)  # **_filters)
+        # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s'
                     % '\n\t'.join('%6d - %s' % (len(indices), metric) for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices)
@@ -1212,71 +1236,40 @@ def filter_pose(df_file, filter=None, weight=None, consensus=False, sort_df=True
         if len(final_indices) == 0:
             raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
                               'better designs!')
-        _df = _df.loc[final_indices, :]
-
-    # When df IS ranked by percentage
-    # bottom_percent = (num_designs / len(df))
-    # top_percent = 1 - bottom_percent
-    # min_max_to_top_bottom = {'min': bottom_percent, 'max': top_percent}
-    # _filters = {metric: {'direction': filter_df.loc['direction', metric],
-    #                      'value': min_max_to_top_bottom[filter_df.loc['direction', metric]]} for metric in filters}
-
-    # _sort = {metric: {'direction': filter_df.loc['direction', metric],
-    #                   'value': min_max_to_top_bottom[filter_df.loc['direction', metric]]} for metric in sort_s.index}
-    # filters_with_idx = df_filter_index_by_value(ranked_df, **_sort)
-
-    if consensus:
-        protocol_df = df.loc[:, idx_slice['consensus', ['mean', 'stats'], :]].droplevel(1, axis=1)
-        #     df.loc[:, idx_slice[df.columns.get_level_values(0) != 'pose', ['mean', 'stats'], :]].droplevel(1, axis=1)
-        # stats_protocol_df = \
-        #     df.loc[:, idx_slice[df.columns.get_level_values(0) != 'pose', df.columns.get_level_values(1) == 'stats',
-        #     :]].droplevel(1, axis=1)
-        # design_protocols_df = pd.merge(protocol_df, stats_protocol_df, left_index=True, right_index=True)
-        # TODO make more robust sampling from specific protocol
-        _df = pd.merge(protocol_df.loc[:, idx_slice['consensus', :]],
-                       df.droplevel(0, axis=1).loc[:, idx_slice[:, 'percent_fragment']],
-                       left_index=True, right_index=True).droplevel(0, axis=1)
-    # filtered_indices = {}
-
-    # for metric in filters:
-    #     filtered_indices[metric] = set(df[df.droplevel(0, axis=1)[metric] >= filters[metric]].index.to_list())
-    #     logger.info('Number of designs passing %s = %d' % (metric, len(filtered_indices[metric])))
-    # ranked_df = _df.rank(method='min', pct=True, )  # default is to rank lower values as closer to 1
-    # need {column: {'direction': 'max', 'value': 0.5, 'idx_slice': []}, ...}
-
-    # only used to check out the number of designs in each filter
-    # for _filter in crystal_filters_with_idx:
-    #     print('%s designs = %d' % (_filter, len(crystal_filters_with_idx[_filter]['idx_slice'])))
+        simple_df = simple_df.loc[final_indices, :]
 
     # {column: {'direction': 'min', 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
     if weight:
         # display(ranked_df[weights_s.index.to_list()] * weights_s)
-        available_metrics = _df.columns.to_list()
         if isinstance(weight, dict):
             weights = weight
         else:
+            available_metrics = simple_df.columns.to_list()
             weights = query_user_for_metrics(available_metrics, mode='weight', level='design')
         logger.info('Using weighting parameters: %s' % str(weights))
-        _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
-                    for metric, value in weights.items()}
-        weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
-        # weights_s = pd.Series(weights)
-        weight_score_s_d = {}
-        for metric in _weights:
-            weight_score_s_d[metric] = \
-                _df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
-                                 method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
+        design_ranking_s = rank_dataframe_by_metric_weights(df, weights=weights)
 
-        design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
-        if sort_df:
-            weighted_s = design_score_df.sum(axis=1).sort_values(ascending=False)
-        else:
-            weighted_s = design_score_df.sum(axis=1)
-        weighted_df = pd.concat([weighted_s], keys=[('pose', 'sum', 'selection_weight')], axis=1)
+        # _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
+        #             for metric, value in weights.items()}
+        # weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
+        # weights_s = pd.Series(weights)
+        # weight_score_s_d = {}
+        # for metric in _weights:
+        #     weight_score_s_d[metric] = \
+        #         simple_df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
+        #                                method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
+
+        # design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
+        # if sort_df:
+        #     design_ranking_s = design_score_df.sum(axis=1).sort_values(ascending=False)
+        # else:
+        #     design_ranking_s = design_score_df.sum(axis=1)
+        weighted_df = pd.concat([design_ranking_s], keys=[(protocol, 'sum', 'selection_weight')], axis=1)
         final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
         # designs = weighted_s.index.to_list()
     else:
-        final_df = df.loc[_df.index.to_list(), :]
+        final_df = df.loc[simple_df.index.to_list(), :].sort_values((protocol, 'mean', 'interface_energy'),
+                                                                    ascending=True)
         # designs = _df.index.to_list()
     # these will be sorted by the largest value to the smallest
     # design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
@@ -1498,13 +1491,13 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
     """Ask the user for the desired metrics to select indices from a dataframe
 
     Args:
-        available_metrics (set): The columns available in the DataFrame to select indices by
+        available_metrics (Iterable): The columns available in the DataFrame to select indices by
     Keyword Args:
         mode=None (str): The mode in which to query and format metrics information
     Returns:
         (dict)
     """
-    filter_df = pd.DataFrame(master_metrics)
+    # filter_df = pd.DataFrame(master_metrics)
     direction = {'max': 'higher', 'min': 'lower'}
     instructions = {'filter': '\nFor each metric, choose values based on supported literature or design goals to '
                               'eliminate designs that are certain to fail or have sub-optimal features. Ensure your '
@@ -1599,10 +1592,11 @@ def rank_dataframe_by_metric_weights(df, weights=None, save_ranking=False, out_p
     Keyword Args:
          weights=None (dict[mapping[str, float]]): {'metric': value, ...}. If not provided, sorts by interface_energy
     Returns:
-        (list): The list of indices that were selected
+        (pandas.Series): The sorted Series of values based on specified metrics
+        # (list): The list of indices that were selected
     """
     if weights:
-        filter_df = pd.DataFrame(master_metrics)
+        # filter_df = pd.DataFrame(master_metrics)
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
                     for metric, value in weights.items()}
 
@@ -1610,12 +1604,14 @@ def rank_dataframe_by_metric_weights(df, weights=None, save_ranking=False, out_p
         df = pd.concat({metric: df[metric].rank(ascending=sort_direction[parameters['direction']],
                                                 method=parameters['direction'], pct=True) * parameters['value']
                         for metric, parameters in _weights.items()}, axis=1)
-        # sort sum of all weights by the maximum combined weight
-        df['weighted_score'] = df.sum(axis=1)
-        df.sort_values('weighted_score', inplace=True, ascending=False)
-        if save_ranking:
-            df.to_csv(os.path.join(out_path, 'ranked%s.csv' % (time.strftime('%y-%m-%d-%H%M%S'))))
+        return df.sum(axis=1).sort_values(ascending=False)
+        # # sort sum of all weights by the maximum combined weight
+        # df['weighted_score'] = df.sum(axis=1)
+        # df.sort_values('weighted_score', inplace=True, ascending=False)
+        # if save_ranking:
+        #     df.to_csv(os.path.join(out_path, 'ranked%s.csv' % (time.strftime('%y-%m-%d-%H%M%S'))))
     else:  # just sort by lowest energy
-        df.sort_values('interface_energy', inplace=True)
+        return df.sort_values('interface_energy', ascending=True)
+        # df.sort_values('interface_energy', inplace=True)
 
-    return df.index.to_list()
+    # return df.index.to_list()

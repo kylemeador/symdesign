@@ -20,7 +20,8 @@ import PathUtils as PUtils
 from Structure import Structure
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, \
-    all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym, pretty_format_table
+    all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym, pretty_format_table, \
+    index_intersection
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
@@ -29,7 +30,8 @@ from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, 
     columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
     stats_metrics, significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
-    protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol  # calc_relative_sa,
+    protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, \
+    filter_df_for_index_by_value  # calc_relative_sa,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence,\
     multi_chain_alignment  # , format_mutations, generate_sequences, make_mutations_chain_agnostic,
@@ -2350,13 +2352,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return pose_s
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def select_sequences(self, weights=None, number=1, protocol=None):
+    def select_sequences(self, filters=None, weights=None, number=1, protocol=None):
         """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
-         sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
-         sequence with the lowest weight will be selected
+        sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
+        sequence with the lowest weight will be selected
 
         Keyword Args:
-            weights=None (iter): The weights to use in sequence selection
+            filters=None (Iterable): The filters to use in sequence selection
+            weights=None (Iterable): The weights to use in sequence selection
             number=1 (int): The number of sequences to consider for each design
             protocol=None (str): Whether a particular design protocol should be chosen
         Returns:
@@ -2366,17 +2369,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
         trajectory_df.dropna(inplace=True)
         if protocol:
-            # unique_protocols = trajectory_df['protocol'].unique().tolist()
-            # while True:
-            #     protocol = input(
-            #         'Do you have a protocol that you prefer to pull your designs from? Possible '
-            #         'protocols include:\n%s' % ', '.join(unique_protocols))
-            #     if protocol in unique_protocols:
-            #         break
-            #     else:
-            #         print('%s is not a valid protocol, try again.' % protocol)
-            #
-            # designs = trajectory_df[trajectory_df['protocol'] == protocol].index.to_list()
             designs = trajectory_df[trajectory_df['protocol'] == protocol].index.to_list()
             if not designs:
                 raise DesignError('No designs found for protocol %s!' % protocol)
@@ -2384,27 +2376,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             designs = trajectory_df.index.to_list()
 
         self.log.info('Number of starting trajectories = %d' % len(trajectory_df))
+        df = trajectory_df.loc[designs, :]
+
+        if filters:
+            self.log.info('Using filter parameters: %s' % str(filters))
+            # Filter the DataFrame to include only those values which are le/ge the specified filter
+            filtered_designs = index_intersection(filter_df_for_index_by_value(df, filters))
+            df = trajectory_df.loc[filtered_designs, :]
 
         if weights:
-            # filter_df = pd.DataFrame(master_metrics)
             # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
-            # _df = trajectory_df.loc[final_indices, :]
-            df = trajectory_df.loc[designs, :]
             self.log.info('Using weighting parameters: %s' % str(weights))
-            design_list = rank_dataframe_by_metric_weights(df, weights=weights)
-            # _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': weights[metric]}
-            #             for metric in weights}
-            # weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
-            # # weights_s = pd.Series(weights)
-            # weight_score_s_d = {}
-            # for metric in _weights:
-            #     weight_score_s_d[metric] = \
-            #         df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
-            #                         method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
-            #
-            # # design_score_df = pd.DataFrame(weight_score_s_d)  # Todo simplify
-            # score_df = pd.concat(weight_score_s_d.values(), axis=1)
-            # design_list = score_df.sum(axis=1).sort_values(ascending=False).index.to_list()
+            design_list = rank_dataframe_by_metric_weights(df, weights=weights).index.to_list()
             self.log.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
 
             return list(zip(repeat(self), design_list[:number]))
