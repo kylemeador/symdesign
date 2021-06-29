@@ -48,8 +48,8 @@ double matrixdb (double matrix[6]);
 int main(int argc, char* argv[])
 {//1
     struct rlimit *lim;
-    lim.rlim_cur = RLIM_INFINITY;
-    if setrlimit(RLIMIT_STACK, &lim) == -1);{
+    lim->rlim_cur = RLIM_INFINITY;
+    if (setrlimit(RLIMIT_STACK, &lim) == -1);{
         puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
     }
 	//all arrays upon their import to UNIX must be modified to ensure proper load.
