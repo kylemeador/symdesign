@@ -26,6 +26,7 @@
 // KM fix for segmentation fault
 //#include <sys/time.h>
 #include <sys/resource.h>
+#include <errno.h>
 
 using std::cout;
 using std::endl;
