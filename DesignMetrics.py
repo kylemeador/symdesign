@@ -1252,7 +1252,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
             available_metrics = simple_df.columns.to_list()
             weights = query_user_for_metrics(available_metrics, mode='weight', level='design')
         logger.info('Using weighting parameters: %s' % str(weights))
-        design_ranking_s = rank_dataframe_by_metric_weights(df, weights=weights)
+        design_ranking_s = rank_dataframe_by_metric_weights(simple_df, weights=weights)
 
         # _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
         #             for metric, value in weights.items()}
