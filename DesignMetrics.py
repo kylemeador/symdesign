@@ -1193,7 +1193,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     if isinstance(df, pd.DataFrame):
         df = df
         if list(range(3 - len(df.columns[0]))):
-            df = pd.concat(df, axis=1, keys=['pose' for _ in range(3 - len(df.columns[0]))])
+            df = pd.concat([df], axis=1, keys=['pose' for _ in range(3 - len(df.columns[0]))])
     else:
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
     logger.info('Number of starting designs = %d' % len(df))
