@@ -1539,7 +1539,7 @@ if __name__ == '__main__':
         # -df dataframe, -f filter, -m metric, -p pose_design_file, -s selection_string, -w weight
         # program_root = next(iter(design_directories)).program_root
         # if not args.directory or not args.project or not args.single:  Todo
-        if not args.directory:
+        if args.dataframe and not args.directory:
             logger.critical('If using a --dataframe for selection, you must include the directory where the designs are'
                             'located in order to properly select designs. Please specify -d/--directory on the command '
                             'line')
@@ -1550,8 +1550,6 @@ if __name__ == '__main__':
             program_root = None
             # Todo change this mechanism so not reliant on args.directory and outputs pose IDs/ Alternatives fix csv
             #  to output paths
-        else:
-            program_root = args.directory
 
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
@@ -1561,6 +1559,8 @@ if __name__ == '__main__':
 
             design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
                                   for pose in all_poses]
+            master_directory = next(iter(design_directories))
+            program_root = master_directory.program_root
             # design_directories = set_up_directory_objects(all_poses, project=args.project)  # **queried_flags
             results.append(zip(design_directories, pose_design_numbers))
             location = args.pose_design_file
@@ -1571,7 +1571,7 @@ if __name__ == '__main__':
             selected_poses = selected_poses_df.index.to_list()
             logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
             if args.filter or args.weight:
-                new_dataframe = os.path.join(args.directory, '%s%sDesignPoseMetrics-%s.csv'
+                new_dataframe = os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
                                              % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
                                                 timestamp))
                 selected_poses_df.to_csv(new_dataframe)
@@ -1737,7 +1737,7 @@ if __name__ == '__main__':
             logger.info('%d designs were selected' % len(selected_poses_df))
             design_indices = selected_poses_df.index.to_list()
             if args.filter or args.weight:
-                new_dataframe = os.path.join(args.directory, '%s%sDesignPoseMetrics-%s.csv'
+                new_dataframe = os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
                                              % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
                                                 timestamp))
                 selected_poses_df.to_csv(new_dataframe)
