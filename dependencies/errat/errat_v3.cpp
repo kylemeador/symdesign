@@ -24,7 +24,7 @@
 #include <ctype.h>
 #include <iomanip>
 // KM fix for segmentation fault
-#include <sys/time.h>
+//#include <sys/time.h>
 #include <sys/resource.h>
 
 using std::cout;
@@ -47,7 +47,10 @@ double matrixdb (double matrix[6]);
 
 int main(int argc, char* argv[])
 {//1
-    struct rlimit lim;
+    struct rlimit old_lim, lim;
+    getrlimit(RLIMIT_STACK, &old_lim);
+    printf ("\nStack Limit = %ld and %ld max\n", old_lim.rlim_cur, old_lim.rlim_max);
+
     lim.rlim_cur = RLIM_INFINITY;
     lim.rlim_max = RLIM_INFINITY;
     if (setrlimit(RLIMIT_STACK, &lim) == -1);{
