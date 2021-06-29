@@ -2027,6 +2027,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     continue
                 pdb = PDB.from_file(file, name=decoy_name, log=None, entities=False, lazy=True)
                 atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
+            print(atomic_deviation)
 
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
