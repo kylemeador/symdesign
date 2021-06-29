@@ -454,6 +454,7 @@ final_metrics = {'interface_buried_hbonds', 'contact_count', 'core', 'coordinate
 columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation',
                      'shape_complementarity_core_median_dist': 'interface_core_separation',
                      'ref': 'rosetta_reference_energy',
+                     'interaction_energy_density_filter': 'interaction_energy_per_residue'
                      # 'relax_switch': groups, 'no_constraint_switch': groups, 'limit_to_profile_switch': groups,
                      # 'combo_profile_switch': groups, 'design_profile_switch': groups,
                      # 'favor_profile_switch': groups, 'consensus_design_switch': groups,

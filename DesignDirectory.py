@@ -11,7 +11,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
-from scipy.spatial.distance import pdist
+from scipy.spatial.distance import pdist, cdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import BallTree
@@ -1973,7 +1973,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                  'sasa_total_bound': list(filter(re.compile('sasa_total_.*_bound').match, scores_columns)),
                  'solvation_energy_bound': list(filter(re.compile('solvation_energy_.*_bound').match, scores_columns)),
                  'solvation_energy_unbound':
-                     list(filter(re.compile('solvation_energy_.*_unbound').match, scores_columns))
+                     list(filter(re.compile('solvation_energy_.*_unbound').match, scores_columns)),
+                 'interface_connectivity': list(filter(re.compile('interface_connectivity_.*').match, scores_columns))
                  # 'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
                  # 'buns_heavy_total': ('buns_asu', 'buns_nano'),
                  }
@@ -1994,11 +1995,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Process dataframes for missing values and drop refine trajectory if present
             scores_df[groups] = protocol_s
             refine_index = scores_df[scores_df[groups] == PUtils.stage[1]].index
-            # scores_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
-            # residue_df.drop(PUtils.stage[1], axis=0, inplace=True, errors='ignore')
             scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
             residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-            # print(residue_df.columns[residue_df.isna().all(axis=0)])
+            residue_info.pop(PUtils.stage[1], None)  # Remove refine from analysis
             # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
             residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
             residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
@@ -2034,6 +2033,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
+            # add all docking and pose information to each trajectory
+            pose_metrics_df = pd.concat([pd.Series(other_pose_metrics)] * len(scores_df), axis=1).T
+            trajectory_df = pd.concat([pose_metrics_df, trajectory_df], axis=1)
             # TODO v what about when run on consensus only?
             assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
 
@@ -2136,7 +2138,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
                 trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
-                # Compute sequence differences between each protocol
+                # Compute residue energy/sequence differences between each protocol
                 residue_energy_df = \
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'energy_delta']]
 
@@ -2144,70 +2146,92 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
                 residue_energy_np = scaler.fit_transform(residue_energy_df.values)
                 residue_energy_pc = res_pca.fit_transform(residue_energy_np)
+
+                seq_pca = PCA(PUtils.variance)
+                pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(residue_info, sequence_difference))
+                seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
+                # Make principal components (PC) DataFrame
                 residue_energy_pc_df = \
                     pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
                                  columns=['pc%d' % idx for idx, _ in enumerate(res_pca.components_, 1)])
-
-                seq_pca = PCA(PUtils.variance)
-                residue_info.pop(PUtils.stage[1], None)  # Remove refine from analysis before PC calculation
-                pairwise_sequence_diff_np = all_vs_all(residue_info, sequence_difference)
-                pairwise_sequence_diff_np = scaler.fit_transform(pairwise_sequence_diff_np)
-                seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
+                seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
+                                         columns=['pc%d' % idx for idx, _ in enumerate(seq_pca.components_, 1)])
                 # Compute the euclidean distance
                 # pairwise_pca_distance_np = pdist(seq_pc)
                 # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
 
-                # Make PC DataFrame
-                # First take all the principal components identified from above and merge with labels
-                # Next the labels will be grouped and stats are taken for each group (mean is important)
-                # All protocol means will have pairwise distance measured as a means of accessing similarity
-                # These distance metrics will be reported in the final pose statistics
-                seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
-                                         columns=['pc%d' % idx for idx, _ in enumerate(seq_pca.components_, 1)])
-                # Merge principle components with labels
+                # Merge PC DataFrames with labels
                 seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
                 residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-
+                # Next group the labels
+                sequence_groups = seq_pc_df.groupby(groups)
+                residue_energy_groups = residue_energy_pc_df.groupby(groups)
+                # Measure statistics for each group
+                # All protocol means have pairwise distance measured to access similarity
                 # Gather protocol similarity/distance metrics
                 sim_measures = {'sequence_distance': {}, 'energy_distance': {}}
                 sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
-                grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
+                # grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
                 for stat in stats_metrics:
-                    grouped_pc_seq_df_dict[stat] = getattr(seq_pc_df.groupby(groups), stat)()
-                    grouped_pc_energy_df_dict[stat] = getattr(residue_energy_pc_df.groupby(groups), stat)()
-                    similarity_stat_dict[stat] = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
+                    grouped_pc_seq_df = getattr(sequence_groups, stat)()
+                    grouped_pc_energy_df = getattr(residue_energy_groups, stat)()
+                    similarity_stat = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
                     if stat == 'mean':
+                        # for each measurement in residue_energy_pc_df, need to take the distance between it and the
+                        # structure background mean (if structure background, is the mean is useful too?)
+                        # grouped_pc_energy_df.loc[background_protocol, :]  # structure background mean
+                        # residue_energy_pc_df
+                        # a = np.array([[0, 0, 0],
+                        #               [0, 0, 1],
+                        #               [0, 1, 0],
+                        #               [0, 1, 1],
+                        #               [1, 0, 0],
+                        #               [1, 0, 1],
+                        #               [1, 1, 0],
+                        #               [1, 1, 1]])
+                        # b = np.array([[0.1, 0.2, 0.4]])
+                        background_distance = cdist(residue_energy_pc_df.values,
+                                                    grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
+                        print('Energy PCA', residue_energy_pc_df.values)
+                        print('background', grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
+                        print('Found the distance from background:', background_distance)
+                        trajectory_df = \
+                            pd.concat([trajectory_df,
+                                       pd.Series(background_distance, index=residue_energy_pc_df.index,
+                                                 name='energy_distance_from_%s_mean' % background_protocol)], axis=1)
+
                         # if renaming is necessary
                         # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
                         #     {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
-                        seq_pca_mean_distance_vector = pdist(grouped_pc_seq_df_dict[stat])
-                        energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df_dict[stat])
+                        # find the pairwise distance from every point to every other point
+                        seq_pca_mean_distance_vector = pdist(grouped_pc_seq_df)
+                        energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df)
                         # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
                         #                             for k in seq_pca_mean_distance_vector)
                         # find similarity between each protocol by taking row average of all p-values for each metric
                         # mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance Series
                         # mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
                         # sim_measures['similarity'] = mean_pvalue_s
-                        similarity_stat_dict[stat].index = pd.MultiIndex.from_tuples(similarity_stat_dict[stat].index)
-                        sim_measures['similarity'] = similarity_stat_dict[stat]
+                        similarity_stat.index = pd.MultiIndex.from_tuples(similarity_stat.index)
+                        sim_measures['similarity'] = similarity_stat
 
-                        for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
-                            i, j = condensed_to_square(vector_idx, len(grouped_pc_seq_df_dict[stat].index))
-                            sim_measures['sequence_distance'][(grouped_pc_seq_df_dict[stat].index[i],
-                                                               grouped_pc_seq_df_dict[stat].index[j])] = seq_dist
+                        # for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
+                        #     i, j = condensed_to_square(vector_idx, len(grouped_pc_seq_df.index))
+                        #     sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
+                        #                                        grouped_pc_seq_df.index[j])] = seq_dist
 
-                        for vector_idx, energy_dist in enumerate(energy_pca_mean_distance_vector):
-                            i, j = condensed_to_square(vector_idx, len(grouped_pc_energy_df_dict[stat].index))
-                            sim_measures['energy_distance'][(grouped_pc_energy_df_dict[stat].index[i],
-                                                             grouped_pc_energy_df_dict[stat].index[j])] = energy_dist
+                        for vector_idx, (seq_dist, energy_dist) in enumerate(zip(seq_pca_mean_distance_vector,
+                                                                                 energy_pca_mean_distance_vector)):
+                            i, j = condensed_to_square(vector_idx, len(grouped_pc_energy_df.index))
+                            sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
+                                                               grouped_pc_seq_df.index[j])] = seq_dist
+                            sim_measures['energy_distance'][(grouped_pc_energy_df.index[i],
+                                                             grouped_pc_energy_df.index[j])] = energy_dist
                     elif stat == 'std':
                         # sim_stdev['similarity'] = similarity_stat_dict[stat]
                         # Todo need to square each pc, add them up, divide by the group number, then take the sqrt
-                        sim_stdev['seq_distance'] = grouped_pc_seq_df_dict[stat]
-                        sim_stdev['energy_distance'] = grouped_pc_energy_df_dict[stat]
-
-                # for pc_stat in grouped_pc_seq_df_dict:
-                #     self.log.info(grouped_pc_seq_df_dict[pc_stat])
+                        sim_stdev['seq_distance'] = grouped_pc_seq_df
+                        sim_stdev['energy_distance'] = grouped_pc_energy_df
 
                 # Find the significance between each pair of protocols
                 protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
@@ -2328,6 +2352,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 residue_df[(groups, groups)] = protocol_s
                 # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
                 if merge_residue_data:
+                    trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
                     trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
                 else:
                     residue_df.to_csv(self.residues)
