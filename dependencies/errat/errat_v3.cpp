@@ -56,14 +56,14 @@ int main(int argc, char* argv[])
 //    lim.rlim_cur = RLIM_INFINITY;
     lim.rlim_max = -1;
 //    lim.rlim_max = RLIM_INFINITY;
-    int set_resource_return = -1;
-    printf ("\nstarting error %s, set rlimit was %d\n", strerror(errno), set_resource_return);
-    set_resource_return = setrlimit(RLIMIT_STACK, &lim);
-    printf ("\nset rlimit returned %d\n", set_resource_return);
-    if (set_resource_return == -1);{
+//    int set_resource_return = -1;
+//    printf ("\nstarting error %s, set rlimit was %d\n", strerror(errno), set_resource_return);
+    int set_resource_return = setrlimit(RLIMIT_STACK, &lim);
+//    printf ("\nset rlimit returned %d\n", set_resource_return);
+    if (set_resource_return == -1){
         printf ("\nFound error %s with return value of %d\n", strerror(errno), set_resource_return);
-        if (set_resource_return == 0); {
-        printf ("\nHow can it be equal to 0 and -1?.\n");};
+//        if (set_resource_return == 0){
+//        printf ("\nHow can it be equal to 0 and -1?.\n");};
         puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
     }
 	//all arrays upon their import to UNIX must be modified to ensure proper load.
