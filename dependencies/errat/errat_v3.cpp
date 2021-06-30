@@ -25,6 +25,7 @@
 #include <iomanip>
 // KM fix for segmentation fault
 //#include <sys/time.h>
+#include <vector>
 #include <sys/resource.h>
 #include <errno.h>
 
@@ -32,6 +33,7 @@ using std::cout;
 using std::endl;
 using std::ifstream;
 using std::ofstream;
+using std::vector;
 
 //check variables size/bxmx in arrays
 // check filename
@@ -84,15 +86,19 @@ int main(int argc, char* argv[])
 	int		i,j,k,l,m,n,o=0,p,q,r,s,v, aa, ab, gg=0; //for loops
 	int		atmnum;
 	char	name_temp; char name_temp2[4]; 
-	int	name[size]; int bnam[size];
-	char	altLoc; 
+//	int	name[size]; int bnam[size];//KM
+	vector<int> name; vector<int> bnam;//KM
+	char	altLoc;
 	char	resName[4];
 	char	chainID[size];
-	char	resSeq_temp[5]; 
-	int	resSeq[size]; 
-	int	resnum [size];
-	char	x[9], y[9], z[9]; 
-	double 	xyz[3][size];
+	char	resSeq_temp[5];
+//	int	resSeq[size];//KM
+	vector<int> resSeq;//KM
+//	int	resnum [size];//KM
+	vector<int> resnum;//KM
+	char	x[9], y[9], z[9];
+//	double 	xyz[3][size];/KM
+	vector<vector<double>> xyz (3);//KM
 	int		flag = 0;
 	int		kadd;
 	const int chaindif=10000;
@@ -136,7 +142,9 @@ int main(int argc, char* argv[])
 	double pstat, stat;//tells us of the fraction of frames that is above 95%.
 
 	//POSTSCRIPT
-	double errat[size];
+//	double errat[size];//KM
+	vector<double> errat (4);//KM have to add the first 4 records as info starts at index 4 (element 5)
+//	errat.push_back(0); errat.push_back(0); errat.push_back(0); errat.push_back(0);//KM
 	int chainx;
 	int ich;
 	int ir1[100];
@@ -334,11 +342,15 @@ int main(int argc, char* argv[])
 				else
 				{//5
 				name_temp = line[13];//tested
-				if		(name_temp =='C') name[i]=1;
-				else if (name_temp =='N') name[i]=2;
-				else if (name_temp =='O') name[i]=3;
+//				if		(name_temp =='C') name[i]=1;//KM
+				if		(name_temp =='C') name.push_back(1);//KM
+//				else if (name_temp =='N') name[i]=2;//KM
+				else if (name_temp =='N') name.push_back(2);//KM
+//				else if (name_temp =='O') name[i]=3;//KM
+				else if (name_temp =='O') name.push_back(3);//KM
 				//else if (name_temp =='S') name[i]=3;//!!!!!!
-				else name[i]=0;
+//				else name[i]=0;//KM
+				else name.push_back(0);//KM
 				//fout << "name[i] 14	"<< name[i] << endl;//test
 
 				name_temp2[0] = line[13];
@@ -348,9 +360,11 @@ int main(int argc, char* argv[])
 				//fout << "name_temp2 141516	" << name_temp2 << endl;//test
 				if (	(strcmp(name_temp2,"N  \0")==0)||
 						(strcmp(name_temp2,"C  \0")==0)	)
-				{	bnam[i]=1;}
+//				{	bnam[i]=1;}//KM
+				{	bnam.push_back(1);}//KM
 				else
-				{	bnam[i]=0;}
+//				{	bnam[i]=0;}//KM
+				{	bnam.push_back(0);}//KM
 				//fout << "bnam[i]	" << bnam[i] <<endl; // test
 
 				altLoc = line[16];
@@ -364,19 +378,23 @@ int main(int argc, char* argv[])
 
 				for (j=22; j<26; j++) {resSeq_temp[j-22]=line[j];} resSeq_temp[4]='\0';
 				//fout << "resSeq_temp	" << resSeq_temp << endl;//test
-				resSeq[i]= atof(resSeq_temp);
+//				resSeq[i]= atof(resSeq_temp);//KM
+				resSeq.push_back(atof(resSeq_temp));//KM
 				//fout << "resSeq["<<i<<"]2326	" << resSeq[i] << endl;//test
 
 				for (j=30; j<38; j++) {x[j-30]=line[j];}	x[8]='\0';
-				xyz [0][i] = atof(x);
+//				xyz [0][i] = atof(x);//KM
+				xyz[0].push_back(atof(x));//KM
 				//fout <<"x[i]3138	"<<xyz[0][i]<< endl;//test
 
 				for (j=38; j<46; j++) {y[j-38]=line[j];}	y[8]='\0';
-				xyz [1][i] = atof(y);
+//				xyz [1][i] = atof(y);//KM
+				xyz[1].push_back(atof(y));//KM
 				//fout <<"y[i]3946	"<<xyz[1][i]<< endl;//test
 
 				for (j=46; j<54; j++) {z[j-46]=line[j];}	z[8]='\0';
-				xyz [2][i] = atof(z);
+//				xyz [2][i] = atof(z);//KM
+				xyz[2].push_back(atof(z));//KM
 				//fout <<"z[i]4754	"<<xyz[2][i]<< endl;//test
 
 
@@ -423,8 +441,10 @@ int main(int argc, char* argv[])
 				if ((flag!=1))
 				{
 					
-					resnum[i] = ( resSeq[i]+(kadd*chaindif) );
+//					resnum[i] = ( resSeq[i]+(kadd*chaindif) );//KM
+					resnum.push_back( resSeq[i]+(kadd*chaindif) );//KM
 					atmnum=i;//max lines
+					//KM could use .size() on all vectors instead of atmnum
 
 					//fout << "resnum[i]	"<<resnum[i]<<endl;
 					//fout << "kadd	" << kadd << endl;
@@ -448,7 +468,8 @@ int main(int argc, char* argv[])
 				{	
 					fout <<"WARNING: Missing Residues" << resnum[i-1] <<">>>"<< resnum [i] << endl;
 				}
-				errat[resnum[i]+4]=0;
+//				errat[resnum[i]+4]=0;//KM
+				errat.push_back(0);//KM
 				flag=0;//reset for next line
 				}//5
 			}//4	single atom line end
@@ -578,19 +599,19 @@ int main(int argc, char* argv[])
 						for (ab=0;ab<4;ab++)
 							c[aa][ab]=0;
 					}
-					//c[firsta atom][second atom]= length
+					//c[first atom][second atom]= length
 					//temporary function that records the # of different interaction  
 					//types in the frame (9 residues).
 					s=1;//resets a counting clock, start at 1.
 					for (v = i; ( (s<10)&&(v<=atmnum) ); v++)
-					{//sets frame to 1, go untill 9 - to ensure last residue is complete
+					{//sets frame to 1, go until 9 - to ensure last residue is complete
 						if ( (	(resnum[v+1]-resnum[v]< 100) //# chaindif)
 							  &&(resnum[v+1]-resnum[v]>0)	)
 							  ||(v==atmnum)	)//first residue used
 						{s++;}
 						//fout << s << "	"<<v<<endl;
 					}	
-					v--;//allways sets v back into the frame of the window, counter last v++
+					v--;//always sets v back into the frame of the window, counter last v++
 
 	if ((resSeq[v]>resSeq[i])&&(s==10))//test for chain (LIMIT CHAIN TO 1K RES ) 
 														//test for completeness of window
