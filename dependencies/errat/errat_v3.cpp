@@ -63,7 +63,7 @@ int main(int argc, char* argv[])
     if (set_resource_return == -1);{
         printf ("\nFound error %s with return value of %d\n", strerror(errno), set_resource_return);
         if (set_resource_return == 0); {
-        printf ("\nHow can it be equal to 0 and -1?.\n"};
+        printf ("\nHow can it be equal to 0 and -1?.\n")};
         puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
     }
 	//all arrays upon their import to UNIX must be modified to ensure proper load.
