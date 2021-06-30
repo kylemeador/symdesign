@@ -266,7 +266,7 @@ int main(int argc, char* argv[])
 
 	atmnum = 0;//new file
 	// resnum[0]=0;//new file//KM
-	resnum.push_back(0);//new file//KM
+	// resnum.push_back(0);//new file//KM
 	lowframe = 0; //new file
 
 //	while (! count_in.eof())//FILENAME LOOP
@@ -344,6 +344,7 @@ int main(int argc, char* argv[])
 				else
 				{//5
 				name_temp = line[13];//tested
+				fout << "name_temp	"<< name_temp << endl;//test
 //				if		(name_temp =='C') name[i]=1;//KM
 				if		(name_temp =='C') name.push_back(1);//KM
 //				else if (name_temp =='N') name[i]=2;//KM
@@ -452,34 +453,36 @@ int main(int argc, char* argv[])
 					//fout << "kadd	" << kadd << endl;
 					//fout << "ATMNUM:	"<<atmnum <<endl;
 				}
-				if (	(resnum[i]<resnum[i-1])&&
+				if (resnum.size() > 1)
+				{	if (	(resnum[i]<resnum[i-1])&&
 						(chainID[i]==chainID[i-1])&&
 						(flag==0)&&(i>=2)	)
-				{	
-					fout <<"ERROR: RESNUM DECREASE. TERMINATE ANALYSIS" << resnum[i] <<"	"<< resnum [i-1] << endl;
-					for (k = resnum[i-1]; k == resnum[i]; k++)
-					{
-						fout << i << endl;
-						flag2=1;
-						//break;
+					{	
+						fout <<"ERROR: RESNUM DECREASE. TERMINATE ANALYSIS" << resnum[i] <<"	"<< resnum [i-1] << endl;
+						for (k = resnum[i-1]; k == resnum[i]; k++)
+						{
+							fout << i << endl;
+							flag2=1;
+							//break;
+						}
+					}
+					if (	(i>2)&&(resnum[i]!=resnum[i-1])&&
+							(chainID[i]==chainID[i-1])&&
+							(flag==0)&&((resnum[i]-resnum[i-1])>1)	)
+					{	
+						fout <<"WARNING: Missing Residues" << resnum[i-1] <<">>>"<< resnum [i] << endl;
 					}
 				}
-				if (	(i>2)&&(resnum[i]!=resnum[i-1])&&
-						(chainID[i]==chainID[i-1])&&
-						(flag==0)&&((resnum[i]-resnum[i-1])>1)	)
-				{	
-					fout <<"WARNING: Missing Residues" << resnum[i-1] <<">>>"<< resnum [i] << endl;
-				}
-//				errat[resnum[i]+4]=0;//KM
-				errat.push_back(0);//KM
+				errat[resnum[i]+4]=0;//KM
+				// errat.push_back(0);//KM
 				flag=0;//reset for next line
 				}//5
 			}//4	single atom line end
 			
 		}//3	pdb file end
 
-		fout << "ATOM NUMBER:	"<<atmnum <<endl;
-		fout << "RESNUM[TOTAL]	"<<resnum[atmnum]<<endl;
+		// fout << "ATOM NUMBER:	"<<atmnum <<endl;
+		// fout << "RESNUM[TOTAL]	"<<resnum[atmnum]<<endl;
 	
 		fin.close();
 
@@ -496,9 +499,9 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	//fout<<"MINIMUM SPACE LIMITS:	";
+	fout<<"MINIMUM SPACE LIMITS:	";
 	for (j=1;j<=3;j++) {fout <<min[j]<<"	";}
-	//fout<<endl<<"MAXIMUM SPACE LIMITS:	";
+	fout<<endl<<"MAXIMUM SPACE LIMITS:	";
 	for (j=1;j<=3;j++) {fout <<max[j]<<"	";}
 	fout << endl;
 
