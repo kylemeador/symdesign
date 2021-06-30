@@ -98,7 +98,7 @@ int main(int argc, char* argv[])
 	vector<int> resnum;//KM
 	char	x[9], y[9], z[9];
 //	double 	xyz[3][size];/KM
-	vector<vector<double>> xyz (3);//KM
+	vector<vector<double> > xyz (3);//KM
 	int		flag = 0;
 	int		kadd;
 	const int chaindif=10000;
