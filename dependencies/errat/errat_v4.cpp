@@ -71,6 +71,8 @@ int main(int argc, char* argv[])
 
         cout<<" FILES "<<file<< " = "<<logfilename<<" = "<<psfilename<<"\n\n";
 
+
+
 	//STREAMS
 	ifstream count_in;// input filenames Directory
 	ifstream fin;// input files PDB
@@ -309,12 +311,12 @@ int main(int argc, char* argv[])
 				//fout << line << endl;// test
 
 				i++;//iteration only if get to here
-				if (i > (size-1))
-				{
-					flag3=1;
-					fout <<"ERROR: PDB WITH TOO MANY ATOMS. CUT OFF FURTHER INPUT. "<< endl;
-					//break;
-				}
+//				if (i > (size-1))
+//				{
+//					flag3=1;
+//					fout <<"ERROR: PDB WITH TOO MANY ATOMS. CUT OFF FURTHER INPUT. "<< endl;
+//					//break;
+//				}
 				else
 				{//5
 				name_temp = line[13];//tested
@@ -478,10 +480,12 @@ int main(int argc, char* argv[])
 
 //	if ((nbx[1]*nbx[2]*nbx[3])> (bxmx-1))
 //	{	fout << "ERROR: TOO MANY BOXES"<<endl; flag2=1;}
-    const int bxmx = (nbx[1]*nbx[2]*nbx[3]) + 1;
+//    const int bxmx = (nbx[1]*nbx[2]*nbx[3]) + 1;
+    const int bxmx = atmnum + 1;
     int ibox1[16][bxmx];
 	if (flag2!=1)
 	{//3 flag2 ignores a pdb with too many boxes;
+
 	for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++)//declare box holder
 	{	ibox1[0][i]=0;// resets # of atoms per box (erases old info, sets new)
 	}
@@ -544,6 +548,7 @@ int main(int argc, char* argv[])
 	pstat = 0;
 	stat = 0;
 	mtrxstat=0;
+
 
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
 
@@ -786,7 +791,7 @@ int main(int argc, char* argv[])
 
 	//POSTSCRIPT
 	chainx= (1 + ( resnum[atmnum] - 4 ) / 10000 );//total chains
-	cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
+//	cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
 
 	//z1 controls atmnum
 	//z2 contros chain array
