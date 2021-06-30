@@ -317,8 +317,8 @@ int main(int argc, char* argv[])
 //					fout <<"ERROR: PDB WITH TOO MANY ATOMS. CUT OFF FURTHER INPUT. "<< endl;
 //					//break;
 //				}
-				else
-				{//5
+//				else
+//				{//5
 				name_temp = line[13];//tested
 				if		(name_temp =='C') name[i]=1;
 				else if (name_temp =='N') name[i]=2;
@@ -436,7 +436,7 @@ int main(int argc, char* argv[])
 				}
 				errat[resnum[i]+4]=0;
 				flag=0;//reset for next line
-				}//5
+//				}//5
 			}//4	single atom line end
 
 		}//3	pdb file end
