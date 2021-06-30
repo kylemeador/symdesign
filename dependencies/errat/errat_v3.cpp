@@ -52,10 +52,14 @@ int main(int argc, char* argv[])
     getrlimit(RLIMIT_STACK, &old_lim);
     printf ("\nStack Limit = %ld and %ld max\n", old_lim.rlim_cur, old_lim.rlim_max);
 
-    lim.rlim_cur = RLIM_INFINITY;
-    lim.rlim_max = RLIM_INFINITY;
-    if (setrlimit(RLIMIT_STACK, &lim) == -1);{
-        printf ("\nFound error %s\n", strerror(errno));
+    lim.rlim_cur = -1;
+//    lim.rlim_cur = RLIM_INFINITY;
+    lim.rlim_max = -1;
+//    lim.rlim_max = RLIM_INFINITY;
+    int set_resource_return = setrlimit(RLIMIT_STACK, &lim);
+    printf ("\nset rlimit returned %d\n", set_resource_return);
+    if (set_resource_return == -1);{
+        printf ("\nFound error %d %s\n", strerror(errno));
         puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
     }
 	//all arrays upon their import to UNIX must be modified to ensure proper load.
