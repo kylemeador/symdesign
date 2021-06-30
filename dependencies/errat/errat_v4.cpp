@@ -23,18 +23,14 @@
 #include <math.h>
 #include <ctype.h>
 #include <iomanip>
-// KM fix for segmentation fault
-//#include <sys/time.h>
-#include <vector>
-#include <sys/resource.h>
-#include <errno.h>
 
 using std::cout;
 using std::endl;
 using std::ifstream;
 using std::ofstream;
-using std::vector;
 
+//KM patch for large memory allocation
+#include <algorithm>
 //check variables size/bxmx in arrays
 // check filename
 
@@ -50,119 +46,15 @@ double matrixdb (double matrix[6]);
 
 int main(int argc, char* argv[])
 {//1
-    struct rlimit old_lim, lim;
-    getrlimit(RLIMIT_STACK, &old_lim);
-    printf ("\nStack Limit = %ld and %ld max\n", old_lim.rlim_cur, old_lim.rlim_max);
-
-//    lim.rlim_cur = -1;
-    lim.rlim_cur = RLIM_INFINITY;
-//    lim.rlim_max = -1;
-    lim.rlim_max = RLIM_INFINITY;
-//    int set_resource_return = -1;
-//    printf ("\nstarting error %s, set rlimit was %d\n", strerror(errno), set_resource_return);
-    int set_resource_return = setrlimit(RLIMIT_STACK, &lim);
-    printf ("\nNew Stack Limit = %ld and %ld max\n", lim.rlim_cur, lim.rlim_max);
-
-    printf ("\nset rlimit returned %d\n", set_resource_return);
-//    exit(1);//used to print buffer
-    if (set_resource_return == -1){
-        printf ("\nFound error %s with return value of %d\n", strerror(errno), set_resource_return);
-//        if (set_resource_return == 0){
-//        printf ("\nHow can it be equal to 0 and -1?.\n");};
-        puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
-    }
-	//all arrays upon their import to UNIX must be modified to ensure proper load.
-	//STAGE 1 VARS
-	//char	file [100] = "pdb.pdb\0";
-	//char	flnm [100] = "pdb.pdb";
-	char	line [100];
-	int	fl;
-	//char fl2[100];
-	char chain;
-	const char	test [7] = { 'A','T','O','M',' ',' ','\0'} ;
-	char	line2 [7];
-	const int size=250000;
-	const int bxmx=200000;
-	int		i,j,k,l,m,n,o=0,p,q,r,s,v, aa, ab, gg=0; //for loops
-	int		atmnum;
-	char	name_temp; char name_temp2[4]; 
-//	int	name[size]; int bnam[size];//KM
-	vector<int> name; vector<int> bnam;//KM
-	char	altLoc;
-	char	resName[4];
-	char	chainID[size];
-	char	resSeq_temp[5];
-//	int	resSeq[size];//KM
-	vector<int> resSeq;//KM
-//	int	resnum [size];//KM
-	vector<int> resnum;//KM
-	char	x[9], y[9], z[9];
-	double 	xyz[3][size];//KM
-//	vector<vector<double> > xyz (3);//KM
-//	vector<vector<double> > xyz (3, vector<double>);//KM
-	int		flag = 0;
-	int		kadd;
-	const int chaindif=10000;
-
-	//STAGE 2 VARS
-	double min[4]={0,0,0,0}, max[4]={0,0,0,0};
-
-	//STAGE 3 VARS
-	
-	int nbx[4];
-	const double boxsize=4;// must be double for calculations
-	int ibox1[16][bxmx];
-	int temp;
-	int ix, iy, iz;
-	int ind;// must give ceil, so int
-	int most=0;
-	int flag2=0;//test for too many atoms in a box
-	int flag3=0;
-
-	//STAGE 4 VARS
-
-	int rer;
-	const double	radius=3.75, rsq=radius*radius;//up front? usefull in this step
-	const double	radmin=3.25, ssq=radmin*radmin;
-	const int		ndelta= ceil(radius/boxsize);
-	double dsq;		//holds squared distance 
-
-	int jbx, jby, jbz;// target location
-	int ibz1,ibz2,iby1,iby2,ibx1,ibx2;//min/max boxes
-	
-	double temp1;//store the sqrt of the distance
-	double temp2;//insert name[n] into array
-
-	int count=0;//counts interactions
-	int lowframe=0;
-	const double maxwin=100.694; //cutoff of interactions in the frame
-	double c[4][4];
-	double matrix[6]; //input of data into function
-	double mtrx, mtrxstat;
-	double mstat;
-	double pstat, stat;//tells us of the fraction of frames that is above 95%.
-
-	//POSTSCRIPT
-//	double errat[size];//KM
-	vector<double> errat (4);//KM have to add the first 4 records as info starts at index 4 (element 5)
-//	errat.push_back(0); errat.push_back(0); errat.push_back(0); errat.push_back(0);//KM
-	int chainx;
-	int ich;
-	int ir1[100];
-	int ir2[100];
-	char id_by_chain[100];
-	double ms, mst;
-	double sz;
-	int np, ip, ir0, ir;
-	int z1, z2;
-	char bar[5];
-
+    int flag2=0;//test for too many atoms in a box
+    int flag3=0;
+    int	kadd, o=0, gg=0;
 // COMMAND LINE ARGS STUFF HERE
 	char file[100], logfilename[100],psfilename[100], seed[100], path[100];
 	//char tyfile[100];
-        if(argc != 3) { puts("\n2 arguments required: errat pdb_filename_without_extension path/to/file/\n"); exit(1); }
+        if(argc != 3) { puts("\n2 arguments required: errat_v2 pdbid localpath\n"); exit(1); }
         strcpy(seed, argv[1]);
-		strcpy(path, argv[2]);
+	    strcpy(path, argv[2]);
         // file is the pdb file name, logf is the output logfile
         strcpy(file, path);
         strcpy(logfilename, path);
@@ -176,11 +68,9 @@ int main(int argc, char* argv[])
         strcat(logfilename, ".logf");
         strcat(psfilename, ".ps");
         //strcat(tyfile, ".ty");
-                                            
-        cout<<" FILES "<<file<< " = "<<logfilename<<" = "<<psfilename<<"\n\n";   
 
+        cout<<" FILES "<<file<< " = "<<logfilename<<" = "<<psfilename<<"\n\n";
 
-	
 	//STREAMS
 	ifstream count_in;// input filenames Directory
 	ifstream fin;// input files PDB
@@ -190,7 +80,7 @@ int main(int argc, char* argv[])
 	//ofstream tyout; // T.O.Y.
 	ofstream err;
 // PROBLEM WITH IOS
-//	err.setf(ios::fixed); 
+//	err.setf(ios::fixed);
 //	err.setf(ios::showpoint);
 //
 
@@ -202,33 +92,33 @@ int main(int argc, char* argv[])
 		//command doesn't operate under VC++.
 /*	count_in.open("pdb.txt") ;	//read from Directory
 	if (count_in.fail())
-	{	cout << "Failed opening pdb.txt"<< file;			
+	{	cout << "Failed opening pdb.txt"<< file;
 		exit (1);}
 */	//NOTE: PDBLIST.TXT MUST END ON LAST PDB W/O HARD RETURN, ELSE DOUBLE COUNTING OF THE LAST FILE!
 
 	fout.open(logfilename) ;	//write to a log file
 	if (fout.fail())
-	{	cout << "Failed opening log.txt"<< file;			
+	{	cout << "Failed opening log.txt"<< file;
 		exit (1);}
 
 	/*zout.open("framesf.txt");//writes results
 	if (zout.fail())
-	{	cout << "Failed opening frames.txt"<< file;			
+	{	cout << "Failed opening frames.txt"<< file;
 		exit (1);}*/
-	
+
 	/*mout.open("fstat.txt") ;	//write to a log file
 	if (fout.fail())
-	{	cout << "Failed opening fstat.txt"<< file;			
+	{	cout << "Failed opening fstat.txt"<< file;
 		exit (1);}*/
 
 	err.open(psfilename) ;	//write to a postscript output file
 	if (err.fail())
-	{	cout << "Failed opening err.txt"<< file;			
+	{	cout << "Failed opening err.txt"<< file;
 		exit (1);}
 
 	//tyout.open(tyfile) ;	//write to a log file
 	//if (fout.fail())
-	//{	cout << "Failed opening .ty"<< file;			
+	//{	cout << "Failed opening .ty"<< file;
 	//	exit (1);}
 
 
@@ -239,7 +129,7 @@ int main(int argc, char* argv[])
 	if (sts.fail())
 	{	cout << "Failed opening lmt.txt"<< endl;
 		exit (1);}
-				
+
 	sts >> lmt[2];
 	sts >> lmt[1];
 	fout <<"Limits:"<<lmt[1]<<"	"<<lmt[2]<< endl;
@@ -262,12 +152,11 @@ int main(int argc, char* argv[])
 		}
 
 	//Begins Processing
-	cout << "PROCESSING:"<< endl;
+//	cout << "PROCESSING:"<< endl;
 
-	atmnum = 0;//new file
-	// resnum[0]=0;//new file//KM
-	// resnum.push_back(0);//new file//KM
-	lowframe = 0; //new file
+//	atmnum = 0;//new file
+//	resnum[0]=0;//new file
+//	lowframe = 0; //new file
 
 //	while (! count_in.eof())//FILENAME LOOP
 	{//2
@@ -276,7 +165,7 @@ int main(int argc, char* argv[])
 		flag3=0;
 
 /*		count_in.getline(flnm, 100);	//input filename from directory
-		
+
 		if (fl==2)
 		{			for (j=0; j<10; j++) {file[j+8]=tolower(flnm[j]);}
 					//chain=flnm[4];
@@ -295,9 +184,8 @@ int main(int argc, char* argv[])
 			for (j=0; j<12; j++) {file[j]=tolower(flnm[j]);}
 			file[13]='\0';
 		}
-
 		//if (fl==2)
-		{			
+		{
 			o=o++;//counter of *.PDBs processed
 			cout << o <<"	"<< file << "\n";
 			fout << o <<"	"<< file << endl;
@@ -305,7 +193,7 @@ int main(int argc, char* argv[])
 */
 		kadd = 0;// new file init
 		gg=0;// new filename test
-		
+
 		/*if (fl==1)
 		{
 			fin.open(fl2) ;	//read from that input file
@@ -322,7 +210,93 @@ int main(int argc, char* argv[])
 				gg=1;}
 			zout << o <<"	"<< file << endl<<endl;
 		}
-	
+        ifstream input_file(file);
+        const int size = std::count(std::istreambuf_iterator<char>(input_file),
+                                    std::istreambuf_iterator<char>(), '\n');
+        //KM move initialization of all variables below here to dynamically utilize the array size
+        //all arrays upon their import to UNIX must be modified to ensure proper load.
+        //STAGE 1 VARS
+        //char	file [100] = "pdb.pdb\0";
+        //char	flnm [100] = "pdb.pdb";
+        char	line [100];
+        int	fl;
+        //char fl2[100];
+        char chain;
+        const char	test [7] = { 'A','T','O','M',' ',' ','\0'} ;
+        char	line2 [7];
+//        const int size=250000;
+//        const int bxmx=200000;
+        int		i,j,k,l,m,n,p,q,r,s,v, aa, ab;//, o=0, gg=0; //for loops
+        int		atmnum;
+        char	name_temp; char name_temp2[4];
+        int	name[size]; int bnam[size];
+        char	altLoc;
+        char	resName[4];
+        char	chainID[size];
+        char	resSeq_temp[5];
+        int	resSeq[size];
+        int	resnum [size];
+        char	x[9], y[9], z[9];
+        double 	xyz[3][size];
+        int		flag = 0;
+        int		kadd;
+        const int chaindif=10000;
+
+        //STAGE 2 VARS
+        double min[4]={0,0,0,0}, max[4]={0,0,0,0};
+
+        //STAGE 3 VARS
+
+        int nbx[4];
+        const double boxsize=4;// must be double for calculations
+//        int ibox1[16][bxmx];
+        int temp;
+        int ix, iy, iz;
+        int ind;// must give ceil, so int
+        int most=0;
+//        int flag2=0;//test for too many atoms in a box
+//        int flag3=0;
+
+        //STAGE 4 VARS
+
+        int rer;
+        const double	radius=3.75, rsq=radius*radius;//up front? usefull in this step
+        const double	radmin=3.25, ssq=radmin*radmin;
+        const int		ndelta= ceil(radius/boxsize);
+        double dsq;		//holds squared distance
+
+        int jbx, jby, jbz;// target location
+        int ibz1,ibz2,iby1,iby2,ibx1,ibx2;//min/max boxes
+
+        double temp1;//store the sqrt of the distance
+        double temp2;//insert name[n] into array
+
+        int count=0;//counts interactions
+        int lowframe=0;
+        const double maxwin=100.694; //cutoff of interactions in the frame
+        double c[4][4];
+        double matrix[6]; //input of data into function
+        double mtrx, mtrxstat;
+        double mstat;
+        double pstat, stat;//tells us of the fraction of frames that is above 95%.
+
+        //POSTSCRIPT
+        double errat[size];
+        int chainx;
+        int ich;
+        int ir1[100];
+        int ir2[100];
+        char id_by_chain[100];
+        double ms, mst;
+        double sz;
+        int np, ip, ir0, ir;
+        int z1, z2;
+        char bar[5];
+
+	    atmnum = 0;//new file
+	    resnum[0]=0;//new file
+	    lowframe = 0; //new file
+
 		if (gg==0)
 		{//2_5
 		for (i=0;( (!(fin.eof()))&&(flag3==0)&&(flag2==0) );)//PDB LOOP
@@ -336,7 +310,7 @@ int main(int argc, char* argv[])
 
 				i++;//iteration only if get to here
 				if (i > (size-1))
-				{ 
+				{
 					flag3=1;
 					fout <<"ERROR: PDB WITH TOO MANY ATOMS. CUT OFF FURTHER INPUT. "<< endl;
 					//break;
@@ -344,17 +318,12 @@ int main(int argc, char* argv[])
 				else
 				{//5
 				name_temp = line[13];//tested
-				fout << "name_temp="<< name_temp << endl;//test
-				// if		(name_temp =='C') name[i]=1;//KM
-				if		(name_temp =='C') name.push_back(1);//KM
-				// else if (name_temp =='N') name[i]=2;//KM
-				else if (name_temp =='N') name.push_back(2);//KM
-				// else if (name_temp =='O') name[i]=3;//KM
-				else if (name_temp =='O') name.push_back(3);//KM
+				if		(name_temp =='C') name[i]=1;
+				else if (name_temp =='N') name[i]=2;
+				else if (name_temp =='O') name[i]=3;
 				//else if (name_temp =='S') name[i]=3;//!!!!!!
-				// else name[i]=0;//KM
-				else name.push_back(0);//KM
-				fout << "name[i] 14	"<< name[i] << endl;//test
+				else name[i]=0;
+				//fout << "name[i] 14	"<< name[i] << endl;//test
 
 				name_temp2[0] = line[13];
 				name_temp2[1] = line[14];
@@ -363,12 +332,10 @@ int main(int argc, char* argv[])
 				//fout << "name_temp2 141516	" << name_temp2 << endl;//test
 				if (	(strcmp(name_temp2,"N  \0")==0)||
 						(strcmp(name_temp2,"C  \0")==0)	)
-				// {	bnam[i]=1;}//KM
-				{	bnam.push_back(1);}//KM
+				{	bnam[i]=1;}
 				else
-				// {	bnam[i]=0;}//KM
-				{	bnam.push_back(0);}//KM
-				fout << "bnam[i]	" << bnam[i] <<endl; // test
+				{	bnam[i]=0;}
+				//fout << "bnam[i]	" << bnam[i] <<endl; // test
 
 				altLoc = line[16];
 				//fout << "altLoc	17" << altLoc << endl;//test
@@ -381,23 +348,19 @@ int main(int argc, char* argv[])
 
 				for (j=22; j<26; j++) {resSeq_temp[j-22]=line[j];} resSeq_temp[4]='\0';
 				//fout << "resSeq_temp	" << resSeq_temp << endl;//test
-//				resSeq[i]= atof(resSeq_temp);//KM
-				resSeq.push_back(atof(resSeq_temp));//KM
-				fout << "resSeq["<<i<<"]2326	" << resSeq[i] << endl;//test
+				resSeq[i]= atof(resSeq_temp);
+				//fout << "resSeq["<<i<<"]2326	" << resSeq[i] << endl;//test
 
 				for (j=30; j<38; j++) {x[j-30]=line[j];}	x[8]='\0';
-				xyz [0][i] = atof(x);//KM
-//				xyz[0].push_back(atof(x));//KM
+				xyz [0][i] = atof(x);
 				//fout <<"x[i]3138	"<<xyz[0][i]<< endl;//test
 
 				for (j=38; j<46; j++) {y[j-38]=line[j];}	y[8]='\0';
-				xyz [1][i] = atof(y);//KM
-//				xyz[1].push_back(atof(y));//KM
+				xyz [1][i] = atof(y);
 				//fout <<"y[i]3946	"<<xyz[1][i]<< endl;//test
 
 				for (j=46; j<54; j++) {z[j-46]=line[j];}	z[8]='\0';
-				xyz [2][i] = atof(z);//KM
-//				xyz[2].push_back(atof(z));//KM
+				xyz [2][i] = atof(z);
 				//fout <<"z[i]4754	"<<xyz[2][i]<< endl;//test
 
 
@@ -406,7 +369,7 @@ int main(int argc, char* argv[])
 				{
 					fout << "Reject 2' Conformation atom#	"<<i<<
 						"	chain	"<<chainID[i] << endl;
-					i--; 
+					i--;
 					flag=1;
 				}
 
@@ -431,59 +394,54 @@ int main(int argc, char* argv[])
 					(strcmp (resName, "GLN\0") == 0)||
 					(strcmp (resName, "ASN\0") == 0)	)	)
 				{
-					i--; 
+					i--;
 					flag=1;
 					fout <<"***Warning: Reject Nonstardard Residue - "<<resName<< endl;
 				}
 
 				if (	(chainID[i]!=chainID[i-1])&&(i>=2)&&(flag!=1)	)
-				{	
+				{
 					kadd++;
 					fout << "INCREMENTING CHAIN (kadd) " << kadd << endl;
 				}
 				if ((flag!=1))
 				{
-					
-//					resnum[i] = ( resSeq[i]+(kadd*chaindif) );//KM
-					resnum.push_back( resSeq[i]+(kadd*chaindif) );//KM
+
+					resnum[i] = ( resSeq[i]+(kadd*chaindif) );
 					atmnum=i;//max lines
-					//KM could use .size() on all vectors instead of atmnum
 
 					//fout << "resnum[i]	"<<resnum[i]<<endl;
 					//fout << "kadd	" << kadd << endl;
 					//fout << "ATMNUM:	"<<atmnum <<endl;
 				}
-				if (resnum.size() > 1)
-				{	if (	(resnum[i]<resnum[i-1])&&
+				if (	(resnum[i]<resnum[i-1])&&
 						(chainID[i]==chainID[i-1])&&
 						(flag==0)&&(i>=2)	)
-					{	
-						fout <<"ERROR: RESNUM DECREASE. TERMINATE ANALYSIS" << resnum[i] <<"	"<< resnum [i-1] << endl;
-						for (k = resnum[i-1]; k == resnum[i]; k++)
-						{
-							fout << i << endl;
-							flag2=1;
-							//break;
-						}
-					}
-					if (	(i>2)&&(resnum[i]!=resnum[i-1])&&
-							(chainID[i]==chainID[i-1])&&
-							(flag==0)&&((resnum[i]-resnum[i-1])>1)	)
-					{	
-						fout <<"WARNING: Missing Residues" << resnum[i-1] <<">>>"<< resnum [i] << endl;
+				{
+					fout <<"ERROR: RESNUM DECREASE. TERMINATE ANALYSIS" << resnum[i] <<"	"<< resnum [i-1] << endl;
+					for (k = resnum[i-1]; k == resnum[i]; k++)
+					{
+						fout << i << endl;
+						flag2=1;
+						//break;
 					}
 				}
-				errat[resnum[i]+4]=0;//KM
-				// errat.push_back(0);//KM
+				if (	(i>2)&&(resnum[i]!=resnum[i-1])&&
+						(chainID[i]==chainID[i-1])&&
+						(flag==0)&&((resnum[i]-resnum[i-1])>1)	)
+				{
+					fout <<"WARNING: Missing Residues" << resnum[i-1] <<">>>"<< resnum [i] << endl;
+				}
+				errat[resnum[i]+4]=0;
 				flag=0;//reset for next line
 				}//5
 			}//4	single atom line end
-			
+
 		}//3	pdb file end
 
-		// fout << "ATOM NUMBER:	"<<atmnum <<endl;
-		// fout << "RESNUM[TOTAL]	"<<resnum[atmnum]<<endl;
-	
+		//fout << "ATOM NUMBER:	"<<atmnum <<endl;
+		//fout << "RESNUM[TOTAL]	"<<resnum[atmnum]<<endl;
+
 		fin.close();
 
 	///DO THE CALCULATION ON THIS PDB FILE DATASET////////
@@ -493,15 +451,15 @@ int main(int argc, char* argv[])
 	for (i=1; i<=atmnum; i++)
 	{
 		for (j=1; j<=3; j++)
-		{	
+		{
 			if (xyz[j-1][i]<min[j]) {min[j]=xyz[j-1][i];}
-			if (xyz[j-1][i]>max[j]) {max[j]=xyz[j-1][i];} 
+			if (xyz[j-1][i]>max[j]) {max[j]=xyz[j-1][i];}
 		}
 	}
 
-	fout<<"MINIMUM SPACE LIMITS:	";
+	//fout<<"MINIMUM SPACE LIMITS:	";
 	for (j=1;j<=3;j++) {fout <<min[j]<<"	";}
-	fout<<endl<<"MAXIMUM SPACE LIMITS:	";
+	//fout<<endl<<"MAXIMUM SPACE LIMITS:	";
 	for (j=1;j<=3;j++) {fout <<max[j]<<"	";}
 	fout << endl;
 
@@ -511,23 +469,23 @@ int main(int argc, char* argv[])
 	most=0; // most atoms per box in this *.PDB .
 
 	for (i=1; i<=3; i++) //box # in 3-D;
-	{nbx[i]=( ( max[i]-min[i] )/boxsize)+1;}//START WITH 1 MINIMUM 
+	{nbx[i]=( ( max[i]-min[i] )/boxsize)+1;}//START WITH 1 MINIMUM
 	//fout << "NUMBER OF BOXES:"<<endl;
 	//fout << "X	"<<nbx[1]<<endl;
 	//fout << "Y	"<<nbx[2]<<endl;
 	//fout << "Z	"<<nbx[3]<<endl;
 	//fout << "TOTAL BOXES:	" << nbx[1]*nbx[2]*nbx[3]<<endl;
 
-	if ((nbx[1]*nbx[2]*nbx[3])> (bxmx-1)) 
-	{	fout << "ERROR: TOO MANY BOXES"<<endl; flag2=1;}
-
+//	if ((nbx[1]*nbx[2]*nbx[3])> (bxmx-1))
+//	{	fout << "ERROR: TOO MANY BOXES"<<endl; flag2=1;}
+    const int bxmx = nbx[1]*nbx[2]*nbx[3];
+    int ibox1[16][bxmx];
 	if (flag2!=1)
 	{//3 flag2 ignores a pdb with too many boxes;
-
 	for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++)//declare box holder
 	{	ibox1[0][i]=0;// resets # of atoms per box (erases old info, sets new)
 	}
-	
+
 	for	(i=1; i<=atmnum; i++)
 	{	ix=((xyz[0][i]-(min[1]-0.00001) )/boxsize);//0.00001 ensures that all atoms fit into designated boxes
 		iy=((xyz[1][i]-(min[2]-0.00001) )/boxsize);
@@ -535,25 +493,24 @@ int main(int argc, char* argv[])
 		ind = 1 + ix + iy*nbx[1] + iz*nbx[1]*nbx[2];//box index
 
 		ibox1[0][ind]=ibox1[0][ind] + 1;
-		temp =ibox1[0][ind]; // necesarry to get into array 
+		temp =ibox1[0][ind]; // necesarry to get into array
 		if (temp < 16)
 		{
 			ibox1[temp][ind]=i;// each atom in that box is listed
 		}
-	
+
 		/*//TEST
 		fout <<ix<<"	"<<iy<<"	"<<iz<<endl;
 			{
 				fout << "ibox1["<<temp<<"]["<<ind<<"]	"<<ibox1[temp][ind] << endl;
 			}*/
 	}
-	
+
 	//TODAY
 	/*for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++)//output test
 	{
 		//if (ibox1[0][i]!=0)
 			//fout << "Ind:	"<<i<<"	Atom#:	"<<ibox1[0][i]<< endl;
-
 		for (j=1; j<=ibox1[0][i];j++)
 			{
 				fout << "ibox1["<<j<<"]["<<i<<"]	"<<ibox1[j][i] <<" = "<< name[ibox1[j][i]]<< endl;
@@ -576,19 +533,18 @@ int main(int argc, char* argv[])
 		if (ibox1[0][i]> most){ most= ibox1[0][i];}
 	}
 	//fout <<"Most atoms in a box:	" <<  most << endl;
-	
+
 	}//3end first flag2
 
-	
+
 	//STEP 4: PREFORM THE ATOM COMPARISON CALCULATIONS.
 	//CONSIDER PUTTING SOME VARIABLES INTO THE TOP OF THE PROGRAM FUR MULTI-FILE DECLARATIONS.
-	
+
 	//count =0;cnt total
 	pstat = 0;
 	stat = 0;
 	mtrxstat=0;
 
-	
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
 
 	if (flag2!=1)
@@ -604,26 +560,26 @@ int main(int argc, char* argv[])
 						for (ab=0;ab<4;ab++)
 							c[aa][ab]=0;
 					}
-					//c[first atom][second atom]= length
-					//temporary function that records the # of different interaction  
+					//c[firsta atom][second atom]= length
+					//temporary function that records the # of different interaction
 					//types in the frame (9 residues).
 					s=1;//resets a counting clock, start at 1.
 					for (v = i; ( (s<10)&&(v<=atmnum) ); v++)
-					{//sets frame to 1, go until 9 - to ensure last residue is complete
+					{//sets frame to 1, go untill 9 - to ensure last residue is complete
 						if ( (	(resnum[v+1]-resnum[v]< 100) //# chaindif)
 							  &&(resnum[v+1]-resnum[v]>0)	)
 							  ||(v==atmnum)	)//first residue used
 						{s++;}
 						//fout << s << "	"<<v<<endl;
-					}	
-					v--;//always sets v back into the frame of the window, counter last v++
+					}
+					v--;//allways sets v back into the frame of the window, counter last v++
 
-	if ((resSeq[v]>resSeq[i])&&(s==10))//test for chain (LIMIT CHAIN TO 1K RES ) 
+	if ((resSeq[v]>resSeq[i])&&(s==10))//test for chain (LIMIT CHAIN TO 1K RES )
 														//test for completeness of window
 	{//6
 			//fout <<"i:	"<<i<<"/"<< resnum[i] <<"	v	"<<v<<"/"<<resnum[v]<<endl;
 	for ( rer = i; rer <= v ; rer++)// v is last atom frame and i(rer) is the first
-	{//7	
+	{//7
 		jbx=((xyz[0][rer]-(min[1]-0.00001) )/boxsize);		//use an additional test when the last v is atmnum
 		jby=((xyz[1][rer]-(min[2]-0.00001) )/boxsize);
 		jbz=((xyz[2][rer]-(min[3]-0.00001) )/boxsize);
@@ -633,16 +589,16 @@ int main(int argc, char* argv[])
 		if (ibz1<0) ibz1=0;
 		ibz2=jbz+ndelta;
 		if (ibz2>nbx[3]-1) ibz2=nbx[3]-1;
-		
+
 		iby1=jby-ndelta;
 		if (iby1<0) iby1=0;
 		iby2=jby+ndelta;
 		if (iby2>nbx[2]-1) iby2=nbx[2]-1;
-		
+
 		ibx1=jbx-ndelta;
 		if (ibx1<0) ibx1=0;
 		ibx2=jbx+ndelta;
-		if (ibx2>nbx[1]-1) ibx2=nbx[1]-1;	
+		if (ibx2>nbx[1]-1) ibx2=nbx[1]-1;
 
 
 		//fout << rer << endl;
@@ -653,7 +609,7 @@ int main(int argc, char* argv[])
 		//fout <<"IBY1:	"<< iby1<<"	IBY2:	"<<iby2<<endl;
 		//fout <<"IBX1:	"<< ibx1<<"	IBX2:	"<<ibx2<<endl;
 		//fout << endl;
-		
+
 		for (j=ibz1;j<=ibz2;j++)
 		{//8
 		for (k=iby1;k<=iby2;k++)
@@ -670,7 +626,7 @@ int main(int argc, char* argv[])
 				if(resnum[rer]!=resnum[n])//residue inequality test
 				{//12
 					dsq=0;
-				
+
 					for (p=0; p<=2;p++)
 					{
 						dsq=dsq+(pow((xyz[p][n]-xyz[p][rer]),2));
@@ -679,16 +635,16 @@ int main(int argc, char* argv[])
 					{//13
 					if  (
 							(bnam[rer]==1)&&(bnam[n]==1)&&
-						
-						(	
+
+						(
 							((resnum[n]==resnum[rer]+1)&&
 							(name[rer]==1)&&(name[n]==2))||//only work for n-N and rer-C
 
 							((resnum[rer]==resnum[n]+1)&&
 							(name[rer]==2)&&(name[n]==1)/*&&
 							(resnum[rer]==resnum[i])*/) //complete symmetry in interaction eval
-						
-						)	
+
+						)
 						)
 					{
 						//fout <<"QQQQQDSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]
@@ -763,7 +719,7 @@ int main(int argc, char* argv[])
 	{
 		fout <<temp2<<" "<<resnum[i]+4<<" "<<count<<" "<<"WARNING: No Interactions in This Frame"<<endl;
 	}
-	
+
 
 	if (temp2>maxwin)//minimum interactions test
 	{
@@ -777,10 +733,10 @@ int main(int argc, char* argv[])
 		matrix[5] = (c[2][3]+c[3][2])/temp2;
 
 		mtrx = matrixdb(matrix);
-		
+
 		stat++;
 		mtrxstat = mtrxstat + mtrx;
-		
+
 		mstat = 0;
 
 		if  (mtrx > lmt[1])
@@ -793,7 +749,7 @@ int main(int argc, char* argv[])
 		{
 			mstat= 95;
 			pstat++;
-			//fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl; 
+			//fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl;
 		}
 
 
@@ -804,8 +760,8 @@ int main(int argc, char* argv[])
 		//chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
 		errat[resnum[i]+4]=mtrx;
 		//cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
-		
-	
+
+
 	}
 	else
 	{
@@ -818,7 +774,7 @@ int main(int argc, char* argv[])
 	}//5
 	}//4
 	}//3 flag2 pdb exclusion end
-	
+
 	if (stat>0)
 	{
 	zout << "EOF: "<<file<<endl;
@@ -868,13 +824,13 @@ int main(int argc, char* argv[])
 	//cout << "eol"<< endl;
 
 	mst=0;
-	
+
 	for (ich=1; ich<=chainx; ich++)
 	{	ms = ( (double(ir2[ich]-ir1[ich]+1))/(300+1) );// # pages
 		//cout <<"# pages	"<<ms << endl;
 		ms = double(ir2[ich]-ir1[ich]+1)/(ms);// # residues per page
 		//cout <<"res per page"	<< ms << endl;
-		if (ms>mst) mst=ms; 
+		if (ms>mst) mst=ms;
 		if (mst<200) mst=200;
 	}
 	//cout <<"mst		"<< mst << endl;
@@ -920,15 +876,15 @@ int main(int argc, char* argv[])
 			err << "0 70 moveto (Program: ERRAT2) show"<<endl;
 			err << "() show"<<endl;
 
-			
+
 			err << "% FIXED"<<endl;
 			err << "grestore newpath 0 0 moveto 0 27 sce mul rlineto stroke"<<endl;//side bars
-			err << "newpath rlim scr mul 0 moveto 0 27 sce mul rlineto stroke"<<endl;//side bars 
+			err << "newpath rlim scr mul 0 moveto 0 27 sce mul rlineto stroke"<<endl;//side bars
 			err << "newpath 0  0 moveto rlim scr mul 0 rlineto stroke"<<endl;
 			err << "newpath -3 e95 sce mul moveto rlim scr mul 3 add 0 rlineto"<<endl;
 			err << "stroke newpath -3 e99 sce mul moveto rlim scr mul 3 add 0"<<endl;
 			err << " rlineto stroke"<<endl;
-			err << "newpath 0  27  sce mul moveto rlim scr"<<endl;//top bar  
+			err << "newpath 0  27  sce mul moveto rlim scr"<<endl;//top bar
 			err << " mul 0 rlineto stroke"<<endl;
 			err << "rlim scr mul 2 div 100 sub -34"<<endl;
 			err << " moveto (Residue # (window center)) show"<<endl;
@@ -966,7 +922,7 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	
+
 
 	/*double errat[size];
 	int ich;
@@ -986,15 +942,15 @@ int main(int argc, char* argv[])
 	}
 
 	}//2.5 filename
-	
+
 	/////////////////FILENAME LOOP BORDER/////////////////////
 	}//2 PDBLLIST LOOP END
 //	count_in.close();
-	
+
 	//cin >> n;//keep exe open
 
 	mout.close();
-	fout.close();	
+	fout.close();
 	zout.close();
 	//tyout.close();
 	err.close();
@@ -1039,10 +995,10 @@ double matrixdb(double matrix[6])
 	stat.close();
 	*/
 	double b1[6][6] = {	0,0,0,0,0,0,
-						0,	5040.279078850848200,	3408.805141583649400,	4152.904423767300600,	4236.200004171890200,	5054.781210204625500,	
-0,	3408.805141583648900,	8491.906094010220800,	5958.881777877950300,	1521.387352718486200,	4304.078200827221700,	
-0,	4152.904423767301500,	5958.881777877952100,	7637.167089335050100,	6620.715738223072500,	5287.691183798410700,	
-0,	4236.200004171890200,	1521.387352718486200,	6620.715738223072500,	18368.343774298410000,	4050.797811118806700,	
+						0,	5040.279078850848200,	3408.805141583649400,	4152.904423767300600,	4236.200004171890200,	5054.781210204625500,
+0,	3408.805141583648900,	8491.906094010220800,	5958.881777877950300,	1521.387352718486200,	4304.078200827221700,
+0,	4152.904423767301500,	5958.881777877952100,	7637.167089335050100,	6620.715738223072500,	5287.691183798410700,
+0,	4236.200004171890200,	1521.387352718486200,	6620.715738223072500,	18368.343774298410000,	4050.797811118806700,
 0,	5054.781210204625500,	4304.078200827220800,	5287.691183798409800,	4050.797811118806700,	6666.856740479164700};
 
 	/*
@@ -1066,10 +1022,10 @@ double matrixdb(double matrix[6])
 	//Multiplication Stage
 	int m1,n1,k1,p1;
 	double a[6][6],b[6][6],x;//redefinition
-	
+
 	//STREAMS
 	ofstream fout;// output logs to files
-		
+
 
 	//Begins Processing
 	fout << "PROCESSING FRAME STATISTICS:"<< endl;
@@ -1101,7 +1057,7 @@ double matrixdb(double matrix[6])
 							fout<<a[u][v]<<"	";
 							}
 						}
-					
+
 					p1=5;//Number of Rows
 					n1=5;//Number of columns
 
@@ -1144,7 +1100,7 @@ double matrixdb(double matrix[6])
 							fout<<b[u][v]<<"	";
 						}
 					}
-					
+
 
 					//MATRIX PRODUCT d1 //
 					for (u=1;u<=m1;u++)
@@ -1161,12 +1117,12 @@ double matrixdb(double matrix[6])
 						}
 
 					fout << endl<< "Total Matrix "<<endl;
-	
+
 							fout << d1[1][1]<<"	";
-					
+
 					fout << endl;
 
-	fout.close();	
-	
+	fout.close();
+
 	return d1[1][1];
 }//1
