@@ -1079,12 +1079,10 @@ class Structure(StructureBase):
             # errat_output = out.decode('utf-8').split('\n')
         errat_output_file = os.path.join(out_path, '%s.ps' % name)
         # else:
-
+        # TODO ensure that the overall quality factor is the right direction and extraction is working
         p = subprocess.Popen(['grep', 'Overall quality factor**: ', errat_output_file],
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         errat_out, errat_err = p.communicate()
-        print(errat_out)
-        print(errat_err)
         try:
             overall_score = list(set(errat_out.decode().split('\n')))
             overall_score = overall_score[0]

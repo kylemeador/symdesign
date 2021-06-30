@@ -31,6 +31,9 @@ using std::ofstream;
 
 //KM patch for large memory allocation
 #include <algorithm>
+#include <vector>
+
+using std::vector;
 //check variables size/bxmx in arrays
 // check filename
 
@@ -231,7 +234,8 @@ int main(int argc, char* argv[])
         int		i,j,k,l,m,n,p,q,r,s,v, aa, ab;//, o=0, gg=0; //for loops
         int		atmnum;
         char	name_temp; char name_temp2[4];
-        int	name[size]; int bnam[size];
+//        int	name[size]; int bnam[size];
+        vector<int>	name; int bnam[size];
         char	altLoc;
         char	resName[4];
         char	chainID[size];
@@ -283,7 +287,8 @@ int main(int argc, char* argv[])
         double pstat, stat;//tells us of the fraction of frames that is above 95%.
 
         //POSTSCRIPT
-        double errat[size];
+        // double errat[size];
+        vector<double> errat;
         int chainx;
         int ich;
         int ir1[100];
@@ -310,7 +315,7 @@ int main(int argc, char* argv[])
 			{//4
 				//fout << line << endl;// test
 
-				i++;//iteration only if get to here
+//				i++;//iteration only if get to here
 //				if (i > (size-1))
 //				{
 //					flag3=1;
@@ -320,12 +325,16 @@ int main(int argc, char* argv[])
 //				else
 //				{//5
 				name_temp = line[13];//tested
-				if		(name_temp =='C') name[i]=1;
-				else if (name_temp =='N') name[i]=2;
-				else if (name_temp =='O') name[i]=3;
+//				if		(name_temp =='C') name[i]=1;
+				if		(name_temp =='C') name.push_back(1);
+//				else if (name_temp =='N') name[i]=2;
+				else if (name_temp =='N') name.push_back(2);
+//				else if (name_temp =='O') name[i]=3;
+				else if (name_temp =='O') name.push_back(3);
 				//else if (name_temp =='S') name[i]=3;//!!!!!!
-				else name[i]=0;//KM
+//				else name[i]=0;//KM
 				else continue;
+				i++;//iteration only if get to here
 				//fout << "name[i] 14	"<< name[i] << endl;//test
 
 				name_temp2[0] = line[13];
@@ -334,7 +343,7 @@ int main(int argc, char* argv[])
 				name_temp2[3] = '\0';
 				//fout << "name_temp2 141516	" << name_temp2 << endl;//test
 				if (	(strcmp(name_temp2,"N  \0")==0)||
-						(strcmp(name_temp2,"C  \0")==0)	)
+						(strcmp(name_temp2,"C  \0")==0)	) // used for peptide bond checks
 				{	bnam[i]=1;}
 				else
 				{	bnam[i]=0;}
@@ -347,7 +356,7 @@ int main(int argc, char* argv[])
 				//fout << i << "	" << resName ;
 
 				chainID[i]=line[21];
-				//fout << "chainID[i]22	" << chainID[i] << endl;//test
+				fout << "chainID[i]22	" << chainID[i] << endl;//test
 
 				for (j=22; j<26; j++) {resSeq_temp[j-22]=line[j];} resSeq_temp[4]='\0';
 				//fout << "resSeq_temp	" << resSeq_temp << endl;//test
@@ -399,7 +408,7 @@ int main(int argc, char* argv[])
 				{
 					i--;
 					flag=1;
-					fout <<"***Warning: Reject Nonstardard Residue - "<<resName<< endl;
+					fout <<"***Warning: Reject Nonstandard Residue - "<<resName<< endl;
 				}
 
 				if (	(chainID[i]!=chainID[i-1])&&(i>=2)&&(flag!=1)	)
@@ -421,7 +430,7 @@ int main(int argc, char* argv[])
 						(chainID[i]==chainID[i-1])&&
 						(flag==0)&&(i>=2)	)
 				{
-					fout <<"ERROR: RESNUM DECREASE. TERMINATE ANALYSIS" << resnum[i] <<"	"<< resnum [i-1] << endl;
+					fout <<"ERROR: RESNUM DECREASE. TERMINATE ANALYSIS " << resnum[i] <<" < "<< resnum [i-1] << endl;
 					for (k = resnum[i-1]; k == resnum[i]; k++)
 					{
 						fout << i << endl;
@@ -433,9 +442,10 @@ int main(int argc, char* argv[])
 						(chainID[i]==chainID[i-1])&&
 						(flag==0)&&((resnum[i]-resnum[i-1])>1)	)
 				{
-					fout <<"WARNING: Missing Residues" << resnum[i-1] <<">>>"<< resnum [i] << endl;
+					fout <<"WARNING: Missing Residues " << resnum[i-1] <<">>>"<< resnum [i] << endl;
 				}
-				errat[resnum[i]+4]=0;
+				// errat[resnum[i]+4]=0;//KM
+				// errat[i+4]=0;//KM
 				flag=0;//reset for next line
 //				}//5
 			}//4	single atom line end
@@ -764,13 +774,16 @@ int main(int argc, char* argv[])
 
                 //POSTSCRIPT
                 //chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
-                errat[resnum[i]+4]=mtrx;
+                // errat[resnum[i]+4]=mtrx;//KM
+                // errat[i+4]=mtrx;//KM
+                errat.push_back(mtrx);
                 //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
 
 
             }
             else
             {
+                errat.push_back(0);
                 lowframe++;
                 fout << "WARNING: Frame	"<<resnum[i]+4<<"	Below Minimum Interaction Limit."<<endl;
                 //fout << "Low Frames:"<<lowframe << endl;
@@ -787,8 +800,8 @@ int main(int argc, char* argv[])
 	zout <<"Total frames: "<<stat<<"	P frames "<<pstat<<"	Number: "<<pstat/stat<<endl<<endl;
 	zout << "Avg Probability	"<< mtrxstat/stat << endl;
 	mout << o <<"	"<<file<<"	"<<pstat/stat<<"	"<<mtrxstat/stat<< endl;
-	//fout << "pstat "<< pstat<< " stat "<<stat<<" pstat/stat "<<pstat/stat<<endl;
-	//fout << 100-(100*pstat/stat)<<endl;
+	fout << "pstat "<< pstat<< " stat "<<stat<<" pstat/stat "<<pstat/stat<<endl;
+	fout << 100-(100*pstat/stat)<<endl;
 
 	//POSTSCRIPT
 	chainx= (1 + ( resnum[atmnum] - 4 ) / 10000 );//total chains
@@ -800,23 +813,28 @@ int main(int argc, char* argv[])
 	z2=1;//start with 1
 	//ir1[0]=0;
 	//ir2[0]=0;
-	ir1[z2]=resnum[1]+4;
-	ir2[z2]=0;
+	ir1[z2]=resnum[1]+4-((z2-1)*chaindif);
+	ir2[z2]=0;// Array with the last residue number in each incremental chain
 	id_by_chain[z2]=chainID[1];
 //	cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
+	int last_chain_length=0;
+	// find the residues at which the chain transitions
 	for (z1=1 ; z1<atmnum; z1++)
 	{
-		if (z1==(atmnum-1))
+		if (z1==(atmnum-1))//last atom
 		{
-			ir2[z2]=resnum[atmnum]-4;
+			ir2[z2]=resnum[atmnum]-4-((z2-1)*chaindif) + last_chain_length;
 		}
 		else if ((chainID[z1]!=chainID[z1+1])&&(resnum[z1]>4))//ensure no seg problems
 		{
-			ir2[z2]=resnum[z1]-4;
+			// ir2[z2]=resnum[z1]-4;
+			ir2[z2]=resnum[z1]-4-((z2-1)*chaindif) + last_chain_length;
+			last_chain_length = last_chain_length + ir2[z2] - ir1[z2];
+			// ir2[z2]=resnum[z1]-((z2-1)*chaindif);//Probably need to get rid of the -4 offset as it is now indexed by addition instead of array
 
 			//cout <<"ir2  "<< ir2[z2]<<"	ir1	"<<ir1[z2]<<endl;
 			z2++;
-			ir1[z2]= resnum[z1+1]+4;
+			ir1[z2]= resnum[z1+1]+4-((z2-1)*chaindif) + last_chain_length;
 
 			id_by_chain[z2]=chainID[z1+1];
 //			cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
