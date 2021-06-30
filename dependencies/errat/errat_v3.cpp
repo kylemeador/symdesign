@@ -97,7 +97,7 @@ int main(int argc, char* argv[])
 //	int	resnum [size];//KM
 	vector<int> resnum;//KM
 	char	x[9], y[9], z[9];
-	double 	xyz[3][size];/KM
+	double 	xyz[3][size];//KM
 //	vector<vector<double> > xyz (3);//KM
 //	vector<vector<double> > xyz (3, vector<double>);//KM
 	int		flag = 0;
@@ -162,7 +162,7 @@ int main(int argc, char* argv[])
 	//char tyfile[100];
         if(argc != 3) { puts("\n2 arguments required: errat pdb_filename_without_extension path/to/file/\n"); exit(1); }
         strcpy(seed, argv[1]);
-	strcpy(path, argv[2]);
+		strcpy(path, argv[2]);
         // file is the pdb file name, logf is the output logfile
         strcpy(file, path);
         strcpy(logfilename, path);
@@ -265,7 +265,8 @@ int main(int argc, char* argv[])
 	cout << "PROCESSING:"<< endl;
 
 	atmnum = 0;//new file
-	resnum[0]=0;//new file
+	// resnum[0]=0;//new file//KM
+	resnum.push_back(0);//new file//KM
 	lowframe = 0; //new file
 
 //	while (! count_in.eof())//FILENAME LOOP
@@ -352,7 +353,7 @@ int main(int argc, char* argv[])
 				//else if (name_temp =='S') name[i]=3;//!!!!!!
 //				else name[i]=0;//KM
 				else name.push_back(0);//KM
-				//fout << "name[i] 14	"<< name[i] << endl;//test
+				fout << "name[i] 14	"<< name[i] << endl;//test
 
 				name_temp2[0] = line[13];
 				name_temp2[1] = line[14];
@@ -366,7 +367,7 @@ int main(int argc, char* argv[])
 				else
 //				{	bnam[i]=0;}//KM
 				{	bnam.push_back(0);}//KM
-				//fout << "bnam[i]	" << bnam[i] <<endl; // test
+				fout << "bnam[i]	" << bnam[i] <<endl; // test
 
 				altLoc = line[16];
 				//fout << "altLoc	17" << altLoc << endl;//test
@@ -381,7 +382,7 @@ int main(int argc, char* argv[])
 				//fout << "resSeq_temp	" << resSeq_temp << endl;//test
 //				resSeq[i]= atof(resSeq_temp);//KM
 				resSeq.push_back(atof(resSeq_temp));//KM
-				//fout << "resSeq["<<i<<"]2326	" << resSeq[i] << endl;//test
+				fout << "resSeq["<<i<<"]2326	" << resSeq[i] << endl;//test
 
 				for (j=30; j<38; j++) {x[j-30]=line[j];}	x[8]='\0';
 				xyz [0][i] = atof(x);//KM
