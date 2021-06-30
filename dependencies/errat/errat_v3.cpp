@@ -97,8 +97,9 @@ int main(int argc, char* argv[])
 //	int	resnum [size];//KM
 	vector<int> resnum;//KM
 	char	x[9], y[9], z[9];
-//	double 	xyz[3][size];/KM
-	vector<vector<double> > xyz (3);//KM
+	double 	xyz[3][size];/KM
+//	vector<vector<double> > xyz (3);//KM
+//	vector<vector<double> > xyz (3, vector<double>);//KM
 	int		flag = 0;
 	int		kadd;
 	const int chaindif=10000;
@@ -261,7 +262,7 @@ int main(int argc, char* argv[])
 		}
 
 	//Begins Processing
-//	cout << "PROCESSING:"<< endl;
+	cout << "PROCESSING:"<< endl;
 
 	atmnum = 0;//new file
 	resnum[0]=0;//new file
@@ -383,18 +384,18 @@ int main(int argc, char* argv[])
 				//fout << "resSeq["<<i<<"]2326	" << resSeq[i] << endl;//test
 
 				for (j=30; j<38; j++) {x[j-30]=line[j];}	x[8]='\0';
-//				xyz [0][i] = atof(x);//KM
-				xyz[0].push_back(atof(x));//KM
+				xyz [0][i] = atof(x);//KM
+//				xyz[0].push_back(atof(x));//KM
 				//fout <<"x[i]3138	"<<xyz[0][i]<< endl;//test
 
 				for (j=38; j<46; j++) {y[j-38]=line[j];}	y[8]='\0';
-//				xyz [1][i] = atof(y);//KM
-				xyz[1].push_back(atof(y));//KM
+				xyz [1][i] = atof(y);//KM
+//				xyz[1].push_back(atof(y));//KM
 				//fout <<"y[i]3946	"<<xyz[1][i]<< endl;//test
 
 				for (j=46; j<54; j++) {z[j-46]=line[j];}	z[8]='\0';
-//				xyz [2][i] = atof(z);//KM
-				xyz[2].push_back(atof(z));//KM
+				xyz [2][i] = atof(z);//KM
+//				xyz[2].push_back(atof(z));//KM
 				//fout <<"z[i]4754	"<<xyz[2][i]<< endl;//test
 
 
@@ -476,8 +477,8 @@ int main(int argc, char* argv[])
 			
 		}//3	pdb file end
 
-		//fout << "ATOM NUMBER:	"<<atmnum <<endl;
-		//fout << "RESNUM[TOTAL]	"<<resnum[atmnum]<<endl;
+		fout << "ATOM NUMBER:	"<<atmnum <<endl;
+		fout << "RESNUM[TOTAL]	"<<resnum[atmnum]<<endl;
 	
 		fin.close();
 
