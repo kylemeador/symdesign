@@ -478,7 +478,7 @@ int main(int argc, char* argv[])
 
 //	if ((nbx[1]*nbx[2]*nbx[3])> (bxmx-1))
 //	{	fout << "ERROR: TOO MANY BOXES"<<endl; flag2=1;}
-    const int bxmx = nbx[1]*nbx[2]*nbx[3];
+    const int bxmx = (nbx[1]*nbx[2]*nbx[3]) + 1;
     int ibox1[16][bxmx];
 	if (flag2!=1)
 	{//3 flag2 ignores a pdb with too many boxes;
