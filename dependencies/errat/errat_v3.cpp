@@ -62,6 +62,7 @@ int main(int argc, char* argv[])
     printf ("\nNew Stack Limit = %ld and %ld max\n", lim.rlim_cur, lim.rlim_max);
 
     printf ("\nset rlimit returned %d\n", set_resource_return);
+    exit(1);
     if (set_resource_return == -1){
         printf ("\nFound error %s with return value of %d\n", strerror(errno), set_resource_return);
 //        if (set_resource_return == 0){
