@@ -57,7 +57,7 @@ int main(int argc, char* argv[])
     lim.rlim_max = -1;
 //    lim.rlim_max = RLIM_INFINITY;
     int set_resource_return = setrlimit(RLIMIT_STACK, &lim);
-    printf ("\nset rlimit returned %ld\n", set_resource_return);
+    printf ("\nset rlimit returned %d\n", set_resource_return);
     if (set_resource_return == -1);{
         printf ("\nFound error %s\n", strerror(errno));
         puts("\nUnable to set new resource limit... Program execution failed\n"); exit(1);
