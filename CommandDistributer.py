@@ -324,6 +324,10 @@ if __name__ == '__main__':
 
         iteration = 0
         complete = False
+        # Todo implementing an srun prefix to any command allows for multiple job steps to be controlled. This is useful
+        #  when a prior step gets hung up and needs to be cancelled, but the remaining job steps should be executed
+        #  downside to all this is that the allocation is done by inherently neglecting the hyperthreading. The srun
+        #  would respect the one cpu, one task logic.
         # while not complete:
         #     allocation = ['srun', '-c', 1, '-p', 'long', '--mem-per-cpu', CUtils.memory_scale[args.stage]]
         #     allocation = None
