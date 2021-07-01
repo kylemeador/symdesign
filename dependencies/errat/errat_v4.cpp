@@ -227,7 +227,8 @@ int main(int argc, char* argv[])
         int	fl;
         //char fl2[100];
         char chain;
-        const char	test [7] = { 'A','T','O','M',' ',' ','\0'} ;
+        const char	atom_test [7] = { 'A','T','O','M',' ',' ','\0'} ;
+        int atom;
         char	line2 [7];
 //        const int size=250000;
 //        const int bxmx=200000;
@@ -236,6 +237,7 @@ int main(int argc, char* argv[])
         char	name_temp; char name_temp2[4];
 //        int	name[size]; int bnam[size];
         vector<int>	name; int bnam[size];
+        name.push_back(0); //Todd uses all 1 indexed arrays...
         char	altLoc;
         char	resName[4];
         char	chainID[size];
@@ -289,6 +291,11 @@ int main(int argc, char* argv[])
         //POSTSCRIPT
         // double errat[size];
         vector<double> errat;
+        errat.push_back(0);//KM
+        errat.push_back(0);//KM
+        errat.push_back(0);//KM
+        errat.push_back(0);//KM
+        errat.push_back(0);//KM
         int chainx;
         int ich;
         int ir1[100];
@@ -311,8 +318,9 @@ int main(int argc, char* argv[])
 
 			fin.getline (line, 100);
 			for (j=0; j<6; j++) {line2[j]=line[j];}	line2[6]='\0';
-			if (strcmp (test, line2) == 0)//single line process
+			if (strcmp (atom_test, line2) == 0)//single line process
 			{//4
+			    atom++;
 				//fout << line << endl;// test
 
 //				i++;//iteration only if get to here
@@ -324,67 +332,19 @@ int main(int argc, char* argv[])
 //				}
 //				else
 //				{//5
-				name_temp = line[13];//tested
-//				if		(name_temp =='C') name[i]=1;
-				if		(name_temp =='C') name.push_back(1);
-//				else if (name_temp =='N') name[i]=2;
-				else if (name_temp =='N') name.push_back(2);
-//				else if (name_temp =='O') name[i]=3;
-				else if (name_temp =='O') name.push_back(3);
-				//else if (name_temp =='S') name[i]=3;//!!!!!!
-//				else name[i]=0;//KM
-				else continue;
-				i++;//iteration only if get to here
-				//fout << "name[i] 14	"<< name[i] << endl;//test
-
-				name_temp2[0] = line[13];
-				name_temp2[1] = line[14];
-				name_temp2[2] = line[15];
-				name_temp2[3] = '\0';
-				//fout << "name_temp2 141516	" << name_temp2 << endl;//test
-				if (	(strcmp(name_temp2,"N  \0")==0)||
-						(strcmp(name_temp2,"C  \0")==0)	) // used for peptide bond checks
-				{	bnam[i]=1;}
-				else
-				{	bnam[i]=0;}
-				//fout << "bnam[i]	" << bnam[i] <<endl; // test
-
 				altLoc = line[16];
 				//fout << "altLoc	17" << altLoc << endl;//test
-
-				for (j=17; j<20; j++) {resName[j-17]=line[j];}		resName[3]='\0';
-				//fout << i << "	" << resName ;
-
-				chainID[i]=line[21];
-				fout << "chainID[i]22	" << chainID[i] << endl;//test
-
-				for (j=22; j<26; j++) {resSeq_temp[j-22]=line[j];} resSeq_temp[4]='\0';
-				//fout << "resSeq_temp	" << resSeq_temp << endl;//test
-				resSeq[i]= atof(resSeq_temp);
-				//fout << "resSeq["<<i<<"]2326	" << resSeq[i] << endl;//test
-
-				for (j=30; j<38; j++) {x[j-30]=line[j];}	x[8]='\0';
-				xyz [0][i] = atof(x);
-				//fout <<"x[i]3138	"<<xyz[0][i]<< endl;//test
-
-				for (j=38; j<46; j++) {y[j-38]=line[j];}	y[8]='\0';
-				xyz [1][i] = atof(y);
-				//fout <<"y[i]3946	"<<xyz[1][i]<< endl;//test
-
-				for (j=46; j<54; j++) {z[j-46]=line[j];}	z[8]='\0';
-				xyz [2][i] = atof(z);
-				//fout <<"z[i]4754	"<<xyz[2][i]<< endl;//test
-
-
 				if ( !( (altLoc == ' ')||(altLoc == 'A')||
 					(altLoc == 'a')||(altLoc == 'P')  ))
 				{
-					fout << "Reject 2' Conformation atom#	"<<i<<
-						"	chain	"<<chainID[i] << endl;
-					i--;
-					flag=1;
+					fout << "Reject 2' Conformation atom#	"<<atom<< "	chain	"<< line[21] << endl;
+//					i--;
+//					flag=1;
+                    continue;
 				}
 
+				for (j=17; j<20; j++) {resName[j-17]=line[j];}		resName[3]='\0';
+				//fout << i << "	" << resName ;
 				if (!	(	(strcmp (resName, "GLY\0") == 0)||
 					(strcmp (resName, "ALA\0") == 0)||
 					(strcmp (resName, "VAL\0") == 0)||
@@ -406,10 +366,57 @@ int main(int argc, char* argv[])
 					(strcmp (resName, "GLN\0") == 0)||
 					(strcmp (resName, "ASN\0") == 0)	)	)
 				{
-					i--;
-					flag=1;
 					fout <<"***Warning: Reject Nonstandard Residue - "<<resName<< endl;
+//					i--;
+//					flag=1;
+                    continue;
 				}
+
+				name_temp = line[13];//tested
+//				if		(name_temp =='C') name[i]=1;
+				if		(name_temp =='C') name.push_back(1);
+//				else if (name_temp =='N') name[i]=2;
+				else if (name_temp =='N') name.push_back(2);
+//				else if (name_temp =='O') name[i]=3;
+				else if (name_temp =='O') name.push_back(3);
+				//else if (name_temp =='S') name[i]=3;//!!!!!!
+//				else name[i]=0;//KM
+				else continue;
+
+				i++;//iteration only if get to here
+				//fout << "name["<<i<<"] 14	"<< name[i] << "name " << name_temp <<endl;//test
+
+				name_temp2[0] = line[13];
+				name_temp2[1] = line[14];
+				name_temp2[2] = line[15];
+				name_temp2[3] = '\0';
+				//fout << "name_temp2 141516	" << name_temp2 << endl;//test
+				if (	(strcmp(name_temp2,"N  \0")==0)||
+						(strcmp(name_temp2,"C  \0")==0)	) // used for peptide bond checks
+				{	bnam[i]=1;}
+				else
+				{	bnam[i]=0;}
+				//fout << "bnam[i]	" << bnam[i] <<endl; // test
+
+				chainID[i]=line[21];
+//				fout << "chainID[i]22	" << chainID[i] << endl;//test
+
+				for (j=22; j<26; j++) {resSeq_temp[j-22]=line[j];} resSeq_temp[4]='\0';
+				//fout << "resSeq_temp	" << resSeq_temp << endl;//test
+				resSeq[i]= atof(resSeq_temp);
+				//fout << "resSeq["<<i<<"]2326	" << resSeq[i] << endl;//test
+
+				for (j=30; j<38; j++) {x[j-30]=line[j];}	x[8]='\0';
+				xyz [0][i] = atof(x);
+				//fout <<"x[i]3138	"<<xyz[0][i]<< endl;//test
+
+				for (j=38; j<46; j++) {y[j-38]=line[j];}	y[8]='\0';
+				xyz [1][i] = atof(y);
+				//fout <<"y[i]3946	"<<xyz[1][i]<< endl;//test
+
+				for (j=46; j<54; j++) {z[j-46]=line[j];}	z[8]='\0';
+				xyz [2][i] = atof(z);
+				//fout <<"z[i]4754	"<<xyz[2][i]<< endl;//test
 
 				if (	(chainID[i]!=chainID[i-1])&&(i>=2)&&(flag!=1)	)
 				{
@@ -418,7 +425,6 @@ int main(int argc, char* argv[])
 				}
 				if ((flag!=1))
 				{
-
 					resnum[i] = ( resSeq[i]+(kadd*chaindif) );
 					atmnum=i;//max lines
 
@@ -569,11 +575,11 @@ int main(int argc, char* argv[])
 	// ensure the measurement happens when a new residue is iterated
 	if ( ((resnum[i] > resnum[i - 1])||(i==1))/*&&(chain==chainID[i])*/)//gate let's first atom of res through
         {//5
-        //	fout << i << "i2"<<endl;//remove later
+//        	fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
         for (aa=0;aa<4;aa++)
         {
             for (ab=0;ab<4;ab++)
-                c[aa][ab]=0;
+                c[aa][ab]=0;//sets the count of atom distances to 0 for each combination
         }
         //c[first atom][second atom]= length
         //temporary function that records the # of different interaction
@@ -581,25 +587,31 @@ int main(int argc, char* argv[])
         s=1;//resets a counting clock, start at 1.
         for (v = i; ( (s<10)&&(v<=atmnum) ); v++)
         {//sets frame to 1, go until 9 - to ensure last residue is complete
-            if ( (	(resnum[v+1]-resnum[v]< 100) // ensure they are on the same chain
-                  &&(resnum[v+1]-resnum[v]>0)	)  // and the residue number is not the same
-                  ||(v==atmnum)	)//first residue used
-            {s++;}
-            //fout << s << "	"<<v<<endl;
+            if (resnum[v + 1] > resnum[v]){ // the residue number is not the same
+            if (resnum[v + 1]-resnum[v] < 100){ // ensure they are on the same chain
+            s++;}
+            else if (s == 9){ // if have found 9 residues and chain is larger, or is last atom, increment
+            s++;}
+            else{
+            break;}
+//            fout << "s is " << s << " v is "<<v<<endl;
+            }
+            else if (v==atmnum){
+            s++;}
         }
         v--;//always sets v back into the frame of the window, counter last v++
 
-        if ((resSeq[v]>resSeq[i])&&(s==10))//test for chain (LIMIT CHAIN TO 1K RES )
+        if ((resSeq[v]>resSeq[i])&&(s==10))//test for same chain (LIMIT CHAIN TO 1K RES )
                                                             //test for completeness of window
             {//6
-                    //fout <<"i:	"<<i<<"/"<< resnum[i] <<"	v	"<<v<<"/"<<resnum[v]<<endl;
+//                    fout <<"i:	"<<i<<"/"<< resnum[i] <<"	v	"<<v<<"/"<<resnum[v]<<endl;
             for ( rer = i; rer <= v ; rer++)// v is last atom frame and i(rer) is the first
             {//7
                 jbx=((xyz[0][rer]-(min[1]-0.00001) )/boxsize);		//use an additional test when the last v is atmnum
                 jby=((xyz[1][rer]-(min[2]-0.00001) )/boxsize);
                 jbz=((xyz[2][rer]-(min[3]-0.00001) )/boxsize);
                 //copy the top calculations
-                // set a +/- limit on the values of the coordinates box index
+                //set +/- limit on the values of the coordinates box index
                 ibz1=jbz-ndelta;
                 if (ibz1<0) ibz1=0;
                 ibz2=jbz+ndelta;
@@ -614,7 +626,6 @@ int main(int argc, char* argv[])
                 if (ibx1<0) ibx1=0;
                 ibx2=jbx+ndelta;
                 if (ibx2>nbx[1]-1) ibx2=nbx[1]-1;
-
 
                 //fout << rer << endl;
                 //fout <<"JBX:	"<<jbx<<"	"<<"JBY:	"
@@ -717,7 +728,7 @@ int main(int argc, char* argv[])
                 }//8
             }//7
 
-            temp2=0;
+            temp2=0;//total interaction weight measured
             for (q=1;q<=3;q++)
             {
                 for (r=1;r<=3;r++)
@@ -727,7 +738,7 @@ int main(int argc, char* argv[])
             }
             if (temp2>0)//minimum interactions test
             {
-                //fout <<temp2<<" "<<resnum[i]+4<<" "<<count<<" "<<c[1][1]/temp2<<" "<<(c[1][2]+c[2][1])/temp2<<" "
+                //fout <<temp2<<" residue:"<<resnum[i]+4<<" count:"<<count<<" (1):"<<c[1][1]/temp2<<" (2):"<<(c[1][2]+c[2][1])/temp2<<" "
                 //<<(c[1][3]+c[3][1])/temp2<<" "<<c[2][2]/temp2<<" "<<(c[2][3]+c[3][2])/temp2<<" "
                 //<<c[3][3]/temp2<<endl;
             }
@@ -768,15 +779,14 @@ int main(int argc, char* argv[])
                     //fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl;
                 }
 
-
-                //fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
+//                fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"% errat array #"<< errat.size() << endl;
                 //tyout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
 
                 //POSTSCRIPT
                 //chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
                 // errat[resnum[i]+4]=mtrx;//KM
                 // errat[i+4]=mtrx;//KM
-                errat.push_back(mtrx);
+                errat.push_back(mtrx);//using a pure incremental approach to the errat array
                 //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
 
 
@@ -790,6 +800,10 @@ int main(int argc, char* argv[])
             }
 
             }//6 END of the proper frame test.
+            else{
+//            cout<<"incorrect frame found at residue"<< resnum[i]<<endl;
+            errat.push_back(0);//add a blank measurement to vector as the frame is unavailable
+            }
         }//5
 	}//4
 	}//3 flag2 pdb exclusion end
@@ -813,7 +827,7 @@ int main(int argc, char* argv[])
 	z2=1;//start with 1
 	//ir1[0]=0;
 	//ir2[0]=0;
-	ir1[z2]=resnum[1]+4-((z2-1)*chaindif);
+	ir1[z2]=resnum[1]+4-((z2 - 1)*chaindif);
 	ir2[z2]=0;// Array with the last residue number in each incremental chain
 	id_by_chain[z2]=chainID[1];
 //	cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
@@ -828,16 +842,16 @@ int main(int argc, char* argv[])
 		else if ((chainID[z1]!=chainID[z1+1])&&(resnum[z1]>4))//ensure no seg problems
 		{
 			// ir2[z2]=resnum[z1]-4;
-			ir2[z2]=resnum[z1]-4-((z2-1)*chaindif) + last_chain_length;
-			last_chain_length = last_chain_length + ir2[z2] - ir1[z2];
+			ir2[z2]=resnum[z1]-4-((z2-1)*chaindif) + last_chain_length;//KM
+			last_chain_length = last_chain_length + ir2[z2] - ir1[z2] + 9;//KM ? + 8?
 			// ir2[z2]=resnum[z1]-((z2-1)*chaindif);//Probably need to get rid of the -4 offset as it is now indexed by addition instead of array
 
 			//cout <<"ir2  "<< ir2[z2]<<"	ir1	"<<ir1[z2]<<endl;
 			z2++;
-			ir1[z2]= resnum[z1+1]+4-((z2-1)*chaindif) + last_chain_length;
+			ir1[z2]= resnum[z1+1]+4-((z2-1)*chaindif) + last_chain_length;//KM
 
 			id_by_chain[z2]=chainID[z1+1];
-//			cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
+			//cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
 
 			//cout <<"z2	"<< z2 <<"	z1	"<<z1 <<"	chainid
 			//"<<chainID[z1]<<"	chainid+1	"<<chainID[z1+1]<<endl;
@@ -926,11 +940,14 @@ int main(int argc, char* argv[])
 			err << "gsave -40 -5 translate 90 rotate 80 0 moveto (Error value*)"<<endl;
 			err << "show grestore"<<endl;
 			err << "/Helvetica findfont 16 scalefont setfont 0.5 setlinewidth"<<endl;
-				for (z2=ir0; z2<=ir; z2++)
+				int chain_length = ir - ir0 + 1;
+//				cout << chain_length << endl;
+				for (z2=4; z2<=chain_length; z2++)
 				{
-					if (z2%20==0) { err << (z2-ir0+1)    <<" tick        "<<endl;
-					                err <<"("<< (z2 - 10000*(z2/10000)	)<<") show	"<< endl; }
-					else if (z2%10==0) err << (z2-ir0+1)	<<" tick	"<<endl;
+					if (z2%20==0) { err << (z2 - 4)    <<" tick        "<<endl;
+//					                err <<"("<< (z2 - 10000*(z2/10000)	)<<") show	"<< endl; }//KM
+					                err <<"("<< z2<<") show	"<< endl; }//KM
+					else if (z2%10==0) err << (z2 - 4)	<<" tick	"<<endl;
 				}
 				for (z2=ir0; z2<=ir; z2++)
 				{
