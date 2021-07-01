@@ -19,8 +19,8 @@
 		<Subroutine name="limit_to_profile" xml_fname="%%scripts%%/interface_design/limit_profile.xml"/>
 		<Subroutine name="design_profile" xml_fname="%%scripts%%/interface_design/design_profile.xml"/>
 		<Subroutine name="favor_profile" xml_fname="%%scripts%%/interface_design/favor_profile.xml"/>
-		<Subroutine name="design_profile_hbnet" xml_fname="%%scripts%%/interface_design/design_profile_hbnet_weights.xml"/>
-		<Subroutine name="hbnet_design_profile" xml_fname="%%scripts%%/interface_design/hbnet_design_profile.xml"/>
+<!--		<Subroutine name="design_profile_hbnet" xml_fname="%%scripts%%/interface_design/design_profile_hbnet_weights.xml"/>-->
+<!--		<Subroutine name="hbnet_design_profile" xml_fname="%%scripts%%/interface_design/hbnet_design_profile.xml"/>-->
 <!--		<Subroutine name="consensus_design" xml_fname="%%scripts%%/interface_design/consensus_design.xml"/>-->
 <!--		<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>-->
 		# Switch reporting to identify which design type or symmetry was selected
@@ -28,14 +28,14 @@
 		<SwitchMover name="limit_to_profile_switch" movers="limit_to_profile" selected="limit_to_profile"/>
 		<SwitchMover name="design_profile_switch" movers="design_profile" selected="design_profile"/>
 		<SwitchMover name="favor_profile_switch" movers="favor_profile" selected="favor_profile"/>
-		<SwitchMover name="design_profile_hbnet_switch" movers="design_profile_hbnet" selected="design_profile_hbnet"/>
-		<SwitchMover name="hbnet_design_profile_switch" movers="hbnet_design_profile" selected="hbnet_design_profile"/>
+<!--		<SwitchMover name="design_profile_hbnet_switch" movers="design_profile_hbnet" selected="design_profile_hbnet"/>-->
+<!--		<SwitchMover name="hbnet_design_profile_switch" movers="hbnet_design_profile" selected="hbnet_design_profile"/>-->
 <!--		<SwitchMover name="consensus_design_switch" movers="consensus_design" selected="consensus_design"/>-->
 		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
 		# random sub-protocol generator
 		<ParsedProtocol name="set_up_constraint_and_design" mode="single_random">
-			<Add mover_name="design_profile_hbnet_switch" 	apply_probability="0"/>
-			<Add mover_name="hbnet_design_profile_switch" 	apply_probability="0"/>
+<!--			<Add mover_name="design_profile_hbnet_switch" 	apply_probability="0"/>-->
+<!--			<Add mover_name="hbnet_design_profile_switch" 	apply_probability="0"/>-->
 			<Add mover_name="no_constraint_switch"	 		apply_probability="%%free_percent%%"/>  # default 0.5
 			<!-- <Add mover_name="limit_to_profile_switch" 		apply_probability="0.40"/> --> # Reinstate after P432 patch
 			<Add mover_name="design_profile_switch" 		apply_probability="%%constrained_percent%%"/>  # default 0.5

@@ -152,38 +152,47 @@
 			<Add mover_name="run_metrics_unbound"/>
 		</ParsedProtocol>
         # generates symmetry for the system in question using %%sdf%% or %%dist%%
-<!--		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>-->
-<!--		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>-->
-<!--		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>-->
-<!--		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>-->
-		<SetupForSymmetry name="point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
-		<MakeLayerMover name="layer" contact_dist="%%dist%%"/>
-		<MakeLatticeMover name="lattice" contact_dist="%%dist%%"/>
-		# Symmetry selector and switch reporting
-		<FilterReportAsPoseExtraScoresMover name="symmetric" report_as="sym_status" filter_name="report_true"/>
-		<FilterReportAsPoseExtraScoresMover name="asymmetric" report_as="sym_status" filter_name="report_false"/>
-		<ParsedProtocol name="make_point_group">
-			<Add mover_name="point_group"/>
-			<Add mover_name="symmetric"/>
-		</ParsedProtocol>
-		<ParsedProtocol name="make_layer">
-			<Add mover_name="layer"/>
-			<Add mover_name="symmetric"/>
-		</ParsedProtocol>
-		<ParsedProtocol name="make_lattice">
-			<Add mover_name="lattice"/>
-			<Add mover_name="symmetric"/>
-		</ParsedProtocol>
-<!--		<ParsedProtocol name="asymmetric">-->
-<!--		<Add mover_name="asymmetric"/>-->
+<!--&lt;!&ndash;		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>&ndash;&gt;-->
+<!--		<SetupForSymmetry name="point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>-->
+<!--		<MakeLayerMover name="layer" contact_dist="%%dist%%"/>-->
+<!--		<MakeLatticeMover name="lattice" contact_dist="%%dist%%"/>-->
+<!--		# Symmetry selector and switch reporting-->
+<!--		<FilterReportAsPoseExtraScoresMover name="symmetric" report_as="sym_status" filter_name="report_true"/>-->
+<!--		<FilterReportAsPoseExtraScoresMover name="asymmetric" report_as="sym_status" filter_name="report_false"/>-->
+<!--		<ParsedProtocol name="make_point_group">-->
+<!--			<Add mover_name="point_group"/>-->
+<!--			<Add mover_name="symmetric"/>-->
 <!--		</ParsedProtocol>-->
-		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>
+<!--		<ParsedProtocol name="make_layer">-->
+<!--			<Add mover_name="layer"/>-->
+<!--			<Add mover_name="symmetric"/>-->
+<!--		</ParsedProtocol>-->
+<!--		<ParsedProtocol name="make_lattice">-->
+<!--			<Add mover_name="lattice"/>-->
+<!--			<Add mover_name="symmetric"/>-->
+<!--		</ParsedProtocol>-->
+<!--&lt;!&ndash;		<ParsedProtocol name="asymmetric">&ndash;&gt;-->
+<!--&lt;!&ndash;		<Add mover_name="asymmetric"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		</ParsedProtocol>&ndash;&gt;-->
+<!--		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>-->
+	</MOVERS>
+
+	# Symmetry set up section
+	<FILTERS>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+	</FILTERS>
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
 		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>
 	</MOVERS>
 
 	<PROTOCOLS>
 		<Add mover_name="measure_entity"/> # removes non-entity positions
-		<Add mover_name="symmetry_switch"/> # symmetrize entity positions?
+		<Add mover_name="symmetry"/>
+<!--		<Add mover_name="symmetry_switch"/> # symmetrize entity positions?-->
 		<Add mover_name="repack_switch"/> # set up additional repacking after entity isolation?
 <!--		<Add mover_name="add_csts"/> # add csts with the current pose -->
 		# ^ ACTUALLY DON'T. WILL BE MEASURE OF HOW MUCH INPUT RESIDUE COORDINATES ARE UNHAPPY

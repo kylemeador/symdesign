@@ -77,7 +77,7 @@
 	</MOVE_MAP_FACTORIES>
 
 	<MOVERS>
-		<AddJobPairData name="job_info" key="protocol" value="hbnet_design_profile" value_type="string"/>
+		<AddJobPairData name="job_info" key="protocol" value="hbnet_scout" value_type="string"/>
 		# generates symmetry for the system in question using %%sdf%% or %%dist%%
 <!--		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>-->
 <!--		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>-->
@@ -297,7 +297,7 @@
 	</MOVERS>
 
 	<PROTOCOLS>
-		<Add mover_name="SOMETHINGSMISSING"/>
+<!--		<Add mover_name="SOMETHINGSMISSING"/>-->
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
 		<Add mover_name="job_info"/>
