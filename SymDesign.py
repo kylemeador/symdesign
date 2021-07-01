@@ -968,7 +968,7 @@ if __name__ == '__main__':
     # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
     all_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
-    initial_iter = None
+    master_directory, initial_iter = None, None
     low, high, low_range, high_range = None, None, None, None
     # nanohedra_initialization = False
     # Todo initialization True only. move from requirement if not needed
