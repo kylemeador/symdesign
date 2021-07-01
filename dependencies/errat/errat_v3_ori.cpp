@@ -313,7 +313,8 @@ int main(int argc, char* argv[])
 				else if (name_temp =='O') name[i]=3;
 				//else if (name_temp =='S') name[i]=3;//!!!!!!
 				else name[i]=0;
-				//fout << "name[i] 14	"<< name[i] << endl;//test
+				//if (name[i] > 0)
+				//{fout << "name["<<i<<"] 14	"<< name[i] << "name " << name_temp <<endl;}//test
 
 				name_temp2[0] = line[13];
 				name_temp2[1] = line[14];
@@ -447,9 +448,9 @@ int main(int argc, char* argv[])
 		}
 	}
 
-	//fout<<"MINIMUM SPACE LIMITS:	";
+	fout<<"MINIMUM SPACE LIMITS:	";
 	for (j=1;j<=3;j++) {fout <<min[j]<<"	";}
-	//fout<<endl<<"MAXIMUM SPACE LIMITS:	";
+	fout<<endl<<"MAXIMUM SPACE LIMITS:	";
 	for (j=1;j<=3;j++) {fout <<max[j]<<"	";}
 	fout << endl;
 
@@ -563,7 +564,7 @@ int main(int argc, char* argv[])
 						{s++;}
 						//fout << s << "	"<<v<<endl;
 					}
-					v--;//allways sets v back into the frame of the window, counter last v++
+					v--;//always sets v back into the frame of the window, counter last v++
 
 	if ((resSeq[v]>resSeq[i])&&(s==10))//test for chain (LIMIT CHAIN TO 1K RES )
 														//test for completeness of window
@@ -659,8 +660,8 @@ int main(int argc, char* argv[])
 									//fout<<xyz[0][n]<<"	"<<xyz[1][n]<<"	"<<xyz[2][n]<<endl;
 									//fout<<xyz[0][rer]<<"	"<<xyz[1][rer]<<"	"<<xyz[2][rer]<<endl;
 								}
-
-								count = count+1;
+                                if ((name[rer] > 0) && (name[n] > 0))
+								    count = count+1;
 
 
 								c[ name[rer] ][ (name[n]) ]=
@@ -676,8 +677,8 @@ int main(int argc, char* argv[])
 								temp1 = 1;
 							else
 								temp1=2*(3.75-sqrt(dsq));
-
-							count = count+1;
+                            if ((name[rer] > 0) && (name[n] > 0))
+							    count = count+1;
 
 							c[name[rer]][name[n]]=c[name[rer]][name[n]]+temp1;
 							//fout <<"2DSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]<<"	to	"
@@ -702,7 +703,7 @@ int main(int argc, char* argv[])
 	}
 	if (temp2>0)//minimum interactions test
 	{
-		//fout <<temp2<<" "<<resnum[i]+4<<" "<<count<<" "<<c[1][1]/temp2<<" "<<(c[1][2]+c[2][1])/temp2<<" "
+		//fout <<temp2<<" residue:"<<resnum[i]+4<<" count:"<<count<<" (1):"<<c[1][1]/temp2<<" (2):"<<(c[1][2]+c[2][1])/temp2<<" "
 		//<<(c[1][3]+c[3][1])/temp2<<" "<<c[2][2]/temp2<<" "<<(c[2][3]+c[3][2])/temp2<<" "
 		//<<c[3][3]/temp2<<endl;
 	}
@@ -743,7 +744,6 @@ int main(int argc, char* argv[])
 			//fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl;
 		}
 
-
 		//fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
 		//tyout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
 
@@ -751,7 +751,6 @@ int main(int argc, char* argv[])
 		//chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
 		errat[resnum[i]+4]=mtrx;
 		//cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
-
 
 	}
 	else
@@ -777,7 +776,7 @@ int main(int argc, char* argv[])
 
 	//POSTSCRIPT
 	chainx= (1 + ( resnum[atmnum] - 4 ) / 10000 );//total chains
-	cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
+    //cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
 
 	//z1 controls atmnum
 	//z2 contros chain array
@@ -788,7 +787,7 @@ int main(int argc, char* argv[])
 	ir1[z2]=resnum[1]+4;
 	ir2[z2]=0;
 	id_by_chain[z2]=chainID[1];
-	cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
+	//cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
 	for (z1=1 ; z1<atmnum; z1++)
 	{
 		if (z1==(atmnum-1))
@@ -804,7 +803,7 @@ int main(int argc, char* argv[])
 			ir1[z2]= resnum[z1+1]+4;
 
 			id_by_chain[z2]=chainID[z1+1];
-			cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
+			//cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
 
 			//cout <<"z2	"<< z2 <<"	z1	"<<z1 <<"	chainid
 			//"<<chainID[z1]<<"	chainid+1	"<<chainID[z1+1]<<endl;
@@ -837,8 +836,8 @@ int main(int argc, char* argv[])
 			ir0=ir1[ich]+mst*(z1-1);
 			ir=ir0+mst-1;
 			if (ir > ir2[ich]) ir=ir2[ich];
-//#			fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
-			fout <<"chain "<< id_by_chain[ich] <<":    Residue range "<< ir0<<" to "<< ir << endl;
+			//fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
+			//fout <<"chain "<< id_by_chain[ich] <<":    Residue range "<< ir0<<" to "<< ir << endl;
 
 			{//PS START HERE
 			err << "%!PS"<<endl;
