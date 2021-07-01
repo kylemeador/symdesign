@@ -971,6 +971,7 @@ if __name__ == '__main__':
     initial_iter = None
     low, high, low_range, high_range = None, None, None, None
     # nanohedra_initialization = False
+    # Todo initialization True only. move from requirement if not needed
     if not args.directory and not args.file and not args.project and not args.single:
         raise SDUtils.DesignError('No designs were specified!\nPlease specify --directory, --file, '
                                   '--project, or --single to locate designs of interest and run your command again')
@@ -1550,6 +1551,10 @@ if __name__ == '__main__':
             program_root = None
             # Todo change this mechanism so not reliant on args.directory and outputs pose IDs/ Alternatives fix csv
             #  to output paths
+        elif not master_directory:
+            program_root = args.directory
+        else:
+            program_root = master_directory.program_root
 
         if args.pose_design_file:
             # Grab all poses (directories) to be processed from either directory name or file
