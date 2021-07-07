@@ -91,6 +91,7 @@ int main(int argc, char* argv[]){//1
             all_lines.push_back(line);
 //            std::cout << line << std::endl;
         }//KM
+        file = 'stdin';
     }
     else if(argc != 3) { puts("\n2 arguments required: ./errat pdbid localpath\n"); exit(1); }
     else {
@@ -903,7 +904,7 @@ int main(int argc, char* argv[]){//1
                 err << "gsave 0 30 sce mul 20 add translate "<<endl;
                 //err << "0 30 moveto (Chain#:"<<  ich<<") show "<<endl;
                 err << "0 30 moveto (Chain#:"<<  id_by_chain[ich] <<") show "<<endl;
-                err << "0 50 moveto (File: "<<  file<<") show "<<endl;
+                err << "0 50 moveto (File: "<< file <<") show "<<endl;
                 err << "0 10 moveto (Overall quality factor**: "
                     <<  100-(100*pstat/stat)<<")show"<<endl;
                 err << "0 70 moveto (Program: ERRAT2) show"<<endl;
