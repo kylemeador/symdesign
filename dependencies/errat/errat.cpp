@@ -596,7 +596,7 @@ int main(int argc, char* argv[])
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
 	if (flag2!=1){//3
 	    if (resnum[1] > 1){//Check when the first residue is not 1, but some other number, say 3 add errat entries
-	        for(int missing_start = 1; missing_start < resnum[i] - 1; missing_start++){
+	        for(int missing_start = 1; missing_start < resnum[1] - 1; missing_start++){
 	            errat.push_back(0);
 	        }
 	    }
