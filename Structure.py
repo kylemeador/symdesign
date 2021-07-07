@@ -1080,17 +1080,18 @@ class Structure(StructureBase):
         # current_struc_file = self.write(out_path=os.path.join(out_path, name))
         # errat_cmd = [errat_exe_path, os.path.splitext(name)[0], out_path]  # for writing file first
         # print(subprocess.list2cmdline(errat_cmd))
-        errat_cmd = [errat_exe_path, out_path]  # for passing by stdin
-        p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         # os.system('rm %s' % current_struc_file)
+        errat_cmd = [errat_exe_path, out_path]  # for passing by stdin
+        # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
+        p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
 
         errat_output_file = os.path.join(out_path, 'errat.ps')
         # else:
         # TODO ensure that the overall quality factor is the right direction and extraction is working
         # print(subprocess.list2cmdline(['grep', 'Overall quality factor**: ', errat_output_file]))
-        p = subprocess.Popen(['grep', 'Overall quality factor**: ', errat_output_file],
+        p = subprocess.Popen(['grep', 'Overall quality factor: ', errat_output_file],
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         errat_out, errat_err = p.communicate()
         try:
