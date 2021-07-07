@@ -49,8 +49,7 @@ double matrixdb (double matrix[6]);
 // remove and streams mout, char chain[i] and chain determination;
 // change zout outp
 
-int main(int argc, char* argv[])
-{//1
+int main(int argc, char* argv[]){//1
     int flag2=0;//test for too many atoms in a box
     int flag3=0;
     int	kadd, o=0, gg=0;
@@ -752,8 +751,8 @@ int main(int argc, char* argv[])
                     }
                     //Check for gaps in residue numbering and add errat observations accordingly
                     if ((resnum[i] - resnum[i - 1] > 1) && (chainID[i] == chainID[i - 1])){
-                        cout << "found missing residues" << resnum[i - 1] << " to " << resnum[i] << " adding "
-                        << resnum[i] - resnum[i - 1] - 1 << " errat observations" << endl;
+                        //cout << "found missing residues" << resnum[i - 1] << " to " << resnum[i] << " adding "
+                        //<< resnum[i] - resnum[i - 1] - 1 << " errat observations" << endl;
                         for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
                             errat.push_back(0);//add a blank measurement to vector for each residue that is unavailable
                         }
@@ -802,9 +801,9 @@ int main(int argc, char* argv[])
                         //fout << "Low Frames:"<<lowframe << endl;
                     }
 
-                }//6 END of the proper frame test.
+                }//6 END of the proper frame test
                 else{
-    //            cout<<"incorrect frame found at residue"<< resnum[i]<<endl;
+                //cout<<"incorrect frame found at residue"<< resnum[i]<<endl;
                 errat.push_back(0);//add a blank measurement to vector as the frame is unavailable
                 }
             }//5
@@ -871,7 +870,7 @@ int main(int argc, char* argv[])
         }
         //cout <<"mst		"<< mst << endl;
         sz = 200/mst;
-        cout << "Size of errat array " << errat.size() << endl;
+        //cout << "Size of errat array " << errat.size() << endl;
 
         for (ich=1; ich<=chainx; ich++){
             np = 1 + ((ir2[ich]-ir1[ich]+1)/mst);
