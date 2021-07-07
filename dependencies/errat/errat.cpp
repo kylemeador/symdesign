@@ -612,9 +612,9 @@ int main(int argc, char* argv[])
 	if ( ((resnum[i] > resnum[i - 1])||(i==1))/*&&(chain==chainID[i])*/)//gate let's first atom of res through
         {//5
 //        	fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
-        if (resnum[i + 1] - resnum[i] > 1) {
-            for (int missing_residue=1; missing_residue < resnum[i + 1] - resnum[i]; missing_residue++){
-                errat.push_back(0);//add a blank measurement to vector as the residues are unavailable
+        if (resnum[i] - resnum[i - 1] > 1) {
+            for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
+                errat.push_back(0);//add a blank measurement to vector for each residues that is unavailable
             }
         }
         for (aa=0;aa<4;aa++)
