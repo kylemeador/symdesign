@@ -1134,7 +1134,7 @@ if __name__ == '__main__':
                 reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
                                                                out_path=profile_dir)
                 reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
-                                             scale='script', max_jobs=len(reformat_msa_cmds),
+                                             scale='hhblits', max_jobs=len(reformat_msa_cmds),
                                              number_of_commands=len(reformat_msa_cmds))
                 print('\n' * 3)
                 logger.critical('Ensure the below created SBATCH scripts are correct. Specifically, check that the '
