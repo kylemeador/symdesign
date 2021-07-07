@@ -89,7 +89,7 @@ int main(int argc, char* argv[]){//1
         //		{
         for (std::string line; std::getline(std::cin, line);) {
             all_lines.push_back(line);
-//            std::cout << line << std::endl;
+        //std::cout << line << std::endl;
         }//KM
         strcpy(file, "stdin");
     }
@@ -589,7 +589,10 @@ int main(int argc, char* argv[]){//1
 	pstat = 0;
 	stat = 0;
 	mtrxstat=0;
-
+	bool new_chain = false;
+    int last_chain_length = 0;
+    int obs_chain = 1;
+    int residue = 0;
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
 	if (flag2 != 1){//3
 	    //if (resnum[1] > 1){//Check when the first residue is not 1, but some other number, say 3 add errat entries
@@ -598,33 +601,43 @@ int main(int argc, char* argv[]){//1
 	    //        errat.push_back(0);
 	    //    }
 	    //}
+	    int res_counter = 0
         for(i=1; i<=atmnum; i++){//4 //throws in all atmnum's
             //fout << i << endl;
             // ensure the measurement happens when a new residue is iterated
             if (((resnum[i] > resnum[i - 1]) || (i==1))/*&&(chain==chainID[i])*/){//5 //gate let's first atom of res through
                 //fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
-                for (aa=0;aa<4;aa++){
-                    for (ab=0;ab<4;ab++)
-                        c[aa][ab]=0;//sets the count of atom distances to 0 for each combination
-                }
-                //c[first atom][second atom]= length
-                //temporary function that records the # of different interaction
-                //types in the frame (9 residues).
+                res_counter++:
                 s=1;//resets a counting clock, start at 1.
-                for (v = i; ( (s<10)&&(v<=atmnum) ); v++){//sets frame to 1, go until 9 - to ensure last residue is complete
+                for (v = i; ((s < 10) && (v <= atmnum)); v++){//sets frame to 1, go until 9 - to ensure last residue is complete
                     if (resnum[v + 1] > resnum[v]){ // the residue number is not the same
-                        if (resnum[v + 1]-resnum[v] < 100){s++;} // ensure they are on the same chain
-                        else if (s == 9){s++;}// if have found 9 residues and chain is larger, or is last atom, increment
-                        else{break;}
-                        //fout << "s is " << s << " v is "<<v<<endl;
+                        if (resnum[v + 1] - resnum[v] < 100){s++;} // ensure they are on the same chain
+                        else if (s == 9){s++;}// 9 residues are found and we have incremented chain. Increment s and move on
+                        else{
+                            new_chain = true
+                            break;
+                        }
                     }
-                    else if (v==atmnum){s++;}
+                    else if (v == atmnum){s++;}
                 }
                 v--;//always sets v back into the frame of the window, counter last v++
 
-                if ((resSeq[v]>resSeq[i])&&(s==10)){//6 //test for same chain (LIMIT CHAIN TO 1K RES) and completeness of window
+                if ((resSeq[v] > resSeq[i]) && (s==10)){//6 //test for same chain (LIMIT CHAIN TO 1K RES) and completeness of window
+                    if new_chain {
+                        obs_chain++;
+                        last_chain_length = last_chain_length + res_counter;
+                        res_counter = 0;
+                        new_chain = false
+                    }
+                    for (aa=0;aa<4;aa++){
+                        for (ab=0;ab<4;ab++)
+                            c[aa][ab]=0;//sets the count of atom distances to 0 for each combination
+                    }
+                    //c[first atom][second atom]= length
+                    //temporary function that records the # of different interaction
+                    //types in the frame (9 residues).
                     //fout <<"i:	"<<i<<"/"<< resnum[i] <<"	v	"<<v<<"/"<<resnum[v]<<endl;
-                    for ( rer = i; rer <= v ; rer++){//7 // v is last atom frame and i(rer) is the first
+                    for (rer = i; rer <= v; rer++){//7 // v is last atom frame and i(rer) is the first
                         jbx=((xyz[0][rer]-(min[1]-0.00001) )/boxsize);		//use an additional test when the last v is atmnum
                         jby=((xyz[1][rer]-(min[2]-0.00001) )/boxsize);
                         jbz=((xyz[2][rer]-(min[3]-0.00001) )/boxsize);
@@ -657,36 +670,27 @@ int main(int argc, char* argv[]){//1
                         for (j=ibz1;j<=ibz2;j++){//8
                             for (k=iby1;k<=iby2;k++){//9
                                 for (l=ibx1;l<=ibx2;l++){//10
-                                    ind = 1 + l + k*nbx[1] + j*nbx[1]*nbx[2];
+                                    ind = 1 + l + k * nbx[1] + j * nbx[1] * nbx[2];
                                     //fout << "IND:	"<< ind <<"	:	"<< l <<"	"<<k<<"	"<<j<<endl;
-                                    for (m=1; m<=ibox1[0][ind]; m++)
-                                    {//11
+                                    for (m=1; m <= ibox1[0][ind]; m++){//11
                                         n=ibox1[m][ind];// the atomnum index of the interaction box ind(ices) m(th) atom
                                         //fout <<ind<<" "<< m << endl;
 
-                                        if(resnum[rer]!=resnum[n])//residue inequality test
-                                        {//12
+                                        if(resnum[rer]!=resnum[n]){//12 //residue inequality test
                                             // Find the square distance between atom idx n and atom idx rer
                                             dsq=0;
-                                            for (p=0; p<=2;p++)
-                                            {
+                                            for (p=0; p<=2;p++){
                                                 dsq=dsq+(pow((xyz[p][n]-xyz[p][rer]),2));
                                             }
                                             // Check if distance squared is less than radius squared
                                             if (dsq < rsq){//13 //LIMITS - 3.25 to 3.75.
                                                 // check if interaction is novel, i.e. non-bonded interactions
-                                                if  (
-                                                        // both the atom indices are Nitrogen or Carbon and
-                                                        (bnam[rer]==1)&&(bnam[n]==1)&&
-                                                    (   // the distance is the result of a peptide bond
-                                                        ((resnum[n]==resnum[rer]+1)&&
-                                                        (name[rer]==1)&&(name[n]==2))||//only work for n-N and rer-C
-
-                                                        ((resnum[rer]==resnum[n]+1)&&
-                                                        (name[rer]==2)&&(name[n]==1)/*&&
-                                                        (resnum[rer]==resnum[i])*/) //complete symmetry in interaction eval
-                                                    )
-                                                    ) // do nothing
+                                                if ((bnam[rer] == 1) && (bnam[n] == 1) && // both the atom indices are Nitrogen or Carbon and
+                                                    (// the distance is the result of a peptide bond
+                                                     ((resnum[n] == resnum[rer] + 1) && (name[rer] == 1) && (name[n] == 2)) ||//only work for n-N and rer
+                                                     ((resnum[rer] == resnum[n] + 1) && (name[rer] == 2) && (name[n] == 1)
+                                                     /*&& (resnum[rer]==resnum[i])*/) //complete symmetry in interaction eval
+                                                    ))// do nothing
                                                 {
                                                     //fout <<"QQQQQDSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]
                                                     //	<<"	to	"<<n<<"/"<<resnum[n]<<"/"<<name[n]<<"	in	"<< sqrt(dsq)<< endl;
@@ -790,13 +794,16 @@ int main(int argc, char* argv[]){//1
                         // errat[resnum[i]+4]=mtrx;//KM
                         // errat[i+4]=mtrx;//KM
                         //errat.push_back(mtrx);//KM using a pure incremental approach to the errat array
-                        errat[resnum[i]] = mtrx;//KM
+                        residue = resnum[i] + 4 - ((obs_chain - 1) * chaindif) + last_chain_length;
+                        cout << "Setting residue " << residue << " from atom record " << i << " found by resnum " << resnum[i] << endl;
+                        errat[residue] = mtrx;//KM
+                        //KM can't use resSeq as it increments only when residues do, doesn't respect chains
                         //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
                     }
                     else{
                         //errat.push_back(0);
                         lowframe++;
-                        fout << "WARNING: Frame	"<<resnum[i]+4<<"	Below Minimum Interaction Limit."<<endl;
+                        fout << "WARNING: Frame	"<< resnum[i] + 4<<"	Below Minimum Interaction Limit."<<endl;
                         //fout << "Low Frames:"<<lowframe << endl;
                     }
 
@@ -831,7 +838,7 @@ int main(int argc, char* argv[]){//1
         //ir2[z2] = 0;// Array with the last residue number in each incremental chain
         id_by_chain[z2] = chainID[1];
         //cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
-        int last_chain_length = 0;
+        last_chain_length = 0;
         // find the residues at which the chain transitions
         for (z1 = 1 ; z1 < atmnum; z1++){
             if (z1 == (atmnum - 1)){//last atom
@@ -869,7 +876,7 @@ int main(int argc, char* argv[]){//1
         }
         //cout <<"mst		"<< mst << endl;
         sz = 200/mst;
-        //cout << "Size of errat array " << errat.size() << endl;
+        cout << "Size of errat array " << errat.size() << endl;
 
         for (ich=1; ich<=chainx; ich++){
             np = 1 + ((ir2[ich]-ir1[ich]+1)/mst);
