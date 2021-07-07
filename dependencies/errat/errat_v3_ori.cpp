@@ -837,7 +837,7 @@ int main(int argc, char* argv[])
 			ir=ir0+mst-1;
 			if (ir > ir2[ich]) ir=ir2[ich];
 			//fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
-			//fout <<"chain "<< id_by_chain[ich] <<":    Residue range "<< ir0<<" to "<< ir << endl;
+			fout <<"chain "<< id_by_chain[ich] <<":    Residue range "<< ir0<<" to "<< ir << endl;
 
 			{//PS START HERE
 			err << "%!PS"<<endl;
