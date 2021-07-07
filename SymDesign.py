@@ -1051,7 +1051,7 @@ if __name__ == '__main__':
             logger.critical('The requested poses require preprocessing before design modules should be used')
             # logger.info('The required files for %s designs are being collected and oriented if necessary' % PUtils.nano)
             for design in design_directories:
-                print(design.oligomer_names)
+                print(design.info.keys())
             required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
             required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
             all_entity_names = required_oligomers1.union(required_oligomers2)
