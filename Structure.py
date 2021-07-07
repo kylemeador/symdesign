@@ -1452,11 +1452,11 @@ class Chain(Structure):
 
     # @property
     # def reference_sequence(self):
-    #     return self._ref_sequence
+    #     return self._reference_sequence
     #
     # @reference_sequence.setter
     # def reference_sequence(self, sequence):
-    #     self._ref_sequence = sequence
+    #     self._reference_sequence = sequence
 
     # def __key(self):
     #     return (self.name, self._residue_indices)
@@ -1607,11 +1607,12 @@ class Entity(Chain, SequenceProfile):
 
     @property
     def reference_sequence(self):
-        return self._ref_sequence
+        """With the default init, all Entity instances will have the structure sequence as reference_sequence"""
+        return self._reference_sequence
 
     @reference_sequence.setter
     def reference_sequence(self, sequence):
-        self._ref_sequence = sequence
+        self._reference_sequence = sequence
 
     def chain(self, chain_name):
         for idx, chain_id in enumerate(self.chain_ids):

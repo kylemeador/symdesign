@@ -18,12 +18,12 @@ logger = start_log(name=__name__)
 db = PUtils.biological_fragmentDB
 
 
-def calculate_sequence_metrics(des_dir, alignment_dict, residues=None):  # Unused Todo SequenceProfile.py
+def calculate_sequence_metrics(des_dir, alignment, residues=None):  # Unused Todo SequenceProfile.py
     if residues:
         keep_residues = residues
-        mutation_probabilities = filter_dictionary_keys(alignment_dict['counts'], keep_residues)
+        mutation_probabilities = filter_dictionary_keys(alignment.frequencies, keep_residues)
     else:
-        mutation_probabilities = alignment_dict['counts']
+        mutation_probabilities = alignment.frequencies
     #     design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
     #     keep_residues = SDUtils.get_interface_residues(design_flags, zero=True)
 

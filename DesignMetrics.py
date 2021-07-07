@@ -1067,14 +1067,17 @@ def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Val
     Keyword Args:
         hydrophobicity='standard' (str): The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FILMVWY)
     Returns:
-        (np.ndarray): 1D array with the mean collapse score for every position on the input sequence
+        (numpy.ndarray): 1D array with the mean collapse score for every position on the input sequence
     """
     sequence_length = len(sequence)
     lower_range, upper_range, range_correction = 3, 9, 1
     range_size = upper_range - lower_range  # + range_correction
     yes = 1
     no = 0
-    if hydrophobicity == 'expanded':
+    if hydrophobicity == 'background':  # Todo
+        raise DesignError('This function is not yet possible')
+        # hydrophobic = [0.3, 0.3, 0.3, ...]
+    elif hydrophobicity == 'expanded':
         hydrophobic = ['F', 'I', 'L', 'M', 'V', 'W', 'Y']
     else:  # hydrophobicity == 'standard':
         hydrophobic = ['F', 'I', 'L', 'V']

@@ -100,6 +100,7 @@ list_pdb_files = os.path.join(binaries, 'list_files_in_directory.py')
 hbnet_sort = os.path.join(binaries, 'sort_hbnet_silent_file_results.sh')
 sbatch_template_dir = os.path.join(binaries, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
+reformat_msa_exe = os.path.join(dependency_dir, 'hh-suite/scripts/reformat.pl')
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 data_dir = os.path.join(source, data)
 reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')

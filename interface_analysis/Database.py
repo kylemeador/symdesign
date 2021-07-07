@@ -7,7 +7,7 @@ import numpy as np
 from PDB import PDB
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
-from SequenceProfile import parse_hhblits_pssm  # parse_pssm
+from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment  # parse_pssm
 from Structure import parse_stride
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup, read_fasta_file
 from utils.MysqlPython import Mysql
@@ -31,12 +31,13 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         self.refined = DataStore(location=refined, extension='.pdb', sql=sql, log=log)
         self.stride = DataStore(location=stride, extension='.stride', sql=sql, log=log)
         self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
+        self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=sql, log=log)
         self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
 
     def load_all_data(self):
         """For every resource, acquire all existing data in memory"""
         #              self.oriented_asu, self.sequences,
-        for source in [self.stride, self.hhblits_profiles, self.oriented, self.refined]:
+        for source in [self.stride, self.alignments, self.hhblits_profiles, self.oriented, self.refined]:
             source.get_all_data()
         # self.log.debug('The data in the Database is: %s'
         #                % '\n'.join(str(store.__dict__) for store in self.__dict__.values()))
@@ -90,6 +91,9 @@ class DataStore:
             self.load_file = parse_stride
         elif extension == '.hmm':  # in ['.hmm', '.pssm']:
             self.load_file = parse_hhblits_pssm  # parse_pssm
+        # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
+        elif extension == '.sto':
+            self.load_file = MultipleSequenceAlignment.from_stockholm  # parse_stockholm_to_msa
         else:  # '.txt' read the file and return the lines
             self.load_file = self.read_file
 
