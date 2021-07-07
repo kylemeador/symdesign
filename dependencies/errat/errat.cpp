@@ -113,7 +113,8 @@ int main(int argc, char* argv[])
         fin.open(file) ;	//read from that input file
 		if (fin.fail()!=0)
 		{	cout << "Failed opening file " << file << endl;
-			gg=1;}
+			gg=1;
+			exit(1);}
 		else{
 		    for (char char_line[100]; fin.getline(char_line, 100);) {
 		        std::string line(char_line);
@@ -471,7 +472,7 @@ int main(int argc, char* argv[])
 						(chainID[i]==chainID[i-1])&&
 						(flag==0)&&(i>=2)	)
 				{
-					fout <<"ERROR: RESNUM DECREASE. TERMINATE ANALYSIS " << resnum[i] <<" < "<< resnum [i-1] << endl;
+					fout <<"ERROR: RESNUM DECREASE. TERMINATE ANALYSIS " << resnum[i] <<" < "<< resnum[i-1] << endl;
 					for (k = resnum[i-1]; k == resnum[i]; k++)
 					{
 						fout << i << endl;
@@ -483,7 +484,7 @@ int main(int argc, char* argv[])
 						(chainID[i]==chainID[i-1])&&
 						(flag==0)&&((resnum[i]-resnum[i-1])>1)	)
 				{
-					fout <<"WARNING: Missing Residues " << resnum[i-1] <<">>>"<< resnum [i] << endl;
+					fout <<"WARNING: Missing Residues " << resnum[i-1] <<">>>"<< resnum[i] << endl;
 				}
 				// errat[resnum[i]+4]=0;//KM
 				// errat[i+4]=0;//KM
@@ -611,6 +612,11 @@ int main(int argc, char* argv[])
 	if ( ((resnum[i] > resnum[i - 1])||(i==1))/*&&(chain==chainID[i])*/)//gate let's first atom of res through
         {//5
 //        	fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
+        if (resnum[i + 1] - resnum[i] > 1) {
+            for (missing_residue=1; missing_residue < resnum[i + 1] - resnum[i]; missing_residue++){
+                errat.push_back(0);//add a blank measurement to vector as the residues are unavailable
+            }
+        }
         for (aa=0;aa<4;aa++)
         {
             for (ab=0;ab<4;ab++)
