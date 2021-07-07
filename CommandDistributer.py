@@ -71,7 +71,7 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
                     stage[9]: os.path.join(sbatch_template_dir, stage[6]),
                     'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
                     'interface_metrics': os.path.join(sbatch_template_dir, stage[2]),
-                    'hhblits': os.path.join(sbatch_template_dir, stage[2])
+                    'hhblits': os.path.join(sbatch_template_dir, 'hhblits')
                     }
 
 
@@ -219,7 +219,7 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
         array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[scale] + 0.5), max_jobs)
         new_f.write('%s%s\n' % (sb_flag, array))
         new_f.write('\npython %s --stage %s distribute %s--success_file %s --failure_file %s --command_file %s %s\n' %
-                    (cmd_dist, scale, '--log_file %s' % log_file if log_file else '', success_file, failure_file, file,
+                    (cmd_dist, scale, '--log_file %s ' % log_file if log_file else '', success_file, failure_file, file,
                      (script_present or '')))
 
     return filename
