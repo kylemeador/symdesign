@@ -776,7 +776,7 @@ int main(int argc, char* argv[])
                 }
                 //Check for gaps in residue numbering and add errat observations accordingly
                 if (resnum[i] - resnum[i - 1] > 1) {
-                    cout << 'found missing residues' << resnum[i - 1] << ' to ' << resnum[i] << ' adding ' << resnum[i] - resnum[i - 1] << ' errat observations' << endl;
+                    cout << "found missing residues" << resnum[i - 1] << " to " << resnum[i] << " adding " << resnum[i] - resnum[i - 1] << " errat observations" << endl;
                     for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
                         errat.push_back(0);//add a blank measurement to vector for each residues that is unavailable
                     }
