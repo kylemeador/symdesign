@@ -1138,6 +1138,23 @@ def match_score_from_z_value(z_value):
     return 1 / (1 + (z_value ** 2))
 
 
+# @njit
+def z_score(sample, mean, stdev):
+    """From a sample(s), calculate the positional z-score
+
+    Args:
+        sample (Union[float, numpy.ndarray]): An array with the sample at every position
+        mean (Union[float, numpy.ndarray]): An array with the mean at every position
+        stdev (Union[float, numpy.ndarray]): An array with the standard deviation at every position
+    Returns:
+        (Union[float, numpy.ndarray]): An array with the z-score of every position
+    """
+    try:
+        return (sample - mean) / stdev
+    except ZeroDivisionError:
+        logger.error('The passed standard deviation was 0! Z-score calculation failed')
+        return
+
 ######################
 # Matrix Handling
 ######################
