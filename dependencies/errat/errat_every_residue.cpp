@@ -627,7 +627,7 @@ int main(int argc, char* argv[]){//1
                         obs_chain++;
                         last_chain_length = last_chain_length + res_counter;
                         res_counter = 0;
-                        new_chain = false
+                        new_chain = false;
                     }
                     for (aa=0;aa<4;aa++){
                         for (ab=0;ab<4;ab++)
