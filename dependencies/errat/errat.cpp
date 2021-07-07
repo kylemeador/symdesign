@@ -594,11 +594,11 @@ int main(int argc, char* argv[])
 	mtrxstat=0;
 
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
-	if (flag2!=1){//3
+	if (flag2 != 1){//3
 	    if (resnum[1] > 1){//Check when the first residue is not 1, but some other number, say 3 add errat entries
-	        for(int missing_start = 1; missing_start < resnum[1] - 1; missing_start++){
+//            cout << "Found start residue greater than 1 -> " << resnum[1] << " adding " << resnum[1] - 1 << " errat observations" << endl;
+            for(int missing_start = 1; missing_start <= resnum[1] - 1; missing_start++){
 	            errat.push_back(0);
-	            cout << "found residue greater than 1" << resnum[1] << " adding " << resnum[1] - 1 << " errat observations" << endl;
 	        }
 	    }
         for(i=1; i<=atmnum; i++){//4 //throws in all atmnum's
@@ -736,73 +736,71 @@ int main(int argc, char* argv[])
                         }//8
                     }//7
 
-                        temp2=0;//total interaction weight measured
-                        for (q=1;q<=3;q++){
-                            for (r=1;r<=3;r++){
-                                temp2=temp2+c[q][r];
-                            }
+                    temp2=0;//total interaction weight measured
+                    for (q=1;q<=3;q++){
+                        for (r=1;r<=3;r++){
+                            temp2=temp2+c[q][r];
                         }
-                        if (temp2>0){//minimum interactions test
-                            //fout <<temp2<<" residue:"<<resnum[i]+4<<" count:"<<count<<" (1):"<<c[1][1]/temp2<<" (2):"<<(c[1][2]+c[2][1])/temp2<<" "
-                            //<<(c[1][3]+c[3][1])/temp2<<" "<<c[2][2]/temp2<<" "<<(c[2][3]+c[3][2])/temp2<<" "
-                            //<<c[3][3]/temp2<<endl;
+                    }
+                    if (temp2>0){//minimum interactions test
+                        //fout <<temp2<<" residue:"<<resnum[i]+4<<" count:"<<count<<" (1):"<<c[1][1]/temp2<<" (2):"<<(c[1][2]+c[2][1])/temp2<<" "
+                        //<<(c[1][3]+c[3][1])/temp2<<" "<<c[2][2]/temp2<<" "<<(c[2][3]+c[3][2])/temp2<<" "
+                        //<<c[3][3]/temp2<<endl;
+                    }
+                    else{
+                        fout <<temp2<<" "<<resnum[i]+4<<" "<<count<<" "<<"WARNING: No Interactions in This Frame"<<endl;
+                    }
+                    //Check for gaps in residue numbering and add errat observations accordingly
+                    if ((resnum[i] - resnum[i - 1] > 1) && (chainID[i] == chainID[i - 1])){
+                        cout << "found missing residues" << resnum[i - 1] << " to " << resnum[i] << " adding "
+                        << resnum[i] - resnum[i - 1] - 1 << " errat observations" << endl;
+                        for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
+                            errat.push_back(0);//add a blank measurement to vector for each residue that is unavailable
                         }
-                        else{
-                            fout <<temp2<<" "<<resnum[i]+4<<" "<<count<<" "<<"WARNING: No Interactions in This Frame"<<endl;
+                    }
+
+                    if (temp2 > maxwin){//minimum interactions test
+                        //zout << resnum[i]+4 <<"	"<<c[1][1]/temp2<<"	"<<(c[1][2]+c[2][1])/temp2<<"	"
+                        //	 <<(c[1][3]+c[3][1])/temp2<<"	"<<c[2][2]/temp2<<"	"
+                        //	 <<(c[2][3]+c[3][2])/temp2<<endl;
+                        matrix[1] = c[1][1]/temp2;
+                        matrix[2] = (c[1][2]+c[2][1])/temp2;
+                        matrix[3] = (c[1][3]+c[3][1])/temp2;
+                        matrix[4] = c[2][2]/temp2;
+                        matrix[5] = (c[2][3]+c[3][2])/temp2;
+
+                        mtrx = matrixdb(matrix);
+                        stat++;
+                        mtrxstat = mtrxstat + mtrx;
+                        mstat = 0;
+
+                        if  (mtrx > lmt[1]){
+                            mstat= 99;
+                            pstat++;
+                            //fout<< "pstat99 "<<resnum[i]+4<<" "<<i<<endl;
                         }
-                        //Check for gaps in residue numbering and add errat observations accordingly
-                        if ((resnum[i] - resnum[i - 1] > 1) && (chainID[i] == chainID[i - 1])){
-                            //cout << "found missing residues" << resnum[i - 1] << " to " << resnum[i] << " adding "
-                            //<< resnum[i] - resnum[i - 1] - 1 << " errat observations" << endl;
-                            for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
-                                errat.push_back(0);//add a blank measurement to vector for each residue that is unavailable
-                            }
+                        else if (mtrx > lmt[2]){
+                            mstat= 95;
+                            pstat++;
+                            //fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl;
                         }
 
-                        if (temp2>maxwin){//minimum interactions test
-                            //zout << resnum[i]+4 <<"	"<<c[1][1]/temp2<<"	"<<(c[1][2]+c[2][1])/temp2<<"	"
-                            //	 <<(c[1][3]+c[3][1])/temp2<<"	"<<c[2][2]/temp2<<"	"
-                            //	 <<(c[2][3]+c[3][2])/temp2<<endl;
-                            matrix[1] = c[1][1]/temp2;
-                            matrix[2] = (c[1][2]+c[2][1])/temp2;
-                            matrix[3] = (c[1][3]+c[3][1])/temp2;
-                            matrix[4] = c[2][2]/temp2;
-                            matrix[5] = (c[2][3]+c[3][2])/temp2;
+                        //fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"% errat array #"<< errat.size() << endl;
+                        //tyout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
 
-                            mtrx = matrixdb(matrix);
-
-                            stat++;
-                            mtrxstat = mtrxstat + mtrx;
-
-                            mstat = 0;
-
-                            if  (mtrx > lmt[1]){
-                                mstat= 99;
-                                pstat++;
-                                //fout<< "pstat99 "<<resnum[i]+4<<" "<<i<<endl;
-                            }
-                            else if (mtrx > lmt[2]){
-                                mstat= 95;
-                                pstat++;
-                                //fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl;
-                            }
-
-                            //fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"% errat array #"<< errat.size() << endl;
-                            //tyout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
-
-                            //POSTSCRIPT
-                            //chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
-                            // errat[resnum[i]+4]=mtrx;//KM
-                            // errat[i+4]=mtrx;//KM
-                            errat.push_back(mtrx);//KM using a pure incremental approach to the errat array
-                            //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
-                        }
-                        else{
-                            errat.push_back(0);
-                            lowframe++;
-                            fout << "WARNING: Frame	"<<resnum[i]+4<<"	Below Minimum Interaction Limit."<<endl;
-                            //fout << "Low Frames:"<<lowframe << endl;
-                        }
+                        //POSTSCRIPT
+                        //chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
+                        // errat[resnum[i]+4]=mtrx;//KM
+                        // errat[i+4]=mtrx;//KM
+                        errat.push_back(mtrx);//KM using a pure incremental approach to the errat array
+                        //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
+                    }
+                    else{
+                        errat.push_back(0);
+                        lowframe++;
+                        fout << "WARNING: Frame	"<<resnum[i]+4<<"	Below Minimum Interaction Limit."<<endl;
+                        //fout << "Low Frames:"<<lowframe << endl;
+                    }
 
                 }//6 END of the proper frame test.
                 else{
@@ -813,172 +811,170 @@ int main(int argc, char* argv[])
         }//4
 	}//3 flag2 pdb exclusion end
 
-	if (stat>0)
-	{
-	zout << "EOF: "<<file<<endl;
-	zout <<"Total frames: "<<stat<<"	P frames "<<pstat<<"	Number: "<<pstat/stat<<endl<<endl;
-	zout << "Avg Probability	"<< mtrxstat/stat << endl;
-	mout << o <<"	"<<file<<"	"<<pstat/stat<<"	"<<mtrxstat/stat<< endl;
-	//fout << "pstat "<< pstat<< " stat "<<stat<<" pstat/stat "<<pstat/stat<<endl;
-	//fout << 100-(100*pstat/stat)<<endl;
+	if (stat>0){
+        zout << "EOF: "<<file<<endl;
+        zout <<"Total frames: "<<stat<<"	P frames "<<pstat<<"	Number: "<<pstat/stat<<endl<<endl;
+        zout << "Avg Probability	"<< mtrxstat/stat << endl;
+        mout << o <<"	"<<file<<"	"<<pstat/stat<<"	"<<mtrxstat/stat<< endl;
+        //fout << "pstat "<< pstat<< " stat "<<stat<<" pstat/stat "<<pstat/stat<<endl;
+        //fout << 100-(100*pstat/stat)<<endl;
 
-	//POSTSCRIPT
-	chainx= (1 + (resnum[atmnum] - 4) / 10000);//total chains
-	//cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
+        //POSTSCRIPT
+        chainx= (1 + (resnum[atmnum] - 4) / 10000);//total chains
+        //cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
 
-	//z1 controls atmnum
-	//z2 contros chain array
+        //z1 controls atmnum
+        //z2 contros chain array
 
-	z2=1;//start with 1
-	//ir1[0]=0;
-	//ir2[0]=0;
-	ir1[z2] = resnum[1] + 4 - ((z2 - 1) * chaindif);
-	//ir2[z2] = 0;// Array with the last residue number in each incremental chain
-	id_by_chain[z2] = chainID[1];
-	//cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
-	int last_chain_length = 0;
-	// find the residues at which the chain transitions
-	for (z1 = 1 ; z1 < atmnum; z1++){
-		if (z1 == (atmnum - 1)){//last atom
-			ir2[z2] = resnum[atmnum] - 4 - ((z2-1) * chaindif) + last_chain_length;
-		}
-		else if ((chainID[z1] != chainID[z1 + 1]) && (resnum[z1] > 4)){//ensure no seg problems
-			// ir2[z2]=resnum[z1]-4;
-			ir2[z2] = resnum[z1] - 4 - ((z2-1) * chaindif) + last_chain_length;//KM
-			last_chain_length = last_chain_length + ir2[z2] - ir1[z2] + 9;//KM
-			// ir2[z2]=resnum[z1]-((z2-1)*chaindif);//Probably need to get rid of the -4 offset as it is now indexed by addition instead of array
+        z2=1;//start with 1
+        //ir1[0]=0;
+        //ir2[0]=0;
+        ir1[z2] = resnum[1] + 4 - ((z2 - 1) * chaindif);
+        //ir2[z2] = 0;// Array with the last residue number in each incremental chain
+        id_by_chain[z2] = chainID[1];
+        //cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
+        int last_chain_length = 0;
+        // find the residues at which the chain transitions
+        for (z1 = 1 ; z1 < atmnum; z1++){
+            if (z1 == (atmnum - 1)){//last atom
+                ir2[z2] = resnum[atmnum] - 4 - ((z2-1) * chaindif) + last_chain_length;
+            }
+            else if ((chainID[z1] != chainID[z1 + 1]) && (resnum[z1] > 4)){//ensure no seg problems
+                // ir2[z2]=resnum[z1]-4;
+                ir2[z2] = resnum[z1] - 4 - ((z2-1) * chaindif) + last_chain_length;//KM
+                last_chain_length = last_chain_length + ir2[z2] - ir1[z2] + 9;//KM
+                // ir2[z2]=resnum[z1]-((z2-1)*chaindif);//Probably need to get rid of the -4 offset as it is now indexed by addition instead of array
 
-			//cout <<"ir2  "<< ir2[z2]<<"	ir1	"<<ir1[z2]<<endl;
-			z2++;
-			ir1[z2] = resnum[z1 + 1] + 4 - ((z2-1) * chaindif) + last_chain_length;//KM
+                //cout <<"ir2  "<< ir2[z2]<<"	ir1	"<<ir1[z2]<<endl;
+                z2++;
+                ir1[z2] = resnum[z1 + 1] + 4 - ((z2-1) * chaindif) + last_chain_length;//KM
 
-			id_by_chain[z2] = chainID[z1 + 1];
-			//cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
-			//cout <<"z2	"<< z2 <<"	z1	"<<z1 <<"	chainid
-			//"<<chainID[z1]<<"	chainid+1	"<<chainID[z1+1]<<endl;
-		}
-	}
-	//cout <<"z2 "<<z2 <<"	z1	"<<z1 <<"	x	"<<xyz [0][z1]<<"	resnum
-		//"<<resnum[z1]<<"	maxres	"<<resnum[atmnum]<<endl;
-	//cout << "eol"<< endl;
+                id_by_chain[z2] = chainID[z1 + 1];
+                //cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
+                //cout <<"z2	"<< z2 <<"	z1	"<<z1 <<"	chainid
+                //"<<chainID[z1]<<"	chainid+1	"<<chainID[z1+1]<<endl;
+            }
+        }
+        //cout <<"z2 "<<z2 <<"	z1	"<<z1 <<"	x	"<<xyz [0][z1]<<"	resnum
+        //"<<resnum[z1]<<"	maxres	"<<resnum[atmnum]<<endl;
+        //cout << "eol"<< endl;
 
-	mst=0;
+        mst=0;
 
-	for (ich=1; ich<=chainx; ich++){
-		ms = ( (double(ir2[ich] - ir1[ich] + 1))/(300 + 1) );// # pages
-		//cout <<"# pages	"<<ms << endl;
-		ms = double(ir2[ich] - ir1[ich] + 1)/(ms);// # residues per page
-		//cout <<"res per page"	<< ms << endl;
-		if (ms>mst) mst=ms;
-		if (mst<200) mst=200;
-	}
-	//cout <<"mst		"<< mst << endl;
-	sz = 200/mst;
-	//cout <<"size		"<<sz<< endl;
+        for (ich=1; ich<=chainx; ich++){
+            ms = ( (double(ir2[ich] - ir1[ich] + 1))/(300 + 1) );// # pages
+            //cout <<"# pages	"<<ms << endl;
+            ms = double(ir2[ich] - ir1[ich] + 1)/(ms);// # residues per page
+            //cout <<"res per page"	<< ms << endl;
+            if (ms>mst) mst=ms;
+            if (mst<200) mst=200;
+        }
+        //cout <<"mst		"<< mst << endl;
+        sz = 200/mst;
+        cout << "Size of errat array " << errat.size() << endl;
 
-	for (ich=1; ich<=chainx; ich++){
-		np = 1 + ((ir2[ich]-ir1[ich]+1)/mst);
-		//cout <<"np		"<<np << endl;
-		for (z1 = 1; z1 <= np ; z1++){
-			ir0 = ir1[ich] + mst * (z1 - 1);
-			ir = ir0 + mst - 1;
-			if (ir > ir2[ich]) ir = ir2[ich];
-			//fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
-			fout << "chain " << id_by_chain[ich] << ":    Residue range " << ir0 << " to " << ir << endl;
+        for (ich=1; ich<=chainx; ich++){
+            np = 1 + ((ir2[ich]-ir1[ich]+1)/mst);
+            //cout <<"np		"<<np << endl;
+            for (z1 = 1; z1 <= np ; z1++){
+                ir0 = ir1[ich] + mst * (z1 - 1);
+                ir = ir0 + mst - 1;
+                if (ir > ir2[ich]) ir = ir2[ich];
+                //fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
+                fout << "chain " << id_by_chain[ich] << ":    Residue range " << ir0 << " to " << ir << endl;
 
-			{//PS START HERE
-			err << "%!PS"<<endl;
-			err << "%FIXED"<<endl;
-			err << "/sce {8} def /scr {3} def"<<endl;
-			err << "90 rotate 110 -380 translate /e95 {11.527} def /e99 {17.191} def"<<endl;
-			err << "/Helvetica findfont 18 scalefont setfont 0.5 setlinewidth"<<endl;
-			// err << "/g1 {1} def /g2 {0.6} def /g3 {0.0} def"<<endl;
-			err << "/bar1 {/g {1 1 1} def bar} def /bar2 {/g {1 1 0} def bar} def"<<endl;
-			err << "/bar3 {/g {1 0 0} def bar} def /bar {sce mul /yval exch def"<<endl;
-			err << " scr mul /xval exch def"<<endl;
-			err << "newpath xval 0 moveto xval yval lineto scr -1 mul 0"<<endl;
-			err << " rlineto 0 yval -1 mul rlineto closepath gsave g setrgbcolor"<<endl;
-			err << " fill grestore stroke} def"<<endl;
-			err << "/tick {newpath 0.5 sub scr mul 0 moveto 0 -3 rlineto"<<endl;
-			err << " currentpoint stroke moveto -10 -12 rmoveto} def"<<endl;
+                {//PS START HERE
+                err << "%!PS"<<endl;
+                err << "%FIXED"<<endl;
+                err << "/sce {8} def /scr {3} def"<<endl;
+                err << "90 rotate 110 -380 translate /e95 {11.527} def /e99 {17.191} def"<<endl;
+                err << "/Helvetica findfont 18 scalefont setfont 0.5 setlinewidth"<<endl;
+                // err << "/g1 {1} def /g2 {0.6} def /g3 {0.0} def"<<endl;
+                err << "/bar1 {/g {1 1 1} def bar} def /bar2 {/g {1 1 0} def bar} def"<<endl;
+                err << "/bar3 {/g {1 0 0} def bar} def /bar {sce mul /yval exch def"<<endl;
+                err << " scr mul /xval exch def"<<endl;
+                err << "newpath xval 0 moveto xval yval lineto scr -1 mul 0"<<endl;
+                err << " rlineto 0 yval -1 mul rlineto closepath gsave g setrgbcolor"<<endl;
+                err << " fill grestore stroke} def"<<endl;
+                err << "/tick {newpath 0.5 sub scr mul 0 moveto 0 -3 rlineto"<<endl;
+                err << " currentpoint stroke moveto -10 -12 rmoveto} def"<<endl;
 
-			err <<"% VARIABLE"<<endl;
-			err <<sz<<"   "<<sz<<" scale /rlim {"<< ir-ir0+1 <<"} def"<<endl;
-			err << "gsave 0 30 sce mul 20 add translate "<<endl;
-			//err << "0 30 moveto (Chain#:"<<  ich<<") show "<<endl;
-			err << "0 30 moveto (Chain#:"<<  id_by_chain[ich] <<") show "<<endl;
-			err << "0 50 moveto (File: "<<  file<<") show "<<endl;
-			err << "0 10 moveto (Overall quality factor**: "
-				<<  100-(100*pstat/stat)<<")show"<<endl;
-			err << "0 70 moveto (Program: ERRAT2) show"<<endl;
-			err << "() show"<<endl;
+                err <<"% VARIABLE"<<endl;
+                err <<sz<<"   "<<sz<<" scale /rlim {"<< ir-ir0+1 <<"} def"<<endl;
+                err << "gsave 0 30 sce mul 20 add translate "<<endl;
+                //err << "0 30 moveto (Chain#:"<<  ich<<") show "<<endl;
+                err << "0 30 moveto (Chain#:"<<  id_by_chain[ich] <<") show "<<endl;
+                err << "0 50 moveto (File: "<<  file<<") show "<<endl;
+                err << "0 10 moveto (Overall quality factor**: "
+                    <<  100-(100*pstat/stat)<<")show"<<endl;
+                err << "0 70 moveto (Program: ERRAT2) show"<<endl;
+                err << "() show"<<endl;
 
 
-			err << "% FIXED"<<endl;
-			err << "grestore newpath 0 0 moveto 0 27 sce mul rlineto stroke"<<endl;//side bars
-			err << "newpath rlim scr mul 0 moveto 0 27 sce mul rlineto stroke"<<endl;//side bars
-			err << "newpath 0  0 moveto rlim scr mul 0 rlineto stroke"<<endl;
-			err << "newpath -3 e95 sce mul moveto rlim scr mul 3 add 0 rlineto"<<endl;
-			err << "stroke newpath -3 e99 sce mul moveto rlim scr mul 3 add 0"<<endl;
-			err << " rlineto stroke"<<endl;
-			err << "newpath 0  27  sce mul moveto rlim scr"<<endl;//top bar
-			err << " mul 0 rlineto stroke"<<endl;
-			err << "rlim scr mul 2 div 100 sub -34"<<endl;
-			err << " moveto (Residue # (window center)) show"<<endl;
-			err << "/Helvetica findfont 14 scalefont setfont 0.5 setlinewidth"<<endl;
-			err << "-34 e95 sce mul 4 sub moveto (95\\%) show"<<endl;
-			err << "-34 e99 sce mul 4 sub moveto (99\\%) show"<<endl;
-			err << "/Helvetica findfont 12 scalefont setfont 0.5 setlinewidth"<<endl;
-			err << "0 -70 moveto (*On the error axis, two lines are drawn to indicate the confidence with) show"<<endl;
-			err << "0 -82 moveto (which it is possible to reject regions that exceed that error value.) show"<<endl;
-			err << "0 -100 moveto (**Expressed as the percentage of the protein for which the calculated) show"<<endl;
-			err << "0 -112 moveto (error value falls below the 95\\% rejection limit.  Good high resolution) show"<<endl;
-			err << "0 -124 moveto (structures generally produce values around 95\\% or higher.  For lower) show"<<endl;
-			err << "0 -136 moveto (resolutions (2.5 to 3A) the average overall quality factor is around 91\\%. ) show"<<endl;
-			err << "/Helvetica findfont 18 scalefont setfont 0.5 setlinewidth"<<endl;
-			err << "gsave -40 -5 translate 90 rotate 80 0 moveto (Error value*)"<<endl;
-			err << "show grestore"<<endl;
-			err << "/Helvetica findfont 16 scalefont setfont 0.5 setlinewidth"<<endl;
-            int chain_length = ir - ir0 + 1;
-            //cout << chain_length << endl;
-            for (z2=4; z2<=chain_length; z2++){
-                if (z2%20==0){
-                    err << (z2 - 4)    <<" tick        "<<endl;
-                    //err <<"("<< (z2 - 10000*(z2/10000)	)<<") show	"<< endl; }//KM
-                    err <<"("<< z2<<") show	"<< endl;
-                }//KM
-                else if (z2%10==0){
-                err << (z2 - 4)	<<" tick	"<<endl;
+                err << "% FIXED"<<endl;
+                err << "grestore newpath 0 0 moveto 0 27 sce mul rlineto stroke"<<endl;//side bars
+                err << "newpath rlim scr mul 0 moveto 0 27 sce mul rlineto stroke"<<endl;//side bars
+                err << "newpath 0  0 moveto rlim scr mul 0 rlineto stroke"<<endl;
+                err << "newpath -3 e95 sce mul moveto rlim scr mul 3 add 0 rlineto"<<endl;
+                err << "stroke newpath -3 e99 sce mul moveto rlim scr mul 3 add 0"<<endl;
+                err << " rlineto stroke"<<endl;
+                err << "newpath 0  27  sce mul moveto rlim scr"<<endl;//top bar
+                err << " mul 0 rlineto stroke"<<endl;
+                err << "rlim scr mul 2 div 100 sub -34"<<endl;
+                err << " moveto (Residue # (window center)) show"<<endl;
+                err << "/Helvetica findfont 14 scalefont setfont 0.5 setlinewidth"<<endl;
+                err << "-34 e95 sce mul 4 sub moveto (95\\%) show"<<endl;
+                err << "-34 e99 sce mul 4 sub moveto (99\\%) show"<<endl;
+                err << "/Helvetica findfont 12 scalefont setfont 0.5 setlinewidth"<<endl;
+                err << "0 -70 moveto (*On the error axis, two lines are drawn to indicate the confidence with) show"<<endl;
+                err << "0 -82 moveto (which it is possible to reject regions that exceed that error value.) show"<<endl;
+                err << "0 -100 moveto (**Expressed as the percentage of the protein for which the calculated) show"<<endl;
+                err << "0 -112 moveto (error value falls below the 95\\% rejection limit.  Good high resolution) show"<<endl;
+                err << "0 -124 moveto (structures generally produce values around 95\\% or higher.  For lower) show"<<endl;
+                err << "0 -136 moveto (resolutions (2.5 to 3A) the average overall quality factor is around 91\\%. ) show"<<endl;
+                err << "/Helvetica findfont 18 scalefont setfont 0.5 setlinewidth"<<endl;
+                err << "gsave -40 -5 translate 90 rotate 80 0 moveto (Error value*)"<<endl;
+                err << "show grestore"<<endl;
+                err << "/Helvetica findfont 16 scalefont setfont 0.5 setlinewidth"<<endl;
+                int chain_length = ir - ir0 + 1;
+                //cout << chain_length << endl;
+                for (z2=4; z2<=chain_length; z2++){
+                    if (z2%20==0){
+                        err << (z2 - 4)    <<" tick        "<<endl;
+                        //err <<"("<< (z2 - 10000*(z2/10000)	)<<") show	"<< endl; }//KM
+                        err <<"("<< z2<<") show	"<< endl;
+                    }//KM
+                    else if (z2%10==0){
+                    err << (z2 - 4)	<<" tick	"<<endl;
+                    }
+                }
+                for (z2=ir0; z2<=ir; z2++){
+                    strcpy(bar, "bar1\0");
+                    if (errat[z2]>lmt[2]) strcpy(bar,"bar2\0");
+                    if (errat[z2]>lmt[1]) strcpy(bar,"bar3\0");
+                    if (errat[z2]>27) errat[z2]=27;
+                    //fout <<"errt "<< "	z2	"<<z2<<bar<<endl;
+                    err << z2-ir0+1<<"	"<<errat[z2]<<" "<<bar<<endl;
+                }
+                err << "showpage" << endl;
                 }
             }
-            for (z2=ir0; z2<=ir; z2++){
-                strcpy(bar, "bar1\0");
-                if (errat[z2]>lmt[2]) strcpy(bar,"bar2\0");
-                if (errat[z2]>lmt[1]) strcpy(bar,"bar3\0");
-                if (errat[z2]>27) errat[z2]=27;
-                //fout <<"errt "<< "	z2	"<<z2<<bar<<endl;
-                err << z2-ir0+1<<"	"<<errat[z2]<<" "<<bar<<endl;
-            }
-            err << "showpage" << endl;
-			}
-		}
-	}
+        }
 
 
 
-	/*double errat[size];
-	int ich;
-	int ir1[100];
-	int ir2[100];
-	double ms, mst;
-	double sz;
-	int np, ip, ir0, ir;
-	int z1, z2;
-	char bar[5]*/
+        /*double errat[size];
+        int ich;
+        int ir1[100];
+        int ir2[100];
+        double ms, mst;
+        double sz;
+        int np, ip, ir0, ir;
+        int z1, z2;
+        char bar[5]*/
 
 	}
-	else
-	{
+	else{
 		zout <<"Not enough interactions to get data"<<endl;
 		mout <<o<<"	"<<file<<" Not enough interactions to get data"<<endl;
 	}
