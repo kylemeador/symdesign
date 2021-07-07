@@ -1060,6 +1060,7 @@ if __name__ == '__main__':
             required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
             all_entity_names = required_oligomers1.union(required_oligomers2)
             all_entities = []
+            load_resources = False
             orient_files = [os.path.splitext(file)[0] for file in os.listdir(orient_dir)]
             qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
             orient_log = SDUtils.start_log(name='orient', handler=1)
@@ -1144,6 +1145,7 @@ if __name__ == '__main__':
                             'job is finished, to properly format the multiple sequence alignment enter:\n\tsbatch %s'
                             % (hhblits_sbatch, reformat_sbatch))
                             # % '\n\tsbatch '.join([hhblits_sbatch, reformat_sbatch]))
+                load_resources = True
             else:
                 hhblits_sbatch = None
 
@@ -1202,6 +1204,8 @@ if __name__ == '__main__':
                 logger.info('After completion of the refinement sbatch script, re-run your %s command:'
                             '\n\t%s\nto finish set up of the designs of interest.'
                             % (PUtils.program_name, ' '.join(sys.argv)))
+                load_resources = True
+            if load_resources:
                 terminate(args.module, design_directories, output=False)
                 # The next time this directory is initialized, there will be no refine files left... hopefully and while
                 # loop won't be entered allowing DesignDirectory initialization to proceed
