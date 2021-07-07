@@ -91,7 +91,7 @@ int main(int argc, char* argv[]){//1
             all_lines.push_back(line);
 //            std::cout << line << std::endl;
         }//KM
-        file = 'stdin';
+        strcpy(file, "stdin");
     }
     else if(argc != 3) { puts("\n2 arguments required: ./errat pdbid localpath\n"); exit(1); }
     else {
