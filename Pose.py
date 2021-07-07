@@ -192,6 +192,13 @@ class SymmetricModel(Model):
                          'Class initialization. Or add a scout symmetry Class method to SymmetricModel.'
         return cls(models=assembly, **symmetry)
 
+    @classmethod
+    def from_asu(cls, asu, **kwargs):
+        sym_model = cls(asu=asu, **kwargs)
+        sym_model.get_assembly_symmetry_mates()
+        # sym_model.models = sym_model.return_symmetry_mates(asu)
+        return sym_model
+
     @property
     def asu(self):
         return self._asu
@@ -224,7 +231,6 @@ class SymmetricModel(Model):
         except AttributeError:
             if not self.models:
                 self.get_assembly_symmetry_mates()
-            # self._assembly = PDB.from_chains(list(iter_chain.from_iterable(self.models)), name='assembly', log=self.log)
             self._assembly = PDB.from_chains(list(iter_chain.from_iterable(model.chains for model in self.models)),
                                              name='assembly', log=self.log)
             return self._assembly
@@ -566,31 +572,46 @@ class SymmetricModel(Model):
 
         return oligomeric_indices
 
-    def return_symmetry_mates(self, pdb, **kwargs):  # return_side_chains=False, surrounding_uc=False):
+    def return_symmetry_mates(self, structure, **kwargs):  # return_side_chains=False, surrounding_uc=False):
         """Expand an asu in self.pdb using self.symmetry for the symmetry specification, and optional unit cell
         dimensions if self.dimension > 0. Expands assembly to complete point group, or the unit cell
 
+        Args:
+            structure (Structure): A Structure containing some collection of Residues
         Keyword Args:
             return_side_chains=True (bool): Whether to return all side chain atoms. False gives backbone and CB atoms
             surrounding_uc=False (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        Returns:
+            (list[Structure]): The symmetric copies of the input structure
         """
         if self.dimension == 0:
-            return self.return_point_group_symmetry_mates(pdb)
+            return self.return_point_group_symmetry_mates(structure)
         else:
-            return self.return_crystal_symmetry_mates(pdb, **kwargs)  # return_side_chains=return_side_chains,
+            return self.return_crystal_symmetry_mates(structure, **kwargs)  # return_side_chains=return_side_chains,
             #                                                           surrounding_uc=surrounding_uc)
 
-    def return_point_group_symmetry_mates(self, pdb):
-        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
-        return [pdb.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]
+    def return_point_group_symmetry_mates(self, structure):
+        """Expand the coordinates for every symmetric copy within the point group assembly
 
-    def return_crystal_symmetry_mates(self, pdb, surrounding_uc=False, **kwargs):
-        """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
+        Args:
+            structure (Structure): A Structure containing some collection of Residues
+        Returns:
+            (list[Structure]): The symmetric copies of the input structure
+        """
+        return [structure.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]
+
+    def return_crystal_symmetry_mates(self, structure, surrounding_uc=False, **kwargs):
+        """Expand the coordinates for every symmetric copy within the unit cell surrounding a asu
+
+        Args:
+            structure (Structure): A Structure containing some collection of Residues
+        Returns:
+            (list[Structure]): The symmetric copies of the input structure
         """
         if surrounding_uc:
-            return self.return_surrounding_unit_cell_symmetry_mates(pdb, **kwargs)  # return_side_chains
+            return self.return_surrounding_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
         else:
-            return self.return_unit_cell_symmetry_mates(pdb, **kwargs)  # return_side_chains
+            return self.return_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
 
     def return_symmetric_coords(self, coords):
         """Return the unit cell coordinates from a set of coordinates for the specified SymmetricModel"""
@@ -621,14 +642,22 @@ class SymmetricModel(Model):
         else:
             return self.frac_to_cart(model_coords)
 
-    def return_unit_cell_symmetry_mates(self, pdb, return_side_chains=True):  # For returning PDB copies
-        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
+    def return_unit_cell_symmetry_mates(self, structure, return_side_chains=True):  # For returning PDB copies
+        """Expand the coordinates for the structure to every symmetry mate in the unit cell based on symmetry matrices
+
+        Args:
+            structure (Structure): A Structure containing some collection of Residues
+        Keyword Args:
+            return_side_chains=True (bool): Whether the return the side chain coordinates in addition to backbone
+        Returns:
+            (list[Structure]): The symmetric copies of the input structure
+        """
         if return_side_chains:  # get different function calls depending on the return type
             # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            pdb_coords = pdb.coords
+            pdb_coords = structure.coords
         else:
             # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            pdb_coords = pdb.get_backbone_and_cb_coords()
+            pdb_coords = structure.get_backbone_and_cb_coords()
 
         # # asu_cart_coords = self.pdb.get_coords()  # returns a numpy array
         # asu_cart_coords = extract_pdb_coords(pdb)
@@ -648,20 +677,28 @@ class SymmetricModel(Model):
         sym_mates = []
         # for coord_set in sym_cart_coords:
         for model in range(self.number_of_models):
-            symmetry_mate_pdb = copy(pdb)
+            symmetry_mate_pdb = copy(structure)
             symmetry_mate_pdb.replace_coords(sym_cart_coords[model * coords_length: (model + 1) * coords_length])
             sym_mates.append(symmetry_mate_pdb)
 
         return sym_mates
 
-    def return_surrounding_unit_cell_symmetry_mates(self, pdb, return_side_chains=True, **kwargs):
-        """Returns a list of PDB objects from the symmetry mates of the input expansion matrices"""
+    def return_surrounding_unit_cell_symmetry_mates(self, structure, return_side_chains=True, **kwargs):
+        """Expand the coordinates for the structure to every surrounding unit cell based on symmetry matrices
+
+        Args:
+            structure (Structure): A Structure containing some collection of Residues
+        Keyword Args:
+            return_side_chains=True (bool): Whether the return the side chain coordinates in addition to backbone
+        Returns:
+            (list[Structure]): The symmetric copies of the input structure
+        """
         if return_side_chains:  # get different function calls depending on the return type
             # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
-            pdb_coords = pdb.coords
+            pdb_coords = structure.coords
         else:
             # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
-            pdb_coords = pdb.get_backbone_and_cb_coords()
+            pdb_coords = structure.get_backbone_and_cb_coords()
 
         if self.dimension == 3:
             z_shifts, uc_number = [0, 1, -1], 9
@@ -682,7 +719,7 @@ class SymmetricModel(Model):
         for coord_set in surrounding_cart_coords:
             # for model in self.number_of_models:
             for model in range(sg_zvalues[self.symmetry]):
-                symmetry_mate_pdb = copy(pdb)
+                symmetry_mate_pdb = copy(structure)
                 symmetry_mate_pdb.replace_coords(coord_set[(model * coords_length): ((model + 1) * coords_length)])
                 sym_mates.append(symmetry_mate_pdb)
 
