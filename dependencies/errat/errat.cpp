@@ -276,7 +276,7 @@ int main(int argc, char* argv[])
         char	chainID[size];
         char	resSeq_temp[5];
         int	resSeq[size];
-        int	resnum [size];
+        int	resnum[size];
         char	x[9], y[9], z[9];
         double 	xyz[3][size];
         int		flag = 0;
@@ -324,11 +324,11 @@ int main(int argc, char* argv[])
         //POSTSCRIPT
         // double errat[size];
         vector<double> errat;
+        errat.push_back(0);//KM Because of the indexing in the post script, add 0 array record
         errat.push_back(0);//KM
         errat.push_back(0);//KM
         errat.push_back(0);//KM
-        errat.push_back(0);//KM
-        errat.push_back(0);//KM
+        errat.push_back(0);//KM Add 4 entries as the window score is 9 long and centered at residue number + 5
         int chainx;
         int ich;
         int ir1[100];
@@ -461,8 +461,8 @@ int main(int argc, char* argv[])
 				}
 				if ((flag!=1))
 				{
-					resnum[i] = ( resSeq[i]+(kadd*chaindif) );
-					atmnum=i;//max lines
+					resnum[i] = (resSeq[i] + (kadd * chaindif));
+					atmnum = i;//max lines
 
 					//fout << "resnum[i]	"<<resnum[i]<<endl;
 					//fout << "kadd	" << kadd << endl;
@@ -593,13 +593,17 @@ int main(int argc, char* argv[])
 	stat = 0;
 	mtrxstat=0;
 
-
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
 	if (flag2!=1){//3
+	    if (resnum[1] > 1){//Check when the first residue is not 1, but some other number, say 3 add errat entries
+	        for(int missing_start = 1; missing_start < resnum[i] - 1; missing_start++){
+	            errat.push_back(0);
+	        }
+	    }
         for(i=1; i<=atmnum; i++){//4 //throws in all atmnum's
             //fout << i << endl;
             // ensure the measurement happens when a new residue is iterated
-            if ( ((resnum[i] > resnum[i - 1])||(i==1))/*&&(chain==chainID[i])*/){//5 //gate let's first atom of res through
+            if (((resnum[i] > resnum[i - 1]) || (i==1))/*&&(chain==chainID[i])*/){//5 //gate let's first atom of res through
                 //fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
                 for (aa=0;aa<4;aa++){
                     for (ab=0;ab<4;ab++)
@@ -782,14 +786,14 @@ int main(int argc, char* argv[])
                                 //fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl;
                             }
 
-            //                fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"% errat array #"<< errat.size() << endl;
+                            //fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"% errat array #"<< errat.size() << endl;
                             //tyout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
 
                             //POSTSCRIPT
                             //chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
                             // errat[resnum[i]+4]=mtrx;//KM
                             // errat[i+4]=mtrx;//KM
-                            errat.push_back(mtrx);//using a pure incremental approach to the errat array
+                            errat.push_back(mtrx);//KM using a pure incremental approach to the errat array
                             //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
                         }
                         else{
@@ -828,7 +832,7 @@ int main(int argc, char* argv[])
 	//ir1[0]=0;
 	//ir2[0]=0;
 	ir1[z2] = resnum[1] + 4 - ((z2 - 1) * chaindif);
-	ir2[z2] = 0;// Array with the last residue number in each incremental chain
+	//ir2[z2] = 0;// Array with the last residue number in each incremental chain
 	id_by_chain[z2] = chainID[1];
 	//cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
 	int last_chain_length = 0;
@@ -840,7 +844,7 @@ int main(int argc, char* argv[])
 		else if ((chainID[z1] != chainID[z1 + 1]) && (resnum[z1] > 4)){//ensure no seg problems
 			// ir2[z2]=resnum[z1]-4;
 			ir2[z2] = resnum[z1] - 4 - ((z2-1) * chaindif) + last_chain_length;//KM
-			last_chain_length = last_chain_length + ir2[z2] - ir1[z2] + 9;//KM ? + 8?
+			last_chain_length = last_chain_length + ir2[z2] - ir1[z2] + 9;//KM
 			// ir2[z2]=resnum[z1]-((z2-1)*chaindif);//Probably need to get rid of the -4 offset as it is now indexed by addition instead of array
 
 			//cout <<"ir2  "<< ir2[z2]<<"	ir1	"<<ir1[z2]<<endl;
@@ -849,7 +853,6 @@ int main(int argc, char* argv[])
 
 			id_by_chain[z2] = chainID[z1 + 1];
 			//cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
-
 			//cout <<"z2	"<< z2 <<"	z1	"<<z1 <<"	chainid
 			//"<<chainID[z1]<<"	chainid+1	"<<chainID[z1+1]<<endl;
 		}
@@ -875,12 +878,12 @@ int main(int argc, char* argv[])
 	for (ich=1; ich<=chainx; ich++){
 		np = 1 + ((ir2[ich]-ir1[ich]+1)/mst);
 		//cout <<"np		"<<np << endl;
-		for (z1=1; z1 <= np ; z1++){
-			ir0=ir1[ich]+mst*(z1-1);
-			ir=ir0+mst-1;
-			if (ir > ir2[ich]) ir=ir2[ich];
+		for (z1 = 1; z1 <= np ; z1++){
+			ir0 = ir1[ich] + mst * (z1 - 1);
+			ir = ir0 + mst - 1;
+			if (ir > ir2[ich]) ir = ir2[ich];
 			//fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
-			fout <<"chain "<< id_by_chain[ich] <<":    Residue range "<< ir0<<" to "<< ir << endl;
+			fout << "chain " << id_by_chain[ich] << ":    Residue range " << ir0 << " to " << ir << endl;
 
 			{//PS START HERE
 			err << "%!PS"<<endl;
