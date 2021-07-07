@@ -32,6 +32,8 @@ using std::ofstream;
 //KM patch for large memory allocation
 #include <algorithm>
 #include <vector>
+#include <stdio.h>
+#include <sys/poll.h>
 
 using std::vector;
 //check variables size/bxmx in arrays
@@ -52,10 +54,47 @@ int main(int argc, char* argv[])
     int flag2=0;//test for too many atoms in a box
     int flag3=0;
     int	kadd, o=0, gg=0;
-// COMMAND LINE ARGS STUFF HERE
-	char file[100], logfilename[100],psfilename[100], seed[100], path[100];
+    // COMMAND LINE ARGS STUFF HERE
+	char file[1000], logfilename[1000], psfilename[1000], seed[1000], path[1000];
 	//char tyfile[100];
-        if(argc != 3) { puts("\n2 arguments required: errat_v2 pdbid localpath\n"); exit(1); }
+
+    //STREAMS
+	ifstream count_in;// input filenames Directory
+	ifstream fin;// input files PDB
+	ofstream fout;// output logs to files
+	ofstream zout;//outputs results for analysis
+	ofstream mout;//outputs file progress report
+	//ofstream tyout; // T.O.Y.
+	ofstream err;
+
+	//STDIN reading
+	vector<std::string> all_lines;
+	struct pollfd fds;
+    int ret;
+    fds.fd = 0; /* this is STDIN */
+    fds.events = POLLIN;
+    ret = poll(&fds, 1, 0);
+	if(argc == 2 && ret == 1) {
+        strcpy(path, argv[1]);
+        strcpy(logfilename, path);
+        strcpy(psfilename, path);
+        strcat(logfilename, "errat.log");
+        strcat(psfilename, "errat.ps");
+        //if(ret == 1)
+        //    ;//Yes stdin
+        //else if(ret == 0)
+        //    ;//No stdin
+        //else
+        //    ;// Error
+        //return 0;
+        //		{
+        for (std::string line; std::getline(std::cin, line);) {
+            all_lines.push_back(line);
+//            std::cout << line << std::endl;
+        }//KM
+    }
+    else if(argc != 3) { puts("\n2 arguments required: ./errat pdbid localpath\n"); exit(1); }
+    else {
         strcpy(seed, argv[1]);
 	    strcpy(path, argv[2]);
         // file is the pdb file name, logf is the output logfile
@@ -71,19 +110,21 @@ int main(int argc, char* argv[])
         strcat(logfilename, ".logf");
         strcat(psfilename, ".ps");
         //strcat(tyfile, ".ty");
-
+        fin.open(file) ;	//read from that input file
+		if (fin.fail()!=0)
+		{	cout << "Failed opening file " << file << endl;
+			gg=1;}
+		else{
+		    for (char char_line[100]; fin.getline(char_line, 100);) {
+		        std::string line(char_line);
+                all_lines.push_back(line);
+                //std::cout << line << std::endl;
+            }//KM
+        }
+		zout << o <<"	"<< file << endl<<endl;
+    }
         cout<<" FILES "<<file<< " = "<<logfilename<<" = "<<psfilename<<"\n\n";
 
-
-
-	//STREAMS
-	ifstream count_in;// input filenames Directory
-	ifstream fin;// input files PDB
-	ofstream fout;// output logs to files
-	ofstream zout;//outputs results for analysis
-	ofstream mout;//outputs file progress report
-	//ofstream tyout; // T.O.Y.
-	ofstream err;
 // PROBLEM WITH IOS
 //	err.setf(ios::fixed);
 //	err.setf(ios::showpoint);
@@ -197,7 +238,7 @@ int main(int argc, char* argv[])
 		}
 */
 		kadd = 0;// new file init
-		gg=0;// new filename test
+		//gg=0;// new filename test
 
 		/*if (fl==1)
 		{
@@ -208,16 +249,7 @@ int main(int argc, char* argv[])
 			zout <<"	"<< fl2 << endl<<endl;
 		}*/
 		//if (fl==2)
-		{
-			fin.open(file) ;	//read from that input file
-			if (fin.fail()!=0)
-			{	cout << "Failed opening file " << file << endl;
-				gg=1;}
-			zout << o <<"	"<< file << endl<<endl;
-		}
-        ifstream input_file(file);
-        const int size = std::count(std::istreambuf_iterator<char>(input_file),
-                                    std::istreambuf_iterator<char>(), '\n');
+        const int size = all_lines.size();//KM
         //KM move initialization of all variables below here to dynamically utilize the array size
         //all arrays upon their import to UNIX must be modified to ensure proper load.
         //STAGE 1 VARS
@@ -227,15 +259,15 @@ int main(int argc, char* argv[])
         int	fl;
         //char fl2[100];
         char chain;
-        const char	atom_test [7] = { 'A','T','O','M',' ',' ','\0'} ;
+        const char	atom_test [7] = {'A','T','O','M',' ',' ','\0'};
         int atom;
         char	line2 [7];
-//        const int size=250000;
-//        const int bxmx=200000;
+        //const int size=250000;
+        //const int bxmx=200000;
         int		i,j,k,l,m,n,p,q,r,s,v, aa, ab;//, o=0, gg=0; //for loops
         int		atmnum;
         char	name_temp; char name_temp2[4];
-//        int	name[size]; int bnam[size];
+        //int	name[size]; int bnam[size];
         vector<int>	name; int bnam[size];
         name.push_back(0); //Todd uses all 1 indexed arrays...
         char	altLoc;
@@ -257,13 +289,13 @@ int main(int argc, char* argv[])
 
         int nbx[4];
         const double boxsize=4;// must be double for calculations
-//        int ibox1[16][bxmx];
+        //int ibox1[16][bxmx];
         int temp;
         int ix, iy, iz;
         int ind;// must give ceil, so int
         int most=0;
-//        int flag2=0;//test for too many atoms in a box
-//        int flag3=0;
+        //int flag2=0;//test for too many atoms in a box
+        //int flag3=0;
 
         //STAGE 4 VARS
 
@@ -313,10 +345,13 @@ int main(int argc, char* argv[])
 
 		if (gg==0)
 		{//2_5
-		for (i=0;( (!(fin.eof()))&&(flag3==0)&&(flag2==0) );)//PDB LOOP
+		//for (i=0;( (!(fin.eof()))&&(flag3==0)&&(flag2==0) );)//PDB LOOP
+        i=0;
+        char * line = new char [all_lines[i].length()+1];
+		for (int line_num=0;( (line_num < all_lines.size())&&(flag3==0)&&(flag2==0) ); line_num++)//PDB LOOP
 		{//3
-
-			fin.getline (line, 100);
+            strcpy(line, all_lines[line_num].c_str());
+			//fin.getline (line, 100);
 			for (j=0; j<6; j++) {line2[j]=line[j];}	line2[6]='\0';
 			if (strcmp (atom_test, line2) == 0)//single line process
 			{//4
@@ -344,7 +379,7 @@ int main(int argc, char* argv[])
 				}
 
 				for (j=17; j<20; j++) {resName[j-17]=line[j];}		resName[3]='\0';
-				//fout << i << "	" << resName ;
+				//cout << i << "	" << resName << endl;
 				if (!	(	(strcmp (resName, "GLY\0") == 0)||
 					(strcmp (resName, "ALA\0") == 0)||
 					(strcmp (resName, "VAL\0") == 0)||
@@ -453,15 +488,15 @@ int main(int argc, char* argv[])
 				// errat[resnum[i]+4]=0;//KM
 				// errat[i+4]=0;//KM
 				flag=0;//reset for next line
-//				}//5
+				//}//5
 			}//4	single atom line end
 
 		}//3	pdb file end
 
-		//fout << "ATOM NUMBER:	"<<atmnum <<endl;
-		//fout << "RESNUM[TOTAL]	"<<resnum[atmnum]<<endl;
+		//cout << "ATOM NUMBER:	"<<atmnum <<endl;
+		//cout << "RESNUM[TOTAL]	"<<resnum[atmnum]<<endl;
 
-		fin.close();
+		//fin.close();
 
 	///DO THE CALCULATION ON THIS PDB FILE DATASET////////
 
