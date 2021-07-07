@@ -1086,7 +1086,7 @@ class Structure(StructureBase):
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
-        # print('Errat Returned: %s' % p.stdout)
+        print('Errat Returned: %s' % p.stdout)
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
 
         errat_output_file = os.path.join(out_path, 'errat.ps')
