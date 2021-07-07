@@ -613,7 +613,7 @@ int main(int argc, char* argv[])
         {//5
 //        	fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
         if (resnum[i + 1] - resnum[i] > 1) {
-            for (missing_residue=1; missing_residue < resnum[i + 1] - resnum[i]; missing_residue++){
+            for (int missing_residue=1; missing_residue < resnum[i + 1] - resnum[i]; missing_residue++){
                 errat.push_back(0);//add a blank measurement to vector as the residues are unavailable
             }
         }
