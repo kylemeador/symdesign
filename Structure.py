@@ -1081,23 +1081,24 @@ class Structure(StructureBase):
         # errat_cmd = [errat_exe_path, os.path.splitext(name)[0], out_path]  # for writing file first
         # print(subprocess.list2cmdline(errat_cmd))
         # os.system('rm %s' % current_struc_file)
+        out_path = out_path if out_path[-1] == os.sep else out_path + os.sep  # errat needs trailing /
         errat_cmd = [errat_exe_path, out_path]  # for passing atoms by stdin
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
-        print('Errat Returned: %s' % p.stdout)
+        # print('Errat Returned: %s' % p.stdout)
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
 
         errat_output_file = os.path.join(out_path, 'errat.ps')
         # else:
         # TODO ensure that the overall quality factor is the right direction and extraction is working
         # print(subprocess.list2cmdline(['grep', 'Overall quality factor**: ', errat_output_file]))
-        p = subprocess.Popen(['grep', 'Overall quality factor: ', errat_output_file],
+        p = subprocess.Popen(['grep', 'Overall quality factor', errat_output_file],
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         errat_out, errat_err = p.communicate()
         try:
             overall_score = set(errat_out.decode().split('\n'))
-            print('Found overall score %s' % overall_score)
+            # print('Found overall score %s' % overall_score)
             score = next(iter(overall_score))
             return float(score[score.rfind('**: ') + 4:score.rfind(')')])
         except AttributeError:
