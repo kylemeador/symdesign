@@ -607,14 +607,14 @@ int main(int argc, char* argv[]){//1
             // ensure the measurement happens when a new residue is iterated
             if (((resnum[i] > resnum[i - 1]) || (i==1))/*&&(chain==chainID[i])*/){//5 //gate let's first atom of res through
                 //fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
-                res_counter++:
+                res_counter++;
                 s=1;//resets a counting clock, start at 1.
                 for (v = i; ((s < 10) && (v <= atmnum)); v++){//sets frame to 1, go until 9 - to ensure last residue is complete
                     if (resnum[v + 1] > resnum[v]){ // the residue number is not the same
                         if (resnum[v + 1] - resnum[v] < 100){s++;} // ensure they are on the same chain
                         else if (s == 9){s++;}// 9 residues are found and we have incremented chain. Increment s and move on
                         else{
-                            new_chain = true
+                            new_chain = true;
                             break;
                         }
                     }
@@ -623,7 +623,7 @@ int main(int argc, char* argv[]){//1
                 v--;//always sets v back into the frame of the window, counter last v++
 
                 if ((resSeq[v] > resSeq[i]) && (s==10)){//6 //test for same chain (LIMIT CHAIN TO 1K RES) and completeness of window
-                    if new_chain {
+                    if (new_chain){
                         obs_chain++;
                         last_chain_length = last_chain_length + res_counter;
                         res_counter = 0;
