@@ -72,7 +72,7 @@
 	</MOVE_MAP_FACTORIES>
 
 	<MOVERS>
-		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+<!--		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>-->
 		<AddJobPairData name="job_info" key="protocol" value="hbnet_design_profile" value_type="string"/>
 		# generates symmetry for the system in question using %%sdf%% or %%dist%%
 <!--		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0" preserve_datacache="1" keep_pdb_info_labels="1"/>-->
