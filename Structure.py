@@ -454,6 +454,17 @@ class Structure(StructureBase):
         """
         return [residue.cb_index if residue.cb_index else residue.ca_index for residue in self.residues]
 
+    def get_heavy_atom_indices(self):
+        """Return Heavy Atom indices from the Structure
+
+        Returns:
+            (list[int])
+        """
+        indices = []
+        for residue in self.residues:
+            indices.extend(residue.heavy_atom_indices)
+        return indices
+
     def get_helix_cb_indices(self):
         """Only works on secondary structure assigned structures!
 
@@ -1380,6 +1391,47 @@ class Structure(StructureBase):
 
         return fragments
 
+    def contact_order_per_residue(self, sequence_distance_cutoff=2.0, distance=6.0):
+        """Calculate the contact order on a per residue basis
+
+        Keyword Args:
+            sequence_distance_cutoff=2.0 (float): The residue spacing required to count a contact as a true contact
+            distance=6.0 (float): The distance in angstroms to measure atomic contact distances in contact
+
+        Returns:
+            (numpy.ndarray): The array representing the contact order for each residue in the Structure
+        """
+        # distance of 6 angstroms between heavy atoms was used for 1998 contact order work,
+        # subsequent residue wise contact order has focused on the Cb Cb heuristic of 12 A
+        # I think that an atom-atom based measure is more accurate, if slightly more time
+        # The BallTree creation is the biggest time cost regardless
+
+        # Get CB Atom Coordinates including CA coordinates for Gly residues
+        # indices = self.get_cb_indices()
+        # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
+        # query_coords = self.coords[indices]  # only get the coordinate indices we want
+        tree = BallTree(self.coords[self.get_heavy_atom_indices()])
+        # entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
+        query = tree.query_radius(self.coords, distance)  # get v residue w/ [0]
+        contacting_pairs = set((self.coords_indexed_residues[idx1][0], self.coords_indexed_residues[idx2][0])
+                               for idx2, contacts in enumerate(query) for idx1 in contacts)
+        # residues1, residues2 = split_interface_pairs(contacting_pairs)
+        contact_number = len(contacting_pairs)
+        for residue1, residue2 in contacting_pairs:
+            # if residue1.number < residue2.number:  # only get distances for one direction
+            #     continue
+            # residue_distance = residue1.number - residue2.number
+            residue_distance = abs(residue1.number - residue2.number)
+            if residue_distance < sequence_distance_cutoff:
+                continue
+            residue1.contact_order += residue_distance
+
+        number_residues = self.number_of_residues
+        for residue in self.residues:
+            residue.contact_order /= number_residues
+
+        return np.array([residue.contact_order for residue in self.residues])
+
     # def read_secondary_structure(self, filename=None, source='stride'):
     #     if source == 'stride':
     #         secondary_structure = self.parse_stride(filename)
@@ -2055,6 +2107,7 @@ class Residue:
         if coords:
             self.coords = coords
         self.secondary_structure = None
+        self._contact_order = 0
 
     @property
     def start_index(self):
@@ -2094,7 +2147,7 @@ class Residue:
         else:
             raise AttributeError('The supplied atoms are not of the class Atoms! Pass an Atoms object not a Atoms view.'
                                  ' To pass the Atoms object for a Structure, use the private attribute ._atoms')
-        side_chain = []
+        side_chain, heavy_atoms = [], []
         for idx, atom in enumerate(self.atoms):
             if atom.type == 'N':
                 self.n = idx
@@ -2119,9 +2172,12 @@ class Residue:
                 # self.h = atom.index
             else:
                 side_chain.append(idx)
+                if 'H' not in atom.type:
+                    heavy_atoms.append(idx)
         self.backbone_indices = [getattr(self, index, None) for index in ['_n', '_ca', '_c', '_o']]
         self.backbone_and_cb_indices = getattr(self, '_cb', None)
         self.sidechain_indices = side_chain
+        self.heavy_atom_indices = self.backbone_and_cb_indices + heavy_atoms
         self.number_pdb = atom.pdb_residue_number
         self.number = atom.residue_number
         self.type = atom.residue_type
@@ -2156,12 +2212,22 @@ class Residue:
     @property
     def sidechain_indices(self):
         """Returns: (list[int])"""
-        return [self._atom_indices[index] for index in self._sc_indices if index < len(self._atom_indices)]
+        return [self._atom_indices[index] for index in self._sc_indices]  # if index < len(self._atom_indices)]
 
     @sidechain_indices.setter
     def sidechain_indices(self, indices):
         """Returns: (list[int])"""
         self._sc_indices = indices
+
+    @property
+    def heavy_atom_indices(self):
+        """Returns: (list[int])"""
+        return [self._atom_indices[index] for index in self._heavy_atom_indices]  # if index < len(self._atom_indices)]
+
+    @heavy_atom_indices.setter
+    def heavy_atom_indices(self, indices):
+        """Returns: (list[int])"""
+        self._heavy_atom_indices = indices
 
     @property
     def coords(self):  # in structure too
@@ -2419,6 +2485,14 @@ class Residue:
     @property
     def relative_sasa(self):
         return self._sasa / gxg_sasa[self._type]
+
+    @property
+    def contact_order(self):
+        return self._contact_order
+
+    @contact_order.setter
+    def contact_order(self, contact_order):
+        self._contact_order = contact_order
 
     @property
     def number_of_atoms(self):
