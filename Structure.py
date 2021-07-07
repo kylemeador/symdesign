@@ -1078,8 +1078,9 @@ class Structure(StructureBase):
     def errat(self, out_path=os.getcwd()):
         name = 'errat_input-%s-%d.pdb' % (self.name, random() * 100000)
         current_struc_file = self.write(out_path=os.path.join(out_path, name))
-        p = subprocess.Popen([errat_exe_path, os.path.splitext(name)[0], out_path],
-                             stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        errat_cmd = [errat_exe_path, os.path.splitext(name)[0], out_path]
+        print(subprocess.list2cmdline(errat_cmd))
+        p = subprocess.Popen(errat_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
         os.system('rm %s' % current_struc_file)
 
@@ -1091,6 +1092,7 @@ class Structure(StructureBase):
         errat_output_file = os.path.join(out_path, '%s.ps' % name)
         # else:
         # TODO ensure that the overall quality factor is the right direction and extraction is working
+        print(subprocess.list2cmdline(['grep', 'Overall quality factor**: ', errat_output_file]))
         p = subprocess.Popen(['grep', 'Overall quality factor**: ', errat_output_file],
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         errat_out, errat_err = p.communicate()
