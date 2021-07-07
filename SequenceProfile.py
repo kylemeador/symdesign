@@ -16,7 +16,6 @@ from Bio.SeqUtils import IUPACData
 
 import CommandDistributer
 import PathUtils as PUtils
-from DesignMetrics import logger
 from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log, read_fasta_file, \
     read_stockholm_file, pretty_format_table
 
