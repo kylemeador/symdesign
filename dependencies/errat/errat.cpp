@@ -536,62 +536,54 @@ int main(int argc, char* argv[])
     const int bxmx = (nbx[1]*nbx[2]*nbx[3]) + 1;
 //    const int bxmx = atmnum + 1;
     int ibox1[16][bxmx];
-	if (flag2!=1)
-	{//3 flag2 ignores a pdb with too many boxes;
+	if (flag2!=1){//3 flag2 ignores a pdb with too many boxes;
+        for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++){//declare box holder
+        	ibox1[0][i]=0;// resets # of atoms per box
+        }
+        // Count the number of atoms in each box
+        for	(i=1; i<=atmnum; i++){//Translate all atoms so that the minimum is centered on the origin
+        	ix=((xyz[0][i]-(min[1]-0.00001) )/boxsize);//0.00001 ensures that all atoms fit into designated boxes
+            iy=((xyz[1][i]-(min[2]-0.00001) )/boxsize);
+            iz=((xyz[2][i]-(min[3]-0.00001) )/boxsize);
+            ind = 1 + ix + iy*nbx[1] + iz*nbx[1]*nbx[2];//box index
 
-	for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++)//declare box holder
-	{	ibox1[0][i]=0;// resets # of atoms per box
-	}
-    // Count the number of atoms in each box
-	for	(i=1; i<=atmnum; i++)//Translate all atoms so that the minimum is centered on the origin
-	{	ix=((xyz[0][i]-(min[1]-0.00001) )/boxsize);//0.00001 ensures that all atoms fit into designated boxes
-		iy=((xyz[1][i]-(min[2]-0.00001) )/boxsize);
-		iz=((xyz[2][i]-(min[3]-0.00001) )/boxsize);
-		ind = 1 + ix + iy*nbx[1] + iz*nbx[1]*nbx[2];//box index
+            ibox1[0][ind]=ibox1[0][ind] + 1;
+            temp =ibox1[0][ind]; // necessary to get into array
+            if (temp < 16){
+                ibox1[temp][ind]=i;// each atom in that box is listed
+            }
+            /*//TEST
+            fout <<ix<<"	"<<iy<<"	"<<iz<<endl;
+                {
+                    fout << "ibox1["<<temp<<"]["<<ind<<"]	"<<ibox1[temp][ind] << endl;
+                }*/
+        }
 
-		ibox1[0][ind]=ibox1[0][ind] + 1;
-		temp =ibox1[0][ind]; // necessary to get into array
-		if (temp < 16)
-		{
-			ibox1[temp][ind]=i;// each atom in that box is listed
-		}
+        //TODAY
+        /*for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++)//output test
+        {
+            //if (ibox1[0][i]!=0)
+                //fout << "Ind:	"<<i<<"	Atom#:	"<<ibox1[0][i]<< endl;
+            for (j=1; j<=ibox1[0][i];j++)
+                {
+                    fout << "ibox1["<<j<<"]["<<i<<"]	"<<ibox1[j][i] <<" = "<< name[ibox1[j][i]]<< endl;
+                }
+        }
+        */
 
-		/*//TEST
-		fout <<ix<<"	"<<iy<<"	"<<iz<<endl;
-			{
-				fout << "ibox1["<<temp<<"]["<<ind<<"]	"<<ibox1[temp][ind] << endl;
-			}*/
-	}
-
-	//TODAY
-	/*for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++)//output test
-	{
-		//if (ibox1[0][i]!=0)
-			//fout << "Ind:	"<<i<<"	Atom#:	"<<ibox1[0][i]<< endl;
-		for (j=1; j<=ibox1[0][i];j++)
-			{
-				fout << "ibox1["<<j<<"]["<<i<<"]	"<<ibox1[j][i] <<" = "<< name[ibox1[j][i]]<< endl;
-			}
-	}
-	*/
-
-	for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++)
-	{
-		if (ibox1[0][i]>15)
-		{
-			fout << "TOO MANY ATOMS IN BOX #"<< i << ":	"<< ibox1[0][i]<< endl;
-			for (j=1; (j<=ibox1[0][i])&&(ibox1[0][i]<16);j++)
-			{
-				fout << "ibox1["<<j<<"]["<<i<<"]	"<<ibox1[j][i] << endl;
-			}
-			flag2=1;
-		}
-		if (ibox1[0][i]> most){ most= ibox1[0][i];}
-	}
+        for (i=1; i<=nbx[1]*nbx[2]*nbx[3]; i++){
+            if (ibox1[0][i]>15){
+                fout << "TOO MANY ATOMS IN BOX #"<< i << ":	"<< ibox1[0][i]<< endl;
+                for (j=1; (j<=ibox1[0][i])&&(ibox1[0][i]<16);j++){
+                    fout << "ibox1["<<j<<"]["<<i<<"]	"<<ibox1[j][i] << endl;
+                }
+                flag2=1;
+            }
+            if (ibox1[0][i]> most){ most= ibox1[0][i];}
+        }
 	//fout <<"Most atoms in a box:	" <<  most << endl;
 
 	}//3end first flag2
-
 
 	//STEP 4: PREFORM THE ATOM COMPARISON CALCULATIONS.
 	//CONSIDER PUTTING SOME VARIABLES INTO THE TOP OF THE PROGRAM FOR MULTI-FILE DECLARATIONS.
@@ -603,238 +595,217 @@ int main(int argc, char* argv[])
 
 
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
-	if (flag2!=1)
-	{//3
-	for(i=1; i<=atmnum; i++)//throws in all atmnum's
-	{//4
-	//	fout << i << endl;
-	// ensure the measurement happens when a new residue is iterated
-	if ( ((resnum[i] > resnum[i - 1])||(i==1))/*&&(chain==chainID[i])*/)//gate let's first atom of res through
-        {//5
-//        	fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
-        for (aa=0;aa<4;aa++)
-        {
-            for (ab=0;ab<4;ab++)
-                c[aa][ab]=0;//sets the count of atom distances to 0 for each combination
-        }
-        //c[first atom][second atom]= length
-        //temporary function that records the # of different interaction
-        //types in the frame (9 residues).
-        s=1;//resets a counting clock, start at 1.
-        for (v = i; ( (s<10)&&(v<=atmnum) ); v++)
-        {//sets frame to 1, go until 9 - to ensure last residue is complete
-            if (resnum[v + 1] > resnum[v]){ // the residue number is not the same
-                if (resnum[v + 1]-resnum[v] < 100){s++;} // ensure they are on the same chain
-                else if (s == 9){s++;}// if have found 9 residues and chain is larger, or is last atom, increment
-                else{break;}
-    //            fout << "s is " << s << " v is "<<v<<endl;
-            }
-            else if (v==atmnum){s++;}
-        }
-        v--;//always sets v back into the frame of the window, counter last v++
+	if (flag2!=1){//3
+        for(i=1; i<=atmnum; i++){//4 //throws in all atmnum's
+            //fout << i << endl;
+            // ensure the measurement happens when a new residue is iterated
+            if ( ((resnum[i] > resnum[i - 1])||(i==1))/*&&(chain==chainID[i])*/){//5 //gate let's first atom of res through
+                //fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
+                for (aa=0;aa<4;aa++){
+                    for (ab=0;ab<4;ab++)
+                        c[aa][ab]=0;//sets the count of atom distances to 0 for each combination
+                }
+                //c[first atom][second atom]= length
+                //temporary function that records the # of different interaction
+                //types in the frame (9 residues).
+                s=1;//resets a counting clock, start at 1.
+                for (v = i; ( (s<10)&&(v<=atmnum) ); v++){//sets frame to 1, go until 9 - to ensure last residue is complete
+                    if (resnum[v + 1] > resnum[v]){ // the residue number is not the same
+                        if (resnum[v + 1]-resnum[v] < 100){s++;} // ensure they are on the same chain
+                        else if (s == 9){s++;}// if have found 9 residues and chain is larger, or is last atom, increment
+                        else{break;}
+                        //fout << "s is " << s << " v is "<<v<<endl;
+                    }
+                    else if (v==atmnum){s++;}
+                }
+                v--;//always sets v back into the frame of the window, counter last v++
 
-        if ((resSeq[v]>resSeq[i])&&(s==10))//test for same chain (LIMIT CHAIN TO 1K RES )
-                                                            //test for completeness of window
-            {//6
-//                    fout <<"i:	"<<i<<"/"<< resnum[i] <<"	v	"<<v<<"/"<<resnum[v]<<endl;
-            for ( rer = i; rer <= v ; rer++)// v is last atom frame and i(rer) is the first
-                {//7
-                    jbx=((xyz[0][rer]-(min[1]-0.00001) )/boxsize);		//use an additional test when the last v is atmnum
-                    jby=((xyz[1][rer]-(min[2]-0.00001) )/boxsize);
-                    jbz=((xyz[2][rer]-(min[3]-0.00001) )/boxsize);
-                    //copy the top calculations
-                    //set +/- limit on the values of the coordinates box index
-                    ibz1=jbz-ndelta;
-                    if (ibz1<0) ibz1=0;
-                    ibz2=jbz+ndelta;
-                    if (ibz2>nbx[3]-1) ibz2=nbx[3]-1;
+                if ((resSeq[v]>resSeq[i])&&(s==10)){//6 //test for same chain (LIMIT CHAIN TO 1K RES) and completeness of window
+                    //fout <<"i:	"<<i<<"/"<< resnum[i] <<"	v	"<<v<<"/"<<resnum[v]<<endl;
+                    for ( rer = i; rer <= v ; rer++){//7 // v is last atom frame and i(rer) is the first
+                        jbx=((xyz[0][rer]-(min[1]-0.00001) )/boxsize);		//use an additional test when the last v is atmnum
+                        jby=((xyz[1][rer]-(min[2]-0.00001) )/boxsize);
+                        jbz=((xyz[2][rer]-(min[3]-0.00001) )/boxsize);
+                        //copy the top calculations
+                        //set +/- limit on the values of the coordinates box index
+                        ibz1=jbz-ndelta;
+                        if (ibz1<0) ibz1=0;
+                        ibz2=jbz+ndelta;
+                        if (ibz2>nbx[3]-1) ibz2=nbx[3]-1;
 
-                    iby1=jby-ndelta;
-                    if (iby1<0) iby1=0;
-                    iby2=jby+ndelta;
-                    if (iby2>nbx[2]-1) iby2=nbx[2]-1;
+                        iby1=jby-ndelta;
+                        if (iby1<0) iby1=0;
+                        iby2=jby+ndelta;
+                        if (iby2>nbx[2]-1) iby2=nbx[2]-1;
 
-                    ibx1=jbx-ndelta;
-                    if (ibx1<0) ibx1=0;
-                    ibx2=jbx+ndelta;
-                    if (ibx2>nbx[1]-1) ibx2=nbx[1]-1;
+                        ibx1=jbx-ndelta;
+                        if (ibx1<0) ibx1=0;
+                        ibx2=jbx+ndelta;
+                        if (ibx2>nbx[1]-1) ibx2=nbx[1]-1;
 
-                    //fout << rer << endl;
-                    //fout <<"JBX:	"<<jbx<<"	"<<"JBY:	"
-                    //	 <<jby<<"	"<<"JBZ:	"<<jbz<<endl;
+                        //fout << rer << endl;
+                        //fout <<"JBX:	"<<jbx<<"	"<<"JBY:	"
+                        //	 <<jby<<"	"<<"JBZ:	"<<jbz<<endl;
 
-                    //fout <<"IBZ1:	"<< ibz1<<"	IBZ2:	"<<ibz2<<endl;
-                    //fout <<"IBY1:	"<< iby1<<"	IBY2:	"<<iby2<<endl;
-                    //fout <<"IBX1:	"<< ibx1<<"	IBX2:	"<<ibx2<<endl;
-                    //fout << endl;
+                        //fout <<"IBZ1:	"<< ibz1<<"	IBZ2:	"<<ibz2<<endl;
+                        //fout <<"IBY1:	"<< iby1<<"	IBY2:	"<<iby2<<endl;
+                        //fout <<"IBX1:	"<< ibx1<<"	IBX2:	"<<ibx2<<endl;
+                        //fout << endl;
 
-                    for (j=ibz1;j<=ibz2;j++)
-                    {//8
-                    for (k=iby1;k<=iby2;k++)
-                    {//9
-                    for (l=ibx1;l<=ibx2;l++)
-                    {//10
-                        ind = 1 + l + k*nbx[1] + j*nbx[1]*nbx[2];
-                        //fout << "IND:	"<< ind <<"	:	"<< l <<"	"<<k<<"	"<<j<<endl;
-                        for (m=1; m<=ibox1[0][ind]; m++)
-                        {//11
-                            n=ibox1[m][ind];// the atomnum index of the interaction box ind(ices) m(th) atom
-                            //fout <<ind<<" "<< m << endl;
+                        for (j=ibz1;j<=ibz2;j++){//8
+                            for (k=iby1;k<=iby2;k++){//9
+                                for (l=ibx1;l<=ibx2;l++){//10
+                                    ind = 1 + l + k*nbx[1] + j*nbx[1]*nbx[2];
+                                    //fout << "IND:	"<< ind <<"	:	"<< l <<"	"<<k<<"	"<<j<<endl;
+                                    for (m=1; m<=ibox1[0][ind]; m++)
+                                    {//11
+                                        n=ibox1[m][ind];// the atomnum index of the interaction box ind(ices) m(th) atom
+                                        //fout <<ind<<" "<< m << endl;
 
-                            if(resnum[rer]!=resnum[n])//residue inequality test
-                            {//12
-                                // Find the square distance between atom idx n and atom idx rer
-                                dsq=0;
-                                for (p=0; p<=2;p++)
-                                {
-                                    dsq=dsq+(pow((xyz[p][n]-xyz[p][rer]),2));
-                                }
-                                // Check if distance squared is less than radius squared
-                                if (dsq < rsq)//LIMITS - 3.25 to 3.75.
-                                {//13
-                                // check if interaction is novel, i.e. non-bonded interactions
-                                if  (
-                                        // both the atom indices are Nitrogen or Carbon and
-                                        (bnam[rer]==1)&&(bnam[n]==1)&&
-                                    (   // the distance is the result of a peptide bond
-                                        ((resnum[n]==resnum[rer]+1)&&
-                                        (name[rer]==1)&&(name[n]==2))||//only work for n-N and rer-C
-
-                                        ((resnum[rer]==resnum[n]+1)&&
-                                        (name[rer]==2)&&(name[n]==1)/*&&
-                                        (resnum[rer]==resnum[i])*/) //complete symmetry in interaction eval
-                                    )
-                                    ) // do nothing
-                                {
-                                    //fout <<"QQQQQDSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]
-                                    //	<<"	to	"<<n<<"/"<<resnum[n]<<"/"<<name[n]<<"	in	"<< sqrt(dsq)<< endl;
-                                    //fout<<xyz[0][n]<<"	"<<xyz[1][n]<<"	"<<xyz[2][n]<<endl;
-                                    //fout<<xyz[0][rer]<<"	"<<xyz[1][rer]<<"	"<<xyz[2][rer]<<endl;
-                                }//some concern with regard - looks line only the first var imp
-                                else
-                                {//14
-                                    if (	(n>=i)&&(n<=v)	)//i and v are included in frame
-                                    {
-                                        if (resnum[rer]>resnum[n]) //KM only look at interactions with prior residues on the chain
-                                        {
-                                            if (dsq <= ssq)
+                                        if(resnum[rer]!=resnum[n])//residue inequality test
+                                        {//12
+                                            // Find the square distance between atom idx n and atom idx rer
+                                            dsq=0;
+                                            for (p=0; p<=2;p++)
                                             {
-                                                temp1 = 1;
+                                                dsq=dsq+(pow((xyz[p][n]-xyz[p][rer]),2));
                                             }
-                                            else
-                                            {
-                                                temp1=2*(3.75-sqrt(dsq));
-                                                //fout<<xyz[0][n]<<"	"<<xyz[1][n]<<"	"<<xyz[2][n]<<endl;
-                                                //fout<<xyz[0][rer]<<"	"<<xyz[1][rer]<<"	"<<xyz[2][rer]<<endl;
-                                            }
+                                            // Check if distance squared is less than radius squared
+                                            if (dsq < rsq){//13 //LIMITS - 3.25 to 3.75.
+                                                // check if interaction is novel, i.e. non-bonded interactions
+                                                if  (
+                                                        // both the atom indices are Nitrogen or Carbon and
+                                                        (bnam[rer]==1)&&(bnam[n]==1)&&
+                                                    (   // the distance is the result of a peptide bond
+                                                        ((resnum[n]==resnum[rer]+1)&&
+                                                        (name[rer]==1)&&(name[n]==2))||//only work for n-N and rer-C
 
-                                            count = count+1;
+                                                        ((resnum[rer]==resnum[n]+1)&&
+                                                        (name[rer]==2)&&(name[n]==1)/*&&
+                                                        (resnum[rer]==resnum[i])*/) //complete symmetry in interaction eval
+                                                    )
+                                                    ) // do nothing
+                                                {
+                                                    //fout <<"QQQQQDSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]
+                                                    //	<<"	to	"<<n<<"/"<<resnum[n]<<"/"<<name[n]<<"	in	"<< sqrt(dsq)<< endl;
+                                                    //fout<<xyz[0][n]<<"	"<<xyz[1][n]<<"	"<<xyz[2][n]<<endl;
+                                                    //fout<<xyz[0][rer]<<"	"<<xyz[1][rer]<<"	"<<xyz[2][rer]<<endl;
+                                                }//some concern with regard - looks line only the first var imp
+                                                else{//14
+                                                    if (	(n>=i)&&(n<=v)	){//i and v are included in frame
+                                                        if (resnum[rer]>resnum[n]){//KM only look at interactions with prior residues on the chain
+                                                            if (dsq <= ssq){
+                                                                temp1 = 1;
+                                                            }
+                                                            else{
+                                                                temp1=2*(3.75-sqrt(dsq));
+                                                                //fout<<xyz[0][n]<<"	"<<xyz[1][n]<<"	"<<xyz[2][n]<<endl;
+                                                                //fout<<xyz[0][rer]<<"	"<<xyz[1][rer]<<"	"<<xyz[2][rer]<<endl;
+                                                            }
+                                                            count = count+1;
+                                                            c[ name[rer] ][ (name[n]) ]=
+                                                                c[ (name[rer]) ][ (name[n]) ]+temp1;
 
+                                                            //fout <<"1DSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]<<"	to	"
+                                                                // <<n<<"/"<<resnum[n]<<"/"<<name[n] <<"	in	"<< sqrt(dsq)<<"/"<<temp1 << endl;
+                                                        }
+                                                    }
+                                                    else{ //KM the atom of interest is outside of the frame. We still add?
+                                                        if (dsq <= ssq){//redundant code, but saves time
+                                                            temp1 = 1;
+                                                        }
+                                                        else{
+                                                            temp1=2*(3.75-sqrt(dsq));
+                                                        }
+                                                        count = count+1;
+                                                        c[name[rer]][name[n]]=c[name[rer]][name[n]]+temp1;
+                                                        //fout <<"2DSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]<<"	to	"
+                                                        //	 <<n<<"/"<<resnum[n]<<"/"<<name[n] <<"	in	"<< sqrt(dsq)<<"/"<<temp1 << endl;
+                                                    }
+                                                }//14
+                                            }//13
+                                        }//12
+                                    }//11
+                                }//10
+                            }//9
+                        }//8
+                    }//7
 
-                                            c[ name[rer] ][ (name[n]) ]=
-                                                c[ (name[rer]) ][ (name[n]) ]+temp1;
+                        temp2=0;//total interaction weight measured
+                        for (q=1;q<=3;q++){
+                            for (r=1;r<=3;r++){
+                                temp2=temp2+c[q][r];
+                            }
+                        }
+                        if (temp2>0){//minimum interactions test
+                            //fout <<temp2<<" residue:"<<resnum[i]+4<<" count:"<<count<<" (1):"<<c[1][1]/temp2<<" (2):"<<(c[1][2]+c[2][1])/temp2<<" "
+                            //<<(c[1][3]+c[3][1])/temp2<<" "<<c[2][2]/temp2<<" "<<(c[2][3]+c[3][2])/temp2<<" "
+                            //<<c[3][3]/temp2<<endl;
+                        }
+                        else{
+                            fout <<temp2<<" "<<resnum[i]+4<<" "<<count<<" "<<"WARNING: No Interactions in This Frame"<<endl;
+                        }
+                        //Check for gaps in residue numbering and add errat observations accordingly
+                        if ((resnum[i] - resnum[i - 1] > 1) && (chainID[i] == chainID[i - 1])){
+                            //cout << "found missing residues" << resnum[i - 1] << " to " << resnum[i] << " adding "
+                            //<< resnum[i] - resnum[i - 1] - 1 << " errat observations" << endl;
+                            for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
+                                errat.push_back(0);//add a blank measurement to vector for each residue that is unavailable
+                            }
+                        }
 
-                                            //fout <<"1DSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]<<"	to	"
-                                                // <<n<<"/"<<resnum[n]<<"/"<<name[n] <<"	in	"<< sqrt(dsq)<<"/"<<temp1 << endl;
-                                        }
-                                    }
-                                    else //KM the atom of interest is outside of the frame. We still add?
-                                    {
-                                        if (dsq <= ssq)//redundant code, but saves time
-                                            temp1 = 1;
-                                        else
-                                            temp1=2*(3.75-sqrt(dsq));
+                        if (temp2>maxwin){//minimum interactions test
+                            //zout << resnum[i]+4 <<"	"<<c[1][1]/temp2<<"	"<<(c[1][2]+c[2][1])/temp2<<"	"
+                            //	 <<(c[1][3]+c[3][1])/temp2<<"	"<<c[2][2]/temp2<<"	"
+                            //	 <<(c[2][3]+c[3][2])/temp2<<endl;
+                            matrix[1] = c[1][1]/temp2;
+                            matrix[2] = (c[1][2]+c[2][1])/temp2;
+                            matrix[3] = (c[1][3]+c[3][1])/temp2;
+                            matrix[4] = c[2][2]/temp2;
+                            matrix[5] = (c[2][3]+c[3][2])/temp2;
 
-                                        count = count+1;
+                            mtrx = matrixdb(matrix);
 
-                                        c[name[rer]][name[n]]=c[name[rer]][name[n]]+temp1;
-                                        //fout <<"2DSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]<<"	to	"
-                                            //	 <<n<<"/"<<resnum[n]<<"/"<<name[n] <<"	in	"<< sqrt(dsq)<<"/"<<temp1 << endl;
-                                    }
-                                }//14
-                                }//13
-                            }//12
-                        }//11
-                    }//10
-                    }//9
-                    }//8
-                }//7
+                            stat++;
+                            mtrxstat = mtrxstat + mtrx;
 
-                temp2=0;//total interaction weight measured
-                for (q=1;q<=3;q++){
-                    for (r=1;r<=3;r++){
-                        temp2=temp2+c[q][r];
-                    }
-                }
-                if (temp2>0){//minimum interactions test
-                    //fout <<temp2<<" residue:"<<resnum[i]+4<<" count:"<<count<<" (1):"<<c[1][1]/temp2<<" (2):"<<(c[1][2]+c[2][1])/temp2<<" "
-                    //<<(c[1][3]+c[3][1])/temp2<<" "<<c[2][2]/temp2<<" "<<(c[2][3]+c[3][2])/temp2<<" "
-                    //<<c[3][3]/temp2<<endl;
-                }
+                            mstat = 0;
+
+                            if  (mtrx > lmt[1]){
+                                mstat= 99;
+                                pstat++;
+                                //fout<< "pstat99 "<<resnum[i]+4<<" "<<i<<endl;
+                            }
+                            else if (mtrx > lmt[2]){
+                                mstat= 95;
+                                pstat++;
+                                //fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl;
+                            }
+
+            //                fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"% errat array #"<< errat.size() << endl;
+                            //tyout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
+
+                            //POSTSCRIPT
+                            //chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
+                            // errat[resnum[i]+4]=mtrx;//KM
+                            // errat[i+4]=mtrx;//KM
+                            errat.push_back(mtrx);//using a pure incremental approach to the errat array
+                            //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
+                        }
+                        else{
+                            errat.push_back(0);
+                            lowframe++;
+                            fout << "WARNING: Frame	"<<resnum[i]+4<<"	Below Minimum Interaction Limit."<<endl;
+                            //fout << "Low Frames:"<<lowframe << endl;
+                        }
+
+                }//6 END of the proper frame test.
                 else{
-                    fout <<temp2<<" "<<resnum[i]+4<<" "<<count<<" "<<"WARNING: No Interactions in This Frame"<<endl;
+    //            cout<<"incorrect frame found at residue"<< resnum[i]<<endl;
+                errat.push_back(0);//add a blank measurement to vector as the frame is unavailable
                 }
-                //Check for gaps in residue numbering and add errat observations accordingly
-                if ((resnum[i] - resnum[i - 1] > 1) && (chainID[i] == chainID[i - 1])){
-                    //cout << "found missing residues" << resnum[i - 1] << " to " << resnum[i] << " adding "
-                    //<< resnum[i] - resnum[i - 1] - 1 << " errat observations" << endl;
-                    for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
-                        errat.push_back(0);//add a blank measurement to vector for each residues that is unavailable
-                    }
-                }
-
-                if (temp2>maxwin){//minimum interactions test
-                    //zout << resnum[i]+4 <<"	"<<c[1][1]/temp2<<"	"<<(c[1][2]+c[2][1])/temp2<<"	"
-                    //	 <<(c[1][3]+c[3][1])/temp2<<"	"<<c[2][2]/temp2<<"	"
-                    //	 <<(c[2][3]+c[3][2])/temp2<<endl;
-                    matrix[1] = c[1][1]/temp2;
-                    matrix[2] = (c[1][2]+c[2][1])/temp2;
-                    matrix[3] = (c[1][3]+c[3][1])/temp2;
-                    matrix[4] = c[2][2]/temp2;
-                    matrix[5] = (c[2][3]+c[3][2])/temp2;
-
-                    mtrx = matrixdb(matrix);
-
-                    stat++;
-                    mtrxstat = mtrxstat + mtrx;
-
-                    mstat = 0;
-
-                    if  (mtrx > lmt[1]){
-                        mstat= 99;
-                        pstat++;
-                        //fout<< "pstat99 "<<resnum[i]+4<<" "<<i<<endl;
-                    }
-                    else if (mtrx > lmt[2]){
-                        mstat= 95;
-                        pstat++;
-                        //fout<< "pstat95 "<<resnum[i]+4<<" "<<i<<endl;
-                    }
-
-    //                fout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"% errat array #"<< errat.size() << endl;
-                    //tyout << resnum[i]+4<<"	"<< mtrx <<"	"<< mstat <<"%"<< endl;
-
-                    //POSTSCRIPT
-                    //chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
-                    // errat[resnum[i]+4]=mtrx;//KM
-                    // errat[i+4]=mtrx;//KM
-                    errat.push_back(mtrx);//using a pure incremental approach to the errat array
-                    //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
-                }
-                else{
-                    errat.push_back(0);
-                    lowframe++;
-                    fout << "WARNING: Frame	"<<resnum[i]+4<<"	Below Minimum Interaction Limit."<<endl;
-                    //fout << "Low Frames:"<<lowframe << endl;
-                }
-
-            }//6 END of the proper frame test.
-            else{
-//            cout<<"incorrect frame found at residue"<< resnum[i]<<endl;
-            errat.push_back(0);//add a blank measurement to vector as the frame is unavailable
-            }
-        }//5
-	}//4
+            }//5
+        }//4
 	}//3 flag2 pdb exclusion end
 
 	if (stat>0)
@@ -847,7 +818,7 @@ int main(int argc, char* argv[])
 	//fout << 100-(100*pstat/stat)<<endl;
 
 	//POSTSCRIPT
-	chainx= (1 + ( resnum[atmnum] - 4 ) / 10000 );//total chains
+	chainx= (1 + (resnum[atmnum] - 4) / 10000);//total chains
 	//cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
 
 	//z1 controls atmnum
@@ -856,30 +827,27 @@ int main(int argc, char* argv[])
 	z2=1;//start with 1
 	//ir1[0]=0;
 	//ir2[0]=0;
-	ir1[z2]=resnum[1]+4-((z2 - 1)*chaindif);
-	ir2[z2]=0;// Array with the last residue number in each incremental chain
-	id_by_chain[z2]=chainID[1];
+	ir1[z2] = resnum[1] + 4 - ((z2 - 1) * chaindif);
+	ir2[z2] = 0;// Array with the last residue number in each incremental chain
+	id_by_chain[z2] = chainID[1];
 	//cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
-	int last_chain_length=0;
+	int last_chain_length = 0;
 	// find the residues at which the chain transitions
-	for (z1=1 ; z1<atmnum; z1++)
-	{
-		if (z1==(atmnum-1))//last atom
-		{
-			ir2[z2]=resnum[atmnum]-4-((z2-1)*chaindif) + last_chain_length;
+	for (z1 = 1 ; z1 < atmnum; z1++){
+		if (z1 == (atmnum - 1)){//last atom
+			ir2[z2] = resnum[atmnum] - 4 - ((z2-1) * chaindif) + last_chain_length;
 		}
-		else if ((chainID[z1]!=chainID[z1+1])&&(resnum[z1]>4))//ensure no seg problems
-		{
+		else if ((chainID[z1] != chainID[z1 + 1]) && (resnum[z1] > 4)){//ensure no seg problems
 			// ir2[z2]=resnum[z1]-4;
-			ir2[z2]=resnum[z1]-4-((z2-1)*chaindif) + last_chain_length;//KM
+			ir2[z2] = resnum[z1] - 4 - ((z2-1) * chaindif) + last_chain_length;//KM
 			last_chain_length = last_chain_length + ir2[z2] - ir1[z2] + 9;//KM ? + 8?
 			// ir2[z2]=resnum[z1]-((z2-1)*chaindif);//Probably need to get rid of the -4 offset as it is now indexed by addition instead of array
 
 			//cout <<"ir2  "<< ir2[z2]<<"	ir1	"<<ir1[z2]<<endl;
 			z2++;
-			ir1[z2]= resnum[z1+1]+4-((z2-1)*chaindif) + last_chain_length;//KM
+			ir1[z2] = resnum[z1 + 1] + 4 - ((z2-1) * chaindif) + last_chain_length;//KM
 
-			id_by_chain[z2]=chainID[z1+1];
+			id_by_chain[z2] = chainID[z1 + 1];
 			//cout << "atn, chain#, chainID " << z1 << "  " << z2 << "  " << id_by_chain[z2]<<endl;
 
 			//cout <<"z2	"<< z2 <<"	z1	"<<z1 <<"	chainid
@@ -892,10 +860,10 @@ int main(int argc, char* argv[])
 
 	mst=0;
 
-	for (ich=1; ich<=chainx; ich++)
-	{	ms = ( (double(ir2[ich]-ir1[ich]+1))/(300+1) );// # pages
+	for (ich=1; ich<=chainx; ich++){
+		ms = ( (double(ir2[ich] - ir1[ich] + 1))/(300 + 1) );// # pages
 		//cout <<"# pages	"<<ms << endl;
-		ms = double(ir2[ich]-ir1[ich]+1)/(ms);// # residues per page
+		ms = double(ir2[ich] - ir1[ich] + 1)/(ms);// # residues per page
 		//cout <<"res per page"	<< ms << endl;
 		if (ms>mst) mst=ms;
 		if (mst<200) mst=200;
@@ -904,16 +872,14 @@ int main(int argc, char* argv[])
 	sz = 200/mst;
 	//cout <<"size		"<<sz<< endl;
 
-	for (ich=1; ich<=chainx; ich++)
-	{
+	for (ich=1; ich<=chainx; ich++){
 		np = 1 + ((ir2[ich]-ir1[ich]+1)/mst);
 		//cout <<"np		"<<np << endl;
-		for (z1=1; z1 <= np ; z1++)
-		{
+		for (z1=1; z1 <= np ; z1++){
 			ir0=ir1[ich]+mst*(z1-1);
 			ir=ir0+mst-1;
 			if (ir > ir2[ich]) ir=ir2[ich];
-//			fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
+			//fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
 			fout <<"chain "<< id_by_chain[ich] <<":    Residue range "<< ir0<<" to "<< ir << endl;
 
 			{//PS START HERE
@@ -935,7 +901,7 @@ int main(int argc, char* argv[])
 			err <<"% VARIABLE"<<endl;
 			err <<sz<<"   "<<sz<<" scale /rlim {"<< ir-ir0+1 <<"} def"<<endl;
 			err << "gsave 0 30 sce mul 20 add translate "<<endl;
-//			err << "0 30 moveto (Chain#:"<<  ich<<") show "<<endl;
+			//err << "0 30 moveto (Chain#:"<<  ich<<") show "<<endl;
 			err << "0 30 moveto (Chain#:"<<  id_by_chain[ich] <<") show "<<endl;
 			err << "0 50 moveto (File: "<<  file<<") show "<<endl;
 			err << "0 10 moveto (Overall quality factor**: "
@@ -969,25 +935,27 @@ int main(int argc, char* argv[])
 			err << "gsave -40 -5 translate 90 rotate 80 0 moveto (Error value*)"<<endl;
 			err << "show grestore"<<endl;
 			err << "/Helvetica findfont 16 scalefont setfont 0.5 setlinewidth"<<endl;
-				int chain_length = ir - ir0 + 1;
-//				cout << chain_length << endl;
-				for (z2=4; z2<=chain_length; z2++)
-				{
-					if (z2%20==0) { err << (z2 - 4)    <<" tick        "<<endl;
-//					                err <<"("<< (z2 - 10000*(z2/10000)	)<<") show	"<< endl; }//KM
-					                err <<"("<< z2<<") show	"<< endl; }//KM
-					else if (z2%10==0) err << (z2 - 4)	<<" tick	"<<endl;
-				}
-				for (z2=ir0; z2<=ir; z2++)
-				{
-					strcpy(bar,"bar1\0");
-					if (errat[z2]>lmt[2]) strcpy(bar,"bar2\0");
-					if (errat[z2]>lmt[1]) strcpy(bar,"bar3\0");
-					if (errat[z2]>27) errat[z2]=27;
-					//fout <<"errt "<< "	z2	"<<z2<<bar<<endl;
-					err << z2-ir0+1<<"	"<<errat[z2]<<" "<<bar<<endl;
-				}
-				err << "showpage" << endl;
+            int chain_length = ir - ir0 + 1;
+            //cout << chain_length << endl;
+            for (z2=4; z2<=chain_length; z2++){
+                if (z2%20==0){
+                    err << (z2 - 4)    <<" tick        "<<endl;
+                    //err <<"("<< (z2 - 10000*(z2/10000)	)<<") show	"<< endl; }//KM
+                    err <<"("<< z2<<") show	"<< endl;
+                }//KM
+                else if (z2%10==0){
+                err << (z2 - 4)	<<" tick	"<<endl;
+                }
+            }
+            for (z2=ir0; z2<=ir; z2++){
+                strcpy(bar, "bar1\0");
+                if (errat[z2]>lmt[2]) strcpy(bar,"bar2\0");
+                if (errat[z2]>lmt[1]) strcpy(bar,"bar3\0");
+                if (errat[z2]>27) errat[z2]=27;
+                //fout <<"errt "<< "	z2	"<<z2<<bar<<endl;
+                err << z2-ir0+1<<"	"<<errat[z2]<<" "<<bar<<endl;
+            }
+            err << "showpage" << endl;
 			}
 		}
 	}
