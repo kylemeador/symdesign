@@ -31,10 +31,11 @@ from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, 
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
     stats_metrics, significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, \
-    filter_df_for_index_by_value, hydrophobic_collapse_index  # calc_relative_sa,
+    filter_df_for_index_by_value  # calc_relative_sa,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
-    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence,\
-    multi_chain_alignment  # , format_mutations, generate_sequences, make_mutations_chain_agnostic,
+    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
+    multi_chain_alignment, \
+    hydrophobic_collapse_index  # , format_mutations, generate_sequences, make_mutations_chain_agnostic,
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 from utils.SymmetryUtils import valid_subunit_number

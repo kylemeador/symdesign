@@ -1,7 +1,5 @@
 import os
-import math
 import operator
-import time
 from copy import copy, deepcopy
 from itertools import repeat
 from json import loads
@@ -1057,88 +1055,6 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
     bool_df = pd.DataFrame([permut_s.abs().lt(abs_s) for permut_s in permut_s_array])
 
     return bool_df.mean()
-
-
-def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Validate
-    """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return a HCI array
-
-    Args:
-        sequence (str): The sequence to measure
-    Keyword Args:
-        hydrophobicity='standard' (str): The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FILMVWY)
-    Returns:
-        (numpy.ndarray): 1D array with the mean collapse score for every position on the input sequence
-    """
-    sequence_length = len(sequence)
-    lower_range, upper_range, range_correction = 3, 9, 1
-    range_size = upper_range - lower_range  # + range_correction
-    yes = 1
-    no = 0
-    if hydrophobicity == 'background':  # Todo
-        raise DesignError('This function is not yet possible')
-        # hydrophobic = [0.3, 0.3, 0.3, ...]
-    elif hydrophobicity == 'expanded':
-        hydrophobic = ['F', 'I', 'L', 'M', 'V', 'W', 'Y']
-    else:  # hydrophobicity == 'standard':
-        hydrophobic = ['F', 'I', 'L', 'V']
-
-    sequence_array = [yes if aa in hydrophobic else no for aa in sequence]
-
-    # make an array with # of rows equal to upper range (+1 for indexing), length equal to # of letters in sequence
-    window_array = np.zeros((range_size, sequence_length))  # [[0] * (sequence_length + 1) for i in range(upper_range + 1)]
-    for array_idx, window_size in enumerate(range(lower_range, upper_range + range_correction)):
-        # iterate over the window range
-        window_spread = math.floor(window_size / 2)
-        # check if the range is odd or even, then calculate score accordingly, with cases for N- and C-terminal windows
-        if window_size % 2 == 1:  # range is odd
-            for seq_idx in range(sequence_length):
-                position_sum = 0
-                if seq_idx < window_spread:  # N-terminus
-                    for window_position in range(seq_idx + window_spread + range_correction):
-                        position_sum += sequence_array[window_position]
-                elif seq_idx + window_spread >= sequence_length:  # C-terminus
-                    for window_position in range(seq_idx - window_spread, sequence_length):
-                        position_sum += sequence_array[window_position]
-                else:
-                    for window_position in range(seq_idx - window_spread, seq_idx + window_spread + range_correction):
-                        position_sum += sequence_array[window_position]
-                window_array[array_idx][seq_idx] = position_sum / window_size
-        else:  # range is even
-            for seq_idx in range(sequence_length):
-                position_sum = 0
-                if seq_idx < window_spread:  # N-terminus
-                    for window_position in range(seq_idx + window_spread + range_correction):
-                        if window_position == seq_idx + window_spread:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                elif seq_idx + window_spread >= sequence_length:  # C-terminus
-                    for window_position in range(seq_idx - window_spread, sequence_length):
-                        if window_position == seq_idx - window_spread:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                else:
-                    for window_position in range(seq_idx - window_spread, seq_idx + window_spread + range_correction):
-                        if window_position == seq_idx - window_spread \
-                                or window_position == seq_idx + window_spread + range_correction:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                window_array[array_idx][seq_idx] = position_sum / window_size
-    logger.debug('Hydrophobic Collapse window values:\n%s' % window_array)
-    hci = window_array.mean(axis=0)
-    logger.debug('Hydrophobic Collapse Index:\n%s' % hci)
-
-    return hci
-    # hci = np.zeros(sequence_length)  # [0] * (sequence_length + 1)
-    # for seq_idx in range(sequence_length):
-    #     for window_size in range(lower_range, upper_range + range_correction):
-    #         hci[seq_idx] += window_array[window_size][seq_idx]
-    #     hci[seq_idx] /= range_size
-    #     hci[seq_idx] = round(hci[seq_idx], 3)
-
-    # return hci
 
 
 def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
