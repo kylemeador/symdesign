@@ -244,33 +244,65 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3, propagate=False)
 
 
-def pretty_format_table(rows, justification=None):
-    """Present a table in readable format.
+def pretty_format_table(data, justification=None, header=None, header_justification=None):
+    """Present a table in readable format by sizing and justifying columns in a nested data structure
+    i.e. [row1[column1, column2, ...], row2[], ...]
 
     Args:
-        rows (iter): The rows of data you would like to populate the table
+        data (Iterable): Where each successive element is a row and each row's sub-elements are unique columns.
+            The typical data structure would be [[i, j, k], [yes, 4, 0.1], [no, 5, 0.3]]
     Keyword Args:
-        justification=None (list): A list with either 'l'/'left', 'r'/'right', or 'c'/'center' as the text
-        justification values
+        justification=None (Iterable): Iterable with elements 'l'/'left', 'r'/'right', or 'c'/'center' as text
+            justification values
+        header=None (Iterable): The names of values to place in the table header
+        header_justification=None (Iterable): Iterable with elements 'l'/'left', 'r'/'right', or 'c'/'center' as text
+            justification values
+    Returns:
+        (list[str]): The formatted data with each input row justified as an individual element in the list
     """
     justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center,
                        'left': str.ljust, 'right': str.rjust, 'center': str.center}
-    widths = get_table_column_widths(rows)
+    widths = get_table_column_widths(data)
+    row_length = len(widths)
     if not justification:
-        justifications = list(str.ljust for _ in widths)
-    else:
-        # try:
+        justifications = list(str.ljust for _ in range(row_length))
+    elif len(justification) == row_length:
         justifications = [justification_d.get(key.lower(), str.ljust) for key in justification]
-        # except KeyError:
-        #     raise KeyError('%s: The justification \'%s\' is not of the allowed types (%s).'
-        #                    % (pretty_format_table.__name__, key, list(justification_d.keys())))
+    else:
+        raise RuntimeError('The justification length (%d) doesn\'t match the number of columns (%d)'
+                           % (len(justification), row_length))
+    if header:
+        if len(header) == row_length:
+            data = [[column for column in row] for row in data]  # format as list so can insert
+            data.insert(0, list(header))
+            if not header_justification:
+                header_justification = list(str.center for _ in range(row_length))
+            elif len(header_justification) == row_length:
+                header_justification = [justification_d.get(key.lower(), str.center) for key in header_justification]
+            else:
+                raise RuntimeError('The header_justification length (%d) doesn\'t match the number of columns (%d)'
+                                   % (len(header_justification), row_length))
+        else:
+            raise RuntimeError('The header length (%d) doesn\'t match the number of columns (%d)'
+                               % (len(header), row_length))
 
-    return [' '.join(justifications[idx](str(col), width) for idx, (col, width) in enumerate(zip(row, widths)))
-            for row in rows]
+    formatted_data = [' '.join(header_justification[idx](str(col), width) if not idx and header else justifications[idx](str(col), width)
+                               for idx, (col, width) in enumerate(zip(row, widths)))
+                      for row in data]
+
+    return formatted_data
 
 
-def get_table_column_widths(rows):
-    return tuple(max(map(len, map(str, col))) for col in zip(*rows))
+def get_table_column_widths(data):
+    """Find the widths of each column in a nested data structure
+
+    Args:
+        data (Iterable): Where each successive element is a row and each row's sub-elements are unique columns
+
+    Returns:
+        (tuple): A tuple containing the width of each column from the input data
+    """
+    return tuple(max(map(len, map(str, column))) for column in zip(*data))
 
 
 # @handle_errors(errors=(FileNotFoundError,))
@@ -710,6 +742,7 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.truncate()
 
 
+@handle_errors(errors=(FileNotFoundError,))
 def read_fasta_file(file_name, **kwargs):
     """Open a fasta file and return a parser object to load the sequences to SeqRecords
     Returns:

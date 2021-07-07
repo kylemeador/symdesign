@@ -1329,7 +1329,7 @@ class PDB(Structure):
             # info['seq'] = info['representative'].sequence
 
         # self.update_entity_accession_id()  # only useful if retrieve_pdb_info_from_api() is called
-        for entity_name, info in self.entity_d.items():  # generated from a PDB API sequence search v
+        # for entity_name, info in self.entity_d.items():  # generated from a PDB API sequence search v
             entity_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name
             self.entities.append(
                 Entity.from_representative(representative=info['representative'], name=entity_name, log=self.log,
