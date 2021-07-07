@@ -849,12 +849,12 @@ int main(int argc, char* argv[])
 	zout <<"Total frames: "<<stat<<"	P frames "<<pstat<<"	Number: "<<pstat/stat<<endl<<endl;
 	zout << "Avg Probability	"<< mtrxstat/stat << endl;
 	mout << o <<"	"<<file<<"	"<<pstat/stat<<"	"<<mtrxstat/stat<< endl;
-	fout << "pstat "<< pstat<< " stat "<<stat<<" pstat/stat "<<pstat/stat<<endl;
-	fout << 100-(100*pstat/stat)<<endl;
+	//fout << "pstat "<< pstat<< " stat "<<stat<<" pstat/stat "<<pstat/stat<<endl;
+	//fout << 100-(100*pstat/stat)<<endl;
 
 	//POSTSCRIPT
 	chainx= (1 + ( resnum[atmnum] - 4 ) / 10000 );//total chains
-//	cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
+	//cout <<"atmnum, resnum[atmnum], chainx "<< atmnum << "  " << resnum[atmnum] << "  " << chainx<< endl;
 
 	//z1 controls atmnum
 	//z2 contros chain array
@@ -865,7 +865,7 @@ int main(int argc, char* argv[])
 	ir1[z2]=resnum[1]+4-((z2 - 1)*chaindif);
 	ir2[z2]=0;// Array with the last residue number in each incremental chain
 	id_by_chain[z2]=chainID[1];
-//	cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
+	//cout << "atn, chain#, chainID " << "1" << "  " << z2 << "  " << id_by_chain[z2]<<endl;
 	int last_chain_length=0;
 	// find the residues at which the chain transitions
 	for (z1=1 ; z1<atmnum; z1++)
@@ -919,7 +919,7 @@ int main(int argc, char* argv[])
 			ir0=ir1[ich]+mst*(z1-1);
 			ir=ir0+mst-1;
 			if (ir > ir2[ich]) ir=ir2[ich];
-//#			fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
+//			fout <<"chain "<<ich<<":    Residue range "<< ir0<<" to "<< ir << endl;
 			fout <<"chain "<< id_by_chain[ich] <<":    Residue range "<< ir0<<" to "<< ir << endl;
 
 			{//PS START HERE
