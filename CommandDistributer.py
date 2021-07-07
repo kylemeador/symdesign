@@ -147,7 +147,7 @@ def run(cmd, log_file_name, program=None, srun=None):
 
 
 def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, failure_file=None, max_jobs=80,
-               number_of_commands=None, mpi=None, **kwargs):
+               number_of_commands=None, mpi=None, log_file=None, **kwargs):
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Keyword Args:
@@ -218,8 +218,9 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
         new_f.write('%s%s\n' % (sb_flag, out))
         array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[scale] + 0.5), max_jobs)
         new_f.write('%s%s\n' % (sb_flag, array))
-        new_f.write('\npython %s --stage %s distribute --success_file %s --failure_file %s --command_file %s %s\n' %
-                    (cmd_dist, scale, success_file, failure_file, file, (script_present or '')))
+        new_f.write('\npython %s --stage %s distribute %s--success_file %s --failure_file %s --command_file %s %s\n' %
+                    (cmd_dist, scale, '--log_file %s' % log_file if log_file else '', success_file, failure_file, file,
+                     (script_present or '')))
 
     return filename
 
@@ -301,7 +302,7 @@ if __name__ == '__main__':
 
         # Prepare Commands
         if len(specific_commands[0].split()) > 1:
-            # the command provided probably has an attached program type. Set to None, then split to a list
+            # the command provided probably has an attached program type. Set program to None, then split to a list
             program = None
             specific_commands = [cmd.split() for cmd in specific_commands]
         else:

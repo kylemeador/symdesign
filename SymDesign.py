@@ -1132,11 +1132,13 @@ if __name__ == '__main__':
                                                           out_path=profile_dir)
                 hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.program_root,
                                             scale='hhblits', max_jobs=len(hhblits_cmds),
+                                            log_file=os.path.join(profile_dir, 'generate_profile.log'),
                                             number_of_commands=len(hhblits_cmds))
                 reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
                                                                out_path=profile_dir)
                 reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
                                              scale='hhblits', max_jobs=len(reformat_msa_cmds),
+                                             log_file=os.path.join(profile_dir, 'generate_profile.log'),
                                              number_of_commands=len(reformat_msa_cmds))
                 print('\n' * 3)
                 logger.critical('Ensure the below created SBATCH scripts are correct. Specifically, check that the '
@@ -1192,7 +1194,9 @@ if __name__ == '__main__':
                 commands_file = SDUtils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds],
                                                        name='refine_oligomers_%s' % timestamp, out_path=refine_dir)
                 refine_sbatch = distribute(file=commands_file, out_path=master_directory.program_root, scale='refine',
-                                           max_jobs=int(len(refine_cmds) /2 + 0.5), number_of_commands=len(refine_cmds))
+                                           log_file=os.path.join(refine_dir, 'refine.log'),
+                                           max_jobs=int(len(refine_cmds) / 2 + 0.5),
+                                           number_of_commands=len(refine_cmds))
                 print('\n' * 3)
                 logger.info('Please follow the instructions below to refine your input files')
                 logger.critical('Ensure the below created SBATCH script is correct%s'
