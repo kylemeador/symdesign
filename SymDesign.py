@@ -1116,7 +1116,7 @@ if __name__ == '__main__':
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                 else:
                     entity.evolutionary_profile = master_db.hhblits_profiles.retrieve_data(name=entity.name)
-                if not entity.evolutionary_profile:
+                if True or not entity.evolutionary_profile:  # Todo remove temporary True
                     # to generate in current runtime
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                     # to generate in a sbatch script

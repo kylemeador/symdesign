@@ -341,13 +341,13 @@ def pickle_object(target_object, name, out_path=os.getcwd(), protocol=pickle.HIG
 
 
 def filter_dictionary_keys(dictionary, keys, remove=False):
-    """Clean specified keys from a dictionary. Default removes the specified keys
+    """Clean a dictionary by passing specified keys. Default keeps all specified keys
 
     Args:
         dictionary (dict): {outer_dictionary: {key: value, key2: value2, ...}, ...}
-        keys (iter): [key2, key10] Iterator of keys to be removed from dictionary
+        keys (Iterable): [key2, key10] Iterator of keys to be removed from dictionary
     Keyword Args:
-        remove=True (bool): Whether or not to remove (True) or keep (False) specified keys
+        remove=True (bool): Whether or not to remove (True) specified keys
     Returns:
         (dict): {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
     """
