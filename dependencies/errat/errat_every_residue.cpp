@@ -601,8 +601,8 @@ int main(int argc, char* argv[]){//1
 	    //        errat.push_back(0);
 	    //    }
 	    //}
-	    int res_counter = 0
-        for(i=1; i<=atmnum; i++){//4 //throws in all atmnum's
+	    int res_counter = 0;
+        for (i=1; i<=atmnum; i++){//4 //throws in all atmnum's
             //fout << i << endl;
             // ensure the measurement happens when a new residue is iterated
             if (((resnum[i] > resnum[i - 1]) || (i==1))/*&&(chain==chainID[i])*/){//5 //gate let's first atom of res through
@@ -667,9 +667,9 @@ int main(int argc, char* argv[]){//1
                         //fout <<"IBX1:	"<< ibx1<<"	IBX2:	"<<ibx2<<endl;
                         //fout << endl;
 
-                        for (j=ibz1;j<=ibz2;j++){//8
-                            for (k=iby1;k<=iby2;k++){//9
-                                for (l=ibx1;l<=ibx2;l++){//10
+                        for (j = ibz1; j <= ibz2; j++){//8
+                            for (k = iby1; k <= iby2; k++){//9
+                                for (l = ibx1; l <= ibx2; l++){//10
                                     ind = 1 + l + k * nbx[1] + j * nbx[1] * nbx[2];
                                     //fout << "IND:	"<< ind <<"	:	"<< l <<"	"<<k<<"	"<<j<<endl;
                                     for (m=1; m <= ibox1[0][ind]; m++){//11
