@@ -598,6 +598,7 @@ int main(int argc, char* argv[])
 	    if (resnum[1] > 1){//Check when the first residue is not 1, but some other number, say 3 add errat entries
 	        for(int missing_start = 1; missing_start < resnum[1] - 1; missing_start++){
 	            errat.push_back(0);
+	            cout << "found residue greater than 1" << resnum[1] << " adding " << resnum[1] - 1 << " errat observations" << endl;
 	        }
 	    }
         for(i=1; i<=atmnum; i++){//4 //throws in all atmnum's
