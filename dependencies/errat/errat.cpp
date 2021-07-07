@@ -612,11 +612,6 @@ int main(int argc, char* argv[])
 	if ( ((resnum[i] > resnum[i - 1])||(i==1))/*&&(chain==chainID[i])*/)//gate let's first atom of res through
         {//5
 //        	fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
-        if (resnum[i] - resnum[i - 1] > 1) {
-            for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
-                errat.push_back(0);//add a blank measurement to vector for each residues that is unavailable
-            }
-        }
         for (aa=0;aa<4;aa++)
         {
             for (ab=0;ab<4;ab++)
@@ -629,16 +624,12 @@ int main(int argc, char* argv[])
         for (v = i; ( (s<10)&&(v<=atmnum) ); v++)
         {//sets frame to 1, go until 9 - to ensure last residue is complete
             if (resnum[v + 1] > resnum[v]){ // the residue number is not the same
-            if (resnum[v + 1]-resnum[v] < 100){ // ensure they are on the same chain
-            s++;}
-            else if (s == 9){ // if have found 9 residues and chain is larger, or is last atom, increment
-            s++;}
-            else{
-            break;}
-//            fout << "s is " << s << " v is "<<v<<endl;
+                if (resnum[v + 1]-resnum[v] < 100){s++;} // ensure they are on the same chain
+                else if (s == 9){s++;}// if have found 9 residues and chain is larger, or is last atom, increment
+                else{break;}
+    //            fout << "s is " << s << " v is "<<v<<endl;
             }
-            else if (v==atmnum){
-            s++;}
+            else if (v==atmnum){s++;}
         }
         v--;//always sets v back into the frame of the window, counter last v++
 
@@ -787,7 +778,12 @@ int main(int argc, char* argv[])
             {
                 fout <<temp2<<" "<<resnum[i]+4<<" "<<count<<" "<<"WARNING: No Interactions in This Frame"<<endl;
             }
-
+            //Check for gaps in residue numbering and add errat observations accordingly
+            if (resnum[i] - resnum[i - 1] > 1) {
+                for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
+                    errat.push_back(0);//add a blank measurement to vector for each residues that is unavailable
+                }
+            }
 
             if (temp2>maxwin)//minimum interactions test
             {
