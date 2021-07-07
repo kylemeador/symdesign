@@ -1065,6 +1065,8 @@ if __name__ == '__main__':
             qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
             orient_log = SDUtils.start_log(name='orient', handler=1)
             SDUtils.start_log(name='orient', handler=2, location=os.path.join(orient_dir, PUtils.orient_log_file))
+            if master_directory.sym_entry.group1 == master_directory.sym_entry.group1:
+                required_oligomers1, required_oligomers2 = all_entity_names, set()
             for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
                 symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
                 logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
