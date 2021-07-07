@@ -1037,7 +1037,8 @@ if __name__ == '__main__':
         master_directory.make_path(master_directory.profiles)
         master_directory.make_path(master_directory.job_paths)
         master_directory.make_path(master_directory.sbatch_scripts)
-        if queried_flags['nanohedra_output']:
+        if queried_flags['nanohedra_output'] or args.load_database:
+            # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
             # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
             orient_dir = master_directory.orient_dir
             orient_asu_dir = master_directory.orient_asu_dir
@@ -1093,10 +1094,51 @@ if __name__ == '__main__':
                         raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
                                                   'canonical_pdb1/2 attribute of DesignDirectory to pull the'
                                                   'pdb file source.')
-            # if args.refine:
-            # later if sequence design is attempted, ensure all of these are present in the self.refine_dir
-            # required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
-            # required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
+            # set up the hhblits profile for each input oligomer
+            # if master_db:
+            profile_dir = master_directory.profiles
+            sequences_dir = master_directory.sequences
+            master_directory.make_path(profile_dir)
+            master_directory.make_path(sequences_dir)
+            profile_commands = []
+            for entity in all_entities:
+                entity.sequence_file = master_db.sequences.retrieve_file(name=entity.name)
+                if not entity.sequence_file:
+                    entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=sequences_dir)
+                    # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
+                else:
+                    entity.evolutionary_profile = master_db.hhblits_profiles.retrieve_data(name=entity.name)
+                if not entity.evolutionary_profile:
+                    # to generate in current runtime
+                    # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
+                    # to generate in a sbatch script
+                    profile_commands.append(entity.hhblits(out_path=profile_dir, return_command=True))
+            if profile_commands:
+                # prepare files for running hhblits commands
+                logger.info('Please follow the instructions below to generate sequence profiles for input proteins')
+                hhblits_cmds, reformat_msa_cmds = zip(*profile_commands)
+                hhblits_cmd_file = SDUtils.write_commands(hhblits_cmds, name='hhblits_%s' % timestamp,
+                                                          out_path=profile_dir)
+                hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.program_root,
+                                            scale='hhblits', max_jobs=len(hhblits_cmds),
+                                            number_of_commands=len(hhblits_cmds))
+                reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
+                                                               out_path=profile_dir)
+                reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
+                                             scale='script', max_jobs=len(reformat_msa_cmds),
+                                             number_of_commands=len(reformat_msa_cmds))
+                print('\n' * 3)
+                logger.critical('Ensure the below created SBATCH scripts are correct. Specifically, check that the '
+                                'job array and any node specifications are accurate. You can look at the SBATCH '
+                                'manual (man sbatch or sbatch --help) to understand the variables or ask for help '
+                                'if you are still unsure')
+                logger.info('Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s\nONCE this '
+                            'job is finished, to properly format the multiple sequence alignment enter:\n\tsbatch %s'
+                            % (hhblits_sbatch, reformat_sbatch))
+                            # % '\n\tsbatch '.join([hhblits_sbatch, reformat_sbatch]))
+            else:
+                hhblits_sbatch = None
+
             oriented_asu_files = os.listdir(orient_asu_dir)
             master_directory.make_path(refine_dir)
             refine_files = os.listdir(refine_dir)
