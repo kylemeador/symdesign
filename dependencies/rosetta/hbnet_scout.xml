@@ -297,7 +297,7 @@
 	</MOVERS>
 
 	<PROTOCOLS>
-<!--		<Add mover_name="SOMETHINGSMISSING"/>-->
+		<Add mover_name="SOMETHINGSMISSING"/>
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
 		<Add mover_name="job_info"/>
