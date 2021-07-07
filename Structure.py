@@ -1081,10 +1081,11 @@ class Structure(StructureBase):
         # errat_cmd = [errat_exe_path, os.path.splitext(name)[0], out_path]  # for writing file first
         # print(subprocess.list2cmdline(errat_cmd))
         # os.system('rm %s' % current_struc_file)
-        errat_cmd = [errat_exe_path, out_path]  # for passing by stdin
+        errat_cmd = [errat_exe_path, out_path]  # for passing atoms by stdin
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
+        print('Errat Returned: %s' % p.stdout)
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
 
         errat_output_file = os.path.join(out_path, 'errat.ps')
@@ -1095,9 +1096,10 @@ class Structure(StructureBase):
                              stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         errat_out, errat_err = p.communicate()
         try:
-            overall_score = list(set(errat_out.decode().split('\n')))
-            overall_score = overall_score[0]
-            return float(overall_score[overall_score.rfind('**: ') + 4:overall_score.rfind(')')])
+            overall_score = set(errat_out.decode().split('\n'))
+            print('Found overall score %s' % overall_score)
+            score = next(iter(overall_score))
+            return float(score[score.rfind('**: ') + 4:score.rfind(')')])
         except AttributeError:
             self.log.warning('%s: Failed to generate ERRAT measurement' % self.name)
             return
