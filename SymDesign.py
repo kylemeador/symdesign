@@ -1038,7 +1038,11 @@ if __name__ == '__main__':
         master_directory.make_path(master_directory.profiles)
         master_directory.make_path(master_directory.job_paths)
         master_directory.make_path(master_directory.sbatch_scripts)
-        if queried_flags['nanohedra_output'] or args.load_database:
+        if nano or args.load_database:
+            if args.load_database:
+                for design in design_directories:
+                    # design.link_master_database(master_db)
+                    design.set_up_design_directory()
             # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
             # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
             orient_dir = master_directory.orient_dir
@@ -1050,8 +1054,8 @@ if __name__ == '__main__':
             master_directory.make_path(stride_dir)
             logger.critical('The requested poses require preprocessing before design modules should be used')
             # logger.info('The required files for %s designs are being collected and oriented if necessary' % PUtils.nano)
-            for design in design_directories:
-                print(design.info.keys())
+            # for design in design_directories:
+            #     print(design.info.keys())
             required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
             required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
             all_entity_names = required_oligomers1.union(required_oligomers2)
