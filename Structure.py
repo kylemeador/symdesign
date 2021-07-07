@@ -1080,9 +1080,9 @@ class Structure(StructureBase):
         current_struc_file = self.write(out_path=os.path.join(out_path, name))
         errat_cmd = [errat_exe_path, os.path.splitext(name)[0], out_path]
         print(subprocess.list2cmdline(errat_cmd))
-        p = subprocess.Popen(errat_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        p = subprocess.Popen(errat_cmd)  #, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
-        os.system('rm %s' % current_struc_file)
+        # os.system('rm %s' % current_struc_file)  TODO remove comment
 
         # if out:
             # if to_file:
