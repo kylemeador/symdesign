@@ -25,7 +25,7 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_loo
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
-from Pose import Pose
+from Pose import Pose, SymmetricModel
 from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, necessary_metrics, division_pairs, \
     columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
@@ -2030,14 +2030,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             other_pose_metrics['observations'] = len(scores_df)
 
             atomic_deviation = {}
+            # design_assemblies = []  # maybe use?
             for file in self.get_designs():
                 decoy_name = os.path.splitext(os.path.basename(file))[0]
                 if decoy_name not in scores_df.index:
                     continue
-                pdb = PDB.from_file(file, name=decoy_name, log=None, entities=False, lazy=True)
-                atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
-            print(atomic_deviation)  # Todo remove debug
+                design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False, lazy=True)
+                # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
+                assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
+                #                                            ,symmetry=self.design_symmetry)
+                atomic_deviation[design_asu.name] = assembly.errat(out_path=self.data)
+                print(atomic_deviation[design_asu.name])  # Todo remove debug
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
+            print(scores_df['errat_accuracy'])  # Todo remove debug
 
             # Calculate hydrophobic collapse for each design
 
