@@ -1119,7 +1119,7 @@ if __name__ == '__main__':
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                 else:
                     entity.evolutionary_profile = master_db.hhblits_profiles.retrieve_data(name=entity.name)
-                if True or not entity.evolutionary_profile:  # Todo remove temporary True
+                if not entity.evolutionary_profile:
                     # to generate in current runtime
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                     # to generate in a sbatch script
@@ -1137,7 +1137,7 @@ if __name__ == '__main__':
                 reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
                                                                out_path=profile_dir)
                 reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
-                                             scale='hhblits', max_jobs=len(reformat_msa_cmds),
+                                             scale='script', max_jobs=len(reformat_msa_cmds),
                                              log_file=os.path.join(profile_dir, 'generate_profiles.log'),
                                              number_of_commands=len(reformat_msa_cmds))
                 print('\n' * 3)
