@@ -15,7 +15,7 @@ from collections import defaultdict
 import numpy as np
 # from numba import njit
 from sklearn.neighbors import BallTree
-from Bio import SeqIO
+from Bio import SeqIO, AlignIO
 from Bio.PDB import PDBParser, Superimposer
 
 # import CommandDistributer
@@ -711,8 +711,20 @@ def rename_decoy_protocols(des_dir, rename_dict):
 
 
 def read_fasta_file(file_name, **kwargs):
-    """Returns an iterator of SeqRecords. Ex. [record1, record2, ...]"""
+    """Open a fasta file and return a parser object to load the sequences to SeqRecords
+    Returns:
+        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
+    """
     return SeqIO.parse(file_name, 'fasta')
+
+
+@handle_errors(errors=(FileNotFoundError,))
+def read_stockholm_file(file_name, **kwargs):
+    """Open a fasta file and return a parser object to load the sequences to SeqRecords
+    Returns:
+        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
+    """
+    return AlignIO.read(file_name, 'stockholm')
 
 
 def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here

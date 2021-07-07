@@ -256,7 +256,7 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, preferred=None, n=True,
     #     # multiple alignments, then need to select all alignments to this sequence to generate the MSA
     #
     # total_alignment = SequenceProfile.create_bio_msa({idx: tag for idx, tag in enumerate(all_matching_tags)})
-    # tag_msa = SequenceProfile.process_alignment(total_alignment)
+    # tag_msa = SequenceProfile.generate_msa_dictionary(total_alignment)
     if custom:
         final_tag_sequence['sequence'] = expression_tags[final_choice['name']]
     else:
