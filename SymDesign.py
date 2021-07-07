@@ -1070,8 +1070,9 @@ if __name__ == '__main__':
                             % (symmetry, orient_dir, ', '.join(required_oligomers)))
                 for oligomer in required_oligomers:
                     if oligomer in orient_files:
-                        all_entities.append(PDB.from_file(os.path.join(orient_asu_dir, '%s.pdb' % oligomer),
-                                                          log=None, entity_names=[oligomer]))
+                        oriented_pdb = PDB.from_file(os.path.join(orient_asu_dir, '%s.pdb' % oligomer), log=None,
+                                                     entity_names=[oligomer])
+                        all_entities.append(oriented_pdb.entities[0])
                         continue
                     biological_assemblies = qsbio_confirmed.get(oligomer)
                     if biological_assemblies:  # first   v   assembly in matching oligomers
