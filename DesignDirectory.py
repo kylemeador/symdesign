@@ -1796,7 +1796,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # # entity_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
             # #                         for design, scores in all_design_scores.items()}
             entity_sequences = {entity: {design: sequence[n_term - 1:c_term]   # only include v if design is viable
-                                         for design, sequence in pose_sequences.items() if design in viable_designs}
+                                         for design, sequence in pose_sequences.items()}  # if design in viable_designs}
                                 for entity, n_term, c_term in entity_chain_breaks}
             # Find all designs which have corresponding pdb files and collect their sequences
             # for file in glob(self.designs):
@@ -2241,6 +2241,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Calculate sequence statistics
             # first for entire pose
+            entity_sequences = filter_dictionary_keys(entity_sequences, viable_designs)
             pose_alignment = multi_chain_alignment(entity_sequences)
             mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, interface_residues)
             # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
