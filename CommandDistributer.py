@@ -55,8 +55,7 @@ rosetta_flags = extras_flags[rosetta_extras] + \
 process_scale = {stage[1]: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
                  stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
                  stage[11]: 1, stage[12]: 2, stage[13]: 2,
-                 'metrics_bound': 2, 'interface_metrics': 2
-                 }
+                 'metrics_bound': 2, 'interface_metrics': 2, 'hhblits': 1}
 # Cluster Dependencies and Multiprocessing
 sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
                     interface_design: os.path.join(sbatch_template_dir, stage[2]),
