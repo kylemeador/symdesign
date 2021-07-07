@@ -89,7 +89,7 @@ int main(int argc, char* argv[]){//1
         //		{
         for (std::string line; std::getline(std::cin, line);) {
             all_lines.push_back(line);
-//            std::cout << line << std::endl;
+        //std::cout << line << std::endl;
         }//KM
         strcpy(file, "stdin");
     }
