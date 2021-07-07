@@ -636,7 +636,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self._info = self.info.copy()  # create a copy of the state upon initialization
                 # if self.info.get('nanohedra'):
                 self.transform_d = self.info.get('pose_transformation', dict())
-                self.oligomer_names = self.info.get('oligomer_names', list())
+                # self.oligomer_names = self.info.get('oligomer_names', list())
+                self.oligomer_names = self.info.get('entity_names', list())  # Todo TEMP addition
                 self.entity_names = self.info.get('entity_names', list())
                 # self._info = self.info.copy()  # create a copy of the state upon initialization
                 # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
