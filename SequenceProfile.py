@@ -505,12 +505,12 @@ class SequenceProfile:
             non_gapped_sequence = str(record.seq).replace('-', '')
             evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = hydrophobic_collapse_index(non_gapped_sequence)
 
-        print('evolutionary_collapse_np', evolutionary_collapse_np[:5, :])
+        # print('evolutionary_collapse_np', evolutionary_collapse_np[:5, :])
         # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
         msa_mask = np.isin(msa_np, b'-', invert=True)  # returns bool array '-' = False. Converted during arithmetic
         # print('msa_mask', msa_mask[:5, :])
         iterator_np = np.cumsum(msa_mask, axis=1)
-        print('iterator_np', iterator_np[:5, :])
+        # print('iterator_np', iterator_np[:5, :])
         # for idx in range(self.msa.length):
         #     # print('iterator shape', iterator_np.shape)
         #     # print('slices mas_mask shape', msa_mask[:, idx].shape)
@@ -519,10 +519,10 @@ class SequenceProfile:
         #     aligned_hci_np[:, idx] = evolutionary_collapse_np[np.ix_(:, iterator_np)] * msa_mask[:, idx]
         #     iterator_np += msa_mask[:, idx]
         aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1) * msa_mask
-        print('aligned_hci_np', aligned_hci_np[:5, :])
+        # print('aligned_hci_np', aligned_hci_np[:5, :])
         sequence_hci_np = aligned_hci_np[:, msa_mask[0]]  # where the aligned sequence is the first index
-        print('sequence:\n', '     '.join(aa for idx, aa in enumerate(map(str, self.msa.alignment[0].seq)) if msa_mask[0][idx]))
-        print(list(map(round, sequence_hci_np[0, :].tolist(), repeat(2))), '\nsequence_hci_np')
+        # print('sequence:\n', '     '.join(aa for idx, aa in enumerate(map(str, self.msa.alignment[0].seq)) if msa_mask[0][idx]))
+        # print(list(map(round, sequence_hci_np[0, :].tolist(), repeat(2))), '\nsequence_hci_np')
         sequence_hci_df = pd.DataFrame(sequence_hci_np, columns=list(range(1, self.msa.query_length + 1)))
         sequence_hci_mean = pd.Series(sequence_hci_np.mean(axis=1), name='mean')
         sequence_hci_mean.index += 1
