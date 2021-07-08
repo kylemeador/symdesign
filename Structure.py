@@ -1085,12 +1085,12 @@ class Structure(StructureBase):
         errat_cmd = [errat_exe_path, out_path]  # for passing atoms by stdin
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
+        logger.info(self.return_atom_string()[:120])
         p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
         # print('Errat Returned: %s' % p.stdout)
         errat_out = p.stdout
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
-
-        errat_output_file = os.path.join(out_path, 'errat.ps')
+        # errat_output_file = os.path.join(out_path, 'errat.ps')
         # else:
         # print(subprocess.list2cmdline(['grep', 'Overall quality factor**: ', errat_output_file]))
         # p = subprocess.Popen(['grep', 'Overall quality factor', errat_output_file],
@@ -1101,7 +1101,7 @@ class Structure(StructureBase):
             all_residue_scores = list(map(str.strip, errat_out.split('\n'), 'Residue '))
             # print('Found overall score %s' % overall_score)
             overall_score = all_residue_scores.pop(0)
-            print(list(map(str.split, all_residue_scores)))
+            print('all_residue_scores has %d records\n' % len(all_residue_scores), list(map(str.split, all_residue_scores)))
             return float(overall_score.split()[-1]), \
                    np.array([float(score[-1]) for score in map(str.split, all_residue_scores)])
         except AttributeError:
