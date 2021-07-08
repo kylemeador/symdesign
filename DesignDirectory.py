@@ -2106,7 +2106,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # wt_collapse_z_score[entity] = hydrophobic_collapse_index(entity.sequence)
                 wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)
                 wt_collapse_bool[entity] = np.where(wt_collapse[entity] > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-                wt_collapse_z_score[entity] = z_score(wt_collapse[entity], collapse['mean'], collapse['std'])
+                wt_collapse_z_score[entity] = \
+                    z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
 
             folding_and_collapse = {}
             for design in viable_designs:
