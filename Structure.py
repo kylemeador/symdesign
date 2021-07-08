@@ -937,28 +937,16 @@ class Structure(StructureBase):
         Returns:
             (bool)
         """
-        # all_atom_tree = KDTree(self.coords)  # slower 134 msec/loop
-        all_atom_tree = BallTree(self.coords)  # faster 131 msec/loop
-        all_atoms = self.atoms
-        coords_indexed_residues = self.coords_indexed_residues
-        # all_atom_tree = NearestNeighbors(algorithm='brute', radius=distance)  # slowest 267 msec/loop
-        # all_atom_tree.fit(self.coords)
-        # residue_query = all_atom_tree.radius_neighbors(residue.backbone_and_cb_coords,  # distance,
-        #                                                return_distance=False)
+        all_atom_tree = BallTree(self.coords[self.get_heavy_atom_indices()])  # faster 131 msec/loop
+        temp_atoms = self.atoms[self.get_heavy_atom_indices()]
+        atoms = [temp_atoms[idx] for idx in self.get_heavy_atom_indices()]
+        temp_coords_indexed_residues = self.coords_indexed_residues
+        coords_indexed_residues = [temp_coords_indexed_residues[idx] for idx in self.get_heavy_atom_indices()]
         number_residues = self.number_of_residues
         backbone_clashes, side_chain_clashes = [], []
         for prior_idx, residue in enumerate(self.residues, -1):
-            # return a np.array((residue length, all_atom coords))
-            # try:
             residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, distance)
-            # except ValueError:
-            #     print(residue.backbone_indices, residue.cb_index, residue.backbone_and_cb_indices)
-            #     print(residue._bb_indices, residue._bb_cb_indices)  # residue._cb,
-            #     print('There were no atoms found for %s at residue %d backbone atoms' % (self.name, residue.number))
-            #     print('Check %s for details' % self.filepath)
-            #     residue_query = np.array([])
             # reduce the dimensions and format as a single array
-            # all_contacts = np.concatenate(residue_query).ravel()  # .reshape(-1)
             all_contacts = set(np.concatenate(residue_query).ravel().tolist())
             # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
             # For the edge cases (N- & C-term), use other termini C & N atoms.
@@ -967,21 +955,14 @@ class Structure(StructureBase):
             residue_indices_and_bonded_c_and_n = \
                 residue.atom_indices + [self.residues[prior_idx].c_index, self.residues[prior_idx].o_index,
                                         self.residues[-number_residues + prior_idx + 2].n_index]
-
-            # clashes = np.setdiff1d(all_contacts, residue_indices_and_bonded_c_and_n)
-            # clashes = set(all_contacts) - set(residue_indices_and_bonded_c_and_n)
-            clashes = all_contacts - set(residue_indices_and_bonded_c_and_n)
+            clashes = all_contacts.difference(residue_indices_and_bonded_c_and_n)
             if any(clashes):
-                # self.log.info('Residue indices: %s\nFound clashes at indices: %s'
-                #               % (residue_indices_and_bonded_c_and_n, clashes))
                 for clashing_atom_idx in clashes:
-                    atom = all_atoms[clashing_atom_idx]
+                    atom = atoms[clashing_atom_idx]
                     other_residue, atom_idx = coords_indexed_residues[clashing_atom_idx]
                     if atom.is_backbone() or atom.is_CB():
-                        # backbone_clashes.append((residue, atom, clashing_atom_idx))
                         backbone_clashes.append((residue, other_residue, atom_idx))
                     elif 'H' not in atom.type:
-                        # side_chain_clashes.append((residue, atom, clashing_atom_idx))
                         side_chain_clashes.append((residue, other_residue, atom_idx))
 
         if backbone_clashes:
@@ -999,10 +980,6 @@ class Structure(StructureBase):
                 self.log.warning(
                     '%s contains %d side-chain clashes from the following Residues to the corresponding Atom:'
                     '\n\t%s' % (self.name, len(side_chain_clashes), sc_info))
-            #                                                 str(other.atoms[atom_idx])
-            #                                                 % (other.atom_indices[atom_idx], *other.residue_string(),
-            #                                                    '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(other.coords[atom_idx])))))
-            #                                              for residue, other, atom_idx in side_chain_clashes)))
             return False
 
     def get_sasa(self, probe_radius=1.4):  # , sasa_thresh=0):
