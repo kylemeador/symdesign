@@ -937,11 +937,15 @@ class Structure(StructureBase):
         Returns:
             (bool)
         """
-        all_atom_tree = BallTree(self.coords[self.get_heavy_atom_indices()])  # faster 131 msec/loop
-        temp_atoms = self.atoms
-        atoms = [temp_atoms[idx] for idx in self.get_heavy_atom_indices()]
-        temp_coords_indexed_residues = self.coords_indexed_residues
-        coords_indexed_residues = [temp_coords_indexed_residues[idx] for idx in self.get_heavy_atom_indices()]
+        # heavy_atom_indices = self.get_heavy_atom_indices()
+        # all_atom_tree = BallTree(self.coords[heavy_atom_indices])  # faster 131 msec/loop
+        # temp_atoms = self.atoms
+        # atoms = [temp_atoms[idx] for idx in heavy_atom_indices]
+        # temp_coords_indexed_residues = self.coords_indexed_residues
+        # coords_indexed_residues = [temp_coords_indexed_residues[idx] for idx in heavy_atom_indices]
+        all_atom_tree = BallTree(self.coords)  # faster 131 msec/loop
+        atoms = self.atoms
+        coords_indexed_residues = self.coords_indexed_residues
         number_residues = self.number_of_residues
         backbone_clashes, side_chain_clashes = [], []
         for prior_idx, residue in enumerate(self.residues, -1):
