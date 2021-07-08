@@ -817,13 +817,13 @@ int main(int argc, char* argv[]){//1
         }//4
 	}//3 flag2 pdb exclusion end
 	if (stat>0){
-        cout << "Overall quality factor: " << 100 - (100 * (pstat / stat)) << endl;
         for (i = 1; i <= 4; i++){
             cout << "Residue	" << i << "	" << 0 << endl;
         }
         for (i = 1; i <= res_counter - 4; i++){
             cout << "Residue	" << i + 4 << "	" << errat[i] << endl;// This is a special spacing character ->"	"
         }
+        cout << "Overall quality factor: " << 100 - (100 * (pstat / stat));
     }
 
 	//if (stat>0){
