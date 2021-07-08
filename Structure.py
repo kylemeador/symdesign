@@ -1101,7 +1101,7 @@ class Structure(StructureBase):
             # all_residue_scores = list(map(str.strip, errat_out.split('\n'), 'Residue '))
             all_residue_scores = errat_out.split('\n')
             # print('Found overall score %s' % overall_score)
-            overall_score = all_residue_scores.pop(0)
+            overall_score = all_residue_scores.pop(-1)
             print('all_residue_scores has %d records\n' % len(all_residue_scores), list(map(str.split, all_residue_scores)))
             return float(overall_score.split()[-1]), \
                    np.array([float(score[-1]) for score in map(str.split, all_residue_scores)])
