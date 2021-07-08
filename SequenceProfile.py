@@ -12,8 +12,7 @@ from Bio import pairwise2
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio.SeqUtils import IUPACData
-from Bio.Alphabet.IUPAC import ExtendedIUPACProtein
+from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protein_letters_3to1
 
 import CommandDistributer
 import PathUtils as PUtils
@@ -173,7 +172,7 @@ class SequenceProfile:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
                 for idx, residue in enumerate(self.residues, 1):
                     profile_res_type = self.evolutionary_profile[idx]['type']
-                    pose_res_type = IUPACData.protein_letters_3to1[residue.type.title()]
+                    pose_res_type = protein_letters_3to1[residue.type.title()]
                     if profile_res_type != pose_res_type:
                         self.log.warning(
                             'Profile (%s) and Pose (%s) sequences mismatched!\n\tResidue %d: Profile=%s, Pose=%s'
@@ -409,7 +408,7 @@ class SequenceProfile:
                     items = line.strip().split()
                     residue_number = int(items[1])
                     self.evolutionary_profile[residue_number] = {}
-                    for i, aa in enumerate(IUPACData.protein_letters, 2):
+                    for i, aa in enumerate(protein_letters, 2):
                         self.evolutionary_profile[residue_number][aa] = to_freq(items[i])
                     self.evolutionary_profile[residue_number]['lod'] = \
                         get_lod(self.evolutionary_profile[residue_number], null_bg)
@@ -824,7 +823,7 @@ class SequenceProfile:
                       % (self.name, '\n\t'.join('Residue %4d: %d%% fragment weight' %
                                                 (entry, weight * 100) for entry, weight in self.alpha.items())))
         for entry, weight in self.alpha.items():  # weight will be 0 if the fragment_profile is empty
-            for aa in IUPACData.protein_letters:
+            for aa in protein_letters:
                 self.profile[entry][aa] = \
                     (weight * self.fragment_profile[entry][aa]) + ((1 - weight) * self.profile[entry][aa])
 
@@ -1738,7 +1737,7 @@ def parse_hhblits_pssm(file, null_background=True, **kwargs):
                 items = line.strip().split()
                 residue_number = int(items[1])
                 pose_dict[residue_number] = {}
-                for i, aa in enumerate(IUPACData.protein_letters, 2):
+                for i, aa in enumerate(protein_letters, 2):
                     pose_dict[residue_number][aa] = to_freq(items[i])
                 pose_dict[residue_number]['lod'] = get_lod(pose_dict[residue_number], null_bg)
                 pose_dict[residue_number]['type'] = items[0]
@@ -1845,7 +1844,7 @@ def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=T
 
     # Combine fragment and evolutionary probability profile according to alpha parameter
     for entry in alpha:
-        for aa in IUPACData.protein_letters:
+        for aa in protein_letters:
             pssm[entry][aa] = (alpha[entry] * issm[entry][aa]) + ((1 - alpha[entry]) * pssm[entry][aa])
         logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
                     % (entry + index_offset, alpha[entry] * 100))
@@ -2465,7 +2464,7 @@ msa_generation_function = 'SequenceProfile.hhblits()'
 
 class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
 
-    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + ExtendedIUPACProtein.letters,
+    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + extended_protein_letters,
                  weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
@@ -2475,7 +2474,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             bio_alignment=None ((Bio.Align.MultipleSeqAlignment)): "Array" of SeqRecords
             aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first
             sequence will be used
-            alphabet=IUPACData.protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
+            alphabet=extended_protein_letters (str): '-ACDEFGHIKLMNPQRSTVWYBXZJUO'
             weight_alignment_by_sequence=False (bool): If weighting should be performed. Use in cases of
                 unrepresentative sequence population in the MSA
             sequence_weights=None (dict): If the alignment should be weighted, and weights are already available, the
@@ -2547,7 +2546,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
                                              % (MultipleSequenceAlignment.msa_to_prob_distribution.__name__, residue)  # Todo correct?
             self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
-# def generate_msa_dictionary(bio_alignment, aligned_sequence=None, alphabet=IUPACData.protein_letters,
+# def generate_msa_dictionary(bio_alignment, aligned_sequence=None, alphabet=protein_letters,
 #                             weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
 #     """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 #
@@ -2558,7 +2557,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
 #     Keyword Args:
 #         aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first sequence
 #             will be used
-#         alphabet=IUPACData.protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
+#         alphabet=protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
 #         weight_alignment_by_sequence=False (bool): If weighting should be performed
 #         sequence_weights=None (dict): If the alignment should be weighted, and weights are already available, the
 #             weights for each sequence
@@ -2745,7 +2744,7 @@ def rank_possibilities(probability_dict):  # UNUSED
 #         gaps=False (bool): Whether gaps (-) should be counted in column weights
 #         aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first sequence
 #             will be used
-#         alphabet=IUPACData.protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
+#         alphabet=protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
 #         sequence_weights=None (dict): If the alignment should be weighted, a dictionary with weights for each sequence
 #     Returns:
 #         (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
@@ -2943,7 +2942,7 @@ def generate_mutations_from_reference(reference, sequences):  # , pose_num=True)
 #             for atom in pdb.all_atoms:
 #                 if atom.chain == chain and atom.type == 'N' and (atom.alt_location == '' or atom.alt_location == 'A'):
 #                     try:
-#                         sequence_list.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
+#                         sequence_list.append(protein_letters_3to1[atom.residue_type.title()])
 #                     except KeyError:
 #                         sequence_list.append('X')
 #                         failures.append((atom.residue_number, atom.residue_type))
@@ -2977,7 +2976,7 @@ def generate_mutations_from_reference(reference, sequences):  # , pose_num=True)
 #                     failures.append((i, sequence[i]))
 #         elif aa_code == 3:
 #             for i, residue in enumerate(sequence):
-#                 sequence_list.append(IUPACData.protein_letters_1to3[residue])
+#                 sequence_list.append(protein_letters_1to3[residue])
 #                 if residue == 'X':
 #                     failures.append((i, residue))
 #             final_sequence = sequence_list
