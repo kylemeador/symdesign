@@ -2041,9 +2041,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 #                                            ,symmetry=self.design_symmetry)
                 atomic_deviation[design_asu.name], residue_wise_deviation[design_asu.name] = \
                     assembly.errat(out_path=self.data)
-                print(residue_wise_deviation[design_asu.name])  # Todo remove debug
+                residue_wise_deviation[design_asu.name] = \
+                    residue_wise_deviation[design_asu.name][:design_asu.number_of_residues]
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
-            print(scores_df['errat_accuracy'])  # Todo remove debug
 
             # Calculate hydrophobic collapse for each design
 
