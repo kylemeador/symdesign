@@ -494,11 +494,13 @@ class SequenceProfile:
                                   ' multiple sequence alignment. Supported formats:\n%s)'
                                   % (msa_generation_function, pretty_format_table(msa_supported_types.items())))
         msa_np = np.array([list(record) for record in self.msa.alignment], np.character)
-        aligned_hci_np = np.zeros((self.msa.length, self.msa.number_of_sequences))
+        aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
         evolutionary_collapse_np = aligned_hci_np.copy()
         print('alignment', self.msa.alignment[:5, :])
         for idx, record in enumerate(self.msa.alignment):
+            print(str(record.seq))
             non_gapped_sequence = str(record.seq).replace('-', '')
+            print(non_gapped_sequence)
             evolutionary_collapse_np[idx, :len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
 
         print('all collapse', evolutionary_collapse_np[:5, :])
