@@ -469,8 +469,8 @@ class SequenceProfile:
     def collapse_profile(self):
         """Find the mean and standard deviation for each index in the SequenceProfile sequence MSA
 
-        Turn each sequence into a HCI array. These all have different lengths
-        next for each input sequence, make a gap mask into a 2D array length of sequence alignment X #sequences
+        Turn each sequence into a HCI array. All sequences have different lengths.
+        For each input sequence, make a gap mask into a 2D array (#sequences x length of sequence alignment)
         iterate over the gap mask array adding the ith column of the mask to the row of the iterator array
         where there is a gap there is a 0, sequence present is 1
             iterator array        gap mask  Hydro Collapse Array     Aligned HCI (drop col 2)   HCI
@@ -503,18 +503,22 @@ class SequenceProfile:
             non_gapped_sequence = str(record.seq).replace('-', '')
             evolutionary_collapse_np[idx, :len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
 
-        iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
+        # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
         msa_mask = np.isin(msa_np, b'-', invert=True)  # returns bool array which gets converted during arithmetic
         print('msa_mask', msa_mask[:5, :])
-        for idx in range(self.msa.length):
-            print('iterator shape', iterator_np.shape)
-            print('slices mas_mask shape', msa_mask[:, idx].shape)
-            print(msa_mask[:, idx])
-            aligned_hci_np[:, idx] = evolutionary_collapse_np[:, iterator_np * msa_mask[:, idx]]
-            iterator_np += msa_mask[:, idx]
-
+        iterator_np = np.cumsum(msa_mask, axis=1)
+        print('iterator_np', iterator_np[:5, :])
+        # for idx in range(self.msa.length):
+        #     # print('iterator shape', iterator_np.shape)
+        #     # print('slices mas_mask shape', msa_mask[:, idx].shape)
+        #     # print(msa_mask[:, idx])
+        #     # aligned_hci_np[:, idx] = evolutionary_collapse_np[:, iterator_np] * msa_mask[:, idx]
+        #     aligned_hci_np[:, idx] = evolutionary_collapse_np[np.ix_(:, iterator_np)] * msa_mask[:, idx]
+        #     iterator_np += msa_mask[:, idx]
+        aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1) * msa_mask
         print('aligned_hci_np', aligned_hci_np[:5, :])
         sequence_hci_np = aligned_hci_np[:, msa_mask[0]]  # where the aligned sequence is the first index
+        print('sequence_hci_np', sequence_hci_np[:5, :])
         sequence_hci_mean = sequence_hci_np.mean(axis=1)
         sequence_hci_std = sequence_hci_np.stdev(axis=1)
         # sequence_hci_z_value = (aligned_hci_np[0] - sequence_hci_mean) / sequence_hci_std
