@@ -494,12 +494,17 @@ class SequenceProfile:
                                   ' multiple sequence alignment. Supported formats:\n%s)'
                                   % (msa_generation_function, pretty_format_table(msa_supported_types.items())))
         msa_np = np.array([list(record) for record in self.msa.alignment], np.character)
-        aligned_hci_np, evolutionary_collapse_np = np.zeros(msa_np.shape), np.zeros(msa_np.shape)
+        aligned_hci_np = np.zeros(self.msa.length, self.msa.number_of_sequences)
+        evolutionary_collapse_np = aligned_hci_np.copy()
+        print('alignment', self.msa.alignment[:5, :])
         for idx, record in enumerate(self.msa.alignment):
-            evolutionary_collapse_np[idx, 0:len(record)] = hydrophobic_collapse_index(record)
+            non_gapped_sequence = record.replace('-', '')
+            evolutionary_collapse_np[idx, :len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
 
-        iterator_np = np.zeros(len(msa_np), order='F')
+        print('all collapse', evolutionary_collapse_np[:5, :])
+        iterator_np = np.zeros(self.msa.number_of_sequences, order='F')
         msa_mask = np.where(msa_np == '-', 0, 1)
+        print('msa mask', msa_mask)
         for idx in range(self.msa.length):
             aligned_hci_np[:, idx] = evolutionary_collapse_np[:, iterator_np * msa_mask[:, idx]]
             iterator_np += msa_mask[:, idx]
@@ -2482,7 +2487,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             gaps=False (bool): Whether gaps (-) should be counted in column weights
         Sets:
             alignment - (Bio.Align.MultipleSeqAlignment)
-            num_sequences - 214
+            number_of_sequences - 214
             query - 'MGSTHLVLK...'
             query_with_gaps - 'MGS--THLVLK...'
             counts - {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
@@ -2496,7 +2501,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
                 aligned_sequence = str(alignment[0].seq)
             # Add Info to 'meta' record as needed and populate a amino acid count dict (one-indexed)
             self.alignment = alignment
-            self.num_sequences = len(alignment)
+            self.number_of_sequences = len(alignment)
             self.length = alignment.get_alignment_length()
             self.query = aligned_sequence.replace('-', '')
             self.query_with_gaps = aligned_sequence
