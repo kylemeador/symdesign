@@ -501,13 +501,15 @@ class SequenceProfile:
             non_gapped_sequence = str(record.seq).replace('-', '')
             evolutionary_collapse_np[idx, :len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
 
-        iterator_np = np.zeros(self.msa.number_of_sequences, order='F')
+        iterator_np = np.zeros(self.msa.number_of_sequences, order='F', dtype=int)
+        print('msa_np', msa_np[:5, :])
         msa_mask = np.isin(msa_np, '-', invert=True)  # returns bool array which gets converted during arithmetic
-        print('msa mask', msa_mask)
+        print('msa_mask', msa_mask[:5, :])
         for idx in range(self.msa.length):
             aligned_hci_np[:, idx] = evolutionary_collapse_np[:, iterator_np * msa_mask[:, idx]]
             iterator_np += msa_mask[:, idx]
 
+        print('aligned_hci_np', aligned_hci_np[:5, :])
         sequence_hci_np = aligned_hci_np[:, msa_mask[0]]  # where the aligned sequence is the first index
         sequence_hci_mean = sequence_hci_np.mean(axis=1)
         sequence_hci_std = sequence_hci_np.stdev(axis=1)
