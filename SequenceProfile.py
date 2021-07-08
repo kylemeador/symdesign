@@ -1,5 +1,6 @@
 import math
 import os
+from itertools import repeat
 from math import floor, exp, log, log2
 import subprocess
 import time
@@ -496,7 +497,7 @@ class SequenceProfile:
         msa_np = np.array([list(record) for record in self.msa.alignment], np.character)
         # msa_np = np.array([list(str(record.seq)) for record in self.msa.alignment], np.character)
         # print('msa_np', msa_np[:5, :])
-        aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
+        # aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
         # Make the output array one longer to keep a 0 value at the 0 index for collapse gaps
         evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))  # aligned_hci_np.copy()
         # print('alignment', self.msa.alignment[:5, :])
@@ -506,7 +507,7 @@ class SequenceProfile:
 
         print('evolutionary_collapse_np', evolutionary_collapse_np[:5, :])
         # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
-        msa_mask = np.isin(msa_np, b'-', invert=True)  # returns bool array which gets converted during arithmetic
+        msa_mask = np.isin(msa_np, b'-', invert=True)  # returns bool array '-' = False. Converted during arithmetic
         # print('msa_mask', msa_mask[:5, :])
         iterator_np = np.cumsum(msa_mask, axis=1)
         print('iterator_np', iterator_np[:5, :])
@@ -520,11 +521,12 @@ class SequenceProfile:
         aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1) * msa_mask
         print('aligned_hci_np', aligned_hci_np[:5, :])
         sequence_hci_np = aligned_hci_np[:, msa_mask[0]]  # where the aligned sequence is the first index
-        print('sequence_hci_np', sequence_hci_np[:5, :])
+        print('sequence:\n', '   '.join(map(str, self.msa.alignment[0].seq)))
+        print(list(map(round, sequence_hci_np[0, :].tolist(), repeat(2))), '\nsequence_hci_np')
         sequence_hci_mean = sequence_hci_np.mean(axis=1)
         sequence_hci_std = sequence_hci_np.std(axis=1)
         # sequence_hci_z_value = (aligned_hci_np[0] - sequence_hci_mean) / sequence_hci_std
-        return pd.concat([sequence_hci_np, sequence_hci_mean, sequence_hci_std],
+        return pd.concat([pd.DataFrame(sequence_hci_np), pd.DataFrame(sequence_hci_mean), pd.DataFrame(sequence_hci_std)],
                          keys=['hydrophobic_collapse_index', 'mean', 'std'])
 
     def write_fasta_file(self, sequence, name=None, out_path=os.getcwd()):
