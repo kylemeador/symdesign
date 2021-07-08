@@ -521,7 +521,7 @@ class SequenceProfile:
         aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1) * msa_mask
         print('aligned_hci_np', aligned_hci_np[:5, :])
         sequence_hci_np = aligned_hci_np[:, msa_mask[0]]  # where the aligned sequence is the first index
-        print('sequence:\n', '   '.join(aa for idx, aa in map(str, self.msa.alignment[0].seq) if msa_mask[0][idx]))
+        print('sequence:\n', '   '.join(aa for idx, aa in enumerate(map(str, self.msa.alignment[0].seq)) if msa_mask[0][idx]))
         print(list(map(round, sequence_hci_np[0, :].tolist(), repeat(2))), '\nsequence_hci_np')
         sequence_hci_df = pd.DataFrame(sequence_hci_np, columns=list(range(1, self.msa.query_length + 1)))
         sequence_hci_mean = pd.Series(sequence_hci_np.mean(axis=1), name='mean')
