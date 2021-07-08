@@ -495,17 +495,19 @@ class SequenceProfile:
                                   % (msa_generation_function, pretty_format_table(msa_supported_types.items())))
         msa_np = np.array([list(record) for record in self.msa.alignment], np.character)
         # msa_np = np.array([list(str(record.seq)) for record in self.msa.alignment], np.character)
-        print('msa_np', msa_np[:5, :])
+        # print('msa_np', msa_np[:5, :])
         aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
-        evolutionary_collapse_np = aligned_hci_np.copy()
+        # Make the output array one longer to keep a 0 value at the 0 index for collapse gaps
+        evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))  # aligned_hci_np.copy()
         # print('alignment', self.msa.alignment[:5, :])
         for idx, record in enumerate(self.msa.alignment):
             non_gapped_sequence = str(record.seq).replace('-', '')
-            evolutionary_collapse_np[idx, :len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
+            evolutionary_collapse_np[idx, 1:len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
 
+        print('evolutionary_collapse_np', evolutionary_collapse_np[:5, :])
         # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
         msa_mask = np.isin(msa_np, b'-', invert=True)  # returns bool array which gets converted during arithmetic
-        print('msa_mask', msa_mask[:5, :])
+        # print('msa_mask', msa_mask[:5, :])
         iterator_np = np.cumsum(msa_mask, axis=1)
         print('iterator_np', iterator_np[:5, :])
         # for idx in range(self.msa.length):
