@@ -498,7 +498,7 @@ class SequenceProfile:
         evolutionary_collapse_np = aligned_hci_np.copy()
         print('alignment', self.msa.alignment[:5, :])
         for idx, record in enumerate(self.msa.alignment):
-            non_gapped_sequence = record.replace('-', '')
+            non_gapped_sequence = record.seq.replace('-', '')
             evolutionary_collapse_np[idx, :len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
 
         print('all collapse', evolutionary_collapse_np[:5, :])
