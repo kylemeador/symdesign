@@ -20,7 +20,7 @@ import pandas as pd
 import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio.SeqUtils import IUPACData
+from Bio.Data.IUPACData import protein_letters
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
@@ -2169,7 +2169,7 @@ if __name__ == '__main__':
                                                                   idx_range[1] + 1),
                                                        design_sequence[idx_range[0]:idx_range[1]],
                                                       input_string)).upper()
-                            if new_amino_acid in IUPACData.protein_letters:
+                            if new_amino_acid in protein_letters:
                                 design_sequence[idx] = new_amino_acid
                             else:
                                 print('Input doesn\'t match a canonical amino acid. Please try again')

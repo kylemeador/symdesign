@@ -9,7 +9,7 @@ import numpy as np
 from numpy.linalg import eigh, LinAlgError
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
-from Bio.SeqUtils import IUPACData
+from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl
@@ -734,8 +734,8 @@ class Structure(StructureBase):
             (list[int]): The indices of the Atoms being removed from the Structure
         """
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
-        # if to.upper() in IUPACData.protein_letters_1to3:
-        to = IUPACData.protein_letters_1to3.get(to.upper(), to).upper()
+        # if to.upper() in protein_letters_1to3:
+        to = protein_letters_1to3.get(to.upper(), to).upper()
 
         if not residue:
             if not number:
@@ -797,8 +797,8 @@ class Structure(StructureBase):
             raise DesignError('This Structure \'%s\' is not the owner of it\'s attributes and therefore cannot handle '
                               'residue insertion!' % self.name)
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
-        reference_index = IUPACData.protein_letters.find(
-            IUPACData.protein_letters_3to1_extended.get(residue_type.title(), residue_type.upper()))
+        reference_index = protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(),
+                                                                                 residue_type.upper()))
         # Grab the reference atom coordinates and push into the atom list
         new_residue = copy(reference_aa.residue(reference_index))
         # new_residue = copy(Structure.reference_aa.residue(reference_index))
@@ -861,7 +861,7 @@ class Structure(StructureBase):
         Returns:
             (str): The amino acid sequence of the Structure Residues
         """
-        return ''.join([IUPACData.protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
+        return ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
 
     def translate(self, tx):
         new_coords = self.coords + tx

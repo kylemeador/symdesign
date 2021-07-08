@@ -4,9 +4,8 @@ import os
 import sys
 from itertools import repeat
 
-from Bio.SeqUtils import IUPACData
+from Bio.Data.IUPACData import protein_letters_3to1
 
-import DesignDirectory
 import PathUtils as PUtils
 import SequenceProfile
 import SymDesignUtils
@@ -25,7 +24,7 @@ def check_pssm_v_pose(d_dir, pssm, template_residues):
     pose_res, pssm_res, = {}, {}
     for n in range(len(template_residues)):
         # res = n + SDUtils.index_offset
-        pose_res[n] = IUPACData.protein_letters_3to1[template_residues[n].type.title()]
+        pose_res[n] = protein_letters_3to1[template_residues[n].type.title()]
         pssm_res[n] = pssm[n]['type']
         if pssm_res[n] != pose_res[n]:
             logging.warning('%s: The profile and the Pose seq are different. Residue %d, PSSM: %s, POSE: %s. '
@@ -168,7 +167,7 @@ def check_for_errors(des_dir):
 #         pose_res, pssm_res, = {}, {}
 #         for n in range(len(template_residues)):
 #             res = jump - SDUtils.index_offset + n
-#             pose_res[n] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
+#             pose_res[n] = protein_letters_3to1[template_residues[res].type.title()]
 #             pssm_res[n] = full_pssm[res]['type']
 #             if pssm_res[n] != pose_res[n]:
 #                 logging.warning('%s: The profile and the Pose seq are different. Residue %d, PSSM: %s, POSE: %s. '

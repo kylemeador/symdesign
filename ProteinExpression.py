@@ -2,7 +2,7 @@
 import csv
 from itertools import chain as iter_chain  # combinations,
 
-from Bio.SeqUtils import IUPACData
+from Bio.Data.IUPACData import protein_letters
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
@@ -287,7 +287,7 @@ def add_expression_tag(tag, sequence):
     final_seq = ''
     for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
         if seq2_aa == '-':
-            if seq1_aa in IUPACData.protein_letters:
+            if seq1_aa in protein_letters:
                 final_seq += seq1_aa
         else:
             final_seq += seq2_aa
