@@ -24,7 +24,7 @@ logger = start_log(name=__name__)
 index_offset = 1
 alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 aa_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0,
-                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
+             'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
 aa_weighted_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
                       'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
 add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
@@ -2464,7 +2464,7 @@ msa_generation_function = 'SequenceProfile.hhblits()'
 
 class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
 
-    def __init__(self, alignment=None, aligned_sequence=None, alphabet=IUPACData.protein_letters,
+    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + IUPACData.protein_letters,
                  weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
@@ -2500,7 +2500,6 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             self.query_with_gaps = aligned_sequence
             self.counts = SequenceProfile.populate_design_dictionary(alignment.get_alignment_length(), alphabet,
                                                                      dtype=int)
-
             for record in self.alignment:
                 for i, aa in enumerate(record.seq, 1):
                     self.counts[i][aa] += 1
