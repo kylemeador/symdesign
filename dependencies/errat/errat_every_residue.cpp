@@ -124,7 +124,7 @@ int main(int argc, char* argv[]){//1
         }
 		zout << o <<"	"<< file << endl<<endl;
     }
-        cout<<" FILES "<<file<< " = "<<logfilename<< endl;//" = "<<psfilename<<"\n\n";
+    //cout<<" FILES "<<file<< " = "<<logfilename<< endl;//" = "<<psfilename<<"\n\n";
 
 // PROBLEM WITH IOS
 //	err.setf(ios::fixed);

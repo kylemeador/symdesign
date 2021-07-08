@@ -2029,7 +2029,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
             other_pose_metrics['observations'] = len(scores_df)
 
-            atomic_deviation = {}
+            atomic_deviation, residue_wise_deviation = {}, {}
             # design_assemblies = []  # maybe use?
             for file in self.get_designs():
                 decoy_name = os.path.splitext(os.path.basename(file))[0]
@@ -2039,7 +2039,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
                 assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
-                atomic_deviation[design_asu.name] = assembly.errat(out_path=self.data)
+                atomic_deviation[design_asu.name], residue_wise_deviation[design_asu.name] = \
+                    assembly.errat(out_path=self.data)
                 print(atomic_deviation[design_asu.name])  # Todo remove debug
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
             print(scores_df['errat_accuracy'])  # Todo remove debug
