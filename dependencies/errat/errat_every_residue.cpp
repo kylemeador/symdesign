@@ -48,6 +48,7 @@ double matrixdb (double matrix[6]);
 // temp[1] -> matrix[1]
 // remove and streams mout, char chain[i] and chain determination;
 // change zout outp
+#define TIMEOUT 500 // 0.5 s
 
 int main(int argc, char* argv[]){//1
     int flag2=0;//test for too many atoms in a box
@@ -72,7 +73,7 @@ int main(int argc, char* argv[]){//1
     int ret;
     fds.fd = 0; /* this is STDIN */
     fds.events = POLLIN;
-    ret = poll(&fds, 1, 0);
+    ret = poll(&fds, 1, TIMEOUT);
 	if(argc == 2 && ret == 1) {
         strcpy(path, argv[1]);
         strcpy(logfilename, path);
