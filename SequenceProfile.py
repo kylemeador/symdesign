@@ -13,6 +13,7 @@ from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.SeqUtils import IUPACData
+from Bio.Alphabet.IUPAC import ExtendedIUPACProtein
 
 import CommandDistributer
 import PathUtils as PUtils
@@ -2464,7 +2465,7 @@ msa_generation_function = 'SequenceProfile.hhblits()'
 
 class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
 
-    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-X' + IUPACData.protein_letters,
+    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + ExtendedIUPACProtein.letters,
                  weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
