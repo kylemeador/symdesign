@@ -2521,9 +2521,9 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             self.msa_to_prob_distribution()
 
     @classmethod
-    def from_stockholm(cls, file):
+    def from_stockholm(cls, file, **kwargs):
         try:
-            return cls(alignment=read_stockholm_file(file))
+            return cls(alignment=read_stockholm_file(file), **kwargs)
         except FileNotFoundError:
             raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
 
