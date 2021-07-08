@@ -3037,7 +3037,7 @@ def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Val
     """
     sequence_length = len(sequence)
     lower_range, upper_range, range_correction = 3, 9, 1
-    range_size = upper_range - lower_range  # + range_correction
+    range_size = upper_range - lower_range + range_correction
     yes = 1
     no = 0
     if hydrophobicity == 'background':  # Todo
