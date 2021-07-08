@@ -93,7 +93,11 @@ int main(int argc, char* argv[]){//1
         }//KM
         strcpy(file, "stdin");
     }
-    else if(argc != 3) { puts("\n2 arguments required: ./errat pdbid localpath\n"); exit(1); }
+    else if(argc != 3) {
+        if (argc ==2 && ret != 1){
+            puts("\nFailed to grab stdin from shell! Ensure you piped the pdb file to ./errat localpath\n");
+        }
+        else{puts("\n2 arguments required: ./errat pdbid localpath\n"); exit(1); }
     else {
         strcpy(seed, argv[1]);
 	    strcpy(path, argv[2]);
