@@ -938,7 +938,7 @@ class Structure(StructureBase):
             (bool)
         """
         all_atom_tree = BallTree(self.coords[self.get_heavy_atom_indices()])  # faster 131 msec/loop
-        temp_atoms = self.atoms[self.get_heavy_atom_indices()]
+        temp_atoms = self.atoms
         atoms = [temp_atoms[idx] for idx in self.get_heavy_atom_indices()]
         temp_coords_indexed_residues = self.coords_indexed_residues
         coords_indexed_residues = [temp_coords_indexed_residues[idx] for idx in self.get_heavy_atom_indices()]
@@ -2202,7 +2202,7 @@ class Residue:
     @property
     def sidechain_indices(self):
         """Returns: (list[int])"""
-        return [self._atom_indices[idx] for idx in self._sc_indices]  # if idx < len(self._atom_indices)]
+        return [self._atom_indices[idx] for idx in self._sc_indices]
 
     @sidechain_indices.setter
     def sidechain_indices(self, indices):
@@ -2212,13 +2212,7 @@ class Residue:
     @property
     def heavy_atom_indices(self):
         """Returns: (list[int])"""
-        try:
-            for idx in self._heavy_atom_indices:
-                non = self._atom_indices[idx]  # if idx < len(self._atom_indices)]
-            return [self._atom_indices[idx] for idx in self._heavy_atom_indices]  # if idx < len(self._atom_indices)]
-        except IndexError:
-            raise IndexError('The index %d is out of range for self._atom_indices (%s) with length %d'
-                             % (idx, self._atom_indices, len(self._atom_indices)))
+        return [self._atom_indices[idx] for idx in self._heavy_atom_indices]
 
     @heavy_atom_indices.setter
     def heavy_atom_indices(self, indices):
