@@ -479,9 +479,9 @@ int main(int argc, char* argv[]){//1
 				if ((i>2) && (resnum[i]!=resnum[i-1]) &&
 					(chainID[i]==chainID[i-1]) && (flag==0) &&((resnum[i]-resnum[i-1])>1)){
 					fout <<"WARNING: Missing Residues " << resnum[i-1] <<">>>"<< resnum[i] << endl;
-                    for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
-                        errat.push_back(0);//add a blank measurement to vector
-                    }
+                    //for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
+                    //    errat.push_back(0);//add a blank measurement to vector
+                    //}
 				}
 				// errat[resnum[i]+4]=0;//KM
 				// errat[i+4]=0;//KM
@@ -614,7 +614,7 @@ int main(int argc, char* argv[]){//1
                         if (resnum[v + 1] - resnum[v] < 100){s++;} // ensure they are on the same chain
                         else if (s == 9){s++;}// 9 residues are found and we have incremented chain. Increment s and move on
                         else{
-                            new_chain = true;
+                            //new_chain = true;
                             break;
                         }
                     }
@@ -623,12 +623,12 @@ int main(int argc, char* argv[]){//1
                 v--;//always sets v back into the frame of the window, counter last v++
 
                 if ((resSeq[v] > resSeq[i]) && (s == 10)){//6 //test for same chain (LIMIT CHAIN TO 1K RES) and completeness of window
-                    if (new_chain){
-                        obs_chain++;
-                        last_chain_length = last_chain_length + res_counter;
-                        res_counter = 1;// since new chain is found start counter over
-                        new_chain = false;
-                    }
+                    //if (new_chain){
+                    //    obs_chain++;
+                    //    last_chain_length = last_chain_length + res_counter;
+                    //    res_counter = 1;// since new chain is found start counter over
+                    //    new_chain = false;
+                    //}
                     for (aa = 0; aa < 4; aa++){
                         for (ab = 0; ab < 4; ab++)
                             c[aa][ab] = 0;//sets the count of atom distances to 0 for each combination
@@ -794,9 +794,9 @@ int main(int argc, char* argv[]){//1
                         // errat[resnum[i]+4]=mtrx;//KM
                         // errat[i+4]=mtrx;//KM
                         //errat.push_back(mtrx);//KM using a pure incremental approach to the errat array
-                        residue = resnum[i] + 4 - ((obs_chain - 1) * chaindif) + last_chain_length;
-                        cout << "Setting residue " << residue << " from atom record " << i << " found by resnum " << resnum[i] << endl;
-                        cout << "Residue counter " << res_counter << endl;
+//                        residue = resnum[i] + 4 - ((obs_chain - 1) * chaindif) + last_chain_length;
+//                        cout << "Setting residue " << residue << " from atom record " << i << " found by resnum " << resnum[i] << endl;
+                        cout << "Setting with residue counter " << res_counter << endl;
                         //errat[residue] = mtrx;//KM
                         errat[res_counter] = mtrx;//KM
                         //KM can't use resSeq as it increments only when residues do, doesn't respect chains
@@ -811,6 +811,7 @@ int main(int argc, char* argv[]){//1
 
                 }//6 END of the proper frame test
                 else{
+                cout << "Incorrect frame at residue counter " << res_counter << endl;
                 //cout<<"incorrect frame found at residue"<< resnum[i]<<endl;
                 //errat.push_back(0);//add a blank measurement to vector as the frame is unavailable
                 }
