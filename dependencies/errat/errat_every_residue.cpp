@@ -64,7 +64,7 @@ int main(int argc, char* argv[]){//1
 	ofstream zout;//outputs results for analysis
 	ofstream mout;//outputs file progress report
 	//ofstream tyout; // T.O.Y.
-	ofstream err;
+	//ofstream err;
 
 	//STDIN reading
 	vector<std::string> all_lines;
@@ -76,9 +76,9 @@ int main(int argc, char* argv[]){//1
 	if(argc == 2 && ret == 1) {
         strcpy(path, argv[1]);
         strcpy(logfilename, path);
-        strcpy(psfilename, path);
+        //strcpy(psfilename, path);
         strcat(logfilename, "errat.log");
-        strcat(psfilename, "errat.ps");
+        //strcat(psfilename, "errat.ps");
         //if(ret == 1)
         //    ;//Yes stdin
         //else if(ret == 0)
@@ -100,15 +100,15 @@ int main(int argc, char* argv[]){//1
         // file is the pdb file name, logf is the output logfile
         strcpy(file, path);
         strcpy(logfilename, path);
-        strcpy(psfilename, path);
+        //strcpy(psfilename, path);
         //strcpy(tyfile, path);
         strcat(file, seed);
         strcat(logfilename, seed);
-        strcat(psfilename, seed);
+        //strcat(psfilename, seed);
         //strcat(tyfile, seed);
         strcat(file, ".pdb");
         strcat(logfilename, ".logf");
-        strcat(psfilename, ".ps");
+        //strcat(psfilename, ".ps");
         //strcat(tyfile, ".ty");
         fin.open(file) ;	//read from that input file
 		if (fin.fail()!=0)
@@ -124,17 +124,16 @@ int main(int argc, char* argv[]){//1
         }
 		zout << o <<"	"<< file << endl<<endl;
     }
-        cout<<" FILES "<<file<< " = "<<logfilename<<" = "<<psfilename<<"\n\n";
+        cout<<" FILES "<<file<< " = "<<logfilename<< endl;//" = "<<psfilename<<"\n\n";
 
 // PROBLEM WITH IOS
 //	err.setf(ios::fixed);
 //	err.setf(ios::showpoint);
 //
 
-	err << std::fixed;
-	err << std::showpoint;
-	err << std::setprecision(3);
-
+	//err << std::fixed;
+	//err << std::showpoint;
+	//err << std::setprecision(3);
 
 		//command doesn't operate under VC++.
 /*	count_in.open("pdb.txt") ;	//read from Directory
@@ -143,10 +142,11 @@ int main(int argc, char* argv[]){//1
 		exit (1);}
 */	//NOTE: PDBLIST.TXT MUST END ON LAST PDB W/O HARD RETURN, ELSE DOUBLE COUNTING OF THE LAST FILE!
 
-	fout.open(logfilename) ;	//write to a log file
-	if (fout.fail())
-	{	cout << "Failed opening log.txt"<< file;
-		exit (1);}
+	fout.open(logfilename);//write to a log file
+	if (fout.fail()){
+		cout << "Failed opening log.txt" << file;
+		exit (1);
+	}
 
 	/*zout.open("framesf.txt");//writes results
 	if (zout.fail())
@@ -158,17 +158,15 @@ int main(int argc, char* argv[]){//1
 	{	cout << "Failed opening fstat.txt"<< file;
 		exit (1);}*/
 
-	err.open(psfilename) ;	//write to a postscript output file
-	if (err.fail())
-	{	cout << "Failed opening err.txt"<< file;
-		exit (1);}
+	//err.open(psfilename) ;	//write to a postscript output file
+	//if (err.fail())
+	//{	cout << "Failed opening err.txt"<< file;
+	//	exit (1);}
 
 	//tyout.open(tyfile) ;	//write to a log file
 	//if (fout.fail())
 	//{	cout << "Failed opening .ty"<< file;
 	//	exit (1);}
-
-
 
 	double lmt[3];
 	/*ifstream sts;
@@ -1005,7 +1003,7 @@ int main(int argc, char* argv[]){//1
 	fout.close();
 	zout.close();
 	//tyout.close();
-	err.close();
+	//err.close();
 	return 0;
 }//1
 
