@@ -3049,15 +3049,15 @@ def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Val
         raise DesignError('This function is not yet possible')
         # hydrophobicity_values = \
         #     {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0, 'P': 0,
-        #      'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
+        #      'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
     elif hydrophobicity == 'expanded':
         hydrophobicity_values = \
             {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0, 'P': 0,
-             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1}
+             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
     else:  # hydrophobicity == 'standard':
         hydrophobicity_values = \
             {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0, 'P': 0,
-             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0}
+             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
 
     sequence_array = [hydrophobicity_values[aa] for aa in sequence]
 
