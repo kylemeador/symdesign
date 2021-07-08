@@ -96,6 +96,7 @@ int main(int argc, char* argv[]){//1
     else if(argc != 3) {
         if (argc ==2 && ret != 1){
             puts("\nFailed to grab stdin from shell! Ensure you piped the pdb file to ./errat localpath\n");
+            exit(1);
         }
         else{puts("\n2 arguments required: ./errat pdbid localpath\n"); exit(1); }
     }
@@ -116,8 +117,8 @@ int main(int argc, char* argv[]){//1
         //strcat(psfilename, ".ps");
         //strcat(tyfile, ".ty");
         fin.open(file) ;	//read from that input file
-		if (fin.fail()!=0)
-		{	cout << "Failed opening file " << file << endl;
+		if (fin.fail()!=0){
+			cout << "Failed opening file " << file << endl;
 			gg=1;
 			exit(1);}
 		else{
