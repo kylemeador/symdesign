@@ -502,7 +502,7 @@ class SequenceProfile:
         # print('alignment', self.msa.alignment[:5, :])
         for idx, record in enumerate(self.msa.alignment):
             non_gapped_sequence = str(record.seq).replace('-', '')
-            evolutionary_collapse_np[idx, 1:len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
+            evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = hydrophobic_collapse_index(non_gapped_sequence)
 
         print('evolutionary_collapse_np', evolutionary_collapse_np[:5, :])
         # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
@@ -522,7 +522,7 @@ class SequenceProfile:
         sequence_hci_np = aligned_hci_np[:, msa_mask[0]]  # where the aligned sequence is the first index
         print('sequence_hci_np', sequence_hci_np[:5, :])
         sequence_hci_mean = sequence_hci_np.mean(axis=1)
-        sequence_hci_std = sequence_hci_np.stdev(axis=1)
+        sequence_hci_std = sequence_hci_np.std(axis=1)
         # sequence_hci_z_value = (aligned_hci_np[0] - sequence_hci_mean) / sequence_hci_std
         return pd.concat([sequence_hci_np, sequence_hci_mean, sequence_hci_std],
                          keys=['hydrophobic_collapse_index', 'mean', 'std'])
