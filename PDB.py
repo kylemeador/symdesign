@@ -10,7 +10,7 @@ from shutil import move
 import numpy as np
 from sklearn.neighbors import BallTree
 from Bio import pairwise2
-from Bio.SeqUtils import IUPACData
+from Bio.Data.IUPACData import protein_letters_3to1_extended
 
 from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
@@ -465,8 +465,8 @@ class PDB(Structure):
         for chain in self.reference_sequence:
             for i, residue in enumerate(self.reference_sequence[chain]):
                 # try:
-                if residue.title() in IUPACData.protein_letters_3to1_extended:
-                    self.reference_sequence[chain][i] = IUPACData.protein_letters_3to1_extended[residue.title()]
+                if residue.title() in protein_letters_3to1_extended:
+                    self.reference_sequence[chain][i] = protein_letters_3to1_extended[residue.title()]
                 # except KeyError:
                 else:
                     if residue.title() == 'Mse':

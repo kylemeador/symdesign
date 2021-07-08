@@ -9,7 +9,7 @@ from glob import glob, iglob
 from itertools import repeat
 
 import numpy as np
-from Bio.SeqUtils import IUPACData
+from Bio.Data.IUPACData import protein_letters_1to3, protein_letters_3to1
 # from sklearn.preprocessing import StandardScaler
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
@@ -391,7 +391,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             pssm_res, pose_res = {}, {}
             for res in range(len(template_residues)):
                 pssm_res[res] = full_pssm[res]['type']
-                pose_res[res] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
+                pose_res[res] = protein_letters_3to1[template_residues[res].type.title()]
                 if pssm_res[res] != pose_res[res]:
                     logger.warning('%s: Profile and Pose sequences are different!\nResidue %d: Profile=%s, Pose=%s. '
                                    'Generating new profile' % (des_dir.path, res + SDUtils.index_offset, pssm_res[res],
@@ -517,8 +517,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Consensus:\n%s' % consensus)
     for n, name in enumerate(names):
         for residue in int_res_numbers[name]:  # one-indexed
-            mutated_pdb.mutate_residue(number=residue, to=IUPACData.protein_letters_1to3[consensus[residue]].upper())
-            # mutated_pdb.mutate_to(names[name](n), residue, res_id=IUPACData.protein_letters_1to3[consensus[residue]].upper())
+            mutated_pdb.mutate_residue(number=residue, to=protein_letters_1to3[consensus[residue]].upper())
+            # mutated_pdb.mutate_to(names[name](n), residue, res_id=protein_letters_1to3[consensus[residue]].upper())
     mutated_pdb.write(out_path=des_dir.consensus_pdb)
     # mutated_pdb.write(consensus_pdb)
     # mutated_pdb.write(consensus_pdb, cryst1=cryst)

@@ -255,13 +255,13 @@ class AtomPair:
 #         if check.residue_number != 1:
 #             # if not, first, grab the first 4 residues of the atom record
 #             start = check.residue_number
-#             residue_string.append(IUPACData.protein_letters_3to1[check.residue_type.title()])
+#             residue_string.append(protein_letters_3to1[check.residue_type.title()])
 #             i = start + 1
 #             for atom in self.all_atoms:
 #                 if i == start + 4:
 #                     break
 #                 elif atom.type == 'N' and atom.residue_number == i:
-#                     residue_string.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
+#                     residue_string.append(protein_letters_3to1[atom.residue_type.title()])
 #                     i += 1
 #                     continue
 #
