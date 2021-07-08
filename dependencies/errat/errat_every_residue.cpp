@@ -593,6 +593,7 @@ int main(int argc, char* argv[]){//1
     int last_chain_length = 0;
     int obs_chain = 1;
     int residue = 0;
+    int res_counter = 0;
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
 	if (flag2 != 1){//3
 	    //if (resnum[1] > 1){//Check when the first residue is not 1, but some other number, say 3 add errat entries
@@ -601,7 +602,6 @@ int main(int argc, char* argv[]){//1
 	    //        errat.push_back(0);
 	    //    }
 	    //}
-	    int res_counter = 0;
         for (i=1; i<=atmnum; i++){//4 //throws in all atmnum's
             //fout << i << endl;
             // ensure the measurement happens when a new residue is iterated
@@ -622,18 +622,18 @@ int main(int argc, char* argv[]){//1
                 }
                 v--;//always sets v back into the frame of the window, counter last v++
 
-                if ((resSeq[v] > resSeq[i]) && (s==10)){//6 //test for same chain (LIMIT CHAIN TO 1K RES) and completeness of window
+                if ((resSeq[v] > resSeq[i]) && (s == 10)){//6 //test for same chain (LIMIT CHAIN TO 1K RES) and completeness of window
                     if (new_chain){
                         obs_chain++;
                         last_chain_length = last_chain_length + res_counter;
-                        res_counter = 0;
+                        res_counter = 1;// since new chain is found start counter over
                         new_chain = false;
                     }
-                    for (aa=0;aa<4;aa++){
-                        for (ab=0;ab<4;ab++)
-                            c[aa][ab]=0;//sets the count of atom distances to 0 for each combination
+                    for (aa = 0; aa < 4; aa++){
+                        for (ab = 0; ab < 4; ab++)
+                            c[aa][ab] = 0;//sets the count of atom distances to 0 for each combination
                     }
-                    //c[first atom][second atom]= length
+                    //c[first atom][second atom] = length
                     //temporary function that records the # of different interaction
                     //types in the frame (9 residues).
                     //fout <<"i:	"<<i<<"/"<< resnum[i] <<"	v	"<<v<<"/"<<resnum[v]<<endl;
@@ -796,7 +796,9 @@ int main(int argc, char* argv[]){//1
                         //errat.push_back(mtrx);//KM using a pure incremental approach to the errat array
                         residue = resnum[i] + 4 - ((obs_chain - 1) * chaindif) + last_chain_length;
                         cout << "Setting residue " << residue << " from atom record " << i << " found by resnum " << resnum[i] << endl;
-                        errat[residue] = mtrx;//KM
+                        cout << "Residue counter " << res_counter << endl;
+                        //errat[residue] = mtrx;//KM
+                        errat[res_counter] = mtrx;//KM
                         //KM can't use resSeq as it increments only when residues do, doesn't respect chains
                         //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
                     }
