@@ -524,14 +524,15 @@ class SequenceProfile:
         # print('sequence:\n', '     '.join(aa for idx, aa in enumerate(map(str, self.msa.alignment[0].seq)) if msa_mask[0][idx]))
         # print(list(map(round, sequence_hci_np[0, :].tolist(), repeat(2))), '\nsequence_hci_np')
         sequence_hci_df = pd.DataFrame(sequence_hci_np, columns=list(range(1, self.msa.query_length + 1)))
-        sequence_hci_mean = sequence_hci_df.mean()
+        sequence_hci_mean_s = sequence_hci_df.mean()
         # sequence_hci_mean = pd.Series(sequence_hci_np.mean(axis=1), name='mean')
         # sequence_hci_mean.index += 1
-        sequence_hci_std = sequence_hci_df.std()
+        sequence_hci_std_s = sequence_hci_df.std()
         # sequence_hci_std = pd.Series(sequence_hci_np.std(axis=1), name='std')
         # sequence_hci_std.index += 1
         # sequence_hci_z_value = (aligned_hci_np[0] - sequence_hci_mean) / sequence_hci_std
-        return pd.concat([sequence_hci_df, pd.concat([sequence_hci_mean, sequence_hci_std], axis=1).T])
+        return pd.concat([sequence_hci_df,
+                          pd.concat([sequence_hci_mean_s, sequence_hci_std_s], axis=1, keys=['mean', 'std']).T])
 
     def write_fasta_file(self, sequence, name=None, out_path=os.getcwd()):
         """Write a fasta file from sequence(s)
