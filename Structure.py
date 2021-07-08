@@ -1068,14 +1068,14 @@ class Structure(StructureBase):
         # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         # logger.info(self.return_atom_string()[:120])
         iteration = 1
-        print('Errat:')
+        # print('Errat:')
         while iteration < 5:
             p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
             # print('Errat Returned: %s' % p.stdout)
             # errat_out = p.stdout
             all_residue_scores = p.stdout.split('\n')
             if len(all_residue_scores) - 1 == self.number_of_residues:  # subtract overall score
-                print('Broke from correct output')
+                # print('Broke from correct output')
                 break
             iteration += 1
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
