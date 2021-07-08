@@ -501,9 +501,8 @@ class SequenceProfile:
             non_gapped_sequence = str(record.seq).replace('-', '')
             evolutionary_collapse_np[idx, :len(non_gapped_sequence)] = hydrophobic_collapse_index(non_gapped_sequence)
 
-        print('all collapse', evolutionary_collapse_np[:5, :])
         iterator_np = np.zeros(self.msa.number_of_sequences, order='F')
-        msa_mask = np.where(msa_np == '-', 0, 1)
+        msa_mask = np.isin(msa_np, '-', invert=True)  # returns bool array which gets converted during arithmetic
         print('msa mask', msa_mask)
         for idx in range(self.msa.length):
             aligned_hci_np[:, idx] = evolutionary_collapse_np[:, iterator_np * msa_mask[:, idx]]
@@ -3048,16 +3047,22 @@ def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Val
     no = 0
     if hydrophobicity == 'background':  # Todo
         raise DesignError('This function is not yet possible')
-        # hydrophobic = [0.3, 0.3, 0.3, ...]
+        # hydrophobicity_values = \
+        #     {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0, 'P': 0,
+        #      'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
     elif hydrophobicity == 'expanded':
-        hydrophobic = ['F', 'I', 'L', 'M', 'V', 'W', 'Y']
+        hydrophobicity_values = \
+            {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0, 'P': 0,
+             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1}
     else:  # hydrophobicity == 'standard':
-        hydrophobic = ['F', 'I', 'L', 'V']
+        hydrophobicity_values = \
+            {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0, 'P': 0,
+             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0}
 
-    sequence_array = [yes if aa in hydrophobic else no for aa in sequence]
+    sequence_array = [hydrophobicity_values[aa] for aa in sequence]
 
     # make an array with # of rows equal to upper range (+1 for indexing), length equal to # of letters in sequence
-    window_array = np.zeros((range_size, sequence_length))  # [[0] * (sequence_length + 1) for i in range(upper_range + 1)]
+    window_array = np.zeros((range_size, sequence_length))
     for array_idx, window_size in enumerate(range(lower_range, upper_range + range_correction)):
         # iterate over the window range
         window_spread = math.floor(window_size / 2)
