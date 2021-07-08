@@ -349,7 +349,7 @@ class SequenceProfile:
                '-ohhm', self.pssm_file, '-oa3m', self.a3m_file,  # '-Ofas', self.msa_file,
                '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06',
                '-v', '1', '-cpu', str(threads)]
-        reformat_msa_cmd = [PUtils.reformat_msa_exe, self.a3m_file, self.msa_file]
+        reformat_msa_cmd = [PUtils.reformat_msa_exe, self.a3m_file, self.msa_file, '-num', '-uc']
         if return_command:
             return subprocess.list2cmdline(cmd), subprocess.list2cmdline(reformat_msa_cmd)
 
@@ -2464,7 +2464,7 @@ msa_generation_function = 'SequenceProfile.hhblits()'
 
 class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
 
-    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + IUPACData.protein_letters,
+    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-X' + IUPACData.protein_letters,
                  weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
@@ -2475,7 +2475,8 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first
             sequence will be used
             alphabet=IUPACData.protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
-            weight_alignment_by_sequence=False (bool): If weighting should be performed
+            weight_alignment_by_sequence=False (bool): If weighting should be performed. Use in cases of
+                unrepresentative sequence population in the MSA
             sequence_weights=None (dict): If the alignment should be weighted, and weights are already available, the
                 weights for each sequence
             gaps=False (bool): Whether gaps (-) should be counted in column weights
@@ -2498,13 +2499,13 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             self.num_sequences = len(alignment)
             self.query = aligned_sequence.replace('-', '')
             self.query_with_gaps = aligned_sequence
-            self.counts = SequenceProfile.populate_design_dictionary(alignment.get_alignment_length(), alphabet,
-                                                                     dtype=int)
+            self.counts =\
+                SequenceProfile.populate_design_dictionary(alignment.get_alignment_length(), alphabet, dtype=int)
             for record in self.alignment:
                 for i, aa in enumerate(record.seq, 1):
                     self.counts[i][aa] += 1
 
-            self.observations = add_column_weight(self.counts, **kwargs)
+            self.observations = find_column_observations(self.counts, **kwargs)
             if weight_alignment_by_sequence:
                 sequence_weights = weight_sequences(self.counts, self.alignment, column_counts=self.observations)
 
@@ -2592,26 +2593,26 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
 #     return msa_to_prob_distribution(alignment)
 
 
-def add_column_weight(counts, **kwargs):
+def find_column_observations(counts, **kwargs):
     """Find total representation for each column in the alignment
 
     Args:
         counts (dict): {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}
     Keyword Args:
-        gaps=False (bool): Whether the alignment contains gaps
+        gaps=False (bool): Whether to count gaps (True) or not in the alignment
     Returns:
         (dict): {1: 210, 2:211, ...}
     """
-    return {idx: sum_column_weight(aa_counts, **kwargs) for idx, aa_counts in counts.items()}
+    return {idx: sum_column_observations(aa_counts, **kwargs) for idx, aa_counts in counts.items()}
 
 
-def sum_column_weight(column, gaps=False, **kwargs):
+def sum_column_observations(column, gaps=False, **kwargs):
     """Sum the column weight for a single alignment dict column
 
     Args:
         column (dict): {'A': 13, 'C': 1, 'D': 23, ...}
     Keyword Args:
-        gaps=False (bool): Whether to count gaps or not
+        gaps=False (bool): Whether to count gaps (True) or not
     Returns:
         s (int): Total counts in the alignment
     """
