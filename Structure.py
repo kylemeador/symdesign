@@ -2167,7 +2167,7 @@ class Residue:
         self.backbone_indices = [getattr(self, index, None) for index in ['_n', '_ca', '_c', '_o']]
         self.backbone_and_cb_indices = getattr(self, '_cb', None)
         self.sidechain_indices = side_chain
-        self.heavy_atom_indices = self.backbone_and_cb_indices + heavy_atoms
+        self.heavy_atom_indices = self._bb_cb_indices + heavy_atoms
         self.number_pdb = atom.pdb_residue_number
         self.number = atom.residue_number
         self.type = atom.residue_type
