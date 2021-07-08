@@ -2497,10 +2497,11 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             # Add Info to 'meta' record as needed and populate a amino acid count dict (one-indexed)
             self.alignment = alignment
             self.num_sequences = len(alignment)
+            self.length = alignment.get_alignment_length()
             self.query = aligned_sequence.replace('-', '')
             self.query_with_gaps = aligned_sequence
             self.counts =\
-                SequenceProfile.populate_design_dictionary(alignment.get_alignment_length(), alphabet, dtype=int)
+                SequenceProfile.populate_design_dictionary(self.length, alphabet, dtype=int)
             for record in self.alignment:
                 for i, aa in enumerate(record.seq, 1):
                     self.counts[i][aa] += 1
