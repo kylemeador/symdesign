@@ -1087,20 +1087,24 @@ class Structure(StructureBase):
         # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
         print('Errat Returned: %s' % p.stdout)
+        errat_out = p.stdout
         # errat_output_file = os.path.join(out_path, '%s.ps' % name)
 
         errat_output_file = os.path.join(out_path, 'errat.ps')
         # else:
         # TODO ensure that the overall quality factor is the right direction and extraction is working
         # print(subprocess.list2cmdline(['grep', 'Overall quality factor**: ', errat_output_file]))
-        p = subprocess.Popen(['grep', 'Overall quality factor', errat_output_file],
-                             stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
-        errat_out, errat_err = p.communicate()
+        # p = subprocess.Popen(['grep', 'Overall quality factor', errat_output_file],
+        #                      stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+        # errat_out, errat_err = p.communicate()
         try:
-            overall_score = set(errat_out.decode().split('\n'))
+            # overall_score = set(errat_out.decode().split('\n'))
+            all_residue_scores = list(map(str.strip, errat_out.split('\n'), 'Residue '))
             # print('Found overall score %s' % overall_score)
-            score = next(iter(overall_score))
-            return float(score[score.rfind('**: ') + 4:score.rfind(')')])
+            overall_score = all_residue_scores.pop(0)
+            print(list(map(str.split, all_residue_scores)))
+            return float(overall_score.split()[-1]), \
+                   np.array([float(score[-1]) for score in map(str.split, all_residue_scores)])
         except AttributeError:
             self.log.warning('%s: Failed to generate ERRAT measurement' % self.name)
             return
