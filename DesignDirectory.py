@@ -2463,20 +2463,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
                     # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
                     # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
-                    print('profile_mean_collapse_concatenated_s', profile_mean_collapse_concatenated_s.shape)
-                    print('profile_std_collapse_concatenated_s', profile_std_collapse_concatenated_s.shape)
-                    print('wt_contact_order_concatenated_s', wt_contact_order_concatenated_s.shape)
-                    print('collapse_graph_df.index', collapse_graph_df.index.shape)
-                    collapse_graph_describe = {
-                        'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
-                        'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
-                        # 'contact_order': (wt_contact_order_concatenated_s - wt_contact_order_concatenated_s.min()) /
-                        #                  (wt_contact_order_concatenated_s.max() - wt_contact_order_concatenated_s.min()),
-                        # 'Residue Number': collapse_graph_df.index}
-                    }
-                    # for k, v in collapse_graph_describe.items():
-                    #     print(k, v.shape)
-                    collapse_graph_describe_df = pd.DataFrame(collapse_graph_describe)
                     collapse_graph_describe = {
                         'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
                         'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
@@ -2484,15 +2470,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                          (wt_contact_order_concatenated_s.max() - wt_contact_order_concatenated_s.min()),
                         # 'Residue Number': collapse_graph_df.index}
                     }
-                    # for k, v in collapse_graph_describe.items():
-                    #     print(k, v.shape)
                     collapse_graph_describe_df = pd.DataFrame(collapse_graph_describe)
+                    collapse_graph_describe_df.index += 1
+                    collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
                     # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
                     # collapse_graph_df['Residue Number'] = collapse_graph_df.index
                     # graph = sns.lineplot(data=collapse_graph_df)
                     graph = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
                     # ax = graph.axes
                     # ax[0, 0].vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df)
+                    graph.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))
                     ax = plt.gca()
                     ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df)
                     # axes[0].plot(collapse_graph_df.index, profile_mean_collapse_concatenated_s)
@@ -2502,7 +2489,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     #     data = kwargs.pop("data")
                     #     data.plot(x=x, y=y, yerr=yerr, kind="bar", ax=ax, **kwargs)
                     # graph.map_dataframe(errplot, 'Residue Number', 'mean', 'std')
-                    graph.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))
+                    graph.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
                     # Todo ensure output is as expected
                     # protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
                     #                        for design in designs}
