@@ -2100,7 +2100,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #   new_collapse_islands, new_collapse_island_significance
 
             collapse_df, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}
-            wt_collapse_concatenated = []
+            inverse_residue_contact_order_z, contact_order = {}, {}
             for entity in self.pose.entities:
                 entity.msa = self.database.alignments.retrieve_data(name=entity.name)
                 collapse = entity.collapse_profile()
@@ -2110,12 +2110,27 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 wt_collapse_bool[entity] = np.where(wt_collapse[entity] > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
                 wt_collapse_z_score[entity] = \
                     z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
+                # we must give a copy of coords_indexed_residues from the pose to each entity...
+                entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
+                # residue_contact_order[entity] = entity.contact_order_per_residue()
+                residue_contact_order = entity.contact_order_per_residue()
+                contact_order[entity] = residue_contact_order
+                # residue_contact_order_mean, residue_contact_order_std = \
+                #     residue_contact_order.mean(), residue_contact_order.std()
+                print('%s residue_contact_order' % entity.name, residue_contact_order)
+                residue_contact_order_z = \
+                    z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
+                inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
             # for graphing the collapse profile
+            wt_contact_order_concatenated_s = pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
             wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='wild_type')
             profile_mean_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['mean', :] for entity in self.pose.entities)
             profile_std_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['std', :] for entity in self.pose.entities)
 
-            folding_and_collapse = {}
+            folding_and_collapse = \
+                {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
+                 'new_collapse_island_significance': {}, 'contact_order_collapse_z_sum': {},
+                 'sequential_collapse_peaks_z_sum': {}, 'sequential_collapse_z_sum': {}, 'global_collapse_z_sum': {}}
             design_collapse_graph = {}
             for design in viable_designs:
                 hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
@@ -2150,21 +2165,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                             new_collapse[idx] = _bool
                     # new_collapse are sites where a new collapse is formed compared to wild-type
 
-                    # we must give a copy of coords_indexed_residues from the pose to each entity...
-                    entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
-                    residue_contact_order = entity.contact_order_per_residue()
+                    # # we must give a copy of coords_indexed_residues from the pose to each entity...
+                    # entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
+                    # residue_contact_order = entity.contact_order_per_residue()
+                    # contact_order_concatenated.append(residue_contact_order)
                     # inverse_residue_contact_order = max(residue_contact_order) - residue_contact_order
-                    residue_contact_order_mean, residue_contact_order_std = \
-                        residue_contact_order.mean(), residue_contact_order.std()
-                    residue_contact_order_z = \
-                        z_score(residue_contact_order, residue_contact_order_mean, residue_contact_order_std)
-                    inverse_residue_contact_order_z = residue_contact_order_z * -1
+                    # residue_contact_order_mean, residue_contact_order_std = \
+                    #     residue_contact_order[entity].mean(), residue_contact_order[entity].std()
+                    # residue_contact_order_z = \
+                    #     z_score(residue_contact_order, residue_contact_order_mean, residue_contact_order_std)
+                    # inverse_residue_contact_order_z = residue_contact_order_z * -1
+
                     # use the contact order (or inverse) to multiply by hci in order to understand the designability of
                     # the specific area and its resulting folding modification
                     # The multiplication by positive collapsing z-score will indicate the degree to which low contact
                     # order stretches are reliant on collapse as a folding mechanism, while high contact order are
                     # negative and the locations of highly negative values indicate high contact order use of collapse
-                    collapse_significance = inverse_residue_contact_order_z * collapse_propensity_positive_z_only
+                    collapse_significance = inverse_residue_contact_order_z[entity] * collapse_propensity_positive_z_only
 
                     collapse_peak_start = np.zeros(collapse_bool.shape)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
                     sequential_collapse_points = np.zeros(collapse_bool.shape)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ...]
@@ -2201,7 +2218,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     new_collapse_island_significance.append(sum(new_collapse_peak_start * abs(collapse_significance)))
 
                     # offset inverse_residue_contact_order_z to center at 1 instead of 0. Todo deal with negatives
-                    contact_order_collapse_z_sum.append(sum((inverse_residue_contact_order_z + 1) * global_collapse_z))
+                    contact_order_collapse_z_sum.append(sum((inverse_residue_contact_order_z[entity] + 1) * global_collapse_z))
                     sequential_collapse_peaks_z_sum.append(sum(sequential_collapse_weights * global_collapse_z))
                     sequential_collapse_z_sum.append(sum(sequential_weights * global_collapse_z))
                     global_collapse_z_sum.append(global_collapse_z.sum())
@@ -2220,6 +2237,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # make a graph of the collapse with residues as index and design as column
             collapse_graph_df = pd.DataFrame(design_collapse_graph)
+            collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
             collapse_graph_df['wild_type'] = wt_collapse_concatenated_s
             collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
             collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
