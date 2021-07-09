@@ -2466,7 +2466,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
                     collapse_graph_df['Residue Number'] = collapse_graph_df.index
                     graph = sns.lineplot(data=collapse_graph_df)
-                    graph.map_dataframe(errplot, 'Residue Number', 'mean', 'std')
+                    graph.map(errplot, 'Residue Number', 'mean', 'std')
                     graph.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))
                     # Todo ensure output is as expected
                     # protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
