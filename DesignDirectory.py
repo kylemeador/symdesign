@@ -2125,9 +2125,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # for graphing the collapse profile
             wt_contact_order_concatenated_s = pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
             wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='wild_type')
-            profile_mean_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['mean', :] for entity in self.pose.entities)
+            profile_mean_collapse_concatenated_s = \
+                pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
+            profile_mean_collapse_concatenated_s.index += 1
             print(profile_mean_collapse_concatenated_s)
-            profile_std_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['std', :] for entity in self.pose.entities)
+            profile_std_collapse_concatenated_s = \
+                pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
+            profile_std_collapse_concatenated_s.index += 1
 
             folding_and_collapse = \
                 {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
