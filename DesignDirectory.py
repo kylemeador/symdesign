@@ -34,9 +34,8 @@ from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, 
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, \
     filter_df_for_index_by_value  # calc_relative_sa,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
-    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
-    multi_chain_alignment, \
-    hydrophobic_collapse_index  # , format_mutations, generate_sequences, make_mutations_chain_agnostic,
+    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence,\
+    multi_chain_alignment, hydrophobic_collapse_index
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 from utils.SymmetryUtils import valid_subunit_number
@@ -2118,7 +2117,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 contact_order[entity] = residue_contact_order
                 # residue_contact_order_mean, residue_contact_order_std = \
                 #     residue_contact_order.mean(), residue_contact_order.std()
-                print('%s residue_contact_order' % entity.name, residue_contact_order)
+                # print('%s residue_contact_order' % entity.name, residue_contact_order)
                 residue_contact_order_z = \
                     z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
                 inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
@@ -2128,7 +2127,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             profile_mean_collapse_concatenated_s = \
                 pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
             profile_mean_collapse_concatenated_s.index += 1
-            print(profile_mean_collapse_concatenated_s)
             profile_std_collapse_concatenated_s = \
                 pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
             profile_std_collapse_concatenated_s.index += 1
@@ -2290,8 +2288,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Calculate sequence statistics
             # first for entire pose
-            entity_sequences = filter_dictionary_keys(entity_sequences, viable_designs)
-            pose_alignment = multi_chain_alignment(entity_sequences)
+            pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
+            pose_alignment = multi_chain_alignment(pose_sequences)
             mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, interface_residues)
             # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
@@ -2307,8 +2305,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Next, for each protocol
             divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
             for protocol, designs in designs_by_protocol.items():
-                protocol_alignment = multi_chain_alignment({chain: {design: design_seqs[design] for design in designs}
-                                                            for chain, design_seqs in entity_sequences.items()})
+                # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
+                protocol_alignment = multi_chain_alignment({entity: {design: design_seqs[design] for design in designs}
+                                                            for entity, design_seqs in entity_sequences.items()})
                 # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['frequencies'], interface_residues)
                 protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies, interface_residues)
                 protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
