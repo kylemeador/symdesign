@@ -2306,7 +2306,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
             for protocol, designs in designs_by_protocol.items():
                 # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
-                protocol_alignment = multi_chain_alignment({design: pose_sequences[design] for design in designs})
+                protocol_alignment = msa_from_dictionary({design: pose_sequences[design] for design in designs})
                 # protocol_alignment = multi_chain_alignment({entity: {design: design_seqs[design] for design in designs}
                 #                                             for entity, design_seqs in entity_sequences.items()})
                 # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['frequencies'], interface_residues)
