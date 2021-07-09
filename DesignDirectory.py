@@ -8,6 +8,7 @@ from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
 
 import matplotlib.pyplot as plt
+import seaborn as sns
 import numpy as np
 import pandas as pd
 from mpl_toolkits.mplot3d import Axes3D
@@ -2099,6 +2100,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #   new_collapse_islands, new_collapse_island_significance
 
             collapse_df, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}
+            wt_collapse_concatenated = []
             for entity in self.pose.entities:
                 entity.msa = self.database.alignments.retrieve_data(name=entity.name)
                 collapse = entity.collapse_profile()
@@ -2108,25 +2110,32 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 wt_collapse_bool[entity] = np.where(wt_collapse[entity] > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
                 wt_collapse_z_score[entity] = \
                     z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
+            # for graphing the collapse profile
+            wt_collapse_concatenated_s = pd.Series(np.concatenate(wt_collapse.values()), name='wild_type')
+            profile_mean_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['mean', :] for entity in self.pose.entities)
+            profile_std_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['std', :] for entity in self.pose.entities)
 
             folding_and_collapse = {}
+            design_collapse_graph = {}
             for design in viable_designs:
                 hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
                 contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, global_collapse_z_sum = [], [], [], []
+                collapse_concatenated = []
                 for entity in self.pose.entities:
                     sequence = entity_sequences[entity][design]
                     standardized_collapse = hydrophobic_collapse_index(sequence)
+                    collapse_concatenated.append(standardized_collapse)
                     # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
-                    normalized_collapse = standardized_collapse - wt_collapse[entity]
+                    # normalized_collapse = standardized_collapse - wt_collapse[entity]
                     z_array = z_score(standardized_collapse,  # observed_collapse,
-                                      collapse_df[entity]['mean'], collapse_df[entity]['std'])
+                                      collapse_df[entity].loc['mean', :], collapse_df[entity].loc['std', :])
                     # todo test for magnitude of the wt versus profile, remove subtraction?
                     normalized_collapse_z = z_array - wt_collapse_z_score[entity]
                     hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
                     global_collapse_z = np.where(normalized_collapse_z > 0, normalized_collapse_z, 0)
 
                     # find collapse where: delta above standard collapse, collapsable boolean, and successive number
-                    collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
+                    # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
                     # scale the collapse propensity by the standard collapse threshold and make z score
                     collapse_propensity_z = z_score(standardized_collapse, 0.43, 0.05)
                     collapse_propensity_positive_z_only = np.where(collapse_propensity_z > 0, collapse_propensity_z, 0)
@@ -2204,7 +2213,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 folding_and_collapse['sequential_collapse_peaks_z_sum'][design] = sum(sequential_collapse_peaks_z_sum)
                 folding_and_collapse['sequential_collapse_z_sum'][design] = sum(sequential_collapse_z_sum)
                 folding_and_collapse['global_collapse_z_sum'][design] = sum(global_collapse_z_sum)
+                design_collapse_graph[design] = pd.Series(np.concatenate(collapse_concatenated), name=design)
+                # design_collapse_graph[design].name = design
 
+            # make a graph of the collapse with residues as index and design as column
+            collapse_graph_df = pd.DataFrame(design_collapse_graph)
+            collapse_graph_df['wild_type'] = wt_collapse_concatenated_s
+            collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
+            collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
             pose_collapse_df = pd.DataFrame(folding_and_collapse)
             # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
 
@@ -2414,66 +2430,78 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
                 sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
-                if figures:  # Todo ensure output is as expected
-                    protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
-                                           for design in designs}
-                    _path = os.path.join(self.all_scores, str(self))
-                    # Set up Labels & Plot the PC data
-                    protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
-                    integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
-                    pc_labels_group = [protocols_by_design[design] for design in residue_info]
-                    # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
-                    pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
-                    fig = plt.figure()
-                    # ax = fig.add_subplot(111, projection='3d')
-                    ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-                    # plt.cla()
+                if figures:
+                    # make a hydrophobic collapse figure
+                    def errplot(x, y, yerr, **kwargs):
+                        ax = plt.gca()
+                        data = kwargs.pop("data")
+                        data.plot(x=x, y=y, yerr=yerr, kind="bar", ax=ax, **kwargs)
 
-                    # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
-                    #     ax.scatter(seq_pc[pc_labels_group == label, 0],
-                    #                seq_pc[pc_labels_group == label, 1],
-                    #                seq_pc[pc_labels_group == label, 2],
-                    #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
-                    scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
-                                         edgecolor='k')
-                    # handles, labels = scatter.legend_elements()
-                    # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
-                    # ax.legend(handles, labels, loc='upper right', title=groups)
-                    # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
-                    # # plt.axis('equal') # not possible with 3D graphs
-                    # plt.legend()  # No handles with labels found to put in legend.
-                    colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-                    custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
-                                    for c in colors]
-                    ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
-                              bbox_to_anchor=(1.0, .5))
-                    # # Add group mean to the plot
-                    # for name, label in integer_map.items():
-                    #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
-                    #                seq_pc[pc_labels_group == label, 1].mean(),
-                    #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
-                    ax.set_xlabel('PC1')
-                    ax.set_ylabel('PC2')
-                    ax.set_zlabel('PC3')
-                    # plt.legend(pc_labels_group)
-                    plt.savefig('%s_seq_pca.png' % _path)
-                    plt.clf()
-                    # Residue PCA Figure to assay multiple interface states
-                    fig = plt.figure()
-                    # ax = fig.add_subplot(111, projection='3d')
-                    ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-                    scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
-                                         c=pc_labels_int,
-                                         cmap='Spectral', edgecolor='k')
-                    colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-                    custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
-                                    colors]
-                    ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
-                              bbox_to_anchor=(1.0, .5))
-                    ax.set_xlabel('PC1')
-                    ax.set_ylabel('PC2')
-                    ax.set_zlabel('PC3')
-                    plt.savefig('%s_res_energy_pca.png' % _path)
+                    # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
+                    collapse_graph_df['Residue Number'] = collapse_graph_df.index
+                    graph = sns.lineplot(data=collapse_graph_df)
+                    graph.map_dataframe(errplot, 'Residue Number', 'mean', 'std')
+                    graph.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))
+                    # Todo ensure output is as expected
+                    # protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
+                    #                        for design in designs}
+                    # _path = os.path.join(self.all_scores, str(self))
+                    # # Set up Labels & Plot the PC data
+                    # protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
+                    # integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
+                    # pc_labels_group = [protocols_by_design[design] for design in residue_info]
+                    # # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
+                    # pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
+                    # fig = plt.figure()
+                    # # ax = fig.add_subplot(111, projection='3d')
+                    # ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+                    # # plt.cla()
+                    #
+                    # # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
+                    # #     ax.scatter(seq_pc[pc_labels_group == label, 0],
+                    # #                seq_pc[pc_labels_group == label, 1],
+                    # #                seq_pc[pc_labels_group == label, 2],
+                    # #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
+                    # scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
+                    #                      edgecolor='k')
+                    # # handles, labels = scatter.legend_elements()
+                    # # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
+                    # # ax.legend(handles, labels, loc='upper right', title=groups)
+                    # # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
+                    # # # plt.axis('equal') # not possible with 3D graphs
+                    # # plt.legend()  # No handles with labels found to put in legend.
+                    # colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+                    # custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
+                    #                 for c in colors]
+                    # ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+                    #           bbox_to_anchor=(1.0, .5))
+                    # # # Add group mean to the plot
+                    # # for name, label in integer_map.items():
+                    # #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
+                    # #                seq_pc[pc_labels_group == label, 1].mean(),
+                    # #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
+                    # ax.set_xlabel('PC1')
+                    # ax.set_ylabel('PC2')
+                    # ax.set_zlabel('PC3')
+                    # # plt.legend(pc_labels_group)
+                    # plt.savefig('%s_seq_pca.png' % _path)
+                    # plt.clf()
+                    # # Residue PCA Figure to assay multiple interface states
+                    # fig = plt.figure()
+                    # # ax = fig.add_subplot(111, projection='3d')
+                    # ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+                    # scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
+                    #                      c=pc_labels_int,
+                    #                      cmap='Spectral', edgecolor='k')
+                    # colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+                    # custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
+                    #                 colors]
+                    # ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+                    #           bbox_to_anchor=(1.0, .5))
+                    # ax.set_xlabel('PC1')
+                    # ax.set_ylabel('PC2')
+                    # ax.set_zlabel('PC3')
+                    # plt.savefig('%s_res_energy_pca.png' % _path)
 
             # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
             if save_trajectories:
