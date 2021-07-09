@@ -2104,6 +2104,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for entity in self.pose.entities:
                 entity.msa = self.database.alignments.retrieve_data(name=entity.name)
                 collapse = entity.collapse_profile()
+                print(collapse)
                 collapse_df[entity] = collapse
                 # wt_collapse_z_score[entity] = hydrophobic_collapse_index(entity.sequence)
                 wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)
@@ -2125,6 +2126,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             wt_contact_order_concatenated_s = pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
             wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='wild_type')
             profile_mean_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['mean', :] for entity in self.pose.entities)
+            print(profile_mean_collapse_concatenated_s)
             profile_std_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['std', :] for entity in self.pose.entities)
 
             folding_and_collapse = \
