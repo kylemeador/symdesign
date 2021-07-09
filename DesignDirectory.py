@@ -11,7 +11,8 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 import pandas as pd
-from mpl_toolkits.mplot3d import Axes3D
+# from matplotlib.axes import Axes
+# from mpl_toolkits.mplot3d import Axes3D
 from scipy.spatial.distance import pdist, cdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -2240,10 +2241,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # make a graph of the collapse with residues as index and design as column
             collapse_graph_df = pd.DataFrame(design_collapse_graph)
-            collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
             collapse_graph_df['wild_type'] = wt_collapse_concatenated_s
-            collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
-            collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
+            # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
+            # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
+            # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
             pose_collapse_df = pd.DataFrame(folding_and_collapse)
             # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
 
@@ -2457,16 +2458,32 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
                 if figures:
-                    # make a hydrophobic collapse figure
-                    def errplot(x, y, yerr, **kwargs):
-                        ax = plt.gca()
-                        data = kwargs.pop("data")
-                        data.plot(x=x, y=y, yerr=yerr, kind="bar", ax=ax, **kwargs)
-
+                    # Make a hydrophobic collapse figure
+                    # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
+                    # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
+                    # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
+                    collapse_graph_describe = {
+                        'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
+                        'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
+                        'contact_order': (wt_contact_order_concatenated_s - wt_contact_order_concatenated_s.min()) /
+                                         (wt_contact_order_concatenated_s.max() - wt_contact_order_concatenated_s.min()),
+                        'Residue Number': collapse_graph_df.index}
+                    collapse_graph_describe_df = pd.DataFrame(collapse_graph_describe)
                     # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
-                    collapse_graph_df['Residue Number'] = collapse_graph_df.index
-                    graph = sns.lineplot(data=collapse_graph_df)
-                    graph.map(errplot, 'Residue Number', 'mean', 'std')
+                    # collapse_graph_df['Residue Number'] = collapse_graph_df.index
+                    # graph = sns.lineplot(data=collapse_graph_df)
+                    graph = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
+                    # ax = graph.axes
+                    # ax[0, 0].vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df)
+                    ax = plt.gca()
+                    ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df)
+                    # axes[0].plot(collapse_graph_df.index, profile_mean_collapse_concatenated_s)
+                    graph.set_xlabels('Residue Number')
+                    # def errplot(x, y, yerr, **kwargs):
+                    #     ax = plt.gca()
+                    #     data = kwargs.pop("data")
+                    #     data.plot(x=x, y=y, yerr=yerr, kind="bar", ax=ax, **kwargs)
+                    # graph.map_dataframe(errplot, 'Residue Number', 'mean', 'std')
                     graph.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))
                     # Todo ensure output is as expected
                     # protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
