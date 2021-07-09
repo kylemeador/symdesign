@@ -2111,7 +2111,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 wt_collapse_z_score[entity] = \
                     z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
             # for graphing the collapse profile
-            wt_collapse_concatenated_s = pd.Series(np.concatenate(wt_collapse.values()), name='wild_type')
+            wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='wild_type')
             profile_mean_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['mean', :] for entity in self.pose.entities)
             profile_std_collapse_concatenated_s = pd.concat(collapse_df[entity].loc['std', :] for entity in self.pose.entities)
 
