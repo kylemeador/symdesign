@@ -34,8 +34,8 @@ from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, 
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, \
     filter_df_for_index_by_value  # calc_relative_sa,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
-    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence,\
-    multi_chain_alignment, hydrophobic_collapse_index
+    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
+    multi_chain_alignment, hydrophobic_collapse_index, msa_from_dictionary
 from classes.SymEntry import SymEntry
 from interface_analysis.Database import FragmentDatabase
 from utils.SymmetryUtils import valid_subunit_number
@@ -2103,7 +2103,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for entity in self.pose.entities:
                 entity.msa = self.database.alignments.retrieve_data(name=entity.name)
                 collapse = entity.collapse_profile()
-                print(collapse)
                 collapse_df[entity] = collapse
                 # wt_collapse_z_score[entity] = hydrophobic_collapse_index(entity.sequence)
                 wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)
@@ -2289,7 +2288,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Calculate sequence statistics
             # first for entire pose
             pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
-            pose_alignment = multi_chain_alignment(pose_sequences)
+            # entity_alignment = multi_chain_alignment(entity_sequences)
+            pose_alignment = msa_from_dictionary(pose_sequences)
             mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, interface_residues)
             # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
@@ -2306,8 +2306,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
             for protocol, designs in designs_by_protocol.items():
                 # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
-                protocol_alignment = multi_chain_alignment({entity: {design: design_seqs[design] for design in designs}
-                                                            for entity, design_seqs in entity_sequences.items()})
+                protocol_alignment = multi_chain_alignment({design: pose_sequences[design] for design in designs})
+                # protocol_alignment = multi_chain_alignment({entity: {design: design_seqs[design] for design in designs}
+                #                                             for entity, design_seqs in entity_sequences.items()})
                 # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['frequencies'], interface_residues)
                 protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies, interface_residues)
                 protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
