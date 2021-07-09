@@ -485,6 +485,10 @@ class SequenceProfile:
         therefore the element such as 3 in the Aligned HCI would be dropped from the array when the aligned sequence
         is removed of any gaps and only the iterations will be left, essentially giving the HCI for the sequence
         profile in the native context, however adjusted to the specific context of the protein/design sequence at hand
+
+        Returns:
+            (pandas.DataFrame): DataFrame containing each sequences hydrophobic collapse values for the profile, mean,
+                and std
         """
         if not self.msa:
             try:
