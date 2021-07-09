@@ -2470,11 +2470,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     collapse_graph_describe = {
                         'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
                         'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
+                        # 'contact_order': (wt_contact_order_concatenated_s - wt_contact_order_concatenated_s.min()) /
+                        #                  (wt_contact_order_concatenated_s.max() - wt_contact_order_concatenated_s.min()),
+                        # 'Residue Number': collapse_graph_df.index}
+                    }
+                    # for k, v in collapse_graph_describe.items():
+                    #     print(k, v.shape)
+                    collapse_graph_describe_df = pd.DataFrame(collapse_graph_describe)
+                    collapse_graph_describe = {
+                        'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
+                        'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
                         'contact_order': (wt_contact_order_concatenated_s - wt_contact_order_concatenated_s.min()) /
                                          (wt_contact_order_concatenated_s.max() - wt_contact_order_concatenated_s.min()),
-                        'Residue Number': collapse_graph_df.index}
-                    for k, v in collapse_graph_describe.items():
-                        print(k, v.shape)
+                        # 'Residue Number': collapse_graph_df.index}
+                    }
+                    # for k, v in collapse_graph_describe.items():
+                    #     print(k, v.shape)
                     collapse_graph_describe_df = pd.DataFrame(collapse_graph_describe)
                     # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
                     # collapse_graph_df['Residue Number'] = collapse_graph_df.index
