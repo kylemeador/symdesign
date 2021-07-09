@@ -2071,11 +2071,13 @@ def msa_from_dictionary(named_sequences):
     Args:
         named_sequences (dict): {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
     Returns:
-        (Bio.Align.MultipleSeqAlignment): [SeqRecord(Seq('MNTEELQVAAFEI...', ...), id="Alpha"),
-                                           SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
+        (MultipleSequenceAlignment):
+        # (Bio.Align.MultipleSeqAlignment): [SeqRecord(Seq('MNTEELQVAAFEI...', ...), id="Alpha"),
+        #                                    SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
     """
-    return MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
-                                 for name, sequence in named_sequences.items()])
+    return MultipleSequenceAlignment(MultipleSeqAlignment([SeqRecord(Seq(sequence),
+                                                                     annotations={'molecule_type': 'Protein'}, id=name)
+                                                           for name, sequence in named_sequences.items()]))
 
 
 def msa_from_seq_records(seq_records):
