@@ -2039,29 +2039,37 @@ def position_specific_jsd(msa, background):
     return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
 
 
-def distribution_divergence(freq, bgd_freq, lambda_=0.5):
+def distribution_divergence(frequencies, bgd_frequencies, lambda_=0.5):
     """Calculate residue specific Jensen-Shannon Divergence value
 
     Args:
-        freq (dict): {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_freq (dict): {'A': 0, 'R': 0, ...}
+        frequencies (dict): {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+        bgd_frequencies (dict): {'A': 0, 'R': 0, ...}
     Keyword Args:
         jsd_lambda=0.5 (float): Value bounded between 0 and 1
     Returns:
         (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
     sum_prob1, sum_prob2 = 0, 0
-    for item in freq:
-        p, q = freq[item], bgd_freq[item]
-        r = (lambda_ * p) + ((1 - lambda_) * q)
-        if r == 0:
+    for item, frequency in frequencies.items():
+        bgd_frequency = bgd_frequencies.get(item)
+        try:
+            r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
+        except TypeError:  # bgd_frequency is None
             continue
-        if q != 0:
-            prob2 = (q * log(q / r, 2))
-            sum_prob2 += prob2
-        if p != 0:
-            prob1 = (p * log(p / r, 2))
-            sum_prob1 += prob1
+        try:
+            try:
+                prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
+                sum_prob2 += prob2
+            except ValueError:  # math domain error
+                continue
+            try:
+                prob1 = (frequency * log(frequency / r, 2))
+                sum_prob1 += prob1
+            except ValueError:  # math domain error
+                continue
+        except ZeroDivisionError:  # r = 0
+            continue
 
     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
 
