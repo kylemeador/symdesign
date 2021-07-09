@@ -504,6 +504,7 @@ class SequenceProfile:
         # aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
         # Make the output array one longer to keep a 0 value at the 0 index for collapse gaps
         evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))  # aligned_hci_np.copy()
+        evolutionary_collapse_np[:, 0] = np.nan
         # print('alignment', self.msa.alignment[:5, :])
         for idx, record in enumerate(self.msa.alignment):
             non_gapped_sequence = str(record.seq).replace('-', '')
