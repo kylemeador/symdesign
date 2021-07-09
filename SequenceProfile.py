@@ -2272,7 +2272,7 @@ def make_mutations_chain_agnostic(mutations):
     Args:
         mutations (dict): {design: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     Returns:
-        (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
+        (dict): {design: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
     flattened_mutations = {}
     for design, chain_mutations in mutations.items():
