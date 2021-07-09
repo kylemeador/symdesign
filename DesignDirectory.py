@@ -2151,7 +2151,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # new_collapse are sites where a new collapse is formed compared to wild-type
 
                     # we must give a copy of coords_indexed_residues from the pose to each entity...
-                    entity.coords_indexed_residues = self.pose.pdb.coords_indexed_residues
+                    entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
                     residue_contact_order = entity.contact_order_per_residue()
                     # inverse_residue_contact_order = max(residue_contact_order) - residue_contact_order
                     residue_contact_order_mean, residue_contact_order_std = \
