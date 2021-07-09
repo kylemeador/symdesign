@@ -502,9 +502,9 @@ class SequenceProfile:
         # msa_np = np.array([list(str(record.seq)) for record in self.msa.alignment], np.character)
         # print('msa_np', msa_np[:5, :])
         # aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
-        # Make the output array one longer to keep a 0 value at the 0 index for collapse gaps
+        # Make the output array one longer to keep a np.nan value at the 0 index for collapse gaps
         evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))  # aligned_hci_np.copy()
-        evolutionary_collapse_np[:, 0] = np.nan
+        evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
         # print('alignment', self.msa.alignment[:5, :])
         for idx, record in enumerate(self.msa.alignment):
             non_gapped_sequence = str(record.seq).replace('-', '')
@@ -514,7 +514,7 @@ class SequenceProfile:
         # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
         msa_mask = np.isin(msa_np, b'-', invert=True)  # returns bool array '-' = False. Converted during arithmetic
         # print('msa_mask', msa_mask[:5, :])
-        iterator_np = np.cumsum(msa_mask, axis=1)
+        iterator_np = np.cumsum(msa_mask, axis=1) * msa_mask
         # print('iterator_np', iterator_np[:5, :])
         # for idx in range(self.msa.length):
         #     # print('iterator shape', iterator_np.shape)
@@ -523,7 +523,7 @@ class SequenceProfile:
         #     # aligned_hci_np[:, idx] = evolutionary_collapse_np[:, iterator_np] * msa_mask[:, idx]
         #     aligned_hci_np[:, idx] = evolutionary_collapse_np[np.ix_(:, iterator_np)] * msa_mask[:, idx]
         #     iterator_np += msa_mask[:, idx]
-        aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1) * msa_mask
+        aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
         # print('aligned_hci_np', aligned_hci_np[:5, :])
         sequence_hci_np = aligned_hci_np[:, msa_mask[0]]  # where the aligned sequence is the first index
         # print('sequence:\n', '     '.join(aa for idx, aa in enumerate(map(str, self.msa.alignment[0].seq)) if msa_mask[0][idx]))
