@@ -2241,6 +2241,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # make a graph of the collapse with residues as index and design as column
             collapse_graph_df = pd.DataFrame(design_collapse_graph)
+            collapse_graph_df.index += 1  # offset index to residue numbering
             collapse_graph_df['wild_type'] = wt_collapse_concatenated_s
             # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
             # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
@@ -2462,6 +2463,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
                     # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
                     # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
+                    print('profile_mean_collapse_concatenated_s', profile_mean_collapse_concatenated_s.shape)
+                    print('profile_std_collapse_concatenated_s', profile_std_collapse_concatenated_s.shape)
+                    print('wt_contact_order_concatenated_s', wt_contact_order_concatenated_s.shape)
+                    print('collapse_graph_df.index', collapse_graph_df.index.shape)
                     collapse_graph_describe = {
                         'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
                         'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
