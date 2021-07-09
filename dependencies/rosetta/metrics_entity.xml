@@ -76,7 +76,7 @@
 		<IfThenFilter name="report_false"> # This is to report a value that is higher than ReadPoseExtraScoreFilter threshold causing that filter to return false
     		<IF testfilter="true_filter" value="0"/>
 		</IfThenFilter>
-		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+<!--		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>-->
 		<ReadPoseExtraScoreFilter name="read_repacking" term_name="repacking" threshold="-0.5"/>
 		# find the average degree of connectivity to residues surrounding specified residues
 		<AverageDegree name="interface_connectivity_%%entity%%" threshold="0" distance_threshold="10.0" task_operations="no_interface_no_pack,interface_and_neighbors_pack"/>
