@@ -243,7 +243,7 @@ class Structure(StructureBase):
         try:
             return [(self._residues.residues[res_idx], res_atom_idx)
                     for res_idx, res_atom_idx in self._coords_residue_index[self.atom_indices].tolist()]
-        except AttributeError:
+        except (AttributeError, TypeError):
             raise AttributeError('The current Structure object \'%s\' doesn\'t "own" it\'s coordinates. The attribute '
                                  '.coords_indexed_residues can only be accessed by the Structure object that owns these'
                                  ' coordinates and therefore owns this Structure' % self.name)  # Todo self.owner
@@ -1406,10 +1406,11 @@ class Structure(StructureBase):
         # indices = self.get_cb_indices()
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         # query_coords = self.coords[indices]  # only get the coordinate indices we want
-        tree = BallTree(self.coords[self.get_heavy_atom_indices()])
+        tree = BallTree(self.coords)  # [self.get_heavy_atom_indices()])  # Todo
         # entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
         query = tree.query_radius(self.coords, distance)  # get v residue w/ [0]
-        contacting_pairs = set((self.coords_indexed_residues[idx1][0], self.coords_indexed_residues[idx2][0])
+        coords_indexed_residues = self.coords_indexed_residues
+        contacting_pairs = set((coords_indexed_residues[idx1][0], coords_indexed_residues[idx2][0])
                                for idx2, contacts in enumerate(query) for idx1 in contacts)
         # residues1, residues2 = split_interface_pairs(contacting_pairs)
         contact_number = len(contacting_pairs)
