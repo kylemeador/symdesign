@@ -1446,6 +1446,12 @@ class Structure(StructureBase):
             for idx, instance in enumerate(structure):
                 structure[idx] = copy(instance)
 
+    @staticmethod
+    def return_chain_generator():
+        return (first + second for modification in ['upper', 'lower']
+                for first in [''] + list(getattr(Structure.available_letters, modification)())
+                for second in getattr(Structure.available_letters, modification)())
+
     def __key(self):
         return self.name, (*self._residue_indices)
         # return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
@@ -1826,13 +1832,6 @@ class Entity(Chain, SequenceProfile):
 
             return out_path
 
-    def scout_symmetry(self, **kwargs):
-        """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file"""
-        struct_file = self.find_chain_symmetry(**kwargs)
-        self.find_max_chain_symmetry()
-
-        return struct_file
-
     def find_chain_symmetry(self, struct_file=None):
         """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
 
@@ -1856,16 +1855,15 @@ class Entity(Chain, SequenceProfile):
 
         # todo initiate this process in house using superposition3D for every chain
         scout_cmd = ['perl', scout_symmdef, '-p', struct_file, '-a', self.chain_ids[0], '-i'] + self.chain_ids[1:]
-        self.log.info(subprocess.list2cmdline(scout_cmd))
+        self.log.debug('Scouting chain symmetry: %s' % subprocess.list2cmdline(scout_cmd))
         p = subprocess.Popen(scout_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
 
         for line in out.decode('utf-8').strip().split('\n'):
-            # chain = line[0]  # grabs the first character
             chain, symmetry, axis = line.split(':')
             self.rotation_d[chain] = \
                 {'sym': int(symmetry[:6].rstrip('-fold')), 'axis': np.array(list(map(float, axis.strip().split())))}
-            # the returned axis in this representation emanates from the origin as Structure has been translated there
+            # the returned axis is from a center of mass at the origin as Structure has been translated there
 
         return struct_file
 
@@ -1882,6 +1880,13 @@ class Entity(Chain, SequenceProfile):
                 max_chain = chain
 
         self.max_symmetry = max_chain
+
+    def scout_symmetry(self, **kwargs):
+        """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file"""
+        struct_file = self.find_chain_symmetry(**kwargs)
+        self.find_max_chain_symmetry()
+
+        return struct_file
 
     def is_dihedral(self):
         """Report whether a structure is dihedral or not
@@ -1929,13 +1934,13 @@ class Entity(Chain, SequenceProfile):
         struct_file = self.scout_symmetry(struct_file=struct_file)
         dihedral = self.is_dihedral()
         if dihedral:  # dihedral_chain will be set
-            chains = '%s %s' % (self.max_symmetry, self.dihedral_chain)
+            chains = [self.max_symmetry, self.dihedral_chain]
         else:
-            chains = self.max_symmetry
+            chains = [self.max_symmetry]
 
         # if not struct_file:
         #     struct_file = self.write(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
-        sdf_cmd = ['perl', make_symmdef, '-p', struct_file, '-a', self.chain_ids[0], '-i', chains, '-q']
+        sdf_cmd = ['perl', make_symmdef, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'] + chains
         self.log.info('Creating symmetry definition file: %s' % subprocess.list2cmdline(sdf_cmd))
         # with open(out_file, 'w') as file:
         p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
@@ -3060,7 +3065,7 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     # Calculate Q (equation 17)
     q = m + m.T - 2 * np.eye(3) * np.trace(m)
 
-    # Calculate v (equation 18)
+    # Calculate v (equation 18)  #KM this appears to be the cross product...
     v = np.empty(3)
     v[0] = m[1][2] - m[2][1]
     v[1] = m[2][0] - m[0][2]
@@ -3071,6 +3076,10 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     P[:3, :3] = q
     P[3, :3] = v
     P[:3, 3] = v
+    # [[ q[0][0] q[0][1] q[0][2] v[0] ]
+    #  [ q[1][0] q[1][1] q[1][2] v[1] ]
+    #  [ q[2][0] q[2][1] q[2][2] v[2] ]
+    #  [ v[0]    v[1]    v[2]    0    ]]
 
     # Calculate "p".
     # "p" contains the optimal rotation (in backwards-quaternion format)
@@ -3090,7 +3099,7 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     if not singular:  # (don't crash if the caller supplies nonsensical input)
         i_eval_max = np.argmax(a_eigenvals)
         pPp = np.max(a_eigenvals)
-        p[:] = aa_eigenvects[:, i_eval_max]
+        p[:] = aa_eigenvects[:, i_eval_max]  # pull out the largest magnitude eigenvector
 
     # normalize the vector
     # (It should be normalized already, but just in case it is not, do it again)
@@ -3154,11 +3163,9 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
         # https://en.wikipedia.org/wiki/Quaternions_and_spatial_rotation
         # https://mathworld.wolfram.com/Quaternion.html
         # So I return "q" (a version of "p" using the more popular convention).
-        q = np.empty(4)
-        q[0] = p[3]
-        q[1] = p[0]
-        q[2] = p[1]
-        q[3] = p[2]
+        # q = np.empty(4)
+        # q[0], q[1], q[2], q[3] = p[3], p[0], p[1], p[2]
+        q = np.array([p[3], p[0], p[1], p[2]])
         return rmsd, q, a_translate, c
     else:
         return rmsd, aa_rotate, a_translate, c

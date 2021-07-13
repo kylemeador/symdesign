@@ -136,7 +136,7 @@ def handle_errors(errors=(Exception,)):
     Keyword Args:
         errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
     Returns:
-        (function): Function return upon proper execution, else is error if exception raised, else None
+        (Union[Callable, Exception): Function return upon proper execution, else the Exception if one was raised
     """
     def wrapper(func):
         @wraps(func)
@@ -752,12 +752,13 @@ def read_fasta_file(file_name, **kwargs):
 
 
 @handle_errors(errors=(FileNotFoundError,))
-def read_stockholm_file(file_name, **kwargs):
+def read_alignment(file_name, alignment_type='fasta', **kwargs):
     """Open a fasta file and return a parser object to load the sequences to SeqRecords
     Returns:
         (Iterator[SeqRecords]): Ex. [record1, record2, ...]
     """
-    return AlignIO.read(file_name, 'stockholm')
+    # return AlignIO.read(file_name, 'stockholm')
+    return AlignIO.read(file_name, alignment_type)
 
 
 def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
@@ -825,28 +826,29 @@ def write_fasta_file(sequence, name, out_path=os.getcwd(), csv=False):
 ####################
 
 
-def calculate_mp_threads(cores=None, mpi=False):
+def calculate_mp_threads(cores=None, mpi=False, jobs=None):
     """Calculate the number of multiprocessing threads to use for a specific application
 
     Keyword Args:
+        cores=None (int): How many cpu's to attempt to use, leaving at least one available for the machine
         mpi=False (bool): If commands use MPI
-        maximum=False (bool): Whether to use the maximum number of cpu's, leaving one available for the machine
-        no_model=False (bool): If pose initialization is completed without any modelling
+        jobs=None (int): How many jobs to attempt
     Returns:
         (int): The number of threads to use
     """
-    allocated_cpus = os.environ.get('SLURM_CPUS_PER_TASK', None)
+    allocated_cpus = os.environ.get('SLURM_CPUS_PER_TASK')
     if allocated_cpus:  # we are in a SLURM environment and should follow allocation but allow hyper-threading (* 2)
+        # Todo reconsider the * 2 if not on cassini
         max_cpus_to_use = int(allocated_cpus) * 2
     else:
         max_cpus_to_use = mp.cpu_count() - 1  # leave CPU available for computer, see also len(os.sched_getaffinity(0))
 
-    if cores:
-        return cores
-    elif mpi:
+    # if cores:
+    #     return min((cores or max_cpus_to_use), (jobs or max_cpus_to_use), max_cpus_to_use)
+    if mpi:
         return int(max_cpus_to_use / 6)  # CommandDistributer.mpi)
     else:
-        return max_cpus_to_use
+        return min((cores or max_cpus_to_use), max_cpus_to_use)  # (jobs or max_cpus_to_use),
 
 
 def set_worker_affinity():

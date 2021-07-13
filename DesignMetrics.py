@@ -511,6 +511,7 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                # 'solvation_energy_1_unbound', 'solvation_energy_2_unbound', 'solvation_energy_unbound',
                'hbonds_res_selection_asu', 'hbonds_res_selection_unbound',
                'decoy', 'final_sequence', 'symmetry_switch', 'metrics_symmetry', 'oligomer_switch', 'total_score',
+               # 'protocol_switch'
                'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex',
                # 'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'buns_total',
                'angle_constraint', 'atom_pair_constraint', 'chainbreak', 'coordinate_constraint', 'dihedral_constraint',
@@ -622,9 +623,13 @@ def keys_from_trajectory_number(pdb_dict):
     return {key.split('_')[-1]: value for key, value in pdb_dict.items()}
 
 
-def join_columns(x):
-    """Combine columns in a dataframe with the same column name. Keep only the last column record"""
-    new_data = ','.join(x[x.notnull()].astype(str))
+def join_columns(row):
+    """Combine columns in a dataframe with the same column name. Keep only the last column record
+
+    Returns:
+        (str): The column name
+    """
+    new_data = ','.join(row[row.notnull()].astype(str))
     return new_data.split(',')[-1]
 
 
@@ -635,7 +640,7 @@ def columns_to_new_column(df, column_dict, mode='add'):
     Args:
         df (pandas.DataFrame): Dataframe where the columns are located
         column_dict (dict[mapping[str,tuple]]): Keys are new column names, values are tuple of existing columns where
-        value[0] mode(operation) value[1] = df[key]
+            df[key] = value[0] mode(operation) value[1]
     Keyword Args:
         mode='add' (str) = What operator to use?
             Viable options are included in module operator, but could be 'sub', 'mul', 'truediv', etc.
@@ -648,9 +653,9 @@ def columns_to_new_column(df, column_dict, mode='add'):
         except KeyError:
             pass
         if len(column_set) > 2 and mode in ['add', 'sub']:  # >2 values in set, perform repeated operations Ex: SUM, SUB
-            for iteration in enumerate(column_set[2:], 2):  # perform an iteration for every N-2 items in the column_set
+            for extra_column in column_set[2:]:  # perform an iteration for every N-2 items in the column_set
                 try:
-                    df[new_column] = operator.attrgetter(mode)(operator)(df[new_column], df[column_set[iteration]])
+                    df[new_column] = operator.attrgetter(mode)(operator)(df[new_column], df[extra_column])
                 except KeyError:
                     pass
 

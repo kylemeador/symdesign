@@ -175,5 +175,9 @@ scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 
+# help and warnings
+warn_missing_symmetry = 'Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\' or \'--sym_entry\''
+
+
 def help(module):  # command is SymDesign.py
     return '\'%s %s -h\' for help' % (command, module)

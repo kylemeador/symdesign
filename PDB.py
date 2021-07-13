@@ -119,7 +119,7 @@ class PDB(Structure):
                 #                        for second in PDB.available_letters)
                 # for idx, chain in enumerate(self.chains):
                 #     chain.chain_id = next(available_chain_ids)
-                self.chain_id_list = [chain.name for chain in self.chains]  # ([res.chain for res in residues])
+                # self.chain_id_list = [chain.name for chain in self.chains]  # ([res.chain for res in residues])
 
                 self.chains[0].start_indices(dtype='residue', at=0)
                 self.chains[0].start_indices(dtype='atom', at=0)
@@ -182,8 +182,7 @@ class PDB(Structure):
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 # set each successive Entity to have an incrementally higher chain id
-                available_chain_ids = (first + second for first in [''] + list(PDB.available_letters)
-                                       for second in PDB.available_letters)
+                available_chain_ids = self.return_chain_generator
                 for idx, entity in enumerate(self.entities):
                     # print('Entity %s update indices' % entity.name, entity.atom_indices)
                     entity.chain_id = next(available_chain_ids)
@@ -355,8 +354,7 @@ class PDB(Structure):
                 start_of_new_model = True
                 if not multimodel:
                     multimodel = True
-                    available_chain_ids = (first + second for first in [''] + list(PDB.available_letters)
-                                           for second in PDB.available_letters)
+                    available_chain_ids = self.return_chain_generator()
             elif lazy:
                 continue
             elif line[0:6] == 'SEQRES':
@@ -416,7 +414,7 @@ class PDB(Structure):
             # inherently replace the Atom and Residue Coords
             self.set_coords(coords)
 
-        if not lazy:  # Todo change lazy to pose
+        if not lazy:  # Todo change lazy to pose?
             self.renumber_structure()
 
         if chains:
@@ -630,8 +628,7 @@ class PDB(Structure):
     def reorder_chains(self, exclude_chains=None):
         """Renames chains using PDB.available_letter. Caution, doesn't update self.reference_sequence chain info
         """
-        available_chain_ids = [first + second for first in [''] + list(PDB.available_letters)
-                               for second in PDB.available_letters]
+        available_chain_ids = list(self.return_chain_generator())
         if exclude_chains:
             available_chains = sorted(set(available_chain_ids).difference(exclude_chains))
         else:
@@ -639,8 +636,8 @@ class PDB(Structure):
 
         # Update chain_id_list, then each chain
         self.chain_id_list = available_chains[:self.number_of_chains]
-        for idx, chain in enumerate(self.chains):
-            chain.chain_id = self.chain_id_list[idx]
+        for chain, new_id in zip(self.chains, self.chain_id_list):
+            chain.chain_id = new_id
 
         self.get_chain_sequences()
 
@@ -701,12 +698,11 @@ class PDB(Structure):
                 else:
                     chain_residues[chain_idx].append(prior_idx + 1)  # residue.index)
                     # chain_residues[chain_idx].append(residue)
-            available_chain_ids = (first + second for first in [''] + list(PDB.available_letters)
-                                   for second in PDB.available_letters)
+            available_chain_ids = self.return_chain_generator()
             for idx, (chain_idx, residue_indices) in enumerate(chain_residues.items()):
                 if chain_idx < len(self.chain_id_list):  # Todo this logic is flawed when chains come in out of order
                     chain_id = self.chain_id_list[chain_idx]
-                    discard = next(available_chain_ids)
+                    discard_chain = next(available_chain_ids)
                 else:  # when there are more chains than supplied by file, chose the next available
                     chain_id = next(available_chain_ids)
                 self.chains.append(Chain(name=chain_id, residue_indices=residue_indices, residues=self._residues,
