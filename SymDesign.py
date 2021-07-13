@@ -847,12 +847,12 @@ if __name__ == '__main__':
     # parser.parse_intermixed_args(args=None, namespace=None)
     # parser.parse_known_intermixed_args
     unknown_args = None
-    args, additional_flags = parser.parse_known_args()
+    args, additional_args = parser.parse_known_args()
     # TODO work this into the flags parsing to grab module if included first and program flags if included after
-    # while len(additional_flags) and additional_flags != unknown_args:
-    #     args, additional_flags = parser.parse_known_args(additional_flags, args)
-    #     unknown_args = additional_flags
-    # args, additional_flags = parser.parse_known_args(additional_flags, args)
+    # while len(additional_args) and additional_args != unknown_args:
+    #     args, additional_args = parser.parse_known_args(additional_args, args)
+    #     unknown_args = additional_args
+    # args, additional_args = parser.parse_known_args(additional_args, args)
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
@@ -908,8 +908,8 @@ if __name__ == '__main__':
     # Process additional flags
     # -----------------------------------------------------------------------------------------------------------------
     default_flags = Flags.return_default_flags(args.module)
-    if additional_flags:
-        formatted_flags = format_additional_flags(additional_flags)
+    if additional_args:
+        formatted_flags = format_additional_flags(additional_args)
     else:
         formatted_flags = dict()
         extra_flags = None
@@ -940,13 +940,13 @@ if __name__ == '__main__':
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
                        'interface_metrics', 'custom_script', 'rename_chains', 'status']:
         initialize, construct_pose = True, True  # set up design directories
-        if args.module in ['orient', 'expand_asu']:
-            if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
-                queried_flags['output_assembly'] = True
-            else:
-                logger.critical('Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\''
-                                % args.module)
-                exit(1)
+        # if args.module in ['orient', 'expand_asu']:
+        #     if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
+        #         queried_flags['output_assembly'] = True
+        #     else:
+        #         logger.critical('Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\''
+        #                         % args.module)
+        #         exit(1)
     elif args.module in [PUtils.nano, PUtils.select_designs, PUtils.analysis, PUtils.cluster_poses,
                          'sequence_selection']:
         queried_flags[args.module] = True  # Todo what is this for? Analysis (No more) in DesignDirectory and ?
@@ -1111,7 +1111,7 @@ if __name__ == '__main__':
             sequences_dir = master_directory.sequences
             master_directory.make_path(profile_dir)
             master_directory.make_path(sequences_dir)
-            profile_commands = []
+            hhblits_cmds = []
             for entity in all_entities:
                 entity.sequence_file = master_db.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:
@@ -1123,31 +1123,52 @@ if __name__ == '__main__':
                     # to generate in current runtime
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                     # to generate in a sbatch script
-                    profile_commands.append(entity.hhblits(out_path=profile_dir, return_command=True))
-            if profile_commands:
+                    # profile_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
+                    hhblits_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
+            if hhblits_cmds:
                 # prepare files for running hhblits commands
                 logger.info('Please follow the instructions below to generate sequence profiles for input proteins')
-                hhblits_cmds, reformat_msa_cmds = zip(*profile_commands)
-                hhblits_cmd_file = SDUtils.write_commands(hhblits_cmds, name='hhblits_%s' % timestamp,
-                                                          out_path=profile_dir)
-                hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.program_root,
+                # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
+                # hhblits_cmds, _ = zip(*hhblits_cmds)
+                reformat_msa_cmd1 = [PUtils.reformat_msa_exe, 'a3m', 'sto',
+                                     "'%s'" % os.path.join(profile_dir, '*.a3m'), '.sto', '-num', '-uc']
+                reformat_msa_cmd2 = [PUtils.reformat_msa_exe, 'a3m', 'fas',
+                                     "'%s'" % os.path.join(profile_dir, '*.a3m'), '.fasta', '-M', 'first', '-r']
+                hhblits_cmd_file = \
+                    SDUtils.write_commands(hhblits_cmds, name='hhblits_%s' % timestamp, out_path=profile_dir)
+                hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.sbatch_scripts,
                                             scale='hhblits', max_jobs=len(hhblits_cmds),
                                             log_file=os.path.join(profile_dir, 'generate_profiles.log'),
-                                            number_of_commands=len(hhblits_cmds))
-                reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
-                                                               out_path=profile_dir)
-                reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
-                                             scale='script', max_jobs=len(reformat_msa_cmds),
-                                             log_file=os.path.join(profile_dir, 'generate_profiles.log'),
-                                             number_of_commands=len(reformat_msa_cmds))
+                                            number_of_commands=len(hhblits_cmds),
+                                            finishing_commands=[subprocess.list2cmdline(reformat_msa_cmd1),
+                                                                subprocess.list2cmdline(reformat_msa_cmd2)])
+            bmdca_cmds = True  # TODO remove
+            if bmdca_cmds:  # Todo check if all_entities have been calculated
+                bmdca_cmds = [['bmdca', '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
+                               '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)] for entity in all_entities]
+                bmdca_cmd_file = \
+                    SDUtils.write_commands(bmdca_cmds, name='bmDCA_%s' % timestamp, out_path=profile_dir)
+                bmdca_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.sbatch_scripts,
+                                          scale='bmdca', max_jobs=len(bmdca_cmds),
+                                          log_file=os.path.join(profile_dir, 'generate_couplings.log'),
+                                          number_of_commands=len(bmdca_cmds),
+                                          finishing_commands=[subprocess.list2cmdline()])
+                # reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
+                #                                                out_path=profile_dir)
+                # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
+                #                              scale='script', max_jobs=len(reformat_msa_cmds),
+                #                              log_file=os.path.join(profile_dir, 'generate_profiles.log'),
+                #                              number_of_commands=len(reformat_msa_cmds))
                 print('\n' * 3)
                 logger.critical('Ensure the below created SBATCH scripts are correct. Specifically, check that the '
                                 'job array and any node specifications are accurate. You can look at the SBATCH '
                                 'manual (man sbatch or sbatch --help) to understand the variables or ask for help '
                                 'if you are still unsure')
-                logger.info('Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s\nONCE this '
-                            'job is finished, to properly format the multiple sequence alignment enter:\n\tsbatch %s'
-                            % (hhblits_sbatch, reformat_sbatch))
+                logger.info('Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s'
+                            % hhblits_sbatch)  #, reformat_sbatch))
+                # Todo add this to the finishing_commands
+                logger.info('ONCE this job is finished, to calculate evolutionary couplings i,j for each amino acid in'
+                            ' the multiple sequence alignment, enter:\n\tsbatch %s' % bmdca_sbatch)
                             # % '\n\tsbatch '.join([hhblits_sbatch, reformat_sbatch]))
                 load_resources = True
             else:
@@ -1193,7 +1214,7 @@ if __name__ == '__main__':
                                for orient_asu_file, sym in set_oligomers_to_refine]
                 commands_file = SDUtils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds],
                                                        name='refine_oligomers_%s' % timestamp, out_path=refine_dir)
-                refine_sbatch = distribute(file=commands_file, out_path=master_directory.program_root, scale='refine',
+                refine_sbatch = distribute(file=commands_file, out_path=master_directory.sbatch_scripts, scale='refine',
                                            log_file=os.path.join(refine_dir, 'refine.log'),
                                            max_jobs=int(len(refine_cmds) / 2 + 0.5),
                                            number_of_commands=len(refine_cmds))
@@ -1202,7 +1223,7 @@ if __name__ == '__main__':
                 logger.critical('Ensure the below created SBATCH script is correct%s'
                                 % '. Specifically, check that the job array and any node specifications are accurate. '
                                   'You can look at the SBATCH manual (man sbatch or sbatch --help) to understand the '
-                                  'variables or ask for help if you are still unsure' if not profile_commands
+                                  'variables or ask for help if you are still unsure' if not hhblits_cmds
                                 else '. You can run this script at any time compared to the %s script'
                                 % hhblits_sbatch)
                 logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
@@ -1343,7 +1364,7 @@ if __name__ == '__main__':
     results, success, exceptions = [], [], []
     # ---------------------------------------------------
     if args.module == 'nanohedra_query':
-        query_flags = [__file__, '-query'] + additional_flags
+        query_flags = [__file__, '-query'] + additional_args
         logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
         query_mode(query_flags)
     # ---------------------------------------------------
@@ -1470,12 +1491,11 @@ if __name__ == '__main__':
     elif args.module == 'interface_metrics':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            zipped_args = zip(design_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
-            results = SDUtils.mp_starmap(DesignDirectory.rosetta_interface_metrics, zipped_args, threads=threads)
+            # zipped_args = zip(design_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
+            results = SDUtils.mp_starmap(DesignDirectory.rosetta_interface_metrics, design_directories, threads=threads)
         else:
             for design in design_directories:
-                results.append(design.rosetta_interface_metrics(force_flags=args.force_flags,
-                                                                development=queried_flags.get('development')))
+                results.append(design.rosetta_interface_metrics())
 
         terminate(args.module, design_directories, location=location, results=results)
 
