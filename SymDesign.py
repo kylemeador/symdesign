@@ -1152,8 +1152,7 @@ if __name__ == '__main__':
                 bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=master_directory.sbatch_scripts,
                                           scale='bmdca', max_jobs=len(bmdca_cmds),
                                           log_file=os.path.join(profile_dir, 'generate_couplings.log'),
-                                          number_of_commands=len(bmdca_cmds),
-                                          finishing_commands=[list2cmdline()])
+                                          number_of_commands=len(bmdca_cmds))
                 # reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
                 #                                                out_path=profile_dir)
                 # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
