@@ -173,13 +173,8 @@ def mp_starmap(function, process_args, threads):
     return results
 
 
-def get_biopdb_ca(biopdb_structure):
-    ca_atoms = []
-    for atom in biopdb_structure.get_atoms():
-        if atom.get_id() == 'CA':
-            ca_atoms.append(atom)
-
-    return ca_atoms
+def get_biopdb_ca(structure):
+    return [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
 
 
 def center(bio_pdb):

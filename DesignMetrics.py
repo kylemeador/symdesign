@@ -1161,7 +1161,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         # filtered_indices = {metric: filters_with_idx[metric]['idx'] for metric in filters_with_idx}
         logger.info('Number of designs passing filters:\n\t%s'
                     % '\n\t'.join('%6d - %s' % (len(indices), metric) for metric, indices in filtered_indices.items()))
-        final_indices = index_intersection(filtered_indices)
+        final_indices = index_intersection(filtered_indices.values())
         logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
         if len(final_indices) == 0:
             raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '

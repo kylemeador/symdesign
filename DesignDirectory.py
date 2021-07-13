@@ -2710,7 +2710,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if filters:
             self.log.info('Using filter parameters: %s' % str(filters))
             # Filter the DataFrame to include only those values which are le/ge the specified filter
-            filtered_designs = index_intersection(filter_df_for_index_by_value(df, filters))
+            filtered_designs = index_intersection(filter_df_for_index_by_value(df, filters).values())
             df = trajectory_df.loc[filtered_designs, :]
 
         if weights:
