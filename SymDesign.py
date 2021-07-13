@@ -42,7 +42,7 @@ from ProteinExpression import find_expression_tags, find_matching_expression_tag
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
 from DesignMetrics import prioritize_design_indices, master_metrics, query_user_for_metrics, rank_dataframe_by_metric_weights
-from SequenceProfile import generate_mutations, find_orf_offset  # , pdb_to_pose_offset
+from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -504,7 +504,7 @@ def generate_sequence_template(pdb_file):
     sequence_mask = copy.copy(sequence)
     sequence_mask.id = 'residue_selector'
     sequences = [sequence, sequence_mask]
-    return SDUtils.write_fasta(sequences, file_name='%s_residue_selector_sequence' % os.path.splitext(pdb.filepath)[0])
+    return write_fasta(sequences, file_name='%s_residue_selector_sequence' % os.path.splitext(pdb.filepath)[0])
 
 
 if __name__ == '__main__':
@@ -2241,7 +2241,7 @@ if __name__ == '__main__':
             intergenic_sequence = default_multicistronic_sequence
 
         file = args.file[0]
-        design_sequences = list(SDUtils.read_fasta_file(file))
+        design_sequences = list(read_fasta_file(file))
         nucleotide_sequences = {}
         for idx, design_group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
             cistronic_sequence = optimize_protein_sequence(design_sequences[design_group_start_idx],
