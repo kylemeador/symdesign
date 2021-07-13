@@ -2039,17 +2039,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df['total_interface_residues'] = len(interface_residues)
             # sum columns using tuple [0] + [1]
             summation_pairs = \
-                {'buns_unbound': list(filter(re.compile('buns_.*_unbound').match, scores_columns)),
-                 'interface_energy_bound': list(filter(re.compile('interface_energy_.*_bound').match, scores_columns)),
+                {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),
+                 'interface_energy_bound':
+                     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),
                  'interface_energy_unbound':
-                     list(filter(re.compile('interface_energy_.*_unbound').match, scores_columns)),
-                 'sasa_hydrophobic_bound': list(filter(re.compile('sasa_hydrophobic_.*_bound').match, scores_columns)),
-                 'sasa_polar_bound': list(filter(re.compile('sasa_polar_.*_bound').match, scores_columns)),
-                 'sasa_total_bound': list(filter(re.compile('sasa_total_.*_bound').match, scores_columns)),
-                 'solvation_energy_bound': list(filter(re.compile('solvation_energy_.*_bound').match, scores_columns)),
+                     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),
+                 'sasa_hydrophobic_bound':
+                     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
+                 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
+                 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns)),
+                 'solvation_energy_bound':
+                     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),
                  'solvation_energy_unbound':
-                     list(filter(re.compile('solvation_energy_.*_unbound').match, scores_columns)),
-                 'interface_connectivity': list(filter(re.compile('interface_connectivity_.*').match, scores_columns))
+                     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),
+                 'interface_connectivity':
+                     list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns))
                  # 'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
                  # 'buns_heavy_total': ('buns_asu', 'buns_nano'),
                  }
