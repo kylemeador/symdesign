@@ -8,7 +8,7 @@ import copy
 import datetime
 import os
 import shutil
-import subprocess
+from subprocess import Popen, list2cmdline
 import sys
 import time
 from csv import reader
@@ -153,8 +153,8 @@ def rsync_dir(des_dir):
                         cmd = ['rsync', '-a', '--link-dest=%s%s' % (abs_entry_path, os.sep), #  '--remove-source-files',
                                '%s%s' % (abs_entry_path, os.sep), destination]
                         #          ^ requires '/' - os.sep
-                        logger.debug('Performing transfer: %s' % subprocess.list2cmdline(cmd))
-                        p[abs_entry_path] = subprocess.Popen(cmd)
+                        logger.debug('Performing transfer: %s' % list2cmdline(cmd))
+                        p[abs_entry_path] = Popen(cmd)
                 # Check to see if all processes are done, then move on.
                 for entry in p:
                     p[entry].communicate()
@@ -164,8 +164,8 @@ def rsync_dir(des_dir):
                 # for l, entry in enumerate(p):
                 #     find_cmd = ['find', '%s%s' % (entry, os.sep), '-type', 'd', '-empty', '-delete']
                 #     # rm_cmd = ['rm', '-r', entry]
-                #     logger.debug('Removing empty directories: %s' % subprocess.list2cmdline(find_cmd))
-                #     p2[l] = subprocess.Popen(find_cmd)
+                #     logger.debug('Removing empty directories: %s' % list2cmdline(find_cmd))
+                #     p2[l] = Popen(find_cmd)
                 # # Check for the last command, then move on
                 # for m, process in enumerate(p2):
                 #     p2[m].communicate()
@@ -1140,19 +1140,20 @@ if __name__ == '__main__':
                                             scale='hhblits', max_jobs=len(hhblits_cmds),
                                             log_file=os.path.join(profile_dir, 'generate_profiles.log'),
                                             number_of_commands=len(hhblits_cmds),
-                                            finishing_commands=[subprocess.list2cmdline(reformat_msa_cmd1),
-                                                                subprocess.list2cmdline(reformat_msa_cmd2)])
+                                            finishing_commands=[list2cmdline(reformat_msa_cmd1),
+                                                                list2cmdline(reformat_msa_cmd2)])
             bmdca_cmds = True  # TODO remove
             if bmdca_cmds:  # Todo check if all_entities have been calculated
-                bmdca_cmds = [['bmdca', '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
-                               '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)] for entity in all_entities]
+                bmdca_cmds = [list2cmdline(['bmdca', '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
+                                            '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
+                              for entity in all_entities]
                 bmdca_cmd_file = \
                     SDUtils.write_commands(bmdca_cmds, name='bmDCA_%s' % timestamp, out_path=profile_dir)
-                bmdca_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.sbatch_scripts,
+                bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=master_directory.sbatch_scripts,
                                           scale='bmdca', max_jobs=len(bmdca_cmds),
                                           log_file=os.path.join(profile_dir, 'generate_couplings.log'),
                                           number_of_commands=len(bmdca_cmds),
-                                          finishing_commands=[subprocess.list2cmdline()])
+                                          finishing_commands=[list2cmdline()])
                 # reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
                 #                                                out_path=profile_dir)
                 # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
@@ -1212,7 +1213,7 @@ if __name__ == '__main__':
                               '-parser:script_vars']
                 refine_cmds = [script_cmd + refine_cmd + ['sdf=%s' % sym_def_files[sym], '-in:file:s', orient_asu_file]
                                for orient_asu_file, sym in set_oligomers_to_refine]
-                commands_file = SDUtils.write_commands([subprocess.list2cmdline(cmd) for cmd in refine_cmds],
+                commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds],
                                                        name='refine_oligomers_%s' % timestamp, out_path=refine_dir)
                 refine_sbatch = distribute(file=commands_file, out_path=master_directory.sbatch_scripts, scale='refine',
                                            log_file=os.path.join(refine_dir, 'refine.log'),
