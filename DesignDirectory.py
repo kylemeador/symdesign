@@ -3,7 +3,7 @@ import copy
 import re
 from math import ceil, sqrt
 import shutil
-import subprocess
+from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
 
@@ -100,6 +100,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.asu = None  # /program_root/Projects/project_Designs/design/design_name_clean_asu.pdb
         self.assembly = None  # /program_root/Projects/project_Designs/design/design_name_assembly.pdb
         self.refine_pdb = None
+        # self._fragment_database = {}
+        # self._evolutionary_profile = {}
+        # self._design_profile = {}
+        # self._fragment_data = {}
         # program_root/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
         self.refined_pdb = None  # /program_root/Projects/project_Designs/design/design_name_refined.pdb
         self.scouted_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_scouted.pdb
@@ -107,7 +111,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.consensus_design_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_for_consensus.pdb
         self.pdb_list = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
         # Symmetry attributes Todo fully integrate with SymEntry
-        self.sym_entry = None
+        self.sym_entry = kwargs.get('sym_entry', None)
         self.uc_dimensions = None
         self.expand_matrices = None
         self.transform_d = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
@@ -116,6 +120,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.command_only = kwargs.get('command_only', False)
         self.consensus = None  # Whether to run consensus or not
         self.design_with_fragments = False
+        self.development = kwargs.get('development', False)
         self.evolution = False
         self.force_flags = kwargs.get('force_flags', False)
         self.legacy = kwargs.get('legacy', False)
@@ -130,7 +135,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
         self.script = True
         self.mpi = False
-        self.output_assembly = False
+        self.output_assembly = kwargs.get('output_assembly', False)
         self.increment_chains = kwargs.get('increment_chains', False)
         self.ignore_clashes = False
         # Analysis flags
@@ -255,7 +260,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
-                # self.make_path(self.path)
+                self.make_path(self.path)
 
                 shutil.copy(self.source_path, self.path)
             else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
@@ -287,21 +292,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         try:
             return self.sym_entry.get_result_design_sym()
         except AttributeError:
-            return None
+            return
 
     @property
     def sym_entry_number(self):
         try:
             return self.sym_entry.entry_number
         except AttributeError:
-            return None
+            return
 
     @property
     def design_dimension(self):
         try:
             return self.sym_entry.get_design_dim()
         except AttributeError:
-            return None
+            return
 
     @property
     def number_of_fragments(self):
@@ -475,8 +480,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                   output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
                   number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False, copy_nanohedra=False,
                   **kwargs):
-        self.sym_entry = sym_entry
-        if not sym_entry and sym_entry_number:
+        # self.sym_entry = sym_entry
+        if not self.sym_entry and sym_entry_number:
             # self.sym_entry_number = sym_entry_number
             self.sym_entry = SymEntry(sym_entry_number)
         if symmetry:
@@ -491,7 +496,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.fragment_file = fragments_exist
         self.query_fragments = generate_fragments
         self.write_frags = write_fragments
-        self.output_assembly = output_assembly
+        # self.output_assembly = output_assembly
         self.ignore_clashes = ignore_clashes
         self.number_of_trajectories = number_of_trajectories
         self.script = script  # Todo to reflect the run_in_shell flag
@@ -618,6 +623,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     shutil.copy(self.pose_file, self.path)
                     shutil.copy(self.frag_file, self.path)
                 self.info['nanohedra'] = True
+                self.info['sym_entry'] = self.sym_entry
                 self.info['oligomer_names'] = self.oligomer_names
                 self.entity_names = ['%s_1' % name for name in self.oligomer_names]
                 # self.info['entity_names'] = self.entity_names  # Todo remove after T33
@@ -636,10 +642,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 #     self.pickle_info()  # save this info so that we don't have this issue again!
                 self._info = self.info.copy()  # create a copy of the state upon initialization
                 # if self.info.get('nanohedra'):
-                self.transform_d = self.info.get('pose_transformation', dict())
-                self.oligomer_names = self.info.get('oligomer_names', list())
+                self.transform_d = self.info.get('pose_transformation', {})
+                if not self.sym_entry:
+                    self.sym_entry = self.info.get('sym_entry', None)
+                else:
+                    self.info['sym_entry'] = self.sym_entry
+                self.oligomer_names = self.info.get('oligomer_names', [])
                 # self.oligomer_names = self.info.get('entity_names', list())  # Todo TEMP addition
-                self.entity_names = self.info.get('entity_names', list())
+                self.entity_names = self.info.get('entity_names', [])
                 # self._info = self.info.copy()  # create a copy of the state upon initialization
                 # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
@@ -1108,8 +1118,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + cmd
             self.script = True
 
-        write_shell_script(subprocess.list2cmdline(generate_files_cmd),
-                           name=script_name, out_path=self.scripts, additional=[subprocess.list2cmdline(cmd)])
+        write_shell_script(list2cmdline(generate_files_cmd),
+                           name=script_name, out_path=self.scripts, additional=[list2cmdline(cmd)])
 
     def prepare_symmetry_for_rosetta(self):
         """For the specified design, locate/make the symmetry files necessary for Rosetta input
@@ -1169,18 +1179,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #     metric_cmds = [metric_cmd + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
     #
     #     # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics on Designs
-    #     self.log.info('Design Command: %s' % subprocess.list2cmdline(scout_cmd))
+    #     self.log.info('Design Command: %s' % list2cmdline(scout_cmd))
     #     for idx, metric_cmd in enumerate(metric_cmds, 1):
-    #         self.log.info('Metrics Command %d: %s' % (idx, subprocess.list2cmdline(metric_cmd)))
+    #         self.log.info('Metrics Command %d: %s' % (idx, list2cmdline(metric_cmd)))
     #     if self.script:
-    #         write_shell_script(subprocess.list2cmdline(scout_cmd), name=PUtils.stage[12], out_path=self.scripts,
-    #                            additional=[subprocess.list2cmdline(command) for command in metric_cmds])
+    #         write_shell_script(list2cmdline(scout_cmd), name=PUtils.stage[12], out_path=self.scripts,
+    #                            additional=[list2cmdline(command) for command in metric_cmds])
     #     else:
-    #         scout_process = subprocess.Popen(scout_cmd)
+    #         scout_process = Popen(scout_cmd)
     #         # Wait for Rosetta Design command to complete
     #         scout_process.communicate()
     #         for metric_cmd in metric_cmds:
-    #             metrics_process = subprocess.Popen(metric_cmd)
+    #             metrics_process = Popen(metric_cmd)
     #             metrics_process.communicate()
     #
     #     # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
@@ -1261,12 +1271,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     ['@%s' % self.flags, '-in:file:s', self.consensus_pdb, '-in:file:native', self.refined_pdb,
                      '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[5]),
                      '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
-                self.log.info('Consensus Command: %s' % subprocess.list2cmdline(consensus_cmd))
+                self.log.info('Consensus Command: %s' % list2cmdline(consensus_cmd))
                 if self.script:
-                    write_shell_script(subprocess.list2cmdline(consensus_cmd), name=PUtils.stage[5],
-                                       out_path=self.scripts)
+                    write_shell_script(list2cmdline(consensus_cmd), name=PUtils.stage[5], out_path=self.scripts)
                 else:
-                    consensus_process = subprocess.Popen(consensus_cmd)
+                    consensus_process = Popen(consensus_cmd)
                     consensus_process.communicate()
             else:
                 self.log.critical('Cannot run consensus design without fragment info and none was found.'
@@ -1299,7 +1308,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             metric_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + metric_cmd
             self.script = True
 
-        self.log.info('Design Command: %s' % subprocess.list2cmdline(design_cmd))
+        self.log.info('Design Command: %s' % list2cmdline(design_cmd))
         metric_cmds = []
         for idx, entity in enumerate(self.pose.entities, 1):
             if entity not in self.pose.active_entities:
@@ -1310,21 +1319,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 entity_sdf = ''
             _metric_cmd = metric_cmd + ['-parser:script_vars', metrics_flags, 'entity=%d' % idx, entity_sdf,
                                         'symmetry=%s' % 'make_point_group' if entity.is_oligomeric else 'asymmetric']
-            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, subprocess.list2cmdline(_metric_cmd)))
+            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.script:
-            write_shell_script(subprocess.list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
-                               additional=[subprocess.list2cmdline(command) for command in additional_cmds] +
-                               [subprocess.list2cmdline(generate_files_cmd)] +
-                               [subprocess.list2cmdline(command) for command in metric_cmds])
+            write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
+                               additional=[list2cmdline(command) for command in additional_cmds] +
+                               [list2cmdline(generate_files_cmd)] +
+                               [list2cmdline(command) for command in metric_cmds])
             #                  status_wrap=self.serialized_info,
         else:
-            design_process = subprocess.Popen(design_cmd)
+            design_process = Popen(design_cmd)
             # Wait for Rosetta Design command to complete
             design_process.communicate()
             for metric_cmd in metric_cmds:
-                metrics_process = subprocess.Popen(metric_cmd)
+                metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
@@ -1475,7 +1484,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                           design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
             #                           ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
             # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() making new entities...
-        else:    # ,                            pass names if available v
+        else:  # |                              pass names if available v
             asu = PDB.from_file(self.source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
 
         self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
@@ -1496,6 +1505,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             # may switch this whole function to align the assembly identified by the asu entities PDB code after
             # download from PDB API
+            raise DesignError('The functionality for specifying the pose transformation parameters is not possible yet.'
+                              '\nThis pose is not designable with the current version of %s' % PUtils.program_name)
             self.pose.assign_entities_to_sub_symmetry()  # Todo debugggererer
 
         # self.pose.generate_symmetric_assembly()  # call is redundant with input asu's
@@ -1585,14 +1596,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             ['@%s' % flags, '-in:file:s', refine_pdb,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
              '-parser:script_vars', 'switch=%s' % stage]
-        self.log.info('%s Command: %s' % (stage.title(), subprocess.list2cmdline(relax_cmd)))
+        self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.script:
-            write_shell_script(subprocess.list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
+            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
                                status_wrap=self.serialized_info)
         else:
-            relax_process = subprocess.Popen(relax_cmd)
+            relax_process = Popen(relax_cmd)
             relax_process.communicate()
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
@@ -1690,7 +1701,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         evolutionary information in interface design
         """
         self.identify_interface()
-        if not self.command_only:
+        if self.command_only:
+            pass
+        else:
             if self.query_fragments:
                 self.make_path(self.frags)
                 # self.info['fragments'] = True
@@ -1711,6 +1724,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.make_path(self.designs)
             # self.make_path(self.scores)
             self.info['fragments'] = self.pose.return_fragment_observations()
+            # Todo edit each of these files to be relative paths?
             self.info['design_profile'] = self.pose.design_pssm_file
             self.info['evolutionary_profile'] = self.pose.pssm_file
             self.info['fragment_data'] = self.pose.interface_data_file
@@ -1867,6 +1881,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
+            # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
             protocol_s = scores_df[groups]
@@ -2036,7 +2051,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 decoy_name = os.path.splitext(os.path.basename(file))[0]
                 if decoy_name not in scores_df.index:
                     continue
-                design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False, lazy=True)
+                design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
                 # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
                 assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
@@ -2253,7 +2268,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
             # add all docking and pose information to each trajectory
-            pose_metrics_df = pd.concat([pd.Series(other_pose_metrics)] * len(scores_df), axis=1).T
+            pose_metrics_df = pd.concat([pd.Series(other_pose_metrics)] * len(trajectory_df), axis=1).T
+            pose_metrics_df.rename(index=dict(zip(range(len(trajectory_df)), trajectory_df.index)), inplace=True)
             trajectory_df = pd.concat([pose_metrics_df, trajectory_df, pose_collapse_df], axis=1)
             # TODO v what about when run on consensus only?
             assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
