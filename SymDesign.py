@@ -1142,6 +1142,15 @@ if __name__ == '__main__':
                                             number_of_commands=len(hhblits_cmds),
                                             finishing_commands=[list2cmdline(reformat_msa_cmd1),
                                                                 list2cmdline(reformat_msa_cmd2)])
+                logger.critical('Ensure the below created SBATCH scripts are correct. Specifically, check that the '
+                                'job array and any node specifications are accurate. You can look at the SBATCH '
+                                'manual (man sbatch or sbatch --help) to understand the variables or ask for help '
+                                'if you are still unsure')
+                logger.info('Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s'
+                            % hhblits_sbatch)
+            else:
+                hhblits_sbatch = None
+
             bmdca_cmds = True  # TODO remove
             if bmdca_cmds:  # Todo check if all_entities have been calculated
                 bmdca_cmds = [list2cmdline(['bmdca', '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
@@ -1160,19 +1169,15 @@ if __name__ == '__main__':
                 #                              log_file=os.path.join(profile_dir, 'generate_profiles.log'),
                 #                              number_of_commands=len(reformat_msa_cmds))
                 print('\n' * 3)
-                logger.critical('Ensure the below created SBATCH scripts are correct. Specifically, check that the '
-                                'job array and any node specifications are accurate. You can look at the SBATCH '
-                                'manual (man sbatch or sbatch --help) to understand the variables or ask for help '
-                                'if you are still unsure')
-                logger.info('Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s'
-                            % hhblits_sbatch)  #, reformat_sbatch))
-                # Todo add this to the finishing_commands
-                logger.info('ONCE this job is finished, to calculate evolutionary couplings i,j for each amino acid in'
-                            ' the multiple sequence alignment, enter:\n\tsbatch %s' % bmdca_sbatch)
-                            # % '\n\tsbatch '.join([hhblits_sbatch, reformat_sbatch]))
+                # Todo add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
+                logger.critical('Ensure the below created SBATCH script is correct. Specifically, check that the job '
+                                'array and any node specifications are accurate. You can look at the SBATCH manual (man'
+                                ' sbatch or sbatch --help) to understand the variables or ask for help if you are still'
+                                ' unsure. Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s'
+                                % bmdca_sbatch if not hhblits_cmds else
+                                'ONCE this job is finished, to calculate evolutionary couplings i,j for each amino acid'
+                                ' in the multiple sequence alignment, enter:\n\tsbatch %s' % bmdca_sbatch)
                 load_resources = True
-            else:
-                hhblits_sbatch = None
 
             oriented_asu_files = os.listdir(orient_asu_dir)
             master_directory.make_path(refine_dir)
