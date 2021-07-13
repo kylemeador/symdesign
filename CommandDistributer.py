@@ -10,7 +10,8 @@ from itertools import repeat
 
 from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
     program_name, interface_design
-from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors
+from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors, \
+    calculate_mp_threads
 
 # Globals
 logger = start_log(name=__name__)
@@ -147,7 +148,7 @@ def run(cmd, log_file_name, program=None, srun=None):
 
 
 def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, failure_file=None, max_jobs=80,
-               number_of_commands=None, mpi=None, log_file=None, **kwargs):
+               number_of_commands=None, mpi=None, log_file=None, finishing_commands=None, **kwargs):
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Keyword Args:
@@ -159,6 +160,8 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
         max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once
         number_of_commands=None (int): The size of the job array
         mpi=None (int): The number of processes to run concurrently with MPI
+        log_file=None (str): The name of a log file to write command results to
+        finishing_commands=None (list): The string of a command to run once all sbatch processes are completed
     Returns:
         (str): The name of the sbatch script that was written
     """
@@ -221,6 +224,8 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
         new_f.write('\npython %s --stage %s distribute %s--success_file %s --failure_file %s --command_file %s %s\n' %
                     (cmd_dist, scale, '--log_file %s ' % log_file if log_file else '', success_file, failure_file, file,
                      (script_present or '')))
+        if finishing_commands:
+            new_f.write('# Wait for all to complete\nwait\n\n# Then execute\n%s' % '\n'.join(finishing_commands))
 
     return filename
 
@@ -258,9 +263,8 @@ if __name__ == '__main__':
                                             'SubModule help can be accessed in this way' % submodule_help)
     # ---------------------------------------------------
     parser_distirbute = subparsers.add_parser('distribute', help='Submit a job to SLURM for processing')
-    # TODO combine with command file as 1 arg
-    parser_distirbute.add_argument('-c', '--command_present', action='store_true',
-                                   help='Whether command file has commands already')
+    # parser_distirbute.add_argument('-c', '--command_present', action='store_true',
+    #                                help='Whether command file has commands already')
     parser_distirbute.add_argument('-f', '--command_file',
                                    help='File with command(s) to be distributed. Required', required=True)
     parser_distirbute.add_argument('-l', '--log_file', type=str, default=None,
@@ -278,7 +282,7 @@ if __name__ == '__main__':
     parser_status.add_argument('-s', '--set', action='store_true', help='Set the status as True')
     parser_status.add_argument('-r', '--remove', action='store_true', help='Set the status as False')
 
-    args = parser.parse_args()
+    args, additional_args = parser.parse_known_args()
 
     if args.module == 'status':
         mode = 'check' if args.check else 'set' if args.set else 'remove'
@@ -289,20 +293,23 @@ if __name__ == '__main__':
             all_commands = cmd_f.readlines()
 
         # Select exact poses to be handled according to array_ID and design stage
-        array_task = int(os.environ.get('SLURM_ARRAY_TASK_ID'))
-        # adjust from SLURM one index and figure out how many commands to grab from command pool
-        cmd_slice = (array_task - index_offset) * process_scale[args.stage]
-        if cmd_slice + process_scale[args.stage] > len(all_commands):  # check to ensure list index isn't missing
-            final_cmd_slice = None
-            if cmd_slice > len(all_commands):
-                exit()
-        else:
-            final_cmd_slice = cmd_slice + process_scale[args.stage]
+        array_number = os.environ.get('SLURM_ARRAY_TASK_ID')
+        if array_number:
+            array_task = int(array_number)
+            # adjust from SLURM one index and figure out how many commands to grab from command pool
+            cmd_slice = (array_task - index_offset) * process_scale[args.stage]
+            if cmd_slice + process_scale[args.stage] > len(all_commands):  # check to ensure list index isn't missing
+                final_cmd_slice = None
+                if cmd_slice > len(all_commands):
+                    exit()
+            else:
+                final_cmd_slice = cmd_slice + process_scale[args.stage]
+        else:  # not in SLURM, use multiprocessing
+            cmd_slice, final_cmd_slice = None, None
         specific_commands = list(map(str.strip, all_commands[cmd_slice:final_cmd_slice]))
 
         # Prepare Commands
-        if len(specific_commands[0].split()) > 1:
-            # the command provided probably has an attached program type. Set program to None, then split to a list
+        if len(specific_commands[0].split()) > 1:  # the commands probably have a program preceding the command
             program = None
             specific_commands = [cmd.split() for cmd in specific_commands]
         else:
@@ -310,18 +317,18 @@ if __name__ == '__main__':
 
         # command_name = args.stage + '.sh'
         # python2.7 compatibility
-        def path_maker(path_name):  # Todo depreciate
-            return os.path.join(path_name, '%s.sh' % args.stage)
+        # def path_maker(path_name):
+        #     return os.path.join(path_name, '%s.sh' % args.stage)
 
-        if args.command_present:
-            command_paths = specific_commands
-        else:  # Todo, depreciate this mechanism
-            command_paths = list(map(path_maker, specific_commands))
+        # if args.command_present:
+        #     command_paths = specific_commands
+        # else:
+        #     command_paths = list(map(path_maker, specific_commands))
 
         if args.log_file:
-            log_files = [args.log_file for cmd in command_paths]
-        else:
-            log_files = ['%s.log' % os.path.splitext(design_directory)[0] for design_directory in command_paths]
+            log_files = [args.log_file for cmd in specific_commands]
+        else:  # todo overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
+            log_files = ['%s.log' % os.path.splitext(shell_path)[0] for shell_path in specific_commands]
 
         iteration = 0
         complete = False
@@ -333,7 +340,7 @@ if __name__ == '__main__':
         #     allocation = ['srun', '-c', 1, '-p', 'long', '--mem-per-cpu', CUtils.memory_scale[args.stage]]
         #     allocation = None
         #     zipped_commands = zip(command_paths, log_files, repeat(allocation))
-        zipped_commands = zip(command_paths, log_files, repeat(program))
+        zipped_commands = zip(specific_commands, log_files, repeat(program))
 
         # Ensure all log files exist
         for log_file in log_files:
@@ -350,7 +357,7 @@ if __name__ == '__main__':
 
         number_of_commands = len(specific_commands)  # different from process scale as this could reflect edge cases
         if number_of_commands > 1:  # set by CUtils.process_scale
-            results = mp_starmap(run, zipped_commands, threads=number_of_commands)
+            results = mp_starmap(run, zipped_commands, threads=calculate_mp_threads(cores=number_of_commands))
         else:
             results = [run(*command) for command in zipped_commands]
         #    iteration += 1
@@ -359,12 +366,12 @@ if __name__ == '__main__':
         with open(args.success_file, 'a') as f:
             for i, result in enumerate(results):
                 if result:
-                    f.write('%s\n' % command_paths[i])
+                    f.write('%s\n' % specific_commands[i])
 
         with open(args.failure_file, 'a') as f:
             for i, result in enumerate(results):
                 if not result:
-                    f.write('%s\n' % command_paths[i])
+                    f.write('%s\n' % specific_commands[i])
 
         # # Append SLURM output to log_file(s)
         # job_id = int(os.environ.get('SLURM_JOB_ID'))
