@@ -963,7 +963,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             constraint_percent, free_percent = 0, 1
 
         variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
-                     ('solvent_sym_score_patch', PUtils.solvent_weights), ('dist', dist), ('repack', 'yes'),
+                     ('solvent_sym_score_patch', PUtils.solvent_weights_sym),
+                     ('solvent_score_patch', PUtils.solvent_weights),  # Todo put all above here in permanent flags
+                     ('dist', dist), ('repack', 'yes'),
                      ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         design_profile = self.info.get('design_profile')
         variables.extend([('design_profile', design_profile)] if design_profile else [])
