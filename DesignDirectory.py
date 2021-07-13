@@ -321,6 +321,44 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.error('No fragment information found! Fragment scoring unavailable.')
             return 0.0
 
+    @property
+    def design_profile(self):
+        try:
+            return self._design_profile
+        except AttributeError:
+            # self._design_profile = parse_pssm(os.path.join(os.path.abspath(self.path), self.info.get('design_profile')))
+            self._design_profile = parse_pssm(os.path.join(os.path.abspath(self.path), 'data', 'design.pssm'))
+            return self._design_profile
+
+    @property
+    def evolutionary_profile(self):
+        try:
+            return self._evolutionary_profile
+        except AttributeError:
+            # self._evolutionary_profile = \
+                # parse_pssm(os.path.join(os.path.abspath(self.path), self.info.get('evolutionary_profile')))
+            self._evolutionary_profile = \
+                parse_pssm(os.path.join(os.path.abspath(self.path), 'data', 'evolutionary.pssm'))
+            return self._evolutionary_profile
+
+    @property
+    def fragment_data(self):  # Todo associate fragment_data into info.pkl state as it is a separate I/O operation
+        try:
+            return self._fragment_data
+        except AttributeError:
+            # self._fragment_data = unpickle(os.path.join(os.path.abspath(self.path), self.info.get('fragment_data')))
+            self._fragment_data = unpickle(os.path.join(os.path.abspath(self.path),
+                                                        'data', '%s_fragment_profile.pkl' % self.fragment_database))
+            return self._fragment_data
+
+    @property
+    def fragment_database(self):
+        try:
+            return self._fragment_database
+        except AttributeError:
+            self._fragment_database = self.info.get('fragment_database')
+            return self._fragment_database
+
     def pose_score(self):  # Todo merge with above
         """Returns:
             (float): The Nanohedra score as reported in Laniado, Meador, Yeates 2021
@@ -967,10 +1005,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      ('solvent_score_patch', PUtils.solvent_weights),  # Todo put all above here in permanent flags
                      ('dist', dist), ('repack', 'yes'),
                      ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-        design_profile = self.info.get('design_profile')
-        variables.extend([('design_profile', design_profile)] if design_profile else [])
-        fragment_profile = self.info.get('fragment_profile')
-        variables.extend([('fragment_profile', fragment_profile)] if fragment_profile else [])
+        # design_profile = self.info.get('design_profile')
+        variables.extend([('design_profile', self.design_profile)] if self.design_profile else [])
+        # fragment_profile = self.info.get('fragment_profile')
+        variables.extend([('fragment_profile', self.fragment_profile)] if self.fragment_profile else [])
 
         if not symmetry_protocol:
             symmetry_protocol = self.symmetry_protocol
@@ -1009,55 +1047,54 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return out_file
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def rosetta_interface_metrics(self, development=False):
+    def rosetta_interface_metrics(self):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
+        # metrics_flags = 'repack=yes'
         main_cmd = copy.copy(script_cmd)
-        flags = os.path.join(self.scripts, 'flags')
-        if self.force_flags or not os.path.exists(flags):  # Generate a new flags_design file
-            # Need to assign the designable residues for each entity to a interface1 or interface2 variable
-            self.identify_interface()
+        # Need to initialize the pose so each entity can get sdf created
+        self.identify_interface()
+        if not os.path.exists(self.flags) or self.force_flags:
             self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()
             self.make_path(self.scripts)
-            flags = self.prepare_rosetta_flags(out_path=self.scripts)
-            # if self.design_dimension is not None:  # can be 0
-            #     protocol = PUtils.protocol[self.design_dimension]
-            #     self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)'
-            #                    % str(self.sym_entry_number))
-            #     if self.design_dimension == 0:  # point
-            #         sym_def_file = sdf_lookup(self.sym_entry_number)
-            #         main_cmd += ['-symmetry_definition', sym_def_file]
-            #     else:  # layer or space
-            #         sym_def_file = sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
-            #         main_cmd += ['-symmetry_definition', 'CRYST1']
-            #     self.log.info('Symmetry Option: %s' % protocol)
-            # else:
-            #     sym_def_file = 'null'
-            #     protocol = PUtils.protocol[-1]  # Make part of self.design_dimension
-            #     self.log.critical(
-            #         'No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s an ASU it'
-            #         ' may be missing crucial interface contacts. Is this what you want?')
-        main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
+            self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
-        main_cmd += ['-in:file:l', pdb_list, '-in:file:native', self.refined_pdb, '@%s' % flags, '-out:file:score_only',
-                     self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
+        main_cmd += ['-in:file:l', pdb_list, '@%s' % self.flags,
+                     '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
+        #              '-in:file:native', self.refined_pdb,
         if self.mpi:
             main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
             self.script = True
 
         metric_cmd_bound = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
-                                                    % (PUtils.stage[3], '_DEV' if development else ''))]
-        metric_cmd_unbound = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
-                                                      % (PUtils.stage[3], '_DEV' if development else ''))]
-        metric_cmds = [metric_cmd_bound] + \
-                      [metric_cmd_unbound + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
-
+                                                    % (PUtils.stage[3], '_DEV' if self.development else ''))]
+        entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
+                                              % (PUtils.stage[3], '_DEV' if self.development else ''))]
+        metric_cmds = [metric_cmd_bound + ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []]
+        #               [metric_cmd_unbound + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
+        # metric_cmds = []
+        for idx, entity in enumerate(self.pose.entities, 1):
+            if entity not in self.pose.active_entities:  # todo what about when modifications occur to neighbor residue?
+                continue
+            if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
+            else:
+                entity_sdf = ''
+            metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sdf,
+                                       'symmetry=%s' % 'make_point_group' if entity.is_oligomeric else 'asymmetric']
+            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(metric_cmd)))
+            metric_cmds.append(metric_cmd)
         # Create executable to gather interface Metrics on all Designs
-        write_shell_script(subprocess.list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
-                           out_path=self.scripts,  # status_wrap=self.serialized_info,
-                           additional=[subprocess.list2cmdline(command) for command in metric_cmds])
+        if self.script:
+            write_shell_script(list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
+                               out_path=self.scripts, additional=[list2cmdline(command) for command in metric_cmds])
+        else:
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                # Wait for Rosetta Design command to complete
+                metrics_process.communicate()
 
     def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
                               score_only=None, variables=None, **kwargs):
@@ -1284,16 +1321,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   ' Did you mean to design with -generate_fragments False? You will need to run with'
                                   '\'True\' if you want to use fragments')
         # DESIGN: Prepare command and flags file
-        evolutionary_profile = self.info.get('design_profile')
+        # evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        design_cmd = main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) + \
+        design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile] if self.evolutionary_profile else []) + \
             ['-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
              '@%s' % self.flags, '-out:suffix', '_%s' % protocol,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct + \
             out_file
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
             additional_cmds.append(
-                main_cmd + (['-in:file:pssm', evolutionary_profile] if evolutionary_profile else []) +
+                main_cmd + (['-in:file:pssm', self.evolutionary_profile] if self.evolutionary_profile else []) +
                 ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), '@%s' % self.flags,
                  '-in:file:silent_struct_type', 'binary',
                  # '-out:suffix', '_%s' % protocol,
@@ -1930,21 +1967,24 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Get design information including: interface residues, SSM's, and wild_type/design files
             profile_background = {}
-            design_profile = self.info.get('design_profile')
-            evolutionary_profile = self.info.get('evolutionary_profile')
-            fragment_data = self.info.get('fragment_data')
-            if design_profile:
-                profile_background['design'] = parse_pssm(design_profile)
-            if evolutionary_profile:  # lost accuracy ^ and v with round operation during write
-                profile_background['evolution'] = parse_pssm(evolutionary_profile)
-            if fragment_data:
-                profile_background['fragment'] = unpickle(fragment_data)
+            # design_profile = self.info.get('design_profile')
+            # evolutionary_profile = self.info.get('evolutionary_profile')
+            # fragment_data = self.info.get('fragment_data')
+            if self.design_profile:
+                # profile_background['design'] = parse_pssm(design_profile)
+                profile_background['design'] = self.design_profile
+            if self.evolutionary_profile:  # lost accuracy ^ and v with round operation during write
+                # profile_background['evolution'] = parse_pssm(evolutionary_profile)
+                profile_background['evolution'] = self.evolutionary_profile
+            if self.fragment_data:
+                profile_background['fragment'] = self.fragment_data
                 # issm_residues = set(profile_background['fragment'].keys())
             else:
                 # issm_residues = set()
                 self.log.info('Design has no fragment information')
-            frag_db_ = self.info.get('fragment_database')
-            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[frag_db_]) if frag_db_ else {}
+            # frag_db_ = self.info.get('fragment_database')
+            # interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory[frag_db_]) if frag_db_ else {}
+            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database, {}))
 
             # Calculate amino acid observation percent from residue dict and background SSM's
             observation_d = {profile: {design: mutation_conserved(residue_info, background)
