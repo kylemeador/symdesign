@@ -7,9 +7,9 @@ import numpy as np
 from PDB import PDB
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
-from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment  # parse_pssm
+from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
 from Structure import parse_stride
-from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup, read_fasta_file
+from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
 from utils.MysqlPython import Mysql
 
 

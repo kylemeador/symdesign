@@ -8,14 +8,12 @@ import pickle
 import subprocess
 from functools import reduce, wraps
 from glob import glob
-from itertools import chain, repeat
+from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
 
 import numpy as np
 # from numba import njit
-from sklearn.neighbors import BallTree
-from Bio import SeqIO, AlignIO
 from Bio.PDB import PDBParser, Superimposer
 
 # import CommandDistributer
@@ -382,16 +380,21 @@ def remove_interior_keys(dictionary, keys, keep=False):
                 for entry in dictionary}
 
 
-def index_intersection(indices):
+def index_intersection(index_groups):
     """Find the overlap of sets in a dictionary
+    Args:
+        index_groups (Iterable[Iterable]): Groups of indices
+
+    Returns:
+        (list): The union of all provided indices
     """
     final_indices = set()
     # find all set union
-    for values in indices.values():
-        final_indices = final_indices.union(values)
+    for indices in index_groups:
+        final_indices = final_indices.union(indices)
     # find all set intersection
-    for values in indices.values():
-        final_indices = final_indices.intersection(values)
+    for indices in index_groups:
+        final_indices = final_indices.intersection(indices)
 
     return list(final_indices)
 
@@ -405,65 +408,33 @@ def digit_keeper():
 
 digit_translate_table = digit_keeper()
 
-###################
-# Bio.PDB Handling
-###################
-
-
-def get_rmsd_atoms(filepaths, function):
-    all_rmsd_atoms = []
-    for filepath in filepaths:
-        parser = PDBParser()
-        pdb_name = os.path.splitext(os.path.basename(filepath))[0]
-        pdb = parser.get_structure(pdb_name, filepath)
-        all_rmsd_atoms.append(function(pdb))
-
-    return all_rmsd_atoms
-
-
-def get_biopdb_ca(structure):
-    return [atom for atom in structure.get_atoms() if atom.get_id() == 'CA']
-
-
-def superimpose(atoms):  # , rmsd_thresh):
-    # biopdb_1_id = atoms[0][0].get_full_id()[0]
-    # biopdb_2_id = atoms[1][0].get_full_id()[0]
-    sup = Superimposer()
-    # sup.set_atoms(atoms[0], atoms[1])
-    sup.set_atoms(*atoms)
-    # if sup.rms <= rmsd_thresh:
-    return sup.rms
-    # return biopdb_1_id, biopdb_2_id, sup.rms
-    # else:
-    #     return None
-
 
 ###################
-# PDB Handling # TODO PDB.py
+# PDB Handling
 ###################
 
 
-def residue_interaction_graph(pdb, distance=8, gly_ca=True):  # Todo PDB.py
-    """Create a atom tree using CB atoms from two PDB's
-
-    Args:
-        pdb (PDB): First PDB to query against
-    Keyword Args:
-        distance=8 (int): The distance to query in Angstroms
-        gly_ca=True (bool): Whether glycine CA should be included in the tree
-    Returns:
-        query (list()): sklearn query object of pdb2 coordinates within dist of pdb1 coordinates
-    """
-    # Get CB Atom Coordinates including CA coordinates for Gly residues
-    coords = np.array(pdb.extract_cb_coords(InclGlyCA=gly_ca))
-
-    # Construct CB Tree for PDB1
-    pdb1_tree = BallTree(coords)
-
-    # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
-    query = pdb1_tree.query_radius(coords, distance)
-
-    return query
+# def residue_interaction_graph(pdb, distance=8, gly_ca=True):
+#     """Create a atom tree using CB atoms from two PDB's
+#
+#     Args:
+#         pdb (PDB): First PDB to query against
+#     Keyword Args:
+#         distance=8 (int): The distance to query in Angstroms
+#         gly_ca=True (bool): Whether glycine CA should be included in the tree
+#     Returns:
+#         query (list()): sklearn query object of pdb2 coordinates within dist of pdb1 coordinates
+#     """
+#     # Get CB Atom Coordinates including CA coordinates for Gly residues
+#     coords = np.array(pdb.extract_cb_coords(InclGlyCA=gly_ca))
+#
+#     # Construct CB Tree for PDB1
+#     pdb1_tree = BallTree(coords)
+#
+#     # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
+#     query = pdb1_tree.query_radius(coords, distance)
+#
+#     return query
 
 
 def split_interface_pairs(interface_pairs):
@@ -740,42 +711,6 @@ def rename_decoy_protocols(des_dir, rename_dict):
         f.seek(0)
         f.write('\n'.join(dumps(score) for score in scores))
         f.truncate()
-
-
-@handle_errors(errors=(FileNotFoundError,))
-def read_fasta_file(file_name, **kwargs):
-    """Open a fasta file and return a parser object to load the sequences to SeqRecords
-    Returns:
-        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
-    """
-    return SeqIO.parse(file_name, 'fasta')
-
-
-@handle_errors(errors=(FileNotFoundError,))
-def read_alignment(file_name, alignment_type='fasta', **kwargs):
-    """Open a fasta file and return a parser object to load the sequences to SeqRecords
-    Returns:
-        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
-    """
-    # return AlignIO.read(file_name, 'stockholm')
-    return AlignIO.read(file_name, alignment_type)
-
-
-def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
-    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
-    if not file_name:
-        return None
-    if '.fasta' in file_name:
-        file_name = file_name.rstrip('.fasta')
-    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
-
-    return '%s.fasta' % file_name
-
-
-def concatenate_fasta_files(file_names, output='concatenated_fasta'):
-    """Take multiple fasta files and concatenate into a single file"""
-    seq_records = [read_fasta_file(file) for file in file_names]
-    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
 
 
 def write_fasta_file(sequence, name, out_path=os.getcwd(), csv=False):

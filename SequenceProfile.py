@@ -1,6 +1,6 @@
 import math
 import os
-# from itertools import repeat
+from itertools import chain  # repeat
 from math import floor, exp, log, log2
 import subprocess
 import time
@@ -9,7 +9,7 @@ from copy import deepcopy, copy
 
 import numpy as np
 import pandas as pd
-from Bio import pairwise2
+from Bio import pairwise2, SeqIO, AlignIO
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
@@ -17,8 +17,7 @@ from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protei
 
 import CommandDistributer
 import PathUtils as PUtils
-from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log, read_fasta_file, \
-    pretty_format_table, read_alignment
+from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log, pretty_format_table
 
 # Globals
 logger = start_log(name=__name__)
@@ -3163,3 +3162,39 @@ def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Val
     #     hci[seq_idx] = round(hci[seq_idx], 3)
 
     # return hci
+
+
+@handle_errors(errors=(FileNotFoundError,))
+def read_fasta_file(file_name, **kwargs):
+    """Open a fasta file and return a parser object to load the sequences to SeqRecords
+    Returns:
+        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
+    """
+    return SeqIO.parse(file_name, 'fasta')
+
+
+@handle_errors(errors=(FileNotFoundError,))
+def read_alignment(file_name, alignment_type='fasta', **kwargs):
+    """Open a fasta file and return a parser object to load the sequences to SeqRecords
+    Returns:
+        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
+    """
+    # return AlignIO.read(file_name, 'stockholm')
+    return AlignIO.read(file_name, alignment_type)
+
+
+def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
+    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
+    if not file_name:
+        return None
+    if '.fasta' in file_name:
+        file_name = file_name.rstrip('.fasta')
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
+
+    return '%s.fasta' % file_name
+
+
+def concatenate_fasta_files(file_names, output='concatenated_fasta'):
+    """Take multiple fasta files and concatenate into a single file"""
+    seq_records = [read_fasta_file(file) for file in file_names]
+    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)

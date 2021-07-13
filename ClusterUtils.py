@@ -12,11 +12,10 @@ from sklearn.metrics import median_absolute_error  # r2_score,
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 import pandas as pd
-from Bio.PDB import PDBParser
-from Bio.PDB.Selection import unfold_entities
 
 import SymDesignUtils as SDUtils
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics, nanohedra_metrics
+from Structure import superposition3d
 from utils.GeneralUtils import transform_coordinate_sets
 
 
@@ -82,26 +81,23 @@ def pose_pair_rmsd(pair):
     """
     # protein_pair_path = pair[0].composition
     # Grab designed resides from the design_directory
-    des_residue_list = [pose.info['design_residues'] for pose in pair]
+    design_residues = [set(pose.info.get('design_residues')) for pose in pair]
 
     # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
     # could use the union as well...?
-    des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
-                                                  for n, pose_residues in enumerate(des_residue_list)})
+    des_residue_set = SDUtils.index_intersection(design_residues)
     if not des_residue_set:  # when the two structures are not significantly overlapped
         return np.nan
     else:
-        pdb_parser = PDBParser(QUIET=True)
-        pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-        rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-                              if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-        pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-                          for entity_list in rmsd_residue_list]
-
-        return SDUtils.superimpose(pair_atom_list)
-
-    # return pair_rmsd
-    # return {protein_pair_path: {str(pair[0]): {str(pair[0]): pair_rmsd}}}
+        # pdb_parser = PDBParser(QUIET=True)
+        # pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+        # rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
+        #                       if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
+        # pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
+        #                   for entity_list in rmsd_residue_list]
+        #
+        # return SDUtils.superimpose(pair_atom_list)
+        return superposition3d(*[pose.pose.coords for pose in pair])[0]
 
 
 def pose_rmsd_s(all_des_dirs):
@@ -110,40 +106,41 @@ def pose_rmsd_s(all_des_dirs):
         if pair[0].composition == pair[1].composition:
             protein_pair_path = pair[0].composition
             # Grab designed resides from the design_directory
-            des_residue_list = [pose.info['des_residues'] for pose in pair]
-            # could use the union as well...
-            des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
-                                                          for n, pose_residues in enumerate(des_residue_list)})
-            if des_residue_set == list():  # when the two structures are not significantly overlapped
-                pair_rmsd = np.nan
-            else:
-                pdb_parser = PDBParser(QUIET=True)
-                # pdb = parser.get_structure(pdb_name, filepath)
-                pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-                # returns a list with all ca atoms from a structure
-                # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
-                # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
-
-                # pair should be a structure...
-                # for structure in pair_structures:
-                #     for residue in structure.residues:
-                #         print(residue)
-                #         print(residue[0])
-                rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-                                      if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-
-                # rmsd_residue_list = [[residue for residue in structure.residues
-                #                       if residue.get_id()[1] in des_residue_list[n]]
-                #                      for n, structure in enumerate(pair_structures)]
-
-                # print(rmsd_residue_list)
-                pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-                                  for entity_list in rmsd_residue_list]
-                # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
-                # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
-                # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
-
-                pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
+            pair_rmsd = pose_pair_rmsd(pair)
+            # des_residue_list = [pose.info['des_residues'] for pose in pair]
+            # # could use the union as well...
+            # des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
+            #                                               for n, pose_residues in enumerate(des_residue_list)})
+            # if des_residue_set == list():  # when the two structures are not significantly overlapped
+            #     pair_rmsd = np.nan
+            # else:
+            #     pdb_parser = PDBParser(QUIET=True)
+            #     # pdb = parser.get_structure(pdb_name, filepath)
+            #     pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+            #     # returns a list with all ca atoms from a structure
+            #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
+            #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
+            #
+            #     # pair should be a structure...
+            #     # for structure in pair_structures:
+            #     #     for residue in structure.residues:
+            #     #         print(residue)
+            #     #         print(residue[0])
+            #     rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
+            #                           if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
+            #
+            #     # rmsd_residue_list = [[residue for residue in structure.residues
+            #     #                       if residue.get_id()[1] in des_residue_list[n]]
+            #     #                      for n, structure in enumerate(pair_structures)]
+            #
+            #     # print(rmsd_residue_list)
+            #     pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
+            #                       for entity_list in rmsd_residue_list]
+            #     # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
+            #     # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
+            #     # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
+            #
+            #     pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
             # if not pair_rmsd:
             #     continue
             if protein_pair_path in pose_map:
