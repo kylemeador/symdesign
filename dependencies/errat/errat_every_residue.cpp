@@ -14,6 +14,11 @@
 // Protein Structures: Patterns of Non-Bonded Contacts.
 // Prot. Sci. 2, 1511-1519.
 
+// Kyle Meador KM
+// This version was modified for the sole purpose of
+// returning ERRAT total and per residue scores as
+// SymDesign metric queries
+
 
 #include <iostream>
 #include <fstream>
@@ -126,7 +131,7 @@ int main(int argc, char* argv[]){//1
 		    for (char char_line[100]; fin.getline(char_line, 100);) {
 		        std::string line(char_line);
                 all_lines.push_back(line);
-                //std::cout << line << std::endl;
+                //cout << line << std::endl;
             }//KM
         }
 		zout << o <<"	"<< file << endl<<endl;
@@ -349,18 +354,15 @@ int main(int argc, char* argv[]){//1
 	    resnum[0]=0;//new file
 	    lowframe = 0; //new file
 
-		if (gg==0)
-		{//2_5
+		if (gg==0){//2_5
 		//for (i=0;( (!(fin.eof()))&&(flag3==0)&&(flag2==0) );)//PDB LOOP
         i=0;
         char * line = new char [all_lines[i].length()+1];
-		for (int line_num=0;( (line_num < all_lines.size())&&(flag3==0)&&(flag2==0) ); line_num++)//PDB LOOP
-		{//3
+		for (int line_num=0;( (line_num < all_lines.size())&&(flag3==0)&&(flag2==0) ); line_num++){//3 //PDB LOOP
             strcpy(line, all_lines[line_num].c_str());
 			//fin.getline (line, 100);
 			for (j=0; j<6; j++) {line2[j]=line[j];}	line2[6]='\0';
-			if (strcmp (atom_test, line2) == 0)//single line process
-			{//4
+			if (strcmp (atom_test, line2) == 0){//4 //single line process
 			    atom++;
 				//fout << line << endl;// test
 
@@ -424,6 +426,7 @@ int main(int argc, char* argv[]){//1
 				else continue;
 
 				i++;//iteration only if get to here
+				//cout << i << endl;
 				//fout << "name["<<i<<"] 14	"<< name[i] << "name " << name_temp <<endl;//test
 
 				name_temp2[0] = line[13];
@@ -594,11 +597,11 @@ int main(int argc, char* argv[]){//1
 	pstat = 0;
 	stat = 0;
 	mtrxstat=0;
-	bool new_chain = false;
+    //bool new_chain = false;
     int last_chain_length = 0;
-    int obs_chain = 1;
-    int residue = 0;
-    int res_counter = 0;
+    //int obs_chain = 1;
+    //int residue = 0;
+    int residue_counter = 0;
 	//NEED A 9 FRAME WINDOW TESTER HERE/ AND FULL STATISTIC OUTPUT AT THE BACK - SIMPLE!
 	if (flag2 != 1){//3
 	    //if (resnum[1] > 1){//Check when the first residue is not 1, but some other number, say 3 add errat entries
@@ -612,7 +615,7 @@ int main(int argc, char* argv[]){//1
             // ensure the measurement happens when a new residue is iterated
             if (((resnum[i] > resnum[i - 1]) || (i==1))/*&&(chain==chainID[i])*/){//5 //gate let's first atom of res through
                 //fout << resnum[i] << " is greater than " << resnum[i - 1] << endl;//remove later
-                res_counter++;
+                residue_counter++;
                 s=1;//resets a counting clock, start at 1.
                 for (v = i; ((s < 10) && (v <= atmnum)); v++){//sets frame to 1, go until 9 - to ensure last residue is complete
                     if (resnum[v + 1] > resnum[v]){ // the residue number is not the same
@@ -630,8 +633,8 @@ int main(int argc, char* argv[]){//1
                 if ((resSeq[v] > resSeq[i]) && (s == 10)){//6 //test for same chain (LIMIT CHAIN TO 1K RES) and completeness of window
                     //if (new_chain){
                     //    obs_chain++;
-                    //    last_chain_length = last_chain_length + res_counter;
-                    //    res_counter = 1;// since new chain is found start counter over
+                    //    last_chain_length = last_chain_length + residue_counter;
+                    //    residue_counter = 1;// since new chain is found start counter over
                     //    new_chain = false;
                     //}
                     for (aa = 0; aa < 4; aa++){
@@ -801,9 +804,9 @@ int main(int argc, char* argv[]){//1
                         //errat.push_back(mtrx);//KM using a pure incremental approach to the errat array
                         //residue = resnum[i] + 4 - ((obs_chain - 1) * chaindif) + last_chain_length;
                         //cout << "Setting residue " << residue << " from atom record " << i << " found by resnum " << resnum[i] << endl;
-                        //cout << "Setting with residue counter " << res_counter << endl;
+                        //cout << "Setting with residue counter " << residue_counter << endl;
                         //errat[residue] = mtrx;//KM
-                        errat[res_counter] = mtrx;//KM
+                        errat[residue_counter] = mtrx;//KM
                         //KM can't use resSeq as it increments only when residues do, doesn't respect chains
                         //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
                     }
@@ -816,7 +819,7 @@ int main(int argc, char* argv[]){//1
 
                 }//6 END of the proper frame test
                 else{
-                //cout << "Incorrect frame at residue counter " << res_counter << endl;
+                //cout << "Incorrect frame at residue counter " << residue_counter << endl;
                 //cout<<"incorrect frame found at residue"<< resnum[i]<<endl;
                 //errat.push_back(0);//add a blank measurement to vector as the frame is unavailable
                 }
@@ -827,7 +830,7 @@ int main(int argc, char* argv[]){//1
         for (i = 1; i <= 4; i++){
             cout << "Residue	" << i << "	" << 0 << endl;
         }
-        for (i = 1; i <= res_counter - 4; i++){
+        for (i = 1; i <= residue_counter - 4; i++){
             cout << "Residue	" << i + 4 << "	" << errat[i] << endl;// This is a special spacing character ->"	"
         }
         cout << "Overall quality factor: " << 100 - (100 * (pstat / stat));
