@@ -1130,9 +1130,9 @@ if __name__ == '__main__':
                 logger.info('Please follow the instructions below to generate sequence profiles for input proteins')
                 # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
                 # hhblits_cmds, _ = zip(*hhblits_cmds)
-                reformat_msa_cmd1 = [PUtils.reformat_msa_exe, 'a3m', 'sto',
+                reformat_msa_cmd1 = [PUtils.reformat_msa_exe_path, 'a3m', 'sto',
                                      "'%s'" % os.path.join(profile_dir, '*.a3m'), '.sto', '-num', '-uc']
-                reformat_msa_cmd2 = [PUtils.reformat_msa_exe, 'a3m', 'fas',
+                reformat_msa_cmd2 = [PUtils.reformat_msa_exe_path, 'a3m', 'fas',
                                      "'%s'" % os.path.join(profile_dir, '*.a3m'), '.fasta', '-M', 'first', '-r']
                 hhblits_cmd_file = \
                     SDUtils.write_commands(hhblits_cmds, name='hhblits_%s' % timestamp, out_path=profile_dir)
@@ -1148,14 +1148,16 @@ if __name__ == '__main__':
                                 'if you are still unsure')
                 logger.info('Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s'
                             % hhblits_sbatch)
+                load_resources = True
             else:
                 hhblits_sbatch = None
 
             bmdca_cmds = True  # TODO remove
             if bmdca_cmds:  # Todo check if all_entities have been calculated
-                bmdca_cmds = [list2cmdline(['bmdca', '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
-                                            '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
-                              for entity in all_entities]
+                bmdca_cmds = \
+                    [list2cmdline([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
+                                  '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
+                     for entity in all_entities]
                 bmdca_cmd_file = \
                     SDUtils.write_commands(bmdca_cmds, name='bmDCA_%s' % timestamp, out_path=profile_dir)
                 bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=master_directory.sbatch_scripts,

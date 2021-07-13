@@ -351,17 +351,17 @@ class SequenceProfile:
                '-ohhm', self.pssm_file, '-oa3m', self.a3m_file,  # '-Ofas', self.msa_file,
                '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06',
                '-v', '1', '-cpu', str(threads)]
-        # reformat_msa_cmd1 = [PUtils.reformat_msa_exe, self.a3m_file, self.msa_file, '-num', '-uc']
-        # reformat_msa_cmd2 = [PUtils.reformat_msa_exe, self.a3m_file, fasta_msa, '-M', 'first', '-r']
+        # reformat_msa_cmd1 = [PUtils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc']
+        # reformat_msa_cmd2 = [PUtils.reformat_msa_exe_path, self.a3m_file, fasta_msa, '-M', 'first', '-r']
         if return_command:
             return subprocess.list2cmdline(cmd)  # , subprocess.list2cmdline(reformat_msa_cmd)
 
         self.log.info('%s Profile Command: %s' % (self.name, subprocess.list2cmdline(cmd)))
         p = subprocess.Popen(cmd)
         p.communicate()
-        p = subprocess.Popen([PUtils.reformat_msa_exe, self.a3m_file, self.msa_file, '-num', '-uc'])
+        p = subprocess.Popen([PUtils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc'])
         p.communicate()
-        p = subprocess.Popen([PUtils.reformat_msa_exe, self.a3m_file, fasta_msa, '-M', 'first', '-r'])
+        p = subprocess.Popen([PUtils.reformat_msa_exe_path, self.a3m_file, fasta_msa, '-M', 'first', '-r'])
         p.communicate()
         # os.system('rm %s' % self.a3m_file)
 
