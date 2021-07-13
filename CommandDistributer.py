@@ -56,7 +56,7 @@ rosetta_flags = extras_flags[rosetta_extras] + \
 process_scale = {stage[1]: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
                  stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
                  stage[11]: 1, stage[12]: 2, stage[13]: 2,
-                 'metrics_bound': 2, 'interface_metrics': 2, 'hhblits': 1}
+                 'metrics_bound': 2, 'interface_metrics': 2, 'hhblits': 1, 'bmdca': 2}
 # Cluster Dependencies and Multiprocessing
 sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
                     interface_design: os.path.join(sbatch_template_dir, stage[2]),
@@ -72,7 +72,8 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
                     stage[9]: os.path.join(sbatch_template_dir, stage[6]),
                     'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
                     'interface_metrics': os.path.join(sbatch_template_dir, stage[2]),
-                    'hhblits': os.path.join(sbatch_template_dir, 'hhblits')
+                    'hhblits': os.path.join(sbatch_template_dir, 'hhblits'),
+                    'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
                     }
 
 
@@ -161,7 +162,7 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
         number_of_commands=None (int): The size of the job array
         mpi=None (int): The number of processes to run concurrently with MPI
         log_file=None (str): The name of a log file to write command results to
-        finishing_commands=None (list): The string of a command to run once all sbatch processes are completed
+        finishing_commands=None (list[str]): Commands to run once all sbatch processes are completed
     Returns:
         (str): The name of the sbatch script that was written
     """
@@ -356,7 +357,7 @@ if __name__ == '__main__':
         # while not monitor.kill_now:
 
         number_of_commands = len(specific_commands)  # different from process scale as this could reflect edge cases
-        if number_of_commands > 1:  # set by CUtils.process_scale
+        if number_of_commands > 1:  # set by process_scale
             results = mp_starmap(run, zipped_commands, threads=calculate_mp_threads(cores=number_of_commands))
         else:
             results = [run(*command) for command in zipped_commands]
