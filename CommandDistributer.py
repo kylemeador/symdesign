@@ -138,6 +138,7 @@ def run(cmd, log_file_name, program=None, srun=None):
     cluster_prefix = srun if srun else []
     program = [program] if program else []
     command = [cmd] if isinstance(cmd, str) else cmd
+    print(command)
     with open(log_file_name, 'a') as log_f:
         p = subprocess.Popen(cluster_prefix + program + command, stdout=log_f, stderr=log_f)
         p.wait()
