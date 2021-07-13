@@ -1536,14 +1536,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.symmetry is used to specify the orientation
         """
         pdb = PDB.from_file(self.source, log=self.log)
-        oriented_pdb = pdb.orient(sym=self.design_symmetry, out_dir=self.orient_dir)
-        if to_design_directory:
-            path = self.assembly
-        else:
-            path = self.orient_dir
-            self.make_path(self.orient_dir)
+        if self.design_symmetry:
+            oriented_pdb = pdb.orient(sym=self.design_symmetry, out_dir=self.orient_dir)
+            if to_design_directory:
+                path = self.assembly
+            else:
+                path = self.orient_dir
+                self.make_path(self.orient_dir)
 
-        return oriented_pdb.write(out_path=path)
+            return oriented_pdb.write(out_path=path)
+        else:
+            self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def refine(self, to_design_directory=False):
@@ -1620,6 +1623,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         asu.write(out_path=self.asu)
 
     def symmetric_assembly_is_clash(self):
+        """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Design level for clashes and raise
+        DesignError if any are found, otherwise, continue with protocol
+        """
         if self.pose.symmetric_assembly_is_clash():
             if self.ignore_clashes:
                 self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu)
@@ -1640,10 +1646,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.load_pose()
         if self.pose.symmetry:
             self.symmetric_assembly_is_clash()
-            if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
-                self.pose.get_assembly_symmetry_mates()
-                self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
-                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+            # if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
+            self.pose.get_assembly_symmetry_mates()
+            self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
+            self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+        else:
+            self.log.critical(PUtils.warn_missing_symmetry % self.expand_asu.__name__)
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))

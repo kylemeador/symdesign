@@ -659,6 +659,15 @@ class Structure(StructureBase):
         """
         return self.residues[-1]
 
+    @property
+    def radius(self):
+        """The largest point from the center of mass of the Structure
+
+        Returns:
+            (float)
+        """
+        return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
+
     def get_residue_atoms(self, numbers=None, **kwargs):
         """Return the Atoms contained in the Residue objects matching a set of residue numbers
 
@@ -1093,9 +1102,10 @@ class Structure(StructureBase):
             overall_score = all_residue_scores.pop(-1)
             # print('all_residue_scores has %d records\n' % len(all_residue_scores), list(map(str.split, all_residue_scores)))
             return float(overall_score.split()[-1]), \
-                   np.array([float(score[-1]) for score in map(str.split, all_residue_scores)])
-        except AttributeError:
-            self.log.warning('%s: Failed to generate ERRAT measurement' % self.name)
+                np.array([float(score[-1]) for score in map(str.split, all_residue_scores)])
+        except (IndexError, AttributeError):
+            self.log.warning('%s: Failed to generate ERRAT measurement. Errat returned %s'
+                             % (self.name, all_residue_scores))
             return
 
     def stride(self, to_file=None):
@@ -1741,13 +1751,14 @@ class Entity(Chain, SequenceProfile):
 
         self.symmetry = sym
         if 'D' in sym:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
-            rotation_matrices_only = get_rot_matrices(RotRangeDict[sym.replace('D', 'C')], 'z', 360)
+            rotation_matrices = get_rot_matrices(RotRangeDict[sym.replace('D', 'C')], 'z', 360)
             # apparently passing the degeneracy matrix first without any specification towards the row/column major
             # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
             # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
-            rotation_matrices = get_degen_rotmatrices(flip_x_matrix, rotation_matrices_only)
+            degeneracy_rotation_matrices = get_degen_rotmatrices([flip_x_matrix], rotation_matrices)
         else:
             rotation_matrices = get_rot_matrices(RotRangeDict[sym], 'z', 360)
+            degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
         inv_rotation = np.linalg.inv(rotation)
         inv_setting = np.linalg.inv(rotation2)
@@ -1770,28 +1781,28 @@ class Entity(Chain, SequenceProfile):
         # self.chain_representative.start_indices(dtype='residue', at=self.residue_indices[0])
         # self.chains.append(self.chain_representative)
         self.chain_ops.clear()
-        # for idx, rot in enumerate(rotation_matrices[1:], 1):  # exclude the first rotation matrix as it is identity
-        for rot in rotation_matrices:
-            rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=np.array(rot))
-            # debug_pdb2 = self.chain_representative.__copy__()
-            # debug_pdb2.replace_coords(rot_centered_coords)
-            # debug_pdb2.write(out_path='invert_set_invert_rot_ROT-%d%s.pdb' % (idx, self.name))
-            new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
-                                                   rotation2=rotation2, translation2=translation2)
-            # final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=translation2)
-            # # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
-            # sub_symmetry_mate_pdb = self.chain_representative.__copy__()
-            # sub_symmetry_mate_pdb.replace_coords(new_coords)
-            # sub_symmetry_mate_pdb.set_atoms_attributes(chain=Structure.available_letters[idx])
-            # sub_symmetry_mate_pdb.name = Structure.available_letters[idx]
-            # sub_symmetry_mate_pdb.write(out_path='make_oligomer_transformed_CHAIN-%d%s.pdb' % (idx, self.name))
-            # self.chains.append(sub_symmetry_mate_pdb)
-            # # self.chains[idx] = sub_symmetry_mate_pdb
-            rmsd, rot, tx, _ = superposition3d(new_coords, cb_coords)
-            self.chain_ops.append(dict(rotation=rot, translation=tx))
-        available_chain_ids = (first + second for first in [''] + [i for i in Structure.available_letters]
-                               for second in Structure.available_letters)
-        self.chain_ids = [next(available_chain_ids) for _ in self.chain_ops]
+        # for idx, rot in enumerate(degeneracy_rotation_matrices[1:], 1):  # exclude the first rotation matrix as it is identity
+        for degeneracy_matrices in degeneracy_rotation_matrices:
+            for rotation_matrix in degeneracy_matrices:
+                rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=np.array(rotation_matrix))
+
+                # debug_pdb2 = self.chain_representative.__copy__()
+                # debug_pdb2.replace_coords(rot_centered_coords)
+                # debug_pdb2.write(out_path='invert_set_invert_rot_ROT-%d%s.pdb' % (idx, self.name))
+                new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
+                                                       rotation2=rotation2, translation2=translation2)
+                # final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=translation2)
+                # # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
+                # sub_symmetry_mate_pdb = self.chain_representative.__copy__()
+                # sub_symmetry_mate_pdb.replace_coords(new_coords)
+                # sub_symmetry_mate_pdb.set_atoms_attributes(chain=Structure.available_letters[idx])
+                # sub_symmetry_mate_pdb.name = Structure.available_letters[idx]
+                # sub_symmetry_mate_pdb.write(out_path='make_oligomer_transformed_CHAIN-%d%s.pdb' % (idx, self.name))
+                # self.chains.append(sub_symmetry_mate_pdb)
+                # # self.chains[idx] = sub_symmetry_mate_pdb
+                rmsd, rot, tx, _ = superposition3d(new_coords, cb_coords)
+                self.chain_ops.append(dict(rotation=rot, translation=tx))
+        self.chain_ids = list(self.return_chain_generator())[:len(self.chain_ops)]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
 
     def write_oligomer(self, out_path=None, file_handle=None, header=None, **kwargs):
@@ -1903,10 +1914,15 @@ class Entity(Chain, SequenceProfile):
         if len(self.chain_ids) / max_symmetry_data['sym'] == 2:
             for chain, data in self.rotation_d.items():
                 if data['sym'] == 2:
-                    if np.dot(self.rotation_d[self.max_symmetry]['axis'], data['axis']) < 0.01:
-                        self.dihedral_chain = chain
-
-                        return True
+                    axis_dot_product = np.dot(max_symmetry_data['axis'], data['axis'])
+                    if axis_dot_product < 0.01:
+                        if np.allclose(data['axis'], [1, 0, 0]):
+                            self.log.debug('The relation between %s and %s would result in a malformed .sdf file'
+                                           % (self.max_symmetry, chain))
+                            pass  # this will not work in the make_symmdef.pl script, we should choose orthogonal y-axis
+                        else:
+                            self.dihedral_chain = chain
+                            return True
         elif 1 < len(self.chain_ids) / max_symmetry_data['sym'] < 2:
             self.log.critical('The symmetry of %s is malformed! Highest symmetry (%d-fold) is less than 2x greater than'
                               ' the number (%d) of chains' % (self.name, max_symmetry_data['sym'], len(self.chain_ids)))
