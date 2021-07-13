@@ -246,7 +246,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         asu.uc_dimensions = uc_dimensions
         asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.get_result_design_sym(), ignore_clashes=True,
-                                           surrounding_uc=output_surrounding_uc, log=log)  # ^ ignores ASU clashes
+                                           log=log)  # surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
 
@@ -290,10 +290,11 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         if output_assembly:
             symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
             if optimal_ext_dof_shifts:  # 2, 3 dimensions
-                symmetric_material.write(out_path=os.path.join(tx_dir, 'central_uc.pdb'), header=cryst1_record)
                 if output_surrounding_uc:
                     symmetric_material.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
                                              header=cryst1_record)
+                else:
+                    symmetric_material.write(out_path=os.path.join(tx_dir, 'central_uc.pdb'), header=cryst1_record)
             else:  # 0 dimension
                 symmetric_material.write(out_path=os.path.join(tx_dir, 'expanded_assembly.pdb'))
         log.info('\tSUCCESSFUL DOCKED POSE: %s' % tx_dir)
