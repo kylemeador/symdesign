@@ -42,10 +42,16 @@
 <!--		<And name="symmetric_self_interface_residues" selectors="interface1,interface2"/>-->
 <!--		<Not name="not_symmetric_self_interface_residues" selector="symmetric_self_interface_residues"/>-->
 <!--		<SymmetricalResidue name="symmetric_self_interface_residues_sym" selector="symmetric_self_interface_residues"/>-->
-		<Or name="tot_interface_sym" selectors="interface1_sym,interface2_sym"/>
+		<SymmetricalResidue name="tot_interface_sym" selector="tot_interface"/>
 		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
 		<Not name="not_interface_sym" selector="tot_interface_sym"/>
+		<And name="interface1_sc" selectors="interface2_neighbors,tot_interface_sym"/>
+		<Neighborhood name="interface1_sc_neighbors" selector="interface1_sc" distance="8.0" include_focus_in_subset="false"/>
+		<SymmetricalResidue name="interface1_sc_sym" selector="interface1_sc"/>
+		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>
+		<SymmetricalResidue name="interface2_sc_sym" selector="interface2_sc"/>
+<!--		<And name="interface2_sc_correct_sym" selectors="interface1_sc_neighbors,interface2_sc_sym"/>-->
 		<Or name="tot_interface_and_neighbor" selectors="interface_or_neighbors1,interface_or_neighbors2"/>
 		<SymmetricalResidue name="tot_interface_and_neighbor_sym" selector="tot_interface_and_neighbor"/>
 		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
@@ -99,7 +105,7 @@
 		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="true" cache_suffix="_total_complex"/> # cache_prefix=""
 <!--		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>-->
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano_solvation"/>
-		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface_and_neighbor" residue_selector_ref="tot_interface_and_neighbor" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
+		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
         <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
 		<SequenceMetric name="M_sequence" custom_type="" residue_selector="full_pose"/>
 	</SIMPLE_METRICS>
@@ -138,10 +144,16 @@
 		# find the shape complementarity between residues in an interface. report the median distance (or interface area, but this seems inaccurate) between the two
 <!--		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
 		# This variant adequately captures self symmetric interactions where as ^ missed self symmetric interactions
-		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym_and_interface2_sym_neighbors" residue_selector2="interface2_sym_and_interface1_sym_neighbors" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-		<ShapeComplementarity name="shape_complementarity_self_interface1" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface1_sym_neighbors" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-		<ShapeComplementarity name="shape_complementarity_self_interface2" min_sc="0.1" min_interface="0" residue_selector1="interface2_sym" residue_selector2="interface2_sym_neighbors" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-		<ShapeComplementarity name="shape_complementarity_interface_only" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+<!--		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym_and_interface2_sym_neighbors" residue_selector2="interface2_sym_and_interface1_sym_neighbors" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
+<!--		<ShapeComplementarity name="shape_complementarity_self_interface1" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface1_sym_neighbors" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
+		<!--		<ShapeComplementarity name="shape_complementarity_self_interface2" min_sc="0.1" min_interface="0" residue_selector1="interface2_sym" residue_selector2="interface2_sym_neighbors" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
+<!--		<ShapeComplementarity name="shape_complementarity_interface_only" min_sc="0.1" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
+<!--		<ShapeComplementarity name="shape_complementarity_neighbors" min_sc="0.1" min_interface="0" residue_selector1="interface1_sc" residue_selector2="interface2_sc" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
+		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2_sc" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+<!--		<ResidueCount name="count_interface1" residue_selector="interface1"/>-->
+<!--		<ResidueCount name="count_interface1_sym" residue_selector="interface1_sym"/>-->
+<!--		<ResidueCount name="count_interface1_sc" residue_selector="interface1_sc"/>-->
+<!--		<ResidueCount name="count_interface1_sc_sym" residue_selector="interface1_sc_sym"/>-->
 		# find the solvent accessable surface area across an interface specified by a chain-chain jump. can be hydrophobic, polar or if not specified, the total SASA
 		<Sasa name="interface_area_asu_hydrophobic" threshold="10" hydrophobic="1" polar="0" jump="1"/>
 		<Sasa name="interface_area_asu_polar" threshold="10" hydrophobic="0" polar="1" jump="1"/>
@@ -182,9 +194,15 @@
 <!--		<Report name="R_fsp_total_stability" 			filter="fsp_total_stability"/>-->
 		<Report name="R_coordinate_constraint" 				filter="coordinate_constraint"/>
 <!--		<Report name="R_int_energy_context_complex"		filter="int_energy_context_complex"/>-->
-		<Report name="R_shape_complementarity_self_interface1" 				filter="shape_complementarity_self_interface1"/>
-		<Report name="R_shape_complementarity_self_interface2" 				filter="shape_complementarity_self_interface2"/>
-		<Report name="R_shape_complementarity_interface_only" 				filter="shape_complementarity_interface_only"/>
+<!--		<Report name="R_shape_complementarity_self_interface1" 				filter="shape_complementarity_self_interface1"/>-->
+<!--		<Report name="R_shape_complementarity_self_interface2" 				filter="shape_complementarity_self_interface2"/>-->
+<!--		<Report name="R_shape_complementarity_interface_only" 				filter="shape_complementarity_interface_only"/>-->
+<!--		<Report name="R_shape_complementarity_neighbors" 					filter="shape_complementarity_neighbors"/>-->
+<!--		<Report name="R_shape_complementarity_neighbors_sym" 				filter="shape_complementarity_neighbors_sym"/>-->
+<!--		<Report name="R_count_interface1"	 				filter="count_interface1"/>-->
+<!--		<Report name="R_count_interface1_sym" 				filter="count_interface1_sym"/>-->
+<!--		<Report name="R_count_interface1_sc" 				filter="count_interface1_sc"/>-->
+<!--		<Report name="R_count_interface1_sc_sym" 			filter="count_interface1_sc_sym"/>-->
 		<Report name="R_shape_complementarity" 				filter="shape_complementarity"/>
 		<Report name="R_contact_count" 						filter="contact_count"/>
 		<Report name="R_buns_complex" 						filter="buns_complex"/>
@@ -271,13 +289,19 @@
 <!--		<Add mover_name="restore_nanohedra"/>-->
 <!--		<Add filter_name="R_full_stability_complex"/>-->
 <!--		<Add filter_name="R_fsp_total_stability"/>-->
+<!--		<Add filter_name="R_count_interface1"/>-->
+<!--		<Add filter_name="R_count_interface1_sym"/>-->
+<!--		<Add filter_name="R_count_interface1_sc"/>-->
+<!--		<Add filter_name="R_count_interface1_sc_sym"/>-->
 		<Add filter_name="R_favor_residue_energy"/>
 		<Add filter_name="R_coordinate_constraint"/>
 <!--		<Add filter_name="R_int_energy_context_complex"/>-->
 		<Add filter_name="R_shape_complementarity"/>
-		<Add filter_name="R_shape_complementarity_self_interface1"/>
-		<Add filter_name="R_shape_complementarity_self_interface2"/>
-		<Add filter_name="R_shape_complementarity_interface_only"/>
+<!--&lt;!&ndash;		<Add filter_name="R_shape_complementarity_self_interface1"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		<Add filter_name="R_shape_complementarity_self_interface2"/>&ndash;&gt;-->
+<!--		<Add filter_name="R_shape_complementarity_interface_only"/>-->
+<!--		<Add filter_name="R_shape_complementarity_neighbors"/>-->
+<!--		<Add filter_name="R_shape_complementarity_neighbors_sym"/>-->
 		<Add filter_name="R_contact_count"/>
 		<Add mover_name="run_metrics_hydrophobic_sasa"/>
 		<Add mover_name="run_metrics_polar_sasa"/>
