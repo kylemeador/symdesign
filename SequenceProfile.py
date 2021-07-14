@@ -18,6 +18,7 @@ from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protei
 import CommandDistributer
 import PathUtils as PUtils
 from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log, pretty_format_table
+# import dependencies.bmdca as bmdca
 
 # Globals
 logger = start_log(name=__name__)
@@ -50,6 +51,8 @@ class SequenceProfile:
         self.fragment_pssm_file = None
         self.interface_data_file = None
         self.a3m_file = None
+        self.h_fields = None
+        self.j_couplings = None
         self.msa = None
         self.msa_file = None
         self.pssm_file = None
@@ -509,7 +512,7 @@ class SequenceProfile:
                                   'either link the Structure to the Master Database, call %s, or pass the location of a'
                                   ' multiple sequence alignment. Supported formats:\n%s)'
                                   % (msa_generation_function, pretty_format_table(msa_supported_types.items())))
-        msa_np = np.array([list(record) for record in self.msa.alignment], np.character)
+        # msa_np = np.array([list(record) for record in self.msa.alignment], np.character)
         # msa_np = np.array([list(str(record.seq)) for record in self.msa.alignment], np.character)
         # print('msa_np', msa_np[:5, :])
         # aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
@@ -523,9 +526,9 @@ class SequenceProfile:
 
         # print('evolutionary_collapse_np', evolutionary_collapse_np[:5, :])
         # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
-        msa_mask = np.isin(msa_np, b'-', invert=True)  # returns bool array '-' = False. Converted during arithmetic
+        # msa_mask = np.isin(self.msa.array, b'-', invert=True)  # returns bool array '-' = False. Converted during arithmetic
         # print('msa_mask', msa_mask[:5, :])
-        iterator_np = np.cumsum(msa_mask, axis=1) * msa_mask
+        iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices
         # print('iterator_np', iterator_np[:5, :])
         # for idx in range(self.msa.length):
         #     # print('iterator shape', iterator_np.shape)
@@ -536,19 +539,69 @@ class SequenceProfile:
         #     iterator_np += msa_mask[:, idx]
         aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
         # print('aligned_hci_np', aligned_hci_np[:5, :])
-        sequence_hci_np = aligned_hci_np[:, msa_mask[0]]  # where the aligned sequence is the first index
+        sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]  # the query sequence indices are selected
         # print('sequence:\n', '     '.join(aa for idx, aa in enumerate(map(str, self.msa.alignment[0].seq)) if msa_mask[0][idx]))
         # print(list(map(round, sequence_hci_np[0, :].tolist(), repeat(2))), '\nsequence_hci_np')
         sequence_hci_df = pd.DataFrame(sequence_hci_np, columns=list(range(1, self.msa.query_length + 1)))
-        sequence_hci_mean_s = sequence_hci_df.mean()
+        # sequence_hci_mean_s = sequence_hci_df.mean()
         # sequence_hci_mean = pd.Series(sequence_hci_np.mean(axis=1), name='mean')
         # sequence_hci_mean.index += 1
-        sequence_hci_std_s = sequence_hci_df.std()
+        # sequence_hci_std_s = sequence_hci_df.std()
         # sequence_hci_std = pd.Series(sequence_hci_np.std(axis=1), name='std')
         # sequence_hci_std.index += 1
         # sequence_hci_z_value = (aligned_hci_np[0] - sequence_hci_mean) / sequence_hci_std
         return pd.concat([sequence_hci_df,
-                          pd.concat([sequence_hci_mean_s, sequence_hci_std_s], axis=1, keys=['mean', 'std']).T])
+                          pd.concat([sequence_hci_df.mean(), sequence_hci_df.std()], axis=1, keys=['mean', 'std']).T])
+
+    def direct_coupling_analysis(self, msa=None):  # , data_dir=None):
+        """Using boltzmann machine direct coupling analysis (bmDCA), score each sequence in an alignment based on the
+         statistical energy compared to the learn DCA model
+
+        Keyword Args:
+            msa=None (MultipleSequenceAlignment): A MSA object to score. By default (None), will use self.msa attribute
+        Returns:
+            (numpy.ndarray): The energy for each sequence in the alignment based on direct coupling analysis parameters
+        """
+        if not msa:
+            msa = self.msa
+        if not self.h_fields or not self.j_couplings:
+            raise AttributeError('The required data .h_fields and .j_couplings are not availble. Add them to the Entity'
+                                 ' before %s' % self.direct_coupling_analysis.__name__)
+            # return np.array([])
+        analysis_length = msa.query_length
+        idx_range = np.arange(analysis_length)
+        # h_fields = bmdca.load_fields(os.path.join(data_dir, '%s_bmDCA' % self.name, 'parameters_h_final.bin'))
+        # h_fields = h_fields.T  # this isn't required when coming in Fortran order, i.e. (21, analysis_length)
+        # sum the h_fields values for each sequence position in every sequence
+        h_sum = self.h_fields[msa.numerical_alignment, idx_range[None, :]].sum(axis=1)
+
+        # coming in as a 4 dimension (analysis_length, analysis_length, alphabet_number, alphabet_number) ndarray
+        # j_couplings = bmdca.load_couplings(os.path.join(data_dir, '%s_bmDCA' % self.name, 'parameters_J_final.bin'))
+        i_idx = np.repeat(idx_range, analysis_length)
+        j_idx = np.tile(idx_range, analysis_length)
+        i_aa = np.repeat(msa.numerical_alignment, analysis_length)
+        j_aa = np.tile(msa.numerical_alignment, msa.query_length)
+        j_values = np.zeros((msa.number_of_sequences, len(i_idx)))
+        for idx in range(msa.number_of_sequences):
+            j_values[idx] = self.j_couplings[i_idx, j_idx, i_aa, j_aa]
+        # this mask is not necessary when the array comes in as a non-symmetry matrix. All i > j result in 0 values...
+        # mask = np.triu(np.ones((analysis_length, analysis_length)), k=1).flatten()
+        # j_sum = j_values[:, mask].sum(axis=1)
+        j_sum = j_values.sum(axis=1)
+        # couplings_idx = np.stack((i_idx, j_idx, i_aa, j_aa), axis=1)
+        # this stacks all arrays like so
+        #  [[[ i_idx1, i_idx2, ..., i_idxN],
+        #    [ j_idx1, j_idx2, ..., j_idxN],  <- this is for one sequence
+        #    [ i_aa 1, i_aa 2, ..., i_aa N],
+        #    [ j_aa 1, j_aa 2, ..., j_aa N]],
+        #   [[NEXT SEQUENCE],
+        #    [
+        # this stacks all arrays the transpose, which would match the indexing style on j_couplings much better...
+        # couplings_idx = np.stack((i_idx, j_idx, i_aa, j_aa), axis=2)
+        # j_sum = np.zeros((self.msa.number_of_sequences, len(couplings_idx)))
+        # for idx in range(self.msa.number_of_sequences):
+        #     j_sum[idx] = j_couplings[couplings_idx[idx]]
+        return -h_sum - j_sum
 
     def write_fasta_file(self, sequence, name=None, out_path=os.getcwd()):
         """Write a fasta file from sequence(s)
@@ -2512,6 +2565,7 @@ msa_generation_function = 'SequenceProfile.hhblits()'
 
 
 class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
+    numerical_translation = dict(zip('-ACDEFGHIKLMNPQRSTVWY', range(21)))
 
     def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + extended_protein_letters,
                  weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
@@ -2596,6 +2650,56 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             assert total_column_weight != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' \
                                              % (MultipleSequenceAlignment.msa_to_prob_distribution.__name__, residue)  # Todo correct?
             self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
+
+    @property
+    def query_indices(self):
+        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
+        1 and 0 during subsequent arithmetic
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._sequence_index[0]
+        except AttributeError:
+            self._sequence_index = np.isin(self.array, b'-', invert=True)
+            return self._sequence_index[0]
+
+    @property
+    def sequence_indices(self):
+        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
+        1 and 0 during subsequent arithmetic
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._sequence_index
+        except AttributeError:
+            self._sequence_index = np.isin(self.array, b'-', invert=True)
+            return self._sequence_index
+
+    @property
+    def numerical_alignment(self):
+        """Return the array as a numerical representation
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._numerical_alignment
+        except AttributeError:
+            self._numerical_alignment = np.array([[self.numerical_translation[aa] for aa in record]
+                                                  for record in self.alignment])
+            return self._numerical_alignment
+
+    @property
+    def array(self):
+        try:
+            return self._array
+        except AttributeError:
+            self._array = np.array([list(record) for record in self.alignment], np.character)
+            return self._array
 
 # def generate_msa_dictionary(bio_alignment, aligned_sequence=None, alphabet=protein_letters,
 #                             weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
