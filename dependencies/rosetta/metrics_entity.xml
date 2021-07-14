@@ -35,7 +35,7 @@
 		<InitializeFromCommandline name="init"/>
 		# standard operation to restrict all residues to repacking
 		<RestrictToRepacking name="rtr"/>
-		<OperateOnResidueSubset name="no_interface_no_pack" selector="residues_not_at_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="no_interface_no_pack" selector="not_entity_interface_and_neighbors"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		<OperateOnResidueSubset name="entity_interface_and_neighbors_pack" selector="entity_interface_and_neighbors"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
 	</TASKOPERATIONS>
 
