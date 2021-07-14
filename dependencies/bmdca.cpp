@@ -79,7 +79,7 @@
 //}
 
 // This version takes the field, breaks each matrix to an individual array then returns full array
-py::array_t<double> load_couplings(std::string coupling_file, int size, int aa){
+py::array_t<double> load_couplings(std::string coupling_file, int size, int aa, py::args args, py::kwargs kwargs){
     // Check file extensions and parse out file names.
     int idx = coupling_file.find_last_of(".");
     //std::string coupling_name = coupling_file.substr(0, idx);
@@ -127,8 +127,9 @@ py::array_t<double> load_couplings(std::string coupling_file, int size, int aa){
     //return J;
     return a;
 }
-void f(py::array_t<double, py::array::c_style | py::array::forcecast> array);
-arma::Mat<double> load_fields(std::string bin_file) {
+
+//void f(py::array_t<double, py::array::c_style | py::array::forcecast> array);
+arma::Mat<double> load_fields(std::string bin_file, py::args args, py::kwargs kwargs) {
     int idx = bin_file.find_last_of(".");
     //std::string bin_name = bin_file.substr(0, idx);
     std::string bin_ext = bin_file.substr(idx + 1);
