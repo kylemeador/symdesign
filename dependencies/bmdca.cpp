@@ -1,4 +1,4 @@
-#include "load_armadillo_to_numpy.h"
+#include "bmdca.h"
 #include <carma>
 #include <armadillo>
 #include <pybind11/pybind11.h>
@@ -150,8 +150,8 @@ arma::Mat<double> load_fields(std::string bin_file) {
     return m;
 }
 
-PYBIND11_MODULE(load_armadillo_to_numpy, m) {
-    m.doc() = "convert armadillo binaries to numpy"; // module docstring
+PYBIND11_MODULE(bmdca, m) {
+    m.doc() = "Convert armadillo binaries from bmDCA to numpy.ndarray objects"; // module docstring
     m.def("load_couplings", &load_couplings, "A function which loads an armadillo binary coupling field with 4 dimensions");
     m.def("load_fields", &load_fields, "A function which loads a binary fields matrix to a numpy array");
 }
