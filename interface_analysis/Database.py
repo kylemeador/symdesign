@@ -11,6 +11,7 @@ from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_
 from Structure import parse_stride
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
 from utils.MysqlPython import Mysql
+import dependencies.bmdca as bmdca
 
 
 # Globals
@@ -33,6 +34,10 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
         self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=sql, log=log)
         self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
+        self.bmdca_fields = \
+            DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep, sql=sql, log=log)
+        self.bmdca_couplings = \
+            DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_J_final.bin' % os.sep, sql=sql, log=log)
 
     def load_all_data(self):
         """For every resource, acquire all existing data in memory"""
@@ -94,6 +99,10 @@ class DataStore:
         # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
         elif extension == '.sto':
             self.load_file = MultipleSequenceAlignment.from_stockholm  # parse_stockholm_to_msa
+        elif extension == '_bmDCA%sparameters_h_final.bin' % os.sep:
+            self.load_file = bmdca.load_fields
+        elif extension == '_bmDCA%sparameters_J_final.bin' % os.sep:
+            self.load_file = bmdca.load_couplings
         else:  # '.txt' read the file and return the lines
             self.load_file = self.read_file
 
@@ -126,9 +135,9 @@ class DataStore:
         if data:
             self.log.debug('Info %s%s was retrieved from DataStore' % (name, self.extension))
         else:
-            setattr(self, name, self.load_data(name, log=None))
+            setattr(self, name, self.load_data(name, log=None))  # attempt to store the new data as an attribute
             self.log.debug('Database file %s%s was loaded fresh' % (name, self.extension))  # not necessarily successful
-            data = getattr(self, name)  # store the new data as an attribute
+            data = getattr(self, name)
 
         return data
 

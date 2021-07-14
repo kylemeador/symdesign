@@ -2098,6 +2098,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             viable_designs = scores_df.index.to_list()
             self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
             other_pose_metrics['observations'] = len(scores_df)
+            pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
+            # entity_alignment = multi_chain_alignment(entity_sequences)
+            pose_alignment = msa_from_dictionary(pose_sequences)
+            entity_alignments = {entity: msa_from_dictionary(design_sequences)
+                                 for entity, design_sequences in entity_sequences.items()}
 
             atomic_deviation, residue_wise_deviation = {}, {}
             # design_assemblies = []  # maybe use?
@@ -2172,6 +2177,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             inverse_residue_contact_order_z, contact_order = {}, {}
             for entity in self.pose.entities:
                 entity.msa = self.database.alignments.retrieve_data(name=entity.name)
+                entity.h_fields = self.database.bmdca_fields.retrieve_data(name=entity.name)
+                entity.j_couplings = self.database.bmdca_couplings.retrieve_data(name=entity.name)
                 collapse = entity.collapse_profile()
                 collapse_df[entity] = collapse
                 # wt_collapse_z_score[entity] = hydrophobic_collapse_index(entity.sequence)
@@ -2317,6 +2324,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
             pose_collapse_df = pd.DataFrame(folding_and_collapse)
             # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
+            for entity in self.pose.entities:
+                try:
+                    dca_background_energies = entity.direct_coupling_analysis()
+                    dca_design_energies = entity.direct_coupling_analysis(msa=entity_alignments[entity])
+                except AttributeError:
+                    self.log.error('No DCA analysis could be performed, missing required parameters files')
+                    # TODO add these to the analysis
 
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
@@ -2359,9 +2373,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Calculate sequence statistics
             # first for entire pose
-            pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
-            # entity_alignment = multi_chain_alignment(entity_sequences)
-            pose_alignment = msa_from_dictionary(pose_sequences)
             mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, interface_residues)
             # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
