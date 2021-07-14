@@ -3,11 +3,8 @@
 	<SCOREFXNS>
 		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
 		<ScoreFunction name="2015" weights="ref2015"/>
-<!--		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>-->
-<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
-<!--		</ScoreFunction>-->
 		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
-		<ScoreFunction name="2015_solvation" weights="ref2015"/>
+		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_score_patch%%"/>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -24,10 +21,11 @@
 		<And name="entity_interface_residues" selectors="entity,tot_interface"/>
 		<SymmetricalResidue name="entity_interface_residues_sym" selector="entity_interface_residues"/>
 		<Neighborhood name="entity_residue_neighbors" selector="entity_interface_residues" include_focus_in_subset="false" distance="8.0"/> # Cb neighbors
-		<Or name="interface_and_neighbors" selectors="entity_interface_residues,entity_residue_neighbors"/>
+		<Or name="entity_interface_and_neighbors" selectors="entity_interface_residues,entity_residue_neighbors"/>
+		<SymmetricalResidue name="entity_interface_and_neighbors_sym" selector="entity_interface_and_neighbors"/>
+		<Not name="not_entity_interface_and_neighbors" selector="entity_interface_and_neighbors"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
-		<Not name="residues_not_at_interface" selector="interface_and_neighbors"/>
-		<HBond name="hbond_residues" residue_selector="entity_interface_residues" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>
+		<HBond name="interface_hbond_residues" residue_selector="entity_interface_residues" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>
 		# all residues
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
@@ -38,15 +36,15 @@
 		# standard operation to restrict all residues to repacking
 		<RestrictToRepacking name="rtr"/>
 		<OperateOnResidueSubset name="no_interface_no_pack" selector="residues_not_at_interface"> <PreventRepackingRLT/> </OperateOnResidueSubset>
-		<OperateOnResidueSubset name="interface_and_neighbors_pack" selector="interface_and_neighbors"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="entity_interface_and_neighbors_pack" selector="entity_interface_and_neighbors"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
 	</TASKOPERATIONS>
 
 	<SIMPLE_METRICS> # symmetric scorefunction metrics indicated by S_
 		# gather the residues involved in a residue selector
-		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues"/>
+		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="interface_hbond_residues"/>
 		# find the per residue energy of residues in a residue_selector
-		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>
+		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015"/>
 		# gather the per residue SASA of a residue selection
 		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="hydrophobic_sasa"/>
 		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="polar_sasa"/>
@@ -59,8 +57,8 @@
 		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_%%entity%%_unbound"/>
 		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_%%entity%%_unbound"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix
 		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum" use_cached_data="true" cache_suffix="_total_%%entity%%_unbound"/>
-		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_residues_sym" scorefxn="2015_nano_solvation"/>
-		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_residues_sym" scorefxn="2015_solvation"/>
+		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano_solvation"/>
+		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors" scorefxn="2015_solvation"/>
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
@@ -79,12 +77,13 @@
 <!--		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>-->
 		<ReadPoseExtraScoreFilter name="read_repacking" term_name="repacking" threshold="-0.5"/>
 		# find the average degree of connectivity to residues surrounding specified residues
-		<AverageDegree name="interface_connectivity_%%entity%%" threshold="0" distance_threshold="10.0" task_operations="no_interface_no_pack,interface_and_neighbors_pack"/>
-<!--		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_residues" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement-->
-		<BuriedUnsatHbonds name="buns_%%entity%%_unbound" residue_selector="entity_interface_residues" scorefxn="2015" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<AverageDegree name="interface_connectivity_%%entity%%" threshold="0" distance_threshold="10.0" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
+		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 <!--		<BuriedUnsatHbonds name="S_buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 <!--		<BuriedUnsatHbonds name="buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 		<Report name="R_interface_connectivity_%%entity%%" 				filter="interface_connectivity_%%entity%%"/>
+		<Report name="R_S_buns_%%entity%%_unbound" 						filter="S_buns_%%entity%%_unbound"/>
 		<Report name="R_buns_%%entity%%_unbound" 						filter="buns_%%entity%%_unbound"/>
 	</FILTERS>
 
@@ -112,7 +111,7 @@
 <!--		<DeleteRegionMover name="measure_entity" residue_selector="not_entity"/>-->
 		<ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity" />
 		# sample all rotamers to find minimum
-        <SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="no_interface_no_pack,interface_and_neighbors_pack"/>
+        <SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
         # minimize all residues in design_map (move map)
         <SymMinMover name="min" scorefxn="2015_nano" movemap_factory="design_map"/> # bb="0" chi="1"
 		<ParsedProtocol name="rotamer_trials_min_mover">
@@ -133,7 +132,7 @@
 			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>
 			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
 			<Add mover_name="run_metrics_bound_sum_sasa_total"/>
-			<Add filter_name="R_buns_%%entity%%_unbound"/>
+			<Add filter_name="R_S_buns_%%entity%%_unbound"/>
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_interface_connectivity_%%entity%%"/>
 			<Add mover_name="S_run_metrics_unbound"/>
