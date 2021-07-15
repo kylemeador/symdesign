@@ -1072,7 +1072,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                     % (PUtils.stage[3], '_DEV' if self.development else ''))]
         entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
                                               % (PUtils.stage[3], '_DEV' if self.development else ''))]
-        metric_cmds = [metric_cmd_bound + ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []]
+        metric_cmds = [metric_cmd_bound + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [])]
         #               [metric_cmd_unbound + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
         # metric_cmds = []
         for idx, entity in enumerate(self.pose.entities, 1):
@@ -1815,7 +1815,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.log.debug('Reordering wild-type chains')
         # wt_pdb.reorder_chains()  # ensure chain ordering is A then B to match output from interface_design
 
-        design_residues = self.info.get('design_residues', None)
+        design_residues = self.info.get('design_residues')  # None
         if design_residues == list():  # we should always get an empty list if we have got to this point
             raise DesignError('No residues were found with your design criteria... Your flags may be to stringent or '
                               'incorrect. Check input files for interface existance')
@@ -2078,11 +2078,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
             residue_info.pop(PUtils.stage[1], None)  # Remove refine from analysis
             # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
-            residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
             residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
-            scores_na_index = scores_df.index[scores_df.isna().any(axis=1)]  # scores_df.where()
-            residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
-            drop_na_index = np.union1d(scores_na_index, residue_na_index)
+            residue_df.fillna(0., inplace=True)
+            residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
+            # scores_na_index = scores_df.index[scores_df.isna().any(axis=1)]  # scores_df.where()
+            # residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
+            # drop_na_index = np.union1d(scores_na_index, residue_na_index)
             # if drop_na_index.any():
             #     self.log.debug('Missing information in score columns: %s'
             #                    % scores_df.columns[scores_df.isna().any(axis=0)].tolist())
@@ -2445,7 +2446,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
                 seq_pca = PCA(PUtils.variance)
-                pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(residue_info, sequence_difference))
+                designed_residue_info = {design: {residue: info for residue, info in residues_info.items()
+                                                  if residue in design_residues}
+                                         for design, residues_info in residue_info.items()}
+                pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_residue_info, sequence_difference))
                 seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
                 # Make principal components (PC) DataFrame
                 residue_energy_pc_df = \
