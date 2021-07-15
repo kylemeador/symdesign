@@ -560,7 +560,9 @@ class SequenceProfile:
         Keyword Args:
             msa=None (MultipleSequenceAlignment): A MSA object to score. By default (None), will use self.msa attribute
         Returns:
-            (numpy.ndarray): The energy for each sequence in the alignment based on direct coupling analysis parameters
+            (numpy.ndarray): The energy for each residue in each sequence of the alignment based on direct coupling
+                analysis parameters. Sequences exist on axis 0, residues along axis 1
+            # (numpy.ndarray): The energy for each sequence in the alignment based on direct coupling analysis parameters
         """
         if not msa:
             msa = self.msa
@@ -573,7 +575,8 @@ class SequenceProfile:
         # h_fields = bmdca.load_fields(os.path.join(data_dir, '%s_bmDCA' % self.name, 'parameters_h_final.bin'))
         # h_fields = h_fields.T  # this isn't required when coming in Fortran order, i.e. (21, analysis_length)
         # sum the h_fields values for each sequence position in every sequence
-        h_sum = self.h_fields[msa.numerical_alignment, idx_range[None, :]].sum(axis=1)
+        h_values = self.h_fields[msa.numerical_alignment, idx_range[None, :]].sum(axis=1)
+        h_sum = h_values.sum(axis=1)
 
         # coming in as a 4 dimension (analysis_length, analysis_length, alphabet_number, alphabet_number) ndarray
         # j_couplings = bmdca.load_couplings(os.path.join(data_dir, '%s_bmDCA' % self.name, 'parameters_J_final.bin'))
@@ -587,6 +590,8 @@ class SequenceProfile:
         # this mask is not necessary when the array comes in as a non-symmetry matrix. All i > j result in 0 values...
         # mask = np.triu(np.ones((analysis_length, analysis_length)), k=1).flatten()
         # j_sum = j_values[:, mask].sum(axis=1)
+        # sum the j_values for every design (axis 0) at every residue position (axis 1)
+        j_values = np.array(np.split(j_values, 3, axis=1)).sum(axis=2).T
         j_sum = j_values.sum(axis=1)
         # couplings_idx = np.stack((i_idx, j_idx, i_aa, j_aa), axis=1)
         # this stacks all arrays like so
@@ -601,7 +606,8 @@ class SequenceProfile:
         # j_sum = np.zeros((self.msa.number_of_sequences, len(couplings_idx)))
         # for idx in range(self.msa.number_of_sequences):
         #     j_sum[idx] = j_couplings[couplings_idx[idx]]
-        return -h_sum - j_sum
+        # return -h_sum - j_sum
+        return -h_values - j_values
 
     def write_fasta_file(self, sequence, name=None, out_path=os.getcwd()):
         """Write a fasta file from sequence(s)
