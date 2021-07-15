@@ -13,6 +13,7 @@ import numpy as np
 import pandas as pd
 # from matplotlib.axes import Axes
 # from mpl_toolkits.mplot3d import Axes3D
+from Bio.Data.IUPACData import protein_letters_3to1
 from scipy.spatial.distance import pdist, cdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -1826,7 +1827,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.log.debug('Found design residues: %s' % design_residues)
 
         # Interface B Factor TODO ensure asu.pdb has B-factors for Nanohedra
-        int_b_factor = sum(self.pose.pdb.residue(residue).get_ave_b_factor() for residue in design_residues)
+        int_b_factor = sum(self.pose.pdb.residue(residue).b_factor for residue in design_residues)
         other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(design_residues), 2)
         # other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(interface_residues), 2)
 
@@ -1842,6 +1843,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # pose_sequences = {design: data.get('final_sequence')[:self.pose.number_of_residues]
             #                   for design, data in all_design_scores.items()}
             pose_length = self.pose.number_of_residues
+            residue_indices = list(range(1, pose_length + 1))
             pose_sequences = {}
             for design, data in list(all_design_scores.items()):
                 sequence = data.get('final_sequence')
@@ -2080,7 +2082,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
             residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
             residue_df.fillna(0., inplace=True)
-            residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
+            # residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
             # scores_na_index = scores_df.index[scores_df.isna().any(axis=1)]  # scores_df.where()
             # residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
             # drop_na_index = np.union1d(scores_na_index, residue_na_index)
@@ -2105,20 +2107,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             entity_alignments = {entity: msa_from_dictionary(design_sequences)
                                  for entity, design_sequences in entity_sequences.items()}
 
-            atomic_deviation, residue_wise_deviation = {}, {}
+            atomic_deviation, per_residue_data = {}, {}
             # design_assemblies = []  # maybe use?
+            per_residue_data['errat_deviation'] = {}
             for file in self.get_designs():
-                decoy_name = os.path.splitext(os.path.basename(file))[0]
+                decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
                 if decoy_name not in scores_df.index:
                     continue
                 design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
                 # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
                 assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
-                atomic_deviation[design_asu.name], residue_wise_deviation[design_asu.name] = \
-                    assembly.errat(out_path=self.data)
-                residue_wise_deviation[design_asu.name] = \
-                    residue_wise_deviation[design_asu.name][:design_asu.number_of_residues]
+                atomic_deviation[design_asu.name], per_residue_errat = assembly.errat()
+                per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:design_asu.number_of_residues]
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
             # Calculate hydrophobic collapse for each design
@@ -2174,12 +2175,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # X the change from "non-collapsing" to "collapsing" where collapse passes a threshold and changes folding
             #   new_collapse_islands, new_collapse_island_significance
 
-            collapse_df, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}
+            collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
             inverse_residue_contact_order_z, contact_order = {}, {}
             for entity in self.pose.entities:
                 entity.msa = self.database.alignments.retrieve_data(name=entity.name)
-                entity.h_fields = self.database.bmdca_fields.retrieve_data(name=entity.name)
-                entity.j_couplings = self.database.bmdca_couplings.retrieve_data(name=entity.name)
+                # Todo reinstate
+                # entity.h_fields = self.database.bmdca_fields.retrieve_data(name=entity.name)
+                # entity.j_couplings = self.database.bmdca_couplings.retrieve_data(name=entity.name)
                 collapse = entity.collapse_profile()
                 collapse_df[entity] = collapse
                 # wt_collapse_z_score[entity] = hydrophobic_collapse_index(entity.sequence)
@@ -2189,12 +2191,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
                 # we must give a copy of coords_indexed_residues from the pose to each entity...
                 entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
+
+                _, wt_errat[entity] = entity.errat()
                 # residue_contact_order[entity] = entity.contact_order_per_residue()
-                residue_contact_order = entity.contact_order_per_residue()
+                # we need to get the contact order from the symmetric version...
+                entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+                residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
+                # residue_contact_order = entity.contact_order_per_residue()
                 contact_order[entity] = residue_contact_order
                 # residue_contact_order_mean, residue_contact_order_std = \
                 #     residue_contact_order.mean(), residue_contact_order.std()
                 # print('%s residue_contact_order' % entity.name, residue_contact_order)
+                # temporary contact order debugging
+                # print(residue_contact_order)
+                # entity.contact_order = residue_contact_order
+                # entity.set_residues_attributes_from_array(collapse=wt_collapse[entity])
+                # entity.set_b_factor_data(dtype='collapse')
+                # entity.write_oligomer(out_path=os.path.join(self.path, '%s_collapse.pdb' % entity.name))
                 residue_contact_order_z = \
                     z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
                 inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
@@ -2213,6 +2226,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                  'new_collapse_island_significance': {}, 'contact_order_collapse_z_sum': {},
                  'sequential_collapse_peaks_z_sum': {}, 'sequential_collapse_z_sum': {}, 'global_collapse_z_sum': {}}
             design_collapse_graph = {}
+            per_residue_data['hydrophobic_collapse'] = {}
             for design in viable_designs:
                 hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
                 contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, global_collapse_z_sum = [], [], [], []
@@ -2313,9 +2327,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 folding_and_collapse['sequential_collapse_peaks_z_sum'][design] = sum(sequential_collapse_peaks_z_sum)
                 folding_and_collapse['sequential_collapse_z_sum'][design] = sum(sequential_collapse_z_sum)
                 folding_and_collapse['global_collapse_z_sum'][design] = sum(global_collapse_z_sum)
-                design_collapse_graph[design] = pd.Series(np.concatenate(collapse_concatenated), name=design)
+                # collapse_concatenated = np.concatenate(collapse_concatenated)
+                collapse_concatenated = pd.Series(np.concatenate(collapse_concatenated), name=design)
+                per_residue_data['hydrophobic_collapse'][design] = collapse_concatenated
+                design_collapse_graph[design] = collapse_concatenated
                 # design_collapse_graph[design].name = design
 
+            # turn the per_residue data into a dataframe matching orientation of residue_df
+            per_residue_df = \
+                pd.concat({measure: pd.DataFrame(data, index=residue_indices)
+                           for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
             # make a graph of the collapse with residues as index and design as column
             collapse_graph_df = pd.DataFrame(design_collapse_graph)
             collapse_graph_df.index += 1  # offset index to residue numbering
@@ -2325,13 +2346,35 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
             pose_collapse_df = pd.DataFrame(folding_and_collapse)
             # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
+            dca_design_residues_concat = []
+            dca_succeed = True
+            # dca_bkgd_energies, dca_design_energies = [], []
+            dca_bkgd_energies, dca_design_energies = {}, {}
             for entity in self.pose.entities:
                 try:
                     dca_background_energies = entity.direct_coupling_analysis()
                     dca_design_energies = entity.direct_coupling_analysis(msa=entity_alignments[entity])
+                    dca_design_residues_concat.append(dca_design_energies)
+                    # dca_background_energies.append(dca_background_energies.sum(axis=1))
+                    # dca_design_energies.append(dca_design_energies.sum(axis=1))
+                    dca_background_energies[entity] = dca_background_energies.sum(axis=1)  # turns data to 1D
+                    dca_design_energies[entity] = dca_design_energies.sum(axis=1)
                 except AttributeError:
                     self.log.error('No DCA analysis could be performed, missing required parameters files')
                     # TODO add these to the analysis
+                    dca_succeed = False
+
+            if dca_succeed:
+                # concatenate along columns, adding residue index to column, design name to row
+                dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
+                                                   index=list(entity_sequences[entity].keys()), columns=residue_indices)
+                dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy']).swaplevel(0, 1, axis=1)
+                # merge with per_residue_df
+                per_residue_df = pd.merge(per_residue_df, dca_concatenated_df, left_index=True, right_index=True)
+
+            residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
+                                  left_index=True, right_index=True)
+            residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
 
             # POSE ANALYSIS
             # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
@@ -2645,12 +2688,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 for entity in self.pose.pdb.entities:
                     entity.get_sasa()
 
+                # todo simplify this mess...
+                errat_collapse_df = \
+                    pd.concat([pd.concat({'errat_deviation':
+                              pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
+                               'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
+                                                                 index=residue_indices)}
+                                         )], keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
+                # print(errat_collapse_df)
                 wild_type_residue_info = {}
                 for res_number in residue_info[next(iter(residue_info))].keys():
                     # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
                     residue = self.pose.pdb.residue(res_number)
                     wild_type_residue_info[res_number] = \
-                        {'type': residue.type, 'core': None, 'rim': None, 'support': None,
+                        {'type': protein_letters_3to1.get(residue.type.title()), 'core': None, 'rim': None, 'support': None,
                          # Todo implement wt energy metric during oligomer refinement?
                          'interior': 0, 'hbond': None, 'energy_delta': None,
                          'bsa_total': residue.sasa, 'bsa_polar': None, 'bsa_hydrophobic': None,
@@ -2662,11 +2713,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     #     wild_type_residue_info[res_number]['observed_fragment'] = None
 
                 wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
+                wt_df = pd.merge(wt_df, errat_collapse_df.loc[:, idx_slice[wt_df.columns.levels[0], :]],
+                                 left_index=True, right_index=True)
                 wt_df.drop(residue_indices_no_frags, inplace=True, axis=1)
                 # only sort once as residues are in same order
                 # wt_df.sort_index(level=0, inplace=True, axis=1, sort_remaining=False)
                 # residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
                 residue_df = pd.concat([wt_df, residue_df], sort=False)
+                # residue_df.drop(residue_indices_no_frags, inplace=True, axis=1)
                 residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
                 residue_df[(groups, groups)] = protocol_s
                 # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
