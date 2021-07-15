@@ -4,7 +4,7 @@
 		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
 		<ScoreFunction name="2015" weights="ref2015"/>
 		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
-		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_score_patch%%"/>
+		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
