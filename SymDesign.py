@@ -1816,6 +1816,7 @@ if __name__ == '__main__':
             all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
             for idx, df in enumerate(all_dfs):
                 # all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
+                # get rid of all statistic entries
                 df.drop([design for design in df.index.to_list() if design_directories[idx].name not in design],
                         inplace=True)
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
@@ -1826,12 +1827,6 @@ if __name__ == '__main__':
                                                           protocol=args.protocol)
             logger.info('%d designs were selected' % len(selected_poses_df))
             design_indices = selected_poses_df.index.to_list()
-            if args.filter or args.weight:
-                new_dataframe = os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
-                                             % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
-                                                timestamp))
-                selected_poses_df.to_csv(new_dataframe)
-                logger.info('New DataFrame with selected designs was written to %s' % new_dataframe)
             # design_series = rank_dataframe_by_metric_weights(df, weights=sequence_weights)
             # design_indices = design_series.index.to_list()
             if args.allow_multiple_poses:
@@ -1846,7 +1841,20 @@ if __name__ == '__main__':
                         number_chosen += 1
                         if number_chosen == args.number_sequences:
                             break
+            if args.filter or args.weight:
+                new_dataframe = os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
+                                             % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
+                                                timestamp))
+                # remove added index names
+                save_poses_df = selected_poses_df.loc[results, :].droplevel(0, axis=0) \
+                    .droplevel(0, axis=1).droplevel(0, axis=1)
+                # save_poses_df.to_csv(new_dataframe)
+                # logger.info('New DataFrame with selected designs was written to %s' % new_dataframe)
+            else:
+                save_poses_df = False  # Todo make possible!
+
         else:  # select sequences from all poses provided in DesignDirectories
+            save_poses_df = False  # Todo make possible!
             if args.filter:
                 trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
                 sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
@@ -1884,14 +1892,18 @@ if __name__ == '__main__':
         else:
             args.selection_string += '_'
         outdir = os.path.join(os.path.dirname(program_root), '%sSelectedDesigns' % args.selection_string)
-        outdir_traj = os.path.join(outdir, 'Trajectories')
-        outdir_res = os.path.join(outdir, 'Residues')
+        # outdir_traj = os.path.join(outdir, 'Trajectories')
+        # outdir_res = os.path.join(outdir, 'Residues')
         logger.info('Relevant design files are being copied to the new directory: %s' % outdir)
 
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-            os.makedirs(outdir_traj)
-            os.makedirs(outdir_res)
+            if save_poses_df:
+                selection_trajectory_df_file = os.path.join(outdir, 'TrajectoryMetrics.csv')
+                logger.info('New DataFrame with selected designs was written to %s' % selection_trajectory_df_file)
+                save_poses_df.to_csv(selection_trajectory_df_file)
+            # os.makedirs(outdir_traj)
+            # os.makedirs(outdir_res)
 
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
         for des_dir, design in results:
@@ -1904,8 +1916,8 @@ if __name__ == '__main__':
                 continue
             if not os.path.exists(os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design))):
                 shutil.copy(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
-                shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
-                shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
+                # shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
+                # shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
             # try:
             #     # Create symbolic links to the output PDB's
             #     os.symlink(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
