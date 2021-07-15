@@ -9,6 +9,7 @@
 			<Reweight scoretype="res_type_constraint" weight="0.5"/> # patch doesn't work here
 		</ScoreFunction>
 		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/> # TODO
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
