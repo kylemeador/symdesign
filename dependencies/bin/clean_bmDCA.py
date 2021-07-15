@@ -41,7 +41,8 @@ def clean_bmdca_directory(bmdca_dir):
             final_file_is_not_checkpoint = False
 
     sorted_checkpoints = sorted(map(int, [os.path.splitext(file)[0].split('_')[-1]
-                                          for file in glob(os.path.join(bmdca_dir, 'parameters_h_[0-9]*.bin'))]))
+                                          for file in glob(os.path.join(bmdca_dir, 'parameters_h_[0-9]*.bin'))]),
+                                reverse=True)
     if sorted_checkpoints:
         checkpoint_iterator = iter(sorted_checkpoints)
     else:
