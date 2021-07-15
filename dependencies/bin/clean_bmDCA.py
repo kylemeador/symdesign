@@ -79,7 +79,7 @@ def clean_bmdca_directory(bmdca_dir):
         keep_files += final_files
     else:
         keep_files += [file % number_to_keep for file in file_types]
-    logger.info('Keeping files %s' % keep_files)
+    logger.info('Keeping files: %s' % ', '.join(keep_files))
 
     for file in os.listdir(bmdca_dir):
         if file not in keep_files:
