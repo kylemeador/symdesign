@@ -34,7 +34,7 @@ def get_all_file_paths(dir, suffix='', extension=None):
     if not extension:
         extension = '.pdb'
     return [os.path.join(os.path.abspath(dir), file)
-            for file in glob(os.path.join(dir, '*%s*%s' % (suffix, extension)))]
+            for file in glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension)))]
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):
@@ -114,20 +114,29 @@ cmd.extend('save_group', save_group)
 
 # if __name__ == 'pymol':
 if __name__ == '__main__':
-    if len(sys.argv) != 2:
+    if len(sys.argv) < 2:
         # exit('Usage: python VisualizeDesigns.py path/to/designs')
-        exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs')
+        exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs 0-10')
     # os.system('scp -r escher:%s .' % sys.argv[0])
-    if sys.argv[1].startswith('escher:'):
+    if 'escher' in sys.argv[1]:
         os.system('scp -r %s .' % sys.argv[1])
-        files = get_all_file_paths(os.getcwd(), extension='.pdb')
+        files = get_all_file_paths(os.path.basename(sys.argv[1]), extension='.pdb')
     else:  # assume the files are local
         files = get_all_file_paths(sys.argv[1], extension='.pdb')
 
     if not files:
         exit('No .pdb files found in directory %s. Are you sure this is correct?' % sys.argv[1])
 
-    for file in files:
+    if len(sys.argv) > 2:
+        low, high = map(float, sys.argv[2].split('-'))
+        low_range, high_range = int((low / 100) * len(files)), int((high / 100) * len(files))
+        if low_range < 0 or high_range > len(files):
+            raise ValueError('The input range is outside of the acceptable bounds [0-100]')
+        print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
+    else:
+        low_range, high_range = None, None
+
+    for file in files[low_range:high_range]:
         cmd.load(file)
 
     print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T'
