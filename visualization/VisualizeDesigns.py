@@ -112,10 +112,11 @@ cmd.extend('expand', expand)
 cmd.extend('save_group', save_group)
 
 
-if __name__ == '__main__':
 # if __name__ == 'pymol':
+if __name__ == '__main__':
     if len(sys.argv) != 2:
-        exit('Usage: python VisualizeDesigns.py path/to/designs')
+        # exit('Usage: python VisualizeDesigns.py path/to/designs')
+        exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs')
     # os.system('scp -r escher:%s .' % sys.argv[0])
     if sys.argv[1].startswith('escher:'):
         os.system('scp -r %s .' % sys.argv[1])
@@ -129,7 +130,7 @@ if __name__ == '__main__':
     for file in files:
         cmd.load(file)
 
-    print('To expand all designs to the proper symmetry, issue:\n\texpand name=\'all\', symmetry=\'T\''
-          '\nReplace \'T\' with whatever symmetry your design is in')
+    print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T'
+          '\nReplace \'T\' with whatever symmetry your design is in\n')
 
 # print(__name__)
