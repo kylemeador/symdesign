@@ -364,6 +364,13 @@ class Structure(StructureBase):
             for kwarg, value in kwargs.items():
                 setattr(residue, kwarg, value)
 
+    def set_residues_attributes_from_array(self, **kwargs):
+        """Set attributes specified by key, value pairs for all Residues in the Structure"""
+        # self._residues.set_attribute_from_array(**kwargs)
+        for idx, residue in enumerate(self.residues):
+            for key, value in kwargs.items():
+                setattr(residue, key, value[idx])
+
     @staticmethod
     def set_structure_attributes(structure, **kwargs):
         """Set structure attributes specified by key, value pairs for all object instances in the structure iterator"""
@@ -1078,6 +1085,7 @@ class Structure(StructureBase):
         # logger.info(self.return_atom_string()[:120])
         iteration = 1
         # print('Errat:')
+        all_residue_scores = []
         while iteration < 5:
             p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
             # print('Errat Returned: %s' % p.stdout)
@@ -1098,7 +1106,6 @@ class Structure(StructureBase):
             # overall_score = set(errat_out.decode().split('\n'))
             # all_residue_scores = list(map(str.strip, errat_out.split('\n'), 'Residue '))
             # all_residue_scores = errat_out.split('\n')
-            # print('Found overall score %s' % overall_score)
             overall_score = all_residue_scores.pop(-1)
             # print('all_residue_scores has %d records\n' % len(all_residue_scores), list(map(str.split, all_residue_scores)))
             return float(overall_score.split()[-1]), \
@@ -1397,6 +1404,25 @@ class Structure(StructureBase):
 
         return fragments
 
+    @property
+    def contact_order(self):
+        """Return the contact order on a per Residue basis
+
+        Returns:
+            (numpy.ndarray): The array representing the contact order for each residue in the Structure
+        """
+        return self.contact_order_per_residue()  # np.array([residue.contact_order for residue in self.residues])
+
+    @contact_order.setter
+    def contact_order(self, contact_order):
+        """Set the contact order for each Residue
+
+        Args:
+            contact_order (Sequence)
+        """
+        for idx, residue in enumerate(self.residues):
+            residue.contact_order = contact_order[idx]
+
     def contact_order_per_residue(self, sequence_distance_cutoff=2.0, distance=6.0):
         """Calculate the contact order on a per residue basis
 
@@ -1448,6 +1474,14 @@ class Structure(StructureBase):
     #         raise DesignError('Must pass a source to %s' % Structure.read_secondary_structure.__name__)
     #
     #     return secondary_structure
+    def set_b_factor_data(self, dtype=None):
+        """Set the b-factor entry for every Residue to a Residue attribute
+
+        Keyword Args:
+            dtype=None (str): The attribute of interest
+        """
+        # kwargs = dict(b_factor=dtype)
+        self.set_residues_attributes(b_factor=dtype)  # , **kwargs)
 
     def copy_structures(self):
         """Copy all member Structures that residue in Structure containers"""
@@ -1805,6 +1839,20 @@ class Entity(Chain, SequenceProfile):
         self.chain_ids = list(self.return_chain_generator())[:len(self.chain_ops)]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
 
+    @property
+    def oligomer(self,):
+        """Access the oligomeric Structure
+
+        Returns:
+            (list[Structure]): The underlying chains in the oligomer
+        """
+        if self.is_oligomeric:
+            return self.chains
+        else:
+            self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
+                             'instead' % self.name)
+            return [self]
+
     def write_oligomer(self, out_path=None, file_handle=None, header=None, **kwargs):
         """Write oligomeric Structure Atoms to a file specified by out_path or with a passed file_handle
 
@@ -2103,9 +2151,26 @@ class Residues:
                 prior_residue = residue
 
     def insert(self, new_residues, at=None):
+        """Insert Residue(s) into the Residues object"""
         self.residues = np.concatenate((self.residues[:at] if 0 <= at <= len(self.residues) else self.residues,
                                         new_residues if isinstance(new_residues, Iterable) else [new_residues],
                                         self.residues[at:] if at is not None else []))
+
+    def set_attributes(self, **kwargs):
+        """Set Residue attributes passed by keyword to their corresponding value"""
+        for residue in self.residues.tolist():
+            for key, value in kwargs.items():
+                setattr(residue, key, value)
+
+    def set_attribute_from_array(self, **kwargs):
+        """For all Residues, set the Residue attribute passed by keyword to the value with the Residue index in the
+        passed array
+
+        Ex: residues.attribute_from_array(mutation_rate=residue_mutation_rate_array)
+        """
+        for idx, residue in enumerate(self.residues.tolist()):
+            for key, value in kwargs.items():
+                setattr(residue, key, value[idx])
 
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
@@ -2516,8 +2581,28 @@ class Residue:
     def number_of_atoms(self):
         return len(self._atom_indices)
 
-    def get_ave_b_factor(self):
-        return sum(atom.temp_fact for atom in self.atoms) / float(self.number_of_atoms)
+    @property
+    def b_factor(self):
+        try:
+            return sum(atom.temp_fact for atom in self.atoms) / self.number_of_atoms
+        except ZeroDivisionError:
+            return 0.
+
+    @b_factor.setter
+    def b_factor(self, dtype, **kwargs):
+        """Set the temperature factor for every Atom in the Residue
+
+        Keyword Args:
+            dtype=None (str): The data type that should fill the temperature_factor
+        """
+        try:
+            for atom in self.atoms:
+                atom.temp_fact = getattr(self, dtype)
+        except TypeError:
+            raise TypeError('The b_factor must be set with a string. %s is not a string' % dtype)
+        except AttributeError:
+            raise AttributeError('The attribute %s was not found in the Residue. Are you sure this is the attribute you'
+                                 ' want?' % dtype)
 
     def distance(self, other_residue):  # Todo make for Ca to Ca
         min_dist = float('inf')
@@ -2565,7 +2650,7 @@ class Residue:
         residue_str = format(self.type, '3s'), (chain or self.chain), \
                       format(getattr(self, 'number%s' % ('_pdb' if pdb else '')), '4d')
         offset = 1 + atom_offset
-        return '\n'.join(str(self._atoms.atoms[idx])
+        return '\n'.join(self._atoms.atoms[idx].__str__(**kwargs)
                          % (format(idx + offset, '5d'), *residue_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
                          for idx, coord in zip(self._atom_indices, self.coords.tolist()))
 
@@ -2954,7 +3039,7 @@ class Atom:
     def __key(self):
         return self.number, self.type
 
-    def __str__(self, pdb=False, chain=None, **kwargs):  # type=None, number=None, **kwargs
+    def __str__(self, **kwargs):  # type=None, number=None, pdb=False, chain=None,
         """Represent Atom in PDB format"""
         # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
