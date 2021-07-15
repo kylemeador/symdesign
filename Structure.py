@@ -1113,7 +1113,7 @@ class Structure(StructureBase):
         except (IndexError, AttributeError):
             self.log.warning('%s: Failed to generate ERRAT measurement. Errat returned %s'
                              % (self.name, all_residue_scores))
-            return
+            return 0., np.array([0. for _ in range(self.number_of_residues)])
 
     def stride(self, to_file=None):
         """Use Stride to calculate the secondary structure of a PDB.
