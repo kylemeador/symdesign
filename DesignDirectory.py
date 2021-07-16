@@ -2255,7 +2255,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     increased_collapse = np.where(collapse_bool - wt_collapse_bool[entity] == 1, 1, 0)
                     # check if the increased collapse has made new collapse
                     new_collapse = np.zeros(collapse_bool.shape)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
-                    for idx, _bool in enumerate(increased_collapse.tolist()[1:], 1):
+                    for idx, _bool in enumerate(increased_collapse.tolist()[1:-1], 1):
                         if _bool and (not wt_collapse_bool[entity][idx - 1] or not wt_collapse_bool[entity][idx + 1]):
                             new_collapse[idx] = _bool
                     # new_collapse are sites where a new collapse is formed compared to wild-type
