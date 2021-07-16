@@ -1465,7 +1465,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
     print('\n%s' % header_string % 'Select %s %s Metrics' % (level, mode))
     print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
           'To \'%s\' designs, which metrics would you like to utilize?%s'
-          % (level, mode, describe_string if df else ''))
+          % (level, mode, describe_string if df is not None else ''))
 
     print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
           'comma separated input or alternatively, you can check out the available metrics by entering \'metrics\'.'
@@ -1485,8 +1485,8 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
             print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
             metrics_input = input('%s' % input_string)
         elif chosen_metrics.intersection(describe_string):
-            describe_data(df=df) if df else print('Can\'t describe data without providing a DataFrame...')
-            # df.describe() if df else print('Can\'t describe data without providing a DataFrame...')
+            describe_data(df=df) if df is not None else print('Can\'t describe data without providing a DataFrame...')
+            # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
             metrics_input = input('%s' % input_string)
         elif unsupported_metrics:
             # TODO catch value error in dict comprehension upon string input
@@ -1509,7 +1509,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
 
     print(instructions[mode])
     while True:  # not correct:  # correct = False
-        print('%s' % (describe_string if df else ''))
+        print('%s' % (describe_string if df is not None else ''))
         metric_values = {}
         for metric in chosen_metrics:
             while True:
@@ -1521,8 +1521,9 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                     metric_values[metric] = float(value)
                     break
                 elif value in describe:
-                    describe_data(df=df) if df else print('Can\'t describe data without providing a DataFrame...')
-                    # df.describe() if df else print('Can\'t describe data without providing a DataFrame...')
+                    describe_data(df=df) if df is not None \
+                        else print('Can\'t describe data without providing a DataFrame...')
+                    # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
 
         # metric_values = {metric: float(input('For \'%s\' what value should be used for %s %sing?%s%s'
         #                                      % (metric, level, mode,
