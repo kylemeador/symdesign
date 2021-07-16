@@ -10,7 +10,7 @@ import pandas as pd
 from Structure import gxg_sasa
 from SymDesignUtils import start_log, DesignError, index_intersection, handle_errors, \
     pretty_format_table, digit_translate_table
-from Query.PDB import header_string, input_string, verify_choice
+from Query.PDB import header_string, input_string, verify_choice, validate_type
 
 # Globals
 logger = start_log(name=__name__)
@@ -1130,10 +1130,12 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         else:
             available_protocols = df.columns.get_level_values(0).unique()
             while True:
-                protocol = input('What protocol would you like to choose?\nAvailable options are: %s%s'
-                                 % (', '.join(available_protocols), input_string))
+                protocol = input('What protocol would you like to choose?%s\nAvailable options are: %s%s'
+                                 % (describe_string, ', '.join(available_protocols), input_string))
                 if protocol in available_protocols:
                     break
+                elif protocol in describe:
+                    describe_data(df=df)# df.describe()
                 else:
                     print('Invalid protocol %s. Please choose one of %s' % (protocol, ', '.join(available_protocols)))
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
@@ -1149,7 +1151,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
             filters = filter
         else:
             available_filters = simple_df.columns.to_list()
-            filters = query_user_for_metrics(available_filters, mode='filter', level='design')
+            filters = query_user_for_metrics(available_filters, df=df, mode='filter', level='design')
         logger.info('Using filter parameters: %s' % str(filters))
 
         # When df is not ranked by percentage
@@ -1175,7 +1177,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
             weights = weight
         else:
             available_metrics = simple_df.columns.to_list()
-            weights = query_user_for_metrics(available_metrics, mode='weight', level='design')
+            weights = query_user_for_metrics(available_metrics, df=df, mode='weight', level='design')
         logger.info('Using weighting parameters: %s' % str(weights))
         design_ranking_s = rank_dataframe_by_metric_weights(simple_df, weights=weights)
 
@@ -1415,8 +1417,24 @@ def format_fragment_metrics(metrics, null=False):
                                        + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2))}
 
 
+describe_string = '\nTo see a describtion of the data, enter \'describe\'\n'
+describe = ['describe', 'desc', 'DESCRIBE', 'DESC', 'Describe', 'Desc']
+
+
+def describe_data(df=None):
+    """Describe the DataFrame to STDOUT"""
+    metrics = input('To see descriptions for only certain metrics, enter them here. Otherwise, hit \'Enter\'%s'
+                    % input_string)
+    if metrics == '':
+        columns_of_interest = slice(None)
+        pass
+    else:
+        columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).to_list())]
+    df.iloc[:, columns_of_interest].describe()
+
+
 @handle_errors(errors=KeyboardInterrupt)
-def query_user_for_metrics(available_metrics, mode=None, level=None):
+def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
     """Ask the user for the desired metrics to select indices from a dataframe
 
     Args:
@@ -1446,14 +1464,15 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
 
     print('\n%s' % header_string % 'Select %s %s Metrics' % (level, mode))
     print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
-          'To \'%s\' designs, which metrics would you like to utilize?' % (level, mode))
+          'To \'%s\' designs, which metrics would you like to utilize?%s'
+          % (level, mode, describe_string if df else ''))
 
     print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
           'comma separated input or alternatively, you can check out the available metrics by entering \'metrics\'.'
           '\nEx: \'shape_complementarity, contact_count, etc.\'')
     metrics_input = input('%s' % input_string)
-    chosen_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
-                                             repeat(' '), repeat('_'))))
+    chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
+                                            repeat(' '), repeat('_'))))
     while True:  # unsupported_metrics or 'metrics' in chosen_metrics:
         # while not end:
         #     chosen_metrics = map(str.lower, map(str.replace, map(str.strip, metrics_input.split(',')), ' ', '_'))
@@ -1461,9 +1480,13 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
         #         print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
         #         continue
         # unsupported_metrics = True , end = False  # metrics_input = 'start'
-        unsupported_metrics = set(chosen_metrics).difference(available_metrics)
+        unsupported_metrics = chosen_metrics.difference(available_metrics)
         if 'metrics' in chosen_metrics:
             print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
+            metrics_input = input('%s' % input_string)
+        elif chosen_metrics.intersection(describe_string):
+            describe_data(df=df) if df else print('Can\'t describe data without providing a DataFrame...')
+            # df.describe() if df else print('Can\'t describe data without providing a DataFrame...')
             metrics_input = input('%s' % input_string)
         elif unsupported_metrics:
             # TODO catch value error in dict comprehension upon string input
@@ -1481,33 +1504,41 @@ def query_user_for_metrics(available_metrics, mode=None, level=None):
                 break
         fixed_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
                                                 repeat(' '), repeat('_'))))
-        chosen_metrics = set(chosen_metrics).difference(unsupported_metrics).union(fixed_metrics)
+        chosen_metrics = chosen_metrics.difference(unsupported_metrics).union(fixed_metrics)
         # unsupported_metrics = set(chosen_metrics).difference(available_metrics)
 
     print(instructions[mode])
     while True:  # not correct:  # correct = False
-        metric_values = {metric: float(input('For \'%s\' what value should be used for %s %sing?%s%s'
-                                             % (metric, level, mode,
-                                                ' Designs with metrics %s than this value will be included'
-                                                % direction[filter_df.loc['direction', metric]].upper()
-                                                if mode == 'filter' else '', input_string)))
-                         for metric in chosen_metrics}
+        print('%s' % (describe_string if df else ''))
+        metric_values = {}
+        for metric in chosen_metrics:
+            while True:
+                value = input('For \'%s\' what value should be used for %s %sing?%s%s'
+                              % (metric, level, mode, ' Designs with metrics %s than this value will be included'
+                                                      % direction[filter_df.loc['direction', metric]].upper()
+                                                      if mode == 'filter' else '', input_string))
+                if validate_type(value, dtype=float):
+                    metric_values[metric] = float(value)
+                    break
+                elif value in describe:
+                    describe_data(df=df) if df else print('Can\'t describe data without providing a DataFrame...')
+                    # df.describe() if df else print('Can\'t describe data without providing a DataFrame...')
+
+        # metric_values = {metric: float(input('For \'%s\' what value should be used for %s %sing?%s%s'
+        #                                      % (metric, level, mode,
+        #                                         ' Designs with metrics %s than this value will be included'
+        #                                         % direction[filter_df.loc['direction', metric]].upper()
+        #                                         if mode == 'filter' else '', input_string)))
+        #                  for metric in chosen_metrics}
         if metric_values:
             print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
         else:
             # print('No metrics were provided, skipping value input')
             metric_values = None
             break
+
         if verify_choice():
             break
-        # while True:
-        #     confirm = input(confirmation_string)
-        #     if confirm.lower() in bool_d:
-        #         break
-        #     else:
-        #         print('%s %s is not a valid choice!' % (invalid_string, confirm))
-        # if bool_d[confirm]:
-        #     correct = True
 
     return metric_values
 
