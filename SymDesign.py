@@ -1900,7 +1900,7 @@ if __name__ == '__main__':
 
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-            if save_poses_df:
+            if save_poses_df is not None:
                 selection_trajectory_df_file = os.path.join(outdir, 'TrajectoryMetrics.csv')
                 logger.info('New DataFrame with selected designs was written to %s' % selection_trajectory_df_file)
                 save_poses_df.to_csv(selection_trajectory_df_file)
