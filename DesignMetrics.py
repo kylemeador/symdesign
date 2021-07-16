@@ -1554,7 +1554,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
     return metric_values
 
 
-def rank_dataframe_by_metric_weights(df, weights=None, save_ranking=False, out_path=os.getcwd()):
+def rank_dataframe_by_metric_weights(df, weights=None):  # , save_ranking=False, out_path=os.getcwd()):
     """From a provided DataFrame with individual design trajectories, select trajectories based on provided metric and
     weighting parameters
 
@@ -1567,7 +1567,6 @@ def rank_dataframe_by_metric_weights(df, weights=None, save_ranking=False, out_p
         # (list): The list of indices that were selected
     """
     if weights:
-        # filter_df = pd.DataFrame(master_metrics)
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
                     for metric, value in weights.items()}
 
@@ -1576,13 +1575,5 @@ def rank_dataframe_by_metric_weights(df, weights=None, save_ranking=False, out_p
                                                 method=parameters['direction'], pct=True) * parameters['value']
                         for metric, parameters in _weights.items()}, axis=1)
         return df.sum(axis=1).sort_values(ascending=False)
-        # # sort sum of all weights by the maximum combined weight
-        # df['weighted_score'] = df.sum(axis=1)
-        # df.sort_values('weighted_score', inplace=True, ascending=False)
-        # if save_ranking:
-        #     df.to_csv(os.path.join(out_path, 'ranked%s.csv' % (time.strftime('%y-%m-%d-%H%M%S'))))
     else:  # just sort by lowest energy
         return df.sort_values('interface_energy', ascending=True)
-        # df.sort_values('interface_energy', inplace=True)
-
-    # return df.index.to_list()

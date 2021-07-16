@@ -1827,7 +1827,7 @@ if __name__ == '__main__':
             # Figure out designs from dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
-            logger.info('%d designs were selected' % len(selected_poses_df))
+            # logger.info('%d designs were selected' % len(selected_poses_df))
             design_indices = selected_poses_df.index.to_list()
             # design_series = rank_dataframe_by_metric_weights(df, weights=sequence_weights)
             # design_indices = design_series.index.to_list()
@@ -1843,6 +1843,8 @@ if __name__ == '__main__':
                         number_chosen += 1
                         if number_chosen == args.number_sequences:
                             break
+            logger.info('%d designs were selected' % len(results))
+
             if args.filter or args.weight:
                 new_dataframe = os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
                                              % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
@@ -1896,16 +1898,16 @@ if __name__ == '__main__':
         outdir = os.path.join(os.path.dirname(program_root), '%sSelectedDesigns' % args.selection_string)
         # outdir_traj = os.path.join(outdir, 'Trajectories')
         # outdir_res = os.path.join(outdir, 'Residues')
-        logger.info('Relevant design files are being copied to the new directory: %s' % outdir)
-
         if not os.path.exists(outdir):
             os.makedirs(outdir)
-            if save_poses_df is not None:
-                selection_trajectory_df_file = os.path.join(outdir, 'TrajectoryMetrics.csv')
-                logger.info('New DataFrame with selected designs was written to %s' % selection_trajectory_df_file)
-                save_poses_df.to_csv(selection_trajectory_df_file)
             # os.makedirs(outdir_traj)
             # os.makedirs(outdir_res)
+
+        logger.info('Relevant design files are being copied to the new directory: %s' % outdir)
+        if save_poses_df is not None:
+            selection_trajectory_df_file = os.path.join(outdir, 'TrajectoryMetrics.csv')
+            logger.info('New DataFrame with selected designs was written to %s' % selection_trajectory_df_file)
+            save_poses_df.to_csv(selection_trajectory_df_file)
 
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
         for des_dir, design in results:
@@ -2032,7 +2034,7 @@ if __name__ == '__main__':
                 if available_tags:  # look for existing tag to remove from sequence and save identity
                     if available_tags:
                         tag_names, tag_termini, ind_tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                                                        for tag in available_tags])
+                                                                          for tag in available_tags])
                     else:
                         tag_names, tag_termini, ind_tag_sequences = [], [], []
                     try:
@@ -2208,7 +2210,7 @@ if __name__ == '__main__':
                                                    'context?\n\t%s\n\t%s%s'
                                                    % ('%d%s%d' % (idx_range[0] + 1, ' ' * (len(range(idx_range)) - 2),
                                                                   idx_range[1] + 1),
-                                                       design_sequence[idx_range[0]:idx_range[1]],
+                                                      design_sequence[idx_range[0]:idx_range[1]],
                                                       input_string)).upper()
                             if new_amino_acid in protein_letters:
                                 design_sequence[idx] = new_amino_acid
