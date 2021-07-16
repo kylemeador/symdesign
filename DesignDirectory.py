@@ -2109,18 +2109,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             atomic_deviation, per_residue_data = {}, {}
             # design_assemblies = []  # maybe use?
-            per_residue_data['errat_deviation'] = {}
-            for file in self.get_designs():
-                decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
-                if decoy_name not in scores_df.index:
-                    continue
-                design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
-                # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
-                assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
-                #                                            ,symmetry=self.design_symmetry)
-                atomic_deviation[design_asu.name], per_residue_errat = assembly.errat()
-                per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:design_asu.number_of_residues]
-            scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
+            # per_residue_data['errat_deviation'] = {}  # Todo reinstate
+            # for file in self.get_designs():
+            #     decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
+            #     if decoy_name not in scores_df.index:
+            #         continue
+            #     design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
+            #     # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
+            #     assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
+            #     #                                            ,symmetry=self.design_symmetry)
+            #     atomic_deviation[design_asu.name], per_residue_errat = assembly.errat()
+            #     per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:design_asu.number_of_residues]
+            # scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
             # Calculate hydrophobic collapse for each design
 
@@ -2192,7 +2192,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # we must give a copy of coords_indexed_residues from the pose to each entity...
                 entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
 
-                _, wt_errat[entity] = entity.errat()
+                # _, wt_errat[entity] = entity.errat()  # Todo reinstate
                 # residue_contact_order[entity] = entity.contact_order_per_residue()
                 # we need to get the contact order from the symmetric version...
                 entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
@@ -2690,8 +2690,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # todo simplify this mess...
                 errat_collapse_df = \
-                    pd.concat([pd.concat({'errat_deviation':
-                              pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
+                    pd.concat([pd.concat(
+                        {
+                            # 'errat_deviation':  # Todo reinstate
+                            #   pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
                                'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
                                                                  index=residue_indices)}
                                          )], keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
