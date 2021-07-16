@@ -34,7 +34,7 @@ def get_all_file_paths(dir, suffix='', extension=None):
     if not extension:
         extension = '.pdb'
     return [os.path.join(os.path.abspath(dir), file)
-            for file in glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension)))]
+            for file in sorted(glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension))))]
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):
@@ -115,14 +115,14 @@ cmd.extend('save_group', save_group)
 # if __name__ == 'pymol':
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        # exit('Usage: python VisualizeDesigns.py path/to/designs')
         exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs 0-10')
-    # os.system('scp -r escher:%s .' % sys.argv[0])
     if 'escher' in sys.argv[1]:
+        print('Starting the data transfer now...')
         os.system('scp -r %s .' % sys.argv[1])
         files = get_all_file_paths(os.path.basename(sys.argv[1]), extension='.pdb')
     else:  # assume the files are local
         files = get_all_file_paths(sys.argv[1], extension='.pdb')
+    # print(list(map(str.lstrip, map(os.path.basename, files), 'NanohedraEntry54DockedPoses_Designs-')))
 
     if not files:
         exit('No .pdb files found in directory %s. Are you sure this is correct?' % sys.argv[1])
@@ -136,10 +136,9 @@ if __name__ == '__main__':
     else:
         low_range, high_range = None, None
 
-    for file in files[low_range:high_range]:
-        cmd.load(file)
+    for idx, file in enumerate(files[low_range:high_range], low_range + 1):
+        cmd.load(file, object=idx)
+        # cmd.load(file)
 
-    print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T'
-          '\nReplace \'T\' with whatever symmetry your design is in\n')
-
-# print(__name__)
+    print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T')
+          # '\nReplace \'T\' with whatever symmetry your design is in\n')
