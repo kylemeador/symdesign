@@ -1426,13 +1426,20 @@ describe = ['describe', 'desc', 'DESCRIBE', 'DESC', 'Describe', 'Desc']
 
 def describe_data(df=None):
     """Describe the DataFrame to STDOUT"""
-    metrics = input('To see descriptions for only certain metrics, enter them here. Otherwise, hit \'Enter\'%s'
-                    % input_string)
-    if metrics == '':
+    print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
+          'comma separated input. To see descriptions for only certain metrics, enter them here. '
+          'Otherwise, hit \'Enter\'')
+    metrics_input = input('%s' % input_string)
+    chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
+                                            repeat(' '), repeat('_'))))
+    # metrics = input('To see descriptions for only certain metrics, enter them here. Otherwise, hit \'Enter\'%s'
+    #                 % input_string)
+    if not chosen_metrics:
         columns_of_interest = slice(None)
         pass
     else:
-        columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).to_list())]
+        columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).to_list())
+                               if column in chosen_metrics]
     print(df.iloc[:, columns_of_interest].describe())
 
 
