@@ -18,6 +18,7 @@ generate_fragments = 'generate_fragments'
 analysis = 'analysis'
 cluster_poses = 'cluster_poses'
 select_designs = 'select_designs'
+select_sequences = 'sequence_selection'
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'

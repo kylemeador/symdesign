@@ -889,10 +889,10 @@ if __name__ == '__main__':
                         'across all poses should facilitate selection of the best configurations to move forward'
                         ' with, while Trajectory and Residue information can inform your choice of sequence selection '
                         'parameters. Selection of the resulting poses'
-                        ' can be accomplished through the %s module \'sequence_selection\'.\n\t'
-                        '\'%s sequence_selection -h\' will get you started.'
+                        ' can be accomplished through the %s module \'%s\'.\n\t'
+                        '\'%s %s -h\' will get you started.'
                         % (PUtils.program_command, '\n\t'.join(formatted_metrics), PUtils.program_name,
-                           PUtils.program_command))
+                           PUtils.select_sequences, PUtils.program_command, PUtils.select_sequences))
         elif args.module == PUtils.interface_design:
             logger.info()
         elif args.module == PUtils.nano:
@@ -901,7 +901,7 @@ if __name__ == '__main__':
             logger.info()
         elif args.module == PUtils.select_designs:
             logger.info()
-        elif args.module == 'sequence_selection':
+        elif args.module == PUtils.select_sequences:
             logger.info()
         exit()
     # -----------------------------------------------------------------------------------------------------------------
@@ -948,7 +948,7 @@ if __name__ == '__main__':
         #                         % args.module)
         #         exit(1)
     elif args.module in [PUtils.nano, PUtils.select_designs, PUtils.analysis, PUtils.cluster_poses,
-                         'sequence_selection']:
+                         PUtils.select_sequences]:
         queried_flags[args.module] = True  # Todo what is this for? Analysis (No more) in DesignDirectory and ?
         initialize, construct_pose = True, False
         if args.module == PUtils.select_designs:
@@ -956,7 +956,7 @@ if __name__ == '__main__':
                 queried_flags['skip_logging'] = True  # automatically skip logging if opening a large number of files
             if not args.metric:
                 initialize = False
-        elif args.module == 'sequence_selection':
+        elif args.module == PUtils.select_sequences:
             if not args.global_sequences and args.number_sequences == sys.maxsize:
                 args.number_sequences = 1
     else:  # ['distribute', 'query', 'guide', 'flags', 'residue_selector']
@@ -1810,7 +1810,7 @@ if __name__ == '__main__':
         #                                                          for pose2 in pose_map[protein_pair][pose1]]))
         #                            for pose1 in pose_map[protein_pair]]))
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
-    elif args.module == 'sequence_selection':  # -p protocol, -f filters, -w weights, -ns number_sequences
+    elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = master_directory.program_root
         if args.global_sequences:
             all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
