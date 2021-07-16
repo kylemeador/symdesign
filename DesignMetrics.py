@@ -138,6 +138,9 @@ master_metrics = {'average_fragment_z_score':
                   'interface_connectivity_2':
                       {'description': 'How embedded is interface2 in the rest of the protein?',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'interface_connectivity':
+                      {'description': 'How embedded is the total interface in the rest of the protein?',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
                   'int_energy_density':
                       {'description': 'Energy in the bound complex per Angstrom^2 of interface area',
                        'direction': 'min', 'function': 'rank', 'filter': True},
@@ -1430,7 +1433,7 @@ def describe_data(df=None):
         pass
     else:
         columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).to_list())]
-    df.iloc[:, columns_of_interest].describe()
+    print(df.iloc[:, columns_of_interest].describe())
 
 
 @handle_errors(errors=KeyboardInterrupt)
@@ -1517,13 +1520,13 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                               % (metric, level, mode, ' Designs with metrics %s than this value will be included'
                                                       % direction[filter_df.loc['direction', metric]].upper()
                                                       if mode == 'filter' else '', input_string))
-                if validate_type(value, dtype=float):
-                    metric_values[metric] = float(value)
-                    break
-                elif value in describe:
+                if value in describe:
                     describe_data(df=df) if df is not None \
                         else print('Can\'t describe data without providing a DataFrame...')
                     # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
+                elif validate_type(value, dtype=float):
+                    metric_values[metric] = float(value)
+                    break
 
         # metric_values = {metric: float(input('For \'%s\' what value should be used for %s %sing?%s%s'
         #                                      % (metric, level, mode,

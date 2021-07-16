@@ -1028,7 +1028,7 @@ if __name__ == '__main__':
         # Todo could make after collect_designs? Pass to all design_directories
         #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
         master_directory = next(iter(design_directories))
-        logger.info('Loading all resources in the current Database found in \'%s\'' % master_directory.protein_data)
+        logger.info('Loading design resources from Database \'%s\'' % master_directory.protein_data)
         master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
                              master_directory.stride_dir, master_directory.sequences, master_directory.profiles,
                              sql=None, log=logger)
