@@ -106,6 +106,20 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                           }
 
 
+def validate_type(value, dtype=str):
+    """Provide a user prompt to ensure the user input is what is desired
+
+    Returns:
+        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
+    """
+    try:
+        dtype(value)
+        return True
+    except ValueError:
+        print('The value \'%s\' cannot be converted to the type %s. Try again...' % (value, float))
+        return False
+
+
 def boolean_choice():
     """Provide a user prompt to ensure the user input is what is desired
 
