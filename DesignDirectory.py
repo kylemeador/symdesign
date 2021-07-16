@@ -1913,7 +1913,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             rename_columns, per_res_columns, hbonds_columns = {}, [], []
             for column in scores_df.columns.to_list():
                 if column.startswith('R_'):
-                    rename_columns[column] = column.replace('R_', '')
+                    rename_columns[column] = column.replace('R_', '').replace('S_', '')
                 elif column.startswith('per_res_'):
                     per_res_columns.append(column)
                 elif column.startswith('hbonds_res_selection'):
