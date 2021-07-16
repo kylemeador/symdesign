@@ -731,7 +731,7 @@ if __name__ == '__main__':
     parser_filter.add_argument('-w', '--weight', action='store_true',
                                help='Whether to weight sequence selection using metrics from DataFrame')
     # ---------------------------------------------------
-    parser_sequence = subparsers.add_parser('sequence_selection',
+    parser_sequence = subparsers.add_parser('select_sequences',
                                             help='From the provided Design Poses, generate nucleotide/protein sequences'
                                                  ' based on specified selection criteria and prioritized metrics. '
                                                  'Generation of output sequences can take multiple forms depending on '
