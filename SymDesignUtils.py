@@ -761,26 +761,30 @@ def write_fasta_file(sequence, name, out_path=os.getcwd(), csv=False):
 ####################
 
 
-def calculate_mp_threads(cores=None, mpi=False, jobs=None):
-    """Calculate the number of multiprocessing threads to use for a specific application
+def calculate_mp_threads(cores=None, mpi=False, jobs=None, hyperthreading=True):
+    """Calculate the number of multiprocessing threads to use for a specific application.
 
     Keyword Args:
         cores=None (int): How many cpu's to attempt to use, leaving at least one available for the machine
         mpi=False (bool): If commands use MPI
         jobs=None (int): How many jobs to attempt
+        hyperthreading=True (bool): Whether the number of requested cores should be doubled due to hyperthread capacity
     Returns:
-        (int): The number of threads to use
+        (int): The number of threads to use taking the minimum of cores[if hyperthreading * 2], jobs, and max available
+            cpus
     """
     allocated_cpus = os.environ.get('SLURM_CPUS_PER_TASK')
     if allocated_cpus:  # we are in a SLURM environment and should follow allocation but allow hyper-threading (* 2)
         # Todo reconsider the * 2 if not on cassini
-        max_cpus_to_use = int(allocated_cpus) * 2
+        max_cpus_to_use = int(allocated_cpus) * (2 if hyperthreading else 1)
     else:
         max_cpus_to_use = mp.cpu_count() - 1  # leave CPU available for computer, see also len(os.sched_getaffinity(0))
 
-    # if cores:
-    #     return min((cores or max_cpus_to_use), (jobs or max_cpus_to_use), max_cpus_to_use)
+    if jobs:  # test if cores or jobs is None, then take the minimal
+        return min((cores * (2 if hyperthreading else 1) or max_cpus_to_use),
+                   (jobs or max_cpus_to_use), max_cpus_to_use)
     if mpi:
+        # Todo grab an evironmental variable for mpi threads?
         return int(max_cpus_to_use / 6)  # CommandDistributer.mpi)
     else:
         return min((cores or max_cpus_to_use), max_cpus_to_use)  # (jobs or max_cpus_to_use),

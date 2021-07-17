@@ -268,6 +268,8 @@ if __name__ == '__main__':
     #                                help='Whether command file has commands already')
     parser_distirbute.add_argument('-f', '--command_file',
                                    help='File with command(s) to be distributed. Required', required=True)
+    parser_distirbute.add_argument('-j', '--jobs', type=int, default=None,
+                                   help='The number of jobs to be executed at once.')
     parser_distirbute.add_argument('-l', '--log_file', type=str, default=None,
                                    help='The name of the log file to append command stdout and stderr')
     parser_distirbute.add_argument('-n', '--failure_file',
@@ -331,8 +333,8 @@ if __name__ == '__main__':
         else:  # todo overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
             log_files = ['%s.log' % os.path.splitext(shell_path)[0] for shell_path in specific_commands]
 
-        iteration = 0
-        complete = False
+        # iteration = 0
+        # complete = False
         # Todo implementing an srun prefix to any command allows for multiple job steps to be controlled. This is useful
         #  when a prior step gets hung up and needs to be cancelled, but the remaining job steps should be executed
         #  downside to all this is that the allocation is done by inherently neglecting the hyperthreading. The srun
@@ -358,7 +360,8 @@ if __name__ == '__main__':
 
         number_of_commands = len(specific_commands)  # different from process scale as this could reflect edge cases
         if number_of_commands > 1:  # set by process_scale
-            results = mp_starmap(run, zipped_commands, threads=calculate_mp_threads(cores=number_of_commands))
+            results = mp_starmap(run, zipped_commands, threads=calculate_mp_threads(cores=number_of_commands,
+                                                                                    jobs=args.jobs))
         else:
             results = [run(*command) for command in zipped_commands]
         #    iteration += 1
