@@ -19,18 +19,21 @@ groups = 'protocol'
 master_metrics = {'average_fragment_z_score':
                       {'description': 'The average fragment z-value used in docking/design',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
-                  'buns_heavy_total':
-                      {'description': 'Buried unsaturated H-bonding heavy atoms in the design',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
-                  'buns_hpol_total':
-                      {'description': 'Buried unsaturated H-bonding polarized hydrogen atoms in the design',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
-                  'buns_total':
-                      {'description': 'Total buried unsaturated H-bonds in the design',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
-                  'buns_per_ang':
+                  # 'buns_heavy_total':
+                  #     {'description': 'Buried unsaturated H-bonding heavy atoms in the design',
+                  #      'direction': 'min', 'function': 'rank', 'filter': True},
+                  # 'buns_hpol_total':
+                  #     {'description': 'Buried unsaturated H-bonding polarized hydrogen atoms in the design',
+                  #      'direction': 'min', 'function': 'rank', 'filter': True},
+                  # 'buns_total':
+                  #     {'description': 'Total buried unsaturated H-bonds in the design',
+                  #      'direction': 'min', 'function': 'rank', 'filter': True},
+                  'buried_unsatisfied_hbond_density':
                       {'description': 'Buried Unsaturated Hbonds per Angstrom^2 of interface',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'buried_unsatisfied_hbonds':
+                      {'description': 'Total buried unsatisfied H-bonds in the design',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'component_1_symmetry':
                       {'description': 'The symmetry group of component 1',
                        'direction': 'min', 'function': 'equals', 'filter': True},
@@ -125,9 +128,6 @@ master_metrics = {'average_fragment_z_score':
                   'interface_bound_activation_energy':
                       {'description': 'Energy required for the unbound interface to adopt the conformation in the '
                                       'complexed state', 'direction': 'max', 'function': 'rank', 'filter': True},
-                  'interface_buried_hbonds':
-                      {'description': 'Total buried unsaturated H-bonds in the design',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_composition_similarity':
                       {'description': 'The similarity to the expected interface composition given interface buried '
                                       'surface area. 1 is similar to natural interfaces, 0 is dissimilar',
@@ -421,7 +421,7 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordin
 #                      'number_hbonds', 'total_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments', 'interface_b_factor_per_res',
 # unused, just a placeholder for the metrics in population
-final_metrics = {'interface_buried_hbonds', 'contact_count', 'core', 'coordinate_constraint',
+final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordinate_constraint',
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
                  'divergence_interface_per_residue', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
@@ -488,7 +488,7 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interf
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
                                  'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
-                                 # 'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound',
+                                 'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound',
                                  'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
                                  'solvation_energy_2_unbound',
                                  'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
@@ -519,8 +519,10 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
                # 'buns_asu', 'buns_asu_hpol', 'buns_nano', 'buns_nano_hpol', 'buns_total',
                'angle_constraint', 'atom_pair_constraint', 'chainbreak', 'coordinate_constraint', 'dihedral_constraint',
                'metalbinding_constraint', 'rmsd', 'repack_switch', 'sym_status',
+               'core_design_residue_count', 'shape_complementarity_core', 'interface_core_separation',
+               'interaction_energy_density_filter', 'interaction_energy_density', 'shape_complementarity_hbnet_core',
                'maxsub', 'rms', 'score']
-               # 'repacking',
+#                'repacking',
 # remove_score_columns = ['hbonds_res_selection_asu', 'hbonds_res_selection_unbound']
 #                'full_stability_oligomer_A', 'full_stability_oligomer_B']
 
@@ -528,7 +530,7 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 #                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 
 # subtract columns using tuple [0] - [1] to make delta column
-delta_pairs = {'interface_buried_hbonds': ('buns_complex', 'buns_unbound'),
+delta_pairs = {'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),
                'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
                # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
                'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),
@@ -549,7 +551,7 @@ division_pairs = {'percent_interface_area_hydrophobic': ('interface_area_hydroph
                   'percent_core': ('core', 'total_interface_residues'),
                   'percent_rim': ('rim', 'total_interface_residues'),
                   'percent_support': ('support', 'total_interface_residues'),
-                  'buns_per_ang': ('buns_total', 'interface_area_total'),
+                  'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),
                   'interface_energy_density': ('interface_energy', 'interface_area_total')}
 
 # All Rosetta based score terms ref is most useful to keep for whole pose to give "unfolded ground state"
@@ -565,11 +567,9 @@ protocols_of_interest = {'design_profile', 'no_constraint', 'hbnet_design_profil
 
 protocol_column_types = ['mean', 'sequence_design']  # 'stats',
 # Specific columns of interest to distinguish between design trajectories
-significance_columns = ['interface_buried_hbonds',
+significance_columns = ['buried_unsatisfied_hbonds',
                         'contact_count', 'interface_energy', 'interface_area_total', 'number_hbonds',
-                        'percent_interface_area_hydrophobic', 'shape_complementarity', 'solvation_energy'
-#                         'buns_total',
-                        ]
+                        'percent_interface_area_hydrophobic', 'shape_complementarity', 'solvation_energy']
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']
 

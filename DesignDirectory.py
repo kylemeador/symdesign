@@ -2730,7 +2730,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
                 wt_df = pd.merge(wt_df, errat_collapse_df.loc[:, idx_slice[wt_df.columns.levels[0], :]],
                                  left_index=True, right_index=True)
-                wt_df.drop(residue_indices_no_frags, inplace=True, axis=1)
+                wt_df.drop(residue_indices_no_frags, inplace=True, axis=1, errors='ignore')
                 # only sort once as residues are in same order
                 # wt_df.sort_index(level=0, inplace=True, axis=1, sort_remaining=False)
                 # residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
