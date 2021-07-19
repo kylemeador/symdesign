@@ -421,19 +421,32 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             metrics['design_dimension'] = 'asymmetric'
 
+        aspect_ratios, residue_counts = [], []
         for ent_idx, entity in enumerate(self.pose.entities, 1):
-            if entity.is_oligomeric:
-                metrics['entity_%d_symmetry' % ent_idx] = entity.symmetry
-            metrics.update({'entity_%d_name' % ent_idx: entity.name,
-                            'entity_%d_number_of_residues' % ent_idx: entity.number_of_residues,
-                            'entity_%d_max_radius' % ent_idx: entity.furthest_point_from_reference(),
-                            'entity_%d_n_terminal_helix' % ent_idx: entity.is_termini_helical(),
-                            'entity_%d_c_terminal_helix' % ent_idx: entity.is_termini_helical(termini='c'),
-                            'entity_%d_n_terminal_orientation' % ent_idx:
-                                entity.terminal_residue_orientation_from_reference(),
-                            'entity_%d_c_terminal_orientation' % ent_idx:
-                                entity.terminal_residue_orientation_from_reference(termini='c')
-                            })
+            ent_com = entity.distance_to_reference()
+            min_rad = entity.distance_to_reference(measure='min')
+            max_rad = entity.distance_to_reference(measure='max')
+            aspect_ratios.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
+            residue_counts.append(entity.number_of_residues)
+            metrics.update({
+                'entity_%d_symmetry' % ent_idx: entity.symmetry if entity.is_oligomeric else 'monomer',
+                'entity_%d_name' % ent_idx: entity.name,
+                'entity_%d_number_of_residues' % ent_idx: entity.number_of_residues,
+                'entity_%d_radius' % ent_idx: ent_com,
+                'entity_%d_min_radius' % ent_idx: min_rad, 'entity_%d_max_radius' % ent_idx: max_rad,
+                'entity_%d_n_terminal_helix' % ent_idx: entity.is_termini_helical(),
+                'entity_%d_c_terminal_helix' % ent_idx: entity.is_termini_helical(termini='c'),
+                'entity_%d_n_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(),
+                'entity_%d_c_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(termini='c')})
+
+        for distances1, distances2 in combinations(aspect_ratios, 2):
+            entity_indices = (distances1[0], distances2[0])
+            entity_ratios = distances1[0] / distances2[0]
+            metrics.update({'entity_radius_ratio_%dv%d' % entity_indices: entity_ratios[0],
+                            'entity_min_radius_ratio_%dv%d' % entity_indices: entity_ratios[1],
+                            'entity_max_radius_ratio_%dv%d' % entity_indices: entity_ratios[2],
+                            'entity_number_of_residues_ratio_%dv%d' % entity_indices:
+                                residue_counts[entity_indices[0]] / residue_counts[entity_indices[1]]})
 
         return metrics
 
@@ -454,12 +467,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         entity_chain = self.pose.assembly.chain(entity.chain_id)
         n_term, c_term = False, False
         # Todo add reference when in a crystalline environment  # reference=pose_transformation[idx].get('translation2')
-        n_termini_orientation = entity.terminal_residue_orientation_from_reference()
+        n_termini_orientation = entity.termini_proximity_from_reference()
         if n_termini_orientation == 1:  # if outward
             if entity_chain.n_terminal_residue.relative_sasa > 0.25:
                 n_term = True
         # Todo add reference when in a crystalline environment
-        c_termini_orientation = entity.terminal_residue_orientation_from_reference(termini='c')
+        c_termini_orientation = entity.termini_proximity_from_reference(termini='c')
         if c_termini_orientation == 1:  # if outward
             if entity_chain.c_terminal_residue.relative_sasa > 0.25:
                 c_term = True
