@@ -441,7 +441,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         for distances1, distances2 in combinations(aspect_ratios, 2):
             entity_indices = (distances1[0], distances2[0])
-            entity_ratios = distances1[0] / distances2[0]
+            entity_ratios = distances1 / distances2
             metrics.update({'entity_radius_ratio_%dv%d' % entity_indices: entity_ratios[0],
                             'entity_min_radius_ratio_%dv%d' % entity_indices: entity_ratios[1],
                             'entity_max_radius_ratio_%dv%d' % entity_indices: entity_ratios[2],
