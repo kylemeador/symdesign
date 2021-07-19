@@ -26,6 +26,7 @@ gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225
             'ALA': 129, 'ARG': 274, 'ASN': 195, 'ASP': 193, 'CYS': 167, 'GLU': 223, 'GLN': 225, 'GLY': 104, 'HIS': 224,
             'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
             'TYR': 263, 'VAL': 174}  # from table 1, theoretical values of Tien et al. 2013
+origin = np.array([0, 0, 0])
 
 
 class StructureBase:
@@ -1253,7 +1254,7 @@ class Structure(StructureBase):
             else:
                 self.stride()
 
-    def terminal_residue_orientation_from_reference(self, termini='n', reference=None):
+    def termini_proximity_from_reference(self, termini='n', reference=None):
         """From an Entity, find the orientation of the termini from the origin (default) or from a reference point
 
         Keyword Args:
@@ -1262,23 +1263,6 @@ class Structure(StructureBase):
         Returns:
             (float): The distance from the reference point to the furthest point
         """
-        # if termini.lower() == 'n':
-        #     residue1, residue2 = self.residues[0], self.residues[1]
-        # elif termini.lower() == 'c':
-        #     residue1, residue2 = self.residues[-1], self.residues[-2]
-        # else:
-        #     raise DesignError('Termini must be either \'n\' or \'c\', not \'%s\'!' % termini)
-        #
-        # if reference:
-        #     term, plus1 = np.linalg.norm(residue1.ca_coords - reference), np.linalg.norm(residue2.ca_coords - reference)
-        # else:
-        #     term, plus1 = np.linalg.norm(residue1.ca_coords), np.linalg.norm(residue2.ca_coords)
-        #
-        # if term > plus1:
-        #     return 1  # vector is pointing away from the reference
-        # else:
-        #     return -1  # vector is pointing toward the reference
-
         if termini.lower() == 'n':
             residue_coords = self.residues[0].n_coords
         elif termini.lower() == 'c':
@@ -1291,38 +1275,53 @@ class Structure(StructureBase):
         else:
             coord_distance = np.linalg.norm(residue_coords)
 
-        max_distance = self.furthest_point_from_reference(reference=reference)
-        min_distance = self.closest_point_to_reference(reference=reference)
+        max_distance = self.distance_to_reference(reference=reference, measure='max')
+        min_distance = self.distance_to_reference(reference=reference, measure='min')
         if abs(coord_distance - max_distance) < abs(coord_distance - min_distance):
             return 1  # termini is further from the reference
         else:
             return -1  # termini is closer to the reference
 
-    def furthest_point_from_reference(self, reference=None):
+    # def furthest_point_from_reference(self, reference=None):
+    #     """From an Structure, find the furthest coordinate from the origin (default) or from a reference.
+    #
+    #     Keyword Args:
+    #         reference=None (numpy.ndarray): The reference where the point should be measured from. Default is origin
+    #     Returns:
+    #         (float): The distance from the reference point to the furthest point
+    #     """
+    #     if reference:
+    #         return np.max(np.linalg.norm(self.coords - reference, axis=1))
+    #     else:
+    #         return np.max(np.linalg.norm(self.coords, axis=1))
+
+    # def closest_point_to_reference(self, reference=None):  # todo combine with above into distance from reference
+    #     """From an Structure, find the furthest coordinate from the origin (default) or from a reference.
+    #
+    #     Keyword Args:
+    #         reference=None (numpy.ndarray): The reference where the point should be measured from. Default is origin
+    #     Returns:
+    #         (float): The distance from the reference point to the furthest point
+    #     """
+    #     if reference:
+    #         return np.min(np.linalg.norm(self.coords - reference, axis=1))
+    #     else:
+    #         return np.min(np.linalg.norm(self.coords, axis=1))
+
+    def distance_to_reference(self, reference=None, measure='mean'):  # todo combine with above into distance from reference
         """From an Structure, find the furthest coordinate from the origin (default) or from a reference.
 
         Keyword Args:
             reference=None (numpy.ndarray): The reference where the point should be measured from. Default is origin
+            measure='mean' (str): The measurement to take with respect to the reference. Could be mean, min, max, or any
+                numpy function to describe computed distance scalars
         Returns:
             (float): The distance from the reference point to the furthest point
         """
-        if reference:
-            return np.max(np.linalg.norm(self.coords - reference, axis=1))
-        else:
-            return np.max(np.linalg.norm(self.coords, axis=1))
+        if not reference:
+            reference = origin
 
-    def closest_point_to_reference(self, reference=None):
-        """From an Structure, find the furthest coordinate from the origin (default) or from a reference.
-
-        Keyword Args:
-            reference=None (numpy.ndarray): The reference where the point should be measured from. Default is origin
-        Returns:
-            (float): The distance from the reference point to the furthest point
-        """
-        if reference:
-            return np.min(np.linalg.norm(self.coords - reference, axis=1))
-        else:
-            return np.min(np.linalg.norm(self.coords, axis=1))
+        return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
 
     def return_atom_string(self, **kwargs):
         """Provide the Structure Atoms as a PDB file string"""
