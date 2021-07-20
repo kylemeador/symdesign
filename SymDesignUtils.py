@@ -3,7 +3,7 @@ import logging
 import math
 import multiprocessing as mp
 from operator import getitem
-import string
+from string import digits
 import pickle
 import subprocess
 from functools import reduce, wraps
@@ -401,7 +401,7 @@ def index_intersection(index_groups):
 
 def digit_keeper():
     table = defaultdict(type(None))
-    table.update({ord(c): c for c in string.digits})
+    table.update({ord(c): c for c in digits})
 
     return table
 
