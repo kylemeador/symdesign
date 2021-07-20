@@ -34,52 +34,52 @@ master_metrics = {'average_fragment_z_score':
                   'buried_unsatisfied_hbonds':
                       {'description': 'Total buried unsatisfied H-bonds in the design',
                        'direction': 'min', 'function': 'rank', 'filter': True},
-                  'component_1_symmetry':
-                      {'description': 'The symmetry group of component 1',
-                       'direction': 'min', 'function': 'equals', 'filter': True},
-                  'component_1_name':
-                      {'description': 'component 1 PDB_ID', 'direction': None, 'function': None, 'filter': False},
-                  'component_1_number_of_residues':
-                      {'description': 'The number of residues in the monomer of component 1',
-                       'direction': 'max', 'function': 'rank', 'filter': True},
-                  'component_1_max_radius':
-                      {'description': 'The maximum distance that component 1 reaches away from the center of mass',
-                       'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'component_1_n_terminal_helix':
-                      {'description': 'Whether the n-terminus has an alpha helix',
-                       'direction': None, 'function': None, 'filter': True},  # Todo binary?
-                  'component_1_c_terminal_helix':
-                      {'description': 'Whether the c-terminus has an alpha helix',
-                       'direction': None, 'function': None, 'filter': True},  # Todo binary?
-                  'component_1_n_terminal_orientation':
-                      {'description': 'The direction the n-terminus is oriented from the symmetry group center of mass.'
-                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
-                  'component_1_c_terminal_orientation':
-                      {'description': 'The direction the c-terminus is oriented from the symmetry group center of mass.'
-                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
-                  'component_2_symmetry':
-                      {'description': 'The symmetry group of component 2',
-                       'direction': 'min', 'function': 'equals', 'filter': True},
-                  'component_2_name':
-                      {'description': 'component 2 PDB_ID', 'direction': None, 'function': None, 'filter': False},
-                  'component_2_number_of_residues':
-                      {'description': 'The number of residues in the monomer of component 2',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
-                  'component_2_max_radius':
-                      {'description': 'The maximum distance that component 2 reaches away from the center of mass',
-                       'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'component_2_n_terminal_helix':
-                      {'description': 'Whether the n-terminus has an alpha helix',
-                       'direction': None, 'function': None, 'filter': True},  # Todo binary?
-                  'component_2_c_terminal_helix':
-                      {'description': 'Whether the c-terminus has an alpha helix',
-                       'direction': None, 'function': None, 'filter': True},  # Todo binary?
-                  'component_2_n_terminal_orientation':
-                      {'description': 'The direction the n-terminus is oriented from the symmetry group center of mass.'
-                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
-                  'component_2_c_terminal_orientation':
-                      {'description': 'The direction the c-terminus is oriented from the symmetry group center of mass.'
-                                      ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
+                  # 'component_1_symmetry':
+                  #     {'description': 'The symmetry group of component 1',
+                  #      'direction': 'min', 'function': 'equals', 'filter': True},
+                  # 'component_1_name':
+                  #     {'description': 'component 1 PDB_ID', 'direction': None, 'function': None, 'filter': False},
+                  # 'component_1_number_of_residues':
+                  #     {'description': 'The number of residues in the monomer of component 1',
+                  #      'direction': 'max', 'function': 'rank', 'filter': True},
+                  # 'component_1_max_radius':
+                  #     {'description': 'The maximum distance that component 1 reaches away from the center of mass',
+                  #      'direction': 'max', 'function': 'normalize', 'filter': True},
+                  # 'component_1_n_terminal_helix':
+                  #     {'description': 'Whether the n-terminus has an alpha helix',
+                  #      'direction': None, 'function': None, 'filter': True},  # Todo binary?
+                  # 'component_1_c_terminal_helix':
+                  #     {'description': 'Whether the c-terminus has an alpha helix',
+                  #      'direction': None, 'function': None, 'filter': True},  # Todo binary?
+                  # 'component_1_n_terminal_orientation':
+                  #     {'description': 'The direction the n-terminus is oriented from the symmetry group center of mass.'
+                  #                     ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
+                  # 'component_1_c_terminal_orientation':
+                  #     {'description': 'The direction the c-terminus is oriented from the symmetry group center of mass.'
+                  #                     ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
+                  # 'component_2_symmetry':
+                  #     {'description': 'The symmetry group of component 2',
+                  #      'direction': 'min', 'function': 'equals', 'filter': True},
+                  # 'component_2_name':
+                  #     {'description': 'component 2 PDB_ID', 'direction': None, 'function': None, 'filter': False},
+                  # 'component_2_number_of_residues':
+                  #     {'description': 'The number of residues in the monomer of component 2',
+                  #      'direction': 'min', 'function': 'rank', 'filter': True},
+                  # 'component_2_max_radius':
+                  #     {'description': 'The maximum distance that component 2 reaches away from the center of mass',
+                  #      'direction': 'max', 'function': 'normalize', 'filter': True},
+                  # 'component_2_n_terminal_helix':
+                  #     {'description': 'Whether the n-terminus has an alpha helix',
+                  #      'direction': None, 'function': None, 'filter': True},  # Todo binary?
+                  # 'component_2_c_terminal_helix':
+                  #     {'description': 'Whether the c-terminus has an alpha helix',
+                  #      'direction': None, 'function': None, 'filter': True},  # Todo binary?
+                  # 'component_2_n_terminal_orientation':
+                  #     {'description': 'The direction the n-terminus is oriented from the symmetry group center of mass.'
+                  #                     ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
+                  # 'component_2_c_terminal_orientation':
+                  #     {'description': 'The direction the c-terminus is oriented from the symmetry group center of mass.'
+                  #                     ' 1 is away, -1 is towards', 'direction': None, 'function': None, 'filter': False},
                   'contact_count':
                       {'description': 'Number of carbon-carbon contacts across interface',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -106,13 +106,88 @@ master_metrics = {'average_fragment_z_score':
                   'divergence_interface_per_residue':
                       {'description': 'The Jensen-Shannon divergence of interface residues from the typical interface '
                                       'background', 'direction': 'min', 'function': 'rank', 'filter': True},
+                  'energy_distance_from_no_constraint_mean':
+                      {'description': 'The distance of the design\'s per residue energy from a design with no '
+                                      'constraint on amino acid selection', 'direction': 'min', 'function': 'rank',
+                       'filter': True},
+                  'entity_1_c_terminal_helix':  # TODO make a single metric
+                      {'description': 'Whether the entity has a c-terminal helix',
+                       'direction': 'max', 'function': 'boolean', 'filter': True},
+                  'entity_1_c_terminal_orientation':  # TODO make a single metric
+                      {'description': 'Whether the entity c-termini is closer to the assembly core or surface (1 is '
+                                      'away, -1 is towards',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'entity_1_max_radius':  # TODO make a single metric
+                      {'description': 'The furthest point the entity reaches from the assembly core',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_1_min_radius':  # TODO make a single metric
+                      {'description': 'The closest point the entity approaches the assembly core',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'entity_1_n_terminal_helix':  # TODO make a single metric
+                      {'description': 'Whether the entity has a n-terminal helix',
+                       'direction': 'max', 'function': 'boolean', 'filter': True},
+                  'entity_1_n_terminal_orientation':  # TODO make a single metric
+                      {'description': 'Whether the entity n-termini is closer to the assembly core or surface (1 is '
+                                      'away, -1 is towards)',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'entity_1_name':  # TODO make a single metric
+                      {'description': 'The name of the entity', 'direction': None, 'function': None, 'filter': None},
+                  'entity_1_number_of_residues':  # TODO make a single metric
+                      {'description': 'The number of residues', 'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_1_radius':  # TODO make a single metric
+                      {'description': 'The center of mass of the entity from the assembly core',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_1_symmetry':  # TODO make a single metric
+                      {'description': 'The symmetry notation of the entity',
+                       'direction': None, 'function': None, 'filter': None},
+                  'entity_max_radius_average_deviation':
+                      {'description': 'In a multi entity assembly, the total deviation of the max radii of each entity '
+                                      'from one another', 'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_max_radius_ratio_1v2':  # TODO make a single metric
+                      {'description': '', 'direction': None, 'function': None, 'filter': None},
+                  'entity_maximum_radius':
+                      {'description': 'The maximum radius any entity extends from the assembly core',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_min_radius_average_deviation':
+                      {'description': 'In a multi entity assembly, the total deviation of the min radii of each entity '
+                                      'from one another', 'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_min_radius_ratio_1v2':  # TODO make a single metric
+                      {'description': '', 'direction': None, 'function': None, 'filter': None},
+                  'entity_minimum_radius':
+                      {'description': 'The minimum radius any entity approaches the assembly core',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'entity_number_of_residues_average_deviation':
+                      {'description': 'In a multi entity assembly, the total deviation of the number of residues of '
+                                      'each entity from one another',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_number_of_residues_ratio_1v2':  # TODO make a single metric
+                      {'description': '', 'direction': None, 'function': None, 'filter': None},
+                  'entity_radius_average_deviation':
+                      {'description': 'In a multi entity assembly, the total deviation of the center of mass of each '
+                                      'entity from one another',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_radius_ratio_1v2':  # TODO make a single metric
+                      {'description': '', 'direction': None, 'function': None, 'filter': None},
+                  'entity_residue_length_total':
+                      {'description': 'The total number of residues in the design',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'favor_residue_energy':
                       {'description': 'Total weight of sequence constraints used to favor certain amino acids in design'
                                       '. Only protocols with a favored profile have values',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
+                  # 'fragment_z_score_total':
+                  #     {'description': 'The sum of all fragments z-values',
+                  #      'direction': None, 'function': None, 'filter': None},
                   'interaction_energy_complex':
                       {'description': 'The two-body (residue-pair) energy of the complexed interface. No solvation '
                                       'energies', 'direction': 'min', 'function': 'rank', 'filter': True},
+                  'global_collapse_z_sum':
+                      {'description': 'The sum of collapsing sequence regions z-score. Measures the magnitude of '
+                                      'additional hydrophobic collapse',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'hydrophobicity_deviation_magnitude':
+                      {'description': 'The total deviation in the hydrophobic collapse, either more or less collapse '
+                                      'prone', 'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_area_hydrophobic':
                       {'description': 'Total hydrophobic interface buried surface area',
                        'direction': 'min', 'function': 'rank', 'filter': True},
@@ -132,10 +207,10 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'The similarity to the expected interface composition given interface buried '
                                       'surface area. 1 is similar to natural interfaces, 0 is dissimilar',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'interface_connectivity_1':
+                  'interface_connectivity_1':  # TODO make a single metric
                       {'description': 'How embedded is interface1 in the rest of the protein?',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'interface_connectivity_2':
+                  'interface_connectivity_2':  # TODO make a single metric
                       {'description': 'How embedded is interface2 in the rest of the protein?',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
                   'interface_connectivity':
@@ -156,10 +231,10 @@ master_metrics = {'average_fragment_z_score':
                   'interface_energy_unbound':
                       {'description': 'Total interface residue energy summed in the unbound state',
                        'direction': 'min', 'function': 'rank', 'filter': True},
-                  'interface_energy_1_unbound':
+                  'interface_energy_1_unbound':  # TODO make a single metric or remove
                       {'description': 'Sum of interface1 residue energy in the unbound state',
                        'direction': 'min', 'function': 'rank', 'filter': True},
-                  'interface_energy_2_unbound':
+                  'interface_energy_2_unbound':  # TODO make a single metric or remove
                       {'description': 'Sum of interface2 residue energy in the unbound state',
                        'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_separation':
@@ -169,13 +244,36 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Median distance between all atom points on each side of the interface core '
                                       'fragment positions',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'interface_secondary_structure_count':
+                      {'description': 'The number of unique secondary structures in the interface',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'interface_secondary_structure_fragment_count':
+                      {'description': 'The number of unique fragment containing secondary structures in the interface',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'interface_secondary_structure_fragment_topology':
+                      {'description': 'The Stride based secondary structure names of each unique element where possible'
+                                      ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                                      'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
+                       'direction': None, 'function': None, 'filter': None},
+                  'interface_secondary_structure_fragment_topology_1':  # TODO make a single metric or remove
+                      {'description': 'The Stride based secondary structure names of each unique element where possible'
+                                      ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                                      'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
+                       'direction': None, 'function': None, 'filter': None},
+                  'interface_secondary_structure_topology':
+                      {'description': 'The Stride based secondary structure names of each unique element where possible'
+                                      ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                                      'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
+                       'direction': None, 'function': None, 'filter': None},
+                  'interface_secondary_structure_topology_1':  # TODO make a single metric or remove
+                      {'description': 'The Stride based secondary structure names of each unique element where possible'
+                                      ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                                      'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
+                       'direction': None, 'function': None, 'filter': None},
                   'multiple_fragment_ratio':
                       {'description': 'The extent to which fragment observations are connected in the interface. Higher'
                                       ' ratio means multiple fragment observations per residue',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'number_hbonds':
-                      {'description': 'The number of residues making H-bonds in the total interface. Residues may make '
-                                      'more than one H-bond', 'direction': 'max', 'function': 'rank', 'filter': True},
                   'nanohedra_score':
                       {'description': 'Sum of total fragment containing residue match scores (1 / 1 + Z-score^2) '
                                       'weighted by their ranked match score. Maximum of 2/residue',
@@ -183,18 +281,34 @@ master_metrics = {'average_fragment_z_score':
                   'nanohedra_score_center':
                       {'description': 'nanohedra_score for the central fragment residues only',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'nanohedra_score_normalized':
-                      {'description': 'The Nanohedra Score normalized by number of fragment residues',
-                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'nanohedra_score_center_normalized':
                       {'description': 'The central Nanohedra Score normalized by number of central fragment residues',
                        'direction': 'max', 'function': 'rank', 'filter': True},
+                  'nanohedra_score_normalized':
+                      {'description': 'The Nanohedra Score normalized by number of fragment residues',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'new_collapse_island_significance':
+                      {'description': 'The significance of new locations of collapse ranked by proximity to the '
+                                      'sequence start',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  'new_collapse_islands':
+                      {'description': 'The number of new collapse islands found',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'number_fragment_residues_total':
                       {'description': 'The number of residues in the interface with fragment observationsfound',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'number_fragment_residues_center':
                       {'description': 'The number of interface residues that belong to a central fragment residue',
                        'direction': 'max', 'function': 'rank', 'filter': None},
+                  'number_hbonds':
+                      {'description': 'The number of residues making H-bonds in the total interface. Residues may make '
+                                      'more than one H-bond', 'direction': 'max', 'function': 'rank', 'filter': True},
+                  'number_of_fragments':
+                      {'description': 'The number of fragments found in the pose interface',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'number_of_mutations':
+                      {'description': 'The number of mutations made to the pose (ie. wild-type residue to any other '
+                                      'amino acid)', 'direction': 'min', 'function': 'normalize', 'filter': True},
                   'observations':
                       {'description': 'Number of unique design trajectories contributing to statistics',
                        'direction': 'max', 'function': 'rank', 'filter': True},
@@ -263,19 +377,26 @@ master_metrics = {'average_fragment_z_score':
                                       'different protocols arrived at the same per residue energy conclusions despite '
                                       'different pools of amino acids specified for sampling',
                        'direction': 'min', 'function': 'rank', 'filter': True},
+                  'rim':
+                      {'description': 'The number of \'rim\' residues as classified by E. Levy 2010',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  # 'rmsd':
+                  #     {'description': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
+                  #                     'designed states', 'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'rmsd_complex':
+                      {'description': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
+                                      'designed states', 'direction': 'min', 'function': 'normalize', 'filter': True},
                   'rosetta_reference_energy':
                       {'description': 'Rosetta Energy Term - A metric for the unfolded energy of the protein along with'
                                       ' sequence fitting corrections',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'rim':
-                      {'description': 'The number of \'rim\' residues as classified by E. Levy 2010',
+                  'sequential_collapse_peaks_z_sum':
+                      {'description': 'The collapse z-score for each residue scaled sequentially by the number of '
+                                      'previously observed collapsable locations',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'rmsd':
-                      {'description': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
-                                      'designed states', 'direction': 'min', 'function': 'normalize', 'filter': True},
-                  'rmsd_complex':
-                      {'description': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
-                                      'designed states', 'direction': 'min', 'function': 'normalize', 'filter': True},
+                  'sequential_collapse_z_sum':
+                      {'description': 'The collapse z-score for each residue scaled by the proximity to sequence start',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'shape_complementarity':
                       {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
@@ -305,15 +426,6 @@ master_metrics = {'average_fragment_z_score':
                   'symmetry':
                       {'description': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
                        'direction': None, 'function': None, 'filter': False},
-                  # 'fragment_z_score_total':
-                  #     {'description': 'The sum of all fragments z-values',
-                  #      'direction': None, 'function': None, 'filter': None},
-                  'number_of_fragments':
-                      {'description': 'The number of fragments found in the pose interface',
-                       'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'number_of_mutations':
-                      {'description': 'The number of mutations made to the pose (ie. wild-type residue to any other '
-                                      'amino acid)', 'direction': 'min', 'function': 'normalize', 'filter': True},
                   'total_interface_residues':
                       {'description': 'The total number of interface residues found in the pose (residue CB within 8A)',
                        'direction': 'max', 'function': 'rank', 'filter': True},
