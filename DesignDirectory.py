@@ -440,7 +440,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 'entity_%d_c_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(termini='c')})
 
         for distances1, distances2 in combinations(aspect_ratios, 2):
-            entity_indices = (distances1[0], distances2[0])
+            entity_indices = (int(distances1[0]), int(distances2[0]))  # this is a sloppy conversion rn, but oh well
             entity_ratios = distances1 / distances2
             metrics.update({'entity_radius_ratio_%dv%d' % entity_indices: entity_ratios[0],
                             'entity_min_radius_ratio_%dv%d' % entity_indices: entity_ratios[1],
