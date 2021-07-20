@@ -421,13 +421,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             metrics['design_dimension'] = 'asymmetric'
 
-        aspect_ratios, residue_counts = [], []
+        total_residue_counts = []
+        minimum_radius, maximum_radius = float('inf'), 0
         for ent_idx, entity in enumerate(self.pose.entities, 1):
             ent_com = entity.distance_to_reference()
             min_rad = entity.distance_to_reference(measure='min')
             max_rad = entity.distance_to_reference(measure='max')
-            aspect_ratios.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
-            residue_counts.append(entity.number_of_residues)
+            # distances.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
+            # distances[entity] = np.array([ent_idx, ent_com, min_rad, max_rad, entity.number_of_residues])
+            total_residue_counts.append(entity.number_of_residues)
             metrics.update({
                 'entity_%d_symmetry' % ent_idx: entity.symmetry if entity.is_oligomeric else 'monomer',
                 'entity_%d_name' % ent_idx: entity.name,
@@ -438,16 +440,44 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 'entity_%d_c_terminal_helix' % ent_idx: entity.is_termini_helical(termini='c'),
                 'entity_%d_n_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(),
                 'entity_%d_c_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(termini='c')})
+            if min_rad < minimum_radius:
+                minimum_radius = min_rad
+            if max_rad > maximum_radius:
+                maximum_radius = max_rad
 
-        for distances1, distances2 in combinations(aspect_ratios, 2):
-            entity_indices = (int(distances1[0]), int(distances2[0]))  # this is a sloppy conversion rn, but oh well
-            entity_ratios = distances1 / distances2
-            metrics.update({'entity_radius_ratio_%dv%d' % entity_indices: entity_ratios[0],
-                            'entity_min_radius_ratio_%dv%d' % entity_indices: entity_ratios[1],
-                            'entity_max_radius_ratio_%dv%d' % entity_indices: entity_ratios[2],
-                            'entity_number_of_residues_ratio_%dv%d' % entity_indices:
-                                residue_counts[entity_indices[0]] / residue_counts[entity_indices[1]]})
+        metrics['entity_minimum_radius'] = minimum_radius
+        metrics['entity_maximum_radius'] = maximum_radius
+        metrics['entity_residue_length_total'] = sum(total_residue_counts)
+        # # for distances1, distances2 in combinations(distances, 2):
+        # for entity1, entity2 in combinations(self.pose.entities, 2):
+        #     # entity_indices = (int(distances1[0]), int(distances2[0]))  # this is a sloppy conversion rn, but oh well
+        #     entity_indices = (int(distances[entity1][0]), int(distances[entity2][0]))  # this is kinda sloppy conversion
+        #     # entity_ratios = distances1 / distances2
+        #     entity_ratios = distances[entity1] / distances[entity2]
+        #     metrics.update({'entity_radius_ratio_%dv%d' % entity_indices: entity_ratios[1],
+        #                     'entity_min_radius_ratio_%dv%d' % entity_indices: entity_ratios[2],
+        #                     'entity_max_radius_ratio_%dv%d' % entity_indices: entity_ratios[3],
+        #                     'entity_number_of_residues_ratio_%dv%d' % entity_indices:
+        #                         residue_counts[entity_indices[0]] / residue_counts[entity_indices[1]]})
 
+        radius_ratio_sum, min_ratio_sum, max_ratio_sum, residue_ratio_sum = 0, 0, 0, 0
+        for counter, (entity_idx1, entity_idx2) in enumerate(combinations(range(1, len(self.pose.entities) + 1), 2), 1):
+            radius_ratio = metrics['entity_%d_radius' % entity_idx1] / metrics['entity_%d_radius' % entity_idx2]
+            min_ratio = metrics['entity_%d_min_radius' % entity_idx1] / metrics['entity_%d_min_radius' % entity_idx2]
+            max_ratio = metrics['entity_%d_max_radius' % entity_idx1] / metrics['entity_%d_max_radius' % entity_idx2]
+            residue_ratio = metrics['entity_%d_number_of_residues' % entity_idx1] / metrics['entity_%d_number_of_residues' % entity_idx2]
+            radius_ratio_sum += abs(1 - radius_ratio)
+            min_ratio_sum += abs(1 - min_ratio)
+            max_ratio_sum += abs(1 - max_ratio)
+            residue_ratio_sum += abs(1 - residue_ratio)
+            metrics.update({'entity_radius_ratio_%dv%d' % (entity_idx1, entity_idx2): radius_ratio,
+                            'entity_min_radius_ratio_%dv%d' % (entity_idx1, entity_idx2): min_ratio,
+                            'entity_max_radius_ratio_%dv%d' % (entity_idx1, entity_idx2): max_ratio,
+                            'entity_number_of_residues_ratio_%dv%d' % (entity_idx1, entity_idx2): residue_ratio})
+        metrics.update({'entity_radius_average_deviation': radius_ratio_sum / counter,
+                        'entity_min_radius_average_deviation': min_ratio_sum / counter,
+                        'entity_max_radius_average_deviation': max_ratio_sum / counter,
+                        'entity_number_of_residues_average_deviation': residue_ratio_sum / counter})
         return metrics
 
     def return_termini_accessibility(self, entity=None, report_if_helix=False):
