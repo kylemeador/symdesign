@@ -250,6 +250,8 @@ master_metrics = {'average_fragment_z_score':
                   'interface_secondary_structure_fragment_count':
                       {'description': 'The number of unique fragment containing secondary structures in the interface',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
+                  # DSSP G:310 helix, H:α helix and I:π helix, B:beta bridge, E:strand/beta bulge, T:turns,
+                  #      S:high curvature (where the angle between i-2, i, and i+2 is at least 70°), and " "(space):loop
                   'interface_secondary_structure_fragment_topology':
                       {'description': 'The Stride based secondary structure names of each unique element where possible'
                                       ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
@@ -1566,102 +1568,96 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
     Returns:
         (dict)
     """
-    # filter_df = pd.DataFrame(master_metrics)
-    direction = {'max': 'higher', 'min': 'lower'}
-    instructions = {'filter': '\nFor each metric, choose values based on supported literature or design goals to '
-                              'eliminate designs that are certain to fail or have sub-optimal features. Ensure your '
-                              'cutoffs aren\'t too exclusive. If you end up with no designs, try relaxing your filter '
-                              'values.',
-                    'weight':
-                        '\nFor each metric, choose a percentage signifying the metric\'s contribution to the total '
-                        'selection weight. The weight will be used as a linear combination of all weights according to '
-                        'each designs rank within the specified metric category. '
-                        'For instance, typically the total weight should equal 1. When choosing 5 metrics, you '
-                        'can assign an equal weight to each (specify 0.2 for each) or you can weight several more '
-                        'strongly (0.3, 0.3, 0.2, 0.1, 0.1). When ranking occurs, for each selected metric the metric '
-                        'will be sorted and designs in the top percentile will be given their percentage of the full '
-                        'weight. Top percentile is defined as the most advantageous score, so the top percentile of '
-                        'energy is lowest, while for hydrogen bonds it would be the most.',
-                    }
+    try:
+        direction = {'max': 'higher', 'min': 'lower'}
+        instructions = \
+            {'filter': '\nFor each metric, choose values based on supported literature or design goals to eliminate '
+                       'designs that are certain to fail or have sub-optimal features. Ensure your cutoffs aren\'t too '
+                       'exclusive. If you end up with no designs, try relaxing your filter values.',
+             'weight':
+                 '\nFor each metric, choose a percentage signifying the metric\'s contribution to the total selection '
+                 'weight. The weight will be used as a linear combination of all weights according to each designs rank'
+                 ' within the specified metric category. For instance, typically the total weight should equal 1. When '
+                 'choosing 5 metrics, you can assign an equal weight to each (specify 0.2 for each) or you can weight '
+                 'several more strongly (0.3, 0.3, 0.2, 0.1, 0.1). When ranking occurs, for each selected metric the '
+                 'metric will be sorted and designs in the top percentile will be given their percentage of the full '
+                 'weight. Top percentile is defined as the most advantageous score, so the top percentile of energy is '
+                 'lowest, while for hydrogen bonds it would be the most.'}
 
-    print('\n%s' % header_string % 'Select %s %s Metrics' % (level, mode))
-    print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
-          'To \'%s\' designs, which metrics would you like to utilize?%s'
-          % (level, mode, describe_string if df is not None else ''))
+        print('\n%s' % header_string % 'Select %s %s Metrics' % (level, mode))
+        print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
+              'To \'%s\' designs, which metrics would you like to utilize?%s'
+              % (level, mode, describe_string if df is not None else ''))
 
-    print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
-          'comma separated input or alternatively, you can check out the available metrics by entering \'metrics\'.'
-          '\nEx: \'shape_complementarity, contact_count, etc.\'')
-    metrics_input = input('%s' % input_string)
-    chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
-                                            repeat(' '), repeat('_'))))
-    while True:  # unsupported_metrics or 'metrics' in chosen_metrics:
-        # while not end:
-        #     chosen_metrics = map(str.lower, map(str.replace, map(str.strip, metrics_input.split(',')), ' ', '_'))
-        #     if 'metrics' in chosen_metrics:
-        #         print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
-        #         continue
-        # unsupported_metrics = True , end = False  # metrics_input = 'start'
-        unsupported_metrics = chosen_metrics.difference(available_metrics)
-        if 'metrics' in chosen_metrics:
-            print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
-            metrics_input = input('%s' % input_string)
-        elif chosen_metrics.intersection(describe_string):
-            describe_data(df=df) if df is not None else print('Can\'t describe data without providing a DataFrame...')
-            # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
-            metrics_input = input('%s' % input_string)
-        elif unsupported_metrics:
-            # TODO catch value error in dict comprehension upon string input
-            metrics_input = input('Metric%s \'%s\' not found in the DataFrame! Is your spelling correct? Have you used'
-                                  ' the correct underscores? Please input these metrics again. Specify \'metrics\' to '
-                                  'view available metrics%s'
-                                  % ('s' if len(unsupported_metrics) > 1 else '', ', '.join(unsupported_metrics),
-                                     input_string))
-        elif len(chosen_metrics) > 0:
-            break
-        else:
-            print('No metrics were provided... If this is what you want, you can run this module without '
-                  'the %s flag' % '-f/--filter' if mode == 'filter' else '-w/--weight')
+        print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
+              'comma separated input or alternatively, you can check out the available metrics by entering \'metrics\'.'
+              '\nEx: \'shape_complementarity, contact_count, etc.\'')
+        metrics_input = input('%s' % input_string)
+        chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
+                                                repeat(' '), repeat('_'))))
+        while True:  # unsupported_metrics or 'metrics' in chosen_metrics:
+            unsupported_metrics = chosen_metrics.difference(available_metrics)
+            if 'metrics' in chosen_metrics:
+                print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
+                metrics_input = input('%s' % input_string)
+            elif chosen_metrics.intersection(describe_string):
+                describe_data(df=df) if df is not None else print('Can\'t describe data without providing a DataFrame')
+                # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
+                metrics_input = input('%s' % input_string)
+            elif unsupported_metrics:
+                # TODO catch value error in dict comprehension upon string input
+                metrics_input = input('Metric%s \'%s\' not found in the DataFrame! Is your spelling correct? Have you '
+                                      'used the correct underscores? Please input these metrics again. Specify '
+                                      '\'metrics\' to view available metrics%s'
+                                      % ('s' if len(unsupported_metrics) > 1 else '', ', '.join(unsupported_metrics),
+                                         input_string))
+            elif len(chosen_metrics) > 0:
+                break
+            else:
+                print('No metrics were provided... If this is what you want, you can run this module without '
+                      'the %s flag' % '-f/--filter' if mode == 'filter' else '-w/--weight')
+                if verify_choice():
+                    break
+            fixed_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
+                                                    repeat(' '), repeat('_'))))
+            chosen_metrics = chosen_metrics.difference(unsupported_metrics).union(fixed_metrics)
+            # unsupported_metrics = set(chosen_metrics).difference(available_metrics)
+
+        print(instructions[mode])
+        while True:  # not correct:  # correct = False
+            print('%s' % (describe_string if df is not None else ''))
+            metric_values = {}
+            for metric in chosen_metrics:
+                while True:
+                    value = input('For \'%s\' what value should be used for %s %sing?%s%s'
+                                  % (metric, level, mode, ' Designs with metrics %s than this value will be included'
+                                                          % direction[filter_df.loc['direction', metric]].upper()
+                                                          if mode == 'filter' else '', input_string))
+                    if value in describe:
+                        describe_data(df=df) if df is not None \
+                            else print('Can\'t describe data without providing a DataFrame...')
+                        # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
+                    elif validate_type(value, dtype=float):
+                        metric_values[metric] = float(value)
+                        break
+
+            # metric_values = {metric: float(input('For \'%s\' what value should be used for %s %sing?%s%s'
+            #                                      % (metric, level, mode,
+            #                                         ' Designs with metrics %s than this value will be included'
+            #                                         % direction[filter_df.loc['direction', metric]].upper()
+            #                                         if mode == 'filter' else '', input_string)))
+            #                  for metric in chosen_metrics}
+            if metric_values:
+                print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
+            else:
+                # print('No metrics were provided, skipping value input')
+                metric_values = None
+                break
+
             if verify_choice():
                 break
-        fixed_metrics = list(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
-                                                repeat(' '), repeat('_'))))
-        chosen_metrics = chosen_metrics.difference(unsupported_metrics).union(fixed_metrics)
-        # unsupported_metrics = set(chosen_metrics).difference(available_metrics)
-
-    print(instructions[mode])
-    while True:  # not correct:  # correct = False
-        print('%s' % (describe_string if df is not None else ''))
-        metric_values = {}
-        for metric in chosen_metrics:
-            while True:
-                value = input('For \'%s\' what value should be used for %s %sing?%s%s'
-                              % (metric, level, mode, ' Designs with metrics %s than this value will be included'
-                                                      % direction[filter_df.loc['direction', metric]].upper()
-                                                      if mode == 'filter' else '', input_string))
-                if value in describe:
-                    describe_data(df=df) if df is not None \
-                        else print('Can\'t describe data without providing a DataFrame...')
-                    # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
-                elif validate_type(value, dtype=float):
-                    metric_values[metric] = float(value)
-                    break
-
-        # metric_values = {metric: float(input('For \'%s\' what value should be used for %s %sing?%s%s'
-        #                                      % (metric, level, mode,
-        #                                         ' Designs with metrics %s than this value will be included'
-        #                                         % direction[filter_df.loc['direction', metric]].upper()
-        #                                         if mode == 'filter' else '', input_string)))
-        #                  for metric in chosen_metrics}
-        if metric_values:
-            print('You selected:\n\t%s' % '\n\t'.join(pretty_format_table(metric_values.items())))
-        else:
-            # print('No metrics were provided, skipping value input')
-            metric_values = None
-            break
-
-        if verify_choice():
-            break
+    except KeyboardInterrupt:
+        exit('Selection was ended by Ctrl-C!')
 
     return metric_values
 
