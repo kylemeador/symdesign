@@ -254,22 +254,22 @@ master_metrics = {'average_fragment_z_score':
                   #      S:high curvature (where the angle between i-2, i, and i+2 is at least 70°), and " "(space):loop
                   'interface_secondary_structure_fragment_topology':
                       {'description': 'The Stride based secondary structure names of each unique element where possible'
-                                      ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                                      ' values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                                       'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
                        'direction': None, 'function': None, 'filter': None},
                   'interface_secondary_structure_fragment_topology_1':  # TODO make a single metric or remove
                       {'description': 'The Stride based secondary structure names of each unique element where possible'
-                                      ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                                      ' values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                                       'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
                        'direction': None, 'function': None, 'filter': None},
                   'interface_secondary_structure_topology':
                       {'description': 'The Stride based secondary structure names of each unique element where possible'
-                                      ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                                      ' values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                                       'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
                        'direction': None, 'function': None, 'filter': None},
                   'interface_secondary_structure_topology_1':  # TODO make a single metric or remove
                       {'description': 'The Stride based secondary structure names of each unique element where possible'
-                                      ' values are - H:Alpha helix,G:3-10 helix, I:PI-helix, E:Extended conformation, '
+                                      ' values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                                       'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
                        'direction': None, 'function': None, 'filter': None},
                   'multiple_fragment_ratio':
