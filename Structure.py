@@ -1155,6 +1155,16 @@ class Structure(StructureBase):
         #
         #   -rId1Id2..  Read only Chains Id1, Id2 ...
         #   -cId1Id2..  Process only Chains Id1, Id2 ...
+
+        # The Stride based secondary structure names of each unique element where possible values are
+        #   H:Alpha helix,
+        #   G:3-10 helix,
+        #   I:PI-helix,
+        #   E:Extended conformation,
+        #   B/b:Isolated bridge,
+        #   T:Turn,
+        #   C:Coil (none of the above)'
+
         # if chain:
         #     stride_cmd = [stride_exe_path, current_structure_file]
         #     stride_cmd.append('-c%s' % chain)
