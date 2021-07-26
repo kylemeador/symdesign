@@ -722,9 +722,10 @@ def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
 
 
 def get_pdb_info_by_entity(entity_id):
-    """Query the PDB API for an entity_id and return the associated chains and reference dictionary
+    """Query the PDB API for an EntityID and return the associated chains and reference dictionary
+
     Args:
-        entity_id (str):
+        entity_id (str): The EntityID with the format (PDBCode_Integer)
     Returns:
         (dict): {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
@@ -827,19 +828,23 @@ def query_entity_id(entity_id):
         entity_id (str): The entity_id with the format PDBentryID_entityID. Ex: 1abc_1
     Returns:
         (union[dict, None])
-    """  # Todo change data retrieval to POST
-    # entry, _id = entity_id.split('_')
+    """
+    # Todo change data retrieval to POST
     return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s'
                                         % tuple(entity_id.split('_')))
-    # entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry, _id))
-    # if entity.status_code == 200:
-    #     return entity.json()
-    # else:
-    #     # print('%s entity request failed!' % entity_id)
-    #     return
 
 
 def get_entity_uniprot_id(entity_id=None, pdb=None, entity=None, chain=None):
+    """Retrieve a UniProtID from the PDB API by passing various PDB identifiers or combinations thereof
+
+    Keyword Args:
+        entity_id=None (str): The EntityID with the format (PDBCode_Integer)
+        pdb=None (str): The PDBCode of interest
+        chain=None (str): The chain from the PDBCode of interest
+        entity=None (str): The entity integer from the PDBCode of interest
+    Returns:
+        (str): The UniProtID
+    """
     if pdb:
         if entity:
             entity_id = '%s_%s' % (pdb, entity)
@@ -854,10 +859,11 @@ def get_entity_uniprot_id(entity_id=None, pdb=None, entity=None, chain=None):
             else:
                 all_entities = list(chain_entity.values())
                 entity_id = '%s_%s' % (pdb, all_entities[0])
-                logger.warning('%s: Using the argument \'pdb\' without either entity or chain is not recommended. '
-                               'Choosing the first EntityID reported in the PDB (%s)'
-                               % (get_entity_reference_sequence.__name__, all_entities[0]))
+                logger.warning('%s: Using the argument \'pdb\' without either \'entity\' or \'chain\' is not '
+                               'recommended. Choosing the first EntityID reported in the PDB (%s)'
+                               % (get_entity_uniprot_id.__name__, all_entities[0]))
     entity_json = query_entity_id(entity_id)
+
     return entity_json.get('rcsb_polymer_entity_container_identifiers')['uniprot_id'][0]  # return the first entry
 
 
@@ -881,8 +887,8 @@ def get_entity_reference_sequence(entity_id=None, pdb=None, entity=None, chain=N
             else:
                 all_entities = list(chain_entity.values())
                 entity_id = '%s_%s' % (pdb, all_entities[0])
-                logger.warning('%s: Using the argument \'pdb\' without either entity or chain is not recommended. '
-                               'Choosing the first EntityID reported in the PDB (%s)'
+                logger.warning('%s: Using the argument \'pdb\' without either \'entity\' or \'chain\' is not '
+                               'recommended. Choosing the first EntityID reported in the PDB (%s)'
                                % (get_entity_reference_sequence.__name__, all_entities[0]))
     entity_json = query_entity_id(entity_id)
     # return entity_json.get('entity_poly')['pdbx_seq_one_letter_code']  # returns non-cannonical amino acids
