@@ -1,0 +1,69 @@
+<ROSETTASCRIPTS>
+
+	<SCOREFXNS>
+		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015" weights="ref2015"/>
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+	</SCOREFXNS>
+
+	<RESIDUE_SELECTORS>
+		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
+		# same, but for residues from chain "B"
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
+		# combined group of all identified interface residues
+		<Or name="tot_interface" selectors="interface1,interface2"/>
+		<Chain name="entity" chains="%%entity%%"/>
+		<Not name="not_entity" selector="entity"/>
+		<And name="entity_interface_residues" selectors="entity,tot_interface"/>
+		<SymmetricalResidue name="entity_interface_residues_sym" selector="entity_interface_residues"/>
+		<Neighborhood name="entity_residue_neighbors" selector="entity_interface_residues" include_focus_in_subset="false" distance="8.0"/> # Cb neighbors
+		<Or name="entity_interface_and_neighbors" selectors="entity_interface_residues,entity_residue_neighbors"/>
+		<SymmetricalResidue name="entity_interface_and_neighbors_sym" selector="entity_interface_and_neighbors"/>
+		<Not name="not_entity_interface_and_neighbors" selector="entity_interface_and_neighbors"/>
+		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
+		<HBond name="interface_hbond_residues" residue_selector="entity_interface_residues" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>
+		# all residues
+		<True name="full_pose"/>
+	</RESIDUE_SELECTORS>
+
+    <MOVERS>
+        <ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>
+        # Generates symmetry for the system in question using %%sdf%% or %%dist%%
+<!--        <SetupForSymmetry name="make_point_group" definition="%%sdf%%"/>-->
+<!--        <MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>-->
+<!--        <MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>-->
+<!--        <LoopModeler name="modeler" loops_file="%%loops%%"/>-->
+        <RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%"/>
+        # Pull subroutines in from other files
+        # Symmetry selector
+<!--        <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%"/>-->
+
+    </MOVERS>
+
+    <FILTERS>
+        <Time name="time"/>
+    </FILTERS>
+
+	# Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%
+	<FILTERS>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+	</FILTERS>
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+<!--		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>-->
+	</MOVERS>
+
+    <PROTOCOLS>
+<!--        <Add filter_name="time" report_at_end="false"/>-->
+        <Add mover_name="measure_entity"/> # removes non-entity positions
+<!--		<Add mover_name="symmetry"/> # symmetrize entity-->
+<!--        <Add mover_name="modeler"/>-->
+        <Add mover_name="remodel_missing_loops"/>
+        <Add filter_name="time"/>
+    </PROTOCOLS>
+
+</ROSETTASCRIPTS>
