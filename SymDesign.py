@@ -1078,9 +1078,10 @@ if __name__ == '__main__':
                             % (symmetry, orient_dir, ', '.join(required_oligomers)))
                 for oligomer in required_oligomers:
                     if oligomer in orient_files:
-                        oriented_pdb = PDB.from_file(os.path.join(orient_asu_dir, '%s.pdb' % oligomer), log=None,
-                                                     entity_names=[oligomer])
+                        asu_files = glob(os.path.join(orient_asu_dir, '%s_*.pdb' % oligomer))
+                        oriented_pdb = PDB.from_file(asu_files[0], log=None, entity_names=[oligomer])
                         oriented_asu = oriented_pdb.entities[0]
+                        print(oriented_pdb.name)
                         oriented_asu.name = oriented_pdb.name  # use oriented_pdb name as this has no API query
                         # all_entities.append(oriented_pdb.entities[0])
                         all_entities[oriented_asu.name] = oriented_asu
@@ -1103,7 +1104,7 @@ if __name__ == '__main__':
                         oriented_asu = oriented_pdb.entities[0]
                         oriented_asu.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
                         # all_entities.append(oriented_asu)
-                        all_entities[oriented_pdb.name] = oriented_asu
+                        all_entities[oriented_asu.name] = oriented_asu
                         oriented_asu.write(out_path=os.path.join(orient_asu_dir, '%s.pdb' % oriented_asu.name))
                         # save Stride results
                         oriented_asu.stride(to_file=os.path.join(stride_dir, '%s.stride' % oriented_asu.name))
@@ -1120,7 +1121,7 @@ if __name__ == '__main__':
             sequences_dir = master_directory.sequences
             master_directory.make_path(profile_dir)
             master_directory.make_path(sequences_dir)
-            hhblits_cmds = []
+            hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities.values():
                 entity.sequence_file = master_db.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:  # Todo reference_sequence source accuracy throughout protocol
@@ -1128,12 +1129,17 @@ if __name__ == '__main__':
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                 else:
                     entity.evolutionary_profile = master_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    # entity.h_fields = master_db.bmdca_fields.retrieve_data(name=entity.name)
+                    entity.j_couplings = master_db.bmdca_couplings.retrieve_data(name=entity.name)
                 if not entity.evolutionary_profile:
                     # to generate in current runtime
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                     # to generate in a sbatch script
                     # profile_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
                     hhblits_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
+                if not entity.j_couplings:
+                    bmdca_cmds.append([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
+                                       '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
             if hhblits_cmds:
                 # prepare files for running hhblits commands
                 logger.info('Please follow the instructions below to generate sequence profiles for input proteins')
@@ -1161,12 +1167,11 @@ if __name__ == '__main__':
             else:
                 hhblits_sbatch = None
 
-            bmdca_cmds = True  # TODO remove
-            if bmdca_cmds:  # Todo check if all_entities have been calculated
-                bmdca_cmds = \
-                    [list2cmdline([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
-                                  '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
-                     for entity in all_entities.values()]
+            if bmdca_cmds:
+                # bmdca_cmds = \
+                #     [list2cmdline([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
+                #                   '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
+                #      for entity in all_entities.values()]
                 bmdca_cmd_file = \
                     SDUtils.write_commands(bmdca_cmds, name='bmDCA_%s' % timestamp, out_path=profile_dir)
                 bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=master_directory.sbatch_scripts,
@@ -2082,6 +2087,7 @@ if __name__ == '__main__':
                 disorder = source_entity.disorder
                 indexed_disordered_residues = \
                     {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
+                prior_offset += len(disorder)  # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
                 # generate the source TO design mutations before any disorder handling
                 mutations = \
                     generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence, offset=False)

@@ -1735,7 +1735,7 @@ class Entity(Chain, SequenceProfile):
             return self._disorder
         except AttributeError:
             if not self.reference_sequence:
-                self.retrieve_sequence_from_api(entity_id=self.name)
+                self.retrieve_sequence_from_api()
             self._disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
             return self._disorder
 
