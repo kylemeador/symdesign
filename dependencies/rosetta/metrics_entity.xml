@@ -63,7 +63,7 @@
 
 	<MOVE_MAP_FACTORIES>
 		<MoveMapFactory name="design_map" bb="0" chi="1">
-			<Backbone residue_selector="entity_interface_residues" enable="true"/> # believe this is Packer controlled so inherently symmetric
+			<Backbone residue_selector="entity_interface_residues" enable="true"/> # Packer controlled so inherently symmetric
 		</MoveMapFactory>
 	</MOVE_MAP_FACTORIES>
 
@@ -80,8 +80,6 @@
 		<AverageDegree name="interface_connectivity_%%entity%%" threshold="0" distance_threshold="10.0" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
 		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		<BuriedUnsatHbonds name="buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
-<!--		<BuriedUnsatHbonds name="S_buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
-<!--		<BuriedUnsatHbonds name="buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 		<Report name="R_interface_connectivity_%%entity%%" 				filter="interface_connectivity_%%entity%%"/>
 		<Report name="R_S_buns_%%entity%%_unbound" 						filter="S_buns_%%entity%%_unbound"/>
 		<Report name="R_buns_%%entity%%_unbound" 						filter="buns_%%entity%%_unbound"/>
@@ -109,7 +107,7 @@
 		<!-- <RunSimpleMetrics name="run_metrics_sasa_unbound" metrics="M_sasa_per_res" prefix="" suffix="_total_unbound" override="false"/>  -->
 		# remove selected regions from the pose
 <!--		<DeleteRegionMover name="measure_entity" residue_selector="not_entity"/>-->
-		<ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity" />
+		<ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>
 		# sample all rotamers to find minimum
         <SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
         # minimize all residues in design_map (move map)
@@ -150,36 +148,9 @@
 			<Add filter_name="R_interface_connectivity_%%entity%%"/>
 			<Add mover_name="run_metrics_unbound"/>
 		</ParsedProtocol>
-        # generates symmetry for the system in question using %%sdf%% or %%dist%%
-<!--&lt;!&ndash;		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>&ndash;&gt;-->
-<!--&lt;!&ndash;		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>&ndash;&gt;-->
-<!--&lt;!&ndash;		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>&ndash;&gt;-->
-<!--&lt;!&ndash;		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>&ndash;&gt;-->
-<!--		<SetupForSymmetry name="point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>-->
-<!--		<MakeLayerMover name="layer" contact_dist="%%dist%%"/>-->
-<!--		<MakeLatticeMover name="lattice" contact_dist="%%dist%%"/>-->
-<!--		# Symmetry selector and switch reporting-->
-<!--		<FilterReportAsPoseExtraScoresMover name="symmetric" report_as="sym_status" filter_name="report_true"/>-->
-<!--		<FilterReportAsPoseExtraScoresMover name="asymmetric" report_as="sym_status" filter_name="report_false"/>-->
-<!--		<ParsedProtocol name="make_point_group">-->
-<!--			<Add mover_name="point_group"/>-->
-<!--			<Add mover_name="symmetric"/>-->
-<!--		</ParsedProtocol>-->
-<!--		<ParsedProtocol name="make_layer">-->
-<!--			<Add mover_name="layer"/>-->
-<!--			<Add mover_name="symmetric"/>-->
-<!--		</ParsedProtocol>-->
-<!--		<ParsedProtocol name="make_lattice">-->
-<!--			<Add mover_name="lattice"/>-->
-<!--			<Add mover_name="symmetric"/>-->
-<!--		</ParsedProtocol>-->
-<!--&lt;!&ndash;		<ParsedProtocol name="asymmetric">&ndash;&gt;-->
-<!--&lt;!&ndash;		<Add mover_name="asymmetric"/>&ndash;&gt;-->
-<!--&lt;!&ndash;		</ParsedProtocol>&ndash;&gt;-->
-<!--		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>-->
 	</MOVERS>
 
-	# Symmetry set up section
+	# Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%
 	<FILTERS>
 		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
 	</FILTERS>
@@ -190,9 +161,8 @@
 
 	<PROTOCOLS>
 		<Add mover_name="measure_entity"/> # removes non-entity positions
-		<Add mover_name="symmetry"/>
-<!--		<Add mover_name="symmetry_switch"/> # symmetrize entity positions?-->
-		<Add mover_name="repack_switch"/> # set up additional repacking after entity isolation?
+		<Add mover_name="symmetry"/> # symmetrize entity
+		<Add mover_name="repack_switch"/> # set up additional repacking after entity isolation
 <!--		<Add mover_name="add_csts"/> # add csts with the current pose -->
 		# ^ ACTUALLY DON'T. WILL BE MEASURE OF HOW MUCH INPUT RESIDUE COORDINATES ARE UNHAPPY
 		<Add mover_name="metrics"/>

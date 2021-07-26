@@ -52,31 +52,31 @@ def calculate_sequence_metrics(des_dir, alignment, residues=None):  # Unused Tod
 #     return generate_sequences(wt_seq_dict, generate_all_design_mutations(sequence_dir_files, wild_type_file))
 
 
-def get_pdb_sequences(pdb, chain=None, source='atom'):
-    """Return all sequences or those specified by a chain from a PDB file
-
-    Args:
-        pdb (str or PDB): Location on disk of a reference .pdb file or PDB object
-    Keyword Args:
-        chain=None (str): If a particular chain is desired, specify it
-        source='atom' (str): One of 'atom' or 'seqres'
-    Returns:
-        (dict): {chain: sequence, ...}
-    """
-    print('get_pdb_sequences is using pdb parameter: %s' % pdb)
-    if not isinstance(pdb, PDB):
-        pdb = PDB.from_file(pdb, log=start_log(handler=3), entities=False)
-
-    if source == 'atom':
-        seq_dict = pdb.atom_sequences
-    else:
-        seq_dict = pdb.reference_sequence
-    # for _chain in pdb.chain_id_list:
-    #     seq_dict[_chain] =
-    if chain:
-        seq_dict = filter_dictionary_keys(seq_dict, chain)
-
-    return seq_dict
+# def get_pdb_sequences(pdb, chain=None, source='atom'):
+#     """Return all sequences or those specified by a chain from a PDB file
+#
+#     Args:
+#         pdb (str or PDB): Location on disk of a reference .pdb file or PDB object
+#     Keyword Args:
+#         chain=None (str): If a particular chain is desired, specify it
+#         source='atom' (str): One of 'atom' or 'seqres'
+#     Returns:
+#         (dict): {chain: sequence, ...}
+#     """
+#     print('get_pdb_sequences is using pdb parameter: %s' % pdb)
+#     if not isinstance(pdb, PDB):
+#         pdb = PDB.from_file(pdb, log=start_log(handler=3), entities=False)
+#
+#     if source == 'atom':
+#         seq_dict = pdb.atom_sequences
+#     else:
+#         seq_dict = pdb.reference_sequence
+#     # for _chain in pdb.chain_id_list:
+#     #     seq_dict[_chain] =
+#     if chain:
+#         seq_dict = filter_dictionary_keys(seq_dict, chain)
+#
+#     return seq_dict
 
 
 def find_gapped_columns(alignment_dict):  # UNUSED
