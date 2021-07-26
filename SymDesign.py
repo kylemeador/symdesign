@@ -1072,11 +1072,22 @@ if __name__ == '__main__':
             if master_directory.sym_entry.group1 == master_directory.sym_entry.group1:
                 required_oligomers1, required_oligomers2 = all_entity_names, set()
             for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
-                symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
-                # Todo ensure proper processing if monomer
-                logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
-                            % (symmetry, orient_dir, ', '.join(required_oligomers)))
+                if required_oligomers:
+                    symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
+                    if symmetry:
+                        logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
+                                    % (symmetry, orient_dir, ', '.join(required_oligomers)))
+                    # else:
+                    #     break
                 for oligomer in required_oligomers:
+                    biological_assemblies = qsbio_confirmed.get(oligomer)
+                    if biological_assemblies:  # first   v   assembly in matching oligomers
+                        assembly = biological_assemblies[0]
+                    else:
+                        assembly = 1
+                        logger.warning('No confirmed biological assembly for %s. Using the default PDB assembly'
+                                       % oligomer)
+
                     if oligomer in orient_files:
                         asu_files = glob(os.path.join(orient_asu_dir, '%s_*.pdb' % oligomer))
                         oriented_pdb = PDB.from_file(asu_files[0], log=None, entity_names=[oligomer])
@@ -1085,19 +1096,18 @@ if __name__ == '__main__':
                         # all_entities.append(oriented_pdb.entities[0])
                         all_entities[oriented_asu.name] = oriented_asu
                         continue
-                    biological_assemblies = qsbio_confirmed.get(oligomer)
-                    if biological_assemblies:  # first   v   assembly in matching oligomers
-                        assembly = biological_assemblies[0]
                     else:
-                        logger.warning('No confirmed biological assembly was found for %s. Using the first assembly'
-                                       ' listed in the PDB' % oligomer)
-                        assembly = 1
-                    logger.debug('Fetching oligomer %s from PDB' % oligomer)
-                    pdb_path = fetch_pdb_file('%s_%d' % (oligomer, assembly), out_dir=master_directory.pdbs, asu=False)
-                    if pdb_path:
-                        orient_file = orient_pdb_file(pdb_path, log=orient_log, sym=symmetry, out_dir=orient_dir)
-                        if not orient_file:
-                            continue
+                        logger.debug('Fetching oligomer %s from PDB' % oligomer)
+                        file_path = fetch_pdb_file('%s_%d' % (oligomer, assembly), out_dir=master_directory.pdbs, asu=False)
+
+                    if file_path:
+                        if symmetry:
+                            orient_file = orient_pdb_file(file_path, log=orient_log, sym=symmetry, out_dir=orient_dir)
+                            if not orient_file:
+                                continue
+                        else:
+                            # Todo ensure proper processing if monomer. I think this is done
+                            orient_file = file_path
                         # extract the asu from the oriented file for symmetric refinement
                         oriented_pdb = PDB.from_file(orient_file, log=None)
                         oriented_asu = oriented_pdb.entities[0]
@@ -1110,12 +1120,11 @@ if __name__ == '__main__':
                     else:
                         logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
                                        'downloading it from the PDB. Attempting to copy from %s job data source'
-                                       % (pdb_path, PUtils.nano))
+                                       % (file_path, PUtils.nano))
                         raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
                                                   'canonical_pdb1/2 attribute of DesignDirectory to pull the'
                                                   'pdb file source.')
-            # set up the hhblits profile for each input oligomer
-            # if master_db:
+            # set up the hhblits profile for each input entity
             profile_dir = master_directory.profiles
             sequences_dir = master_directory.sequences
             master_directory.make_path(profile_dir)
@@ -1205,12 +1214,13 @@ if __name__ == '__main__':
                 symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)  # Todo return monomer if monomer
                 sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
                 for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
-                    base_pdb_code = os.path.splitext(orient_asu_file)[0]  # os.path.basename()
-                    if base_pdb_code in required_oligomers and orient_asu_file not in refine_files:
-                        oligomers_to_refine.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
-                    if base_pdb_code in required_oligomers and orient_asu_file not in full_model_files:
-                        # olgomers_to_loop_model.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
-                        olgomers_to_loop_model[base_pdb_code] = (os.path.join(orient_asu_dir, orient_asu_file), symmetry)
+                    base_pdb_code = os.path.splitext(orient_asu_file)[0]
+                    if base_pdb_code in all_entities:
+                        if orient_asu_file not in refine_files:
+                            oligomers_to_refine.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
+                        if orient_asu_file not in full_model_files:
+                            # olgomers_to_loop_model.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
+                            olgomers_to_loop_model[base_pdb_code] = (os.path.join(orient_asu_dir, orient_asu_file), symmetry)
 
             while oligomers_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
