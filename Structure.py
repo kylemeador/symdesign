@@ -15,7 +15,7 @@ from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_
     reference_residues_pkl
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
-from SequenceProfile import SequenceProfile
+from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import identity_matrix, get_rot_matrices, RotRangeDict, flip_x_matrix, get_degen_rotmatrices
 from utils.GeneralUtils import transform_coordinate_sets
 
@@ -1623,7 +1623,8 @@ class Entity(Chain, SequenceProfile):
             # self.chain_ids = [chain.name for chain in chains]
             # self.structure_containers.extend(['chains'])
         self.api_entry = None
-        self.reference_sequence = kwargs.get('sequence', self.get_structure_sequence())
+        # self.reference_sequence = kwargs.get('sequence', self.get_structure_sequence())
+        self.reference_sequence = kwargs.get('sequence')
         # self._uniprot_id = None
         self.uniprot_id = uniprot_id
 
@@ -1713,14 +1714,30 @@ class Entity(Chain, SequenceProfile):
                 chain.chain_id = self.chain_ids[idx]
             return self._chains
 
-    @property
-    def reference_sequence(self):
-        """With the default init, all Entity instances will have the structure sequence as reference_sequence"""
-        return self._reference_sequence
+    # @property
+    # def reference_sequence(self):
+    #     """With the default init, all Entity instances will have the structure sequence as reference_sequence"""
+    #     return self._reference_sequence
+    #
+    # @reference_sequence.setter
+    # def reference_sequence(self, sequence):
+    #     self._reference_sequence = sequence
 
-    @reference_sequence.setter
-    def reference_sequence(self, sequence):
-        self._reference_sequence = sequence
+    @property
+    def disorder(self):
+        """Return the Residue number keys where disordered residues are found by comparison of the construct sequence
+        with that of the structure sequence
+
+        Returns:
+            (dict[mapping[int, dict[mapping[str, str]]]]): {1: {'from': 'A', 'to': 'K'}, ...}
+        """
+        try:
+            return self._disorder
+        except AttributeError:
+            if not self.reference_sequence:
+                self.retrieve_sequence_from_api(entity_id=self.name)
+            self._disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+            return self._disorder
 
     def chain(self, chain_name):
         for idx, chain_id in enumerate(self.chain_ids):
