@@ -1222,7 +1222,7 @@ if __name__ == '__main__':
                             # olgomers_to_loop_model.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
                             olgomers_to_loop_model[base_pdb_code] = (os.path.join(orient_asu_dir, orient_asu_file), symmetry)
 
-            if oligomers_to_refine:  # if no files found unrefined, we should proceed
+            while oligomers_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
                             ' into the Rosetta ScoreFunction for optimized sequence design:\n\t%s'
                             % ', '.join([os.path.splitext(os.path.basename(file))[0]
@@ -1264,8 +1264,9 @@ if __name__ == '__main__':
                 logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
                             % 'sbatch %s' % refine_sbatch)
                 load_resources = True
+                break
 
-            if olgomers_to_loop_model:
+            while olgomers_to_loop_model:
                 logger.info('The following structures have not been modelled for disorder. Missing loops will '
                             'be built for optimized sequence design:\n\t%s' % ', '.join(olgomers_to_loop_model))
                 print('Would you like to model loops for these structures now? If you plan on performing sequence '
@@ -1318,6 +1319,7 @@ if __name__ == '__main__':
                 logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
                             % 'sbatch %s' % loop_model_sbatch)
                 load_resources = True
+                break
 
             if load_resources:
                 logger.info('After completion of sbatch script(s), re-run your %s command:'
