@@ -2311,6 +2311,9 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
     if offset:
         # alignment = generate_alignment(mutant, reference)
         align_seq_1, align_seq_2, *_ = generate_alignment(mutant, reference)[0]  # alignment[0][0], alignment[0][1]
+        print(align_seq_1)
+        print(align_seq_2)
+        print(_)
     else:
         align_seq_1, align_seq_2 = mutant, reference
 
