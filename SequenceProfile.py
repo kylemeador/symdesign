@@ -65,13 +65,11 @@ class SequenceProfile:
 
     @property
     def profile_length(self):
-        # return self.structure.number_of_residues
         return self.number_of_residues
 
     @property
     def offset(self):
         """Return the starting index for the Entity based on pose numbering of the residues"""
-        # return self.structure.residues[0].number - 1
         return self.residues[0].number - 1
 
     # @offset.setter
@@ -88,6 +86,16 @@ class SequenceProfile:
 
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
+
+    # @property
+    # def disorder(self):
+    #     try:
+    #         return self._disorder
+    #     except AttributeError:
+    #         if not self.reference_sequence:
+    #             self.retrieve_sequence_from_api(entity_id=self.name)
+    #         self._disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+    #         return self._disorder
 
     def attach_fragment_database(self, db=None):
         """Attach an existing Fragment Database to the SequenceProfile"""
@@ -273,10 +281,11 @@ class SequenceProfile:
         """
         # self.retrieve_info_from_api()
         # grab the reference sequence used for translation (expression)
-        if not self.reference_sequence:
-            self.retrieve_sequence_from_api(entity_id=self.name)
+        # if not self.reference_sequence:
+        #     self.retrieve_sequence_from_api(entity_id=self.name)
         # generate the disordered indices which are positions in reference that are missing in structure
-        disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+        # disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+        disorder = self.disorder
         # removal of these positions from .evolutionary_profile will produce a properly indexed profile
         new_idx = 1
         structure_evolutionary_profile = {}
@@ -751,7 +760,7 @@ class SequenceProfile:
         """
         # self.log.debug(self.fragment_profile.items())
         database_bkgnd_aa_freq = self.frag_db.get_db_aa_frequencies()
-        sequence = self.reference_sequence
+        sequence = self.structure_sequence  # self.reference_sequence  # TODO ensure fragment profile is correct size
         no_design = []
         for residue, index_d in self.fragment_profile.items():
             total_fragment_weight, total_fragment_observations = 0, 0

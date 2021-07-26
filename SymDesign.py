@@ -2010,9 +2010,9 @@ if __name__ == '__main__':
                 logger.debug('The termini %s are available for tagging' % termini_availability)
                 entity_termini_availability[design_string] = termini_availability
                 # Find sequence specified attributes required for expression formatting
-                disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
-                                              only_gaps=True)
-                prior_offset += len(disorder)
+                # disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
+                #                               only_gaps=True)
+                disorder = source_entity.disorder
                 indexed_disordered_residues = \
                     {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
                 # generate the source TO design mutations before any disorder handling
@@ -2022,9 +2022,8 @@ if __name__ == '__main__':
                 for residue_number, mutation in indexed_disordered_residues.items():
                     logger.debug('Inserting %s into position %d on chain %s'
                                  % (mutation['from'], residue_number, source_entity.chain_id))
-                    design_pose.insert_residue_type(mutation['from'], at=residue_number,
-                                                    chain=source_entity.chain_id)
-                # Find the offset using the structure sequence after insertion
+                    design_pose.insert_residue_type(mutation['from'], at=residue_number, chain=source_entity.chain_id)
+                # Find the open reading frame offset using the structure sequence after insertion
                 offset = find_orf_offset(design_entity.structure_sequence, mutations)
                 formatted_design_sequence = design_entity.structure_sequence[offset:]
 
