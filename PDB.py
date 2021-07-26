@@ -182,7 +182,7 @@ class PDB(Structure):
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 # set each successive Entity to have an incrementally higher chain id
-                available_chain_ids = self.return_chain_generator
+                available_chain_ids = self.return_chain_generator()
                 for idx, entity in enumerate(self.entities):
                     # print('Entity %s update indices' % entity.name, entity.atom_indices)
                     entity.chain_id = next(available_chain_ids)
