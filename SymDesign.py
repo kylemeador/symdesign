@@ -1222,7 +1222,7 @@ if __name__ == '__main__':
                             # olgomers_to_loop_model.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
                             olgomers_to_loop_model[base_pdb_code] = (os.path.join(orient_asu_dir, orient_asu_file), symmetry)
 
-            while oligomers_to_refine:  # if no files found unrefined, we should proceed
+            if oligomers_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
                             ' into the Rosetta ScoreFunction for optimized sequence design:\n\t%s'
                             % ', '.join([os.path.splitext(os.path.basename(file))[0]
@@ -1257,15 +1257,15 @@ if __name__ == '__main__':
                 print('\n' * 2)
                 logger.info('Please follow the instructions below to refine your input files')
                 logger.critical('Ensure the below created SBATCH script is correct%s'
-                                % '. Specifically, check that the job array and any node specifications are accurate. '
-                                  'You can look at the SBATCH manual (man sbatch or sbatch --help) to understand the '
-                                  'variables or ask for help if you are still unsure' if not load_resources
-                                else '. You can run this script at any time')
+                                % ('. Specifically, check that the job array and any node specifications are accurate. '
+                                   'You can look at the SBATCH manual (man sbatch or sbatch --help) to understand the '
+                                   'variables or ask for help if you are still unsure' if not load_resources
+                                   else '. You can run this script at any time'))
                 logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
                             % 'sbatch %s' % refine_sbatch)
                 load_resources = True
 
-            while olgomers_to_loop_model:
+            if olgomers_to_loop_model:
                 logger.info('The following structures have not been modelled for disorder. Missing loops will '
                             'be built for optimized sequence design:\n\t%s' % ', '.join(olgomers_to_loop_model))
                 print('Would you like to model loops for these structures now? If you plan on performing sequence '
