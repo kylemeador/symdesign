@@ -2122,6 +2122,55 @@ class Entity(Chain, SequenceProfile):
                           'Modelling may be affected' % count)
         return to_file
 
+    def make_blueprint_file(self, out_path=os.getcwd()):
+        """Format a blueprint file according to Rosetta specifications
+
+        Keyword Args:
+            to_file=None (str): The name of the symmetry definition file
+            out_path=os.getcwd() (str): The location the symmetry definition file should be written
+        Returns:
+            (str): The location the symmetry definition file was written
+        """
+        max_loop_length = 14  # 12 is the max length plus 1 for each overlapping end
+        out_file = os.path.join(out_path, '%s.blueprint' % self.name)
+        loop_model_locations = self.disorder  # {residue_number: {'from': ,'to': }, ...}
+
+        residues = self.residues
+        for residue_number, mutation in loop_model_locations.items():
+            # logger.debug('Inserting %s into position %d' % (mutation['from'], residue_number))
+            residues.insert(residue_number, mutation['from'])
+
+        start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
+        loop_start, loop_end = None, None
+        for idx, (residue_number, mutation) in enumerate(list(loop_model_locations.items()), 1):
+            if residue_number - 1 not in loop_model_locations:
+                loop_start = residue_number - 1
+                if loop_start < 0:
+                    # loop_model_locations[loop_start] = residues[loop_start]
+                # else:
+                    # the disordered locations include the n-terminus, set start_idx to idx (should equal 1)
+                    start_idx = idx
+            if residue_number + 1 not in loop_model_locations and residue_number + 1 < len(residues):
+                loop_end = residue_number + 1
+                loop_length = loop_end - loop_start
+                if loop_length <= max_loop_length:
+                    loop_model_locations[loop_start], loop_model_locations[loop_end] = \
+                        residues[loop_start], residues[loop_end]
+                    if start_idx == 1 and idx != 1:
+                        # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
+                        start_idx = idx
+                loop_start, loop_end = None, None
+
+        #              index AA SS Choice AA
+        loop_str =        '%d X %s PIKAA %s'
+        structure_str =   '%d %s %s'
+        with open(out_file, 'w') as f:
+            f.write('%s\n'
+                    % ''.join([structure_str % (residue.number, residue.type, 'L' if idx in loop_model_locations else '.')
+                               if isinstance(residue, Residue)
+                               else loop_str % (1 if idx <= start_idx else 0, 'L', residue)  # loop_model_locations[idx]['from']
+                               for idx, residue in enumerate(residues, 1)]))
+
     # def update_attributes(self, **kwargs):
     #     """Update attributes specified by keyword args for all member containers"""
     #     # super().update_attributes(**kwargs)  # this is required to set the base Structure with the kwargs

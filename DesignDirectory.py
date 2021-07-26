@@ -75,7 +75,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pdbs = None  # program_root/Data/PDBs
         self.orient_dir = None  # program_root/Data/PDBs/oriented
         self.orient_asu_dir = None  # program_root/Data/PDBs/oriented_asu
-        self.refine_dir = None  # program_root/Data/PDBs/refined)
+        self.refine_dir = None  # program_root/Data/PDBs/refined
+        self.full_model_dir = None  # program_root/Data/PDBs/full_models
         self.stride_dir = None  # program_root/Data/PDBs/stride
         self.sequence_info = None  # program_root/SequenceInfo
         self.sequences = None  # program_root/SequenceInfo/sequences
@@ -643,6 +644,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
         self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
         self.refine_dir = os.path.join(self.pdbs, 'refined')
+        self.full_model_dir = os.path.join(self.pdbs, 'full_models')
         self.stride_dir = os.path.join(self.pdbs, 'stride')
         # self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
         self.sequence_info = os.path.join(self.protein_data, PUtils.sequence_info)

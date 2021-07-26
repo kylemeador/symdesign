@@ -1051,6 +1051,7 @@ if __name__ == '__main__':
             orient_asu_dir = master_directory.orient_asu_dir
             stride_dir = master_directory.stride_dir
             refine_dir = master_directory.refine_dir
+            full_model_dir = master_directory.full_model_dir
             master_directory.make_path(orient_dir)
             master_directory.make_path(orient_asu_dir)
             master_directory.make_path(stride_dir)
@@ -1061,7 +1062,8 @@ if __name__ == '__main__':
             required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
             required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
             all_entity_names = required_oligomers1.union(required_oligomers2)
-            all_entities = []
+            # all_entities = []
+            all_entities = {}
             load_resources = False
             orient_files = [os.path.splitext(file)[0] for file in os.listdir(orient_dir)]
             qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
@@ -1071,13 +1073,17 @@ if __name__ == '__main__':
                 required_oligomers1, required_oligomers2 = all_entity_names, set()
             for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
                 symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
+                # Todo ensure proper processing if monomer
                 logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
                             % (symmetry, orient_dir, ', '.join(required_oligomers)))
                 for oligomer in required_oligomers:
                     if oligomer in orient_files:
                         oriented_pdb = PDB.from_file(os.path.join(orient_asu_dir, '%s.pdb' % oligomer), log=None,
                                                      entity_names=[oligomer])
-                        all_entities.append(oriented_pdb.entities[0])
+                        oriented_asu = oriented_pdb.entities[0]
+                        oriented_asu.name = oriented_pdb.name  # use oriented_pdb name as this has no API query
+                        # all_entities.append(oriented_pdb.entities[0])
+                        all_entities[oriented_asu.name] = oriented_asu
                         continue
                     biological_assemblies = qsbio_confirmed.get(oligomer)
                     if biological_assemblies:  # first   v   assembly in matching oligomers
@@ -1095,8 +1101,9 @@ if __name__ == '__main__':
                         # extract the asu from the oriented file for symmetric refinement
                         oriented_pdb = PDB.from_file(orient_file, log=None)
                         oriented_asu = oriented_pdb.entities[0]
-                        oriented_asu.name = oriented_pdb.name
-                        all_entities.append(oriented_asu)  # use oriented_pdb name as this has no API query
+                        oriented_asu.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
+                        # all_entities.append(oriented_asu)
+                        all_entities[oriented_pdb.name] = oriented_asu
                         oriented_asu.write(out_path=os.path.join(orient_asu_dir, '%s.pdb' % oriented_asu.name))
                         # save Stride results
                         oriented_asu.stride(to_file=os.path.join(stride_dir, '%s.stride' % oriented_asu.name))
@@ -1114,9 +1121,9 @@ if __name__ == '__main__':
             master_directory.make_path(profile_dir)
             master_directory.make_path(sequences_dir)
             hhblits_cmds = []
-            for entity in all_entities:
+            for entity in all_entities.values():
                 entity.sequence_file = master_db.sequences.retrieve_file(name=entity.name)
-                if not entity.sequence_file:
+                if not entity.sequence_file:  # Todo reference_sequence source accuracy throughout protocol
                     entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=sequences_dir)
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                 else:
@@ -1133,9 +1140,9 @@ if __name__ == '__main__':
                 # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
                 # hhblits_cmds, _ = zip(*hhblits_cmds)
                 reformat_msa_cmd1 = [PUtils.reformat_msa_exe_path, 'a3m', 'sto',
-                                     "'%s'" % os.path.join(profile_dir, '*.a3m'), '.sto', '-num', '-uc']
+                                     '\'%s\'' % os.path.join(profile_dir, '*.a3m'), '.sto', '-num', '-uc']
                 reformat_msa_cmd2 = [PUtils.reformat_msa_exe_path, 'a3m', 'fas',
-                                     "'%s'" % os.path.join(profile_dir, '*.a3m'), '.fasta', '-M', 'first', '-r']
+                                     '\'%s\'' % os.path.join(profile_dir, '*.a3m'), '.fasta', '-M', 'first', '-r']
                 hhblits_cmd_file = \
                     SDUtils.write_commands(hhblits_cmds, name='hhblits_%s' % timestamp, out_path=profile_dir)
                 hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.sbatch_scripts,
@@ -1159,7 +1166,7 @@ if __name__ == '__main__':
                 bmdca_cmds = \
                     [list2cmdline([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
                                   '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
-                     for entity in all_entities]
+                     for entity in all_entities.values()]
                 bmdca_cmd_file = \
                     SDUtils.write_commands(bmdca_cmds, name='bmDCA_%s' % timestamp, out_path=profile_dir)
                 bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=master_directory.sbatch_scripts,
@@ -1172,35 +1179,41 @@ if __name__ == '__main__':
                 #                              scale='script', max_jobs=len(reformat_msa_cmds),
                 #                              log_file=os.path.join(profile_dir, 'generate_profiles.log'),
                 #                              number_of_commands=len(reformat_msa_cmds))
-                print('\n' * 3)
+                print('\n' * 2)
                 # Todo add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
                 logger.critical('Ensure the below created SBATCH script is correct. Specifically, check that the job '
                                 'array and any node specifications are accurate. You can look at the SBATCH manual (man'
                                 ' sbatch or sbatch --help) to understand the variables or ask for help if you are still'
                                 ' unsure. Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s'
-                                % bmdca_sbatch if not hhblits_cmds else
+                                % bmdca_sbatch if not load_resources else
                                 'ONCE this job is finished, to calculate evolutionary couplings i,j for each amino acid'
                                 ' in the multiple sequence alignment, enter:\n\tsbatch %s' % bmdca_sbatch)
                 load_resources = True
 
             oriented_asu_files = os.listdir(orient_asu_dir)
             master_directory.make_path(refine_dir)
+            master_directory.make_path(full_model_dir)
             refine_files = os.listdir(refine_dir)
-            oligomers_to_refine, sym_def_files = [], {}
+            full_model_files = os.listdir(full_model_dir)
+            # oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), set(), {}
+            oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), {}, {}
             for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
-                symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
+                symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)  # Todo return monomer if monomer
                 sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
                 for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
                     base_pdb_code = os.path.splitext(orient_asu_file)[0]  # os.path.basename()
                     if base_pdb_code in required_oligomers and orient_asu_file not in refine_files:
-                        oligomers_to_refine.append((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
-            set_oligomers_to_refine = set(oligomers_to_refine)
-            while set_oligomers_to_refine:  # if no files found unrefined, we should proceed
+                        oligomers_to_refine.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
+                    if base_pdb_code in required_oligomers and orient_asu_file not in full_model_files:
+                        # olgomers_to_loop_model.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
+                        olgomers_to_loop_model[base_pdb_code] = (os.path.join(orient_asu_dir, orient_asu_file), symmetry)
+
+            while oligomers_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
                             ' into the Rosetta ScoreFunction for optimized sequence design:\n\t%s'
                             % ', '.join([os.path.splitext(os.path.basename(file))[0]
-                                         for file, sym in set_oligomers_to_refine]))
-                print('Would you like to refine them now? If you plan on performing sequence design with designs '
+                                         for file, sym in oligomers_to_refine]))
+                print('Would you like to refine them now? If you plan on performing sequence design with models '
                       'containing them, it is highly recommended you perform refinement')
                 if not boolean_choice():
                     print('To confirm, asymmetric units are going to be generated with unrefined coordinates. Confirm '
@@ -1220,28 +1233,82 @@ if __name__ == '__main__':
                               os.path.join(PUtils.rosetta_scripts, '%s_oligomer.xml' % PUtils.stage[1]),
                               '-parser:script_vars']
                 refine_cmds = [script_cmd + refine_cmd + ['sdf=%s' % sym_def_files[sym], '-in:file:s', orient_asu_file]
-                               for orient_asu_file, sym in set_oligomers_to_refine]
+                               for orient_asu_file, sym in oligomers_to_refine]
                 commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds],
                                                        name='refine_oligomers_%s' % timestamp, out_path=refine_dir)
                 refine_sbatch = distribute(file=commands_file, out_path=master_directory.sbatch_scripts, scale='refine',
                                            log_file=os.path.join(refine_dir, 'refine.log'),
                                            max_jobs=int(len(refine_cmds) / 2 + 0.5),
                                            number_of_commands=len(refine_cmds))
-                print('\n' * 3)
+                print('\n' * 2)
                 logger.info('Please follow the instructions below to refine your input files')
                 logger.critical('Ensure the below created SBATCH script is correct%s'
                                 % '. Specifically, check that the job array and any node specifications are accurate. '
                                   'You can look at the SBATCH manual (man sbatch or sbatch --help) to understand the '
-                                  'variables or ask for help if you are still unsure' if not hhblits_cmds
-                                else '. You can run this script at any time compared to the %s script'
-                                % hhblits_sbatch)
+                                  'variables or ask for help if you are still unsure' if not load_resources
+                                else '. You can run this script at any time')
                 logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
                             % 'sbatch %s' % refine_sbatch)
-                logger.info('After completion of the refinement sbatch script, re-run your %s command:'
+                load_resources = True
+
+            while olgomers_to_loop_model:
+                logger.info('The following structures have not been modelled for disorder. Missing loops will '
+                            'be built for optimized sequence design:\n\t%s' % ', '.join(olgomers_to_loop_model))
+                print('Would you like to model loops for these structures now? If you plan on performing sequence '
+                      'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
+                if not boolean_choice():
+                    print('To confirm, asymmetric units are going to be generated without disordered loops. Confirm '
+                          'with \'y\' to ensure this is what you want')
+                    if boolean_choice():
+                        break
+                # Generate sbatch refine command
+                flags_file = os.path.join(full_model_dir, 'loop_model_flags')
+                if not os.path.exists(flags_file):
+                    loop_model_flags = \
+                        ['-remodel:quick_and_dirty', '-remodel:run_confirmation', 'true', '-remodel::save_top', '0',
+                         '-run:chain', 'A', '-remodel:num_trajectory', '1']
+                    flags = copy.copy(rosetta_flags) + loop_model_flags
+                    # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
+                    flags.extend(['-no_scorefile true'])
+                    # flags.remove('-output_only_asymmetric_unit true')  # NOT necessary -> want full oligomers
+                    with open(flags_file, 'w') as f:
+                        f.write('%s\n' % '\n'.join(flags))
+
+                loop_model_cmd = ['@%s' % flags_file, '-parser:protocol',
+                                  os.path.join(PUtils.rosetta_scripts, 'loop_model_ensemble.xml'),
+                                  '-parser:script_vars']
+                loop_model_cmds = \
+                    [script_cmd + loop_model_cmd +
+                     ['blueprint=%s' % all_entities[entity].make_blueprint_file(), '-in:file:s', orient_asu_file,
+                      '-symmetry::symmetry_definition', sym_def_files[sym],
+                      '-out:path:pdb %s' % os.path.join(full_model_dir, entity),
+                      '&&', PUtils.models_to_multimodel_exe, '-d', os.path.join(full_model_dir, entity),
+                      '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity),
+                      '&&', 'scp', os.path.join(full_model_dir, entity, '%s_0001.pdb' % entity),
+                      os.path.join(full_model_dir, '%s.pdb' % entity)]
+                     for entity, (orient_asu_file, sym) in olgomers_to_loop_model.items()]
+                loop_cmds_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in loop_model_cmds],
+                                                        name='loop_model_entities_%s' % timestamp,
+                                                        out_path=full_model_dir)
+                loop_model_sbatch = distribute(file=loop_cmds_file, out_path=master_directory.sbatch_scripts,
+                                               scale='refine', log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                               max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
+                                               number_of_commands=len(loop_model_cmds))
+                print('\n' * 2)
+                logger.info('Please follow the instructions below to model loops on your input files')
+                logger.critical('Ensure the below created SBATCH script is correct%s'
+                                % '. Specifically, check that the job array and any node specifications are accurate. '
+                                  'You can look at the SBATCH manual (man sbatch or sbatch --help) to understand the '
+                                  'variables or ask for help if you are still unsure' if not load_resources
+                                else '. Run this script after completion of the Entity refinement script')
+                logger.info('Once you are satisfied, enter the following to distribute jobs:\n\t%s'
+                            % 'sbatch %s' % loop_model_sbatch)
+                load_resources = True
+
+            if load_resources:
+                logger.info('After completion of sbatch script(s), re-run your %s command:'
                             '\n\t%s\nto finish set up of the designs of interest.'
                             % (PUtils.program_name, ' '.join(sys.argv)))
-                load_resources = True
-            if load_resources:
                 terminate(args.module, design_directories, output=False)
                 # The next time this directory is initialized, there will be no refine files left... hopefully and while
                 # loop won't be entered allowing DesignDirectory initialization to proceed
