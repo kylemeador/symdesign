@@ -137,8 +137,10 @@ if __name__ == '__main__':
         low_range, high_range = None, None
 
     for idx, file in enumerate(files[low_range:high_range], low_range + 1):
-        cmd.load(file, object=idx)
-        # cmd.load(file)
+        if len(sys.argv) == 4 and sys.argv[3] == 'original_name':  # design_name:
+            cmd.load(file)
+        else:
+            cmd.load(file, object=idx)
 
     print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T')
           # '\nReplace \'T\' with whatever symmetry your design is in\n')

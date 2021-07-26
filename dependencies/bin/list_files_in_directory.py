@@ -12,7 +12,7 @@ def get_all_file_paths(dir, suffix='', extension=None):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Create a list of files the belong in a directory')
-    parser.add_argument('-d', '--directory', type=os.path.abspath, help='Directory where designed poses are located.',
+    parser.add_argument('-d', '--directory', type=os.path.abspath, help='Directory where models are located',
                         required=True)
     parser.add_argument('-s', '--suffix', type=str, help='A suffix in the files to search for.', default='')
     parser.add_argument('-e', '--extension', type=str, help='An extension in the files to search for.')
