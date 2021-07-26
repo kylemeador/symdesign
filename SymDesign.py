@@ -1081,7 +1081,6 @@ if __name__ == '__main__':
                         asu_files = glob(os.path.join(orient_asu_dir, '%s_*.pdb' % oligomer))
                         oriented_pdb = PDB.from_file(asu_files[0], log=None, entity_names=[oligomer])
                         oriented_asu = oriented_pdb.entities[0]
-                        print(oriented_pdb.name)
                         oriented_asu.name = oriented_pdb.name  # use oriented_pdb name as this has no API query
                         # all_entities.append(oriented_pdb.entities[0])
                         all_entities[oriented_asu.name] = oriented_asu
@@ -1130,16 +1129,16 @@ if __name__ == '__main__':
                 else:
                     entity.evolutionary_profile = master_db.hhblits_profiles.retrieve_data(name=entity.name)
                     # entity.h_fields = master_db.bmdca_fields.retrieve_data(name=entity.name)
-                    entity.j_couplings = master_db.bmdca_couplings.retrieve_data(name=entity.name)
+                    # TODO reinstate entity.j_couplings = master_db.bmdca_couplings.retrieve_data(name=entity.name)
                 if not entity.evolutionary_profile:
                     # to generate in current runtime
                     # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
                     # to generate in a sbatch script
                     # profile_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
                     hhblits_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
-                if not entity.j_couplings:
-                    bmdca_cmds.append([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
-                                       '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
+                # if not entity.j_couplings:  # TODO reinstate
+                #     bmdca_cmds.append([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
+                #                        '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
             if hhblits_cmds:
                 # prepare files for running hhblits commands
                 logger.info('Please follow the instructions below to generate sequence profiles for input proteins')
