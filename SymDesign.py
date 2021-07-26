@@ -1280,8 +1280,8 @@ if __name__ == '__main__':
                 flags_file = os.path.join(full_model_dir, 'loop_model_flags')
                 if not os.path.exists(flags_file):
                     loop_model_flags = \
-                        ['-remodel:quick_and_dirty', '-remodel:run_confirmation', 'true', '-remodel::save_top', '0',
-                         '-run:chain', 'A', '-remodel:num_trajectory', '1']
+                        ['-remodel:quick_and_dirty', '-remodel:run_confirmation true', '-remodel::save_top 0',
+                         '-run:chain A', '-remodel:num_trajectory 1']
                     flags = copy.copy(rosetta_flags) + loop_model_flags
                     # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                     flags.extend(['-no_scorefile true'])
