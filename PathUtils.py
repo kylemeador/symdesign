@@ -98,6 +98,7 @@ orient_log_file = 'orient_oligomer_log.txt'
 stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
 bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
 binaries = os.path.join(dependency_dir, 'bin')
+models_to_multimodel_exe = os.path.join(binaries, 'models_to_multimodel.py')
 list_pdb_files = os.path.join(binaries, 'list_files_in_directory.py')
 hbnet_sort = os.path.join(binaries, 'sort_hbnet_silent_file_results.sh')
 sbatch_template_dir = os.path.join(binaries, 'sbatch')
