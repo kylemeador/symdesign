@@ -1284,7 +1284,7 @@ if __name__ == '__main__':
                          '-run:chain A', '-remodel:num_trajectory 1']
                     flags = copy.copy(rosetta_flags) + loop_model_flags
                     # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
-                    flags.extend(['-no_scorefile true'])
+                    flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
                     # flags.remove('-output_only_asymmetric_unit true')  # NOT necessary -> want full oligomers
                     with open(flags_file, 'w') as f:
                         f.write('%s\n' % '\n'.join(flags))
@@ -1294,10 +1294,10 @@ if __name__ == '__main__':
                                   '-parser:script_vars']
                 loop_model_cmds = \
                     [script_cmd + loop_model_cmd +
-                     ['blueprint=%s' % all_entities[entity].make_blueprint_file(), '-in:file:s', orient_asu_file,
-                      '-symmetry::symmetry_definition', sym_def_files[sym],
-                      '-out:path:pdb %s' % os.path.join(full_model_dir, entity),
-                      '&&', PUtils.models_to_multimodel_exe, '-d', os.path.join(full_model_dir, entity),
+                     ['blueprint=%s' % all_entities[entity].make_blueprint_file(out_path=full_model_dir), '-in:file:s',
+                      orient_asu_file, '-symmetry::symmetry_definition', sym_def_files[sym], '-out:path:pdb',
+                      os.path.join(full_model_dir, entity),
+                      '&&', 'python', PUtils.models_to_multimodel_exe, '-d', os.path.join(full_model_dir, entity),
                       '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity),
                       '&&', 'scp', os.path.join(full_model_dir, entity, '%s_0001.pdb' % entity),
                       os.path.join(full_model_dir, '%s.pdb' % entity)]
@@ -1322,8 +1322,7 @@ if __name__ == '__main__':
                 break
 
             if load_resources:
-                logger.info('After completion of sbatch script(s), re-run your %s command:'
-                            '\n\t%s\nto finish set up of the designs of interest.'
+                logger.info('After completion of sbatch script(s), re-run your %s command:\n\t%s\n'
                             % (PUtils.program_name, ' '.join(sys.argv)))
                 terminate(args.module, design_directories, output=False)
                 # The next time this directory is initialized, there will be no refine files left... hopefully and while
