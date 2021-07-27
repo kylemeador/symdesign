@@ -2123,12 +2123,13 @@ class Entity(Chain, SequenceProfile):
                           'Modelling may be affected' % count)
         return to_file
 
-    def make_blueprint_file(self, out_path=os.getcwd()):
+    def make_blueprint_file(self, out_path=os.getcwd(), exclude_n_term=True):
         """Format a blueprint file according to Rosetta specifications
 
         Keyword Args:
             to_file=None (str): The name of the symmetry definition file
             out_path=os.getcwd() (str): The location the symmetry definition file should be written
+            exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
         Returns:
             (str): The location the blueprint file was written
         """
@@ -2152,55 +2153,65 @@ class Entity(Chain, SequenceProfile):
         #
         #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
 
+        # disorder_indices = list(disordered_residues.keys())
+        disorder_indices = []  # holds the indices that should be inserted into the total residues to be modelled
         start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
-        loop_start, loop_end = None, None
-        disorder_indices = list(disordered_residues.keys())
+        excluded_disorder, segment_length = 0, 0  # iterate each missing segment length, and total excluded disorder
+        loop_start, loop_end, n_term = None, None, False
         for idx, residue_number in enumerate(disordered_residues.keys(), 1):
-            if residue_number - 1 not in disorder_indices:
+            segment_length += 1
+            if residue_number - 1 not in disordered_residues:
                 # print('Residue number -1 not in loops', residue_number)
-                loop_start = residue_number - 1
+                loop_start = residue_number - 1 - excluded_disorder
                 if loop_start <= 0:
                     # disordered_residues[loop_start] = residues[loop_start]
                 # else:
                     # the disordered locations include the n-terminus, set start_idx to idx (should equal 1)
-                    start_idx = idx
-            if residue_number + 1 not in disorder_indices:  #  and residue_number + 1 < len(residues): <- doesn't matter
+                    # start_idx = idx
+                    n_term = True
+            if residue_number + 1 not in disordered_residues:  #  and residue_number + 1 < len(residues): <- doesn't matter
                 # print('Residue number +1 not in loops', residue_number)
-                loop_end = residue_number + 1
+                loop_end = residue_number + 1 - excluded_disorder
                 loop_length = loop_end - loop_start - 1  # offset
-                if loop_length <= max_loop_length:
-                    # print('Adding loop with length', loop_length)
-                    # print('Start index', start_idx)
-                    disorder_indices.extend([loop_start, loop_end])
-                    # disordered_residues[loop_start], disordered_residues[loop_end] = \
-                    #     residues[loop_start - 1], residues[loop_end - 1]  # offset index
-                    if start_idx == 1 and idx != 1:
-                        # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
-                        start_idx = idx
+                if loop_length <= max_loop_length:  # ensure modelling will be useful
+                    if exclude_n_term and n_term:  # check if the n_terminus should be included
+                        excluded_disorder += segment_length
+                    else:  # include the segment in the disorder_indices
+                        # print('Adding loop with length', loop_length)
+                        # print('Start index', start_idx)
+                        # disorder_indices.extend([loop_start, loop_end])
+                        disorder_indices.extend(range(loop_start, loop_end + 1))
+                        # disordered_residues[loop_start], disordered_residues[loop_end] = \
+                        #     residues[loop_start - 1], residues[loop_end - 1]  # offset index
+                        if n_term and idx != 1:
+                            # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
+                            start_idx = idx
+                else:
+                    excluded_disorder += segment_length
+                segment_length = 0
                 loop_start, loop_end = None, None
 
-        residues = self.residues
-        for residue_number in disorder_indices:  # for all indices to modify, add disordered residues if they exist
-            mutation = disordered_residues.get(residue_number)
-            if mutation:
-                residues.insert(residue_number - 1, mutation['from'])  # offset to match residues zero-index
-            # elif residue_number:
-            #     residues.insert(residue_number - 1, mutation['from'])  # offset to match residues zero-index
-
         if loop_start:  # when the insertion is at the c-termini
-            loop_end = len(residues)
+            loop_end = residue_number - excluded_disorder
             loop_length = loop_end - loop_start
             if loop_length <= max_loop_length:
                 # print('Adding terminal loop with length', loop_length)
-                disorder_indices.append(loop_start)
+                # disorder_indices.append(loop_start)
+                disorder_indices.extend(range(loop_start, loop_end + 1))
                 # disordered_residues[loop_start] = residues[loop_start - 1]
+
+        residues = self.residues
+        for residue_number in sorted(disorder_indices):  # ensure ascending order, insert is dependent on prior inserts
+            mutation = disordered_residues.get(residue_number)
+            if mutation:  # add disordered residues if they exist
+                residues.insert(residue_number - 1, mutation['from'])  # offset to match residues zero-index
 
         #              index AA SS Choice AA
         structure_str =   '%d %s %s'
         loop_str =        '%d X %s PIKAA %s'
         with open(out_file, 'w') as f:
-            # print('Disorder indices:', disorder_indices)
-            # print('Disorder residues:', list(disordered_residues.keys()))
+            print('Disorder indices :', sorted(disorder_indices))
+            print('Disorder residues:', list(disordered_residues.keys()))
             f.write('%s\n'
                     % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
                                                   'L' if idx in disorder_indices else '.')
