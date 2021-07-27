@@ -1,6 +1,6 @@
 """Add expression tags onto the termini of specific designs"""
 import csv
-from itertools import chain as iter_chain  # combinations,
+# from itertools import chain as iter_chain  # combinations,
 
 from Bio.Data.IUPACData import protein_letters
 
