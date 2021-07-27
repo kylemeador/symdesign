@@ -2182,9 +2182,9 @@ class Entity(Chain, SequenceProfile):
                         # print('Adding loop with length', loop_length)
                         # print('Start index', start_idx)
                         # disorder_indices.extend([loop_start, loop_end])
-                        for it, residue_index in enumerate(range(loop_start, loop_end)):
+                        for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
                             disorder_indices[residue_index] = residue_number - (segment_length - it)
-                        disorder_indices[loop_end] = loop_end
+                        disorder_indices[loop_start], disorder_indices[loop_end] = -1, -1  # out of bounds number
                         # disordered_residues[loop_start], disordered_residues[loop_end] = \
                         #     residues[loop_start - 1], residues[loop_end - 1]  # offset index
                         if n_term and idx != 1:
@@ -2203,9 +2203,9 @@ class Entity(Chain, SequenceProfile):
                 # print('Adding terminal loop with length', loop_length)
                 # disorder_indices.append(loop_start)
                 # disorder_indices.extend(range(loop_start, loop_end))  # NO +1 don't need to include final index in range
-                for it, residue_index in enumerate(range(loop_start, loop_end)):
+                for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
                     disorder_indices[residue_index] = residue_number - (segment_length - it)
-                disorder_indices[loop_end] = loop_end
+                disorder_indices[loop_start], disorder_indices[loop_end] = -1, -1  # out of bounds number
                 # disordered_residues[loop_start] = residues[loop_start - 1]
 
         residues = self.residues
@@ -2221,6 +2221,7 @@ class Entity(Chain, SequenceProfile):
         with open(out_file, 'w') as f:
             print('Disorder indices :', sorted(disorder_indices))
             print('Disorder residues:', list(disordered_residues.keys()))
+            print('Disorder idx_res :', disorder_indices.values())
             f.write('%s\n'
                     % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
                                                   'L' if idx in disorder_indices else '.')
