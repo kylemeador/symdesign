@@ -2152,16 +2152,12 @@ class Entity(Chain, SequenceProfile):
         #
         #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
 
-        residues = self.residues
-        for residue_number, mutation in disordered_residues.items():  # residue_number is one index
-            residues.insert(residue_number - 1, mutation['from'])  # offset to match residues zero-index
-
         start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
         loop_start, loop_end = None, None
         disorder_indices = list(disordered_residues.keys())
         for idx, residue_number in enumerate(disorder_indices.copy(), 1):
             if residue_number - 1 not in disorder_indices:
-                print('Residue number -1 not in loops', residue_number)
+                # print('Residue number -1 not in loops', residue_number)
                 loop_start = residue_number - 1
                 if loop_start <= 0:
                     # disordered_residues[loop_start] = residues[loop_start]
@@ -2169,12 +2165,12 @@ class Entity(Chain, SequenceProfile):
                     # the disordered locations include the n-terminus, set start_idx to idx (should equal 1)
                     start_idx = idx
             if residue_number + 1 not in disorder_indices:  #  and residue_number + 1 < len(residues): <- doesn't matter
-                print('Residue number +1 not in loops', residue_number)
+                # print('Residue number +1 not in loops', residue_number)
                 loop_end = residue_number + 1
                 loop_length = loop_end - loop_start - 1  # offset
                 if loop_length <= max_loop_length:
-                    print('Adding loop with length', loop_length)
-                    print('Start index', start_idx)
+                    # print('Adding loop with length', loop_length)
+                    # print('Start index', start_idx)
                     disorder_indices.extend([loop_start, loop_end])
                     # disordered_residues[loop_start], disordered_residues[loop_end] = \
                     #     residues[loop_start - 1], residues[loop_end - 1]  # offset index
@@ -2182,17 +2178,22 @@ class Entity(Chain, SequenceProfile):
                         # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
                         start_idx = idx
                 loop_start, loop_end = None, None
+
+        residues = self.residues
+        for residue_number in set(disorder_indices).intersection(disordered_residues.keys()):  # residue_number is one index
+            residues.insert(residue_number - 1, disordered_residues[residue_number]['from'])  # offset to match residues zero-index
+
         if loop_start:  # when the insertion is at the c-termini
             loop_end = len(residues)
             loop_length = loop_end - loop_start
             if loop_length <= max_loop_length:
-                print('Adding terminal loop with length', loop_length)
+                # print('Adding terminal loop with length', loop_length)
                 disorder_indices.append(loop_start)
                 # disordered_residues[loop_start] = residues[loop_start - 1]
 
         #              index AA SS Choice AA
-        loop_str =        '%d X %s PIKAA %s'
         structure_str =   '%d %s %s'
+        loop_str =        '%d X %s PIKAA %s'
         with open(out_file, 'w') as f:
             print('Disorder indices:', disorder_indices)
             print('Disorder residues:', list(disordered_residues.keys()))
