@@ -2154,7 +2154,8 @@ class Entity(Chain, SequenceProfile):
         #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
 
         # disorder_indices = list(disordered_residues.keys())
-        disorder_indices = []  # holds the indices that should be inserted into the total residues to be modelled
+        # disorder_indices = []  # holds the indices that should be inserted into the total residues to be modelled
+        disorder_indices = {}  # holds the indices that should be inserted into the total residues to be modelled
         start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
         excluded_disorder, segment_length = 0, 0  # iterate each missing segment length, and total excluded disorder
         loop_start, loop_end, n_term = None, None, False
@@ -2172,8 +2173,8 @@ class Entity(Chain, SequenceProfile):
             if residue_number + 1 not in disordered_residues:  #  and residue_number + 1 < len(residues): <- doesn't matter
                 # print('Residue number +1 not in loops', residue_number)
                 loop_end = residue_number + 1 - excluded_disorder
-                loop_length = loop_end - loop_start - 1  # offset
-                if loop_length <= max_loop_length:  # ensure modelling will be useful
+                # loop_length = loop_end - loop_start - 1  # offset
+                if segment_length <= max_loop_length:  # ensure modelling will be useful
                     if exclude_n_term and n_term:  # check if the n_terminus should be included
                         excluded_disorder += segment_length
                         n_term = False
@@ -2181,7 +2182,8 @@ class Entity(Chain, SequenceProfile):
                         # print('Adding loop with length', loop_length)
                         # print('Start index', start_idx)
                         # disorder_indices.extend([loop_start, loop_end])
-                        disorder_indices.extend(range(loop_start, loop_end + 1))
+                        for it, index in enumerate(range(loop_start, loop_end + 1), 1):
+                            disorder_indices[index] = residue_number - (segment_length - it)
                         # disordered_residues[loop_start], disordered_residues[loop_end] = \
                         #     residues[loop_start - 1], residues[loop_end - 1]  # offset index
                         if n_term and idx != 1:
@@ -2192,21 +2194,24 @@ class Entity(Chain, SequenceProfile):
                 segment_length = 0
                 loop_start, loop_end = None, None
 
-        if loop_start:  # when the insertion is at the c-termini
+        if loop_start:  # when the insertion is at the c-termini, we must've hit a residue_number that didn't complete
             # loop_end = residue_number - excluded_disorder
             loop_end = loop_start + segment_length - excluded_disorder
-            loop_length = loop_end - loop_start
-            if loop_length <= max_loop_length:
+            # loop_length = loop_end - loop_start
+            if segment_length <= max_loop_length:
                 # print('Adding terminal loop with length', loop_length)
                 # disorder_indices.append(loop_start)
-                disorder_indices.extend(range(loop_start, loop_end))  # NO +1 don't need to include final index in range
+                # disorder_indices.extend(range(loop_start, loop_end))  # NO +1 don't need to include final index in range
+                for it, index in enumerate(range(loop_start, loop_end + 1), 1):
+                    disorder_indices[index] = residue_number - (segment_length - it)
                 # disordered_residues[loop_start] = residues[loop_start - 1]
 
         residues = self.residues
-        for residue_number in sorted(disorder_indices):  # ensure ascending order, insert is dependent on prior inserts
-            mutation = disordered_residues.get(residue_number)
+        # for residue_number in sorted(disorder_indices):  # ensure ascending order, insert is dependent on prior inserts
+        for residue_index, disordered_index in disorder_indices.items():  # ensure ascending order, insert is dependent on prior inserts
+            mutation = disordered_residues.get(disordered_index)
             if mutation:  # add disordered residues if they exist
-                residues.insert(residue_number - 1, mutation['from'])  # offset to match residues zero-index
+                residues.insert(residue_index - 1, mutation['from'])  # offset to match residues zero-index
 
         #              index AA SS Choice AA
         structure_str =   '%d %s %s'
