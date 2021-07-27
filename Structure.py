@@ -2134,14 +2134,14 @@ class Entity(Chain, SequenceProfile):
         """
         max_loop_length = 12  # 12 is the max length for accurate KIC
         out_file = os.path.join(out_path, '%s.blueprint' % self.name)
-        loop_model_locations = self.disorder  # {residue_number: {'from': ,'to': }, ...}
+        disordered_residues = self.disorder  # {residue_number: {'from': ,'to': }, ...}
         # trying to remove tags at this stage runs into a serious indexing problem where tags need to be deleted from
-        # loop_model_locations and then all subsequent indices adjusted.
+        # disordered_residues and then all subsequent indices adjusted.
 
         # # look for existing tag to remove from sequence and save identity
         # available_tags = find_expression_tags(self.reference_sequence)
         # if available_tags:
-        #     loop_sequences = ''.join(mutation['from'] for mutation in loop_model_locations)
+        #     loop_sequences = ''.join(mutation['from'] for mutation in disordered_residues)
         #     remove_loop_pairs = []
         #     for tag in available_tags:
         #         tag_location = loop_sequences.find(tag['sequences'])
@@ -2153,46 +2153,54 @@ class Entity(Chain, SequenceProfile):
         #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
 
         residues = self.residues
-        for residue_number, mutation in loop_model_locations.items():
-            residues.insert(residue_number - 1, mutation['from'])  # offset residue_number to match residues index
+        for residue_number, mutation in disordered_residues.items():  # residue_number is one index
+            residues.insert(residue_number - 1, mutation['from'])  # offset to match residues zero-index
 
         start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
         loop_start, loop_end = None, None
-        start_loop_locations = list(loop_model_locations.keys())
-        for idx, residue_number in enumerate(start_loop_locations, 1):
-            if residue_number - 1 not in start_loop_locations:
+        disorder_indices = list(disordered_residues.keys())
+        for idx, residue_number in enumerate(disorder_indices.copy(), 1):
+            if residue_number - 1 not in disorder_indices:
                 print('Residue number -1 not in loops', residue_number)
                 loop_start = residue_number - 1
                 if loop_start <= 0:
-                    # loop_model_locations[loop_start] = residues[loop_start]
+                    # disordered_residues[loop_start] = residues[loop_start]
                 # else:
                     # the disordered locations include the n-terminus, set start_idx to idx (should equal 1)
                     start_idx = idx
-            if residue_number + 1 not in start_loop_locations and residue_number + 1 < len(residues):
+            if residue_number + 1 not in disorder_indices:  #  and residue_number + 1 < len(residues): <- doesn't matter
                 print('Residue number +1 not in loops', residue_number)
                 loop_end = residue_number + 1
                 loop_length = loop_end - loop_start - 1  # offset
                 if loop_length <= max_loop_length:
-                    print('Adding loop length', loop_length)
+                    print('Adding loop with length', loop_length)
                     print('Start index', start_idx)
-                    loop_model_locations[loop_start], loop_model_locations[loop_end] = \
-                        residues[loop_start - 1], residues[loop_end - 1]  # offset index
+                    disorder_indices.extend([loop_start, loop_end])
+                    # disordered_residues[loop_start], disordered_residues[loop_end] = \
+                    #     residues[loop_start - 1], residues[loop_end - 1]  # offset index
                     if start_idx == 1 and idx != 1:
                         # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
                         start_idx = idx
                 loop_start, loop_end = None, None
-        if loop_start:
-            loop_model_locations[loop_start] = residues[loop_start - 1]
+        if loop_start:  # when the insertion is at the c-termini
+            loop_end = len(residues)
+            loop_length = loop_end - loop_start
+            if loop_length <= max_loop_length:
+                print('Adding terminal loop with length', loop_length)
+                disorder_indices.append(loop_start)
+                # disordered_residues[loop_start] = residues[loop_start - 1]
 
         #              index AA SS Choice AA
         loop_str =        '%d X %s PIKAA %s'
         structure_str =   '%d %s %s'
         with open(out_file, 'w') as f:
+            print('Disorder indices:', disorder_indices)
+            print('Disorder residues:', list(disordered_residues.keys))
             f.write('%s\n'
                     % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
-                                                  'L' if idx in loop_model_locations else '.')
+                                                  'L' if idx in disorder_indices else '.')
                                  if isinstance(residue, Residue)
-                                 else loop_str % (1 if idx <= start_idx else 0, 'L', residue)  # loop_model_locations[idx]['from']
+                                 else loop_str % (1 if idx <= start_idx else 0, 'L', residue)  # disordered_residues[idx]['from']
                                  for idx, residue in enumerate(residues, 1)]))
         return out_file
 
