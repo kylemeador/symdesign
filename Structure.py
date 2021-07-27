@@ -2158,18 +2158,23 @@ class Entity(Chain, SequenceProfile):
 
         start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
         loop_start, loop_end = None, None
-        for idx, (residue_number, mutation) in enumerate(list(loop_model_locations.items()), 1):
-            if residue_number - 1 not in loop_model_locations:
+        start_loop_locations = list(loop_model_locations.keys())
+        for idx, residue_number in enumerate(start_loop_locations, 1):
+            if residue_number - 1 not in start_loop_locations:
+                print('Residue number -1 not in loops', residue_number)
                 loop_start = residue_number - 1
                 if loop_start < 0:
                     # loop_model_locations[loop_start] = residues[loop_start]
                 # else:
                     # the disordered locations include the n-terminus, set start_idx to idx (should equal 1)
                     start_idx = idx
-            if residue_number + 1 not in loop_model_locations and residue_number + 1 < len(residues):
+            if residue_number + 1 not in start_loop_locations and residue_number + 1 < len(residues):
+                print('Residue number +1 not in loops', residue_number)
                 loop_end = residue_number + 1
                 loop_length = loop_end - loop_start
                 if loop_length <= max_loop_length:
+                    print('Adding loop length', loop_length)
+                    print('Start index', start_idx)
                     loop_model_locations[loop_start], loop_model_locations[loop_end] = \
                         residues[loop_start - 1], residues[loop_end - 1]  # offset index
                     if start_idx == 1 and idx != 1:
@@ -2182,7 +2187,7 @@ class Entity(Chain, SequenceProfile):
         structure_str =   '%d %s %s'
         with open(out_file, 'w') as f:
             f.write('%s\n'
-                    % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type),
+                    % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
                                                   'L' if idx in loop_model_locations else '.')
                                  if isinstance(residue, Residue)
                                  else loop_str % (1 if idx <= start_idx else 0, 'L', residue)  # loop_model_locations[idx]['from']
