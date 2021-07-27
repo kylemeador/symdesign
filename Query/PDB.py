@@ -121,10 +121,11 @@ def validate_type(value, dtype=str):
 
 
 def boolean_choice():
-    """Provide a user prompt to ensure the user input is what is desired
+    """Retrieve user input from a requested prompt to control desired program flow. Ex prompt: Please specify [y/n]
 
     Returns:
-        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
+        (bool): A True value indicates the user wants to proceed. False indicates we do not want to proceed, possibly
+            gathering user input again or declining an option
     """
     while True:
         confirm = input(boolean_input_string).lower()
