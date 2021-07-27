@@ -1219,8 +1219,8 @@ if __name__ == '__main__':
                         if orient_asu_file not in refine_files:
                             oligomers_to_refine.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
                         if orient_asu_file not in full_model_files:
-                            # olgomers_to_loop_model.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
-                            olgomers_to_loop_model[base_pdb_code] = (os.path.join(orient_asu_dir, orient_asu_file), symmetry)
+                            # olgomers_to_loop_model.add((os.path.join(refine_dir, orient_asu_file), symmetry))
+                            olgomers_to_loop_model[base_pdb_code] = (os.path.join(refine_dir, orient_asu_file), symmetry)
 
             while oligomers_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
