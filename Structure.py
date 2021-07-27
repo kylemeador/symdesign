@@ -2176,6 +2176,7 @@ class Entity(Chain, SequenceProfile):
                 if loop_length <= max_loop_length:  # ensure modelling will be useful
                     if exclude_n_term and n_term:  # check if the n_terminus should be included
                         excluded_disorder += segment_length
+                        n_term = False
                     else:  # include the segment in the disorder_indices
                         # print('Adding loop with length', loop_length)
                         # print('Start index', start_idx)
@@ -2185,7 +2186,7 @@ class Entity(Chain, SequenceProfile):
                         #     residues[loop_start - 1], residues[loop_end - 1]  # offset index
                         if n_term and idx != 1:
                             # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
-                            start_idx = idx
+                            start_idx = loop_end  # idx
                 else:
                     excluded_disorder += segment_length
                 segment_length = 0
@@ -2216,7 +2217,7 @@ class Entity(Chain, SequenceProfile):
                     % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
                                                   'L' if idx in disorder_indices else '.')
                                  if isinstance(residue, Residue)
-                                 else loop_str % (1 if idx <= start_idx else 0, 'L', residue)  # disordered_residues[idx]['from']
+                                 else loop_str % (1 if idx < start_idx else 0, 'L', residue)  # disordered_residues[idx]['from']
                                  for idx, residue in enumerate(residues, 1)]))
         return out_file
 
