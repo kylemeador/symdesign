@@ -77,6 +77,14 @@
 
 		<MultiplePoseMover name="filter_design_pool" max_input_poses="500">
             <ROSETTASCRIPTS>
+                <SCOREFXNS>
+	                <ScoreFunction name="2015_cst" weights="ref2015_cst"/>
+                </SCOREFXNS>
+
+                <RESIDUE_SELECTORS>
+		            <True name="full_pose"/>
+	            </RESIDUE_SELECTORS>
+
                 <SIMPLE_METRICS>
                     <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scoretype="linear_chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
                     <ResidueSummaryMetric name="M_chain_break_energy" custom_type="" metric="M_chain_break_energy_per_residue" action="sum"/>
