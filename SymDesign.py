@@ -2115,11 +2115,11 @@ if __name__ == '__main__':
                 selected_tag = {}
                 available_tags = find_expression_tags(formatted_design_sequence)
                 if available_tags:  # look for existing tag to remove from sequence and save identity
-                    if available_tags:
-                        tag_names, tag_termini, ind_tag_sequences = zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                                                          for tag in available_tags])
-                    else:
-                        tag_names, tag_termini, ind_tag_sequences = [], [], []
+                    # if available_tags:
+                    tag_names, tag_termini, ind_tag_sequences = \
+                        zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
+                    # else:
+                    #     tag_names, tag_termini, ind_tag_sequences = [], [], []
                     try:
                         preferred_tag_index = tag_names.index(args.preferred_tag)
                         if tag_termini[preferred_tag_index] in true_termini:
