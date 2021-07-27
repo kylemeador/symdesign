@@ -1292,6 +1292,7 @@ if __name__ == '__main__':
                 loop_model_cmd = ['@%s' % flags_file, '-parser:protocol',
                                   os.path.join(PUtils.rosetta_scripts, 'loop_model_ensemble.xml'),
                                   '-parser:script_vars']
+                logger.info('Preparing blueprint files and modelling commands')
                 loop_model_cmds = \
                     [script_cmd + loop_model_cmd +
                      ['blueprint=%s' % all_entities[entity].make_blueprint_file(out_path=full_model_dir), '-in:file:s',
