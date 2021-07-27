@@ -1220,7 +1220,7 @@ if __name__ == '__main__':
                             oligomers_to_refine.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
                         if orient_asu_file not in full_model_files:
                             # olgomers_to_loop_model.add((os.path.join(refine_dir, orient_asu_file), symmetry))
-                            olgomers_to_loop_model[base_pdb_code] = (os.path.join(refine_dir, orient_asu_file), symmetry)
+                            olgomers_to_loop_model[base_pdb_code] = symmetry
 
             while oligomers_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
@@ -1278,7 +1278,7 @@ if __name__ == '__main__':
                         break
                 # Generate sbatch refine command
                 flags_file = os.path.join(full_model_dir, 'loop_model_flags')
-                if not os.path.exists(flags_file):
+                if not os.path.exists(flags_file) or args.force_flags:
                     loop_model_flags = \
                         ['-remodel:quick_and_dirty', '-remodel::save_top 0',  # '-remodel:run_confirmation true',
                          '-run:chain A', '-remodel:num_trajectory 1']
@@ -1292,18 +1292,26 @@ if __name__ == '__main__':
                 loop_model_cmd = ['@%s' % flags_file, '-parser:protocol',
                                   os.path.join(PUtils.rosetta_scripts, 'loop_model_ensemble.xml'),
                                   '-parser:script_vars']
-                logger.info('Preparing blueprint files and modelling commands')
+                # Make all output paths and files for each loop ensemble
+                logger.info('Preparing blueprint and loop files for entity:')
+                out_paths, blueprints, loop_files = [], [], []
+                for entity in olgomers_to_loop_model:
+                    print(entity)
+                    entity_out_path = os.path.join(full_model_dir, entity)
+                    master_directory.make_path(entity_out_path)
+                    out_paths.append(entity_out_path)
+                    blueprints.append(all_entities[entity].make_blueprint_file(out_path=full_model_dir))
+
                 loop_model_cmds = \
                     [script_cmd + loop_model_cmd +
-                     ['blueprint=%s' % all_entities[entity].make_blueprint_file(out_path=full_model_dir), '-in:file:s',
-                      orient_asu_file, '-symmetry::symmetry_definition', sym_def_files[sym], '-out:path:pdb',
-                      os.path.join(full_model_dir, entity),
-                      '&&', 'python', PUtils.models_to_multimodel_exe, '-d', os.path.join(full_model_dir, entity),
-                      '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity),
-                      '&&', 'scp', os.path.join(full_model_dir, entity, '%s_0001.pdb' % entity),
+                     ['blueprint=%s' % blueprints[idx], '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity),
+                      '-symmetry:symmetry_definition', sym_def_files[sym], '-out:path:pdb', out_paths[idx], '&&'] +
+                     ['python', PUtils.models_to_multimodel_exe, '-d', out_paths[idx],
+                      '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity), '&&'] +
+                     ['scp', os.path.join(out_paths[idx], '%s_0001.pdb' % entity),
                       os.path.join(full_model_dir, '%s.pdb' % entity)]
-                     for entity, (orient_asu_file, sym) in olgomers_to_loop_model.items()]
-                loop_cmds_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in loop_model_cmds],
+                     for idx, (entity, sym) in enumerate(olgomers_to_loop_model.items())]
+                loop_cmds_file = SDUtils.write_commands(list(map(list2cmdline, loop_model_cmds)),
                                                         name='loop_model_entities_%s' % timestamp,
                                                         out_path=full_model_dir)
                 loop_model_sbatch = distribute(file=loop_cmds_file, out_path=master_directory.sbatch_scripts,
