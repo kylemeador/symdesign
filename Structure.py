@@ -2132,7 +2132,7 @@ class Entity(Chain, SequenceProfile):
         Returns:
             (str): The location the blueprint file was written
         """
-        max_loop_length = 14  # 12 is the max length plus 1 for each overlapping end
+        max_loop_length = 12  # 12 is the max length for accurate KIC
         out_file = os.path.join(out_path, '%s.blueprint' % self.name)
         loop_model_locations = self.disorder  # {residue_number: {'from': ,'to': }, ...}
         # trying to remove tags at this stage runs into a serious indexing problem where tags need to be deleted from
@@ -2163,7 +2163,7 @@ class Entity(Chain, SequenceProfile):
             if residue_number - 1 not in start_loop_locations:
                 print('Residue number -1 not in loops', residue_number)
                 loop_start = residue_number - 1
-                if loop_start < 0:
+                if loop_start <= 0:
                     # loop_model_locations[loop_start] = residues[loop_start]
                 # else:
                     # the disordered locations include the n-terminus, set start_idx to idx (should equal 1)
@@ -2171,7 +2171,7 @@ class Entity(Chain, SequenceProfile):
             if residue_number + 1 not in start_loop_locations and residue_number + 1 < len(residues):
                 print('Residue number +1 not in loops', residue_number)
                 loop_end = residue_number + 1
-                loop_length = loop_end - loop_start
+                loop_length = loop_end - loop_start - 1  # offset
                 if loop_length <= max_loop_length:
                     print('Adding loop length', loop_length)
                     print('Start index', start_idx)
