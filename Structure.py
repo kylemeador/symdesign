@@ -13,6 +13,7 @@ from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_le
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl
+# from ProteinExpression import find_expression_tags, remove_expression_tags
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
@@ -2134,6 +2135,22 @@ class Entity(Chain, SequenceProfile):
         max_loop_length = 14  # 12 is the max length plus 1 for each overlapping end
         out_file = os.path.join(out_path, '%s.blueprint' % self.name)
         loop_model_locations = self.disorder  # {residue_number: {'from': ,'to': }, ...}
+        # trying to remove tags at this stage runs into a serious indexing problem where tags need to be deleted from
+        # loop_model_locations and then all subsequent indices adjusted.
+
+        # # look for existing tag to remove from sequence and save identity
+        # available_tags = find_expression_tags(self.reference_sequence)
+        # if available_tags:
+        #     loop_sequences = ''.join(mutation['from'] for mutation in loop_model_locations)
+        #     remove_loop_pairs = []
+        #     for tag in available_tags:
+        #         tag_location = loop_sequences.find(tag['sequences'])
+        #         if tag_location != -1:
+        #             remove_loop_pairs.append((tag_location, len(tag['sequences'])))
+        #     for tag_start, tag_length in remove_loop_pairs:
+        #         for
+        #
+        #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
 
         residues = self.residues
         for residue_number, mutation in loop_model_locations.items():
