@@ -2155,7 +2155,7 @@ class Entity(Chain, SequenceProfile):
         start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
         loop_start, loop_end = None, None
         disorder_indices = list(disordered_residues.keys())
-        for idx, residue_number in enumerate(disorder_indices.copy(), 1):
+        for idx, residue_number in enumerate(disordered_residues.keys(), 1):
             if residue_number - 1 not in disorder_indices:
                 # print('Residue number -1 not in loops', residue_number)
                 loop_start = residue_number - 1
@@ -2180,8 +2180,12 @@ class Entity(Chain, SequenceProfile):
                 loop_start, loop_end = None, None
 
         residues = self.residues
-        for residue_number in set(disorder_indices).intersection(disordered_residues.keys()):  # residue_number is one index
-            residues.insert(residue_number - 1, disordered_residues[residue_number]['from'])  # offset to match residues zero-index
+        for residue_number in disorder_indices:  # for all indices to modify, add disordered residues if they exist
+            mutation = disordered_residues.get(residue_number)
+            if mutation:
+                residues.insert(residue_number - 1, mutation['from'])  # offset to match residues zero-index
+            # elif residue_number:
+            #     residues.insert(residue_number - 1, mutation['from'])  # offset to match residues zero-index
 
         if loop_start:  # when the insertion is at the c-termini
             loop_end = len(residues)
@@ -2195,8 +2199,8 @@ class Entity(Chain, SequenceProfile):
         structure_str =   '%d %s %s'
         loop_str =        '%d X %s PIKAA %s'
         with open(out_file, 'w') as f:
-            print('Disorder indices:', disorder_indices)
-            print('Disorder residues:', list(disordered_residues.keys()))
+            # print('Disorder indices:', disorder_indices)
+            # print('Disorder residues:', list(disordered_residues.keys()))
             f.write('%s\n'
                     % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
                                                   'L' if idx in disorder_indices else '.')
