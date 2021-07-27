@@ -2129,7 +2129,7 @@ class Entity(Chain, SequenceProfile):
             to_file=None (str): The name of the symmetry definition file
             out_path=os.getcwd() (str): The location the symmetry definition file should be written
         Returns:
-            (str): The location the symmetry definition file was written
+            (str): The location the blueprint file was written
         """
         max_loop_length = 14  # 12 is the max length plus 1 for each overlapping end
         out_file = os.path.join(out_path, '%s.blueprint' % self.name)
@@ -2137,8 +2137,7 @@ class Entity(Chain, SequenceProfile):
 
         residues = self.residues
         for residue_number, mutation in loop_model_locations.items():
-            # logger.debug('Inserting %s into position %d' % (mutation['from'], residue_number))
-            residues.insert(residue_number, mutation['from'])
+            residues.insert(residue_number - 1, mutation['from'])  # offset residue_number to match residues index
 
         start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
         loop_start, loop_end = None, None
@@ -2155,7 +2154,7 @@ class Entity(Chain, SequenceProfile):
                 loop_length = loop_end - loop_start
                 if loop_length <= max_loop_length:
                     loop_model_locations[loop_start], loop_model_locations[loop_end] = \
-                        residues[loop_start], residues[loop_end]
+                        residues[loop_start - 1], residues[loop_end - 1]  # offset index
                     if start_idx == 1 and idx != 1:
                         # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
                         start_idx = idx
@@ -2166,10 +2165,12 @@ class Entity(Chain, SequenceProfile):
         structure_str =   '%d %s %s'
         with open(out_file, 'w') as f:
             f.write('%s\n'
-                    % ''.join([structure_str % (residue.number, residue.type, 'L' if idx in loop_model_locations else '.')
-                               if isinstance(residue, Residue)
-                               else loop_str % (1 if idx <= start_idx else 0, 'L', residue)  # loop_model_locations[idx]['from']
-                               for idx, residue in enumerate(residues, 1)]))
+                    % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type),
+                                                  'L' if idx in loop_model_locations else '.')
+                                 if isinstance(residue, Residue)
+                                 else loop_str % (1 if idx <= start_idx else 0, 'L', residue)  # loop_model_locations[idx]['from']
+                                 for idx, residue in enumerate(residues, 1)]))
+        return out_file
 
     # def update_attributes(self, **kwargs):
     #     """Update attributes specified by keyword args for all member containers"""
