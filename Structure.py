@@ -2195,7 +2195,7 @@ class Entity(Chain, SequenceProfile):
         structure_str =   '%d %s %s'
         with open(out_file, 'w') as f:
             print('Disorder indices:', disorder_indices)
-            print('Disorder residues:', list(disordered_residues.keys))
+            print('Disorder residues:', list(disordered_residues.keys()))
             f.write('%s\n'
                     % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
                                                   'L' if idx in disorder_indices else '.')
