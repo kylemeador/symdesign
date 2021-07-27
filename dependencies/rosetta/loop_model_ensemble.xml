@@ -31,7 +31,7 @@
 	</RESIDUE_SELECTORS>
 
     <MOVERS>
-        <ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>
+<!--        <ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>-->
         # Generates symmetry for the system in question using %%sdf%% or %%dist%%
 <!--        <SetupForSymmetry name="make_point_group" definition="%%sdf%%"/>-->
 <!--        <MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>-->
@@ -41,7 +41,40 @@
         # Pull subroutines in from other files
         # Symmetry selector
 <!--        <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%"/>-->
+<!--        <MultiplePoseMover name="multi_loop_remodel" max_input_poses="250"> # scale to 250-500 after testing-->
+<!--			<SCOREFXNS>-->
+<!--				<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>-->
+<!--				<ScoreFunction name="2015" weights="ref2015"/>-->
+<!--				<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>-->
+<!--				<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>-->
+<!--			</SCOREFXNS>-->
+<!--			-->
+<!--			<MOVERS>-->
+<!--				<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%"/>-->
+<!--			</MOVERS>-->
 
+<!--			<PROTOCOLS>-->
+<!--       			<Add mover_name="remodel_missing_loops"/>-->
+<!--    		</PROTOCOLS>-->
+<!--		</MultiplePoseMover>-->
+
+		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="500">
+			<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%"/>
+		</MultipleOutputWrapper>
+
+		<MultiplePoseMover name="trim_design_pool" max_input_poses="500">
+			<SELECT>
+<!--				<AndSelector>-->
+				<TopNByProperty n="20" order="ascending">
+					<EnergyReporter scorefunction="ref2015_cst"/>  # SCOREFUNCTION is not from named functions above! term="total_score"
+<!--						<FilterReporter filter="read_sc_hbnet_core"/>-->
+				</TopNByProperty>
+<!--					<TopNByProperty n="100" order="ascending">-->
+<!--&lt;!&ndash;						<FilterReporter filter="read_interaction_energy_density_filter"/>&ndash;&gt;-->
+<!--					</TopNByProperty>-->
+<!--				</AndSelector>-->
+			</SELECT>
+		</MultiplePoseMover>
     </MOVERS>
 
     <FILTERS>
@@ -58,12 +91,12 @@
 	</MOVERS>
 
     <PROTOCOLS>
-<!--        <Add filter_name="time" report_at_end="false"/>-->
-        <Add mover_name="measure_entity"/> # removes non-entity positions
+<!--        <Add mover_name="measure_entity"/> # removes non-entity positions-->
 <!--		<Add mover_name="symmetry"/> # symmetrize entity-->
 <!--        <Add mover_name="modeler"/>-->
-        <Add mover_name="remodel_missing_loops"/>
-        <Add filter_name="time"/>
+<!--        <Add mover_name="remodel_missing_loops"/>-->
+        <Add mover_name="multi_loop_remodel"/>
+        <Add mover_name="trim_design_pool"/>
     </PROTOCOLS>
 
 </ROSETTASCRIPTS>
