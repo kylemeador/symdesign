@@ -2193,12 +2193,13 @@ class Entity(Chain, SequenceProfile):
                 loop_start, loop_end = None, None
 
         if loop_start:  # when the insertion is at the c-termini
-            loop_end = residue_number - excluded_disorder
+            # loop_end = residue_number - excluded_disorder
+            loop_end = loop_start + segment_length - excluded_disorder
             loop_length = loop_end - loop_start
             if loop_length <= max_loop_length:
                 # print('Adding terminal loop with length', loop_length)
                 # disorder_indices.append(loop_start)
-                disorder_indices.extend(range(loop_start, loop_end + 1))
+                disorder_indices.extend(range(loop_start, loop_end))  # NO +1 don't need to include final index in range
                 # disordered_residues[loop_start] = residues[loop_start - 1]
 
         residues = self.residues
