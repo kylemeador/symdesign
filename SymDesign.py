@@ -1224,7 +1224,7 @@ if __name__ == '__main__':
 
             while oligomers_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
-                            ' into the Rosetta ScoreFunction for optimized sequence design:\n\t%s'
+                            ' into the Rosetta ScoreFunction for optimized sequence design: %s'
                             % ', '.join([os.path.splitext(os.path.basename(file))[0]
                                          for file, sym in oligomers_to_refine]))
                 print('Would you like to refine them now? If you plan on performing sequence design with models '
@@ -1268,7 +1268,7 @@ if __name__ == '__main__':
 
             while olgomers_to_loop_model:
                 logger.info('The following structures have not been modelled for disorder. Missing loops will '
-                            'be built for optimized sequence design:\n\t%s' % ', '.join(olgomers_to_loop_model))
+                            'be built for optimized sequence design: %s' % ', '.join(olgomers_to_loop_model))
                 print('Would you like to model loops for these structures now? If you plan on performing sequence '
                       'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
                 if not boolean_choice():
