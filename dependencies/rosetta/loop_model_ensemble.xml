@@ -37,6 +37,12 @@
 <!--        <TotalEnergyMetric name="M_chain_break_energy" residue_selector="full_pose" scorefxn="2015_cst" custom_type="" force_rescore="false"/>-->
     </SIMPLE_METRICS>
 
+    <FILTERS>
+        <Time name="time"/>
+        <ReadPoseExtraScoreFilter name="read_chain_break_energy" term_name="chain_break_energy" threshold="-1"/>
+        <SimpleMetricFilter name="F_chain_break_energy" metric="M_chain_break_energy" comparison_type="lt" cutoff="10" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+    </FILTERS>
+
     <MOVERS>
 <!--        <ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>-->
         # Generates symmetry for the system in question using %%sdf%% or %%dist%%
@@ -65,7 +71,7 @@
 <!--    		</PROTOCOLS>-->
 <!--		</MultiplePoseMover>-->
 
-		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="500">
+		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="250">
 			<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%"/>
 		</MultipleOutputWrapper>
 
@@ -86,12 +92,6 @@
 		</MultiplePoseMover>
         <FilterReportAsPoseExtraScoresMover name="RP_chain_break_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
     </MOVERS>
-
-    <FILTERS>
-        <Time name="time"/>
-        <ReadPoseExtraScoreFilter name="read_chain_break_energy" term_name="chain_break_energy" threshold="-1"/>
-        <SimpleMetricFilter name="F_chain_break_energy" metric="M_chain_break_energy" comparison_type="lt" cutoff="10" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
-    </FILTERS>
 
 <!--	# Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%-->
 <!--	<FILTERS>-->
