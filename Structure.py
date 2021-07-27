@@ -2181,6 +2181,8 @@ class Entity(Chain, SequenceProfile):
                         # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
                         start_idx = idx
                 loop_start, loop_end = None, None
+        if loop_start:
+            loop_model_locations[loop_start] = residues[loop_start - 1]
 
         #              index AA SS Choice AA
         loop_str =        '%d X %s PIKAA %s'
