@@ -126,7 +126,8 @@
 		</MultiplePoseMover>
         <FilterReportAsPoseExtraScoresMover name="RP_chain_break_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
 
-        <RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>
+<!--        <RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>-->
+        <LoopMoverFromCommandLine name="remodel_missing_loops" loop_file="%%loop_file%%" protocol="automatic" perturb_score="score4L" refine_score="ref2015_cst" perturb="0" refine="no" remodel="quick_ccd" relax="no" intermedrelax="no"/>
         <LoopModeler name="kic_modeller" loops_file="%%loop_file%%">
             <Build skip="yes"/>
             <Fullatom skip="yes"/>
