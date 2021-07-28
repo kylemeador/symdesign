@@ -28,7 +28,8 @@
 <!--		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding-->
 <!--		<HBond name="interface_hbond_residues" residue_selector="entity_interface_residues" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>-->
 <!--		# all residues-->
-		<True name="full_pose"/>
+		<Index name="n_term" resnums="1" error_on_out_of_bounds_index="0" reverse="0"/>
+        <True name="full_pose"/>
 	</RESIDUE_SELECTORS>
 
     <SIMPLE_METRICS>
@@ -69,7 +70,10 @@
 <!--       			<Add mover_name="remodel_missing_loops"/>-->
 <!--    		</PROTOCOLS>-->
 <!--		</MultiplePoseMover>-->
-
+        <PeptideStubMover name="insert_fake_n_term"> # reset="0"
+        	<Append resname="GLY"/> # anchor_rsd="1" repeat="1" jump="false" connecting_atom=”atom type”
+        </PeptideStubMover>
+        <ConvertRealToVirtualMover name="remove_temporary_n_termini" residue_selector="n_term"/>
 		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="250">
 			<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>
 		</MultipleOutputWrapper>
@@ -151,6 +155,8 @@
 <!--        <Add mover_name="remodel_missing_loops"/>-->
 
         # for MultipleOutputWrapper = number of ensemble
+        <Add mover_name="insert_fake_n_term"/>
+        <Add mover_name="remove_temporary_n_termini"/>
         <Add mover_name="multi_loop_remodel"/>
 <!--        <Add mover_name="filter_design_pool"/>-->
         <Add mover_name="trim_design_pool"/>
