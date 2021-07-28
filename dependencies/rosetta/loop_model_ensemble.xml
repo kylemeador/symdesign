@@ -109,8 +109,9 @@
 			<SELECT>
 <!--				<AndSelector>-->
 				<TopNByProperty n="20" order="ascending">
+                    <EnergyReporter scorefunction="ref2015_cst" term="total"/>
 <!--					<EnergyReporter scorefunction="ref2015_cst"/>  # SCOREFUNCTION is not from named functions above! term="total_score"-->
-                    <FilterReporter filter="read_pose_designed_energy"/>
+<!--                    <FilterReporter filter="read_pose_designed_energy"/>-->
 				</TopNByProperty>
 <!--					<TopNByProperty n="100" order="ascending">-->
 <!--&lt;!&ndash;						<FilterReporter filter="read_interaction_energy_density_filter"/>&ndash;&gt;-->
@@ -150,12 +151,12 @@
 <!--        <Add mover_name="remodel_missing_loops"/>-->
 
         # for MultipleOutputWrapper = number of ensemble
-<!--        <Add mover_name="multi_loop_remodel"/>-->
-<!--        <Add mover_name="filter_design_pool"/>-->
-<!--        <Add mover_name="trim_design_pool"/>-->
+        <Add mover_name="multi_loop_remodel"/>
+        <Add mover_name="filter_design_pool"/>
+        <Add mover_name="trim_design_pool"/>
         # for nstruct = number of ensemble
-        <Add mover_name="remodel_missing_loops"/>
-        <Add mover_name="kic_modeller"/>
+<!--        <Add mover_name="remodel_missing_loops"/>-->
+<!--        <Add mover_name="kic_modeller"/>-->
     </PROTOCOLS>
 
 </ROSETTASCRIPTS>
