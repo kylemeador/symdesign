@@ -88,12 +88,12 @@
 <!--                    <PerResidueEnergyMetric name="M_fa_atr_energy_per_residue" scoretype="fa_atr" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scorefxn="2015_cst"/> # reference_name="" use_native="false"-->
 <!--                    <ResidueSummaryMetric name="M_pose_designed_energy" custom_type="" metric="M_fa_atr_energy_per_residue" action="sum"/>-->
 <!--                    <TotalEnergyMetric name="M_pose_designed_energy" scoretype="fa_atr" residue_selector="full_pose" scorefxn="2015_cst"/> # custom_type="" reference_name="" use_native=""-->
-                    <TotalEnergyMetric name="M_pose_designed_energy" residue_selector="full_pose" scorefxn="2015_cst"/> # custom_type="" reference_name="" use_native=""
+                    <TotalEnergyMetric name="M_pose_designed_energy" residue_selector="full_pose" scorefxn="2015_cst"/> # scoretype="total" custom_type="" reference_name="" use_native=""
                 </SIMPLE_METRICS>
 
                 <FILTERS>
 <!--                    <ReadPoseExtraScoreFilter name="read_pose_designed_energy" term_name="chain_break_energy" threshold="-1"/>-->
-                    <SimpleMetricFilter name="F_pose_designed_energy" metric="M_pose_designed_energy" comparison_type="lt" cutoff="-1" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+                    <SimpleMetricFilter name="F_pose_designed_energy" metric="M_pose_designed_energy" comparison_type="lt" cutoff="100000" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
                 </FILTERS>
 
                 <MOVERS>
@@ -128,6 +128,7 @@
 
         <RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>
         <LoopModeler name="kic_modeller" loops_file="%%loop_file%%">
+            <Build skip="yes"/>
             <Fullatom skip="yes"/>
         </LoopModeler>
     </MOVERS>
