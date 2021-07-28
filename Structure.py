@@ -2123,13 +2123,14 @@ class Entity(Chain, SequenceProfile):
                           'Modelling may be affected' % count)
         return to_file
 
-    def format_missing_loops_for_design(self, max_loop_length=12, exclude_n_term=True, **kwargs):
+    def format_missing_loops_for_design(self, max_loop_length=12, exclude_n_term=True, ignore_termini=False, **kwargs):
         """Process missing residue information to prepare the various files for loop modelling
 
         Keyword Args:
             max_loop_length=12 (int): The max length for loop modelling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
             exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
+            ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
         Returns:
             (tuple[list[tuple], dict[mapping[int, int]], int]):
                 Loop start and ending indices, loop indices mapped to disordered residues, index of n-terminal residue
@@ -2152,10 +2153,9 @@ class Entity(Chain, SequenceProfile):
                     # the disordered locations include the n-terminus, set start_idx to idx (should equal 1)
                     # start_idx = idx
                     n_term = True
-            if residue_number + 1 not in disordered_residues:  #  and residue_number + 1 < len(residues): <- doesn't matter
+            if residue_number + 1 not in disordered_residues and residue_number != len(self.reference_sequence):
                 # print('Residue number +1 not in loops', residue_number)
                 loop_end = residue_number + 1 - excluded_disorder
-                # loop_length = loop_end - loop_start - 1  # offset
                 if segment_length <= max_loop_length:  # ensure modelling will be useful
                     if exclude_n_term and n_term:  # check if the n_terminus should be included
                         excluded_disorder += segment_length
@@ -2178,14 +2178,12 @@ class Entity(Chain, SequenceProfile):
                 segment_length = 0
                 loop_start, loop_end = None, None
 
-        if loop_start:  # when the insertion is at the c-termini, we must've hit a residue_number that didn't complete
-            # loop_end = residue_number - excluded_disorder
+        if loop_start and not ignore_termini:  # when insertion is at the c-term, we hit a residue that didn't complete
             loop_end = loop_start + segment_length - excluded_disorder
-            # loop_length = loop_end - loop_start
             if segment_length <= max_loop_length:
                 # print('Adding terminal loop with length', loop_length)
                 # disorder_indices.append(loop_start)
-                # loop_indices.append((loop_start, loop_end))  # not at c-terminus...
+                loop_indices.append((loop_start, loop_end))
                 # disorder_indices.extend(range(loop_start, loop_end))  # NO +1 don't need to include final index in range
                 for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
                     disorder_indices[residue_index] = residue_number - (segment_length - it)
@@ -2202,6 +2200,7 @@ class Entity(Chain, SequenceProfile):
             max_loop_length=12 (int): The max length for loop modelling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
             exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
+            ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
         Returns:
             (str): The path of the file
         """
