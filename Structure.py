@@ -2155,14 +2155,14 @@ class Entity(Chain, SequenceProfile):
                     n_term = True
             if residue_number + 1 not in disordered_residues and residue_number != len(self.reference_sequence):
                 # print('Residue number +1 not in loops', residue_number)
-                loop_end = residue_number + 1 - excluded_disorder
+                # print('Adding loop with length', segment_length)
                 if segment_length <= max_loop_length:  # ensure modelling will be useful
                     if exclude_n_term and n_term:  # check if the n_terminus should be included
                         excluded_disorder += segment_length
                         n_term = False
                     else:  # include the segment in the disorder_indices
-                        # print('Adding loop with length', loop_length)
                         # print('Start index', start_idx)
+                        loop_end = residue_number + 1 - excluded_disorder
                         loop_indices.append((loop_start, loop_end))
                         # disorder_indices.extend([loop_start, loop_end])
                         for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
@@ -2179,11 +2179,10 @@ class Entity(Chain, SequenceProfile):
                 loop_start, loop_end = None, None
 
         if loop_start and not ignore_termini:  # when insertion is at the c-term, we hit a residue that didn't complete
-            loop_end = loop_start + segment_length  # - excluded_disorder
             if segment_length <= max_loop_length:
-                # print('Adding terminal loop with length', loop_length)
+                loop_end = loop_start + 1 + segment_length  # - excluded_disorder
                 # disorder_indices.append(loop_start)
-                loop_indices.append((loop_start, loop_end))
+                loop_indices.append((loop_start, loop_end - 1))  # subtract as no c-terminal res attachment at c-termini
                 # disorder_indices.extend(range(loop_start, loop_end))  # NO +1 don't need to include final index in range
                 for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
                     disorder_indices[residue_index] = residue_number - (segment_length - it)
