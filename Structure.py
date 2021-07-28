@@ -2179,7 +2179,7 @@ class Entity(Chain, SequenceProfile):
                 loop_start, loop_end = None, None
 
         if loop_start and not ignore_termini:  # when insertion is at the c-term, we hit a residue that didn't complete
-            loop_end = loop_start + segment_length - excluded_disorder
+            loop_end = loop_start + segment_length  # - excluded_disorder
             if segment_length <= max_loop_length:
                 # print('Adding terminal loop with length', loop_length)
                 # disorder_indices.append(loop_start)
