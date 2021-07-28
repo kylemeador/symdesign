@@ -1302,16 +1302,20 @@ if __name__ == '__main__':
                     blueprints.append(all_entities[entity].make_blueprint_file(out_path=full_model_dir))
                     loop_files.append(all_entities[entity].make_loop_file(out_path=full_model_dir))
 
-                loop_model_cmds = \
-                    [script_cmd + loop_model_cmd +
-                     ['blueprint=%s' % blueprints[idx], 'loop_file=%s' % loop_files[idx],
-                      '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity),
-                      '-symmetry:symmetry_definition', sym_def_files[sym], '-out:path:pdb', out_paths[idx], '&&'] +
-                     ['python', PUtils.models_to_multimodel_exe, '-d', out_paths[idx],
-                      '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity), '&&'] +
-                     ['scp', os.path.join(out_paths[idx], '%s_0001.pdb' % entity),
-                      os.path.join(full_model_dir, '%s.pdb' % entity)]
-                     for idx, (entity, sym) in enumerate(olgomers_to_loop_model.items())]
+                loop_model_cmds = []
+                for idx, (entity, sym) in enumerate(olgomers_to_loop_model.items()):
+                    loop_model_cmd = script_cmd + loop_model_cmd + \
+                        ['blueprint=%s' % blueprints[idx], 'loop_file=%s' % loop_files[idx],
+                         '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity),
+                         '-symmetry:symmetry_definition', sym_def_files[sym], '-out:path:pdb', out_paths[idx]]
+                    multimodel_cmd = ['python', PUtils.models_to_multimodel_exe, '-d', out_paths[idx],
+                                      '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity)]
+                    copy_cmd = ['scp', os.path.join(out_paths[idx], '%s_0001.pdb' % entity),
+                                os.path.join(full_model_dir, '%s.pdb' % entity)]
+                    loop_model_cmds.append(
+                        SDUtils.write_shell_script(list2cmdline(loop_model_cmd), name=entity, out_path=full_model_dir,
+                                                   additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
+
                 loop_cmds_file = SDUtils.write_commands(list(map(list2cmdline, loop_model_cmds)),
                                                         name='loop_model_entities_%s' % timestamp,
                                                         out_path=full_model_dir)
