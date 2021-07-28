@@ -71,7 +71,7 @@
 <!--    		</PROTOCOLS>-->
 <!--		</MultiplePoseMover>-->
         <PeptideStubMover name="insert_fake_n_term"> # reset="0"
-        	<Append resname="GLY"/> # anchor_rsd="1" repeat="1" jump="false" connecting_atom=”atom type”
+        	<Append resname="GLY" anchor_rsd="1"/> # repeat="1" jump="false" connecting_atom=”atom type”
         </PeptideStubMover>
         <ConvertRealToVirtualMover name="remove_temporary_n_termini" residue_selector="n_term"/>
 		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="250">
