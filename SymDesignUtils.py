@@ -561,7 +561,7 @@ def write_commands(command_list, name='all_commands', out_path=os.getcwd()):
     """Write a list of commands out to a file
 
     Args:
-        command_list (iterable): An iterable with the commands as values
+        command_list (Iterable[str]): An iterable with the commands as values
     Keyword Args:
         name='all_commands' (str): The name of the file. Will be appended with '.cmd(s)'
         out_path=os.getcwd(): The directory where the file will be written

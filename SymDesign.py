@@ -1316,8 +1316,7 @@ if __name__ == '__main__':
                         SDUtils.write_shell_script(list2cmdline(loop_model_cmd), name=entity, out_path=full_model_dir,
                                                    additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
 
-                loop_cmds_file = SDUtils.write_commands(list(map(list2cmdline, loop_model_cmds)),
-                                                        name='loop_model_entities_%s' % timestamp,
+                loop_cmds_file = SDUtils.write_commands(loop_model_cmds, name='loop_model_entities_%s' % timestamp,
                                                         out_path=full_model_dir)
                 loop_model_sbatch = distribute(file=loop_cmds_file, out_path=master_directory.sbatch_scripts,
                                                scale='refine', log_file=os.path.join(full_model_dir, 'loop_model.log'),
