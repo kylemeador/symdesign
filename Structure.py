@@ -2255,7 +2255,8 @@ class Entity(Chain, SequenceProfile):
         with open(out_file, 'w') as f:
             f.write('%s\n'
                     % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
-                                                  'L' if idx in disorder_indices else '.')
+                                                  'L PIKAA %s' % protein_letters_3to1_extended.get(residue.type.title())
+                                                  if idx in disorder_indices else '.')
                                  if isinstance(residue, Residue)
                                  else loop_str % (1 if idx < start_idx else 0, 'L', residue)
                                  for idx, residue in enumerate(residues, 1)]))
