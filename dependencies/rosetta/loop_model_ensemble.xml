@@ -86,7 +86,7 @@
 	            </RESIDUE_SELECTORS>
 
                 <SIMPLE_METRICS>
-                    <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scoretype="linear_chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
+                    <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" scoretype="chainbreak" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scorefxn="2015_cst"/> # reference_name="" use_native="false"
                     <ResidueSummaryMetric name="M_chain_break_energy" custom_type="" metric="M_chain_break_energy_per_residue" action="sum"/>
                 </SIMPLE_METRICS>
 
