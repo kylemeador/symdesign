@@ -71,8 +71,8 @@
 <!--    		</PROTOCOLS>-->
 <!--		</MultiplePoseMover>-->
 
-		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="10">
-			<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%"/>
+		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="5">
+			<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>
 		</MultipleOutputWrapper>
 
 		<MultiplePoseMover name="filter_design_pool" max_input_poses="500">
@@ -117,7 +117,11 @@
 <!--				</AndSelector>-->
 			</SELECT>
             # TODO implement a more accurate loop modelling protocol...
-<!--            <ROSETTASCRIPTS></ROSETTASCRIPTS>-->
+<!--            <ROSETTASCRIPTS>-->
+<!--                <MOVERS>-->
+<!--                    <LoopModeler name="kic_modeller" loops_file="%%loop_file%%"/>-->
+<!--                </MOVERS>-->
+<!--            </ROSETTASCRIPTS>-->
 		</MultiplePoseMover>
         <FilterReportAsPoseExtraScoresMover name="RP_chain_break_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
     </MOVERS>
