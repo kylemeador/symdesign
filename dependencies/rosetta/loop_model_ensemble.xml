@@ -150,12 +150,12 @@
 <!--        <Add mover_name="remodel_missing_loops"/>-->
 
         # for MultipleOutputWrapper = number of ensemble
-        <Add mover_name="multi_loop_remodel"/>
-        <Add mover_name="filter_design_pool"/>
-        <Add mover_name="trim_design_pool"/>
+<!--        <Add mover_name="multi_loop_remodel"/>-->
+<!--        <Add mover_name="filter_design_pool"/>-->
+<!--        <Add mover_name="trim_design_pool"/>-->
         # for nstruct = number of ensemble
-<!--        <Add mover_name="remodel_missing_loops"/>-->
-<!--        <Add mover_name="kic_modeller"/>-->
+        <Add mover_name="remodel_missing_loops"/>
+        <Add mover_name="kic_modeller"/>
     </PROTOCOLS>
 
 </ROSETTASCRIPTS>
