@@ -139,7 +139,7 @@ def run(cmd, log_file_name, program=None, srun=None):
     program = [program] if program else []
     command = [cmd] if isinstance(cmd, str) else cmd
     with open(log_file_name, 'a') as log_f:
-        p = subprocess.Popen(cluster_prefix + program + command, stdout=log_f, stderr=log_f)
+        p = subprocess.Popen(cluster_prefix + program + command, stdout=log_f, stderr=log_f, shell=True)
         p.wait()
 
     if p.returncode == 0:
@@ -343,7 +343,7 @@ if __name__ == '__main__':
         #     allocation = ['srun', '-c', 1, '-p', 'long', '--mem-per-cpu', CUtils.memory_scale[args.stage]]
         #     allocation = None
         #     zipped_commands = zip(command_paths, log_files, repeat(allocation))
-        print('Running command:\n', subprocess.list2cmdline(specific_commands[0]))
+        # print('Running command:\n', subprocess.list2cmdline(specific_commands[0]))
         zipped_commands = zip(specific_commands, log_files, repeat(program))
 
         # Ensure all log files exist
