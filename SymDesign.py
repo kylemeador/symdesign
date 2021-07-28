@@ -1279,9 +1279,8 @@ if __name__ == '__main__':
                 # Generate sbatch refine command
                 flags_file = os.path.join(full_model_dir, 'loop_model_flags')
                 if not os.path.exists(flags_file) or args.force_flags:
-                    loop_model_flags = \
-                        ['-remodel:quick_and_dirty', '-remodel::save_top 0',  # '-remodel:run_confirmation true',
-                         '-run:chain A', '-remodel:num_trajectory 1']
+                    loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
+                    #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
                     flags = copy.copy(rosetta_flags) + loop_model_flags
                     # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                     flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
@@ -1301,10 +1300,12 @@ if __name__ == '__main__':
                     master_directory.make_path(entity_out_path)
                     out_paths.append(entity_out_path)
                     blueprints.append(all_entities[entity].make_blueprint_file(out_path=full_model_dir))
+                    loop_files.append(all_entities[entity].make_loop_file(out_path=full_model_dir))
 
                 loop_model_cmds = \
                     [script_cmd + loop_model_cmd +
-                     ['blueprint=%s' % blueprints[idx], '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity),
+                     ['blueprint=%s' % blueprints[idx], 'loop_file=%s' % loop_files[idx],
+                      '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity),
                       '-symmetry:symmetry_definition', sym_def_files[sym], '-out:path:pdb', out_paths[idx], '&&'] +
                      ['python', PUtils.models_to_multimodel_exe, '-d', out_paths[idx],
                       '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity), '&&'] +
@@ -1331,7 +1332,7 @@ if __name__ == '__main__':
                 break
 
             if load_resources:
-                logger.info('After completion of sbatch script(s), re-run your %s command:\n\t%s\n'
+                logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
                             % (PUtils.program_name, ' '.join(sys.argv)))
                 terminate(args.module, design_directories, output=False)
                 # The next time this directory is initialized, there will be no refine files left... hopefully and while

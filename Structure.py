@@ -2123,39 +2123,21 @@ class Entity(Chain, SequenceProfile):
                           'Modelling may be affected' % count)
         return to_file
 
-    def make_blueprint_file(self, out_path=os.getcwd(), exclude_n_term=True):
-        """Format a blueprint file according to Rosetta specifications
+    def format_missing_loops_for_design(self, max_loop_length=12, exclude_n_term=True, **kwargs):
+        """Process missing residue information to prepare the various files for loop modelling
 
         Keyword Args:
-            to_file=None (str): The name of the symmetry definition file
-            out_path=os.getcwd() (str): The location the symmetry definition file should be written
+            max_loop_length=12 (int): The max length for loop modelling.
+                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
             exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
         Returns:
-            (str): The location the blueprint file was written
+            (tuple[list[tuple], dict[mapping[int, int]], int]):
+                Loop start and ending indices, loop indices mapped to disordered residues, index of n-terminal residue
         """
-        max_loop_length = 12  # 12 is the max length for accurate KIC
-        out_file = os.path.join(out_path, '%s.blueprint' % self.name)
         disordered_residues = self.disorder  # {residue_number: {'from': ,'to': }, ...}
-        # trying to remove tags at this stage runs into a serious indexing problem where tags need to be deleted from
-        # disordered_residues and then all subsequent indices adjusted.
-
-        # # look for existing tag to remove from sequence and save identity
-        # available_tags = find_expression_tags(self.reference_sequence)
-        # if available_tags:
-        #     loop_sequences = ''.join(mutation['from'] for mutation in disordered_residues)
-        #     remove_loop_pairs = []
-        #     for tag in available_tags:
-        #         tag_location = loop_sequences.find(tag['sequences'])
-        #         if tag_location != -1:
-        #             remove_loop_pairs.append((tag_location, len(tag['sequences'])))
-        #     for tag_start, tag_length in remove_loop_pairs:
-        #         for
-        #
-        #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
-
         # disorder_indices = list(disordered_residues.keys())
         # disorder_indices = []  # holds the indices that should be inserted into the total residues to be modelled
-        disorder_indices = {}  # holds the indices that should be inserted into the total residues to be modelled
+        loop_indices, disorder_indices = [], {}  # holds the indices that should be inserted into the total residues to be modelled
         start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
         excluded_disorder, segment_length = 0, 0  # iterate each missing segment length, and total excluded disorder
         loop_start, loop_end, n_term = None, None, False
@@ -2181,6 +2163,7 @@ class Entity(Chain, SequenceProfile):
                     else:  # include the segment in the disorder_indices
                         # print('Adding loop with length', loop_length)
                         # print('Start index', start_idx)
+                        loop_indices.append((loop_start, loop_end))
                         # disorder_indices.extend([loop_start, loop_end])
                         for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
                             disorder_indices[residue_index] = residue_number - (segment_length - it)
@@ -2202,11 +2185,64 @@ class Entity(Chain, SequenceProfile):
             if segment_length <= max_loop_length:
                 # print('Adding terminal loop with length', loop_length)
                 # disorder_indices.append(loop_start)
+                # loop_indices.append((loop_start, loop_end))  # not at c-terminus...
                 # disorder_indices.extend(range(loop_start, loop_end))  # NO +1 don't need to include final index in range
                 for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
                     disorder_indices[residue_index] = residue_number - (segment_length - it)
                 disorder_indices[loop_start], disorder_indices[loop_end] = -1, -1  # out of bounds number
                 # disordered_residues[loop_start] = residues[loop_start - 1]
+
+        return loop_indices, disorder_indices, start_idx
+
+    def make_loop_file(self, out_path=os.getcwd(), **kwargs):
+        """Format a loops file according to Rosetta specifications
+
+        Keyword Args:
+            out_path=os.getcwd() (str): The location the file should be written
+            max_loop_length=12 (int): The max length for loop modelling.
+                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
+            exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
+        Returns:
+            (str): The path of the file
+        """
+        loop_file = os.path.join(out_path, '%s.loops' % self.name)
+        loop_indices, _, _ = self.format_missing_loops_for_design(**kwargs)
+        with open(loop_file, 'w') as f:
+            f.write('%s\n' % '\n'.join('LOOP %d %d 0 0 1' % start_stop for start_stop in loop_indices))
+
+        return loop_file
+
+    def make_blueprint_file(self, out_path=os.getcwd(), **kwargs):
+        """Format a blueprint file according to Rosetta specifications
+
+        Keyword Args:
+            out_path=os.getcwd() (str): The location the file should be written
+            max_loop_length=12 (int): The max length for loop modelling.
+                12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
+            exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
+        Returns:
+            (str): The path of the file
+        """
+        out_file = os.path.join(out_path, '%s.blueprint' % self.name)
+        disordered_residues = self.disorder  # {residue_number: {'from': ,'to': }, ...}
+        # trying to remove tags at this stage runs into a serious indexing problem where tags need to be deleted from
+        # disordered_residues and then all subsequent indices adjusted.
+
+        # # look for existing tag to remove from sequence and save identity
+        # available_tags = find_expression_tags(self.reference_sequence)
+        # if available_tags:
+        #     loop_sequences = ''.join(mutation['from'] for mutation in disordered_residues)
+        #     remove_loop_pairs = []
+        #     for tag in available_tags:
+        #         tag_location = loop_sequences.find(tag['sequences'])
+        #         if tag_location != -1:
+        #             remove_loop_pairs.append((tag_location, len(tag['sequences'])))
+        #     for tag_start, tag_length in remove_loop_pairs:
+        #         for
+        #
+        #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
+
+        _, disorder_indices, start_idx = self.format_missing_loops_for_design(**kwargs)
 
         residues = self.residues
         # for residue_number in sorted(disorder_indices):  # ensure ascending order, insert is dependent on prior inserts
@@ -2216,17 +2252,14 @@ class Entity(Chain, SequenceProfile):
                 residues.insert(residue_index - 1, mutation['from'])  # offset to match residues zero-index
 
         #              index AA SS Choice AA
-        structure_str =   '%d %s %s'
-        loop_str =        '%d X %s PIKAA %s'
+        structure_str   = '%d %s %s'
+        loop_str        = '%d X %s PIKAA %s'
         with open(out_file, 'w') as f:
-            print('Disorder indices :', sorted(disorder_indices))
-            print('Disorder residues:', list(disordered_residues.keys()))
-            print('Disorder idx_res :', disorder_indices.values())
             f.write('%s\n'
                     % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
                                                   'L' if idx in disorder_indices else '.')
                                  if isinstance(residue, Residue)
-                                 else loop_str % (1 if idx < start_idx else 0, 'L', residue)  # disordered_residues[idx]['from']
+                                 else loop_str % (1 if idx < start_idx else 0, 'L', residue)
                                  for idx, residue in enumerate(residues, 1)]))
         return out_file
 
