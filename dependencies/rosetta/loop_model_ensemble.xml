@@ -50,7 +50,6 @@
 <!--        <MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>-->
 <!--        <MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>-->
 <!--        <LoopModeler name="modeler" loops_file="%%loops%%"/>-->
-<!--        <RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%"/>-->
         # Pull subroutines in from other files
         # Symmetry selector
 <!--        <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%"/>-->
@@ -126,6 +125,11 @@
 <!--            </ROSETTASCRIPTS>-->
 		</MultiplePoseMover>
         <FilterReportAsPoseExtraScoresMover name="RP_chain_break_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
+
+        <RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>
+        <LoopModeler name="kic_modeller" loops_file="%%loop_file%%">
+            <Fullatom skip="yes"/>
+        </LoopModeler>
     </MOVERS>
 
 <!--	# Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%-->
@@ -142,9 +146,14 @@
 <!--		<Add mover_name="symmetry"/> # symmetrize entity-->
 <!--        <Add mover_name="modeler"/>-->
 <!--        <Add mover_name="remodel_missing_loops"/>-->
-        <Add mover_name="multi_loop_remodel"/>
-        <Add mover_name="filter_design_pool"/>
-        <Add mover_name="trim_design_pool"/>
+
+        # for MultipleOutputWrapper = number of ensemble
+<!--        <Add mover_name="multi_loop_remodel"/>-->
+<!--        <Add mover_name="filter_design_pool"/>-->
+<!--        <Add mover_name="trim_design_pool"/>-->
+        # for nstruct = number of ensemble
+        <Add mover_name="remodel_missing_loops"/>
+        <Add mover_name="kic_modeller"/>
     </PROTOCOLS>
 
 </ROSETTASCRIPTS>
