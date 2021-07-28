@@ -139,6 +139,7 @@ def run(cmd, log_file_name, program=None, srun=None):
     program = [program] if program else []
     command = [cmd] if isinstance(cmd, str) else cmd
     with open(log_file_name, 'a') as log_f:
+        print('Running command:\n', subprocess.list2cmdline(command))
         p = subprocess.Popen(cluster_prefix + program + command, stdout=log_f, stderr=log_f)
         p.wait()
 
@@ -329,7 +330,7 @@ if __name__ == '__main__':
         #     command_paths = list(map(path_maker, specific_commands))
 
         if args.log_file:
-            log_files = [args.log_file for cmd in specific_commands]
+            log_files = [args.log_file for _ in specific_commands]
         else:  # todo overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
             log_files = ['%s.log' % os.path.splitext(shell_path)[0] for shell_path in specific_commands]
 
