@@ -1304,7 +1304,7 @@ if __name__ == '__main__':
 
                 loop_model_cmds = []
                 for idx, (entity, sym) in enumerate(olgomers_to_loop_model.items()):
-                    loop_model_cmd = script_cmd + loop_model_cmd + \
+                    entity_cmd = script_cmd + loop_model_cmd + \
                         ['blueprint=%s' % blueprints[idx], 'loop_file=%s' % loop_files[idx],
                          '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity),
                          '-symmetry:symmetry_definition', sym_def_files[sym], '-out:path:pdb', out_paths[idx]]
@@ -1313,7 +1313,7 @@ if __name__ == '__main__':
                     copy_cmd = ['scp', os.path.join(out_paths[idx], '%s_0001.pdb' % entity),
                                 os.path.join(full_model_dir, '%s.pdb' % entity)]
                     loop_model_cmds.append(
-                        SDUtils.write_shell_script(list2cmdline(loop_model_cmd), name=entity, out_path=full_model_dir,
+                        SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity, out_path=full_model_dir,
                                                    additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
 
                 loop_cmds_file = SDUtils.write_commands(loop_model_cmds, name='loop_model_entities_%s' % timestamp,
