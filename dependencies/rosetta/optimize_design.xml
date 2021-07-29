@@ -1,19 +1,61 @@
 <ROSETTASCRIPTS>
+	<SCOREFXNS>
+		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015" weights="ref2015"/>
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
 		<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="core_residues_sym" selector="core_residues" />
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<SymmetricalResidue name="interface1_sym" selector="interface1" />
-		# same, but for residues from chain "B"
+		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
+		<Neighborhood name="interface1_neighbors" selector="interface1" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<Not name="full_pose_without_interface1" selector="interface1"/>
+		<And name="interface1_sym_only" selectors="interface1_sym,full_pose_without_interface1"/>
+		<And name="interface1_sym_only_interface1_neighbors" selectors="interface1_sym_only,interface1_neighbors"/>
+		<Neighborhood name="interface1_sym_neighbors" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/>
+		<Or name="interface_or_neighbors1" selectors="interface1,interface1_neighbors"/>
+		<SymmetricalResidue name="interface_or_neighbors1_sym" selector="interface_or_neighbors1"/>
+		# same, but for residues from interface 2
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<SymmetricalResidue name="interface2_sym" selector="interface2" />
-		# combined group of all identified interface residues
+		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
+		<Neighborhood name="interface2_neighbors" selector="interface2" distance="8.0" include_focus_in_subset="false"/>
+		<Not name="full_pose_without_interface2" selector="interface2"/>
+		<And name="interface2_sym_only" selectors="interface2_sym,full_pose_without_interface2"/>
+		<And name="interface2_sym_only_interface2_neighbors" selectors="interface2_sym_only,interface2_neighbors"/>
+		<Neighborhood name="interface2_sym_neighbors" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
+		<Or name="interface_or_neighbors2" selectors="interface2,interface2_neighbors"/>
+		<SymmetricalResidue name="interface_or_neighbors2_sym" selector="interface_or_neighbors2"/>
+		# odd overlaps of the two interfaces with symmetry specifically for generating shape_complementarity surfaces
+		# includes all symmetric interface1 residues and entity2 interactions between extra-symmetric (non-oligomeric) self residues
+		<Or name="interface1_sym_and_interface2_sym_neighbors" selectors="interface1_sym,interface2_sym_only_interface2_neighbors"/>
+		# includes all symmetric interface2 residues and entity1 interactions between extra-symmetric (non-oligomeric) self residues
+		<Or name="interface2_sym_and_interface1_sym_neighbors" selectors="interface2_sym,interface1_sym_only_interface1_neighbors"/>
+		# combined groups of all identified interface residues
 		<Or name="tot_interface" selectors="interface1,interface2"/>
+<!--		<And name="symmetric_self_interface_residues" selectors="interface1,interface2"/>-->
+<!--		<Not name="not_symmetric_self_interface_residues" selector="symmetric_self_interface_residues"/>-->
+<!--		<SymmetricalResidue name="symmetric_self_interface_residues_sym" selector="symmetric_self_interface_residues"/>-->
 		<SymmetricalResidue name="tot_interface_sym" selector="tot_interface"/>
 		# the negation of all interface residues
+
+		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
+		<Not name="not_interface_sym" selector="tot_interface_sym"/>
+
+		<And name="interface1_sc" selectors="interface2_neighbors,tot_interface_sym"/>
+		<Neighborhood name="interface1_sc_neighbors" selector="interface1_sc" distance="8.0" include_focus_in_subset="false"/>
+		<SymmetricalResidue name="interface1_sc_sym" selector="interface1_sc"/>
+		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>
+		<SymmetricalResidue name="interface2_sc_sym" selector="interface2_sc"/>
+<!--		<And name="interface2_sc_correct_sym" selectors="interface1_sc_neighbors,interface2_sc_sym"/>-->
+		<Or name="tot_interface_and_neighbor" selectors="interface_or_neighbors1,interface_or_neighbors2"/>
+		<SymmetricalResidue name="tot_interface_and_neighbor_sym" selector="tot_interface_and_neighbor"/>
+		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
+
 		# other residues that may be designable
 		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		# all designable residues
@@ -25,7 +67,8 @@
 		<Not name="not_core_residues" selector="core_residues"/>
 		# all residues
 		<True name="full_pose"/>
-<!--		<Task name="select_packable_residues" fixed="" packable="0" designable="0" task_operations=""/>-->
+		<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
+<!--		<Task name="select_packable_residues" fixed="" packable="0" designable="0" task_operations=""/>--> # potential use with TaskOperations
 		<ResidueName name="special_residues" residue_name3="CYS,GLY,PRO"/>
 		<ResidueName name="polar_residues" residue_name3="ASP,GLU,HIS,LYS,ASN,GLN,ARG,SER,THR"/>
 		<ResidueName name="hydrophobic_residues" residue_name3="ALA,PHE,ILE,LEU,MET,VAL,TRP,TYR"/>
@@ -39,7 +82,7 @@
 <!--		<And name="make_special" selectors="special"/>-->
 		<And name="make_hydrophobic" selectors="different,polar_residues"/>
 		<And name="make_polar" selectors="different,hydrophobic_residues"/>
-		<And name="all_special" selectors="keep_special,make_special"/>
+<!--		<And name="all_special" selectors="keep_special,make_special"/>-->
 		<And name="all_polar" selectors="keep_polar,make_polar"/>
 		<And name="all_hydrophobic" selectors="keep_hydrophobic,make_hydrophobic"/>
 	</RESIDUE_SELECTORS>
@@ -51,6 +94,7 @@
 		<IncludeCurrent name="include_current"/>
 		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
 		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
+		<SetIGType name="set_ig" lin_mem_ig="false" lazy_ig="false" double_lazy_ig="false"/> # precompute_ig="false"
 		# standard operation to restrict all residues to repacking
 		<RestrictToRepacking name="rtr"/>
 		# restrict all non-interface residues to no repacking and no design
@@ -67,48 +111,67 @@
 		<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="1" name="wt_residues1" min_aa_probability="20" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="2" name="wt_residues2" min_aa_probability="20" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
-		<DesignRestrictions name="design_task">
+		<DesignRestrictions name="limit_to_residue_types">
 			<Action residue_selector="special" aas="CGP"/>
 			<Action residue_selector="all_polar" aas="DEHKNQRST"/>
 			<Action residue_selector="all_hydrophobic" aas="AFILMVWY"/>
 		</DesignRestrictions>
-		<RestrictToResidueProperties name="" properties="HYDROPHOBIC,POLAR" selector=""/>
+<!--		<RestrictToResidueProperties name="" properties="HYDROPHOBIC,POLAR" selector=""/>-->
 <!--		<ResfileCommandOperation name="" command="POLAR PIKAA ACDEFGH <- I wish I could overlap with PSSM" residue_selector=""/>-->
-		<RetrieveStoredTask name="optimize_task_operations" task_name="optimize_interface_packer_palette"/>
-	</TASKOPERATIONS>  # potential use with ResidueSelector "Task"
+		<RetrieveStoredTask name="retrieve_designable_test" 		task_name="designable_test"/>
+		<RetrieveStoredTask name="optimize_designable_polar" 		task_name="designable_polar"/>
+		<RetrieveStoredTask name="optimize_designable_hydrophobic" 	task_name="designable_hydrophobic"/>
+		<RetrieveStoredTask name="optimize_task_operations" 		task_name="optimize_interface_packer_palette"/>
+	</TASKOPERATIONS>
+
+	<MOVE_MAP_FACTORIES>
+		<MoveMapFactory name="design_map" bb="0" chi="1">
+			<Backbone residue_selector="all_designable" enable="true"/> # Packer controlled so inherently symmetric
+		</MoveMapFactory>
+	</MOVE_MAP_FACTORIES>
+
+	<FILTERS>
+		<Time name="time"/>
+		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2_sc" write_median_dist="1" max_median_dist="0"/> # Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+	</FILTERS>
 
 	<MOVERS>
-		<StoreCompoundTaskMover name="polar_ssm_residues" task_name="designable_polar" mode="designable" true_behavior="" false_behavior="" invert="0" verbose="1" overwrite="0">
-			<AND task_operations="polar_residues"/>
+		<StoreCompoundTaskMover name="test" task_name="designable_test" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">
+			<AND task_operations="limit_to_residue_types"/>
+<!--			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>-->
+		</StoreCompoundTaskMover>
+		<StoreCompoundTaskMover name="polar_ssm_residues" task_name="designable_polar" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">
+			<AND task_operations="limit_to_residue_types"/>
 			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>
 		</StoreCompoundTaskMover>
-		<StoreCompoundTaskMover name="hydrophobic_ssm_residues" task_name="designable_hydrophobics" mode="designable" true_behavior="" false_behavior="" invert="0" verbose="1" overwrite="0">
-			<AND task_operations="hydrophobic_residues"/>
+		<StoreCompoundTaskMover name="hydrophobic_ssm_residues" task_name="designable_hydrophobic" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">
+			<AND task_operations="limit_to_residue_types"/>
 			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>
 		</StoreCompoundTaskMover>
-		<StoreCompoundTaskMover name="wt_plus_residue_types" task_name="optimize_interface_packer_palette" mode="designable" true_behavior="" false_behavior="" invert="0" verbose="1" overwrite="0">
-			<OR task_operations="polar_ssm_residues"/>
-			<OR task_operations="hydrophobic_ssm_residues"/>
+		<StoreCompoundTaskMover name="wt_plus_residue_types" task_name="optimize_interface_packer_palette" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">
+<!--			<OR task_operations="polar_ssm_residues"/>-->
+			<OR task_operations="optimize_designable_polar"/>
+<!--			<OR task_operations="hydrophobic_ssm_residues"/>-->
+			<OR task_operations="optimize_designable_hydrophobic"/>
 			<OR task_operations="wt_residues1,wt_residues2,include_current"/>
 		</StoreCompoundTaskMover>
+		<SymMinMover name="min" scorefxn="2015_nano" movemap_factory="design_map"/> # bb="0" chi="1"
 		# add CoordinateConstraints to restrict design movement during trajectory
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
 		# Pull subroutines in from other files
 		<Subroutine name="no_constraint" xml_fname="%%scripts%%/interface_design/no_profile.xml"/>
-
-		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,optimize_task_operations,hbnet_rtr,des_around_total" relax_mover="min" scorefxn="2015_nano">
+		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,set_ig,optimize_task_operations,des_around_total" relax_mover="min" scorefxn="2015_nano">
 			<Filters>
-			   <AND filter_name="filter1" sample_type="low"/>
-			   <AND filter_name="filter2" sample_type="high"/>
+				<AND filter_name="buns_complex" sample_type="low"/>
+				<AND filter_name="shape_complementarity" sample_type="high"/>
 			</Filters>
 		</GreedyOptMutationMover>
+		<FastDesign name="int_design_test" task_operations="init,vrt,set_ig,retrieve_designable_test,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+		<FastDesign name="int_design" task_operations="init,vrt,set_ig,optimize_task_operations,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 	</MOVERS>
-
-	<FILTERS>
-		<Time name="time"/>
-	</FILTERS>
 
 	# Symmetry set up section
 	<FILTERS>
@@ -120,12 +183,16 @@
 	</MOVERS>
 
 	<PROTOCOLS>
-		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
-		<Add mover_name="set_up_constraint_and_design"/>
+		<Add mover_name="test"/>
+		<Add mover_name="polar_ssm_residues"/>
+		<Add mover_name="hydrophobic_ssm_residues"/>
+		<Add mover_name="wt_plus_residue_types"/>
+		<Add mover_name="int_design_test"/>
+		<Add mover_name="int_design"/>
+		<Add mover_name="optimize"/>
 <!--		<Add mover_name="measure_interface_bound"/>-->
-		<Add filter_name="time"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
