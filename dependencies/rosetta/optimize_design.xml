@@ -1,0 +1,131 @@
+<ROSETTASCRIPTS>
+
+	<RESIDUE_SELECTORS>
+		<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="core_residues_sym" selector="core_residues" />
+		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface1_sym" selector="interface1" />
+		# same, but for residues from chain "B"
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface2_sym" selector="interface2" />
+		# combined group of all identified interface residues
+		<Or name="tot_interface" selectors="interface1,interface2"/>
+		<SymmetricalResidue name="tot_interface_sym" selector="tot_interface"/>
+		# the negation of all interface residues
+		<Not name="not_interface" selector="tot_interface"/>
+		# other residues that may be designable
+		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		# all designable residues
+		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
+		<And name="core_interface1_sym" selectors="core_residues_sym,interface1_sym"/>
+		<And name="core_interface2_sym" selectors="core_residues_sym,interface2_sym"/>
+		# the negation of all designable residues
+		<Not name="not_designable" selector="all_designable"/>
+		<Not name="not_core_residues" selector="core_residues"/>
+		# all residues
+		<True name="full_pose"/>
+<!--		<Task name="select_packable_residues" fixed="" packable="0" designable="0" task_operations=""/>-->
+		<ResidueName name="special_residues" residue_name3="CYS,GLY,PRO"/>
+		<ResidueName name="polar_residues" residue_name3="ASP,GLU,HIS,LYS,ASN,GLN,ARG,SER,THR"/>
+		<ResidueName name="hydrophobic_residues" residue_name3="ALA,PHE,ILE,LEU,MET,VAL,TRP,TYR"/>
+<!--		<ResiduePropertySelector name="polar_residues" properties="POLAR"/>-->
+<!--		<ResiduePropertySelector name="hydrophobic_residues" properties="HYDROPHOBIC"/> # logic="and_logic" default is or_logic-->
+		<Index name="special" resnums="%%special%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<Index name="same" resnums="%%same%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<Index name="different" resnums="%%different%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<And name="keep_polar" selectors="same,polar_residues"/>
+		<And name="keep_hydrophobic" selectors="same,hydrophobic_residues"/>
+<!--		<And name="make_special" selectors="special"/>-->
+		<And name="make_hydrophobic" selectors="different,polar_residues"/>
+		<And name="make_polar" selectors="different,hydrophobic_residues"/>
+		<And name="all_special" selectors="keep_special,make_special"/>
+		<And name="all_polar" selectors="keep_polar,make_polar"/>
+		<And name="all_hydrophobic" selectors="keep_hydrophobic,make_hydrophobic"/>
+	</RESIDUE_SELECTORS>
+
+	<TASKOPERATIONS>
+		# standard task operation to pull in commandline options
+		<InitializeFromCommandline name="init"/>
+		# initialize a pose with the input residues
+		<IncludeCurrent name="include_current"/>
+		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
+		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
+		# standard operation to restrict all residues to repacking
+		<RestrictToRepacking name="rtr"/>
+		# restrict all non-interface residues to no repacking and no design
+		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="not_core_no_repack" selector="not_core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="hbnet_rtr" selector="hbnet_residues"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
+		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="0" resnums_allow_design="1" repack_shell="8.0"/>
+		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
+		<SeqprofConsensus chain_num="1" name="evolution_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="evolution_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="1" name="fssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="fssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="1" name="pssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="1" name="wt_residues1" min_aa_probability="20" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="wt_residues2" min_aa_probability="20" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<DesignRestrictions name="design_task">
+			<Action residue_selector="special" aas="CGP"/>
+			<Action residue_selector="all_polar" aas="DEHKNQRST"/>
+			<Action residue_selector="all_hydrophobic" aas="AFILMVWY"/>
+		</DesignRestrictions>
+		<RestrictToResidueProperties name="" properties="HYDROPHOBIC,POLAR" selector=""/>
+<!--		<ResfileCommandOperation name="" command="POLAR PIKAA ACDEFGH <- I wish I could overlap with PSSM" residue_selector=""/>-->
+		<RetrieveStoredTask name="optimize_task_operations" task_name="optimize_interface_packer_palette"/>
+	</TASKOPERATIONS>  # potential use with ResidueSelector "Task"
+
+	<MOVERS>
+		<StoreCompoundTaskMover name="polar_ssm_residues" task_name="designable_polar" mode="designable" true_behavior="" false_behavior="" invert="0" verbose="1" overwrite="0">
+			<AND task_operations="polar_residues"/>
+			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>
+		</StoreCompoundTaskMover>
+		<StoreCompoundTaskMover name="hydrophobic_ssm_residues" task_name="designable_hydrophobics" mode="designable" true_behavior="" false_behavior="" invert="0" verbose="1" overwrite="0">
+			<AND task_operations="hydrophobic_residues"/>
+			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>
+		</StoreCompoundTaskMover>
+		<StoreCompoundTaskMover name="wt_plus_residue_types" task_name="optimize_interface_packer_palette" mode="designable" true_behavior="" false_behavior="" invert="0" verbose="1" overwrite="0">
+			<OR task_operations="polar_ssm_residues"/>
+			<OR task_operations="hydrophobic_ssm_residues"/>
+			<OR task_operations="wt_residues1,wt_residues2,include_current"/>
+		</StoreCompoundTaskMover>
+		# add CoordinateConstraints to restrict design movement during trajectory
+		<AddConstraints name="add_csts">
+			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
+		</AddConstraints>
+		# Pull subroutines in from other files
+		<Subroutine name="no_constraint" xml_fname="%%scripts%%/interface_design/no_profile.xml"/>
+
+		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,optimize_task_operations,hbnet_rtr,des_around_total" relax_mover="min" scorefxn="2015_nano">
+			<Filters>
+			   <AND filter_name="filter1" sample_type="low"/>
+			   <AND filter_name="filter2" sample_type="high"/>
+			</Filters>
+		</GreedyOptMutationMover>
+	</MOVERS>
+
+	<FILTERS>
+		<Time name="time"/>
+	</FILTERS>
+
+	# Symmetry set up section
+	<FILTERS>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+	</FILTERS>
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+<!--		<If name="" filter_name="read_sym" true_mover_name="sym_" false_mover_name="asymmetric_"/>-->
+	</MOVERS>
+
+	<PROTOCOLS>
+		<Add filter_name="time" report_at_end="false"/>
+		<Add mover_name="symmetry"/>
+		<Add mover_name="add_csts"/>
+		<Add mover_name="set_up_constraint_and_design"/>
+<!--		<Add mover_name="measure_interface_bound"/>-->
+		<Add filter_name="time"/>
+	</PROTOCOLS>
+
+</ROSETTASCRIPTS>
