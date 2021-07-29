@@ -1447,6 +1447,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.pose_transformation:
             self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
                               for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
+            # Todo make oligomer, oligomer! If symmetry permits now that storing as refined asu, oriented asu, model asu
             self.log.debug('Oligomers were transformed to the found docking parameters')
         else:
             raise DesignError('The design could not be transformed as it is missing the required transformation '
