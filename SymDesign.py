@@ -548,6 +548,10 @@ if __name__ == '__main__':
                              % (PUtils.program_name, PUtils.program_name, PUtils.program_name, PUtils.analysis,
                                 PUtils.select_designs, PUtils.program_name),
                         default=None, nargs=1)  # , nargs='*')  # TODO make list of unknown length
+    parser.add_argument('-sf', '--specification_file', type=str, metavar='/path/to/pose_design_specifications.csv',
+                        help='Name of comma separated file with each line formatted:\n'
+                             'poseID, [designID], [residue_number:design_directive '
+                             'residue_number2-residue_number9:directive ...]')
     parser.add_argument('-g', '--guide', action='store_true',
                         help='Access the %s guide! Display the program or module specific guide. Ex: \'%s --guide\' '
                              'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
@@ -997,6 +1001,22 @@ if __name__ == '__main__':
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           project=args.project, single=args.single)
+            if args.specification_file:
+                # # Grab all poses (directories) to be processed from either directory name or file
+                # with open(args.specification_file) as csv_file:
+                #     design_specification_dialect = Dialect()
+                #     # csv_lines = [line for line in reader(csv_file)]
+                #     all_poses, pose_design_numbers = zip(*reader(csv_file, dialect=))
+                # # all_poses, pose_design_numbers = zip(*csv_lines)
+                location = args.specification_file
+                program_root = args.directory  # Todo clean this mechanism everywhere
+                design_specification = SDUtils.DesignSpecification(args.specification_file)
+                design_directories = \
+                    [DesignDirectory.from_pose_id(pose, root=program_root, specific_design=design,
+                                                  directives=directives, **queried_flags)
+                     for pose, design, directives in design_specification.return_directives()]
+                master_directory = next(iter(design_directories))
+                program_root = master_directory.program_root
         if queried_flags['design_range']:
             low, high = map(float, queried_flags['design_range'].split('-'))
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
