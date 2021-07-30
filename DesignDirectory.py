@@ -55,20 +55,8 @@ relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
-    def __init__(self, design_path, nano=False, pose_id=None, root=None, construct_pose=False, dock=False,
-                 **kwargs):  # project=None, specific_design=None,
-        self.nano = nano
-        if pose_id:
-            self.directory_string_to_path(root, design_path)
-            self.source_path = self.path
-        else:
-            self.source_path = os.path.abspath(design_path)
-        self.name = os.path.splitext(os.path.basename(self.source_path))[0]
-        self.source = None
-        self.log = None
-        self.debug = False
-        self.dock = dock
-        self.construct_pose = construct_pose
+    def __init__(self, design_path, pose_id=None, root=None, **kwargs):
+        #        project=None, specific_design=None, nano=False, dock=False, construct_pose=False,
         # MasterDirectory path attributes
         self.database = None
         self.protein_data = None  # program_root/Data
@@ -87,6 +75,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.trajectories = None  # program_root/AllScores/str(self)_Trajectories.csv
         self.residues = None  # program_root/AllScores/str(self)_Residues.csv
         self.design_sequences = None  # program_root/AllScores/str(self)_Sequences.pkl
+
+        # DesignDirectory flags
+        self.nano = kwargs.get('nano', False)
+        self.log = None
+        self.debug = False
+        self.dock = kwargs.get('dock', False)
+        self.construct_pose = kwargs.get('construct_pose', False)
+        if pose_id:
+            self.directory_string_to_path(root, design_path)
+            self.source_path = self.path
+        else:
+            self.source_path = os.path.abspath(design_path)
+        self.name = os.path.splitext(os.path.basename(self.source_path))[0]
         # DesignDirectory path attributes
         # self.scores = None  # /program_root/Projects/project_Designs/design/scores
         self.scores_file = None  # /program_root/Projects/project_Designs/design/data/name.sc
@@ -112,6 +113,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.consensus_pdb = None  # /program_root/Projects/project_Designs/design/design_name_for_consensus.pdb
         self.consensus_design_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_for_consensus.pdb
         self.pdb_list = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
+        self.design_profile_file = None  # /program_root/Projects/project_Designs/design/data/design.pssm
+        self.evolutionary_profile_file = None  # /program_root/Projects/project_Designs/design/data/evolutionary.pssm
+        self.fragment_data_pkl = None  # /program_root/Projects/project_Designs/design/data/%s_fragment_profile.pkl
         # Symmetry attributes Todo fully integrate with SymEntry
         self.sym_entry = kwargs.get('sym_entry', None)
         self.uc_dimensions = None
@@ -121,6 +125,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Design flags
         self.command_only = kwargs.get('command_only', False)
         self.consensus = None  # Whether to run consensus or not
+        self.design_residues = False
         self.design_with_fragments = False
         self.development = kwargs.get('development', False)
         self.evolution = False
@@ -148,7 +153,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.skip_logging = False
         self.copy_nanohedra = False  # no construction specific flags
         self.nanohedra_root = None
-
+        # Design attributes
         self.composition = None  # building_blocks (4ftd_5tch)
         self.design_db = None
         self.design_selector = None
@@ -162,6 +167,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.oligomers = []
         self.pose = None  # contains the design's Pose object
         self.pose_id = None
+        self.source = None
         # self.sdfs = {}
         self.sym_def_file = None
         self.symmetry_protocol = None
@@ -188,7 +194,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.percent_residues_fragment_total = None
         self.percent_residues_fragment_center = None
 
-        self.set_flags(**kwargs)  # has to be set before set_up_design_directory
+        self.set_flags(**kwargs)  # Todo Depreciate has to be set before set_up_design_directory
 
         if self.nano:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
@@ -254,7 +260,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if not self.construct_pose:  # no construction specific flags
                     self.write_frags = False
         else:
-            if '.pdb' in self.source_path:  # set up /program_root/projects/project/design
+            if '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
                 self.source = self.source_path
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
@@ -268,7 +274,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.make_path(self.path)
 
                 shutil.copy(self.source_path, self.path)
-            else:  # initialize DesignDirectory to recognize existing /program_root/projects/project/design
+            else:  # initialize DesignDirectory with existing /program_root/projects/project/design
                 self.path = self.source_path
                 self.project_designs = os.path.dirname(self.path)
                 self.projects = os.path.dirname(self.project_designs)
@@ -342,8 +348,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         try:
             return self._design_profile
         except AttributeError:
-            # self._design_profile = parse_pssm(os.path.join(os.path.abspath(self.path), self.info.get('design_profile')))
-            self._design_profile = parse_pssm(os.path.join(os.path.abspath(self.path), 'data', 'design.pssm'))
+            self._design_profile = parse_pssm(self.design_profile_file)
             return self._design_profile
 
     @property
@@ -351,10 +356,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         try:
             return self._evolutionary_profile
         except AttributeError:
-            # self._evolutionary_profile = \
-                # parse_pssm(os.path.join(os.path.abspath(self.path), self.info.get('evolutionary_profile')))
-            self._evolutionary_profile = \
-                parse_pssm(os.path.join(os.path.abspath(self.path), 'data', 'evolutionary.pssm'))
+            self._evolutionary_profile = parse_pssm(self.evolutionary_profile_file)
             return self._evolutionary_profile
 
     @property
@@ -362,9 +364,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         try:
             return self._fragment_data
         except AttributeError:
-            # self._fragment_data = unpickle(os.path.join(os.path.abspath(self.path), self.info.get('fragment_data')))
-            self._fragment_data = unpickle(os.path.join(os.path.abspath(self.path),
-                                                        'data', '%s_fragment_profile.pkl' % self.fragment_database))
+            self._fragment_data = unpickle(self.fragment_data_pkl)
             return self._fragment_data
 
     @property
@@ -697,13 +697,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.scores_file = os.path.join(self.data, '%s.sc' % self.name)
         self.serialized_info = os.path.join(self.data, 'info.pkl')
         self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
-        if not self.source and os.path.exists(self.asu):
-            self.source = self.asu
-        else:
-            try:
-                self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
-            except IndexError:  # glob found no files
-                self.source = None
         self.assembly = os.path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
         self.refine_pdb = '%s_for_refine.pdb' % os.path.splitext(self.asu)[0]
         self.consensus_pdb = '%s_for_consensus.pdb' % os.path.splitext(self.asu)[0]
@@ -752,6 +745,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
                 self.interface_residue_ids = self.info.get('interface_residues', {})
+                self.design_residues = self.info.get('design_residues', False)
+                if isinstance(self.design_residues, str):  # Todo remove as this conversion updates old directories
+                    # 'design_residues' coming in as 234B (residue_number|chain), remove chain, change type to int
+                    self.design_residues = \
+                        set(int(res.translate(digit_translate_table)) for res in self.design_residues.split(','))
+        # check if the source of the pdb files was refined upon loading
         if self.pre_refine:
             self.refined_pdb = self.asu
             self.scouted_pdb = '%s_scout.pdb' \
@@ -759,6 +758,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
+
         if self.specific_design:
             matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design))
             if matching_designs and os.path.exists(matching_designs[0]):
@@ -769,6 +769,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if len(matching_designs) > 1:
                 self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
                                  % (len(matching_designs), matching_designs[0]))
+            self.source = self.specific_design  # Todo test to see if this mechanism is robust
+        elif not self.source and os.path.exists(self.asu):  # standard mechanism of loading the pose
+            self.source = self.asu
+        else:
+            try:
+                self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
+            except IndexError:  # glob found no files
+                self.source = None
+
+        # design specific files
+        self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
+        self.evolutionary_profile_file = os.path.join(self.data, 'evolutionary.pssm')
+        self.fragment_data_pkl = os.path.join(self.data, '%s_fragment_profile.pkl' % self.fragment_database)
 
     def get_wildtype_file(self):
         """Retrieve the wild-type file name from Design Directory"""
@@ -849,19 +862,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.strand_fragment_content = frag_metrics['percent_fragment_strand']
         self.coil_fragment_content = frag_metrics['percent_fragment_coil']
 
-        # Todo limit design_residues by the SASA accessible residues
-        while True:
-            design_residues = self.info.get('design_residues', False)
-            if design_residues is None:  # when no interface was found
-                design_residues = []
-                break
-            elif not design_residues:  # no attribute yet
-                self.identify_interface()
-            else:
-                design_residues = design_residues.split(',')
-                break
+        # Todo limit design_residues by SASA > 0 residues
+        # while True:
+        # design_residues = self.info.get('design_residues', False)
+        # if self.design_residues == []:  # when no interface was found
+        #     self.design_residues = []
+        #     break
+        # elif not self.design_residues:  # no search yet, == False
+        if self.design_residues is False:  # no search yet, == False
+            self.identify_interface()
+        # else:
+            # design_residues = design_residues.split(',')
+            # break
 
-        self.total_interface_residues = len(set(design_residues))
+        self.total_interface_residues = len(self.design_residues)
         try:
             self.total_non_fragment_interface_residues = \
                 max(self.total_interface_residues - self.central_residues_with_fragment_overlap, 0)
@@ -1337,14 +1351,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # DESIGN: Prepare command and flags file
         # evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile] if self.evolutionary_profile else []) + \
+        design_cmd = main_cmd + \
+            (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
             ['-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
              '@%s' % self.flags, '-out:suffix', '_%s' % protocol,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct + \
             out_file
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
             additional_cmds.append(
-                main_cmd + (['-in:file:pssm', self.evolutionary_profile] if self.evolutionary_profile else []) +
+                main_cmd +
+                (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) +
                 ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), '@%s' % self.flags,
                  '-in:file:silent_struct_type', 'binary',
                  # '-out:suffix', '_%s' % protocol,
@@ -1743,19 +1759,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
                 self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
         self.pose.find_and_split_interface()
+        self.design_residues = []  # update False to list or replace list and add new residues
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.interface_residue_ids['interface%d' % number] = \
-                ','.join('%d%s' % (res.number, ent.chain_id) for res, ent in residues_entities)
+                ','.join('%d%s' % (residue.number, entity.chain_id) for residue, entity in residues_entities)
+            self.design_residues.extend([residue.number for residue, _ in residues_entities])
         interface1, interface2 = \
-            self.interface_residue_ids.get('interface1', None), self.interface_residue_ids.get('interface2', None)
+            self.interface_residue_ids.get('interface1'), self.interface_residue_ids.get('interface2')
         if interface1 and interface2:
-            self.info['design_residues'] = '%s,%s' % (interface1, interface2)
+            # self.info['design_residues'] = self.design_residues
             self.info['interface_residues'] = self.interface_residue_ids
             self.log.info('Interface Residues:\n\t%s'
                           % '\n\t'.join('interface%d: %s' % info for info in enumerate([interface1, interface2], 1)))
         else:
-            self.info['design_residues'] = None
+            # self.info['design_residues'] = None
             self.log.info('No Interface Residues Found')
+        self.info['design_residues'] = self.design_residues
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
@@ -1800,7 +1819,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def optimize_design(self, threshold=0):
+    def optimize_designs(self, threshold=0.):
         """To touch up and optimize a design, provide a list of optional directives to view mutational landscape around
         certain residues in the design as well as perform wild-type amino acid reversion to mutated residues
 
@@ -1810,19 +1829,26 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             design_file=None (str): The name of a particular design file present in the designs output
             threshold=0.0 (float): The threshold above which background amino acid frequencies are allowed for mutation
          """
+        self.load_pose()
         # format all provided amino acids with representation above threshold to set
         # Todo, make threshold and return set of strings a property of a profile object
-        bkgrnd = \
-            {residue_number: {protein_letters_1to3.get(aa).upper() for aa, value in fields.items() if value > threshold}
-             for residue_number, fields in self.design_background.items()}
-        wt = {residue_number: {fields.get('type')} for residue_number, fields in self.design_background.items()}
-        res_file = \
-            self.pose.pdb.make_resfile(self, self.directives, out_path=self.data, wild_type=wt, background=bkgrnd)
+        background = \
+            {self.pose.pdb.residue(residue_number):
+             {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
+             for residue_number, fields in self.design_background.items() if residue_number in self.design_residues}
+        # include the wild-type residue and the current residue
+        wt = {residue: {self.design_background[residue.number].get('type'), protein_letters_3to1[residue.type.title()]}
+              for residue in background}
+        directives = dict(zip(wt.keys(), repeat(None)))
+        directives.update({self.pose.pdb.residue(residue_number): directive
+                           for residue_number, directive in self.directives.items()})
+
+        res_file = self.pose.pdb.make_resfile(directives, out_path=self.data, include=wt, background=background)
 
         protocol = 'optimize_design'
         protocol_xml1 = protocol
         # nstruct_instruct = ['-no_nstruct_label', 'true']
-        nstruct_instruct = ['-nstruct', 10]  # str(self.number_of_trajectories)]
+        nstruct_instruct = ['-nstruct', str(10)]  # str(self.number_of_trajectories)]
 
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
@@ -1834,14 +1860,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile] if self.evolutionary_profile else []) + \
+        design_cmd = main_cmd + \
+            (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
             ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb,
              '@%s' % self.flags, '-out:suffix', '_%s' % protocol, '-packing:resfile', res_file,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        metric_cmd = main_cmd + ['-in:file:s', design_file if os.path.exists(design_file) else self.refined_pdb] + \
+        metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
@@ -1901,19 +1928,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.log.debug('Reordering wild-type chains')
         # wt_pdb.reorder_chains()  # ensure chain ordering is A then B to match output from interface_design
 
-        design_residues = self.info.get('design_residues')  # None
-        if design_residues == list():  # we should always get an empty list if we have got to this point
+        if not self.design_residues:  # we should always get an empty list if we have got to this point
             raise DesignError('No residues were found with your design criteria... Your flags may be to stringent or '
                               'incorrect. Check input files for interface existance')
-        elif design_residues is None:  # this should only happen if something is really failing in pose initialization
-            raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
-        # 'design_residues' coming in as 234B (residue_number|chain), remove chain from residue, change type to int
-        design_residues = set(int(residue.translate(digit_translate_table)) for residue in design_residues.split(','))
-        self.log.debug('Found design residues: %s' % design_residues)
+        # elif self.design_residues is None:  # this should only happen if something is really failing in pose initialization
+        #     raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
+
+        self.log.debug('Found design residues: %s' % self.design_residues)
 
         # Interface B Factor TODO ensure asu.pdb has B-factors for Nanohedra
-        int_b_factor = sum(self.pose.pdb.residue(residue).b_factor for residue in design_residues)
-        other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(design_residues), 2)
+        int_b_factor = sum(self.pose.pdb.residue(residue).b_factor for residue in self.design_residues)
+        other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(self.design_residues), 2)
         # other_pose_metrics['interface_b_factor_per_residue'] = round(int_b_factor / len(interface_residues), 2)
 
         # initialize empty design dataframes
@@ -2113,9 +2138,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
             other_pose_metrics['percent_fragment'] = self.fragment_residues_total / len(interface_residues)
             other_pose_metrics['total_interface_residues'] = len(interface_residues)
-            if interface_residues != design_residues:
+            if interface_residues != self.design_residues:
                 self.log.info('Residues %s are located in the interior' %
-                              ', '.join(map(str, design_residues.difference(interface_residues))))
+                              ', '.join(map(str, self.design_residues.difference(interface_residues))))
 
             # Add design residue information to scores_df such as how many core, rim, and support residues were measured
             for r_class in residue_classificiation:
@@ -2575,7 +2600,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 seq_pca = PCA(PUtils.variance)
                 designed_residue_info = {design: {residue: info for residue, info in residues_info.items()
-                                                  if residue in design_residues}
+                                                  if residue in self.design_residues}
                                          for design, residues_info in residue_info.items()}
                 pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_residue_info, sequence_difference))
                 seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
