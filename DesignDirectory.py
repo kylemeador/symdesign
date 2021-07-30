@@ -129,8 +129,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.number_of_trajectories = None
         self.pre_refine = True
         self.directives = kwargs.get('directives', {})
-        self.specific_design = kwargs.get('specific_design') if os.path.exists(kwargs.get('specific_design', 'nowhere'))\
-            else None
+        self.specific_design = kwargs.get('specific_design', None)
         self.query_fragments = False
         self.scout = kwargs.get('scout', False)
         self.structure_background = kwargs.get('structure_background', False)
@@ -760,6 +759,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
+        if self.specific_design:
+            matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design))
+            if matching_designs and os.path.exists(matching_designs[0]):
+                self.specific_design = matching_designs[0]
+            else:
+                raise DesignError('Couldn\'t locate a design matching the specific_design name %s'
+                                  % self.specific_design)
+            if len(matching_designs) > 1:
+                self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
+                                 % (len(matching_designs), matching_designs[0]))
 
     def get_wildtype_file(self):
         """Retrieve the wild-type file name from Design Directory"""
