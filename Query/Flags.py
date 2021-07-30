@@ -2,7 +2,8 @@ from copy import copy
 
 from PathUtils import program_command, nano, program_name, nstruct, interface_design
 from Query.PDB import input_string, format_string, confirmation_string, bool_d, invalid_string, header_string
-from SymDesignUtils import pretty_format_table, DesignError, handle_errors
+from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
+    format_index_string
 from SequenceProfile import read_fasta_file
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
@@ -266,28 +267,6 @@ def generate_sequence_mask(fasta_file):
                           'lengths before proceeding.')
 
     return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
-
-
-def clean_comma_separated_string(string):
-    return list(map(str.strip, string.strip().split(',')))
-
-
-def format_index_string(index_string):
-    """From a string with indices of interest, format the indices provided
-
-    Returns:
-        (list): residue numbers in pose format
-    """
-    final_index = []
-    for index in clean_comma_separated_string(index_string):
-        if '-' in index:  # we have a range, extract ranges
-            for _idx in range(*tuple(map(int, index.split('-')))):
-                final_index.append(_idx)
-            final_index.append(_idx + 1)
-        else:  # single index
-            final_index.append(index)
-
-    return list(map(int, final_index))
 
 
 def generate_chain_mask(chain_string):
