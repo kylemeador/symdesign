@@ -1514,36 +1514,50 @@ class Structure(StructureBase):
 
         return np.array([residue.contact_order for residue in self.residues])
 
-    def format_resfile_from_directives(self, residue_directives, wild_type=None, background=None, **kwargs):
-        """Format Residue mutational potentials given Residues/residue numbers and corresponding mutation directive
+    def format_resfile_from_directives(self, residue_directives, include=None, background=None, **kwargs):
+        """Format Residue mutational potentials given Residues/residue numbers and corresponding mutation directive.
+        Optionally, include specific amino acids and limit to a specific background. Both dictionaries accessed by same
+        keys as residue_directives
 
         Args:
             residue_directives (dict[mapping[Union[Residue,int],str]]): {Residue object: 'mutational_directive', ...}
         Keyword Args:
-            wild_type=None (dict[mapping[int,str]]): The wild-type amino acids for each residue
-            background=None (dict[mapping[int,set[str]]]): The background amino acids to compare possibilities against
+            include=None (dict[mapping[Union[Residue,int],set[str]]]):
+                Include a set of specific amino acids for each residue
+            background=None (dict[mapping[Union[Residue,int],set[str]]]):
+                The background amino acids to compare possibilities against
             special=False (bool): Whether to include special residues
         Returns:
             (list[str]): Formatted resfile lines for each Residue with a PIKAA and amino acid type string
         """
         if not background:
             background = {}
-        if not wild_type:
-            wild_type = {}
+        if not include:
+            include = {}
 
         res_file_lines = []
-        for residue, directive in residue_directives.items():
-            try:
-                residue_number = residue.number
-            except AttributeError:  # this isn't a residue object, instead residue numbers?
-                residue_number = residue
-                residue = self.residue(residue)
-            allowed_aas = \
-                residue.mutation_possibilities_from_directive(directive, background=background.get(residue_number),
-                                                              **kwargs)
-            allowed_aas = {protein_letters_3to1_extended[aa.title()] for aa in allowed_aas}
-            allowed_aas.add(wild_type.get(residue_number, ''))
-            res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(sorted(allowed_aas))))
+        if isinstance(next(iter(residue_directives)), int):  # this isn't a residue object, instead residue numbers
+            for residue_number, directive in residue_directives.items():
+                residue = self.residue(residue_number)
+                allowed_aas = residue. \
+                    mutation_possibilities_from_directive(directive, background=background.get(residue_number),
+                                                          **kwargs)
+                allowed_aas = {protein_letters_3to1_extended[aa.title()] for aa in allowed_aas}
+                allowed_aas = allowed_aas.union(include.get(residue_number, {}))
+                res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(sorted(allowed_aas))))
+                # res_file_lines.append('%d %s %s' % (residue.number, residue.chain,
+                #                                     'PIKAA %s' % ''.join(sorted(allowed_aas)) if len(allowed_aas) > 1
+                #                                     else 'NATAA'))
+        else:
+            for residue, directive in residue_directives.items():
+                allowed_aas = residue.\
+                    mutation_possibilities_from_directive(directive, background=background.get(residue), **kwargs)
+                allowed_aas = {protein_letters_3to1_extended[aa.title()] for aa in allowed_aas}
+                allowed_aas = allowed_aas.union(include.get(residue, {}))
+                res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(sorted(allowed_aas))))
+                # res_file_lines.append('%d %s %s' % (residue.number, residue.chain,
+                #                                     'PIKAA %s' % ''.join(sorted(allowed_aas)) if len(allowed_aas) > 1
+                #                                     else 'NATAA'))
 
         return res_file_lines
 
@@ -1551,12 +1565,14 @@ class Structure(StructureBase):
         """Format a resfile for the Rosetta Packer from Residue mutational directives
 
         Args:
-            residue_directives (dict[mapping[Union[Residue,int],str]]): {Residue object: 'mutational_directive', ...}
+            residue_directives (dict[mapping[Union[Residue,int],str]]): {Residue/int: 'mutational_directive', ...}
         Keyword Args:
             out_path=os.getcwd() (str): Directory to write the file
             header=None (list[str]): A header to constrain all Residues for packing
-            wild_type=None (dict[mapping[int,str]]): The wild-type amino acids for each residue
-            background=None (dict[mapping[int,set[str]]]): The background amino acids to compare possibilities against
+            include=None (dict[mapping[Union[Residue,int],set[str]]]):
+                Include a set of specific amino acids for each residue
+            background=None (dict[mapping[Union[Residue,int],set[str]]]):
+                The background amino acids to compare possibilities against
             special=False (bool): Whether to include special residues
         Returns:
             (str): The path to the resfile
@@ -2867,13 +2883,12 @@ class Residue:
             raise AttributeError('The attribute %s was not found in the Residue. Are you sure this is the attribute you'
                                  ' want?' % dtype)
 
-    def mutation_possibilities_from_directive(self, directive, background=None, special=False, **kwargs):
+    def mutation_possibilities_from_directive(self, directive=None, background=None, special=False, **kwargs):
         """Select mutational possibilities for each Residue based on the Residue and a directive
 
-        Args:
-            directive (str): Where the choice is one of 'special', 'same', 'different', 'charged', 'polar', 'apolar',
-            'hydrophobic', 'aromatic', 'hbonding', 'branched'
         Keyword Args:
+            directive=None (str): Where the choice is one of 'special', 'same', 'different', 'charged', 'polar',
+                'apolar', 'hydrophobic', 'aromatic', 'hbonding', 'branched'
             background=None (set[str]): The background amino acids to compare possibilities against
             special=False (bool): Whether to include special residues
         Returns:
@@ -2883,6 +2898,10 @@ class Residue:
             self.log.debug('%s: The mutation directive %s is not a valid directive yet. Possible directives are: %s'
                             % (self.mutation_possibilities_from_directive.__name__, directive,
                                ', '.join(mutation_directives)))
+            return set()
+            # raise TypeError('%s: The mutation directive %s is not a valid directive yet. Possible directives are: %s'
+            #                 % (self.mutation_possibilities_from_directive.__name__, directive,
+            #                    ', '.join(mutation_directives)))
 
         current_properties = residue_properties[self.type]
         if directive == 'same':
