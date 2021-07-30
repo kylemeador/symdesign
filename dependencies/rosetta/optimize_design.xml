@@ -68,23 +68,23 @@
 		# all residues
 		<True name="full_pose"/>
 		<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
-<!--		<Task name="select_packable_residues" fixed="" packable="0" designable="0" task_operations=""/>--> # potential use with TaskOperations
-		<ResidueName name="special_residues" residue_name3="CYS,GLY,PRO"/>
-		<ResidueName name="polar_residues" residue_name3="ASP,GLU,HIS,LYS,ASN,GLN,ARG,SER,THR"/>
-		<ResidueName name="hydrophobic_residues" residue_name3="ALA,PHE,ILE,LEU,MET,VAL,TRP,TYR"/>
-<!--		<ResiduePropertySelector name="polar_residues" properties="POLAR"/>-->
-<!--		<ResiduePropertySelector name="hydrophobic_residues" properties="HYDROPHOBIC"/> # logic="and_logic" default is or_logic-->
-		<Index name="special" resnums="%%special%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<Index name="same" resnums="%%same%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<Index name="different" resnums="%%different%%" error_on_out_of_bounds_index="0" reverse="0"/>
-		<And name="keep_polar" selectors="same,polar_residues"/>
-		<And name="keep_hydrophobic" selectors="same,hydrophobic_residues"/>
-<!--		<And name="make_special" selectors="special"/>-->
-		<And name="make_hydrophobic" selectors="different,polar_residues"/>
-		<And name="make_polar" selectors="different,hydrophobic_residues"/>
-<!--		<And name="all_special" selectors="keep_special,make_special"/>-->
-		<And name="all_polar" selectors="keep_polar,make_polar"/>
-		<And name="all_hydrophobic" selectors="keep_hydrophobic,make_hydrophobic"/>
+<!--&lt;!&ndash;		<Task name="select_packable_residues" fixed="" packable="0" designable="0" task_operations=""/>&ndash;&gt; # potential use with TaskOperations-->
+<!--		<ResidueName name="special_residues" residue_name3="CYS,GLY,PRO"/>-->
+<!--		<ResidueName name="polar_residues" residue_name3="ASP,GLU,HIS,LYS,ASN,GLN,ARG,SER,THR"/>-->
+<!--		<ResidueName name="hydrophobic_residues" residue_name3="ALA,PHE,ILE,LEU,MET,VAL,TRP,TYR"/>-->
+<!--&lt;!&ndash;		<ResiduePropertySelector name="polar_residues" properties="POLAR"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		<ResiduePropertySelector name="hydrophobic_residues" properties="HYDROPHOBIC"/> # logic="and_logic" default is or_logic&ndash;&gt;-->
+<!--		<Index name="special" resnums="%%special%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<Index name="same" resnums="%%same%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<Index name="different" resnums="%%different%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<And name="keep_polar" selectors="same,polar_residues"/>-->
+<!--		<And name="keep_hydrophobic" selectors="same,hydrophobic_residues"/>-->
+<!--&lt;!&ndash;		<And name="make_special" selectors="special"/>&ndash;&gt;-->
+<!--		<And name="make_hydrophobic" selectors="different,polar_residues"/>-->
+<!--		<And name="make_polar" selectors="different,hydrophobic_residues"/>-->
+<!--&lt;!&ndash;		<And name="all_special" selectors="keep_special,make_special"/>&ndash;&gt;-->
+<!--		<And name="all_polar" selectors="keep_polar,make_polar"/>-->
+<!--		<And name="all_hydrophobic" selectors="keep_hydrophobic,make_hydrophobic"/>-->
 	</RESIDUE_SELECTORS>
 
 	<TASKOPERATIONS>
@@ -111,17 +111,18 @@
 		<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="1" name="wt_residues1" min_aa_probability="20" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="2" name="wt_residues2" min_aa_probability="20" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
-		<DesignRestrictions name="limit_to_residue_types">
-			<Action residue_selector="special" aas="CGP"/>
-			<Action residue_selector="all_polar" aas="DEHKNQRST"/>
-			<Action residue_selector="all_hydrophobic" aas="AFILMVWY"/>
-		</DesignRestrictions>
-<!--		<RestrictToResidueProperties name="" properties="HYDROPHOBIC,POLAR" selector=""/>-->
-<!--		<ResfileCommandOperation name="" command="POLAR PIKAA ACDEFGH <- I wish I could overlap with PSSM" residue_selector=""/>-->
-		<RetrieveStoredTask name="retrieve_designable_test" 		task_name="designable_test"/>
-		<RetrieveStoredTask name="optimize_designable_polar" 		task_name="designable_polar"/>
-		<RetrieveStoredTask name="optimize_designable_hydrophobic" 	task_name="designable_hydrophobic"/>
-		<RetrieveStoredTask name="optimize_task_operations" 		task_name="optimize_interface_packer_palette"/>
+		<ReadResfile name="read_resfile" selector="tot_interface"/> # filename=""
+<!--		<DesignRestrictions name="limit_to_residue_types">-->
+<!--			<Action residue_selector="special" aas="CGP"/>-->
+<!--			<Action residue_selector="all_polar" aas="DEHKNQRST"/>-->
+<!--			<Action residue_selector="all_hydrophobic" aas="AFILMVWY"/>-->
+<!--		</DesignRestrictions>-->
+<!--&lt;!&ndash;		<RestrictToResidueProperties name="" properties="HYDROPHOBIC,POLAR" selector=""/>&ndash;&gt;-->
+<!--&lt;!&ndash;		<ResfileCommandOperation name="" command="POLAR PIKAA ACDEFGH <- I wish I could overlap with PSSM" residue_selector=""/>&ndash;&gt;-->
+<!--		<RetrieveStoredTask name="retrieve_designable_test" 		task_name="designable_test"/>-->
+<!--		<RetrieveStoredTask name="optimize_designable_polar" 		task_name="designable_polar"/>-->
+<!--		<RetrieveStoredTask name="optimize_designable_hydrophobic" 	task_name="designable_hydrophobic"/>-->
+<!--&lt;!&ndash;		<RetrieveStoredTask name="optimize_task_operations" 		task_name="optimize_interface_packer_palette"/>&ndash;&gt;-->
 	</TASKOPERATIONS>
 
 	<MOVE_MAP_FACTORIES>
@@ -137,33 +138,34 @@
 	</FILTERS>
 
 	<MOVERS>
-		<StoreCompoundTaskMover name="test" task_name="designable_test" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">
-			<AND task_operations="limit_to_residue_types"/>
+<!--		<StoreCompoundTaskMover name="test" task_name="designable_test" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
+<!--			<AND task_operations="limit_to_residue_types"/>-->
+<!--&lt;!&ndash;			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>&ndash;&gt;-->
+<!--		</StoreCompoundTaskMover>-->
+<!--		<StoreCompoundTaskMover name="polar_ssm_residues" task_name="designable_polar" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
+<!--			<AND task_operations="limit_to_residue_types"/>-->
 <!--			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>-->
-		</StoreCompoundTaskMover>
-		<StoreCompoundTaskMover name="polar_ssm_residues" task_name="designable_polar" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">
-			<AND task_operations="limit_to_residue_types"/>
-			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>
-		</StoreCompoundTaskMover>
-		<StoreCompoundTaskMover name="hydrophobic_ssm_residues" task_name="designable_hydrophobic" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">
-			<AND task_operations="limit_to_residue_types"/>
-			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>
-		</StoreCompoundTaskMover>
-		<StoreCompoundTaskMover name="wt_plus_residue_types" task_name="optimize_interface_packer_palette" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">
-<!--			<OR task_operations="polar_ssm_residues"/>-->
-			<OR task_operations="optimize_designable_polar"/>
-<!--			<OR task_operations="hydrophobic_ssm_residues"/>-->
-			<OR task_operations="optimize_designable_hydrophobic"/>
-			<OR task_operations="wt_residues1,wt_residues2,include_current"/>
-		</StoreCompoundTaskMover>
+<!--		</StoreCompoundTaskMover>-->
+<!--		<StoreCompoundTaskMover name="hydrophobic_ssm_residues" task_name="designable_hydrophobic" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
+<!--			<AND task_operations="limit_to_residue_types"/>-->
+<!--			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>-->
+<!--		</StoreCompoundTaskMover>-->
+<!--		<StoreCompoundTaskMover name="wt_plus_residue_types" task_name="optimize_interface_packer_palette" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
+<!--&lt;!&ndash;			<OR task_operations="polar_ssm_residues"/>&ndash;&gt;-->
+<!--			<OR task_operations="optimize_designable_polar"/>-->
+<!--&lt;!&ndash;			<OR task_operations="hydrophobic_ssm_residues"/>&ndash;&gt;-->
+<!--			<OR task_operations="optimize_designable_hydrophobic"/>-->
+<!--			<OR task_operations="wt_residues1,wt_residues2,include_current"/>-->
+<!--		</StoreCompoundTaskMover>-->
 		<SymMinMover name="min" scorefxn="2015_nano" movemap_factory="design_map"/> # bb="0" chi="1"
 		# add CoordinateConstraints to restrict design movement during trajectory
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
 		# Pull subroutines in from other files
-		<Subroutine name="no_constraint" xml_fname="%%scripts%%/interface_design/no_profile.xml"/>
-		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,set_ig,optimize_task_operations,des_around_total" relax_mover="min" scorefxn="2015_nano">
+		<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
+<!--		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,set_ig,optimize_task_operations,des_around_total" relax_mover="min" scorefxn="2015_nano">-->
+		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,set_ig,read_resfile,des_around_total" relax_mover="min" scorefxn="2015_nano">
 			<Filters>
 				<AND filter_name="buns_complex" sample_type="low"/>
 				<AND filter_name="shape_complementarity" sample_type="high"/>
@@ -185,14 +187,14 @@
 	<PROTOCOLS>
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
-		<Add mover_name="test"/>
-		<Add mover_name="polar_ssm_residues"/>
-		<Add mover_name="hydrophobic_ssm_residues"/>
-		<Add mover_name="wt_plus_residue_types"/>
-		<Add mover_name="int_design_test"/>
-		<Add mover_name="int_design"/>
+<!--		<Add mover_name="test"/>-->
+<!--		<Add mover_name="polar_ssm_residues"/>-->
+<!--		<Add mover_name="hydrophobic_ssm_residues"/>-->
+<!--		<Add mover_name="wt_plus_residue_types"/>-->
+<!--		<Add mover_name="int_design_test"/>-->
+<!--		<Add mover_name="int_design"/>-->
 		<Add mover_name="optimize"/>
-<!--		<Add mover_name="measure_interface_bound"/>-->
+		<Add mover_name="measure_interface_bound"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
