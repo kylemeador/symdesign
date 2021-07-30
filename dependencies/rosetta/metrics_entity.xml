@@ -87,9 +87,10 @@
 
 	<MOVERS>
 		# specify coordinate constraint for the pose
-<!--		<AddConstraints name="add_csts">-->
-<!--			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic-->
-<!--		</AddConstraints>-->
+		<AddConstraints name="add_csts">
+			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
+<!--			<AtomPairConstraintGenerator name="atom_pair_cst_gen" residue_selector="hbnet_residues" max_distance="3.3" sd="0.4" ca_only="0" min_seq_sep="2"/> # meant to recapitulate the constraints imposed by the HBNet protocol when the pose is reconstructed-->
+		</AddConstraints>
 		# process metrics that are defined in the SimpleMetrics header above
 		# symmetric scorefunction metrics indicated by S_
 		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_bound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%entity%%_unbound" override="false"/> # unbound label on these is for for residue_processing() although they represent bound state
@@ -163,8 +164,9 @@
 		<Add mover_name="measure_entity"/> # removes non-entity positions
 		<Add mover_name="symmetry"/> # symmetrize entity
 		<Add mover_name="repack_switch"/> # set up additional repacking after entity isolation
-<!--		<Add mover_name="add_csts"/> # add csts with the current pose -->
+		<Add mover_name="add_csts"/> # add csts with the current pose
 		# ^ ACTUALLY DON'T. WILL BE MEASURE OF HOW MUCH INPUT RESIDUE COORDINATES ARE UNHAPPY
+		## NOT THE PLACE FOR THIS ^. NEED AN ACCURATE REFERENCE FOR COMPARISON AND THEY HAVE BEEN ON UNTIL NOW.
 		<Add mover_name="metrics"/>
 	</PROTOCOLS>
 
