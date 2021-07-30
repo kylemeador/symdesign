@@ -2,6 +2,7 @@ import os
 import logging
 import math
 import multiprocessing as mp
+from csv import reader, Dialect
 from operator import getitem
 from string import digits
 import pickle
@@ -409,6 +410,31 @@ def digit_keeper():
 digit_translate_table = digit_keeper()
 
 
+def clean_comma_separated_string(string):
+    return map(str.strip, string.strip().split(','))
+
+
+def format_index_string(index_string):
+    """From a string with indices of interest, comma separated or in a range, format into individual, integer indices
+
+    Args:
+        index_string (str): 23, 34,35,56-89, 290
+    Returns:
+        (list[int]): Indices in Pose formatting
+    """
+    final_index = []
+    for index in clean_comma_separated_string(index_string):
+        if '-' in index:  # we have a range, extract ranges
+            for _idx in range(*tuple(map(int, index.split('-')))):
+                final_index.append(_idx)
+            final_index.append(_idx + 1)  # inclusive of the last integer in range
+        else:  # single index
+            final_index.append(int(index))
+
+    return final_index
+    # return list(map(int, final_index))  # why was this necessary?
+
+
 ###################
 # PDB Handling
 ###################
@@ -467,7 +493,6 @@ def io_save(data, filename=None):
     Returns
         None
     """
-    # file = os.path.join(os.getcwd(), 'missing_UNP_PDBS.txt')
     def write_file(filename):
         if not filename:
             filename = input('What is your desired filename? (appended to current working directory)\n')
@@ -1021,6 +1046,31 @@ def get_symdesign_dirs(base=None, project=None, single=None):
         return map(os.path.dirname, glob('%s/*/' % project))  # sorted(set())
     else:
         return map(os.path.dirname, glob('%s/*/*/*/' % base))  # sorted(set())
+
+
+class DesignSpecification(Dialect):
+    def __init__(self, file):
+        super().__init__()
+        self.delimiter = ','
+        self.directive_delimiter = ':'
+        self.file = file
+        # self.reader()
+
+        # def reader(self):
+        with open(self.file) as file:
+            self.all_poses, self.design_names, self._directives, *_ = zip(*reader(file, dialect=self))
+
+        residue_directives = []
+        # first split directives by white space, then by directive_delimiter
+        for residues_s, directive in map(str.split, self._directives.split(), self.directive_delimiter):
+            # residues_s, directive = _directive.split(self.directive_delimiter)
+            residues = format_index_string(residues_s)
+            residue_directives.extend((residue, directive) for residue in residues)
+
+        self.directives = dict(residue_directive for residue_directive in residue_directives)
+
+    def return_directives(self):
+        return self.all_poses, self.design_names, self.directives
 
 
 class DesignError(Exception):
