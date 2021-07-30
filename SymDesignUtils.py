@@ -2,7 +2,7 @@ import os
 import logging
 import math
 import multiprocessing as mp
-from csv import reader, Dialect
+from csv import reader, Dialect, QUOTE_MINIMAL
 from operator import getitem
 from string import digits
 import pickle
@@ -1049,28 +1049,53 @@ def get_symdesign_dirs(base=None, project=None, single=None):
 
 
 class DesignSpecification(Dialect):
+    delimiter = ','
+    doublequote = True
+    escapechar = None
+    lineterminator = '\r\n'
+    quotechar = '"'
+    quoting = QUOTE_MINIMAL
+    skipinitialspace = False
+    strict = False
     def __init__(self, file):
         super().__init__()
-        self.delimiter = ','
+        # self.delimiter = ','
+        # self.doublequote = True
+        # self.escapechar = None
+        # self.lineterminator = '\r\n'
+        # self.quotechar = '"'
+        # self.quoting = QUOTE_MINIMAL
+        # self.skipinitialspace = False
+        # self.strict = False
         self.directive_delimiter = ':'
         self.file = file
         # self.reader()
 
         # def reader(self):
         with open(self.file) as file:
-            self.all_poses, self.design_names, self._directives, *_ = zip(*reader(file, dialect=self))
+            all_poses, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
+            self.all_poses, self.design_names = list(map(str.strip, all_poses)), list(map(str.strip, design_names))
 
-        residue_directives = []
+        self.directives = []
         # first split directives by white space, then by directive_delimiter
-        for residues_s, directive in map(str.split, self._directives.split(), self.directive_delimiter):
-            # residues_s, directive = _directive.split(self.directive_delimiter)
-            residues = format_index_string(residues_s)
-            residue_directives.extend((residue, directive) for residue in residues)
-
-        self.directives = dict(residue_directive for residue_directive in residue_directives)
+        for design_directives in all_design_directives:
+            # print('Design Directives',design_directives)
+            residue_directives = []
+            # print('splitting residues', design_directives.split())
+            # print('splitting directives', list(map(str.split, design_directives.split(), repeat(self.directive_delimiter))))
+            for residues_s, directive in map(str.split, design_directives.split(), repeat(self.directive_delimiter)):
+                # residues_s, directive = _directive.split(self.directive_delimiter)
+                residues = format_index_string(residues_s)
+                residue_directives.extend((residue, directive) for residue in residues)
+            # print('Residue Directives', residue_directives)
+            self.directives.append(dict(residue_directive for residue_directive in residue_directives))
+        # print('Total Design Directives', self.directives)
 
     def return_directives(self):
-        return self.all_poses, self.design_names, self.directives
+        return zip(self.all_poses, self.design_names, self.directives)
+
+    # def validate(self):
+
 
 
 class DesignError(Exception):
