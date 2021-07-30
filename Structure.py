@@ -662,13 +662,13 @@ class Structure(StructureBase):
                 residue_indices.append(idx)
                 found_types.append(atom.type)
             else:
-                new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords))
-                #                           index=residue_idx,
+                new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords,
+                                            log=self.log))  # index=residue_idx
                 # residue_idx += 1
                 found_types, residue_indices = [atom.type], [idx]
                 current_residue_number = atom.residue_number
         # ensure last residue is added after iteration is complete
-        new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords))
+        new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords, log=self.log))
         #                           index=residue_idx,
         self.residue_indices = list(range(len(new_residues)))
         self.residues = new_residues
@@ -2445,7 +2445,7 @@ class Residues:
 
 
 class Residue:
-    def __init__(self, atom_indices=None, index=None, atoms=None, coords=None):
+    def __init__(self, atom_indices=None, index=None, atoms=None, coords=None, log=None):
         # self.index = index
         self.atom_indices = atom_indices
         self.atoms = atoms
@@ -2453,6 +2453,7 @@ class Residue:
             self.coords = coords
         self.secondary_structure = None
         self._contact_order = 0
+        self.log = log
 
     @property
     def start_index(self):
@@ -2878,8 +2879,8 @@ class Residue:
         Returns:
             (set[str]): The possible amino acid types available given the mutational directive
         """
-        if directive not in mutation_directives:
-            raise TypeError('%s: The mutation directive %s is not a valid directive, yet. Possible directives are: %s'
+        if not directive or directive not in mutation_directives:
+            self.log.debug('%s: The mutation directive %s is not a valid directive yet. Possible directives are: %s'
                             % (self.mutation_possibilities_from_directive.__name__, directive,
                                ', '.join(mutation_directives)))
 
