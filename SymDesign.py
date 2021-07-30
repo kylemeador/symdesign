@@ -663,6 +663,12 @@ if __name__ == '__main__':
     # parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
     #                                       help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
+    parser_optimize_designs = \
+        subparsers.add_parser('optimize_designs',
+                              help='Optimize and touch up designs after running an interface design job. Useful for '
+                                   'reverting excess mutations to wild-type, or directing targetted exploration of '
+                                   'specific troublesome areas.')
+    # ---------------------------------------------------
     parser_custom_script = \
         subparsers.add_parser('custom_script',
                               help='Set up a custom RosettaScripts.xml for designs. The custom_script will be provided '
@@ -942,7 +948,7 @@ if __name__ == '__main__':
 
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
-                       'interface_metrics', 'custom_script', 'rename_chains', 'status']:
+                       'interface_metrics', 'optimize_designs', 'custom_script', 'rename_chains', 'status']:
         initialize, construct_pose = True, True  # set up design directories
         # if args.module in ['orient', 'expand_asu']:
         #     if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
@@ -982,8 +988,8 @@ if __name__ == '__main__':
     low, high, low_range, high_range = None, None, None, None
     # nanohedra_initialization = False
     # Todo initialization True only. move from requirement if not needed
-    if not args.directory and not args.file and not args.project and not args.single:
-        raise SDUtils.DesignError('No designs were specified!\nPlease specify --directory, --file, '
+    if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
+        raise SDUtils.DesignError('No designs were specified! Please specify --directory, --file, --specification_file,'
                                   '--project, or --single to locate designs of interest and run your command again')
 
     if args.multi_processing:
@@ -999,9 +1005,7 @@ if __name__ == '__main__':
         if nano:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
         else:
-            all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
-                                                          project=args.project, single=args.single)
-            if args.specification_file:
+            if args.specification_file:  # Todo, combine this with collect_designs
                 # # Grab all poses (directories) to be processed from either directory name or file
                 # with open(args.specification_file) as csv_file:
                 #     design_specification_dialect = Dialect()
@@ -1009,6 +1013,8 @@ if __name__ == '__main__':
                 #     all_poses, pose_design_numbers = zip(*reader(csv_file, dialect=))
                 # # all_poses, pose_design_numbers = zip(*csv_lines)
                 location = args.specification_file
+                if not args.directory:
+                    raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
                 program_root = args.directory  # Todo clean this mechanism everywhere
                 design_specification = SDUtils.DesignSpecification(args.specification_file)
                 design_directories = \
@@ -1017,6 +1023,10 @@ if __name__ == '__main__':
                      for pose, design, directives in design_specification.return_directives()]
                 master_directory = next(iter(design_directories))
                 program_root = master_directory.program_root
+            else:
+                all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
+                                                              project=args.project, single=args.single)
+
         if queried_flags['design_range']:
             low, high = map(float, queried_flags['design_range'].split('-'))
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
@@ -1620,6 +1630,18 @@ if __name__ == '__main__':
         else:
             for design in design_directories:
                 results.append(design.rosetta_interface_metrics())
+
+        terminate(args.module, design_directories, location=location, results=results)
+
+    # ---------------------------------------------------
+    elif args.module == 'optimize_designs':
+        # Start pose processing and preparation for Rosetta
+        if args.multi_processing:
+            # zipped_args = zip(design_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
+            results = SDUtils.mp_map(DesignDirectory.optimize_designs, design_directories, threads=threads)
+        else:
+            for design in design_directories:
+                results.append(design.optimize_designs())
 
         terminate(args.module, design_directories, location=location, results=results)
 
