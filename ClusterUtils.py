@@ -75,13 +75,14 @@ def pose_pair_rmsd(pair):
     """Calculate the rmsd between Nanohedra pose pairs using the intersecting residues at the interface of each pose
 
     Args:
-        pair (tuple[DesignDirectory, DesignDirectory]): Two DesignDirectory objects from pose processing directories
+        pair (tuple[DesignDirectory.DesignDirectory, DesignDirectory.DesignDirectory]):
+            Paired DesignDirectory objects from pose processing directories
     Returns:
         (float): RMSD value
     """
     # protein_pair_path = pair[0].composition
     # Grab designed resides from the design_directory
-    design_residues = [set(pose.info.get('design_residues')) for pose in pair]
+    design_residues = [set(pose.design_residues) for pose in pair]
 
     # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
     # could use the union as well...?
