@@ -28,26 +28,26 @@ gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225
             'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
             'TYR': 263, 'VAL': 174}  # from table 1, theoretical values of Tien et al. 2013
 mutation_directives = ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
-residue_properties = {'ALA': {'hydrophobic'},
-                      'CYS': {'special', 'hydrophobic', 'polar', 'hbonding'},
+residue_properties = {'ALA': {'hydrophobic', 'apolar'},
+                      'CYS': {'special', 'hydrophobic', 'apolar', 'polar', 'hbonding'},
                       'ASP': {'charged', 'polar', 'hbonding'},
                       'GLU': {'charged', 'polar', 'hbonding'},
-                      'PHE': {'hydrophobic', 'aromatic'},
+                      'PHE': {'hydrophobic', 'apolar', 'aromatic'},
                       'GLY': {'special'},
                       'HIS': {'charged', 'polar', 'aromatic', 'hbonding'},
-                      'ILE': {'hydrophobic', 'branched'},
+                      'ILE': {'hydrophobic', 'apolar', 'branched'},
                       'LYS': {'charged', 'polar', 'hbonding'},
-                      'LEU': {'hydrophobic', 'branched'},
-                      'MET': {'hydrophobic'},
+                      'LEU': {'hydrophobic', 'apolar', 'branched'},
+                      'MET': {'hydrophobic', 'apolar'},
                       'ASN': {'polar', 'hbonding'},
-                      'PRO': {'special', 'hydrophobic'},
+                      'PRO': {'special', 'hydrophobic', 'apolar'},
                       'GLN': {'polar', 'hbonding'},
                       'ARG': {'charged', 'polar', 'hbonding'},
                       'SER': {'polar', 'hbonding'},
                       'THR': {'polar', 'hbonding', 'branched'},
-                      'VAL': {'hydrophobic', 'branched'},
-                      'TRP': {'hydrophobic', 'aromatic', 'hbonding'},
-                      'TYR': {'hydrophobic', 'aromatic', 'hbonding'}}
+                      'VAL': {'hydrophobic', 'apolar', 'branched'},
+                      'TRP': {'hydrophobic', 'apolar', 'aromatic', 'hbonding'},
+                      'TYR': {'hydrophobic', 'apolar', 'aromatic', 'hbonding'}}
 # useful in generating aa_by_property from mutation_directives and residue_properties
 # aa_by_property = {}
 # for type_ in mutation_directives:
@@ -61,7 +61,8 @@ aa_by_property = \
     {'special': {'CYS', 'GLY', 'PRO'},
      'charged': {'ARG', 'GLU', 'ASP', 'HIS', 'LYS'},
      'polar': {'CYS', 'ASP', 'GLU', 'HIS', 'LYS', 'ASN', 'GLN', 'ARG', 'SER', 'THR'},
-     'hydrophobic': {'ALA', 'CYS', 'PHE', 'ILE', 'LEU', 'MET', 'PRO', 'VAL', 'TRP', 'TYR'},
+     'apolar': {'ALA', 'CYS', 'PHE', 'ILE', 'LEU', 'MET', 'PRO', 'VAL', 'TRP', 'TYR'},
+     'hydrophobic': {'ALA', 'CYS', 'PHE', 'ILE', 'LEU', 'MET', 'PRO', 'VAL', 'TRP', 'TYR'},  # same as apolar
      'aromatic': {'PHE', 'HIS', 'TRP', 'TYR'},
      'hbonding': {'CYS', 'ASP', 'GLU', 'HIS', 'LYS', 'ASN', 'GLN', 'ARG', 'SER', 'THR', 'TRP', 'TYR'},
      'branched': {'ILE', 'LEU', 'THR', 'VAL'}}
@@ -1513,6 +1514,63 @@ class Structure(StructureBase):
 
         return np.array([residue.contact_order for residue in self.residues])
 
+    def format_resfile_from_directives(self, residue_directives, wild_type=None, background=None, **kwargs):
+        """Format Residue mutational potentials given Residues/residue numbers and corresponding mutation directive
+
+        Args:
+            residue_directives (dict[mapping[Union[Residue,int],str]]): {Residue object: 'mutational_directive', ...}
+        Keyword Args:
+            wild_type=None (dict[mapping[int,str]]): The wild-type amino acids for each residue
+            background=None (dict[mapping[int,set[str]]]): The background amino acids to compare possibilities against
+            special=False (bool): Whether to include special residues
+        Returns:
+            (list[str]): Formatted resfile lines for each Residue with a PIKAA and amino acid type string
+        """
+        if not background:
+            background = {}
+        if not wild_type:
+            wild_type = {}
+
+        res_file_lines = []
+        for residue, directive in residue_directives.items():
+            try:
+                residue_number = residue.number
+            except AttributeError:  # this isn't a residue object, instead residue numbers?
+                residue_number = residue
+                residue = self.residue(residue)
+            allowed_aas = \
+                residue.mutation_possibilities_from_directive(directive, background=background.get(residue_number),
+                                                              **kwargs)
+            allowed_aas = {protein_letters_3to1_extended[aa.title()] for aa in allowed_aas}
+            allowed_aas.add(wild_type.get(residue_number, ''))
+            res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(sorted(allowed_aas))))
+
+        return res_file_lines
+
+    def make_resfile(self, residue_directives, out_path=os.getcwd(), header=None, **kwargs):
+        """Format a resfile for the Rosetta Packer from Residue mutational directives
+
+        Args:
+            residue_directives (dict[mapping[Union[Residue,int],str]]): {Residue object: 'mutational_directive', ...}
+        Keyword Args:
+            out_path=os.getcwd() (str): Directory to write the file
+            header=None (list[str]): A header to constrain all Residues for packing
+            wild_type=None (dict[mapping[int,str]]): The wild-type amino acids for each residue
+            background=None (dict[mapping[int,set[str]]]): The background amino acids to compare possibilities against
+            special=False (bool): Whether to include special residues
+        Returns:
+            (str): The path to the resfile
+        """
+        residue_lines = self.format_resfile_from_directives(residue_directives, **kwargs)
+        res_file = os.path.join(out_path, '%s.resfile' % self.name)
+        with open(res_file, 'w') as f:
+            # format the header
+            f.write('%s\n' % ('\n'.join(header + ['start']) if header else 'start'))
+            # start the body
+            f.write('%s\n' % '\n'.join(residue_lines))
+
+        return res_file
+
     # def read_secondary_structure(self, filename=None, source='stride'):
     #     if source == 'stride':
     #         secondary_structure = self.parse_stride(filename)
@@ -2160,63 +2218,6 @@ class Entity(Chain, SequenceProfile):
             self.log.info('Symmetry Definition File was missing %d lines, so a fix was attempted. '
                           'Modelling may be affected' % count)
         return to_file
-
-    def format_resfile_from_directives(self, residue_directives, wild_type=None, background=None, **kwargs):
-        """Format Residue mutational potentials given Residues/residue numbers and corresponding mutation directive
-
-        Args:
-            residue_directives (dict[mapping[Union[Residue,int],str]]): {Residue object: 'mutational_directive', ...}
-        Keyword Args:
-            wild_type=None (dict[mapping[int,set[str]]]): The wild-type amino acid for each residue
-            background=None (dict[mapping[int,set[str]]]): The background amino acids to compare possibilities against
-            special=False (bool): Whether to include special residues
-        Returns:
-            (list[str]): Formatted resfile lines for each Residue with a PIKAA and amino acid type string
-        """
-        if not background:
-            background = {}
-        if not wild_type:
-            wild_type = {}
-
-        res_file_lines = []
-        for residue, directive in residue_directives.items():
-            try:
-                residue_number = residue.number
-            except AttributeError:  # this isn't a residue object, instead residue numbers?
-                residue_number = residue
-                residue = self.residue(residue)
-            allowed_aas = \
-                residue.mutation_possibilities_from_directive(directive, background=background.get(residue_number),
-                                                              **kwargs)
-            allowed_aas = {protein_letters_3to1_extended[aa.title()] for aa in allowed_aas}
-            allowed_aas.add(wild_type.get(residue_number, ''))
-            res_file_lines.append('%d %s PIKAA %s' % (residue.number, residue.chain, ''.join(allowed_aas)))
-
-        return res_file_lines
-
-    def make_resfile(self, residue_directives, out_path=os.getcwd(), header=None, **kwargs):
-        """Format a resfile for the Rosetta Packer from Residue mutational directives
-
-        Args:
-            residue_directives (dict[mapping[Union[Residue,int],str]]): {Residue object: 'mutational_directive', ...}
-        Keyword Args:
-            out_path=os.getcwd() (str): Directory to write the file
-            header=None (list[str]): A header to constrain all Residues for packing
-            wild_type=None (dict[mapping[int,set[str]]]): The wild-type amino acids for each residue
-            background=None (dict[mapping[int,set[str]]]): The background amino acids to compare possibilities against
-            special=False (bool): Whether to include special residues
-        Returns:
-            (str): The path to the resfile
-        """
-        residue_lines = self.format_resfile_from_directives(residue_directives, **kwargs)
-        res_file = os.path.join(out_path, '%s.resfile' % self.name)
-        with open(res_file, 'w') as f:
-            # format the header
-            f.write('%s\n' % '\n'.join(header + ['start']) if header else 'start')
-            # start the body
-            f.write('%s\n' % '\n'.join(residue_lines))
-
-        return res_file
 
     def format_missing_loops_for_design(self, max_loop_length=12, exclude_n_term=True, ignore_termini=False, **kwargs):
         """Process missing residue information to prepare the various files for loop modelling
@@ -2869,7 +2870,7 @@ class Residue:
         """Select mutational possibilities for each Residue based on the Residue and a directive
 
         Args:
-            directive (str): Where the choice is one of 'special', 'same', 'different', 'charged', 'polar',
+            directive (str): Where the choice is one of 'special', 'same', 'different', 'charged', 'polar', 'apolar',
             'hydrophobic', 'aromatic', 'hbonding', 'branched'
         Keyword Args:
             background=None (set[str]): The background amino acids to compare possibilities against
@@ -2883,18 +2884,16 @@ class Residue:
                                ', '.join(mutation_directives)))
 
         current_properties = residue_properties[self.type]
-        available_aas = set()
         if directive == 'same':
-            for prop in current_properties:
-                available_aas.add(aa_by_property[prop])
-        elif directive == 'different':
-            for prop in set(aa_by_property.keys()).difference(current_properties):
-                available_aas.add(aa_by_property[prop])
+            properties = current_properties
+        elif directive == 'different':  # hmm not right... .difference({hbonding, branched}) <- for ex. polar if apolar
+            properties = set(aa_by_property.keys()).difference(current_properties)
         else:
-            available_aas = aa_by_property[directive]
+            properties = [directive]
+        available_aas = set(aa for prop in properties for aa in aa_by_property[prop])
 
         if directive != 'special' and not special:
-            available_aas.difference(aa_by_property['special'])
+            available_aas = available_aas.difference(aa_by_property['special'])
         if background:
             available_aas = background.intersection(available_aas)
 
