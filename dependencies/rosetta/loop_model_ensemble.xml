@@ -90,6 +90,7 @@
 	            </RESIDUE_SELECTORS>
 
                 <SIMPLE_METRICS>
+                    # not reporting anything for chainbreak with 2015_cst...
                     <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scoretype="chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
                     <ResidueSummaryMetric name="M_chain_break_energy" custom_type="" metric="M_chain_break_energy_per_residue" action="sum"/>
 <!--                    <PerResidueEnergyMetric name="M_fa_atr_energy_per_residue" scoretype="fa_atr" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scorefxn="2015_cst"/> # reference_name="" use_native="false"-->
@@ -102,6 +103,7 @@
 <!--                    <ReadPoseExtraScoreFilter name="read_pose_designed_energy" term_name="chain_break_energy" threshold="-1"/>-->
                     <SimpleMetricFilter name="F_pose_designed_energy" metric="M_pose_designed_energy" comparison_type="lt" cutoff="100000" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
                     <SimpleMetricFilter name="F_chain_break_energy" metric="M_chain_break_energy" comparison_type="lt" cutoff="1" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+                    <ChainBreak name="filter_chainbreaks" chain_num="1" tolerance="0.13" threshold="1"/>
                 </FILTERS>
 
                 <MOVERS>
@@ -111,7 +113,8 @@
 
                 <PROTOCOLS>
                     <Add mover_name="RP_pose_designed_energy"/>
-                    <Add mover_name="RP_chain_break_energy"/>
+                    <Add filter_name="filter_chainbreaks"/>
+<!--                    <Add mover_name="RP_chain_break_energy"/>-->
                 </PROTOCOLS>
             </ROSETTASCRIPTS>
 		</MultiplePoseMover>
@@ -121,8 +124,8 @@
 				<TopNByProperty n="6" order="ascending">
 <!--                    <EnergyReporter scorefunction="ref2015_cst" term="total_score"/>-->
 <!--					<EnergyReporter scorefunction="ref2015_cst"/>  # SCOREFUNCTION is not from named functions above! term="total_score"-->
-<!--                    <FilterReporter filter="read_pose_designed_energy"/>-->  # WORKS WELL, BUT NOT ACCURATE FOR CHAINBREAK
-                    <FilterReporter filter="read_chain_break_energy"/>
+                    <FilterReporter filter="read_pose_designed_energy"/>  # WORKS WELL, BUT NOT ACCURATE FOR CHAINBREAK
+<!--                    <FilterReporter filter="read_chain_break_energy"/>-->
 				</TopNByProperty>
 <!--					<TopNByProperty n="100" order="ascending">-->
 <!--&lt;!&ndash;						<FilterReporter filter="read_interaction_energy_density_filter"/>&ndash;&gt;-->
