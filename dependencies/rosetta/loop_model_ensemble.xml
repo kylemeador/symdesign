@@ -40,7 +40,7 @@
 
     <FILTERS>
         <Time name="time"/>
-        <ReadPoseExtraScoreFilter name="read_pose_designed_energy" term_name="pose_designed_energy" threshold="0"/> # if value is greater than threshold, then filter applied
+        <ReadPoseExtraScoreFilter name="read_pose_designed_energy" term_name="pose_designed_energy" threshold="100000"/> # if value is greater than threshold, then filter applied
         <SimpleMetricFilter name="F_chain_break_energy" metric="M_chain_break_energy" comparison_type="lt" cutoff="10" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
     </FILTERS>
 
@@ -74,7 +74,7 @@
         	<Prepend resname="GLY" anchor_rsd="1"/> # repeat="1" jump="false" connecting_atom=”atom type”
         </PeptideStubMover>
         <ConvertRealToVirtualMover name="remove_temporary_n_termini" residue_selector="n_term"/>
-		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="250">
+		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="10">
 			<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>
 		</MultipleOutputWrapper>
 
@@ -109,13 +109,13 @@
                 </PROTOCOLS>
             </ROSETTASCRIPTS>
 		</MultiplePoseMover>
-		<MultiplePoseMover name="trim_design_pool" max_input_poses="500">
+		<MultiplePoseMover name="trim_design_pool" max_input_poses="500" max_output_poses="20">
 			<SELECT>
 <!--				<AndSelector>-->
-				<TopNByProperty n="20" order="ascending">
-                    <EnergyReporter scorefunction="ref2015_cst" term="total_score"/>
+				<TopNByProperty n="2" order="ascending">
+<!--                    <EnergyReporter scorefunction="ref2015_cst" term="total_score"/>-->
 <!--					<EnergyReporter scorefunction="ref2015_cst"/>  # SCOREFUNCTION is not from named functions above! term="total_score"-->
-<!--                    <FilterReporter filter="read_pose_designed_energy"/>-->
+                    <FilterReporter filter="read_pose_designed_energy"/>
 				</TopNByProperty>
 <!--					<TopNByProperty n="100" order="ascending">-->
 <!--&lt;!&ndash;						<FilterReporter filter="read_interaction_energy_density_filter"/>&ndash;&gt;-->
@@ -123,11 +123,14 @@
 <!--				</AndSelector>-->
 			</SELECT>
             # TODO implement a more accurate loop modelling protocol...
-<!--            <ROSETTASCRIPTS>-->
-<!--                <MOVERS>-->
-<!--                    <LoopModeler name="kic_modeller" loops_file="%%loop_file%%"/>-->
-<!--                </MOVERS>-->
-<!--            </ROSETTASCRIPTS>-->
+            <ROSETTASCRIPTS>
+                <MOVERS>
+                    <LoopModeler name="kic_modeller" loops_file="%%loop_file%%"/>
+                </MOVERS>
+                <PROTOCOLS>
+                    <Add mover_name="null"/>
+                </PROTOCOLS>
+            </ROSETTASCRIPTS>
 		</MultiplePoseMover>
         <FilterReportAsPoseExtraScoresMover name="RP_chain_break_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
 
@@ -158,7 +161,7 @@
 <!--        <Add mover_name="remove_temporary_n_termini"/>-->
         # for MultipleOutputWrapper = number of ensemble
         <Add mover_name="multi_loop_remodel"/>
-<!--        <Add mover_name="filter_design_pool"/>-->
+        <Add mover_name="filter_design_pool"/>
         <Add mover_name="trim_design_pool"/>
         # for nstruct = number of ensemble
 <!--        <Add mover_name="remodel_missing_loops"/>-->
