@@ -106,7 +106,7 @@
 
                 <MOVERS>
                     <FilterReportAsPoseExtraScoresMover name="RP_pose_designed_energy" report_as="pose_designed_energy" filter_name="F_pose_designed_energy"/>
-                    <FilterReportAsPoseExtraScoresMover name="RP_pose_designed_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
+                    <FilterReportAsPoseExtraScoresMover name="RP_chain_break_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
                 </MOVERS>
 
                 <PROTOCOLS>
