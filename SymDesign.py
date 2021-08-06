@@ -1060,8 +1060,8 @@ if __name__ == '__main__':
         master_directory = next(iter(design_directories))
         logger.info('Loading design resources from Database \'%s\'' % master_directory.protein_data)
         master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
-                             master_directory.stride_dir, master_directory.sequences, master_directory.profiles,
-                             sql=None, log=logger)
+                             master_directory.full_model_dir, master_directory.stride_dir, master_directory.sequences,
+                             master_directory.profiles, sql=None, log=logger)
 
         master_directory.make_path(master_directory.protein_data)
         master_directory.make_path(master_directory.pdbs)
@@ -1377,7 +1377,7 @@ if __name__ == '__main__':
             # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, threads=threads)
         # else:  # for now just do in series
         for design in design_directories:
-            design.link_master_database(master_db)
+            design.link_database(resource_db=master_db)
             design.set_up_design_directory()
 
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
@@ -1481,7 +1481,7 @@ if __name__ == '__main__':
         # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.frag_db
         euler_lookup = EulerLookup()
         for design in design_directories:
-            design.connect_db(frag_db=fragment_db)
+            design.link_database(frag_db=fragment_db)
             design.euler_lookup = euler_lookup
 
     # -----------------------------------------------------------------------------------------------------------------

@@ -22,7 +22,8 @@ index_offset = 1
 
 
 class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
-    def __init__(self, oriented, oriented_asu, refined, stride, sequences, hhblits_profiles, sql=None, log=logger):
+    def __init__(self, oriented, oriented_asu, refined, full_models, stride, sequences, hhblits_profiles, sql=None,
+                 log=logger):
         if sql:
             raise DesignError('SQL set up has not been completed!')
 
@@ -30,6 +31,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         self.oriented = DataStore(location=oriented, extension='.pdb*', sql=sql, log=log)
         self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=sql, log=log)
         self.refined = DataStore(location=refined, extension='.pdb', sql=sql, log=log)
+        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=sql, log=log)
         self.stride = DataStore(location=stride, extension='.stride', sql=sql, log=log)
         self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
         self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=sql, log=log)
