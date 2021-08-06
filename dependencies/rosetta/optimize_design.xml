@@ -52,6 +52,7 @@
 		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>
 		<SymmetricalResidue name="interface2_sc_sym" selector="interface2_sc"/>
 <!--		<And name="interface2_sc_correct_sym" selectors="interface1_sc_neighbors,interface2_sc_sym"/>-->
+		<Or name="asymmetric_interface" selectors="interface1,interface2_sc"/>
 		<Or name="tot_interface_and_neighbor" selectors="interface_or_neighbors1,interface_or_neighbors2"/>
 		<SymmetricalResidue name="tot_interface_and_neighbor_sym" selector="tot_interface_and_neighbor"/>
 		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
@@ -125,6 +126,16 @@
 <!--&lt;!&ndash;		<RetrieveStoredTask name="optimize_task_operations" 		task_name="optimize_interface_packer_palette"/>&ndash;&gt;-->
 	</TASKOPERATIONS>
 
+	<SIMPLE_METRICS>
+		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
+		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano"/>
+        <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
+<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>-->
+<!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="1" cache_suffix="_hydrophobic"/> # cache_prefix=""-->
+<!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="1" cache_suffix="_total"/> # cache_prefix="" #-->
+	</SIMPLE_METRICS>
+
 	<MOVE_MAP_FACTORIES>
 		<MoveMapFactory name="design_map" bb="0" chi="1">
 			<Backbone residue_selector="all_designable" enable="true"/> # Packer controlled so inherently symmetric
@@ -135,9 +146,50 @@
 		<Time name="time"/>
 		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2_sc" write_median_dist="1" max_median_dist="0"/> # Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+<!--		<Delta name="D_shape_complementarity" upper="0" lower="1" range="0.02" filter="shape_complementarity" reference_name="input_pose"/> # reference_pdb="" reference_name="" unbound="0" jump="" relax_mover=""-->
+<!--		<Delta name="D_shape_complementarity_higher" upper="1" lower="0" range="0.0" filter="shape_complementarity" reference_name="input_pose"/> # reference_pdb="" reference_name="" unbound="0" jump="" relax_mover=""-->
+<!--		<CompoundStatement name="shape_complementarity_greater_than" invert="0">-->
+<!--    		<AND filter_name="D_shape_complementarity"/>-->
+<!--    		<OR filter_name="D_shape_complementarity_higher"/>-->
+<!--		</CompoundStatement>-->
+		<ReadPoseExtraScoreFilter name="read_initial_shape_complementarity" term_name="initial_shape_complementarity" threshold="-1"/> # if filter value is greater, report true
+		<CalculatorFilter name="shape_complementarity_delta" equation="Current - (Initial - Deviation)" threshold="0"> # evaluates to true if less than threshold
+			<Var name="Current" filter="shape_complementarity"/>
+			<Var name="Initial" filter="read_initial_shape_complementarity"/>
+			<Var name="Deviation" value="0.02"/> # filter="sasa_total"/>
+		</CalculatorFilter>
+		<IfThenFilter name="shape_complementarity_if_then" threshold="0" lower_threshold="1">
+			# Invert as the delta will be lower than 0 if the current shape complementarity is worse than original - deviation
+			<IF testfilter="shape_complementarity_delta" inverttest="1" valuefilter="shape_complementarity" weight="1"/> # value=""
+			<ELSE value="-1" weight="1"/> # valuefilter=""
+		</IfThenFilter>
+<!--		<SimpleMetricFilter name="sasa_hydrophobic" metric="M_sasa_hydrophobic" use_cached_data="1" cache_suffix="_hydrophobic" comparison_type="gt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<SimpleMetricFilter name="sasa_total" metric="M_sasa_total" use_cached_data="1" cache_suffix="_total" comparison_type="gt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<CalculatorFilter name="percent_interface_area_hydrophobic" equation="Hydro / Total" threshold="0.65"> # evaluates to true if less than threshold-->
+<!--			<Var name="Hydro" filter="sasa_hydrophobic"/>-->
+<!--			<Var name="Total" filter="sasa_total"/>-->
+<!--		</CalculatorFilter>-->
+		# v This gets all buried area, not just at the interface
+<!--		<BuriedSurfaceArea name="interface_area_total" atom_mode="all_atoms" residue_selector="asymmetric_interface" filter_out_low="1" cutoff_buried_surface_area="0" confidence="1"/> # select_only_FAMILYVW="0"-->
+<!--		<BuriedSurfaceArea name="interface_area_hydrophobic" atom_mode="hydrophobic_atoms" residue_selector="asymmetric_interface" filter_out_low="1" cutoff_buried_surface_area="0" confidence="1"/> # select_only_FAMILYVW="0"-->
+<!--		<CalculatorFilter name="percent_interface_area_hydrophobic" equation="Hydro / Total" threshold="0.65"> # evaluates to true if less than threshold-->
+<!--			<Var name="Hydro" filter="interface_area_hydrophobic"/>-->
+<!--			<Var name="Total" filter="interface_area_total"/>-->
+<!--		</CalculatorFilter>-->
+<!--		<Delta name="D_percent_interface_area_hydrophobic" upper="1" lower="0" range="0.02" filter="percent_interface_area_hydrophobic"/> # reference_pdb="" reference_name="" unbound="" jump="" relax_mover=""-->
+		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+        <SimpleMetricFilter name="interface_residue_count" metric="M_interface_residue_count" comparison_type="gt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+		<ReadPoseExtraScoreFilter name="read_interface_residue_count" term_name="interface_residue_count" threshold="-1"/> # if filter value is greater, report true
+        <CalculatorFilter name="interaction_energy_per_residue" equation="E / Number"> # threshold="(real 0)"
+            <Var name="E" filter="interaction_energy_filter"/>
+            <Var name="Number" filter="read_interface_residue_count"/>
+        </CalculatorFilter>
 	</FILTERS>
 
 	<MOVERS>
+		<SavePoseMover name="save_input_pose" reference_name="input_pose" restore_pose="0"/>
+		<FilterReportAsPoseExtraScoresMover name="RP_interface_residue_count" report_as="interface_residue_count" filter_name="interface_residue_count"/>
+		<FilterReportAsPoseExtraScoresMover name="RP_initial_shape_complementarity" report_as="initial_shape_complementarity" filter_name="shape_complementarity"/>
 <!--		<StoreCompoundTaskMover name="test" task_name="designable_test" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
 <!--			<AND task_operations="limit_to_residue_types"/>-->
 <!--&lt;!&ndash;			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>&ndash;&gt;-->
@@ -166,13 +218,20 @@
 		<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
 <!--		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,set_ig,optimize_task_operations,des_around_total" relax_mover="min" scorefxn="2015_nano">-->
 <!--		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,set_ig,include_current,read_resfile,des_around_total" relax_mover="min" scorefxn="2015_nano">-->
-		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,read_resfile,des_around_total" relax_mover="min" scorefxn="2015_nano">
-			<Filters>
+		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,hbnet_rtr,read_resfile,des_around_total" scorefxn="2015_nano" relax_mover="min"> # repacks an 8A mutation shell then calls "relax_mover". reset_delta_filters="1"-NOT ALLOWED IN 2021 06.16 VERSIONS...
+			<Filters> # filter values actually don't matter for filtering, just for final optimization
 				<AND filter_name="buns_complex" sample_type="low"/>
-				<AND filter_name="shape_complementarity" sample_type="high"/>
+<!--				<AND filter_name="shape_complementarity" sample_type="high"/>-->
+<!--				<AND filter_name="D_shape_complementarity" sample_type="low"/> # lower is better because of the delta-->
+<!--				<AND filter_name="D_shape_complementarity" sample_type="high"/>-->
+<!--				<AND filter_name="D_shape_complementarity_higher" sample_type="low"/>-->
+<!--				<AND filter_name="D_shape_complementarity_higher" sample_type="high"/>-->
+				<AND filter_name="shape_complementarity_if_then" sample_type="high"/>
+				<AND filter_name="percent_interface_area_hydrophobic" sample_type="low"/>
+<!--				<AND filter_name="shape_complementarity" sample_type="high"/>-->
 			</Filters>
 		</GreedyOptMutationMover>
-		<FastDesign name="int_design_test" task_operations="init,vrt,set_ig,read_resfile,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+<!--		<FastDesign name="int_design_test" task_operations="init,vrt,set_ig,read_resfile,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
 <!--		<FastDesign name="int_design_test" task_operations="init,vrt,set_ig,include_current,read_resfile,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
 <!--		<FastDesign name="int_design" task_operations="init,vrt,set_ig,optimize_task_operations,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
 	</MOVERS>
@@ -189,6 +248,9 @@
 	<PROTOCOLS>
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
+		<Add mover_name="min"/>
+		<Add mover_name="RP_initial_shape_complementarity"/>
+<!--		<Add mover_name="save_input_pose"/>-->
 <!--		<Add mover_name="test"/>-->
 <!--		<Add mover_name="polar_ssm_residues"/>-->
 <!--		<Add mover_name="hydrophobic_ssm_residues"/>-->
