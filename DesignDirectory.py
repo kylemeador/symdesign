@@ -523,8 +523,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 c_term = True
 
         if report_if_helix:
-            if self.database:
-                parsed_secondary_structure = self.database.stride.retrieve_data(name=entity.name)
+            if self.resources:
+                parsed_secondary_structure = self.resources.stride.retrieve_data(name=entity.name)
                 if parsed_secondary_structure:
                     entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
                 else:
@@ -626,16 +626,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log = start_log(name=str(self), handler=handler, level=level, no_log_name=no_log_name,
                                  location=os.path.join(self.path, self.name), propagate=propagate)
 
-    def connect_db(self, frag_db=None, design_db=None, score_db=None):
-        if frag_db and isinstance(frag_db, FragmentDatabase):
-            self.frag_db = frag_db
-
-        if design_db and isinstance(design_db, FragmentDatabase):  # Todo DesignDatabase
-            self.design_db = design_db
-
-        if score_db and isinstance(score_db, FragmentDatabase):  # Todo ScoreDatabase
-            self.score_db = score_db
-
     def directory_string_to_path(self, root, pose_id):
         """Set the DesignDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
          path separators"""
@@ -671,17 +661,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.residues = os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
         self.design_sequences = os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
 
-        # Ensure directories are only created once Pose Processing is called
-        # self.make_path(self.protein_data)
-        # self.make_path(self.pdbs)
-        # self.make_path(self.orient_dir)
-        # self.make_path(self.orient_asu_dir)
-        # self.make_path(self.refine_dir)
-        # self.make_path(self.sdf_dir)
-
-    def link_master_database(self, database):
+    def link_database(self, resource_db=None, frag_db=None, design_db=None, score_db=None):
         """Connect the design to the master Database object to fetch shared resources"""
-        self.database = database
+        if resource_db:
+            self.resources = resource_db
+        if frag_db:
+            self.frag_db = frag_db
+        # if design_db and isinstance(design_db, FragmentDatabase):  # Todo DesignDatabase
+        #     self.design_db = design_db
+        # if score_db and isinstance(score_db, FragmentDatabase):  # Todo ScoreDatabase
+        #     self.score_db = score_db
 
     @handle_design_errors(errors=(DesignError, ))
     def set_up_design_directory(self):
@@ -1450,7 +1439,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.oligomers (list[PDB])
         """
         source_preference = ['refined', 'oriented', 'design']
-        if self.database:
+        if self.resources:
             if refined:
                 source_idx = 0
             elif oriented:
@@ -1464,7 +1453,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for name in self.oligomer_names:
                 oligomer = None
                 while not oligomer:
-                    oligomer = self.database.retrieve_data(source=source_preference[source_idx], name=name)
+                    oligomer = self.resources.retrieve_data(source=source_preference[source_idx], name=name)
                     if isinstance(oligomer, Structure):
                         self.log.info('Found oligomer file at %s and loaded into job' % source_preference[source_idx])
                         self.oligomers.append(oligomer)
@@ -1558,7 +1547,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:  # |                              pass names if available v
             asu = PDB.from_file(self.source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
 
-        self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.database,
+        self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.resources,
                                   design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
                                   ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
         if not self.entity_names:  # store the entity names if they were never generated
@@ -2288,10 +2277,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
             inverse_residue_contact_order_z, contact_order = {}, {}
             for entity in self.pose.entities:
-                entity.msa = self.database.alignments.retrieve_data(name=entity.name)
+                entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
                 # Todo reinstate
-                # entity.h_fields = self.database.bmdca_fields.retrieve_data(name=entity.name)
-                # entity.j_couplings = self.database.bmdca_couplings.retrieve_data(name=entity.name)
+                # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)
+                # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)
                 collapse = entity.collapse_profile()
                 collapse_df[entity] = collapse
                 # wt_collapse_z_score[entity] = hydrophobic_collapse_index(entity.sequence)
