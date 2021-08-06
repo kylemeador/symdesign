@@ -297,10 +297,11 @@ class PDB(Structure):
         # self.cb_coords = pdb.cb_coords
         # self.bb_coords = pdb.bb_coords
 
-    def readfile(self, lazy=False, **kwargs):  # name=None,
-        """Reads .pdb file and feeds PDB instance"""
-        with open(self.filepath, 'r') as f:
-            pdb_lines = f.readlines()
+    def readfile(self, pdb_lines=None, lazy=False, **kwargs):
+        """Reads .pdb file and populates PDB instance"""
+        if not pdb_lines:
+            with open(self.filepath, 'r') as f:
+                pdb_lines = f.readlines()
 
         if not self.name:
             # formatted_filename = os.path.splitext(os.path.basename(self.filepath))[0].replace('pdb', '')
@@ -315,7 +316,7 @@ class PDB(Structure):
         coords, atom_info = [], []
         atom_idx = 0
         for line in pdb_lines:
-            if line[0:4] == 'ATOM' or line[17:20] == 'MSE' and line[0:6] == 'HETATM':
+            if line[:4] == 'ATOM' or line[17:20] == 'MSE' and line[:6] == 'HETATM':
                 alt_location = line[16:17].strip()
                 # if remove_alt_location and alt_location not in ['', 'A']:
                 if alt_location not in ['', 'A']:
@@ -349,7 +350,7 @@ class PDB(Structure):
                 atom_info.append((atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
                                   code_for_insertion, occ, temp_fact, element_symbol, atom_charge))
                 atom_idx += 1
-            elif line[0:5] == 'MODEL':
+            elif line[:5] == 'MODEL':
                 # start_of_new_model signifies that the next line comes after a new model
                 start_of_new_model = True
                 if not multimodel:
@@ -357,9 +358,9 @@ class PDB(Structure):
                     available_chain_ids = self.return_chain_generator()
             elif lazy:
                 continue
-            elif line[0:6] == 'SEQRES':
+            elif line[:6] == 'SEQRES':
                 seq_res_lines.append(line[11:])
-            elif line[0:5] == 'DBREF':
+            elif line[:5] == 'DBREF':
                 chain = line[12:14].strip().upper()
                 if line[5:6] == '2':
                     db_accession_id = line[18:40].strip()
@@ -380,9 +381,9 @@ class PDB(Structure):
                 # entity number (starting from 1) = {'chains' : {A, B, C}}
                 self.entity_d[entity] = {'chains': line[line.rfind(':') + 1:].strip().rstrip(';').split(',')}
                 entity = None
-            elif line[0:5] == 'SCALE':
+            elif line[:5] == 'SCALE':
                 self.header.append(line.strip())
-            elif line[0:6] == 'CRYST1':
+            elif line[:6] == 'CRYST1':
                 self.header.append(line.strip())
                 self.cryst_record = line.strip()
                 self.uc_dimensions, self.space_group = self.parse_cryst_record(self.cryst_record)
