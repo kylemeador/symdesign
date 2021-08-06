@@ -114,29 +114,29 @@
                 </MOVERS>
 
                 <PROTOCOLS>
-                    <Add mover_name="RP_pose_designed_energy"/>
-                    <Add mover_name="RP_chain_breaks"/>
+<!--                    <Add mover_name="RP_pose_designed_energy"/>-->
+<!--                    <Add mover_name="RP_chain_breaks"/>-->
                     <Add filter_name="filter_chainbreaks"/>
 <!--                    <Add mover_name="RP_chain_break_energy"/>-->
                 </PROTOCOLS>
             </ROSETTASCRIPTS>
 		</MultiplePoseMover>
-		<MultiplePoseMover name="trim_design_pool" max_input_poses="500" max_output_poses="20">
+		<MultiplePoseMover name="trim_design_pool" max_input_poses="500" max_output_poses="3">
 			<SELECT>
-				<AndSelector>
-				    <TopNByProperty n="6" order="ascending">
-<!--                        <EnergyReporter scorefunction="ref2015_cst" term="total_score"/>-->
+<!--				<AndSelector>-->
+                <TopNByProperty n="6" order="ascending">
+                    <EnergyReporter scorefunction="ref2015_cst" term="total_score"/>
 <!--					    <EnergyReporter scorefunction="ref2015_cst"/>  # SCOREFUNCTION is not from named functions above! term="total_score"-->
-                        <FilterReporter filter="read_pose_designed_energy"/>  # WORKS WELL, BUT NOT ACCURATE FOR CHAINBREAK
+<!--                    <FilterReporter filter="read_pose_designed_energy"/>  # Not good at reporting chain breaks-->
 <!--                        <FilterReporter filter="read_chain_break_energy"/>-->
-				    </TopNByProperty>
-				    <TopNByProperty n="6" order="ascending">
-                        <FilterReporter filter="read_chain_breaks"/>
-		    		</TopNByProperty>
+                </TopNByProperty>
+<!--				    <TopNByProperty n="6" order="ascending">-->
+<!--                        <FilterReporter filter="read_chain_breaks"/>-->
+<!--		    		</TopNByProperty>-->
 <!--					<TopNByProperty n="100" order="ascending">-->
 <!--&lt;!&ndash;						<FilterReporter filter="read_interaction_energy_density_filter"/>&ndash;&gt;-->
 <!--					</TopNByProperty>-->
-				</AndSelector>
+<!--				</AndSelector>-->
 			</SELECT>
             # TODO implement a more accurate loop modelling protocol...
             <ROSETTASCRIPTS>
