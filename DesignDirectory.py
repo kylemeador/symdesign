@@ -28,7 +28,7 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_loo
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
-from Pose import Pose, SymmetricModel
+from Pose import Pose, Model, MultiModel  # , SymmetricModel
 from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, necessary_metrics, division_pairs, \
     columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
@@ -1381,6 +1381,24 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             raise DesignError('The design could not be transformed as it is missing the required transformation '
                               'parameters. Were they generated properly?')
 
+    def transform_structures_to_pose(self, structures, **kwargs):
+        """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
+        to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
+        master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
+        exists. Finally, the DesignDirectory will be used as a back up
+
+        Keyword Args:
+            refined=True (bool): Whether to use the refined pdb from the refined pdb source directory
+            oriented=false (bool): Whether to use the oriented pdb from the oriented pdb source directory
+        """
+        if self.pose_transformation:
+            self.log.debug('Oligomers were transformed to the found docking parameters')
+            return [structure.return_transformed_copy(**self.pose_transformation[oligomer_number])
+                    for oligomer_number, structure in enumerate(structures, 1)]
+        else:
+            raise DesignError('The design could not be transformed as it is missing the required transformation '
+                              'parameters. Were they generated properly?')
+
     def get_oligomers(self, refined=True, oriented=False):
         """Retrieve oligomeric files from either the design Database, the oriented directory, or the refined directory,
         or the design directory, and load them into job for further processing
@@ -1512,6 +1530,23 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.pose.pdb.write(out_path=self.asu, header=self.cryst_record)
             self.info['pre_refine'] = self.pre_refine
             self.log.info('Cleaned PDB: \'%s\'' % self.asu)
+
+    @handle_design_errors(errors=(DesignError,))
+    def check_clashes(self, clashing_threshold=0.75):
+        """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
+        models = [Model.from_file(self.resources.full_models.retrieve_data(name=entity.name), independent=True)
+                  for entity in self.entity_names]
+        # for each model, transform to the correct space
+        models = self.transform_structures_to_pose(models)
+        multimodel = MultiModel.from_models(models)
+
+        clashes = 0
+        for model in multimodel:
+            clashes += 1 if model.is_clash() else 0
+
+        if clashes/float(len(multimodel)) > clashing_threshold:
+            raise DesignError('The frequency of clashes (%f) exceeds the clashing threshold (%f)'
+                              % (clashes/float(len(multimodel)), clashing_threshold))
 
     @handle_design_errors(errors=(DesignError,))
     def rename_chains(self):

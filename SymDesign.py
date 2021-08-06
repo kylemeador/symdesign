@@ -948,7 +948,8 @@ if __name__ == '__main__':
 
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
-                       'interface_metrics', 'optimize_designs', 'custom_script', 'rename_chains', 'status']:
+                       'interface_metrics', 'optimize_designs', 'custom_script', 'rename_chains', 'status',
+                       'check_clashes']:
         initialize, construct_pose = True, True  # set up design directories
         # if args.module in ['orient', 'expand_asu']:
         #     if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
@@ -1556,6 +1557,15 @@ if __name__ == '__main__':
         else:
             for design_dir in design_directories:
                 results.append(design_dir.rename_chains())
+
+        terminate(args.module, design_directories, location=location, results=results)
+    # ---------------------------------------------------
+    elif args.module == 'check_clashes':
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.check_clashes, design_directories, threads=threads)
+        else:
+            for design_dir in design_directories:
+                results.append(design_dir.check_clashes())
 
         terminate(args.module, design_directories, location=location, results=results)
     # ---------------------------------------------------
