@@ -76,11 +76,11 @@
         	<Prepend resname="GLY" anchor_rsd="1"/> # repeat="1" jump="false" connecting_atom=”atom type”
         </PeptideStubMover>
         <ConvertRealToVirtualMover name="remove_temporary_n_termini" residue_selector="n_term"/>
-		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="10">
+		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="250"> # todo replace 20 with %%trajectories%%
 			<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>
 		</MultipleOutputWrapper>
 
-		<MultiplePoseMover name="filter_design_pool" max_input_poses="500">
+		<MultiplePoseMover name="filter_design_pool"> # max_input_poses="500"
             <ROSETTASCRIPTS>
                 <SCOREFXNS>
 	                <ScoreFunction name="2015_cst" weights="ref2015_cst"/>
