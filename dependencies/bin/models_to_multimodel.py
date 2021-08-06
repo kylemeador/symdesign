@@ -26,5 +26,6 @@ if __name__ == '__main__':
         for model_number, model in enumerate(sorted_models, 1):
             f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
             with open(model, 'r') as f_model:
-                f.write('%s\n' % ''.join(f_model.readlines()).lstrip('\n').rstrip('\n'))
+                f.write('%s\n' % ''.join(line for line in f_model.readlines() if line[:4] == 'ATOM')
+                        .lstrip('\n').rstrip('\n'))
             f.write('ENDMDL\n')
