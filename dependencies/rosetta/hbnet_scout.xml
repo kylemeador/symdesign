@@ -115,7 +115,7 @@
 		# need to ensure a scorefunction with csts "on"
 		# may not need required_residues which gets pulled from design around total. start_selector would prevent much downside though
 		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="50000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="0"/>
-        <MultiplePoseMover name="hbnet_corepack" max_input_poses="250"> # scale to 250-500 after testing
+        <MultiplePoseMover name="hbnet_corepack" max_input_poses="250"> # scale to 500?
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
 				<SCOREFXNS>
@@ -264,7 +264,7 @@
 					<Add filter_name="R_shape_complementarity_hbnet_core"/>
 					<Add filter_name="R_core_design_residue_count"/>
 					<Add filter_name="R_interaction_energy_density"/>
-					<Add mover_name="extract_asymmetric_unit"/>
+					<Add mover_name="extract_asymmetric_unit"/> # silent file doesn't convert automatically
 				</PROTOCOLS>
 			</ROSETTASCRIPTS>
         </MultiplePoseMover>

@@ -477,7 +477,7 @@ class SequenceProfile:
     def add_msa(self,):  # Todo adapt to different data sources
         """Add a multiple sequence alignment to the profile"""
         if not self.msa_file:
-            # self.msa = self.database.alignments.retrieve_data(name=self.name)
+            # self.msa = self.resources.alignments.retrieve_data(name=self.name)
             raise AttributeError('No .msa_file attribute is specified yet!')
         # self.msa = MultipleSequenceAlignment.from_stockholm(self.msa_file)
         try:
