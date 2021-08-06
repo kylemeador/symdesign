@@ -175,7 +175,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.symmetry_protocol = None
         self.score_db = None
         # Metric attributes TODO MOVE Metrics
-        self.interface_residue_ids = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
         self.interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
         self.center_residue_numbers = []
@@ -362,6 +361,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             return self._evolutionary_profile
 
     @property
+    def fragment_profile(self):
+        try:
+            return self._fragment_profile
+        except AttributeError:
+            self._fragment_profile = parse_pssm(self.fragment_profile_file)
+            return self._fragment_profile
+
+    @property
     def fragment_data(self):  # Todo associate fragment_data into info.pkl state as it is a separate I/O operation
         try:
             return self._fragment_data
@@ -395,7 +402,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      'percent_residues_fragment_total': , 'percent_residues_fragment_center': }
         """
         self.get_fragment_metrics()
+        # Interface B Factor TODO ensure asu.pdb has B-factors for Nanohedra
+        int_b_factor = sum(self.pose.pdb.residue(residue).b_factor for residue in self.interface_residues)
         metrics = {
+            'interface_b_factor_per_residue': round(int_b_factor / self.total_interface_residues, 2),
             'nanohedra_score': self.all_residue_score,
             'nanohedra_score_normalized': self.all_residue_score / self.fragment_residues_total
             if self.fragment_residues_total else 0.0,
@@ -405,6 +415,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             'number_fragment_residues_total': self.fragment_residues_total,
             'number_fragment_residues_center': self.central_residues_with_fragment_overlap,
             'multiple_fragment_ratio': self.multiple_frag_ratio,
+            'percent_fragment': self.fragment_residues_total / self.total_interface_residues,
             'percent_fragment_helix': self.helical_fragment_content,
             'percent_fragment_strand': self.strand_fragment_content,
             'percent_fragment_coil': self.coil_fragment_content,
@@ -728,7 +739,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self._info = self.info.copy()  # create a copy of the state upon initialization
                 # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-                self.interface_residue_ids = self.info.get('interface_residues', {})
+                # Todo v temporary patch, remove if, else and else statements once active designs are converted
+                self.design_residue_ids = self.info.get('design_residue_ids')
+                if self.design_residue_ids:
+                    self.design_residue_ids = self.info.get('design_residue_ids', {})
+                    self.interface_residues = self.info.get('interface_residues', False)
+                else:
+                    self.design_residue_ids = self.info.get('interface_residues', {})
+                    self.interface_residues = self.info.get('interface_residues', False)
                 self.design_residues = self.info.get('design_residues', False)
                 if isinstance(self.design_residues, str):  # Todo remove as this conversion updates old directories
                     # 'design_residues' coming in as 234B (residue_number|chain), remove chain, change type to int
@@ -765,6 +783,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # design specific files
         self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
         self.evolutionary_profile_file = os.path.join(self.data, 'evolutionary.pssm')
+        self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
         self.fragment_data_pkl = os.path.join(self.data, '%s_fragment_profile.pkl' % self.fragment_database)
 
     def get_wildtype_file(self):
@@ -802,7 +821,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
     def get_fragment_metrics(self):
-        """Set/get fragment metrics for all fragment observations in the design"""
+        """Set/get fragment metrics for all fragment observations in the design.
+        TODO Doesn't need an attached pose if fragments have been generated"""
+        # while True:
+        # design_residues = self.info.get('design_residues', False)
+        # if self.design_residues == []:  # when no interface was found
+        #     self.design_residues = []
+        #     break
+        # elif not self.design_residues:  # no search yet, == False
+        if self.design_residues is False:  # no search yet, == False
+            self.identify_interface()  # sets self.design_residues and self.interface_residues
+        # else:
+            # design_residues = design_residues.split(',')
+            # break
+
         self.log.debug('Starting fragment metric collection')
         if self.fragment_observations:  # check if fragment generation has been populated somewhere
             # frag_metrics = self.pose.return_fragment_metrics(fragments=self.info.get('fragments'))
@@ -844,20 +876,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.strand_fragment_content = frag_metrics['percent_fragment_strand']
         self.coil_fragment_content = frag_metrics['percent_fragment_coil']
 
-        # Todo limit design_residues by SASA > 0 residues
-        # while True:
-        # design_residues = self.info.get('design_residues', False)
-        # if self.design_residues == []:  # when no interface was found
-        #     self.design_residues = []
-        #     break
-        # elif not self.design_residues:  # no search yet, == False
-        if self.design_residues is False:  # no search yet, == False
-            self.identify_interface()
-        # else:
-            # design_residues = design_residues.split(',')
-            # break
-
-        self.total_interface_residues = len(self.design_residues)
+        self.total_interface_residues = len(self.interface_residues)
         try:
             self.total_non_fragment_interface_residues = \
                 max(self.total_interface_residues - self.central_residues_with_fragment_overlap, 0)
@@ -873,7 +892,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # todo make dependent on split_interface_residues which doesn't have residues obj, just number (pickle concerns)
         if not self.pose.ss_index_array or not self.pose.ss_type_array:
-            self.pose.interface_secondary_structure()  # source_db=self.database, source_dir=self.stride_dir)
+            self.pose.interface_secondary_structure()  # source_db=self.resources, source_dir=self.stride_dir)
         for number, elements in self.pose.split_interface_ss_elements.items():
             fragment_elements = set()
             # residues, entities = self.pose.split_interface_residues[number]
@@ -1009,30 +1028,30 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      ('dist', dist), ('repack', 'yes'),
                      ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         # design_profile = self.info.get('design_profile')
-        variables.extend([('design_profile', self.design_profile)] if self.design_profile else [])
+        variables.extend([('design_profile', self.design_profile_file)] if self.design_profile else [])
         # fragment_profile = self.info.get('fragment_profile')
-        variables.extend([('fragment_profile', self.fragment_profile)] if self.fragment_profile else [])
+        variables.extend([('fragment_profile', self.fragment_profile_file)] if self.fragment_profile else [])
 
         if not symmetry_protocol:
             symmetry_protocol = self.symmetry_protocol
         if not sym_def_file:
             sym_def_file = self.sym_def_file
         variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
-        out_of_bound_residue = list(chain_breaks.values())[-1] + 50
-        variables.extend([(interface, residues) if residues else (interface, out_of_bound_residue)
-                          for interface, residues in self.interface_residue_ids.items()])
+        out_of_bounds_residue = list(chain_breaks.values())[-1] * self.pose.number_of_models + 1
+        variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
+                          for interface, residues in self.design_residue_ids.items()])
 
         # assign any additional designable residues
         if self.pose.required_residues:
             variables.extend([('required_residues', ','.join(str(res.number) for res in self.pose.required_residues))])
         else:  # get an out of bounds index
-            variables.extend([('required_residues', out_of_bound_residue)])
+            variables.extend([('required_residues', out_of_bounds_residue)])
 
         # allocate any "core" residues based on central fragment information
         if self.center_residue_numbers:
             variables.extend([('core_residues', ','.join(map(str, self.center_residue_numbers)))])
         else:  # get an out of bounds index
-            variables.extend([('core_residues', out_of_bound_residue)])
+            variables.extend([('core_residues', out_of_bounds_residue)])
 
         flags = copy.copy(rosetta_flags)
         if pdb_path:
@@ -1487,6 +1506,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if self.nano and not self.construct_pose:
                 return
             # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily most contacting
+            # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() making new entities...
             new_asu = self.pose.get_contacting_asu()
             new_asu.write(out_path=self.asu, header=self.cryst_record)
             # self.pose.pdb.write(out_path=self.asu, header=self.cryst_record)
@@ -1665,20 +1685,34 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.design_residues = []  # update False to list or replace list and add new residues
         for number, residues_entities in self.pose.split_interface_residues.items():
-            self.interface_residue_ids['interface%d' % number] = \
+            self.design_residue_ids['interface%d' % number] = \
                 ','.join('%d%s' % (residue.number, entity.chain_id) for residue, entity in residues_entities)
             self.design_residues.extend([residue.number for residue, _ in residues_entities])
-        interface1, interface2 = \
-            self.interface_residue_ids.get('interface1'), self.interface_residue_ids.get('interface2')
-        if interface1 and interface2:
-            # self.info['design_residues'] = self.design_residues
-            self.info['interface_residues'] = self.interface_residue_ids
-            self.log.info('Interface Residues:\n\t%s'
-                          % '\n\t'.join('interface%d: %s' % info for info in enumerate([interface1, interface2], 1)))
-        else:
-            # self.info['design_residues'] = None
-            self.log.info('No Interface Residues Found')
+
+        self.interface_residues = []
+        for entity in self.pose.pdb.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
+            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+            entity_oligomer.get_sasa()
+            for residue_number in self.design_residues:
+                residue = entity_oligomer.residue(residue_number)
+                if residue:
+                    if residue.sasa > 0:
+                        self.interface_residues.append(residue_number)
+
+        # # interface1, interface2 = \
+        # #     self.design_residue_ids.get('interface1'), self.design_residue_ids.get('interface2')
+        # interface_string = []
+        # for idx, interface_info in enumerate(self.design_residue_ids.values()):
+        #     if interface_info != '':
+        #         interface_string.append('interface%d: %s' % (idx, interface_info))
+        # if len(interface_string) == len(self.pose.split_interface_residues):
+        #     self.log.info('Interface Residues:\n\t%s' % '\n\t'.join(interface_string))
+        # else:
+        #     self.log.info('No Residues found at the design interface!')
+
         self.info['design_residues'] = self.design_residues
+        self.info['interface_residues'] = self.interface_residues
+        self.info['design_residue_ids'] = self.design_residue_ids
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def interface_design(self):
@@ -2013,8 +2047,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
             interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residues)
             assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
-            other_pose_metrics['percent_fragment'] = self.fragment_residues_total / len(interface_residues)
-            other_pose_metrics['total_interface_residues'] = len(interface_residues)
+            if not self.design_residues:  # we should always get an empty list if we have got to this point
+                raise DesignError('No residues were found with your design criteria... Your flags may be to stringent '
+                                  'or incorrect. Check input files for interface existance')
+            self.log.debug('Found design residues: %s' % self.design_residues)
             if interface_residues != self.design_residues:
                 self.log.info('Residues %s are located in the interior' %
                               ', '.join(map(str, self.design_residues.difference(interface_residues))))
@@ -2025,7 +2061,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
 
             # Calculate new metrics from combinations of other metrics
-            scores_df['total_interface_residues'] = len(interface_residues)
             # sum columns using tuple [0] + [1]
             summation_pairs = \
                 {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),
@@ -2042,12 +2077,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                  'solvation_energy_unbound':
                      list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),
                  'interface_connectivity':
-                     list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns))
-                 # 'buns_hpol_total': ('buns_asu_hpol', 'buns_nano_hpol'),
-                 # 'buns_heavy_total': ('buns_asu', 'buns_nano'),
-                 }
+                     list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns))}
             scores_df = columns_to_new_column(scores_df, summation_pairs)
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
+            scores_df['total_interface_residues'] = len(interface_residues)  # add for div_pairs and int_comp_similarity
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
             scores_df['interface_composition_similarity'] = \
                 scores_df.apply(interface_residue_composition_similarity, axis=1)
