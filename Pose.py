@@ -22,7 +22,7 @@ from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from Structure import Coords, Structure
+from Structure import Coords, Structure, Atoms, Residues
 from interface_analysis.Database import FragmentDB, FragmentDatabase
 
 # Globals
@@ -39,9 +39,445 @@ sym_op_location = PUtils.sym_op_location
 #         super().__init__(**kwargs)
 
 
-class Model:  # (PDB)
-    """Keep track of different variations of the same PDB object whether they be mutated in sequence or have
-    their coordinates perturbed
+class MultiModel:
+    """Class for working with iterables of State objects of macromolecular polymers (proteins for now). Each State
+    container comprises Structure object(s) which can also be accessed as a unique Model by slicing the Structure across
+    States.
+
+    self.structures holds each of the individual Structure objects which are involved in the MultiModel. As of now,
+    no checks are made as to whether the identity of these is the same accross States"""
+    def __init__(self, model=None, models=None, state=None, states=None, independent=False, log=None, **kwargs):
+        if model:
+            if not isinstance(model, Model):
+                model = Model(model)
+
+            self.models = [model]
+            self.states = [[state] for state in model.models]
+            # self.structures = [[model.states]]
+
+        if isinstance(models, list):
+            self.models = models
+            self.states = [[model[state_idx] for model in models] for state_idx in range(len(models[0].models))]
+            # self.states = [[] for state in models[0].models]
+            # for model in models:
+            #     for state_idx, state in enumerate(model.models):
+            #         self.states[state_idx].append(state)
+
+            # self.structures = [[model.states] for model in models]
+
+            # self.structures = models
+            # structures = [[] for model in models]
+            # for model in models:
+            #     for idx, state in enumerate(model):
+            #         structures[idx].append(state)
+
+        # collect the various structures and corresponding states of separate Structures
+        if state:
+            if not isinstance(state, State):
+                state = State(state)
+
+            self.states = [state]
+            self.models = [[structure] for structure in state.structures]
+            # self.structures = [[structure] for structure in state.structures]
+        if isinstance(states, list):
+            # modify loop order by separating Structure objects in same state to individual Entity containers
+            self.states = states
+            self.models = [[state[model_idx] for state in states] for model_idx in range(len(states[0].structures))]
+            # self.models = [state.structures for state in states]
+
+            # self.structures = [[] for structure in states[0]]
+            # for state in states:
+            #     for idx, structure in enumerate(state.structures):
+            #         self.structures[idx].append(structure)
+
+        # indicate whether each structure is an independent set of models by setting dependent to corresponding tuple
+        dependents = [] if independent else range(self.number_of_models)
+        self.dependents = set(dependents)  # tuple(dependents)
+
+    @classmethod
+    def from_model(cls, model):
+        """Construct a MultiModel from a Structure object container with or without multiple states
+        Ex: [Structure1_State1, Structure1_State2, ...]
+        """
+        return cls(model=model)
+
+    @classmethod
+    def from_models(cls, models, independent=False):
+        """Construct a MultiModel from an iterable of Structure object containers with or without multiple states
+        Ex: [Model[Structure1_State1, Structure1_State2, ...], Model[Structure2_State1, ...]]
+        """
+        return cls(models=models, independent=independent)
+
+    @classmethod
+    def from_state(cls, state):
+        """Construct a MultiModel from a Structure object container, representing a single Structural state.
+        For instance, one trajectory in a sequence design with multiple polymers or a SymmetricModel
+        Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
+        """
+        return cls(state=state)
+
+    @classmethod
+    def from_states(cls, states, independent=False):
+        """Construct a MultiModel from an iterable of Structure object containers, each representing a different state
+        of the Structures. For instance, multiple trajectories in a sequence design
+        Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
+        """
+        return cls(states=states, independent=independent)
+
+    # @property
+    # def number_of_structures(self):
+    #     return len(self.structures)
+    #
+    # @property
+    # def number_of_states(self):
+    #     return max(map(len, self.structures))
+
+    @property
+    def number_of_models(self):
+        return len(self.models)
+
+    @property
+    def number_of_states(self):
+        return len(self.states)
+        # return max(map(len, self.models))
+
+    def get_models(self):
+        return [Model(model) for model in self.models]
+
+    def get_states(self):
+        return [State(state) for state in self.states]
+
+    # @property
+    # def models(self):
+    #     return [Model(model) for model in self._models]
+    #
+    # @models.setter
+    # def models(self, models):
+    #     self._models = models
+    #
+    # @property
+    # def states(self):
+    #     return [State(state) for state in self._states]
+    #
+    # @states.setter
+    # def states(self, states):
+    #     self._states = states
+
+    @property
+    def independents(self) -> Set[int]:
+        """Retrieve the indices of the Structures whose model information is independent of other Structures"""
+        return set(range(self.number_of_models)).difference(self.dependents)
+
+    def add_state(self, state):
+        """From a state, incorporate the Structures in the state into the existing Model
+
+        Sets:
+            self.states
+            self.models
+        """
+        self.states.append(state)  # Todo ensure correct methods once State is subclassed as UserList
+        try:
+            for idx, structure in enumerate(self.models):
+                structure.append(state[idx])
+        except IndexError:  # Todo handle mismatched lengths, either passed or existing
+            raise IndexError('The added State contains fewer Structures than present in the MultiModel. Only pass a '
+                             'State that has the same number of Structures (%d) as the MultiModel' % self.number_of_models)
+
+    def add_model(self, model, independent=False):
+        """From a Structure with multiple states, incorporate the Model into the existing Model
+
+        Sets:
+            self.states
+            self.models
+            self.dependents
+        """
+        self.models.append(model)  # Todo ensure correct methods once Model is subclassed as UserList
+        try:
+            for idx, state in enumerate(self.states):
+                state.append(model[idx])
+        except IndexError:  # Todo handle mismatched lengths, either passed or existing
+            raise IndexError('The added Model contains fewer models than present in the MultiModel. Only pass a Model '
+                             'that has the same number of States (%d) as the MultiModel' % self.number_of_states)
+
+        if not independent:
+            self.dependents.add(self.number_of_models - 1)
+
+    def enumerate_models(self) -> List:
+        """Given the MultiModel Structures and dependents, construct an iterable of all States in the MultiModel"""
+        # First, construct tuples of independent structures if available
+        independents = self.independents
+        if not independents:  # all dependents are already in order
+            return iter(self.get_states())
+            # return zip(self.structures)
+        else:
+            independent_sort = sorted(independents)
+        independent_gen = product(*[self.models[idx] for idx in independent_sort])
+        # independent_gen = combinations([self.structures[idx] for idx in independents], len(independents))
+
+        # Next, construct tuples of dependent structures
+        dependent_sort = sorted(self.dependents)
+        if not dependent_sort:  # all independents are already in order and combined
+            return (State(state) for state in independent_gen)
+            # return list(independent_gen)
+        else:
+            dependent_zip = zip(self.models[idx] for idx in dependent_sort)
+
+        # Next, get all model possibilities in an unordered fashion
+        unordered_structure_model_gen = product(dependent_zip, independent_gen)
+        # unordered_structure_model_gen = combinations([dependent_zip, independent_gen], self.number_of_structures)
+        # unordered_structure_models = zip(dependents + independents)
+        unordered_structure_models = \
+            list(zip(*(dep_structs + indep_structs for dep_structs, indep_structs in unordered_structure_model_gen)))
+
+        # Finally, repackage in an ordered fashion
+        models = []
+        for idx in range(self.number_of_models):
+            dependent_index = dependent_sort.index(idx)
+            if dependent_index == -1:  # no index found, idx is in independents
+                independent_index = independent_sort.index(idx)
+                if independent_index == -1:  # no index found? Where is it
+                    raise IndexError('The index was not found in either independent or dependent models!')
+                else:
+                    models.append(unordered_structure_models[len(dependent_sort) + independent_index])
+            else:  # index found, idx is in dependents
+                models.append(unordered_structure_models[dependent_index])
+
+        return (State(state) for state in models)
+        # return zip(models)
+
+    def __iter__(self):
+        print('yeilding from')
+        yield from self.enumerate_models()
+
+
+# (BaseModel)?
+class State(Structure):  # todo subclass UserList (https://docs.python.org/3/library/collections.html#userlist-objects)
+    """A collection of Structure objects comprising one distinct configuration"""
+    def __init__(self, structures=None, **kwargs):  # log=None,
+        super().__init__(**kwargs)
+        # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
+        # if log:
+        #     self.log = log
+        # elif log is None:
+        #     self.log = null_log
+        # else:  # When log is explicitly passed as False, use the module logger
+        #     self.log = logger
+
+        if isinstance(structures, list):
+            if all([True if isinstance(structure, Structure) else False for structure in structures]):
+                self.structures = structures
+                # self.data = structures
+            else:
+                self.structures = []
+                # self.data = []
+        else:
+            self.structures = []
+            # self.data = []
+
+    @property
+    def number_of_structures(self):
+        return len(self.structures)
+
+    @property
+    def coords(self):
+        """Return a view of the Coords from the Structures"""
+        try:
+            coords_exist = self._coords.shape  # check on first call for attribute, if not, make, else, replace coords
+            total_atoms = 0
+            for structure in self.structures:
+                new_atoms = total_atoms + structure.number_of_atoms
+                self._coords[total_atoms: new_atoms] = structure.coords
+                total_atoms += total_atoms
+            return self._coords
+        except AttributeError:
+            coords = [structure.coords for structure in self.structures]
+            # coords = []
+            # for structure in self.structures:
+            #     coords.extend(structure.coords)
+            self._coords = np.concatenate(coords)
+
+            return self._coords
+
+    # @coords.setter
+    # def coords(self, coords):
+    #     if isinstance(coords, Coords):
+    #         self._coords = coords
+    #     else:
+    #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+    #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
+
+    @property
+    def atoms(self):
+        """Return a view of the Coords from the Structures"""
+        try:
+            return self._atoms
+        except AttributeError:
+            atoms = []
+            for structure in self.structures:
+                atoms.extend(structure.atoms)
+            self._atoms = Atoms(atoms)
+            return self._atoms
+
+    @property
+    def number_of_atoms(self):
+        return len(self.coords)
+
+    @property
+    def residues(self):  # TODO Residues iteration
+        try:
+            return self._residues.residues.tolist()
+        except AttributeError:
+            residues = []
+            for structure in self.structures:
+                residues.extend(structure.residues)
+            self._residues = Residues(residues)
+            return self._residues.residues.tolist()
+
+    @property
+    def number_of_residues(self):
+        return len(self.residues)
+
+    @property
+    def coords_indexed_residues(self):
+        try:
+            return self._coords_indexed_residues
+        except AttributeError:
+            self._coords_indexed_residues = \
+                [residue for residue in self.residues for _ in residue.range]
+            return self._coords_indexed_residues
+
+    @property
+    def coords_indexed_residue_atoms(self):
+        try:
+            return self._coords_indexed_residue_atoms
+        except AttributeError:
+            self._coords_indexed_residue_atoms = \
+                [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
+            return self._coords_indexed_residue_atoms
+
+    # @property  # SAME implementation in Structure
+    # def center_of_mass(self):
+    #     """The center of mass for the model Structure, either an asu, or other pdb
+    #
+    #     Returns:
+    #         (numpy.ndarray)
+    #     """
+    #     return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
+
+    @property
+    def backbone_indices(self):
+        try:
+            return self._backbone_indices
+        except AttributeError:
+            self._backbone_indices = []
+            for structure in self.structures:
+                self._backbone_indices.extend(structure.coords_indexed_backbone_indices)
+            return self._backbone_indices
+
+    @property
+    def backbone_and_cb_indices(self):
+        try:
+            return self._backbone_and_cb_indices
+        except AttributeError:
+            self._backbone_and_cb_indices = []
+            for structure in self.structures:
+                self._backbone_and_cb_indices.extend(structure.coords_indexed_backbone_and_cb_indices)
+            return self._backbone_and_cb_indices
+
+    @property
+    def cb_indices(self):
+        try:
+            return self._cb_indices
+        except AttributeError:
+            self._cb_indices = []
+            for structure in self.structures:
+                self._cb_indices.extend(structure.coords_indexed_cb_indices)
+            return self._cb_indices
+
+    @property
+    def ca_indices(self):
+        try:
+            return self._ca_indices
+        except AttributeError:
+            self._ca_indices = []
+            for structure in self.structures:
+                self._ca_indices.extend(structure.coords_indexed_ca_indices)
+            return self._ca_indices
+
+    # Todo remove all below methods when updated Structure suite of get_*_indices() functions to property
+    def get_backbone_coords(self):
+        return self.coords[self.backbone_indices]
+
+    def get_backbone_and_cb_coords(self):
+        return self.coords[self.backbone_and_cb_indices]
+
+    def get_cb_coords(self):
+        return self.coords[self.cb_indices]
+
+    def get_ca_coords(self):
+        return self.coords[self.ca_indices]
+
+    def get_backbone_atoms(self):
+        return self.atoms[self.backbone_indices]
+
+    def get_backbone_and_cb_atoms(self):
+        return self.atoms[self.backbone_and_cb_indices]
+
+    def get_cb_atoms(self):
+        return self.atoms[self.cb_indices]
+
+    def get_ca_atoms(self):
+        return self.atoms[self.ca_indices]
+    # TODO REMOVE to here
+
+    def write(self, out_path=os.getcwd(), file_handle=None, header=None, increment_chains=False, **kwargs):
+        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
+        one was written"""
+        self.log.warning('The ability to write States to file has not been thoroughly debugged. If your State consists '
+                         'of various types of Structure containers (PDB, Structures, chains, or entities, check your '
+                         'file is as expected before preceeding')
+        with open(out_path, 'w') as f:
+            if header:
+                if isinstance(header, str):
+                    f.write(header)
+                # if isinstance(header, Iterable):
+            if file_handle:  # Todo handle with multiple Structure containers
+                # write_header(file_handle)
+                file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+
+            if increment_chains:
+                available_chain_ids = self.return_chain_generator()
+                for structure in self.structures:
+                    for entity in structure.entities:  # Todo handle with multiple Structure containers
+                        chain = next(available_chain_ids)
+                        entity.write(file_handle=f, chain=chain)
+                        chain_terminal_atom = entity.c_terminal_residue
+                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
+                                                                              chain_terminal_atom.residue_type, chain,
+                                                                              chain_terminal_atom.residue_number))
+            else:
+                for model_number, structure in enumerate(self.structures, 1):
+                    f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
+                    for entity in structure.entities:  # Todo handle with multiple Structure containers
+                        entity.write(file_handle=f)
+                        chain_terminal_atom = entity.c_terminal_residue
+                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
+                                                                              chain_terminal_atom.residue_type,
+                                                                              entity.chain_id,
+                                                                              chain_terminal_atom.residue_number))
+                    f.write('ENDMDL\n')
+
+    def __getitem__(self, idx):
+        return self.structures[idx]
+
+
+# (BaseModel)?
+class Model:  # Todo (Structure)
+    """Keep track of different variations of the same Structure object such as altered coordinates (different decoy's or
+     symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
+     but could be multiple PDB's with some common element.
+
+    If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
     """
     def __init__(self, pdb=None, models=None, log=None, **kwargs):
         # super().__init__(**kwargs)
