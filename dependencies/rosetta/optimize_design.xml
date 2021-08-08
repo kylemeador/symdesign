@@ -187,6 +187,7 @@
 	</FILTERS>
 
 	<MOVERS>
+		<AddJobPairData name="job_info" key="protocol" value="optimize_design" value_type="string"/>
 		<SavePoseMover name="save_input_pose" reference_name="input_pose" restore_pose="0"/>
 		<FilterReportAsPoseExtraScoresMover name="RP_interface_residue_count" report_as="interface_residue_count" filter_name="interface_residue_count"/>
 		<FilterReportAsPoseExtraScoresMover name="RP_initial_shape_complementarity" report_as="initial_shape_complementarity" filter_name="shape_complementarity"/>
@@ -248,6 +249,7 @@
 	<PROTOCOLS>
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
+		<Add mover_name="job_info"/>
 		<Add mover_name="min"/>
 		<Add mover_name="RP_initial_shape_complementarity"/>
 <!--		<Add mover_name="save_input_pose"/>-->
