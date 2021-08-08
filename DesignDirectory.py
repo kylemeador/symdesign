@@ -20,7 +20,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
-from Structure import Structure
+from Structure import Structure  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, \
     all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym, pretty_format_table, \
@@ -28,7 +28,7 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_loo
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
-from Pose import Pose, Model, MultiModel  # , SymmetricModel
+from Pose import Pose, MultiModel, Models  # , Model, SymmetricModel
 from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, necessary_metrics, division_pairs, \
     columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
@@ -1387,9 +1387,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
         exists. Finally, the DesignDirectory will be used as a back up
 
-        Keyword Args:
-            refined=True (bool): Whether to use the refined pdb from the refined pdb source directory
-            oriented=false (bool): Whether to use the oriented pdb from the oriented pdb source directory
+        Args:
+            structures (Iterable[Structure]): The Structure objects you would like to transform
         """
         if self.pose_transformation:
             self.log.debug('Oligomers were transformed to the found docking parameters')
@@ -1534,15 +1533,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_design_errors(errors=(DesignError,))
     def check_clashes(self, clashing_threshold=0.75):
         """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
-        models = [Model.from_file(self.resources.full_models.retrieve_data(name=entity.name), independent=True)
+        models = [Models.from_PDB(self.resources.full_models.retrieve_data(name=entity), log=self.log)
                   for entity in self.entity_names]
+        # models = [Models.from_file(self.resources.full_models.retrieve_data(name=entity))
+        #           for entity in self.entity_names]
+
         # for each model, transform to the correct space
         models = self.transform_structures_to_pose(models)
-        multimodel = MultiModel.from_models(models)
+        multimodel = MultiModel.from_models(models, independent=True, log=self.log)
 
         clashes = 0
-        for model in multimodel:
-            clashes += 1 if model.is_clash() else 0
+        prior_clashes = 0
+        for idx, state in enumerate(multimodel, 1):
+            clashes += (1 if state.is_clash() else 0)
+            state.write(out_path=os.path.join(self.path, 'state_%d.pdb' % idx))
+            print('State %d - Clashes: %s' % (idx, 'YES' if clashes > prior_clashes else 'NO'))
+            prior_clashes = clashes
 
         if clashes/float(len(multimodel)) > clashing_threshold:
             raise DesignError('The frequency of clashes (%f) exceeds the clashing threshold (%f)'
