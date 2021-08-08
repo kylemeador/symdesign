@@ -331,7 +331,7 @@ class Structure(StructureBase):
         """Returns a map of the Residues and Residue atom_indices for each Coord in the Structure
 
         Returns:
-            (list[tuple[Residue, int]]): Indexed by the by the Residue position in the corresponding .coords attribute
+            (list[Residue]]): In order of the Residue which owns the corresponding index in .coords attribute
         """
         try:
             return self._coords_residue_index[self.atom_indices].tolist()
@@ -341,16 +341,16 @@ class Structure(StructureBase):
                                  ' coordinates and therefore owns this Structure' % self.name)  # Todo self.owner
 
     @coords_indexed_residues.setter
-    def coords_indexed_residues(self, indices):
+    def coords_indexed_residues(self, residues):
         """Create a map of the coordinate indices to the Residue and Residue atom index"""
-        self._coords_residue_index = np.array(indices)
+        self._coords_residue_index = np.array(residues)
 
     @property
     def coords_indexed_residue_atoms(self):
         """Returns a map of the Residues and Residue atom_indices for each Coord in the Structure
 
         Returns:
-            (list[tuple[Residue, int]]): Indexed by the by the Residue position in the corresponding .coords attribute
+            (list[int]): Indexed of the Atom position in the Residue for the index of the .coords attribute
         """
         try:
             return self._coords_indexed_residue_atoms[self.atom_indices].tolist()
@@ -1190,14 +1190,14 @@ class Structure(StructureBase):
             # and vice-versa. This also allows a Structure with permuted sequence to be handled properly!
             prior_residue_range = residues_indexed_coords_indices[prior_residue_idx]
             prior_residue = residues[prior_residue_idx]
+            residue_range = residues_indexed_coords_indices[-number_residues + prior_residue_idx + 1]
             next_residue_idx = -number_residues + prior_residue_idx + 2
             next_residue_range = residues_indexed_coords_indices[next_residue_idx]
             next_residue = residues[next_residue_idx]
             # using prior_residue and prior_residue_range
             residue_indices_and_bonded_c_and_n = \
-                residue.atom_indices + [prior_residue_range[prior_residue.c_index],
-                                        prior_residue_range[prior_residue.o_index],
-                                        next_residue_range[next_residue.n_index]]
+                residue_range + [prior_residue_range[prior_residue.c_index], prior_residue_range[prior_residue.o_index],
+                                 next_residue_range[next_residue.n_index]]
             # # using prior_residue atom_indices
             # residue_indices_and_bonded_c_and_n = \
             #     residue.atom_indices + [prior_residue.c_atom_index, prior_residue.o_atom_index,
@@ -1937,8 +1937,7 @@ class Structures(Structure):  # todo subclass UserList (https://docs.python.org/
         try:
             return self._coords_indexed_residues
         except AttributeError:
-            self._coords_indexed_residues = \
-                [residue for residue in self.residues for _ in residue.range]
+            self._coords_indexed_residues = [residue for residue in self.residues for _ in residue.range]
             return self._coords_indexed_residues
 
     @property
@@ -1949,6 +1948,24 @@ class Structures(Structure):  # todo subclass UserList (https://docs.python.org/
             self._coords_indexed_residue_atoms = \
                 [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
             return self._coords_indexed_residue_atoms
+
+    @property
+    def residues_indexed_coords_indices(self):
+        """Returns a map of the Residue atom/coord_indices, indexed to the coords indices for each Residue in the
+        Structure
+
+        Returns:
+            (list[list[int]]): Indexed by the by the Residue position in the corresponding .coords attribute
+        """
+        try:
+            return self._residues_indexed_coords_indices
+        except AttributeError:
+            range_idx = 0
+            self._residues_indexed_coords_indices = []
+            for residue in self.residues:
+                self._residues_indexed_coords_indices.append(list(range(range_idx, range_idx + residue.number_of_atoms)))
+                range_idx += residue.number_of_atoms
+            return self._residues_indexed_coords_indices
 
     # @property
     # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
