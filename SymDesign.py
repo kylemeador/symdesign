@@ -608,6 +608,11 @@ if __name__ == '__main__':
                                                'order. Useful for writing a multi-model as distinct chains or fixing '
                                                'common PDB formatting errors as well. Writes to design directory')
     # ---------------------------------------------------
+    parser_check_clashes = \
+        subparsers.add_parser('check_clashes',
+                              help='Check for clashes between full models. Useful for understanding if loops are '
+                                   'missing, whether their modelled density is compatible with the pose')
+    # ---------------------------------------------------
     parser_dock = subparsers.add_parser(PUtils.nano,
                                         help='Submit jobs to %s.py\nIf a docking directory structure is set up, provide'
                                              ' the overall directory location with program argument -d/-f, otherwise, '
