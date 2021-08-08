@@ -480,7 +480,8 @@ def terminate(module, designs, location=None, results=None, output=True):
                         else PUtils.stage[13]))  # hbnet_design_profile
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano,
                         'interface_metrics': 'interface_metrics',
-                        'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0]}
+                        'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
+                        'optimize_designs': 'optimize_designs'}
         stage = module_files.get(module)
         if stage:
             if len(success) == 0:
