@@ -22,7 +22,7 @@ from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from Structure import Coords, Structure, Atoms, Residues
+from Structure import Coords, Structure, Structures  # Atoms, Residues,
 from interface_analysis.Database import FragmentDB, FragmentDatabase
 
 # Globals
@@ -47,8 +47,16 @@ class MultiModel:
     self.structures holds each of the individual Structure objects which are involved in the MultiModel. As of now,
     no checks are made as to whether the identity of these is the same accross States"""
     def __init__(self, model=None, models=None, state=None, states=None, independent=False, log=None, **kwargs):
+        if log:
+            self.log = log
+        elif log is None:
+            self.log = null_log
+        else:  # When log is explicitly passed as False, use the module logger
+            self.log = logger
+
         if model:
-            if not isinstance(model, Model):
+            # if not isinstance(model, Model):  # TODO?
+            if not isinstance(model, Models):
                 model = Model(model)
 
             self.models = [model]
@@ -95,34 +103,40 @@ class MultiModel:
         self.dependents = set(dependents)  # tuple(dependents)
 
     @classmethod
-    def from_model(cls, model):
+    def from_model(cls, model, **kwargs):
         """Construct a MultiModel from a Structure object container with or without multiple states
         Ex: [Structure1_State1, Structure1_State2, ...]
         """
-        return cls(model=model)
+        return cls(model=model, **kwargs)
 
     @classmethod
-    def from_models(cls, models, independent=False):
+    def from_models(cls, models, independent=False, **kwargs):
         """Construct a MultiModel from an iterable of Structure object containers with or without multiple states
         Ex: [Model[Structure1_State1, Structure1_State2, ...], Model[Structure2_State1, ...]]
+
+        Keyword Args:
+            independent=False (bool): Whether the models are independent (True) or dependent on each other (False)
         """
-        return cls(models=models, independent=independent)
+        return cls(models=models, independent=independent, **kwargs)
 
     @classmethod
-    def from_state(cls, state):
+    def from_state(cls, state, **kwargs):
         """Construct a MultiModel from a Structure object container, representing a single Structural state.
         For instance, one trajectory in a sequence design with multiple polymers or a SymmetricModel
         Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
         """
-        return cls(state=state)
+        return cls(state=state, **kwargs)
 
     @classmethod
-    def from_states(cls, states, independent=False):
+    def from_states(cls, states, independent=False, **kwargs):
         """Construct a MultiModel from an iterable of Structure object containers, each representing a different state
         of the Structures. For instance, multiple trajectories in a sequence design
         Ex: [Model_State1[Structure1, Structure2, ...], Model_State2[Structure1, Structure2, ...]]
+
+        Keyword Args:
+            independent=False (bool): Whether the models are independent (True) or dependent on each other (False)
         """
-        return cls(states=states, independent=independent)
+        return cls(states=states, independent=independent, **kwargs)
 
     # @property
     # def number_of_structures(self):
@@ -142,10 +156,10 @@ class MultiModel:
         # return max(map(len, self.models))
 
     def get_models(self):
-        return [Model(model) for model in self.models]
+        return [Models(model, log=self.log) for model in self.models]
 
     def get_states(self):
-        return [State(state) for state in self.states]
+        return [State(state, log=self.log) for state in self.states]
 
     # @property
     # def models(self):
@@ -179,6 +193,8 @@ class MultiModel:
         try:
             for idx, structure in enumerate(self.models):
                 structure.append(state[idx])
+            del self._model_iterator
+            # delattr(self, '_model_iterator')
         except IndexError:  # Todo handle mismatched lengths, either passed or existing
             raise IndexError('The added State contains fewer Structures than present in the MultiModel. Only pass a '
                              'State that has the same number of Structures (%d) as the MultiModel' % self.number_of_models)
@@ -195,6 +211,8 @@ class MultiModel:
         try:
             for idx, state in enumerate(self.states):
                 state.append(model[idx])
+            del self._model_iterator
+            # delattr(self, '_model_iterator')
         except IndexError:  # Todo handle mismatched lengths, either passed or existing
             raise IndexError('The added Model contains fewer models than present in the MultiModel. Only pass a Model '
                              'that has the same number of States (%d) as the MultiModel' % self.number_of_states)
@@ -204,10 +222,11 @@ class MultiModel:
 
     def enumerate_models(self) -> List:
         """Given the MultiModel Structures and dependents, construct an iterable of all States in the MultiModel"""
+        # print('enumerating_models, states', self.states, 'models', self.models)
         # First, construct tuples of independent structures if available
         independents = self.independents
         if not independents:  # all dependents are already in order
-            return iter(self.get_states())
+            return self.get_states()
             # return zip(self.structures)
         else:
             independent_sort = sorted(independents)
@@ -217,7 +236,9 @@ class MultiModel:
         # Next, construct tuples of dependent structures
         dependent_sort = sorted(self.dependents)
         if not dependent_sort:  # all independents are already in order and combined
-            return (State(state) for state in independent_gen)
+            # independent_gen = list(independent_gen)
+            # print(independent_gen)
+            return [State(state, log=self.log) for state in independent_gen]
             # return list(independent_gen)
         else:
             dependent_zip = zip(self.models[idx] for idx in dependent_sort)
@@ -242,19 +263,264 @@ class MultiModel:
             else:  # index found, idx is in dependents
                 models.append(unordered_structure_models[dependent_index])
 
-        return (State(state) for state in models)
-        # return zip(models)
+        return [State(state, log=self.log) for state in models]
+
+    @property
+    def model_iterator(self):
+        try:
+            return iter(self._model_iterator)
+        except AttributeError:
+            self._model_iterator = self.enumerate_models()
+            return iter(self._model_iterator)
+
+    def __len__(self):
+        try:
+            return len(self._model_iterator)
+        except AttributeError:
+            self._model_iterator = self.enumerate_models()
+            return len(self._model_iterator)
 
     def __iter__(self):
-        print('yeilding from')
-        yield from self.enumerate_models()
+        yield from self.model_iterator
+        # yield from self.enumerate_models()
 
 
 # (BaseModel)?
-class State(Structure):  # todo subclass UserList (https://docs.python.org/3/library/collections.html#userlist-objects)
+# class State(Structure):  # todo subclass UserList (https://docs.python.org/3/library/collections.html#userlist-objects
+class State(Structures):
     """A collection of Structure objects comprising one distinct configuration"""
-    def __init__(self, structures=None, **kwargs):  # log=None,
-        super().__init__(**kwargs)
+    # def __init__(self, structures=None, **kwargs):  # log=None,
+    #     super().__init__(**kwargs)
+    #     # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
+    #     # if log:
+    #     #     self.log = log
+    #     # elif log is None:
+    #     #     self.log = null_log
+    #     # else:  # When log is explicitly passed as False, use the module logger
+    #     #     self.log = logger
+    #
+    #     if isinstance(structures, list):
+    #         if all([True if isinstance(structure, Structure) else False for structure in structures]):
+    #             self.structures = structures
+    #             # self.data = structures
+    #         else:
+    #             self.structures = []
+    #             # self.data = []
+    #     else:
+    #         self.structures = []
+    #         # self.data = []
+    #
+    # @property
+    # def number_of_structures(self):
+    #     return len(self.structures)
+    #
+    # @property
+    # def coords(self):
+    #     """Return a view of the Coords from the Structures"""
+    #     try:
+    #         coords_exist = self._coords.shape  # check on first call for attribute, if not, make, else, replace coords
+    #         total_atoms = 0
+    #         for structure in self.structures:
+    #             new_atoms = total_atoms + structure.number_of_atoms
+    #             self._coords[total_atoms: new_atoms] = structure.coords
+    #             total_atoms += total_atoms
+    #         return self._coords
+    #     except AttributeError:
+    #         coords = [structure.coords for structure in self.structures]
+    #         # coords = []
+    #         # for structure in self.structures:
+    #         #     coords.extend(structure.coords)
+    #         self._coords = np.concatenate(coords)
+    #
+    #         return self._coords
+    #
+    # # @coords.setter
+    # # def coords(self, coords):
+    # #     if isinstance(coords, Coords):
+    # #         self._coords = coords
+    # #     else:
+    # #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+    # #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
+
+    # @property
+    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel variation
+    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
+    #     return self._model_coords.coords
+    #
+    # @model_coords.setter
+    # def model_coords(self, coords):
+    #     if isinstance(coords, Coords):
+    #         self._model_coords = coords
+    #     else:
+    #         raise AttributeError(
+    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+
+    # @property
+    # def atoms(self):
+    #     """Return a view of the Atoms from the Structures"""
+    #     try:
+    #         return self._atoms
+    #     except AttributeError:
+    #         atoms = []
+    #         for structure in self.structures:
+    #             atoms.extend(structure.atoms)
+    #         self._atoms = Atoms(atoms)
+    #         return self._atoms
+    #
+    # @property
+    # def number_of_atoms(self):
+    #     return len(self.coords)
+    #
+    # @property
+    # def residues(self):  # TODO Residues iteration
+    #     try:
+    #         return self._residues.residues.tolist()
+    #     except AttributeError:
+    #         residues = []
+    #         for structure in self.structures:
+    #             residues.extend(structure.residues)
+    #         self._residues = Residues(residues)
+    #         return self._residues.residues.tolist()
+    #
+    # @property
+    # def number_of_residues(self):
+    #     return len(self.residues)
+    #
+    # @property
+    # def coords_indexed_residues(self):
+    #     try:
+    #         return self._coords_indexed_residues
+    #     except AttributeError:
+    #         self._coords_indexed_residues = \
+    #             [residue for residue in self.residues for _ in residue.range]
+    #         return self._coords_indexed_residues
+    #
+    # @property
+    # def coords_indexed_residue_atoms(self):
+    #     try:
+    #         return self._coords_indexed_residue_atoms
+    #     except AttributeError:
+    #         self._coords_indexed_residue_atoms = \
+    #             [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
+    #         return self._coords_indexed_residue_atoms
+    #
+    # # @property  # SAME implementation in Structure
+    # # def center_of_mass(self):
+    # #     """The center of mass for the model Structure, either an asu, or other pdb
+    # #
+    # #     Returns:
+    # #         (numpy.ndarray)
+    # #     """
+    # #     return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
+    #
+    # @property
+    # def backbone_indices(self):
+    #     try:
+    #         return self._backbone_indices
+    #     except AttributeError:
+    #         self._backbone_indices = []
+    #         for structure in self.structures:
+    #             self._backbone_indices.extend(structure.coords_indexed_backbone_indices)
+    #         return self._backbone_indices
+    #
+    # @property
+    # def backbone_and_cb_indices(self):
+    #     try:
+    #         return self._backbone_and_cb_indices
+    #     except AttributeError:
+    #         self._backbone_and_cb_indices = []
+    #         for structure in self.structures:
+    #             self._backbone_and_cb_indices.extend(structure.coords_indexed_backbone_and_cb_indices)
+    #         return self._backbone_and_cb_indices
+    #
+    # @property
+    # def cb_indices(self):
+    #     try:
+    #         return self._cb_indices
+    #     except AttributeError:
+    #         self._cb_indices = []
+    #         for structure in self.structures:
+    #             self._cb_indices.extend(structure.coords_indexed_cb_indices)
+    #         return self._cb_indices
+    #
+    # @property
+    # def ca_indices(self):
+    #     try:
+    #         return self._ca_indices
+    #     except AttributeError:
+    #         self._ca_indices = []
+    #         for structure in self.structures:
+    #             self._ca_indices.extend(structure.coords_indexed_ca_indices)
+    #         return self._ca_indices
+    #
+
+    def write(self, increment_chains=False, **kwargs):  # out_path=os.getcwd(), file_handle=None, header=None,
+        """Write Structures to a file specified by out_path or with a passed file_handle.
+
+        Keyword Args:
+            out_path=os.getcwd() (str): The path to write the Models to
+            file_handle=None (io.TextIOWrapper): A file handle to write the Models to
+            header=None (str): If there is header information that should be included. Pass new lines with a \n
+            increment_chains=False (bool): Whether or not to write each Model with a new chain name.
+                Default (False) writes as a new MODEL for each Model
+            kwargs
+        Returns:
+            (str): The filename if one was written
+        """
+        self.log.warning('The ability to write States to file has not been thoroughly debugged. If your State consists '
+                         'of various types of Structure containers (PDB, Structures, chains, or entities, check your '
+                         'file is as expected before preceeding')
+        return super().write(increment_chains=increment_chains, **kwargs)
+
+        # if file_handle:  # Todo handle with multiple Structure containers
+        #     file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+        #     return
+        #
+        # with open(out_path, 'w') as f:
+        #     if header:
+        #         if isinstance(header, str):
+        #             f.write(header)
+        #         # if isinstance(header, Iterable):
+        #
+        #     if increment_chains:
+        #         available_chain_ids = self.return_chain_generator()
+        #         for structure in self.structures:
+        #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
+        #             chain = next(available_chain_ids)
+        #             structure.write(file_handle=f, chain=chain)
+        #             c_term_residue = structure.c_terminal_residue
+        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
+        #                                                                   c_term_residue.atoms[-1].number + 1,
+        #                                                                   c_term_residue.type, chain,
+        #                                                                   c_term_residue.number))
+        #     else:
+        #         for model_number, structure in enumerate(self.structures, 1):
+        #             f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
+        #             # for entity in structure.entities:  # Todo handle with multiple Structure containers
+        #             structure.write(file_handle=f)
+        #             c_term_residue = structure.c_terminal_residue
+        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
+        #                                                                   c_term_residue.atoms[-1].number + 1,
+        #                                                                   c_term_residue.type, structure.chain_id,
+        #                                                                   c_term_residue.number))
+        #             f.write('ENDMDL\n')
+    #
+    # def __getitem__(self, idx):
+    #     return self.structures[idx]
+
+
+class Models(Structures):
+    """Keep track of different variations of the same Structure object such as altered coordinates (different decoy's or
+     symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
+     but could be multiple PDB's with some common element.
+
+    If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
+    """
+    def __init__(self, models=None, **kwargs):  # log=None,
+        super().__init__(structures=models, **kwargs)
+        # print('Initializing Models')
+
         # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
         # if log:
         #     self.log = log
@@ -263,212 +529,81 @@ class State(Structure):  # todo subclass UserList (https://docs.python.org/3/lib
         # else:  # When log is explicitly passed as False, use the module logger
         #     self.log = logger
 
-        if isinstance(structures, list):
-            if all([True if isinstance(structure, Structure) else False for structure in structures]):
-                self.structures = structures
-                # self.data = structures
-            else:
-                self.structures = []
-                # self.data = []
-        else:
-            self.structures = []
-            # self.data = []
+        if self.structures:
+            self.models = self.structures  # Todo is this reference to structures via models stable? ENSURE it is
 
-    @property
-    def number_of_structures(self):
-        return len(self.structures)
+    @classmethod
+    def from_file(cls, file, **kwargs):
+        """Construct Models from multimodel PDB file using the PDB.chains
+        Ex: [Chain1, Chain1, ...]
+        """
+        pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function
+        # new_model = cls(models=pdb.chains)
+        return cls(models=pdb.chains, **kwargs)
 
-    @property
-    def coords(self):
-        """Return a view of the Coords from the Structures"""
-        try:
-            coords_exist = self._coords.shape  # check on first call for attribute, if not, make, else, replace coords
-            total_atoms = 0
-            for structure in self.structures:
-                new_atoms = total_atoms + structure.number_of_atoms
-                self._coords[total_atoms: new_atoms] = structure.coords
-                total_atoms += total_atoms
-            return self._coords
-        except AttributeError:
-            coords = [structure.coords for structure in self.structures]
-            # coords = []
-            # for structure in self.structures:
-            #     coords.extend(structure.coords)
-            self._coords = np.concatenate(coords)
+    @classmethod
+    def from_PDB(cls, pdb, **kwargs):
+        """Construct Models from multimodel PDB file using the PDB.chains
+        Ex: [Chain1, Chain1, ...]
+        """
+        return cls(models=pdb.chains, **kwargs)
 
-            return self._coords
-
-    # @coords.setter
-    # def coords(self, coords):
-    #     if isinstance(coords, Coords):
-    #         self._coords = coords
-    #     else:
-    #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
-
-    @property
-    def atoms(self):
-        """Return a view of the Coords from the Structures"""
-        try:
-            return self._atoms
-        except AttributeError:
-            atoms = []
-            for structure in self.structures:
-                atoms.extend(structure.atoms)
-            self._atoms = Atoms(atoms)
-            return self._atoms
-
-    @property
-    def number_of_atoms(self):
-        return len(self.coords)
-
-    @property
-    def residues(self):  # TODO Residues iteration
-        try:
-            return self._residues.residues.tolist()
-        except AttributeError:
-            residues = []
-            for structure in self.structures:
-                residues.extend(structure.residues)
-            self._residues = Residues(residues)
-            return self._residues.residues.tolist()
-
-    @property
-    def number_of_residues(self):
-        return len(self.residues)
-
-    @property
-    def coords_indexed_residues(self):
-        try:
-            return self._coords_indexed_residues
-        except AttributeError:
-            self._coords_indexed_residues = \
-                [residue for residue in self.residues for _ in residue.range]
-            return self._coords_indexed_residues
-
-    @property
-    def coords_indexed_residue_atoms(self):
-        try:
-            return self._coords_indexed_residue_atoms
-        except AttributeError:
-            self._coords_indexed_residue_atoms = \
-                [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
-            return self._coords_indexed_residue_atoms
-
-    # @property  # SAME implementation in Structure
-    # def center_of_mass(self):
-    #     """The center of mass for the model Structure, either an asu, or other pdb
+    # @property
+    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
+    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
+    #     return self._model_coords.coords
     #
-    #     Returns:
-    #         (numpy.ndarray)
-    #     """
-    #     return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms), self.coords)
+    # @model_coords.setter
+    # def model_coords(self, coords):
+    #     if isinstance(coords, Coords):
+    #         self._model_coords = coords
+    #     else:
+    #         raise AttributeError(
+    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    @property
-    def backbone_indices(self):
-        try:
-            return self._backbone_indices
-        except AttributeError:
-            self._backbone_indices = []
-            for structure in self.structures:
-                self._backbone_indices.extend(structure.coords_indexed_backbone_indices)
-            return self._backbone_indices
+    def write(self, increment_chains=False, **kwargs):  # out_path=os.getcwd(), file_handle=None, header=None,
+        """Write Structures to a file specified by out_path or with a passed file_handle.
 
-    @property
-    def backbone_and_cb_indices(self):
-        try:
-            return self._backbone_and_cb_indices
-        except AttributeError:
-            self._backbone_and_cb_indices = []
-            for structure in self.structures:
-                self._backbone_and_cb_indices.extend(structure.coords_indexed_backbone_and_cb_indices)
-            return self._backbone_and_cb_indices
-
-    @property
-    def cb_indices(self):
-        try:
-            return self._cb_indices
-        except AttributeError:
-            self._cb_indices = []
-            for structure in self.structures:
-                self._cb_indices.extend(structure.coords_indexed_cb_indices)
-            return self._cb_indices
-
-    @property
-    def ca_indices(self):
-        try:
-            return self._ca_indices
-        except AttributeError:
-            self._ca_indices = []
-            for structure in self.structures:
-                self._ca_indices.extend(structure.coords_indexed_ca_indices)
-            return self._ca_indices
-
-    # Todo remove all below methods when updated Structure suite of get_*_indices() functions to property
-    def get_backbone_coords(self):
-        return self.coords[self.backbone_indices]
-
-    def get_backbone_and_cb_coords(self):
-        return self.coords[self.backbone_and_cb_indices]
-
-    def get_cb_coords(self):
-        return self.coords[self.cb_indices]
-
-    def get_ca_coords(self):
-        return self.coords[self.ca_indices]
-
-    def get_backbone_atoms(self):
-        return self.atoms[self.backbone_indices]
-
-    def get_backbone_and_cb_atoms(self):
-        return self.atoms[self.backbone_and_cb_indices]
-
-    def get_cb_atoms(self):
-        return self.atoms[self.cb_indices]
-
-    def get_ca_atoms(self):
-        return self.atoms[self.ca_indices]
-    # TODO REMOVE to here
-
-    def write(self, out_path=os.getcwd(), file_handle=None, header=None, increment_chains=False, **kwargs):
-        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-        one was written"""
-        self.log.warning('The ability to write States to file has not been thoroughly debugged. If your State consists '
-                         'of various types of Structure containers (PDB, Structures, chains, or entities, check your '
-                         'file is as expected before preceeding')
-        with open(out_path, 'w') as f:
-            if header:
-                if isinstance(header, str):
-                    f.write(header)
-                # if isinstance(header, Iterable):
-            if file_handle:  # Todo handle with multiple Structure containers
-                # write_header(file_handle)
-                file_handle.write('%s\n' % self.return_atom_string(**kwargs))
-
-            if increment_chains:
-                available_chain_ids = self.return_chain_generator()
-                for structure in self.structures:
-                    for entity in structure.entities:  # Todo handle with multiple Structure containers
-                        chain = next(available_chain_ids)
-                        entity.write(file_handle=f, chain=chain)
-                        chain_terminal_atom = entity.c_terminal_residue
-                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
-                                                                              chain_terminal_atom.residue_type, chain,
-                                                                              chain_terminal_atom.residue_number))
-            else:
-                for model_number, structure in enumerate(self.structures, 1):
-                    f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-                    for entity in structure.entities:  # Todo handle with multiple Structure containers
-                        entity.write(file_handle=f)
-                        chain_terminal_atom = entity.c_terminal_residue
-                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
-                                                                              chain_terminal_atom.residue_type,
-                                                                              entity.chain_id,
-                                                                              chain_terminal_atom.residue_number))
-                    f.write('ENDMDL\n')
-
-    def __getitem__(self, idx):
-        return self.structures[idx]
+        Keyword Args:
+            out_path=os.getcwd() (str): The path to write the Models to
+            file_handle=None (io.TextIOWrapper): A file handle to write the Models to
+            header=None (str): If there is header information that should be included. Pass new lines with a \n
+            increment_chains=False (bool): Whether or not to write each Model with a new chain name.
+                Default (False) writes as a new MODEL for each Model
+            kwargs
+        Returns:
+            (str): The filename if one was written
+        """
+        return super().write(increment_chains=increment_chains, **kwargs)
+        # if file_handle:  # Todo increment_chains compatibility
+        #     file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+        #     return
+        #
+        # with open(out_path, 'w') as f:
+        #     if header:
+        #         if isinstance(header, str):
+        #             f.write(header)
+        #         # if isinstance(header, Iterable):
+        #
+        #     if increment_chains:
+        #         available_chain_ids = self.return_chain_generator()
+        #         for structure in self.structures:
+        #             chain = next(available_chain_ids)
+        #             structure.write(file_handle=f, chain=chain)
+        #             c_term_residue = structure.c_terminal_residue
+        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
+        #                                                                   c_term_residue.type, chain,
+        #                                                                   c_term_residue.number))
+        #     else:
+        #         for model_number, structure in enumerate(self.structures, 1):
+        #             f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
+        #             structure.write(file_handle=f)
+        #             c_term_residue = structure.c_terminal_residue
+        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
+        #                                                                   c_term_residue.type, structure.chain_id,
+        #                                                                   c_term_residue.number))
+        #             f.write('ENDMDL\n')
 
 
 # (BaseModel)?
@@ -606,17 +741,15 @@ class Model:  # Todo (Structure)
     def write(self, out_path=os.getcwd(), file_handle=None, header=None, increment_chains=False, **kwargs):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written"""
-        self.log.warning('The ability to write States to file has not been thoroughly debugged. If your State consists '
-                         'of various types of Structure containers (PDB, Structures, chains, or entities, check your '
-                         'file is as expected before preceeding')
+        if file_handle:  # Todo handle with multiple Structure containers
+            file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+            return
+
         with open(out_path, 'w') as f:
             if header:
                 if isinstance(header, str):
                     f.write(header)
                 # if isinstance(header, Iterable):
-            if file_handle:  # Todo handle with multiple Structure containers
-                # write_header(file_handle)
-                file_handle.write('%s\n' % self.return_atom_string(**kwargs))
 
             if increment_chains:
                 available_chain_ids = self.return_chain_generator()
@@ -624,20 +757,21 @@ class Model:  # Todo (Structure)
                     for entity in structure.entities:  # Todo handle with multiple Structure containers
                         chain = next(available_chain_ids)
                         entity.write(file_handle=f, chain=chain)
-                        chain_terminal_atom = entity.c_terminal_residue
-                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
-                                                                              chain_terminal_atom.residue_type, chain,
-                                                                              chain_terminal_atom.residue_number))
+                        c_term_residue = entity.c_terminal_residue
+                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
+                                                                              c_term_residue.atoms[-1].number + 1,
+                                                                              c_term_residue.type, chain,
+                                                                              c_term_residue.number))
             else:
                 for model_number, structure in enumerate(self.models, 1):
                     f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
                     for entity in structure.entities:  # Todo handle with multiple Structure containers
                         entity.write(file_handle=f)
-                        chain_terminal_atom = entity.c_terminal_residue
-                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', chain_terminal_atom.number + 1,
-                                                                              chain_terminal_atom.residue_type,
-                                                                              entity.chain_id,
-                                                                              chain_terminal_atom.residue_number))
+                        c_term_residue = entity.c_terminal_residue
+                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
+                                                                              c_term_residue.atoms[-1].number + 1,
+                                                                              c_term_residue.type, entity.chain_id,
+                                                                              c_term_residue.number))
                     f.write('ENDMDL\n')
 
     def __getitem__(self, idx):
