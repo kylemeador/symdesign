@@ -481,7 +481,7 @@ def terminate(module, designs, location=None, results=None, output=True):
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano,
                         'interface_metrics': 'interface_metrics',
                         'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
-                        'optimize_designs': 'optimize_designs'}
+                        'optimize_designs': 'optimize_design'}
         stage = module_files.get(module)
         if stage:
             if len(success) == 0:
