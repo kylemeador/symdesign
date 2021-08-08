@@ -134,6 +134,10 @@
 <!--		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>-->
 <!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="1" cache_suffix="_hydrophobic"/> # cache_prefix=""-->
 <!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="1" cache_suffix="_total"/> # cache_prefix="" #-->
+		<ScoreType name="M_hbond_sr_bb_energy" scorefxn="2015_nano" score_type="hbond_sr_bb" threshold="100000" confidence="1.0"/>
+		<ScoreType name="M_hbond_lr_bb_energy" scorefxn="2015_nano" score_type="hbond_lr_bb" threshold="100000" confidence="1.0"/>
+		<ScoreType name="M_hbond_bb_sc_energy" scorefxn="2015_nano" score_type="hbond_bb_sc" threshold="100000" confidence="1.0"/>
+		<ScoreType name="M_hbond_sc_energy" scorefxn="2015_nano" score_type="hbond_sc" threshold="100000" confidence="1.0"/>
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
@@ -157,6 +161,16 @@
 			<Var name="Current" filter="shape_complementarity"/>
 			<Var name="Initial" filter="read_initial_shape_complementarity"/>
 			<Var name="Deviation" value="0.02"/> # filter="sasa_total"/>
+		</CalculatorFilter>
+		<SimpleMetricFilter name="hbone_sr_bb_filter" metric="M_hbond_sr_bb_energy" comparison_type="lt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+		<SimpleMetricFilter name="hbone_lr_bb_filter" metric="M_hbond_lr_bb_energy" comparison_type="lt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+		<SimpleMetricFilter name="hbone_bb_sc_filter" metric="M_hbond_bb_sc_energy" comparison_type="lt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+		<SimpleMetricFilter name="hbone_sc_filter" metric="M_hbond_sc_energy" comparison_type="lt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+		<CalculatorFilter name="hbond_calculator" equation="sr_bb + lr_bb + bb_sc +sc" threshold="0"> # evaluates to true if less than threshold
+			<Var name="sr_bb" filter="hbone_sr_bb_filter"/>
+			<Var name="lr_bb" filter="hbone_lr_bb_filter"/>
+			<Var name="bb_sc" filter="hbone_bb_sc_filter"/>
+			<Var name="sc" filter="hbone_sc_filter"/>
 		</CalculatorFilter>
 		<IfThenFilter name="shape_complementarity_if_then" threshold="0" lower_threshold="1">
 			# Invert as the delta will be lower than 0 if the current shape complementarity is worse than original - deviation
@@ -228,7 +242,9 @@
 <!--				<AND filter_name="D_shape_complementarity_higher" sample_type="low"/>-->
 <!--				<AND filter_name="D_shape_complementarity_higher" sample_type="high"/>-->
 				<AND filter_name="shape_complementarity_if_then" sample_type="high"/>
-				<AND filter_name="percent_interface_area_hydrophobic" sample_type="low"/>
+				# really annoying that I can't get the burial area without multiple protocols
+				<AND filter_name="hbond_calculator" sample_type="low"/>
+<!--				<AND filter_name="percent_interface_area_hydrophobic" sample_type="low"/>-->
 <!--				<AND filter_name="shape_complementarity" sample_type="high"/>-->
 			</Filters>
 		</GreedyOptMutationMover>
