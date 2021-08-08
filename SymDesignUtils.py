@@ -1057,6 +1057,7 @@ class DesignSpecification(Dialect):
     quoting = QUOTE_MINIMAL
     skipinitialspace = False
     strict = False
+
     def __init__(self, file):
         super().__init__()
         # self.delimiter = ','
@@ -1095,7 +1096,6 @@ class DesignSpecification(Dialect):
         return zip(self.all_poses, self.design_names, self.directives)
 
     # def validate(self):
-
 
 
 class DesignError(Exception):

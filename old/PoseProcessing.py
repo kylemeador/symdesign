@@ -264,7 +264,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
     interface = PDB.from_atoms([atom for residue in total_int_residue_objects for atom in residue.atoms])
     interface_tree = SDUtils.residue_interaction_graph(interface)
-    interface_cb_indices = interface.get_cb_indices()  # InclGlyCA=True)
+    interface_cb_indices = interface.cb_indices
 
     interface_residue_edges = {}
     for idx, residue_contacts in enumerate(interface_tree):

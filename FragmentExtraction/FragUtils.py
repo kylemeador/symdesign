@@ -31,8 +31,8 @@ def construct_cb_atom_tree(pdb1, pdb2, distance):
 def find_interface_pairs(pdb1, pdb2, distance):
     # Get Queried CB Tree for all PDB2 Atoms within 8A of PDB1 CB Atoms
     query = construct_cb_atom_tree(pdb1, pdb2, distance)
-    pdb1_cb_indices = pdb1.get_cb_indices()
-    pdb2_cb_indices = pdb2.get_cb_indices()
+    pdb1_cb_indices = pdb1.cb_indices
+    pdb2_cb_indices = pdb2.cb_indices
 
     # Map Coordinates to Residue Numbers
     interface_pairs = []
@@ -285,8 +285,8 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
     query = construct_cb_atom_tree(pdb_mapped, pdb_paired, interaction_dist)
 
     # Map Coordinates to Atoms
-    # pdb_map_cb_indices = pdb1.get_cb_indices()  # InclGlyCA=True)
-    # pdb_partner_cb_indices = pdb2.get_cb_indices()  # InclGlyCA=True)
+    # pdb_map_cb_indices = pdb1.cb_indices
+    # pdb_partner_cb_indices = pdb2.cb_indices
 
     # Map Coordinates to Atoms
     interacting_pairs = []
@@ -312,9 +312,9 @@ def collect_frag_weights(pdb, mapped_chain, paired_chain, interaction_dist):
                        'paired': {residue.number: [0, residue.number_of_atoms - num_bb_atoms]
                                   for residue in pdb_paired.residues}}
     # res_counts_dict = {'mapped': {i.residue_number: [0, len(pdb_mapped.get_residue_atoms(mapped_chain, i.residue_number))
-    #                                                  - num_bb_atoms] for i in pdb_mapped.get_ca_atoms()},
+    #                                                  - num_bb_atoms] for i in pdb_mapped.ca_atoms},
     #                    'paired': {i.residue_number: [0, len(pdb_paired.get_residue_atoms(paired_chain, i.residue_number))
-    #                                                  - num_bb_atoms] for i in pdb_paired.get_ca_atoms()}}
+    #                                                  - num_bb_atoms] for i in pdb_paired.ca_atoms}}
     # Count all residue/residue interactions that do not originate from a backbone atom. In this way, side-chain to
     # backbone are counted for the sidechain residue, indicating significance. However, backbones are (mostly)
     # identical, and therefore, their interaction should be conserved in each member of the cluster and not counted
