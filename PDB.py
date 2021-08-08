@@ -555,35 +555,6 @@ class PDB(Structure):
                 out_coords.append([x, y, z])
             return out_coords
 
-    # def get_term_ca_indices(self, term):
-    #     if term == "N":
-    #         ca_term_list = []
-    #         chain_id = None
-    #         for idx, atom in enumerate(self.atoms):
-    #             # atom = self.atoms[i]
-    #             if atom.chain != chain_id and atom.type == "CA":
-    #                 ca_term_list.append(idx)
-    #                 chain_id = atom.chain
-    #         return ca_term_list
-    #
-    #     elif term == "C":
-    #         ca_term_list = []
-    #         chain_id = self.atoms[0].chain
-    #         current_ca_idx = None
-    #         for idx, atom in enumerate(self.atoms):
-    #             # atom = self.atoms[i]
-    #             if atom.chain != chain_id:
-    #                 ca_term_list.append(current_ca_idx)
-    #                 chain_id = atom.chain
-    #             if atom.type == "CA":
-    #                 current_ca_idx = idx
-    #         ca_term_list.append(current_ca_idx)
-    #         return ca_term_list
-    #
-    #     else:
-    #         self.log.error('Select N or C Term')
-    #         return []
-
     def rename_chains(self, chain_list_fixed):  # Todo Depreciate
         # Caution, doesn't update self.reference_sequence chain info
         lf = chain_list_fixed
@@ -1493,8 +1464,8 @@ class PDB(Structure):
             chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
         """
         # Get CB Atom indices for the atoms CB and chain CB
-        all_cb_indices = self.get_cb_indices()  # InclGlyCA=gly_ca)
-        chain_cb_indices = chain.get_cb_indices()  # InclGlyCA=gly_ca)
+        all_cb_indices = self.cb_indices
+        chain_cb_indices = chain.cb_indices
         # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
         # chain_coord_indices, contact_cb_indices = [], []
         # # Find the contacting CB indices and chain specific indices

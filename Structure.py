@@ -157,7 +157,7 @@ class Structure(StructureBase):
         """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
         belonging to the specific Structure instance
         Returns:
-            (Numpy.ndarray)
+            (numpy.ndarray)
         """
         return self._coords.coords[self._atom_indices]
 
@@ -372,7 +372,7 @@ class Structure(StructureBase):
             (Numpy.ndarray)
         """
         # index_mask = [atom.index for atom in self.atoms if atom.is_backbone()]
-        return self._coords.coords[self.get_backbone_indices()]
+        return self._coords.coords[self.backbone_indices]
 
     def get_backbone_and_cb_coords(self):
         """Return a view of the Coords from the Structure with backbone and CB atom coordinates
@@ -382,7 +382,7 @@ class Structure(StructureBase):
             (Numpy.ndarray)
         """
         # index_mask = [atom.index for atom in self.atoms if atom.is_backbone() or atom.is_CB()]
-        return self._coords.coords[self.get_backbone_and_cb_indices()]
+        return self._coords.coords[self.backbone_and_cb_indices]
 
     def get_ca_coords(self):
         """Return a view of the Coords from the Structure with CA atom coordinates
@@ -392,7 +392,7 @@ class Structure(StructureBase):
         """
         # index_mask = [residue.ca.index for residue in self.residues]
         # index_mask = [atom.index for atom in self.atoms if atom.is_CA()]
-        return self._coords.coords[self.get_ca_indices()]
+        return self._coords.coords[self.ca_indices]
 
     def get_cb_coords(self):
         """Return a view of the Coords from the Structure with CB atom coordinates
@@ -403,7 +403,7 @@ class Structure(StructureBase):
         # index_mask = [residue.cb.index for residue in self.residues]
         # index_mask = [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
         # return self._coords.coords[index_mask]
-        return self._coords.coords[self.get_cb_indices()]
+        return self._coords.coords[self.cb_indices]
 
     # def atoms(self):
     #     """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned
@@ -516,11 +516,11 @@ class Structure(StructureBase):
         try:
             return self._coords_indexed_backbone_indices
         except AttributeError:
-            # for idx, (atom_idx, bb_idx) in enumerate(zip(self.atom_indices, self.get_backbone_indices())):
+            # for idx, (atom_idx, bb_idx) in enumerate(zip(self.atom_indices, self.backbone_indices)):
             # backbone_indices = []
             # for residue, res_atom_idx in self.coords_indexed_residues:
             #     backbone_indices.extend(residue.backbone_indices)
-            test_indices = self.get_backbone_indices()
+            test_indices = self.backbone_indices
             self._coords_indexed_backbone_indices = \
                 [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
         return self._coords_indexed_backbone_indices
@@ -535,7 +535,7 @@ class Structure(StructureBase):
         try:
             return self._coords_indexed_backbone_and_cb_indices
         except AttributeError:
-            test_indices = self.get_backbone_and_cb_indices()
+            test_indices = self.backbone_and_cb_indices
             self._coords_indexed_backbone_and_cb_indices = \
                 [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
         return self._coords_indexed_backbone_and_cb_indices
@@ -550,7 +550,7 @@ class Structure(StructureBase):
         try:
             return self._coords_indexed_cb_indices
         except AttributeError:
-            test_indices = self.get_cb_indices()
+            test_indices = self.cb_indices
             self._coords_indexed_cb_indices = \
                 [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
         return self._coords_indexed_cb_indices
@@ -565,109 +565,138 @@ class Structure(StructureBase):
         try:
             return self._coords_indexed_ca_indices
         except AttributeError:
-            test_indices = self.get_ca_indices()
+            test_indices = self.ca_indices
             self._coords_indexed_ca_indices = \
                 [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
         return self._coords_indexed_ca_indices
 
-    # TODO remove the get_ prefix for all these and make a try: except: property
-    def get_backbone_indices(self):
+    @property
+    def backbone_indices(self):
         """Return backbone Atom indices from the Structure
 
         Returns:
             (list[int])
         """
-        indices = []
-        for residue in self.residues:
-            indices.extend(residue.backbone_indices)
-        return indices
+        try:
+            return self._backbone_indices
+        except AttributeError:
+            self._backbone_indices = []
+            for residue in self.residues:
+                self._backbone_indices.extend(residue.backbone_indices)
+            return self._backbone_indices
 
-    def get_backbone_and_cb_indices(self):
+    @property
+    def backbone_and_cb_indices(self):
         """Return backbone and CB Atom indices from the Structure. Inherently gets glycine CA's
 
         Returns:
             (list[int])
         """
-        indices = []
-        for residue in self.residues:
-            indices.extend(residue.backbone_and_cb_indices)
-        return indices
+        try:
+            return self._backbone_and_cb_indices
+        except AttributeError:
+            self._backbone_and_cb_indices = []
+            for residue in self.residues:
+                self._backbone_and_cb_indices.extend(residue.backbone_and_cb_indices)
+            return self._backbone_and_cb_indices
 
-    def get_cb_indices(self):
+    @property
+    def cb_indices(self):
         """Return CB Atom indices from the Structure. Inherently gets glycine Ca's and Ca's of Residues missing Cb
 
         Returns:
             (list[int])
         """
-        return [residue.cb_index if residue.cb_index else residue.ca_index for residue in self.residues]
+        try:
+            return self._cb_indices
+        except AttributeError:
+            self._cb_indices = [residue.cb_index if residue.cb_index else residue.ca_index for residue in self.residues]
+            return self._cb_indices
 
-    def get_ca_indices(self):
+    @property
+    def ca_indices(self):
         """Return CB Atom indices from the Structure
 
         Returns:
             (list[int])
         """
-        return [residue.ca_index for residue in self.residues if residue.ca_index]
+        try:
+            return self._ca_indices
+        except AttributeError:
+            self._ca_indices = [residue.ca_index for residue in self.residues if residue.ca_index]
+            return self._ca_indices
 
-    def get_heavy_atom_indices(self):
+    @property
+    def heavy_atom_indices(self):
         """Return Heavy Atom indices from the Structure
 
         Returns:
             (list[int])
         """
-        indices = []
-        for residue in self.residues:
-            indices.extend(residue.heavy_atom_indices)
-        return indices
+        try:
+            return self._heavy_atom_indices
+        except AttributeError:
+            self._heavy_atom_indices = []
+            for residue in self.residues:
+                self._heavy_atom_indices.extend(residue.heavy_atom_indices)
+            return self._heavy_atom_indices
 
-    def get_helix_cb_indices(self):
+    @property
+    def helix_cb_indices(self):
         """Only works on secondary structure assigned structures!
 
         Returns:
             (list[int])
         """
-        h_cb_indices = []
-        for idx, residue in enumerate(self.residues):
-            if not residue.secondary_structure:
-                self.log.error('Secondary Structures must be set before finding helical CB\'s! Error at Residue %s'
-                               % residue.number)
-                return
-            elif residue.secondary_structure == 'H':
-                h_cb_indices.append(residue.cb)
+        try:
+            return self._helix_cb_indices
+        except AttributeError:
+            h_cb_indices = []
+            for idx, residue in enumerate(self.residues):
+                if not residue.secondary_structure:
+                    self.log.error('Secondary Structures must be set before finding helical CB\'s! Error at Residue %s'
+                                   % residue.number)
+                    return
+                elif residue.secondary_structure == 'H':
+                    h_cb_indices.append(residue.cb)
+            self._helix_cb_indices = h_cb_indices
+            return self._helix_cb_indices
 
-        return h_cb_indices
-
-    def get_ca_atoms(self):
+    @property
+    def ca_atoms(self):
         """Return CA Atoms from the Structure
 
         Returns:
             (list[Atom])
         """
-        return self.atoms[self.get_ca_indices()]
+        return self.atoms[self.ca_indices]
 
-    def get_cb_atoms(self):
+    @property
+    def cb_atoms(self):
         """Return CB Atoms from the Structure
 
         Returns:
             (list[Atom])
         """
-        return self.atoms[self.get_cb_indices()]
+        return self.atoms[self.cb_indices]
 
-    def get_backbone_atoms(self):
+    @property
+    def backbone_atoms(self):
         """Return backbone Atoms from the Structure
 
         Returns:
             (list[Atom])
         """
-        return self.atoms[self.get_backbone_indices()]
+        return self.atoms[self.backbone_indices]
 
-    def get_backbone_and_cb_atoms(self):
+    @property
+    def backbone_and_cb_atoms(self):
         """Return backbone and CB Atoms from the Structure
 
         Returns:
             (list[Atom])
         """
-        return self.atoms[self.get_backbone_and_cb_indices()]
+        return self.atoms[self.backbone_and_cb_indices]
 
     def atom(self, atom_number):
         """Retrieve the Atom specified by atom number
@@ -1105,15 +1134,15 @@ class Structure(StructureBase):
         Returns:
             (bool)
         """
-        # heavy_atom_indices = self.get_heavy_atom_indices()
+        # heavy_atom_indices = self.heavy_atom_indices
         # all_atom_tree = BallTree(self.coords[heavy_atom_indices])  # faster 131 msec/loop
-        # temp_atoms = self.atoms
-        # atoms = [temp_atoms[idx] for idx in heavy_atom_indices]
         # temp_coords_indexed_residues = self.coords_indexed_residues
         # coords_indexed_residues = [temp_coords_indexed_residues[idx] for idx in heavy_atom_indices]
-        # atoms = self.atoms
+        # temp_coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
+        # coords_indexed_residue_atoms = [temp_coords_indexed_residue_atoms[idx] for idx in heavy_atom_indices]
         all_atom_tree = BallTree(self.coords)  # faster 131 msec/loop
         coords_indexed_residues = self.coords_indexed_residues
+        # atoms = self.atoms
         coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
         number_residues = self.number_of_residues
         residues = self.residues
@@ -1600,10 +1629,10 @@ class Structure(StructureBase):
         # The BallTree creation is the biggest time cost regardless
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        # indices = self.get_cb_indices()
+        # indices = self.cb_indices
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         # query_coords = self.coords[indices]  # only get the coordinate indices we want
-        tree = BallTree(self.coords)  # [self.get_heavy_atom_indices()])  # Todo
+        tree = BallTree(self.coords)  # [self.heavy_atom_indices])  # Todo
         # entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
         query = tree.query_radius(self.coords, distance)  # get v residue w/ [0]
         coords_indexed_residues = self.coords_indexed_residues
@@ -1869,8 +1898,8 @@ class Entity(Chain, SequenceProfile):
                 # each mate chain coords are dependent on the representative (captain) coords, find the transform
                 self.chain_ops.clear()
                 for chain in self.chains:
-                    # rmsd, rot, tx, _ = superposition3d(coords.coords[self.get_cb_indices()], self.get_cb_coords())
-                    rmsd, rot, tx, _ = superposition3d(coords.coords[self.get_cb_indices()], chain.get_cb_coords())
+                    # rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], self.get_cb_coords())
+                    rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], chain.get_cb_coords())
                     self.chain_ops.append(dict(rotation=rot, translation=tx))
                 self._chains.clear()
                 # then apply to mates
@@ -2630,32 +2659,32 @@ class Residue:
         side_chain, heavy_atoms = [], []
         for idx, atom in enumerate(self.atoms):
             if atom.type == 'N':
-                self.n = idx
+                self.n_index = idx
                 # self.n = atom.index
             elif atom.type == 'CA':
-                self.ca = idx
+                self.ca_index = idx
                 # self.ca = atom.index
                 if atom.residue_type == 'GLY':
-                    self.cb = idx
+                    self.cb_index = idx
                     # self.cb = atom.index
             elif atom.type == 'CB':  # atom.is_CB(InclGlyCA=True):
-                self.cb = idx
+                self.cb_index = idx
                 # self.cb = atom.index
             elif atom.type == 'C':
-                self.c = idx
+                self.c_index = idx
                 # self.c = atom.index
             elif atom.type == 'O':
-                self.o = idx
+                self.o_index = idx
                 # self.o = atom.index
             elif atom.type == 'H':
-                self.h = idx
+                self.h_index = idx
                 # self.h = atom.index
             else:
                 side_chain.append(idx)
                 if 'H' not in atom.type:
                     heavy_atoms.append(idx)
-        self.backbone_indices = [getattr(self, index, None) for index in ['_n', '_ca', '_c', '_o']]
-        self.backbone_and_cb_indices = getattr(self, '_cb', None)
+        self.backbone_indices = [getattr(self, index, None) for index in ['_n_index', '_ca_index', '_c_index', '_o_index']]
+        self.backbone_and_cb_indices = getattr(self, '_cb_index', None)
         self.sidechain_indices = side_chain
         self.heavy_atom_indices = self._bb_cb_indices + heavy_atoms
         self.number_pdb = atom.pdb_residue_number
@@ -2756,138 +2785,194 @@ class Residue:
     @property
     def n_coords(self):
         try:
-            return self._coords.coords[self._atom_indices[self._n]]
+            return self._coords.coords[self._atom_indices[self._n_index]]
         except AttributeError:
             return
 
     @property
     def n(self):
         try:
-            return self._atoms.atoms[self._atom_indices[self._n]]
+            return self._atoms.atoms[self._atom_indices[self._n_index]]
+        except AttributeError:
+            return
+
+    @property
+    def n_atom_index(self):
+        try:
+            return self._atom_indices[self._n_index]
         except AttributeError:
             return
 
     @property
     def n_index(self):
         try:
-            return self._atom_indices[self._n]
+            return self._n_index
         except AttributeError:
             return
 
-    @n.setter
-    def n(self, index):
-        self._n = index
+    @n_index.setter
+    def n_index(self, index):
+        self._n_index = index
 
     @property
     def h(self):
         try:
-            return self._atoms.atoms[self._atom_indices[self._h]]
+            return self._atoms.atoms[self._atom_indices[self._h_index]]
+        except AttributeError:
+            return
+
+    @property
+    def h_coords(self):
+        try:
+            return self._coords.coords[self._atom_indices[self._h_index]]
+        except AttributeError:
+            return
+
+    @property
+    def h_atom_index(self):
+        try:
+            return self._atom_indices[self._h_index]
         except AttributeError:
             return
 
     @property
     def h_index(self):
         try:
-            return self._atom_indices[self._h]
+            return self._h_index
         except AttributeError:
             return
 
-    @h.setter
-    def h(self, index):
-        self._h = index
+    @h_index.setter
+    def h_index(self, index):
+        self._h_index = index
+
+    @property
+    def ca(self):
+        try:
+            return self._atoms.atoms[self._atom_indices[self._ca_index]]
+        except AttributeError:
+            return
 
     @property
     def ca_coords(self):
         try:
-            return self._coords.coords[self._atom_indices[self._ca]]
+            return self._coords.coords[self._atom_indices[self._ca_index]]
+        except AttributeError:
+            return
+
+    @property
+    def ca_atom_index(self):
+        try:
+            return self._atom_indices[self._ca_index]
         except AttributeError:
             return
 
     @property
     def ca_index(self):
         try:
-            return self._atom_indices[self._ca]
+            return self._ca_index
         except AttributeError:
             return
+
+    @ca_index.setter
+    def ca_index(self, index):
+        self._ca_index = index
 
     @property
-    def ca(self):
+    def cb(self):
         try:
-            return self._atoms.atoms[self._atom_indices[self._ca]]
+            return self._atoms.atoms[self._atom_indices[self._cb_index]]
         except AttributeError:
             return
-
-    @ca.setter
-    def ca(self, index):
-        self._ca = index
 
     @property
     def cb_coords(self):
         try:
-            return self._coords.coords[self._atom_indices[self._cb]]
+            return self._coords.coords[self._atom_indices[self._cb_index]]
+        except AttributeError:
+            return
+
+    @property
+    def cb_atom_index(self):
+        try:
+            return self._atom_indices[self._cb_index]
         except AttributeError:
             return
 
     @property
     def cb_index(self):
         try:
-            return self._atom_indices[self._cb]
+            return self._cb_index
         except AttributeError:
             return
 
-    @property
-    def cb(self):
-        try:
-            return self._atoms.atoms[self._atom_indices[self._cb]]
-        except AttributeError:
-            return
-
-    @cb.setter
-    def cb(self, index):
-        self._cb = index
-
-    @property
-    def c_coords(self):
-        try:
-            return self._coords.coords[self._atom_indices[self._c]]
-        except AttributeError:
-            return
+    @cb_index.setter
+    def cb_index(self, index):
+        self._cb_index = index
 
     @property
     def c(self):
         try:
-            return self._atoms.atoms[self._atom_indices[self._c]]
+            return self._atoms.atoms[self._atom_indices[self._c_index]]
+        except AttributeError:
+            return
+
+    @property
+    def c_coords(self):
+        try:
+            return self._coords.coords[self._atom_indices[self._c_index]]
+        except AttributeError:
+            return
+
+    @property
+    def c_atom_index(self):
+        try:
+            return self._atom_indices[self._c_index]
         except AttributeError:
             return
 
     @property
     def c_index(self):
         try:
-            return self._atom_indices[self._c]
+            return self._c_index
         except AttributeError:
             return
 
-    @c.setter
-    def c(self, index):
-        self._c = index
+    @c_index.setter
+    def c_index(self, index):
+        self._c_index = index
 
     @property
     def o(self):
         try:
-            return self._atoms.atoms[self._atom_indices[self._o]]
+            return self._atoms.atoms[self._atom_indices[self._o_index]]
+        except AttributeError:
+            return
+
+    @property
+    def o_coords(self):
+        try:
+            return self._coords.coords[self._atom_indices[self._o_index]]
+        except AttributeError:
+            return
+
+    @property
+    def o_atom_index(self):
+        try:
+            return self._atom_indices[self._o_index]
         except AttributeError:
             return
 
     @property
     def o_index(self):
         try:
-            return self._atom_indices[self._o]
+            return self._o_index
         except AttributeError:
             return
 
-    @o.setter
-    def o(self, index):
-        self._o = index
+    @o_index.setter
+    def o_index(self, index):
+        self._o_index = index
 
     @property
     def number(self):  # Todo remove these properties to standard attributes
@@ -2941,9 +3026,9 @@ class Residue:
         try:
             return self._secondary_structure
         except AttributeError:
-            raise DesignError('This residue has no \'.secondary_structure\' attribute! Ensure you call '
-                              'Structure.get_secondary_structure() on your Structure before you request Residue '
-                              'specific secondary structure information')
+            raise DesignError('Residue %d%s has no \'.secondary_structure\' attribute! Ensure you call Structure.get_se'
+                              'condary_structure() before you request Residue specific secondary structure information'
+                              % (self.number, self.chain))
 
     @secondary_structure.setter
     def secondary_structure(self, ss_code):
@@ -2954,8 +3039,8 @@ class Residue:
         try:
             return self._sasa
         except AttributeError:
-            raise DesignError('Residue %d%s has no \'.sasa\' attribute! Ensure you call Structure.get_sasa() on your '
-                              'Structure before you request Residue specific SASA information'
+            raise DesignError('Residue %d%s has no \'.sasa\' attribute! Ensure you call Structure.get_sasa() before you'
+                              ' request Residue specific SASA information'
                               % (self.number, self.chain))
 
     @sasa.setter
@@ -2968,7 +3053,12 @@ class Residue:
 
     @property
     def contact_order(self):
-        return self._contact_order
+        try:
+            return self._contact_order
+        except AttributeError:
+            raise DesignError('Residue %d%s has no \'.contact_order\' attribute! Ensure you call '
+                              'Structure.contact_order before you request Residue specific contact order information'
+                              % (self.number, self.chain))
 
     @contact_order.setter
     def contact_order(self, contact_order):
@@ -3024,7 +3114,7 @@ class Residue:
         current_properties = residue_properties[self.type]
         if directive == 'same':
             properties = current_properties
-        elif directive == 'different':  # hmm not right... .difference({hbonding, branched}) <- for ex. polar if apolar
+        elif directive == 'different':  # hmm not right -> .difference({hbonding, branched}) <- for ex. polar if apolar
             properties = set(aa_by_property.keys()).difference(current_properties)
         else:
             properties = [directive]

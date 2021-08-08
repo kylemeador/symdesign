@@ -122,8 +122,8 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
         transformed surface guide coordinates, number of interface residues on pdb1 where fragments are possible, number
         on pdb2 where fragments are possible
     """
-    pdb1_cb_indices = pdb1.get_cb_indices()
-    pdb2_cb_indices = pdb2.get_cb_indices()
+    pdb1_cb_indices = pdb1.cb_indices
+    pdb2_cb_indices = pdb2.cb_indices
 
     pdb1_cb_kdtree = BallTree(pdb1.get_cb_coords())
 
@@ -162,13 +162,13 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
 
 
 def biopdb_aligned_chain(pdb_fixed, pdb_moving, chain_id_moving):
-    # for atom in pdb_fixed.chain(chain_id_fixed).get_ca_atoms():
+    # for atom in pdb_fixed.chain(chain_id_fixed).ca_atoms:
     biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
-                         for atom in pdb_fixed.get_ca_atoms()]
+                         for atom in pdb_fixed.ca_atoms]
     biopdb_atom_moving = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                                      " %s " % atom.type, atom.number, element=atom.element_symbol)
-                          for atom in pdb_moving.chain(chain_id_moving).get_ca_atoms()]
+                          for atom in pdb_moving.chain(chain_id_moving).ca_atoms]
     sup = Bio.PDB.Superimposer()
     sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)  # Todo remove Bio.PDB
     rot, tr = sup.rotran

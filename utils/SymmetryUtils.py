@@ -328,14 +328,14 @@ def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
 #         return None
 #
 #     if return_side_chains:  # get different function calls depending on the return type
-#         extract_pdb_atoms = getattr(PDB, 'get_atoms')
-#         extract_pdb_coords = getattr(PDB, 'get_coords')
+#         extract_pdb_atoms = getattr(PDB, 'atoms')
+#         extract_pdb_coords = getattr(PDB, 'coords')
 #     else:
-#         extract_pdb_atoms = getattr(PDB, 'get_backbone_atoms')
-#         extract_pdb_coords = getattr(PDB, 'get_backbone_coords')
+#         extract_pdb_atoms = getattr(PDB, 'backbone_atoms')
+#         extract_pdb_coords = getattr(PDB, 'backbone_coords')
 #
 #     asu_atom_template = extract_pdb_atoms(unit_cell_sym_mates[0])
-#     # asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()
+#     # asu_bb_atom_template = unit_cell_sym_mates[0].backbone_atoms
 #
 #     central_uc_cart_coords = []
 #     for unit_cell_sym_mate_pdb in unit_cell_sym_mates:

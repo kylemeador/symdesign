@@ -1005,9 +1005,9 @@ class SymmetricModel(Model):
             raise DesignError('%s: No symmetry set for %s! Cannot get symmetry mates'
                               % (self.get_assembly_symmetry_mates.__name__, self.name))
         # if return_side_chains:  # get different function calls depending on the return type
-        #     extract_pdb_atoms = getattr(PDB, 'get_atoms')
+        #     extract_pdb_atoms = getattr(PDB, 'atoms')
         # else:
-        #     extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+        #     extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
 
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms
         if surrounding_uc:
@@ -1115,7 +1115,7 @@ class SymmetricModel(Model):
         if calculate_contacts:
             if self.coords_type != 'bb_cb':
                 # Need to select only coords that are BB or CB from the model coords
-                asu_indices = self.asu.get_backbone_and_cb_indices()
+                asu_indices = self.asu.backbone_and_cb_indices
             else:
                 asu_indices = None
 
@@ -1277,10 +1277,10 @@ class SymmetricModel(Model):
             (list[Structure]): The symmetric copies of the input structure
         """
         if return_side_chains:  # get different function calls depending on the return type
-            # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+            # extract_pdb_atoms = getattr(PDB, 'atoms')  # Not using. The copy() versus PDB() changes residue objs
             pdb_coords = structure.coords
         else:
-            # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+            # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
             pdb_coords = structure.get_backbone_and_cb_coords()
 
         sym_cart_coords = self.return_unit_cell_coords(pdb_coords)
@@ -1305,10 +1305,10 @@ class SymmetricModel(Model):
             (list[Structure]): The symmetric copies of the input structure
         """
         if return_side_chains:  # get different function calls depending on the return type
-            # extract_pdb_atoms = getattr(PDB, 'get_atoms')  # Not using. The copy() versus PDB() changes residue objs
+            # extract_pdb_atoms = getattr(PDB, 'atoms')  # Not using. The copy() versus PDB() changes residue objs
             pdb_coords = structure.coords
         else:
-            # extract_pdb_atoms = getattr(PDB, 'get_backbone_and_cb_atoms')
+            # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
             pdb_coords = structure.get_backbone_and_cb_coords()
 
         if self.dimension == 3:
@@ -1318,7 +1318,7 @@ class SymmetricModel(Model):
         else:
             return
 
-        # pdb_coords = extract_pdb_coords(pdb)
+        # pdb_coords = extract_pdb_atoms
         uc_frac_coords = self.return_unit_cell_coords(pdb_coords, fractional=True)
         surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
                                    for y_shift in [0, 1, -1] for z_shift in z_shifts]
@@ -1513,7 +1513,7 @@ class SymmetricModel(Model):
 
         if self.coords_type != 'bb_cb':
             # Need to select only coords that are BB or CB from the model coords
-            asu_indices = self.asu.get_backbone_and_cb_indices()
+            asu_indices = self.asu.backbone_and_cb_indices
         else:
             asu_indices = None
 
@@ -1541,7 +1541,7 @@ class SymmetricModel(Model):
         if self.coords_type != 'bb_cb':
             # Need to select only coords that are BB or CB from the model coords
             number_asu_atoms = self.number_of_atoms
-            asu_indices = self.asu.get_backbone_and_cb_indices()
+            asu_indices = self.asu.backbone_and_cb_indices
             # We have all the BB/CB indices from ASU, must multiply this int's in self.number_of_symmetry_mates
             # to get every BB/CB coord in the model
             # Finally we take out those indices that are inclusive of the model_asu_indices like below
@@ -1907,12 +1907,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #         pdb2_cb_indices (list): List of all CB indices from pdb2
     #     """
     #     # Get CB Atom Coordinates including CA coordinates for Gly residues
-    #     entity1_indices = np.array(self.asu.entity(entity1).get_cb_indices())
+    #     entity1_indices = np.array(self.asu.entity(entity1).cb_indices)
     #     # mask = np.ones(self.asu.number_of_atoms, dtype=int)  # mask everything
     #     # mask[index_array] = 0  # we unmask the useful coordinates
     #     entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want!
     #
-    #     entity2_indices = np.array(self.asu.entity(entity2).get_cb_indices())
+    #     entity2_indices = np.array(self.asu.entity(entity2).cb_indices)
     #     entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want!
     #
     #     # Construct CB Tree for PDB1
@@ -1937,8 +1937,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         self.log.debug('Entity %s | Entity %s interface query' % (entity1.name, entity2.name))
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        entity1_indices = entity1.get_cb_indices()
-        entity2_indices = entity2.get_cb_indices()
+        entity1_indices = entity1.cb_indices
+        entity2_indices = entity2.cb_indices
 
         if self.design_selector_indices:  # subtract the masked atom indices from the entity indices
             before = len(entity1_indices) + len(entity2_indices)
@@ -2846,8 +2846,8 @@ def fetch_pdb_file(pdb_code, location=PUtils.pdb_db, out_dir=os.getcwd(), asu=Tr
 #     query = construct_cb_atom_tree(pdb1, pdb2, distance=distance)
 #
 #     # Map Coordinates to Atoms
-#     pdb1_cb_indices = pdb1.get_cb_indices()  # InclGlyCA=gly_ca)
-#     pdb2_cb_indices = pdb2.get_cb_indices()  # InclGlyCA=gly_ca)
+#     pdb1_cb_indices = pdb1.cb_indices
+#     pdb2_cb_indices = pdb2.cb_indices
 #
 #     # Map Coordinates to Residue Numbers
 #     interface_pairs = []
@@ -3072,9 +3072,9 @@ def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
 def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
     """Given two PDBs, return the unique chain and interacting residue lists"""
     pdb1_cb_coords = pdb1.get_cb_coords()
-    pdb1_cb_indices = pdb1.get_cb_indices()
+    pdb1_cb_indices = pdb1.cb_indices
     pdb2_cb_coords = pdb2.get_cb_coords()
-    pdb2_cb_indices = pdb2.get_cb_indices()
+    pdb2_cb_indices = pdb2.cb_indices
 
     pdb1_cb_kdtree = BallTree(np.array(pdb1_cb_coords))
 
