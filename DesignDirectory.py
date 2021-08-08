@@ -1824,6 +1824,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         protocol_xml1 = protocol
         # nstruct_instruct = ['-no_nstruct_label', 'true']
         nstruct_instruct = ['-nstruct', str(10)]  # str(self.number_of_trajectories)]
+        design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
+        generate_files_cmd = \
+            ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
 
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
@@ -1841,9 +1844,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
              '@%s' % self.flags, '-out:suffix', '_%s' % protocol, '-packing:resfile', res_file,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct
 
+        # metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
+        # metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
+        metric_cmd = main_cmd + ['-in:file:l', design_list_file] + \
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
@@ -1869,7 +1874,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.script:
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
-                               additional=[list2cmdline(command) for command in metric_cmds])
+                               additional=[list2cmdline(generate_files_cmd)] +
+                                          [list2cmdline(command) for command in metric_cmds])
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=False):
