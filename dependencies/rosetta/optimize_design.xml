@@ -58,9 +58,11 @@
 		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
 
 		# other residues that may be designable
-		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		# TODO REINSTATE
+<!--		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>-->
 		# all designable residues
-		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
+		<Or name="all_designable" selectors="tot_interface"/>
 		<And name="core_interface1_sym" selectors="core_residues_sym,interface1_sym"/>
 		<And name="core_interface2_sym" selectors="core_residues_sym,interface2_sym"/>
 		# the negation of all designable residues
