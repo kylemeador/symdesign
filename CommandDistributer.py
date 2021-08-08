@@ -55,7 +55,7 @@ rosetta_flags = extras_flags[rosetta_extras] + \
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
 process_scale = {stage[1]: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
                  stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
-                 stage[11]: 1, stage[12]: 2, stage[13]: 2, 'optimize_design': 2,  # 'optimize_designs'
+                 stage[11]: 1, stage[12]: 2, stage[13]: 2, 'optimize_designs': 2,
                  'metrics_bound': 2, 'interface_metrics': 2, 'hhblits': 1, 'bmdca': 2}
 # Cluster Dependencies and Multiprocessing
 sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
@@ -72,7 +72,7 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
                     stage[9]: os.path.join(sbatch_template_dir, stage[6]),
                     'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
                     'interface_metrics': os.path.join(sbatch_template_dir, stage[2]),
-                    'optimize_design': os.path.join(sbatch_template_dir, stage[2]),  # 'optimize_designs'
+                    'optimize_designs': os.path.join(sbatch_template_dir, stage[2]),
                     'hhblits': os.path.join(sbatch_template_dir, 'hhblits'),
                     'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
                     }
