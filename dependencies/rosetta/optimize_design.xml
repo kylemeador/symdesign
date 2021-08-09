@@ -104,7 +104,9 @@
 		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		<OperateOnResidueSubset name="not_core_no_repack" selector="not_core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		<OperateOnResidueSubset name="hbnet_rtr" selector="hbnet_residues"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
-		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="0" resnums_allow_design="1" repack_shell="8.0"/>
+<!--		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="0" resnums_allow_design="1" repack_shell="8.0"/>-->
+		#TODO REINSTATE ^
+		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%" design_shell="0.1" allow_design="0" resnums_allow_design="1" repack_shell="8.0"/>
 		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
 		<SeqprofConsensus chain_num="1" name="evolution_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="2" name="evolution_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
