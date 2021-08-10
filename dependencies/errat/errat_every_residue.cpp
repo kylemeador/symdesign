@@ -422,7 +422,7 @@ int main(int argc, char* argv[]){//1
 				//else if (name_temp =='O') name[i]=3;
 				else if (name_temp =='O') name.push_back(3);
 				//else if (name_temp =='S') name[i]=3;//!!!!!!
-				//else name[i]=0;//KM
+				//else name[i]=0;//KM removed as these atoms don't contribute to the count
 				else continue;
 
 				i++;//iteration only if get to here
@@ -485,7 +485,7 @@ int main(int argc, char* argv[]){//1
                     errat.push_back(0);//add a blank measurement to vector
                 }
 				if ((i>2) && (resnum[i]!=resnum[i-1]) &&
-					(chainID[i]==chainID[i-1]) && (flag==0) &&((resnum[i]-resnum[i-1])>1)){
+					(chainID[i]==chainID[i-1]) && (flag==0) && ((resnum[i]-resnum[i-1])>1)){
 					fout <<"WARNING: Missing Residues " << resnum[i-1] <<">>>"<< resnum[i] << endl;
                     //for (int missing_residue=1; missing_residue < resnum[i] - resnum[i - 1]; missing_residue++){
                     //    errat.push_back(0);//add a blank measurement to vector
@@ -588,7 +588,7 @@ int main(int argc, char* argv[]){//1
         }
 	//fout <<"Most atoms in a box:	" <<  most << endl;
 
-	}//3end first flag2
+	}//3 end first flag2
 
 	//STEP 4: PREFORM THE ATOM COMPARISON CALCULATIONS.
 	//CONSIDER PUTTING SOME VARIABLES INTO THE TOP OF THE PROGRAM FOR MULTI-FILE DECLARATIONS.
@@ -646,26 +646,25 @@ int main(int argc, char* argv[]){//1
                     //types in the frame (9 residues).
                     //fout <<"i:	"<<i<<"/"<< resnum[i] <<"	v	"<<v<<"/"<<resnum[v]<<endl;
                     for (rer = i; rer <= v; rer++){//7 // v is last atom frame and i(rer) is the first
-                        jbx=((xyz[0][rer]-(min[1]-0.00001) )/boxsize);		//use an additional test when the last v is atmnum
-                        jby=((xyz[1][rer]-(min[2]-0.00001) )/boxsize);
-                        jbz=((xyz[2][rer]-(min[3]-0.00001) )/boxsize);
+                        jbx = ((xyz[0][rer] - (min[1] - 0.00001)) / boxsize);//use an additional test when the last v is atmnum
+                        jby = ((xyz[1][rer] - (min[2] - 0.00001)) / boxsize);
+                        jbz = ((xyz[2][rer] - (min[3] - 0.00001)) / boxsize);
                         //copy the top calculations
                         //set +/- limit on the values of the coordinates box index
-                        ibz1=jbz-ndelta;
+                        ibx1 = jbx - ndelta;
+                        if (ibx1 < 0) ibx1 = 0;
+                        ibx2 = jbx + ndelta;
+                        if (ibx2 > nbx[1] - 1) ibx2 = nbx[1] - 1;
+
+                        iby1 = jby - ndelta;
+                        if (iby1 < 0) iby1 = 0;
+                        iby2 = jby + ndelta;
+                        if (iby2 > nbx[2] - 1) iby2 = nbx[2] - 1;
+
+                        ibz1 = jbz - ndelta;
                         if (ibz1<0) ibz1=0;
-                        ibz2=jbz+ndelta;
-                        if (ibz2>nbx[3]-1) ibz2=nbx[3]-1;
-
-                        iby1=jby-ndelta;
-                        if (iby1<0) iby1=0;
-                        iby2=jby+ndelta;
-                        if (iby2>nbx[2]-1) iby2=nbx[2]-1;
-
-                        ibx1=jbx-ndelta;
-                        if (ibx1<0) ibx1=0;
-                        ibx2=jbx+ndelta;
-                        if (ibx2>nbx[1]-1) ibx2=nbx[1]-1;
-
+                        ibz2 = jbz + ndelta;
+                        if (ibz2 > nbx[3] - 1) ibz2 = nbx[3] - 1;
                         //fout << rer << endl;
                         //fout <<"JBX:	"<<jbx<<"	"<<"JBY:	"
                         //	 <<jby<<"	"<<"JBZ:	"<<jbz<<endl;
@@ -678,45 +677,45 @@ int main(int argc, char* argv[]){//1
                         for (j = ibz1; j <= ibz2; j++){//8
                             for (k = iby1; k <= iby2; k++){//9
                                 for (l = ibx1; l <= ibx2; l++){//10
-                                    ind = 1 + l + k * nbx[1] + j * nbx[1] * nbx[2];
+                                    ind = 1 + l + k * nbx[1] + j * nbx[1] * nbx[2];//KM 1 gets to one-index, l, k, j terms get the array box position
                                     //fout << "IND:	"<< ind <<"	:	"<< l <<"	"<<k<<"	"<<j<<endl;
-                                    for (m=1; m <= ibox1[0][ind]; m++){//11
-                                        n=ibox1[m][ind];// the atomnum index of the interaction box ind(ices) m(th) atom
+                                    for (m = 1; m <= ibox1[0][ind]; m++){//11
+                                        n = ibox1[m][ind];// the atomnum index of the interaction box ind(ices) m(th) atom
                                         //fout <<ind<<" "<< m << endl;
 
-                                        if(resnum[rer]!=resnum[n]){//12 //residue inequality test
-                                            // Find the square distance between atom idx n and atom idx rer
-                                            dsq=0;
-                                            for (p=0; p<=2;p++){
-                                                dsq=dsq+(pow((xyz[p][n]-xyz[p][rer]),2));
+                                        if(resnum[rer] != resnum[n]){//12 //residue inequality test
+                                            // Find the distance squared between atom idx n and atom idx rer
+                                            dsq = 0;
+                                            for (p = 0; p <= 2; p++){
+                                                dsq = dsq + (pow((xyz[p][n] - xyz[p][rer]), 2));
                                             }
-                                            // Check if distance squared is less than radius squared
-                                            if (dsq < rsq){//13 //LIMITS - 3.25 to 3.75.
+                                            // Check if distance squared is less than limiting radius squared
+                                            if (dsq < rsq){//13 //LIMITS - 3.25 to 3.75. //KM rsq = 14.0625
                                                 // check if interaction is novel, i.e. non-bonded interactions
                                                 if ((bnam[rer] == 1) && (bnam[n] == 1) && // both the atom indices are Nitrogen or Carbon and
                                                     (// the distance is the result of a peptide bond
-                                                     ((resnum[n] == resnum[rer] + 1) && (name[rer] == 1) && (name[n] == 2)) ||//only work for n-N and rer
+                                                     ((resnum[n] == resnum[rer] + 1) && (name[rer] == 1) && (name[n] == 2)) ||//only work for n-N and rer-C
                                                      ((resnum[rer] == resnum[n] + 1) && (name[rer] == 2) && (name[n] == 1)
                                                      /*&& (resnum[rer]==resnum[i])*/) //complete symmetry in interaction eval
-                                                    ))// do nothing
-                                                {
+                                                    ))
+                                                {// do nothing
                                                     //fout <<"QQQQQDSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]
                                                     //	<<"	to	"<<n<<"/"<<resnum[n]<<"/"<<name[n]<<"	in	"<< sqrt(dsq)<< endl;
                                                     //fout<<xyz[0][n]<<"	"<<xyz[1][n]<<"	"<<xyz[2][n]<<endl;
                                                     //fout<<xyz[0][rer]<<"	"<<xyz[1][rer]<<"	"<<xyz[2][rer]<<endl;
                                                 }//some concern with regard - looks line only the first var imp
                                                 else{//14
-                                                    if (	(n>=i)&&(n<=v)	){//i and v are included in frame
-                                                        if (resnum[rer]>resnum[n]){//KM only look at interactions with prior residues on the chain
-                                                            if (dsq <= ssq){
+                                                    if ((n >= i) && (n <= v)){//i and v are included in frame
+                                                        if (resnum[rer] > resnum[n]){//KM only look at interactions with prior residues on the chain
+                                                            if (dsq <= ssq){ //KM ssq=10.5675
                                                                 temp1 = 1;
                                                             }
-                                                            else{
-                                                                temp1=2*(3.75-sqrt(dsq));
+                                                            else{//KM add 2 * the difference in the max distance and the measured distance
+                                                                temp1 = 2 * (3.75 - sqrt(dsq));
                                                                 //fout<<xyz[0][n]<<"	"<<xyz[1][n]<<"	"<<xyz[2][n]<<endl;
                                                                 //fout<<xyz[0][rer]<<"	"<<xyz[1][rer]<<"	"<<xyz[2][rer]<<endl;
                                                             }
-                                                            count = count+1;
+                                                            count++;
                                                             c[name[rer]][name[n]]=c[name[rer]][name[n]]+temp1;
                                                             //fout <<"1DSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]<<"	to	"
                                                             // <<n<<"/"<<resnum[n]<<"/"<<name[n] <<"	in	"<< sqrt(dsq)<<"/"<<temp1 << endl;
@@ -727,9 +726,9 @@ int main(int argc, char* argv[]){//1
                                                             temp1 = 1;
                                                         }
                                                         else{
-                                                            temp1=2*(3.75-sqrt(dsq));
+                                                                temp1 = 2 * (3.75 - sqrt(dsq));
                                                         }
-                                                        count = count+1;
+                                                        count++;
                                                         c[name[rer]][name[n]]=c[name[rer]][name[n]]+temp1;
                                                         //fout <<"2DSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]<<"	to	"
                                                         //	 <<n<<"/"<<resnum[n]<<"/"<<name[n] <<"	in	"<< sqrt(dsq)<<"/"<<temp1 << endl;
@@ -743,10 +742,10 @@ int main(int argc, char* argv[]){//1
                         }//8
                     }//7
 
-                    temp2=0;//total interaction weight measured
-                    for (q=1;q<=3;q++){
-                        for (r=1;r<=3;r++){
-                            temp2=temp2+c[q][r];
+                    temp2 = 0;//total interaction weight measured
+                    for (q = 1; q <= 3; q++){
+                        for (r = 1; r <= 3; r++){
+                            temp2 = temp2 + c[q][r];
                         }
                     }
                     if (temp2>0){//minimum interactions test
@@ -806,7 +805,7 @@ int main(int argc, char* argv[]){//1
                         //errat[residue] = mtrx;//KM
                         errat[residue_counter] = mtrx;//KM
                         //KM can't use resSeq as it increments only when residues do, doesn't respect chains
-                        //cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
+                        cout << "errat at residue "<< residue_counter << " is " << mtrx << endl;
                     }
                     else{
                         //errat.push_back(0);
@@ -824,7 +823,7 @@ int main(int argc, char* argv[]){//1
             }//5
         }//4
 	}//3 flag2 pdb exclusion end
-	if (stat>0){
+	if (stat > 0){
         for (i = 1; i <= 4; i++){
             cout << "Residue	" << i << "	" << 0 << endl;
         }
