@@ -752,6 +752,7 @@ int main(int argc, char* argv[])
 		//POSTSCRIPT
 		//chainx= (1 + (( resnum[i] - 4 ) / 10000 ));//chain in here
 		errat[resnum[i]+4]=mtrx;
+        cout << "errat at residue "<< resnum[i]+4 << " is " << mtrx << endl;
 		//cout << "errat"<< errat[resSeq[i]+4]<<" resSeq[i]+4 "<<resSeq[i]+4<<endl;
 		
 	
