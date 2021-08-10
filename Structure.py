@@ -324,7 +324,7 @@ class Structure(StructureBase):
     @residues_indexed_coords_indices.setter
     def residues_indexed_coords_indices(self, indices):
         """Create a map of the coordinate indices to the Residue and Residue atom index"""
-        self._residues_indexed_coords_indices = np.array(indices)
+        self._residues_indexed_coords_indices = np.array(indices, dtype=object)
 
     @property
     def coords_indexed_residues(self):
@@ -638,7 +638,9 @@ class Structure(StructureBase):
         try:
             return self._cb_indices
         except AttributeError:
-            self._cb_indices = [residue.cb_index if residue.cb_index else residue.ca_index for residue in self.residues]
+            self._cb_indices = [residue.cb_atom_index for residue in self.residues if residue.cb_atom_index]
+            # self._cb_indices = [residue.cb_atom_index if residue.cb_atom_index else residue.ca_atom_index
+            #                     for residue in self.residues]
             return self._cb_indices
 
     @property
@@ -651,7 +653,7 @@ class Structure(StructureBase):
         try:
             return self._ca_indices
         except AttributeError:
-            self._ca_indices = [residue.ca_index for residue in self.residues if residue.ca_index]
+            self._ca_indices = [residue.ca_atom_index for residue in self.residues if residue.ca_atom_index]
             return self._ca_indices
 
     @property
@@ -680,13 +682,13 @@ class Structure(StructureBase):
             return self._helix_cb_indices
         except AttributeError:
             h_cb_indices = []
-            for idx, residue in enumerate(self.residues):
+            for residue in self.residues:
                 if not residue.secondary_structure:
                     self.log.error('Secondary Structures must be set before finding helical CB\'s! Error at Residue %s'
                                    % residue.number)
                     return
                 elif residue.secondary_structure == 'H':
-                    h_cb_indices.append(residue.cb)
+                    h_cb_indices.append(residue.cb_atom_index)
             self._helix_cb_indices = h_cb_indices
             return self._helix_cb_indices
 
@@ -1202,7 +1204,7 @@ class Structure(StructureBase):
             # residue_indices_and_bonded_c_and_n = \
             #     residue.atom_indices + [prior_residue.c_atom_index, prior_residue.o_atom_index,
             #                             residues[-number_residues + prior_residue_idx + 2].n_atom_index]
-            # old way of specifying before refactoring to ^
+            # v is old way of specifying before refactoring to ^
             # residue_indices_and_bonded_c_and_n = \
             #     residue.atom_indices + [prior_residue.c_index, prior_residue.o_index,
             #                             residues[-number_residues + prior_residue_idx + 2].n_index]
@@ -1303,18 +1305,23 @@ class Structure(StructureBase):
         return sum([residue.sasa for residue in self.residues if residue.number in numbers])
 
     def errat(self, out_path=os.getcwd()):
+        """Find the overall and per residue Errat accuracy for the given Structure
+
+        Keyword Args:
+            out_path=os.getcwd(): The path where Errat files should be written
+        Returns:
+            (tuple[float,numpy.ndarray]): Overall Errat score, Errat value/residue array
+        """
         # name = 'errat_input-%s-%d.pdb' % (self.name, random() * 100000)
         # current_struc_file = self.write(out_path=os.path.join(out_path, name))
         # errat_cmd = [errat_exe_path, os.path.splitext(name)[0], out_path]  # for writing file first
-        # print(subprocess.list2cmdline(errat_cmd))
         # os.system('rm %s' % current_struc_file)
-        out_path = out_path if out_path[-1] == os.sep else out_path + os.sep  # errat needs trailing /
+        out_path = out_path if out_path[-1] == os.sep else out_path + os.sep  # errat needs trailing "/"
         errat_cmd = [errat_exe_path, out_path]  # for passing atoms by stdin
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         # logger.info(self.return_atom_string()[:120])
         iteration = 1
-        # print('Errat:')
         all_residue_scores = []
         while iteration < 5:
             p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
@@ -3009,7 +3016,7 @@ class Residue:
                 if 'H' not in atom.type:
                     heavy_atoms.append(idx)
         self.backbone_indices = [getattr(self, index, None) for index in ['_n_index', '_ca_index', '_c_index', '_o_index']]
-        self.backbone_and_cb_indices = getattr(self, '_cb_index', None)
+        self.backbone_and_cb_indices = getattr(self, '_cb_index', getattr(self, '_ca_index', None))
         self.sidechain_indices = side_chain
         self.heavy_atom_indices = self._bb_cb_indices + heavy_atoms
         self.number_pdb = atom.pdb_residue_number
@@ -3067,7 +3074,7 @@ class Residue:
     def coords(self):  # in structure too
         """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
-        return self._coords.coords[self._atom_indices]
+        return self._coords.coords[self._atom_indices]  # .tolist() Todo ?
 
     @property
     def backbone_coords(self):
