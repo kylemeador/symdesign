@@ -6,6 +6,7 @@ import shutil
 from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
+# from textwrap import fill
 
 import matplotlib.pyplot as plt
 import seaborn as sns
@@ -14,6 +15,7 @@ import pandas as pd
 # from matplotlib.axes import Axes
 # from mpl_toolkits.mplot3d import Axes3D
 from Bio.Data.IUPACData import protein_letters_3to1, protein_letters_1to3
+from matplotlib.ticker import MultipleLocator
 from scipy.spatial.distance import pdist, cdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -28,7 +30,7 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_loo
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
-from Pose import Pose, MultiModel, Models  # , Model, SymmetricModel
+from Pose import Pose, MultiModel, Models, SymmetricModel  # , Model
 from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, necessary_metrics, division_pairs, \
     columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
@@ -125,7 +127,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Design flags
         self.command_only = kwargs.get('command_only', False)
         self.consensus = None  # Whether to run consensus or not
-        self.design_residues = False
+        self.design_residues = False  # (set[int])
         self.design_with_fragments = False
         self.development = kwargs.get('development', False)
         self.directives = kwargs.get('directives', {})
@@ -747,7 +749,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 else:
                     self.design_residue_ids = self.info.get('interface_residues', {})
                     self.interface_residues = self.info.get('interface_residues', False)
-                self.design_residues = self.info.get('design_residues', False)
+                self.design_residues = self.info.get('design_residues', False)  # (set[int])
                 if isinstance(self.design_residues, str):  # Todo remove as this conversion updates old directories
                     # 'design_residues' coming in as 234B (residue_number|chain), remove chain, change type to int
                     self.design_residues = \
@@ -821,7 +823,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
     def get_fragment_metrics(self):
-        """Set/get fragment metrics for all fragment observations in the design.
+        """Set, then get fragment metrics for all fragment observations in the design.
         TODO Doesn't need an attached pose if fragments have been generated"""
         # while True:
         # design_residues = self.info.get('design_residues', False)
@@ -994,11 +996,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             (str): Disk location of the written flags file
         """
         # flag_variables (list(tuple)): The variable value pairs to be filed in the RosettaScripts XML
-        chain_breaks = {entity: entity.c_terminal_residue.number for entity in self.pose.entities}
-        self.log.info('Found the following chain breaks in the ASU:\n\t%s'
-                      % ('\n\t'.join('\tEntity %s, Chain %s Residue %d'
-                                     % (entity.name, entity.chain_id, residue_number)
-                                     for entity, residue_number in list(chain_breaks.items())[:-1])))
+        # chain_breaks = {entity: entity.c_terminal_residue.number for entity in self.pose.entities}
+        # self.log.info('Found the following chain breaks in the ASU:\n\t%s'
+        #               % ('\n\t'.join('\tEntity %s, Chain %s Residue %d'
+        #                              % (entity.name, entity.chain_id, residue_number)
+        #                              for entity, residue_number in list(chain_breaks.items())[:-1])))
         self.log.info('Total number of residues in Pose: %d' % self.pose.number_of_residues)
 
         # Get ASU distance parameters
@@ -1037,7 +1039,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not sym_def_file:
             sym_def_file = self.sym_def_file
         variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
-        out_of_bounds_residue = list(chain_breaks.values())[-1] * self.pose.number_of_models + 1
+        # out_of_bounds_residue = self.pose.chain_breaks[-1] * self.pose.number_of_models + 1
+        out_of_bounds_residue = self.pose.number_of_residues * self.pose.number_of_models + 1
         variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
                           for interface, residues in self.design_residue_ids.items()])
 
@@ -1724,20 +1727,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
         self.pose.find_and_split_interface()
 
-        self.design_residues = []  # update False to list or replace list and add new residues
+        self.design_residues = set()  # update False to set() or replace set() and attempt addition of new residues
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.design_residue_ids['interface%d' % number] = \
                 ','.join('%d%s' % (residue.number, entity.chain_id) for residue, entity in residues_entities)
-            self.design_residues.extend([residue.number for residue, _ in residues_entities])
+            self.design_residues = self.design_residues.union([residue.number for residue, _ in residues_entities])
 
-        self.interface_residues = []
+        self.interface_residues = []  # update False to list or replace list and attempt addition of new residues
         for entity in self.pose.pdb.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
             entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
             entity_oligomer.get_sasa()
             for residue_number in self.design_residues:
                 residue = entity_oligomer.residue(residue_number)
+                # self.log.debug('Design residue: %d - SASA: %f' % (residue_number, residue.sasa))
                 if residue:
-                    if residue.sasa > 0:
+                    if residue.sasa > 0:  # TODO this may be too lenient. Use .relative_sasa ?
                         self.interface_residues.append(residue_number)
 
         # # interface1, interface2 = \
@@ -1927,13 +1931,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 else:
                     self.log.debug('Design %s is missing sequence data' % design)
                     all_design_scores.pop(design)
-            entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
-                                   for entity in self.pose.entities]
-            # # entity_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
-            # #                         for design, scores in all_design_scores.items()}
-            entity_sequences = {entity: {design: sequence[n_term - 1:c_term]   # only include v if design is viable
-                                         for design, sequence in pose_sequences.items()}  # if design in viable_designs}
-                                for entity, n_term, c_term in entity_chain_breaks}
+            # entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
+            #                        for entity in self.pose.entities]
+            # # # entity_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
+            # # #                         for design, scores in all_design_scores.items()}
+            # entity_sequences = {entity: {design: sequence[n_term - 1:c_term]   # only include v if design is viable
+            #                              for design, sequence in pose_sequences.items()}  # if design in viable_designs}
+            #                     for entity, n_term, c_term in entity_chain_breaks}
+            entity_sequences = \
+                {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
+                          for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
 
             # Todo fold these into Model and attack these metrics from a Pose object
             #  This will get rid of the self.log
@@ -2094,13 +2101,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
             interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residues)
             assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
-            if not self.design_residues:  # we should always get an empty list if we have got to this point
+            if not self.design_residues:  # we should always get an empty set if we have got to this point
                 raise DesignError('No residues were found with your design criteria... Your flags may be to stringent '
                                   'or incorrect. Check input files for interface existance')
-            self.log.debug('Found design residues: %s' % self.design_residues)
-            if interface_residues != self.design_residues:
-                self.log.info('Residues %s are located in the interior' %
-                              ', '.join(map(str, self.design_residues.difference(interface_residues))))
+            self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.design_residues))))
+            interior_residues = self.design_residues.difference(interface_residues)
+            # if interface_residues != self.design_residues:
+            if interior_residues:
+                self.log.info('Residues %s are located in the interior' % ', '.join(map(str, interior_residues)))
 
             # Add design residue information to scores_df such as how many core, rim, and support residues were measured
             for r_class in residue_classificiation:
@@ -2108,7 +2116,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
 
             # Calculate new metrics from combinations of other metrics
-            # sum columns using tuple [0] + [1]
+            # sum columns using list[0] + list[1] + list[n]
             summation_pairs = \
                 {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),
                  'interface_energy_bound':
@@ -2176,20 +2184,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             atomic_deviation, per_residue_data = {}, {}
             # design_assemblies = []  # maybe use?
-            # per_residue_data['errat_deviation'] = {}  # Todo reinstate
-            # for file in self.get_designs():
-            #     decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
-            #     if decoy_name not in scores_df.index:
-            #         continue
-            #     design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
-            #     # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
-            #     assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
-            #     #                                            ,symmetry=self.design_symmetry)
-            #     atomic_deviation[design_asu.name], per_residue_errat = assembly.errat()
-            #     per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:design_asu.number_of_residues]
-            # scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
+            per_residue_data['errat_deviation'] = {}  # Todo reinstate
+            for file in self.get_designs():
+                decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
+                if decoy_name not in scores_df.index:
+                    continue
+                design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
+                # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
+                assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
+                #                                            ,symmetry=self.design_symmetry)
+                atomic_deviation[design_asu.name], per_residue_errat = assembly.errat(out_path=self.data)
+                per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:pose_length]
+            scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
-            # TODO for all below until significance, the scores_file isn't necessary. Back this out to remove dependence
+            # TODO scores_file isn't necessary for below metrics until significance. Back them out to remove dependence
             # Calculate hydrophobic collapse for each design
             # Measure the wild type entity versus the modified entity to find the hci delta
             # Todo if no design, can't measure the wild-type after the normalization...
@@ -2218,17 +2226,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # X the change from "non-collapsing" to "collapsing" where collapse passes a threshold and changes folding
             #   new_collapse_islands, new_collapse_island_significance
 
+            # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
             collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
             inverse_residue_contact_order_z, contact_order = {}, {}
             for entity in self.pose.entities:
+                # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
                 entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
-                # Todo reinstate
-                # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)
-                # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)
+                # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
+                # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
                 collapse = entity.collapse_profile()
                 collapse_df[entity] = collapse
-                # wt_collapse_z_score[entity] = hydrophobic_collapse_index(entity.sequence)
-                wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)
+                wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)  # TODO comment out, instate below?
+                # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
                 wt_collapse_bool[entity] = np.where(wt_collapse[entity] > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
                 wt_collapse_z_score[entity] = \
                     z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
@@ -2236,12 +2245,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # Todo clean this behavior up as it is not good if entity is used downstream
                 entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
 
-                # _, wt_errat[entity] = entity.errat()  # Todo reinstate
-                # residue_contact_order[entity] = entity.contact_order_per_residue()
-                # we need to get the contact order from the symmetric version...
+                # _, wt_errat[entity] = entity.errat(out_path=self.data)
+                # we need to get the contact order from the symmetric entity
                 entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
                 residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
-                # residue_contact_order = entity.contact_order_per_residue()
+                _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
                 contact_order[entity] = residue_contact_order
                 # residue_contact_order_mean, residue_contact_order_std = \
                 #     residue_contact_order.mean(), residue_contact_order.std()
@@ -2255,21 +2264,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 residue_contact_order_z = \
                     z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
                 inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
-            # for graphing the collapse profile
-            wt_contact_order_concatenated_s = pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
-            wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='wild_type')
-            profile_mean_collapse_concatenated_s = \
-                pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
-            profile_mean_collapse_concatenated_s.index += 1
-            profile_std_collapse_concatenated_s = \
-                pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
-            profile_std_collapse_concatenated_s.index += 1
 
             folding_and_collapse = \
                 {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
                  'new_collapse_island_significance': {}, 'contact_order_collapse_z_sum': {},
                  'sequential_collapse_peaks_z_sum': {}, 'sequential_collapse_z_sum': {}, 'global_collapse_z_sum': {}}
-            design_collapse_graph = {}
             per_residue_data['hydrophobic_collapse'] = {}
             for design in viable_designs:
                 hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
@@ -2363,6 +2362,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     sequential_collapse_z_sum.append(sum(sequential_weights * global_collapse_z))
                     global_collapse_z_sum.append(global_collapse_z.sum())
 
+                # add the total and concatenated metrics to analysis structures
                 folding_and_collapse['hydrophobicity_deviation_magnitude'][design] = sum(hydrophobicity_deviation_magnitude)
                 folding_and_collapse['new_collapse_islands'][design] = sum(new_collapse_islands)
                 # takes into account new collapse positions contact order and measures the deviation of collapse and
@@ -2375,20 +2375,135 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # collapse_concatenated = np.concatenate(collapse_concatenated)
                 collapse_concatenated = pd.Series(np.concatenate(collapse_concatenated), name=design)
                 per_residue_data['hydrophobic_collapse'][design] = collapse_concatenated
-                design_collapse_graph[design] = collapse_concatenated
-                # design_collapse_graph[design].name = design
 
-            # turn the per_residue data into a dataframe matching orientation of residue_df
+            # turn per_residue_data into a dataframe matching residue_df orientation
             per_residue_df = \
                 pd.concat({measure: pd.DataFrame(data, index=residue_indices)
                            for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
-            # make a graph of the collapse with residues as index and design as column
-            collapse_graph_df = pd.DataFrame(design_collapse_graph)
-            collapse_graph_df.index += 1  # offset index to residue numbering
-            collapse_graph_df['wild_type'] = wt_collapse_concatenated_s
-            # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
-            # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
-            # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
+
+            if figures:  # for plotting collapse profile, errat data, contact order
+                # Plot: Format the collapse data with residues as index and each design as column
+                collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
+                wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='wild_type')
+                collapse_graph_df['wild_type'] = wt_collapse_concatenated_s
+                collapse_graph_df.index += 1  # offset index to residue numbering
+                # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
+                # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
+                # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
+                # Make a hydrophobic collapse figure
+                # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
+                # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
+                # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
+                # collapse_graph_df['Residue Number'] = collapse_graph_df.index
+                # graph_collapse = sns.lineplot(data=collapse_graph_df)
+                # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
+                # graph_collapse = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
+
+                # Set the base figure aspect ration for all sequence designs
+                figure_aspect_ratio = (pose_length / 25., 10)
+                legend_fill_value = int(15 * pose_length / 100)
+                fig = plt.figure(figsize=figure_aspect_ratio)
+                collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
+                # Get the plot of each collapse profile into a matplotlib axes
+                # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
+                collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax)
+                collapse_ax.xaxis.set_major_locator(MultipleLocator(20))
+                collapse_ax.xaxis.set_major_formatter('{x:.0f}')
+                # For the minor ticks, use no labels; default NullFormatter.
+                collapse_ax.xaxis.set_minor_locator(MultipleLocator(5))
+                collapse_ax.set_xlim(0, pose_length)
+                collapse_ax.set_ylim(0, 1)
+                # # CAN'T SET FacetGrid object for most matplotlib elements...
+                # ax = graph_collapse.axes
+                # ax = plt.gca()  # gca <- get current axis
+                # labels = [fill(column, legend_fill_value) for column in collapse_graph_df.columns]
+                # collapse_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1))
+                # collapse_ax.legend(loc='lower left', bbox_to_anchor=(0., 1))
+                # Plot the chain break(s) and design residues
+                # linestyles={'solid', 'dashed', 'dashdot', 'dotted'}
+                collapse_ax.vlines(self.pose.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
+                                   label='Entity Breaks', colors='#cccccc')  # , grey)
+                design_residues_l = list(self.design_residues)
+                collapse_ax.vlines(design_residues_l, 0, 0.1, transform=collapse_ax.get_xaxis_transform(),
+                                   label='Design Residues', colors='#f89938')  # , orange)
+                # Plot horizontal significance
+                collapse_ax.hlines([0.43], 0, 1, transform=collapse_ax.get_yaxis_transform(), colors='#fc554f')  # tomato
+                collapse_ax.set_xlabel('Residue Number')
+                collapse_ax.set_ylabel('Hydrophobic Collapse Index')
+                # ax.autoscale(True)
+                # collapse_ax.figure.tight_layout()  # no standardization
+                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
+                # add the contact order to a new plot
+                # collapse_ax1 = collapse_ax.twinx()
+                wt_contact_order_concatenated_s = \
+                    pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
+                contact_ax.plot(wt_contact_order_concatenated_s)
+
+                wt_contact_order_concatenated_min_s = wt_contact_order_concatenated_s.min()
+                wt_contact_order_concatenated_max_s = wt_contact_order_concatenated_s.max()
+                wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
+                # scaled_contact_order = ((wt_contact_order_concatenated_s - wt_contact_order_concatenated_min_s)
+                #                         / wt_contact_order_range)  # / wt_contact_order_range)
+                # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
+                # collapse_ax1.plot(scaled_contact_order)
+                contact_ax.vlines(self.pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
+                                  label='Entity Breaks', colors='#cccccc')  # , grey)
+                contact_ax.vlines(design_residues_l, 0, 0.1, transform=contact_ax.get_xaxis_transform(),
+                                  label='Design Residues', colors='#f89938')  # , orange)
+                contact_ax.set_ylabel('Contact Order')
+                # contact_ax.set_xlim(0, pose_length)
+                # contact_ax.set_ylim(0, None)
+                # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+                # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+
+                # Plot: Collapse description of total profile against each design
+                profile_mean_collapse_concatenated_s = \
+                    pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
+                profile_std_collapse_concatenated_s = \
+                    pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
+                profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
+                profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
+                collapse_graph_describe_df = pd.DataFrame({
+                    'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
+                    'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
+                    })
+                collapse_graph_describe_df.index += 1  # offset index to residue numbering
+                collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
+                collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
+                                   color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
+                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
+
+                # Plot: Errat Accuracy
+                errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
+                wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
+                errat_graph_df['wild_type'] = wt_errat_concatenated_s
+                errat_graph_df.index += 1  # offset index to residue numbering
+                # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
+                errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
+                errat_ax.xaxis.set_major_locator(MultipleLocator(20))
+                errat_ax.xaxis.set_major_formatter('{x:.0f}')
+                # For the minor ticks, use no labels; default NullFormatter.
+                errat_ax.xaxis.set_minor_locator(MultipleLocator(5))
+                # errat_ax.set_xlim(0, pose_length)
+                # errat_ax.set_ylim(0, None)
+                # graph_errat = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
+                # Plot the chain break(s) and design residues
+                # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
+                # errat_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1.))
+                # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
+                errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
+                                label='Entity Breaks', colors='#cccccc')  # , grey)
+                errat_ax.vlines(design_residues_l, 0, 0.1, transform=errat_ax.get_xaxis_transform(),
+                                label='Design Residues', colors='#f89938')  # , orange)
+                errat_ax.set_xlabel('Residue Number')
+                errat_ax.set_ylabel('Errat Score')
+                # errat_ax.autoscale(True)
+                # errat_ax.figure.tight_layout()
+                # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
+                plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.))  # , bbox_transform=collapse_ax.transAxes)  # centered on top
+                fig.tight_layout()
+                fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
+
             pose_collapse_df = pd.DataFrame(folding_and_collapse)
             # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
             dca_design_residues_concat = []
@@ -2631,39 +2746,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
                 sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
-                if figures:
-                    # Make a hydrophobic collapse figure
-                    # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
-                    # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
-                    # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
-                    collapse_graph_describe = {
-                        'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
-                        'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
-                        'contact_order': (wt_contact_order_concatenated_s - wt_contact_order_concatenated_s.min()) /
-                                         (wt_contact_order_concatenated_s.max() - wt_contact_order_concatenated_s.min()),
-                        # 'Residue Number': collapse_graph_df.index}
-                    }
-                    collapse_graph_describe_df = pd.DataFrame(collapse_graph_describe)
-                    collapse_graph_describe_df.index += 1
-                    collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
-                    # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
-                    # collapse_graph_df['Residue Number'] = collapse_graph_df.index
-                    # graph = sns.lineplot(data=collapse_graph_df)
-                    graph = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
-                    # ax = graph.axes
-                    # ax[0, 0].vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df)
-                    graph.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))
-                    ax = plt.gca()
-                    ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df)
-                    # axes[0].plot(collapse_graph_df.index, profile_mean_collapse_concatenated_s)
-                    graph.set_xlabels('Residue Number')
-                    # def errplot(x, y, yerr, **kwargs):
-                    #     ax = plt.gca()
-                    #     data = kwargs.pop("data")
-                    #     data.plot(x=x, y=y, yerr=yerr, kind="bar", ax=ax, **kwargs)
-                    # graph.map_dataframe(errplot, 'Residue Number', 'mean', 'std')
-                    graph.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
-                    # Todo ensure output is as expected
+                # if figures:  # Todo ensure output is as expected
                     # protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
                     #                        for design in designs}
                     # _path = os.path.join(self.all_scores, str(self))
@@ -2737,10 +2820,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 errat_collapse_df = \
                     pd.concat([pd.concat(
                         {
-                            # 'errat_deviation':  # Todo reinstate
-                            #   pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
-                               'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
-                                                                 index=residue_indices)}
+                            'errat_deviation':  # Todo reinstate
+                              pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
+                            'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
+                                                              index=residue_indices)}
                                          )], keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
                 # print(errat_collapse_df)
                 wild_type_residue_info = {}
