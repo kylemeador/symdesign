@@ -53,7 +53,7 @@ double matrixdb (double matrix[6]);
 // temp[1] -> matrix[1]
 // remove and streams mout, char chain[i] and chain determination;
 // change zout outp
-#define TIMEOUT 500 // 0.5 s
+#define TIMEOUT 1000 // 1 sec
 
 int main(int argc, char* argv[]){//1
     int flag2=0;//test for too many atoms in a box
@@ -717,11 +717,9 @@ int main(int argc, char* argv[]){//1
                                                                 //fout<<xyz[0][rer]<<"	"<<xyz[1][rer]<<"	"<<xyz[2][rer]<<endl;
                                                             }
                                                             count = count+1;
-                                                            c[ name[rer] ][ (name[n]) ]=
-                                                                c[ (name[rer]) ][ (name[n]) ]+temp1;
-
+                                                            c[name[rer]][name[n]]=c[name[rer]][name[n]]+temp1;
                                                             //fout <<"1DSQ	"<< dsq <<"	from	"<< rer <<"/"<<resnum[rer]<<"/"<<name[rer]<<"	to	"
-                                                                // <<n<<"/"<<resnum[n]<<"/"<<name[n] <<"	in	"<< sqrt(dsq)<<"/"<<temp1 << endl;
+                                                            // <<n<<"/"<<resnum[n]<<"/"<<name[n] <<"	in	"<< sqrt(dsq)<<"/"<<temp1 << endl;
                                                         }
                                                     }
                                                     else{ //KM the atom of interest is outside of the frame. We still add?
