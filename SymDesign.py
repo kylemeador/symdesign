@@ -1059,9 +1059,9 @@ if __name__ == '__main__':
                 design_directories = [DesignDirectory.from_file(pose, **queried_flags)
                                       for pose in all_poses[low_range:high_range]]
         if not design_directories:
-            raise SDUtils.DesignError('No SymDesign directories found within \'%s\'! Please ensure correct '
+            raise SDUtils.DesignError('No %s directories found within \'%s\'! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s?'
-                                      % (location, 'nanohedra_output', queried_flags['nanohedra_output']))
+                                      % (PUtils.program_name, location, 'nanohedra_output', nano))
         # Todo could make after collect_designs? Pass to all design_directories
         #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
         master_directory = next(iter(design_directories))
