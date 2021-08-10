@@ -805,7 +805,7 @@ int main(int argc, char* argv[]){//1
                         //errat[residue] = mtrx;//KM
                         errat[residue_counter] = mtrx;//KM
                         //KM can't use resSeq as it increments only when residues do, doesn't respect chains
-                        cout << "errat at residue "<< residue_counter << " is " << mtrx << endl;
+                        cout << "errat at residue "<< residue_counter + 4 << " is " << mtrx << endl;
                     }
                     else{
                         //errat.push_back(0);
