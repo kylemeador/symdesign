@@ -683,20 +683,21 @@ class Model:  # Todo (Structure)
         self._name = name
 
     @property
-    def number_of_atoms(self):  # TODO COMMENT OUT
+    def number_of_atoms(self):  # TODO COMMENT OUT .pdb
         return self.pdb.number_of_atoms
 
     @property
-    def number_of_residues(self):  # TODO COMMENT OUT
+    def number_of_residues(self):  # TODO COMMENT OUT .pdb
         return self.pdb.number_of_residues
 
     @property
-    def coords_indexed_residues(self):  # TODO DISCONNECT HERE
-        try:
-            return self._coords_indexed_residues
-        except AttributeError:  # TODO COMMENT OUT .pdb
-            self._coords_indexed_residues = [residue for residue, _ in self.pdb.coords_indexed_residues]
-            return self._coords_indexed_residues
+    def coords_indexed_residues(self):  # TODO COMMENT OUT .pdb
+        return self.pdb.coords_indexed_residues
+        # try:
+        #     return self._coords_indexed_residues
+        # except AttributeError:
+        #     self._coords_indexed_residues = [residue for residue in self.pdb.coords_indexed_residues]
+        #     return self._coords_indexed_residues
 
     # @property
     # def coords_indexed_residues(self):  # TODO CONNECT
@@ -808,7 +809,7 @@ class SymmetricModel(Model):
         return cls(models=assembly, **symmetry)
 
     @classmethod
-    def from_asu(cls, asu, **kwargs):
+    def from_asu(cls, asu, generate_symmetry_mates=True, **kwargs):
         """From an Structure representing an asu, return the SymmetricModel with generated symmetry mates
 
         Keyword Args:
@@ -816,10 +817,7 @@ class SymmetricModel(Model):
         Returns:
             (SymmetricModel)
         """
-        sym_model = cls(asu=asu, generate_symmetry_mates=True, **kwargs)
-        # sym_model.get_assembly_symmetry_mates(**kwargs)
-        # sym_model.models = sym_model.return_symmetry_mates(asu)
-        return sym_model
+        return cls(asu=asu, generate_symmetry_mates=generate_symmetry_mates, **kwargs)
 
     @property
     def asu(self):
@@ -956,7 +954,7 @@ class SymmetricModel(Model):
         else:
             self.expand_matrices = self.get_ptgrp_sym_op(self.symmetry) if self.dimension == 0 \
                 else self.get_sg_sym_op(self.symmetry)  # ensure symmetry is Hermann–Mauguin notation
-            # Todo numpy expand_matrices
+
         if self.asu and generate_assembly:
             self.generate_symmetric_assembly(**kwargs)
             if generate_symmetry_mates:
@@ -1104,6 +1102,7 @@ class SymmetricModel(Model):
             coords = self.frac_to_cart(surrounding_frac_coords)
             self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
         else:
+            self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates
             # uc_number = 1
             coords = self.return_unit_cell_coords(self.coords)
 
@@ -1144,14 +1143,16 @@ class SymmetricModel(Model):
         #     extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
 
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms
-        if surrounding_uc:
-            if self.number_of_symmetry_mates > self.number_of_uc_symmetry_mates:
+        if self.dimension > 0 and surrounding_uc:
+            if self.number_of_symmetry_mates > self.number_of_uc_symmetry_mates:  # ensure surrounding coordinates exist
                 number_of_models = self.number_of_symmetry_mates
             else:
                 raise ValueError('Cannot return the surrounding unit cells as no coordinates were generated for them.'
                                  'Try passing surrounding_uc=True to .set_symmetry()')
+            # else:
+            #     number_of_models = self.number_of_uc_symmetry_mates  # set to the uc only
         else:
-            number_of_models = self.number_of_uc_symmetry_mates  # set to the uc only
+            number_of_models = self.number_of_symmetry_mates
 
         number_of_atoms = self.number_of_atoms
         for model_idx in range(number_of_models):
@@ -1171,7 +1172,7 @@ class SymmetricModel(Model):
             return
 
         template_atom = self.asu.n_terminal_residue
-        template_atom_coords, template_atom_index = template_atom.ca_coords, template_atom.ca_index
+        template_atom_coords, template_atom_index = template_atom.ca_coords, template_atom.ca_atom_index
         asu_size = len(self.coords)
         for model_num in range(self.number_of_symmetry_mates):
             # print(self.model_coords[(model_num * coords_length) + template_atom_index])
@@ -1754,7 +1755,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.required_residues = None
         self.interface_residues = {}
         self.source_db = kwargs.get('source_db', None)
-        self.split_interface_residues = {}  # {1: '23A,45A,46A,...' , 2: '234B,236B,239B,...'}
+        self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
+        #                                     {1: '23A,45A,46A,...' , 2: '234B,236B,239B,...'}
         self.split_interface_ss_elements = {}  # {1: [0,1,2] , 2: [9,13,19]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
@@ -1847,11 +1849,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         return [entity for entity in self.entities if entity in self.design_selector_entities]
 
     @property
-    def entities(self):  # TODO COMMENT OUT
+    def entities(self):  # TODO COMMENT OUT .pdb
         return self.pdb.entities
 
     @property
-    def chains(self):  # TODO should I COMMENT OUT
+    def chains(self):
         return [chain for entity in self.entities for chain in entity.chains]
 
     @property
@@ -1859,14 +1861,18 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         return [chain for entity in self.active_entities for chain in entity.chains]
 
     @property
-    def residues(self):  # TODO COMMENT OUT
+    def chain_breaks(self):
+        return [entity.c_terminal_residue.number for entity in self.entities]
+
+    @property
+    def residues(self):  # TODO COMMENT OUT .pdb
         return self.pdb.residues
 
     @property
     def reference_sequence(self):
         return ''.join(self.pdb.reference_sequence.values())
 
-    def entity(self, entity):  # TODO COMMENT OUT
+    def entity(self, entity):  # TODO COMMENT OUT .pdb
         return self.pdb.entity(entity)
 
     def chain(self, chain):  # TODO COMMENT OUT .pdb
