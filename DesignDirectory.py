@@ -2406,29 +2406,52 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if figures:  # for plotting collapse profile, errat data, contact order
                 # Plot: Format the collapse data with residues as index and each design as column
                 collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
-                wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='wild_type')
-                collapse_graph_df['wild_type'] = wt_collapse_concatenated_s
+                wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='clean_asu')
+                collapse_graph_df['clean_asu'] = wt_collapse_concatenated_s
                 collapse_graph_df.index += 1  # offset index to residue numbering
-                # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
-                # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
-                # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
-                # Make a hydrophobic collapse figure
-                # collapse_graph_df['profile_mean'] = profile_mean_collapse_concatenated_s
-                # collapse_graph_df['profile_std'] = profile_std_collapse_concatenated_s
-                # collapse_graph_df['contact_order'] = wt_contact_order_concatenated_s
-                # collapse_graph_df['Residue Number'] = collapse_graph_df.index
+                # collapse_graph_df.sort_index(axis=1, inplace=True)
                 # graph_collapse = sns.lineplot(data=collapse_graph_df)
                 # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
                 # graph_collapse = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
 
                 # Set the base figure aspect ration for all sequence designs
-                figure_aspect_ratio = (pose_length / 25., 10)
-                legend_fill_value = int(15 * pose_length / 100)
+                figure_aspect_ratio = (pose_length / 25., 20)  # 20 is arbitrary size to fit all information in figure
+                color_cycler = cycler(color=large_color_array)
+                plt.rc('axes', prop_cycle=color_cycler)
                 fig = plt.figure(figsize=figure_aspect_ratio)
-                collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
+                # legend_fill_value = int(15 * pose_length / 100)
+
+                # collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
+                collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
+                # add the contact order to a new plot
+                wt_contact_order_concatenated_s = \
+                    pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
+                contact_ax = collapse_ax.twinx()
+                contact_ax.plot(wt_contact_order_concatenated_s, label='Contact Order',
+                                color='#fbc0cb', lw=1, linestyle='-')  # pink
+                # contact_ax.scatter(residue_indices, wt_contact_order_concatenated_s, color='#fbc0cb', marker='o')  # pink
+                # wt_contact_order_concatenated_min_s = wt_contact_order_concatenated_s.min()
+                # wt_contact_order_concatenated_max_s = wt_contact_order_concatenated_s.max()
+                # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
+                # scaled_contact_order = ((wt_contact_order_concatenated_s - wt_contact_order_concatenated_min_s)
+                #                         / wt_contact_order_range)  # / wt_contact_order_range)
+                # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
+                # collapse_ax1.plot(scaled_contact_order)
+                # contact_ax.vlines(self.pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
+                #                   label='Entity Breaks', colors='#cccccc')  # , grey)
+                # contact_ax.vlines(design_residues_l, 0, 0.05, transform=contact_ax.get_xaxis_transform(),
+                #                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
+                contact_ax.set_ylabel('Contact Order')
+                # contact_ax.set_xlim(0, pose_length)
+                contact_ax.set_ylim(0, None)
+                # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+                # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+
                 # Get the plot of each collapse profile into a matplotlib axes
                 # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
-                collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax)
+                # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax)
+                collapse_ax.plot(collapse_graph_df.values, label=collapse_graph_df.columns)
+                # collapse_ax = collapse_graph_df.plot.line(ax=collapse_ax)
                 collapse_ax.xaxis.set_major_locator(MultipleLocator(20))
                 collapse_ax.xaxis.set_major_formatter('{x:.0f}')
                 # For the minor ticks, use no labels; default NullFormatter.
@@ -2446,37 +2469,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 collapse_ax.vlines(self.pose.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
                                    label='Entity Breaks', colors='#cccccc')  # , grey)
                 design_residues_l = list(self.design_residues)
-                collapse_ax.vlines(design_residues_l, 0, 0.1, transform=collapse_ax.get_xaxis_transform(),
-                                   label='Design Residues', colors='#f89938')  # , orange)
+                collapse_ax.vlines(design_residues_l, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
+                                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
                 # Plot horizontal significance
-                collapse_ax.hlines([0.43], 0, 1, transform=collapse_ax.get_yaxis_transform(), colors='#fc554f')  # tomato
-                collapse_ax.set_xlabel('Residue Number')
+                collapse_ax.hlines([collapse_significance_threshold], 0, 1, transform=collapse_ax.get_yaxis_transform(),
+                                   label='Collapse Threshold', colors='#fc554f', linestyle='dotted')  # tomato
+                # collapse_ax.set_xlabel('Residue Number')
                 collapse_ax.set_ylabel('Hydrophobic Collapse Index')
+                # collapse_ax.set_prop_cycle(color_cycler)
                 # ax.autoscale(True)
                 # collapse_ax.figure.tight_layout()  # no standardization
                 # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
-                # add the contact order to a new plot
-                # collapse_ax1 = collapse_ax.twinx()
-                wt_contact_order_concatenated_s = \
-                    pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
-                contact_ax.plot(wt_contact_order_concatenated_s)
-
-                wt_contact_order_concatenated_min_s = wt_contact_order_concatenated_s.min()
-                wt_contact_order_concatenated_max_s = wt_contact_order_concatenated_s.max()
-                wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
-                # scaled_contact_order = ((wt_contact_order_concatenated_s - wt_contact_order_concatenated_min_s)
-                #                         / wt_contact_order_range)  # / wt_contact_order_range)
-                # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
-                # collapse_ax1.plot(scaled_contact_order)
-                contact_ax.vlines(self.pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
-                                  label='Entity Breaks', colors='#cccccc')  # , grey)
-                contact_ax.vlines(design_residues_l, 0, 0.1, transform=contact_ax.get_xaxis_transform(),
-                                  label='Design Residues', colors='#f89938')  # , orange)
-                contact_ax.set_ylabel('Contact Order')
-                # contact_ax.set_xlim(0, pose_length)
-                # contact_ax.set_ylim(0, None)
-                # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
-                # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
 
                 # Plot: Collapse description of total profile against each design
                 profile_mean_collapse_concatenated_s = \
@@ -2497,20 +2500,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # Plot: Errat Accuracy
                 errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
-                wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
-                errat_graph_df['wild_type'] = wt_errat_concatenated_s
-                print('Found WT length=%d' % len(wt_errat_concatenated_s))
-                print('Graphed Indices: %s' % ', '.join(map(str, errat_graph_df.index.to_list())))
-                errat_graph_df.to_csv(os.path.join(self.data, 'errat_debugging.csv'))
+                wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='clean_asu')
+                errat_graph_df['clean_asu'] = wt_errat_concatenated_s
                 errat_graph_df.index += 1  # offset index to residue numbering
+                errat_graph_df.sort_index(axis=1, inplace=True)
                 # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
-                errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
+                # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
+                # errat_ax = errat_graph_df.plot.line(ax=errat_ax)
+                errat_ax.plot(errat_graph_df.values, label=collapse_graph_df.columns)
                 errat_ax.xaxis.set_major_locator(MultipleLocator(20))
                 errat_ax.xaxis.set_major_formatter('{x:.0f}')
                 # For the minor ticks, use no labels; default NullFormatter.
                 errat_ax.xaxis.set_minor_locator(MultipleLocator(5))
                 # errat_ax.set_xlim(0, pose_length)
-                # errat_ax.set_ylim(0, None)
+                errat_ax.set_ylim(0, None)
                 # graph_errat = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
                 # Plot the chain break(s) and design residues
                 # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
@@ -2518,15 +2521,34 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
                 errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
                                 label='Entity Breaks', colors='#cccccc')  # , grey)
-                errat_ax.vlines(design_residues_l, 0, 0.1, transform=errat_ax.get_xaxis_transform(),
-                                label='Design Residues', colors='#f89938')  # , orange)
+                errat_ax.vlines(design_residues_l, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
+                                label='Design Residues', colors='#f89938', lw=2)  # , orange)
+                # Plot horizontal significance
+                errat_ax.hlines([errat_significance_threshold], 0, 1, transform=errat_ax.get_yaxis_transform(),
+                                label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
                 errat_ax.set_xlabel('Residue Number')
                 errat_ax.set_ylabel('Errat Score')
                 # errat_ax.autoscale(True)
                 # errat_ax.figure.tight_layout()
                 # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
-                plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05))  # , bbox_transform=collapse_ax.transAxes)  # centered on top
+                collapse_handles, collapse_labels = collapse_ax.get_legend_handles_labels()
+                contact_handles, contact_labels = contact_ax.get_legend_handles_labels()
+                # errat_handles, errat_labels = errat_ax.get_legend_handles_labels()
+                # print(handles, labels)
+                handles = collapse_handles + contact_handles
+                labels = collapse_labels + contact_labels
+                # handles = errat_handles + contact_handles
+                # labels = errat_labels + contact_labels
+                labels = [label.replace('%s_' % self.name, '') for label in labels]
+                # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))  #, ncol=3, mode='expand')
+                # print(labels)
+                # plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand'
+                # v Why the hell doesn't this work??
+                # fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.), ncol=3,  # , mode='expand')
+                # fig.subplots_adjust(bottom=0.1)
+                plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
                 fig.tight_layout()
+                           # bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
                 fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
 
             # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
