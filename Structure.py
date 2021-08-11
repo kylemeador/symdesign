@@ -1325,13 +1325,11 @@ class Structure(StructureBase):
         all_residue_scores = []
         while iteration < 5:
             p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
-            # print('Errat Returned: %s' % p.stdout)
-            # errat_out = p.stdout
             all_residue_scores = p.stdout.strip().split('\n')
-            if len(all_residue_scores) - 1 == self.number_of_residues:  # subtract overall score
-                # print('Broke from correct output')
+            if len(all_residue_scores) - 1 == self.number_of_residues:  # subtract overall_score from all_residue_scores
                 break
             iteration += 1
+
         if iteration == 5:
             self.log.error('Errat couldn\'t generate the correct output length (%d) != number_of_residues (%d)'
                            % (len(all_residue_scores) - 1, self.number_of_residues))

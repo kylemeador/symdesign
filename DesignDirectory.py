@@ -2185,7 +2185,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             atomic_deviation, per_residue_data = {}, {}
             # design_assemblies = []  # maybe use?
-            per_residue_data['errat_deviation'] = {}  # Todo reinstate
+            per_residue_data['errat_deviation'] = {}
             print('ERRAT RETURNS')
             print('NUM - length     ARRAY:')
             errat_times = []
@@ -2261,12 +2261,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # Todo clean this behavior up as it is not good if entity is used downstream
                 entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
 
-                # _, wt_errat[entity] = entity.errat(out_path=self.data)
-                # we need to get the contact order from the symmetric entity
+                # we need to get the contact order, errat from the symmetric entity
                 entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
                 residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
                 contact_order[entity] = residue_contact_order
                 _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                print('Oligomer Errat has %d residues' % len(oligomeric_errat))
+                print('Monomer has %d residues, Oligomer has %d residues' %
+                      (entity.number_of_residues, entity_oligomer.number_of_residues))
                 wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
                 # residue_contact_order_mean, residue_contact_order_std = \
                 #     residue_contact_order.mean(), residue_contact_order.std()
@@ -2493,6 +2495,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
                 wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
                 errat_graph_df['wild_type'] = wt_errat_concatenated_s
+                print('Found WT length=%d' % len(wt_errat_concatenated_s))
+                print('Graphed Indices: %s' % ', '.join(errat_graph_df.index.to_list()))
                 errat_graph_df.index += 1  # offset index to residue numbering
                 # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
                 errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
@@ -2516,7 +2520,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # errat_ax.autoscale(True)
                 # errat_ax.figure.tight_layout()
                 # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
-                plt.legend(loc='upper center', bbox_to_anchor=(0.5, 0.))  # , bbox_transform=collapse_ax.transAxes)  # centered on top
+                plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.05))  # , bbox_transform=collapse_ax.transAxes)  # centered on top
                 fig.tight_layout()
                 fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
 
