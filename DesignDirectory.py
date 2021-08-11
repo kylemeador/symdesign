@@ -16,6 +16,7 @@ import pandas as pd
 # from matplotlib.axes import Axes
 # from mpl_toolkits.mplot3d import Axes3D
 from Bio.Data.IUPACData import protein_letters_3to1, protein_letters_1to3
+from cycler import cycler
 from matplotlib.ticker import MultipleLocator
 from scipy.spatial.distance import pdist, cdist
 from sklearn.decomposition import PCA
@@ -27,17 +28,17 @@ from Structure import Structure  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, \
     all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym, pretty_format_table, \
-    index_intersection, z_score
+    index_intersection, z_score, large_color_array
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
 from Pose import Pose, MultiModel, Models, SymmetricModel  # , Model
-from DesignMetrics import columns_to_rename, read_scores, join_columns, groups, necessary_metrics, division_pairs, \
-    columns_to_new_column, delta_pairs, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
+from DesignMetrics import read_scores, groups, necessary_metrics, division_pairs, delta_pairs, \
+    columns_to_new_column, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
     stats_metrics, significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
-    protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, \
-    filter_df_for_index_by_value  # calc_relative_sa,
+    protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value
+#   columns_to_rename, calc_relative_sa, join_columns,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
     hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
@@ -798,7 +799,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def get_designs(self):  # design_type=PUtils.interface_design
         """Return the paths of all design files in a DesignDirectory"""
-        return glob('%s/*.pdb' % self.designs)
+        return sorted(glob(os.path.join(self.designs, '*.pdb')))
 
     # TODO generators for the various directory levels using the stored directory pieces
     def get_building_block_dir(self, building_block):
@@ -2000,22 +2001,28 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Gather all columns into specific types for processing and formatting
             rename_columns, per_res_columns, hbonds_columns = {}, [], []
             for column in scores_df.columns.to_list():
-                if column.startswith('R_'):
-                    rename_columns[column] = column.replace('R_', '').replace('S_', '')
-                elif column.startswith('per_res_'):
+                # if column.startswith('R_'):
+                #     rename_columns[column] = column.replace('R_', '').replace('S_', '')
+                if column.startswith('per_res_'):
                     per_res_columns.append(column)
                 elif column.startswith('hbonds_res_selection'):
                     hbonds_columns.append(column)
-                elif column.startswith('symmetry_switch'):
-                    other_pose_metrics['symmetry'] = \
-                        scores_df.loc[:, column][0].replace('make_', '').replace('_group', '')
-                else:
-                    rename_columns[column] = column.replace('res_summary_', '').replace('solvation_total', 'solvation')
-            rename_columns.update(columns_to_rename)
-
-            # Rename and Format columns
-            scores_df.rename(columns=rename_columns, inplace=True)
-            scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
+                # elif column.startswith('symmetry_switch'):
+                #     other_pose_metrics['symmetry'] = \
+                #         scores_df.loc[:, column][0].replace('make_', '').replace('_group', '')
+            #     else:
+            #        rename_columns[column] = column.replace('res_summary_', '').replace('solvation_total', 'solvation')
+            # rename_columns.update(columns_to_rename)
+            #
+            # # Rename and Format columns
+            # scores_df.rename(columns=rename_columns, inplace=True)
+            # scores_df.rename(columns=columns_to_rename, inplace=True)
+            # print('Before groupby', sorted(scores_df.columns.to_list()))
+            # print('buns_1_unbound', scores_df['buns_1_unbound'])
+            # scores_df = scores_df.groupby(level=0, axis=1)
+            # print('After groupby', scores_df.columns)
+            # scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
+            # print('Scores after groupby time: %f' % (time.time() - scores_start))
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
@@ -2026,7 +2033,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
-            remove_columns = rosetta_terms + hbonds_columns + per_res_columns + unnecessary + [groups]
+            remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + [groups]
             scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
             scores_columns = scores_df.columns.to_list()
             self.log.debug('Score columns present: %s' % scores_columns)
@@ -2096,7 +2103,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df['number_of_mutations'] = \
                 pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
 
-            # Check if any columns are > 50% interior. If so, return True for that column
+            # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
             interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
             interior_residues = \
                 interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
@@ -2186,31 +2193,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             atomic_deviation, per_residue_data = {}, {}
             # design_assemblies = []  # maybe use?
             per_residue_data['errat_deviation'] = {}
-            print('ERRAT RETURNS')
-            print('NUM - length     ARRAY:')
-            errat_times = []
-            assembly_times = []
-            load_times = []
-            for idx, file in enumerate(self.get_designs()):
-                start_load = time.time()
+            for idx, file in enumerate(self.get_designs()):  # Takes 1-2 seconds/file
                 decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
                 if decoy_name not in scores_df.index:
                     continue
                 design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
                 # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
-                load_times.append(time.time() - start_load)
-                start_assembly = time.time()
                 assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
-                assembly_times.append(time.time() - start_assembly)
-                start_errat = time.time()
                 atomic_deviation[design_asu.name], per_residue_errat = assembly.errat(out_path=self.data)
-                errat_times.append(time.time() - start_errat)
-                print('%3d - length(%4d) ARRAY: %s' % (idx + 1, len(per_residue_errat), ','.join(map(str, per_residue_errat[40:100]))))
                 per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:pose_length]
-            print('Load TIMES:\n%s' % ', '.join(map(str, load_times)))
-            print('Assembly TIMES:\n%s' % ', '.join(map(str, assembly_times)))
-            print('ERRAT TIMES:\n%s' % ', '.join(map(str, errat_times)))
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
             # TODO scores_file isn't necessary for below metrics until significance. Back them out to remove dependence
@@ -2250,7 +2242,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
                 # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
                 # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
-                collapse = entity.collapse_profile()
+                collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
                 collapse_df[entity] = collapse
                 wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)  # TODO comment out, instate below?
                 # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
@@ -2266,9 +2258,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
                 contact_order[entity] = residue_contact_order
                 _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-                print('Oligomer Errat has %d residues' % len(oligomeric_errat))
-                print('Monomer has %d residues, Oligomer has %d residues' %
-                      (entity.number_of_residues, entity_oligomer.number_of_residues))
                 wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
                 # residue_contact_order_mean, residue_contact_order_std = \
                 #     residue_contact_order.mean(), residue_contact_order.std()
@@ -2394,6 +2383,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 collapse_concatenated = pd.Series(np.concatenate(collapse_concatenated), name=design)
                 per_residue_data['hydrophobic_collapse'][design] = collapse_concatenated
 
+            pose_collapse_df = pd.DataFrame(folding_and_collapse)
             # turn per_residue_data into a dataframe matching residue_df orientation
             per_residue_df = \
                 pd.concat({measure: pd.DataFrame(data, index=residue_indices)
@@ -2484,7 +2474,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 collapse_graph_describe_df = pd.DataFrame({
                     'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
                     'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
-                    })
+                })
                 collapse_graph_describe_df.index += 1  # offset index to residue numbering
                 collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
                 collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
@@ -2525,7 +2515,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 fig.tight_layout()
                 fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
 
-            pose_collapse_df = pd.DataFrame(folding_and_collapse)
             # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
             dca_design_residues_concat = []
             dca_succeed = True
@@ -2841,13 +2830,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # todo simplify this mess...
                 errat_collapse_df = \
                     pd.concat([pd.concat(
-                        {
-                            'errat_deviation':  # Todo reinstate
-                              pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
-                            'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
-                                                              index=residue_indices)}
-                                         )], keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
-                # print(errat_collapse_df)
+                        {'errat_deviation':
+                             pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
+                         'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
+                                                           index=residue_indices)})],
+                        keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
+
                 wild_type_residue_info = {}
                 for res_number in residue_info[next(iter(residue_info))].keys():
                     # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
