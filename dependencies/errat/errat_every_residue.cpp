@@ -827,6 +827,8 @@ int main(int argc, char* argv[]){//1
         for (i = 1; i <= 4; i++){
             cout << "Residue	" << i << "	" << 0 << endl;
         }
+        //KM because the errat score is indexed to the start of the window
+        // i.e. errat[1] is the window starting at 1, ending at 9, must report as index + 4
         for (i = 1; i <= residue_counter - 4; i++){
             cout << "Residue	" << i + 4 << "	" << errat[i] << endl;// This is a special spacing character ->"	"
         }

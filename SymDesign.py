@@ -1024,6 +1024,7 @@ if __name__ == '__main__':
                     raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
                 program_root = args.directory  # Todo clean this mechanism everywhere
                 design_specification = SDUtils.DesignSpecification(args.specification_file)
+                # Todo this works for file locations as well! should I have a separate mechanism for each?
                 design_directories = \
                     [DesignDirectory.from_pose_id(pose, root=program_root, specific_design=design,
                                                   directives=directives, **queried_flags)

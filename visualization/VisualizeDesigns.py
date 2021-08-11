@@ -115,7 +115,7 @@ cmd.extend('save_group', save_group)
 # if __name__ == 'pymol':
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs 0-10')
+        exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs 0-10 [original_name]')
     if 'escher' in sys.argv[1]:
         print('Starting the data transfer now...')
         os.system('scp -r %s .' % sys.argv[1])
