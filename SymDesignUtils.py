@@ -989,7 +989,7 @@ def collect_designs(files=None, directory=None, project=None, single=None):
         for file in files:
             _file = file
             if not os.path.exists(_file):
-                _file = os.path.join(os.getcwd(), file)
+                _file = os.path.join(os.getcwd(), file)  # Todo this may not do anything useful
                 if not os.path.exists(_file):
                     logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
                     exit()
