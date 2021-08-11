@@ -830,7 +830,7 @@ int main(int argc, char* argv[]){//1
         for (i = 1; i <= residue_counter - 4; i++){
             cout << "Residue	" << i + 4 << "	" << errat[i] << endl;// This is a special spacing character ->"	"
         }
-        cout << "Overall quality factor: " << 100 - (100 * (pstat / stat));
+        cout << "Overall quality factor: " << 100 - (100 * (pstat / stat)) << endl;
     }
 
 	//if (stat>0){
