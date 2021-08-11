@@ -2388,7 +2388,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             per_residue_df = \
                 pd.concat({measure: pd.DataFrame(data, index=residue_indices)
                            for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
-
+            errat_df = \
+                per_residue_df.loc[:, idx_slice[:, per_residue_df.columns.get_level_values(1) == 'errat_deviation']].droplevel(-1, axis=1)
+            errat_significance_threshold = 11.52
+            collapse_significance_threshold = 0.43
+            wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
+            wt_errat_concatenated_s.index += 1
+            wt_errat_boolean = (wt_errat_concatenated_s < errat_significance_threshold)
+            errat_significance_df = (errat_df > errat_significance_threshold)
+            errat_design_significance = errat_significance_df.loc[:, wt_errat_boolean].any(axis=1)
+            errat_design_residue_significance = errat_significance_df.loc[:, wt_errat_boolean].any(axis=0)
+            # print('SIGNIFICANCE', errat_design_significance)
+            # print('RESIDUE SIGNIFICANCE', errat_design_residue_significance)
+            pose_collapse_df['errat_deviation'] = errat_design_significance
+            # significant_errat_residues = \
+            #     per_residue_df.index[].remove_unused_levels().levels[0].to_list()
             if figures:  # for plotting collapse profile, errat data, contact order
                 # Plot: Format the collapse data with residues as index and each design as column
                 collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
