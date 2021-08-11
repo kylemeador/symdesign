@@ -2189,19 +2189,27 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             print('ERRAT RETURNS')
             print('NUM - length     ARRAY:')
             errat_times = []
+            assembly_times = []
+            load_times = []
             for idx, file in enumerate(self.get_designs()):
-                start_errat = time.time()
+                start_load = time.time()
                 decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
                 if decoy_name not in scores_df.index:
                     continue
                 design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
                 # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
+                load_times.append(time.time() - start_load)
+                start_assembly = time.time()
                 assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
+                assembly_times.append(time.time() - start_assembly)
+                start_errat = time.time()
                 atomic_deviation[design_asu.name], per_residue_errat = assembly.errat(out_path=self.data)
+                errat_times.append(time.time() - start_errat)
                 print('%3d - length(%4d) ARRAY: %s' % (idx + 1, len(per_residue_errat), ','.join(map(str, per_residue_errat[40:100]))))
                 per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:pose_length]
-                errat_times.append(time.time() - start_errat)
+            print('Load TIMES:\n%s' % ', '.join(map(str, load_times)))
+            print('Assembly TIMES:\n%s' % ', '.join(map(str, assembly_times)))
             print('ERRAT TIMES:\n%s' % ', '.join(map(str, errat_times)))
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
