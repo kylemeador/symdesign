@@ -711,7 +711,7 @@ def read_scores(file, key='decoy'):
     Keyword Args:
         key='decoy' (str): Name of the json key to use as outer dictionary identifier
     Returns:
-        score_dict (dict): {design_name: {all_score_metric_keys: all_score_metric_values}, ...}
+        (dict): {design_name: {all_score_metric_keys: all_score_metric_values}, ...}
     """
     with open(file, 'r') as f:
         scores = {}
