@@ -1,6 +1,7 @@
 import os
 import copy
 import re
+import time
 from math import ceil, sqrt
 import shutil
 from subprocess import Popen, list2cmdline
@@ -773,7 +774,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             if len(matching_designs) > 1:
                 self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
                                  % (len(matching_designs), matching_designs[0]))
-            self.source = self.specific_design  # Todo test to see if this mechanism is robust
+            self.source = self.specific_design
         elif not self.source and os.path.exists(self.asu):  # standard mechanism of loading the pose
             self.source = self.asu
         else:
@@ -1925,7 +1926,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 sequence = data.get('final_sequence')
                 if sequence:
                     if len(sequence) >= pose_length:
-                        pose_sequences[design] = sequence[:pose_length]
+                        pose_sequences[design] = sequence[:pose_length]  # Todo won't work if the design had insertions
                     else:
                         pose_sequences[design] = sequence
                 else:
@@ -2054,6 +2055,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                   hbonds=interface_hbonds)
             #                                   offset=offset_dict)
 
+            # TODO move outside of scores file
             # Get design information including: interface residues, SSM's, and wild_type/design files
             profile_background = {}
             if self.design_profile:
@@ -2064,8 +2066,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 profile_background['fragment'] = self.fragment_data
             else:
                 self.log.info('Design has no fragment information')
-            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database, {}))
-
+            # TODO Move outside
             # Calculate amino acid observation percent from residue dict and background SSM's
             observation_d = {profile: {design: mutation_conserved(residue_info, background)
                                        for design, residue_info in residue_info.items()}
@@ -2185,7 +2186,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             atomic_deviation, per_residue_data = {}, {}
             # design_assemblies = []  # maybe use?
             per_residue_data['errat_deviation'] = {}  # Todo reinstate
-            for file in self.get_designs():
+            print('ERRAT RETURNS')
+            print('NUM - length     ARRAY:')
+            errat_times = []
+            for idx, file in enumerate(self.get_designs()):
+                start_errat = time.time()
                 decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
                 if decoy_name not in scores_df.index:
                     continue
@@ -2194,7 +2199,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
                 atomic_deviation[design_asu.name], per_residue_errat = assembly.errat(out_path=self.data)
+                print('%3d - length(%4d) ARRAY: %s' % (idx + 1, len(per_residue_errat), ','.join(map(str, per_residue_errat[40:100]))))
                 per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:pose_length]
+                errat_times.append(time.time() - start_errat)
+            print('ERRAT TIMES:\n%s' % ', '.join(map(str, errat_times)))
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
             # TODO scores_file isn't necessary for below metrics until significance. Back them out to remove dependence
@@ -2249,9 +2257,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # we need to get the contact order from the symmetric entity
                 entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
                 residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
+                contact_order[entity] = residue_contact_order
                 _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
                 wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
-                contact_order[entity] = residue_contact_order
                 # residue_contact_order_mean, residue_contact_order_std = \
                 #     residue_contact_order.mean(), residue_contact_order.std()
                 # print('%s residue_contact_order' % entity.name, residue_contact_order)
@@ -2583,6 +2591,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                                              both mut_freq and profile_background[profile] are one-indexed
             divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
                           for profile, background in profile_background.items()}
+            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database, {}))
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
