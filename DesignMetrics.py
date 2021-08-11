@@ -714,21 +714,31 @@ def read_scores(file, key='decoy'):
         score_dict (dict): {design_name: {all_score_metric_keys: all_score_metric_values}, ...}
     """
     with open(file, 'r') as f:
-        score_dict = {}
-        for score in f.readlines():
-            entry = loads(score)
-            design = entry[key]  # entry['decoy'].split('_')[-1]
-            if design not in score_dict:
-                score_dict[design] = entry
-            else:
-                # to ensure old trajectories don't have lingering protocol info
-                for protocol in protocols:
-                    if protocol in entry:  # ensure that the new scores has a protocol before removing the old one.
-                        for rm_protocol in protocols:
-                            score_dict[design].pop(rm_protocol, None)
-                score_dict[design].update(entry)
+        scores = {}
+        for json_entry in f.readlines():
+            # entry = loads(json_entry)
+            formatted_scores = {}
+            for score, value in loads(json_entry).items():
+                if score.startswith('R_'):
+                    formatted_scores[score.replace('R_', '').replace('S_', '')] = value
+                elif score.startswith('per_res_'):  # there are a lot of these scores in particular
+                    formatted_scores[score] = value
+                else:
+                    score = score.replace('res_summary_', '').replace('solvation_total', 'solvation')
+                    formatted_scores[columns_to_rename.get(score, score)] = value
 
-    return score_dict
+            design = formatted_scores.pop(key)
+            if design not in scores:
+                scores[design] = formatted_scores
+            else:
+                # # to ensure old trajectories don't have lingering protocol info
+                # for protocol in protocols:
+                #     if protocol in entry:  # ensure that the new scores has a protocol before removing the old one.
+                #         for rm_protocol in protocols:
+                #             scores[design].pop(rm_protocol, None)
+                scores[design].update(formatted_scores)
+
+    return scores
 
 
 def keys_from_trajectory_number(pdb_dict):
@@ -926,17 +936,19 @@ def interface_residue_composition_similarity(series):
     return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
 
 
-def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None):
+def residue_processing(score_dict, mutations, columns, hbonds=None):  # offset=None,
     """Process Residue Metrics from Rosetta score dictionary
 
+    One-indexed residues
     Args:
-        score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
-                            'yhh_planarity':0.885, 'hbonds_res_selection': '15A,21A,26A,35A,...'}, ...}
-        mutations (dict): {'0001': {mutation_index: {'from': 'A', 'to: 'K'}, ...}, ...}
+        score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15A': -3.26, ...,
+                            'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
+        mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
+                           '0001': {mutation_index: {}, ...}, ...}
         columns (list): ['per_res_energy_complex_5', 'per_res_sasa_polar_1_unbound_5', 
             'per_res_energy_1_unbound_5', ...]
     Keyword Args:
-        offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
+        # offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
@@ -1007,7 +1019,7 @@ def residue_processing(score_dict, mutations, columns, offset=None, hbonds=None)
     return total_residue_dict
 
 
-def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  # pose_length,
+def dirty_residue_processing(score_dict, mutations, hbonds=None):  # offset=None, pose_length,
     """Process Residue Metrics from Rosetta score dictionary
 
     One-indexed residues
@@ -1017,7 +1029,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
         mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
                            '0001': {mutation_index: {}, ...}, ...}
     Keyword Args:
-        offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
+        # offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 22.29,
@@ -1046,12 +1058,13 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                                        ' ensure that symmetric copies have the same residue number on symmetry mates.'
                                        % (key, pose_length))
                     continue
-                metric = metadata[2]  # energy or sasa
-                pose_state = metadata[-2]  # unbound or complex
-                if pose_state == 'unbound' and offset:
-                    residue_number += offset[metadata[-3]]  # get oligomer chain offset
+                # if pose_state == 'unbound' and offset:
+                #     residue_number += offset[metadata[-3]]  # get oligomer chain offset
                 if residue_number not in residue_data:
                     residue_data[residue_number] = deepcopy(residue_template)
+
+                metric = metadata[2]  # energy or sasa
+                pose_state = metadata[-2]  # unbound or complex
                 if metric == 'sasa':
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     polarity = metadata[3]
@@ -1059,7 +1072,7 @@ def dirty_residue_processing(score_dict, mutations, offset=None, hbonds=None):  
                 else:
                     # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
                     residue_data[residue_number][metric][pose_state] += value
-        # if residue_data:
+
         for residue_number, data in residue_data.items():
             try:
                 data['type'] = mutations[design][residue_number]  # % pose_length]
