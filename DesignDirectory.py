@@ -2496,7 +2496,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
                 errat_graph_df['wild_type'] = wt_errat_concatenated_s
                 print('Found WT length=%d' % len(wt_errat_concatenated_s))
-                print('Graphed Indices: %s' % ', '.join(errat_graph_df.index.to_list()))
+                print('Graphed Indices: %s' % ', '.join(map(str, errat_graph_df.index.to_list())))
+                errat_graph_df.to_csv(os.path.join(self.data, 'errat_debugging.csv'))
                 errat_graph_df.index += 1  # offset index to residue numbering
                 # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
                 errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
