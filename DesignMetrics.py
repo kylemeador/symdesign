@@ -1258,7 +1258,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         try:
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
         except KeyError:
-            logger.info('The protocol \'%s\' was not found in the set of designs...')
+            logger.info('The protocol \'%s\' was not found in the set of designs...' % protocol)
             # raise DesignError('The protocol \'%s\' was not found in the set of designs...')
         # else:
             available_protocols = df.columns.get_level_values(0).unique()
@@ -1272,6 +1272,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
                 else:
                     print('Invalid protocol %s. Please choose one of %s' % (protocol, ', '.join(available_protocols)))
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
+            protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
         simple_df = pd.merge(df.loc[:, idx_slice['pose', 'dock', :]], protocol_df, left_index=True, right_index=True)
     else:
         protocol = 'pose'
