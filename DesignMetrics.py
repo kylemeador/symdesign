@@ -1222,8 +1222,8 @@ def filter_df_for_index_by_value(df, metrics):
     for column, value in metrics.items():
         if isinstance(value, dict):
             specification = value.get('direction')
-        # if specification:
-            value = value.get('value')
+            # todo convert specification options 'greater' '>' 'greater than' to 'max'/'min'
+            value = value.get('value', 0.)
         else:
             specification = filter_df.loc['direction', column]
 
@@ -1625,7 +1625,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
             if 'metrics' in chosen_metrics:
                 print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
                 metrics_input = input('%s' % input_string)
-            elif chosen_metrics.intersection(describe_string):
+            elif chosen_metrics.intersection(describe):
                 describe_data(df=df) if df is not None else print('Can\'t describe data without providing a DataFrame')
                 # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
                 metrics_input = input('%s' % input_string)
@@ -1661,7 +1661,6 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                     if value in describe:
                         describe_data(df=df) if df is not None \
                             else print('Can\'t describe data without providing a DataFrame...')
-                        # df.describe() if df is not None else print('Can\'t describe data without providing a DataFrame...')
                     elif validate_type(value, dtype=float):
                         metric_values[metric] = float(value)
                         break
