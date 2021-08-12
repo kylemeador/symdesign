@@ -13,8 +13,8 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 import pandas as pd
 
-import SymDesignUtils as SDUtils
-from DesignMetrics import prioritize_design_indices, query_user_for_metrics, nanohedra_metrics
+from SymDesignUtils import handle_design_errors, DesignError, index_intersection, mp_map, sym, rmsd_threshold
+from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from Structure import superposition3d
 from utils.GeneralUtils import transform_coordinate_sets
 
@@ -40,7 +40,7 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
             # add all individual poses to a singles pool. pair2 is included in pair1, no need to add additional
             singlets[pair1.composition] = pair1
     # find the rmsd between a pair of poses.  multiprocessing to increase throughput
-    _results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
+    _results = mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
 
     # Make dictionary with all pairs
     for pair, pair_rmsd in zip(pairs_to_process, _results):
@@ -86,7 +86,7 @@ def pose_pair_rmsd(pair):
 
     # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
     # could use the union as well...?
-    des_residue_set = SDUtils.index_intersection(design_residues)
+    des_residue_set = index_intersection(design_residues)
     if not des_residue_set:  # when the two structures are not significantly overlapped
         return np.nan
     else:
@@ -97,7 +97,7 @@ def pose_pair_rmsd(pair):
         # pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
         #                   for entity_list in rmsd_residue_list]
         #
-        # return SDUtils.superimpose(pair_atom_list)
+        # return superimpose(pair_atom_list)
         return superposition3d(*[pose.pose.coords for pose in pair])[0]
 
 
@@ -110,7 +110,7 @@ def pose_rmsd_s(all_des_dirs):
             pair_rmsd = pose_pair_rmsd(pair)
             # des_residue_list = [pose.info['des_residues'] for pose in pair]
             # # could use the union as well...
-            # des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
+            # des_residue_set = index_intersection({pair[n]: set(pose_residues)
             #                                               for n, pose_residues in enumerate(des_residue_list)})
             # if des_residue_set == list():  # when the two structures are not significantly overlapped
             #     pair_rmsd = np.nan
@@ -184,7 +184,7 @@ def cluster_poses(pose_map):
         # for k, dist in enumerate(pairwise_sequence_diff_np):
         #     i, j = SDUtils.condensed_to_square(k, len(designs))
         #     pairwise_sequence_diff_mat[i, j] = dist
-        building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
+        building_block_rmsd_matrix = sym(building_block_rmsd_df.values)
         # print(building_block_rmsd_df.values)
         # print(building_block_rmsd_matrix)
         # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
@@ -194,8 +194,8 @@ def cluster_poses(pose_map):
         # epsilon = pca_distance_vector.mean() * 0.5
 
         # Compute pose clusters using DBSCAN algorithm
-        # logger.info('Finding pose clusters within RMSD of %f' % SDUtils.rmsd_threshold) # TODO
-        dbscan = DBSCAN(eps=SDUtils.rmsd_threshold, min_samples=2, metric='precomputed')
+        # logger.info('Finding pose clusters within RMSD of %f' % rmsd_threshold) # TODO
+        dbscan = DBSCAN(eps=rmsd_threshold, min_samples=2, metric='precomputed')
         dbscan.fit(building_block_rmsd_matrix)
 
         # find the cluster representative by minimizing the cluster mean
@@ -387,7 +387,7 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     return representative_transformation_indices, cluster.labels_
 
 
-@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
+@handle_design_errors(errors=(DesignError, AssertionError))
 def cluster_designs(composition_designs, return_pose_id=True):
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
