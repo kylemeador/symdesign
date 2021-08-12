@@ -171,6 +171,12 @@ master_metrics = {'average_fragment_z_score':
                   'entity_residue_length_total':
                       {'description': 'The total number of residues in the design',
                        'direction': 'min', 'function': 'rank', 'filter': True},
+                  'errat_accuracy':
+                      {'description': 'The overall Errat score of the design',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
+                  'errat_deviation':
+                      {'description': 'Whether a residue window deviates significantly from typical Errat distribution',
+                       'direction': 'min', 'function': 'boolean', 'filter': True},
                   'favor_residue_energy':
                       {'description': 'Total weight of sequence constraints used to favor certain amino acids in design'
                                       '. Only protocols with a favored profile have values',
@@ -1252,6 +1258,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
             df = pd.concat([df], axis=1, keys=['pose' for _ in range(3 - len(df.columns[0]))])
     else:
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
+        df.replace({False: 0, True: 1}, inplace=True)
     logger.info('Number of starting designs = %d' % len(df))
 
     if protocol and isinstance(protocol, str):
