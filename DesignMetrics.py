@@ -1258,7 +1258,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
             df = pd.concat([df], axis=1, keys=['pose' for _ in range(3 - len(df.columns[0]))])
     else:
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
-        df.replace({False: 0, True: 1}, inplace=True)
+        df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
     logger.info('Number of starting designs = %d' % len(df))
 
     if protocol and isinstance(protocol, str):
