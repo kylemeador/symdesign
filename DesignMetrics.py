@@ -176,7 +176,7 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'errat_deviation':
                       {'description': 'Whether a residue window deviates significantly from typical Errat distribution',
-                       'direction': 'min', 'function': 'boolean', 'filter': True},
+                       'direction': 'max', 'function': 'boolean', 'filter': True},
                   'favor_residue_energy':
                       {'description': 'Total weight of sequence constraints used to favor certain amino acids in design'
                                       '. Only protocols with a favored profile have values',
@@ -1221,7 +1221,7 @@ def filter_df_for_index_by_value(df, metrics):
     filtered_indices = {}
     for column, value in metrics.items():
         if isinstance(value, dict):
-            specification = value.get('direction')
+            specification = value.get('direction')  # Todo make an ability to use boolean?
             # todo convert specification options 'greater' '>' 'greater than' to 'max'/'min'
             value = value.get('value', 0.)
         else:
@@ -1579,7 +1579,11 @@ def describe_data(df=None):
     else:
         columns_of_interest = [idx for idx, column in enumerate(df.columns.get_level_values(-1).to_list())
                                if column in chosen_metrics]
+    # format rows/columns for data display, then revert
+    max_columns, min_columns = pd.get_option('display.max_columns'), pd.get_option('display.max_rows')
+    pd.set_option('display.max_columns', None), pd.set_option('display.max_rows', None)
     print(df.iloc[:, columns_of_interest].describe())
+    pd.set_option('display.max_columns', max_columns), pd.set_option('display.max_rows', min_columns)
 
 
 @handle_errors(errors=KeyboardInterrupt)
@@ -1654,6 +1658,8 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
             metric_values = {}
             for metric in chosen_metrics:
                 while True:
+                    # Todo make ability to use boolean descriptions
+                    # Todo make ability to specify direction
                     value = input('For \'%s\' what value should be used for %s %sing?%s%s'
                                   % (metric, level, mode, ' Designs with metrics %s than this value will be included'
                                                           % direction[filter_df.loc['direction', metric]].upper()

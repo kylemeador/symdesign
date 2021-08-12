@@ -1978,7 +1978,9 @@ if __name__ == '__main__':
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
             # df = pd.concat([df], axis=1, keys=['pose', 'metric'])
             # df = pd.concat([df], axis=1, keys=['metric'])
-            df.replace({False: 0, True: 1}, inplace=True)
+            print(df.loc[:, 'errat_deviation'])
+            df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+            print('AFTER', df.loc[:, 'errat_deviation'])
             group_df = df.groupby('protocol')
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
                            keys=list(zip(group_df.groups, repeat('mean'))))
