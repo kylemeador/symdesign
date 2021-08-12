@@ -1254,10 +1254,13 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
     logger.info('Number of starting designs = %d' % len(df))
 
-    if protocol:
-        if isinstance(protocol, str):
+    if protocol and isinstance(protocol, str):
+        try:
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
-        else:
+        except KeyError:
+            logger.info('The protocol \'%s\' was not found in the set of designs...')
+            # raise DesignError('The protocol \'%s\' was not found in the set of designs...')
+        # else:
             available_protocols = df.columns.get_level_values(0).unique()
             while True:
                 protocol = input('What protocol would you like to choose?%s\nAvailable options are: %s%s'
@@ -1265,12 +1268,11 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
                 if protocol in available_protocols:
                     break
                 elif protocol in describe:
-                    describe_data(df=df)# df.describe()
+                    describe_data(df=df)
                 else:
                     print('Invalid protocol %s. Please choose one of %s' % (protocol, ', '.join(available_protocols)))
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
-        simple_df = pd.merge(df.loc[:, idx_slice['pose', 'dock', :]],
-                             protocol_df, left_index=True, right_index=True)
+        simple_df = pd.merge(df.loc[:, idx_slice['pose', 'dock', :]], protocol_df, left_index=True, right_index=True)
     else:
         protocol = 'pose'
         simple_df = df.loc[:, idx_slice['pose', df.columns.get_level_values(1) != 'std', :]]

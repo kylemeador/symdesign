@@ -2398,8 +2398,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             errat_significance_df = (errat_df > errat_significance_threshold)
             errat_design_significance = errat_significance_df.loc[:, wt_errat_boolean].any(axis=1)
             errat_design_residue_significance = errat_significance_df.loc[:, wt_errat_boolean].any(axis=0)
-            print('SIGNIFICANCE', errat_design_significance)
-            print('RESIDUE SIGNIFICANCE', errat_design_residue_significance[errat_design_residue_significance].index.tolist())
+            # print('SIGNIFICANCE', errat_design_significance)
+            # print('RESIDUE SIGNIFICANCE', errat_design_residue_significance[errat_design_residue_significance].index.tolist())
             pose_collapse_df['errat_deviation'] = errat_design_significance
             # significant_errat_residues = \
             #     per_residue_df.index[].remove_unused_levels().levels[0].to_list()
