@@ -1977,9 +1977,11 @@ if __name__ == '__main__':
                         inplace=True)
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
             # df = pd.concat([df], axis=1, keys=['pose', 'metric'])
+            df = pd.concat([df], axis=1, keys=['metric'])
+            print('BEFORE', df)
             group_df = df.groupby('protocol')
             df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1, keys=list(group_df.groups))
-
+            print('AFTER', df)
             # Figure out designs from dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
