@@ -1973,10 +1973,12 @@ if __name__ == '__main__':
             for idx, df in enumerate(all_dfs):
                 # all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
                 # get rid of all statistic entries
-                df.drop([design for design in df.index.to_list() if design_directories[idx].name not in design],
+                df.drop([index for index in df.index.to_list() if design_directories[idx].name not in index],
                         inplace=True)
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
-            df = pd.concat([df], axis=1, keys=['pose', 'metric'])
+            # df = pd.concat([df], axis=1, keys=['pose', 'metric'])
+            group_df = df.groupby('protocol')
+            df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1, keys=list(group_df.groups))
 
             # Figure out designs from dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
