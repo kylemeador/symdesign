@@ -789,7 +789,7 @@ if __name__ == '__main__':
                                  help='The organism where expression will occur and nucleotide usage should be '
                                       'optimized')
     parser_sequence.add_argument('-p', '--protocol', type=str,
-                                 help='Use a specific protocol to grab sequences from?')
+                                 help='Use a specific protocol when selecting sequences?')
     parser_sequence.add_argument('-S', '--skip_sequence_generation', action='store_true',
                                  help='Should sequence generation be skipped? Only selected structure files will be '
                                       'collected')
