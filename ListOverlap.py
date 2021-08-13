@@ -1,8 +1,7 @@
-#!/home/kmeador/miniconda3/bin/python
-import argparse
 import os
+import argparse
 
-import functions as fc
+from SymDesignUtils import to_iterable, io_save
 import numpy as np
 
 
@@ -44,13 +43,14 @@ def set_overlap(_set):
         exit('%s is out of range' % e.args)
 
     list_of_interest = sorted(set_of_interest)
-    fc.io_save(list_of_interest)
+    io_save(list_of_interest)
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='%s: Compare the items in two list files through multiple set '
                                                  'operators.' % os.path.basename(__file__))
-    parser.add_argument('-f', '--files', nargs='+', help='Files with items to be compared. Two required', default=None)
+    parser.add_argument('-f', '--files', nargs='+', help='Files with items to be compared. Two required',
+                        required=True, default=None)
     args = parser.parse_args()
 
     num_lists = len(args.files)
@@ -62,7 +62,7 @@ if __name__ == '__main__':
         exit('No list files found: %' % args.files)
     for i in range(num_lists):
         file[i] = args.files[i]
-        _list[i] = fc.object_to_iterable(file[i])
+        _list[i] = to_iterable(file[i])
         # Uncomment below for use with ugly prefixes or suffixes
         # if i == 1:
         #     for j, _item in enumerate(_list[i]):
