@@ -1909,17 +1909,69 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not other_pose_metrics:
             raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
 
+        # Find all designs files Todo fold these into Model(s) and attack metrics from Pose
+        design_structures = []
+        for idx, file in enumerate(self.get_designs()):
+            decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
+            # if decoy_name not in scores_df.index:
+            #     continue
+            design_structures.append(PDB.from_file(file, name=decoy_name, log=self.log, entities=False))
+
+        # Get design information including: interface residues, SSM's, and wild_type/design files
+        profile_background = {}
+        if self.design_profile:
+            profile_background['design'] = self.design_profile
+        if self.evolutionary_profile:
+            profile_background['evolution'] = self.evolutionary_profile
+        if self.fragment_data:
+            profile_background['fragment'] = self.fragment_data
+        else:
+            self.log.info('Design has no fragment information')
+
         # initialize empty design dataframes
+        idx_slice = pd.IndexSlice
         stat_s, divergence_s, sim_series = pd.Series(), pd.Series(), []
-        if os.path.exists(self.scores_file):
+        if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
+            self.log.debug('Missing design scores file at %s' % self.scores_file)
+            # Gather mutations for residue specific processing and design sequences
+            pose_sequences = {}
+            for structure in design_structures:
+                pose_sequences[structure.name] = ''.join(structure.atom_sequences.values())  # {chain: sequence, ...}
+
+            # format {entity: {design_name: sequence, ...}, ...}
+            entity_sequences = \
+                {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
+                          for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
+            # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
+            # sequence_mutations = \
+            #     generate_multiple_mutations(self.pose.pdb.atom_sequences, pose_sequences, pose_num=False)
+            # sequence_mutations.pop('reference')
+            # entity_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
+            # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
+            #                         for chain, named_sequences in entity_sequences.items()}
+            # entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
+            #                        for entity in self.pose.entities]
+            # # # entity_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
+            # # #                         for design, scores in all_design_scores.items()}
+            # entity_sequences = {entity.chain_id: {design: sequence[n_term - 1:c_term]
+            #                                      for design, sequence in pose_sequences.items()}
+            #                    for entity, n_term, c_term in entity_chain_breaks}
+            # Todo generate the per residue scores internally which matches output from dirty_residue_processing
+            # interface_hbonds = dirty_hbond_processing(all_design_scores)
+            #                                         , offset=offset_dict) <- when hbonds are pose numbering
+            # # all_mutations = generate_mutations_from_reference(self.pose.pdb.atom_sequences, pose_sequences)
+            # # all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
+            # # cleaned_mutations = simplify_mutation_dict(all_mutations)
+            # residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
+            #                                         hbonds=interface_hbonds)
+            #                                         , offset=offset_dict) <- when residues are pose numbering
+        else:
             self.log.debug('Found design scores in file: %s' % self.scores_file)
             # Get the scores from the score file on design trajectory metrics
-            # all_design_scores = keys_from_trajectory_number(read_scores(self.scores_file))
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
-            # Gather mutations for residue specific processing and design sequences Todo won't work if poses change len
-            # pose_sequences = {design: data.get('final_sequence')[:self.pose.number_of_residues]
-            #                   for design, data in all_design_scores.items()}
+
+            # Gather mutations for residue specific processing and design sequences
             pose_length = self.pose.number_of_residues
             residue_indices = list(range(1, pose_length + 1))
             pose_sequences = {}
@@ -1931,98 +1983,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     else:
                         pose_sequences[design] = sequence
                 else:
-                    self.log.debug('Design %s is missing sequence data' % design)
+                    self.log.debug('Design %s is missing sequence data, removing from design pool' % design)
                     all_design_scores.pop(design)
-            # entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
-            #                        for entity in self.pose.entities]
-            # # # entity_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
-            # # #                         for design, scores in all_design_scores.items()}
-            # entity_sequences = {entity: {design: sequence[n_term - 1:c_term]   # only include v if design is viable
-            #                              for design, sequence in pose_sequences.items()}  # if design in viable_designs}
-            #                     for entity, n_term, c_term in entity_chain_breaks}
+            # format {entity: {design_name: sequence, ...}, ...}
             entity_sequences = \
                 {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
                           for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
 
-            # Todo fold these into Model and attack these metrics from a Pose object
-            #  This will get rid of the self.log
-            # wt_pdb = PDB.from_file(self.get_wildtype_file(), log=self.log)
-            # wt_pdb = self.pose.pdb
-            # self.log.debug('Reordering wild-type chains')
-            # wt_pdb.reorder_chains()  # ensure chain ordering is A then B to match output from interface_design
-
-            # Find all designs which have corresponding pdb files and collect their sequences
-            # for file in glob(self.designs):
-            #     if file in all_design_scores:
-            #      pdb = PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0], log=None, entities=False)
-            #         pose_sequences[pdb.name] = pdb.atom_sequences  # {chain: sequence, ...}
-            #
-            # # pulling from design pdbs and reorienting with format {chain: {name: sequence, ...}, ...}
-            # entity_sequences = {}
-            # for design, entity_sequences in pose_sequences.items():
-            #     for chain, sequence in entity_sequences.items():
-            #         if chain not in entity_sequences:
-            #             entity_sequences[chain] = {}
-            #         entity_sequences[chain][design] = sequence
-
-            # #  v-this-v mechanism accounts for offsets from the reference sequence which aren't necessary YET
-            # sequence_mutations = \
-            #     generate_multiple_mutations(self.pose.pdb.atom_sequences, pose_sequences, pose_num=False)
-            # sequence_mutations.pop('reference')
-            # self.log.debug('Sequence Mutations: %s' % {design: {chain: format_mutations(mutations)
-            #                                                     for chain, mutations in chain_mutations.items()}
-            #                                            for design, chain_mutations in sequence_mutations.items()})
-            # entity_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
-            # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
-            #                         for chain, named_sequences in entity_sequences.items()}
-            # entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
-            #                        for entity in self.pose.entities]
-            # # # entity_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
-            # # #                         for design, scores in all_design_scores.items()}
-            # entity_sequences = {entity.chain_id: {design: sequence[n_term - 1:c_term]
-            #                                      for design, sequence in pose_sequences.items()}
-            #                    for entity, n_term, c_term in entity_chain_breaks}
-            # for chain in chain_break
-            # self.log.debug('Design sequences by chain: %s' % entity_sequences)
-            # self.log.debug('All designs with sequences: %s'
-            #                % ', '.join(entity_sequences[next(iter(entity_sequences))].keys()))
-
-            # Ensure data is present for both scores and sequences, then initialize DataFrames
-            # good_designs = sorted(set(entity_sequences[next(iter(entity_sequences))].keys()).
-            #                       intersection(set(all_design_scores.keys())))
-            # self.log.info('All designs with both sequence and scores: %s' % ', '.join(good_designs))
-            # all_design_scores = filter_dictionary_keys(all_design_scores, good_designs)
-            # entity_sequences = {chain: filter_dictionary_keys(entity_sequences, good_designs)
-            #                         for chain, entity_sequences in entity_sequences.items()}
-            # self.log.debug('Final design sequences by chain: %s' % entity_sequences)
-
-            idx_slice = pd.IndexSlice
             scores_df = pd.DataFrame(all_design_scores).T
             # Gather all columns into specific types for processing and formatting
-            rename_columns, per_res_columns, hbonds_columns = {}, [], []
+            per_res_columns, hbonds_columns = [], []
             for column in scores_df.columns.to_list():
-                # if column.startswith('R_'):
-                #     rename_columns[column] = column.replace('R_', '').replace('S_', '')
                 if column.startswith('per_res_'):
                     per_res_columns.append(column)
                 elif column.startswith('hbonds_res_selection'):
                     hbonds_columns.append(column)
-                # elif column.startswith('symmetry_switch'):
-                #     other_pose_metrics['symmetry'] = \
-                #         scores_df.loc[:, column][0].replace('make_', '').replace('_group', '')
-            #     else:
-            #        rename_columns[column] = column.replace('res_summary_', '').replace('solvation_total', 'solvation')
-            # rename_columns.update(columns_to_rename)
-            #
-            # # Rename and Format columns
-            # scores_df.rename(columns=rename_columns, inplace=True)
-            # scores_df.rename(columns=columns_to_rename, inplace=True)
-            # print('Before groupby', sorted(scores_df.columns.to_list()))
-            # print('buns_1_unbound', scores_df['buns_1_unbound'])
-            # scores_df = scores_df.groupby(level=0, axis=1)
-            # print('After groupby', scores_df.columns)
-            # scores_df = scores_df.groupby(level=0, axis=1).apply(lambda x: x.apply(join_columns, axis=1))
-            # print('Scores after groupby time: %f' % (time.time() - scores_start))
+
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
@@ -2045,35 +2021,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             interface_hbonds = dirty_hbond_processing(all_design_scores)
-            #                                         , offset=offset_dict) <- when hbonds are pose numbering
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
-            # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)  # , offset=offset_dict)
-
+            # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)
             all_mutations = \
                 generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
-            # all_mutations = generate_mutations_from_reference(self.pose.pdb.atom_sequences, pose_sequences)
-            # all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
-            # cleaned_mutations = simplify_mutation_dict(all_mutations)
             residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
                                                     hbonds=interface_hbonds)
-            #                                       offset=offset_dict)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info = residue_processing(all_design_scores, cleaned_mutations, per_res_columns,
             #                                   hbonds=interface_hbonds)
-            #                                   offset=offset_dict)
 
-            # TODO move outside of scores file
-            # Get design information including: interface residues, SSM's, and wild_type/design files
-            profile_background = {}
-            if self.design_profile:
-                profile_background['design'] = self.design_profile
-            if self.evolutionary_profile:
-                profile_background['evolution'] = self.evolutionary_profile
-            if self.fragment_data:
-                profile_background['fragment'] = self.fragment_data
-            else:
-                self.log.info('Design has no fragment information')
-            # TODO Move outside
+            # TODO scores_file isn't necessary for below metrics until significance. Back them out to remove dependence
+            #  when residue_info is generated by non-scores files, can move almost entire section outside
+            #  (ends  lines below)
             # Calculate amino acid observation percent from residue dict and background SSM's
             observation_d = {profile: {design: mutation_conserved(residue_info, background)
                                        for design, residue_info in residue_info.items()}
@@ -2123,6 +2083,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 scores_df[r_class] = \
                     residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
 
+            # Todo this section until...
             # Calculate new metrics from combinations of other metrics
             # sum columns using list[0] + list[1] + list[n]
             summation_pairs = \
@@ -2145,6 +2106,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
             scores_df['total_interface_residues'] = len(interface_residues)  # add for div_pairs and int_comp_similarity
             scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
+            # Todo ...HERE contains energy specific metrics which require Rosetta
             scores_df['interface_composition_similarity'] = \
                 scores_df.apply(interface_residue_composition_similarity, axis=1)
             # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
@@ -2165,22 +2127,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
             residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
             residue_df.fillna(0., inplace=True)
-            # residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
-            # scores_na_index = scores_df.index[scores_df.isna().any(axis=1)]  # scores_df.where()
-            # residue_na_index = residue_df.index[residue_df.isna().any(axis=1)]
-            # drop_na_index = np.union1d(scores_na_index, residue_na_index)
-            # if drop_na_index.any():
-            #     self.log.debug('Missing information in score columns: %s'
-            #                    % scores_df.columns[scores_df.isna().any(axis=0)].tolist())
-            #     self.log.debug('Missing information in residue columns: %s'
-            #                    % residue_df.columns[residue_df.isna().any(axis=0)].tolist())
-            #     protocol_s.drop(drop_na_index, inplace=True, errors='ignore')
-            #     scores_df.drop(drop_na_index, inplace=True, errors='ignore')
-            #     residue_df.drop(drop_na_index, inplace=True, errors='ignore')
-            #     for idx in drop_na_index:
-            #         residue_info.pop(idx, None)
-            #     self.log.warning('Dropped designs from analysis due to missing values: %s' % ', '.join(scores_na_index))
-            #     # might have to remove these from all_design_scores in the case that that is used as a dictionary again
+
+            # Find designs where required data is present
             viable_designs = scores_df.index.to_list()
             self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
             other_pose_metrics['observations'] = len(scores_df)
@@ -2190,22 +2138,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             entity_alignments = {entity: msa_from_dictionary(design_sequences)
                                  for entity, design_sequences in entity_sequences.items()}
 
+            # design_assemblies = []  # Todo use to store the assemblies generated below?
             atomic_deviation, per_residue_data = {}, {}
-            # design_assemblies = []  # maybe use?
             per_residue_data['errat_deviation'] = {}
-            for idx, file in enumerate(self.get_designs()):  # Takes 1-2 seconds/file
-                decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
-                if decoy_name not in scores_df.index:
+            for structure in enumerate(design_structures):  # Takes 1-2 seconds for Structure -> assembly -> errat
+                if structure.name not in scores_df.index:
                     continue
-                design_asu = PDB.from_file(file, name=decoy_name, log=self.log, entities=False)  # , lazy=True)
-                # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
-                assembly = SymmetricModel.from_asu(design_asu, sym_entry=self.sym_entry, log=self.log).assembly
+                assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
-                atomic_deviation[design_asu.name], per_residue_errat = assembly.errat(out_path=self.data)
-                per_residue_data['errat_deviation'][design_asu.name] = per_residue_errat[:pose_length]
+                # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
+                atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
+                per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
-            # TODO scores_file isn't necessary for below metrics until significance. Back them out to remove dependence
             # Calculate hydrophobic collapse for each design
             # Measure the wild type entity versus the modified entity to find the hci delta
             # Todo if no design, can't measure the wild-type after the normalization...
@@ -2547,8 +2492,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.), ncol=3,  # , mode='expand')
                 # fig.subplots_adjust(bottom=0.1)
                 plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
+                #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
                 fig.tight_layout()
-                           # bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
                 fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
 
             # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
@@ -2661,6 +2606,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                               keys=list(zip(repeat('sequence_design'), divergence_by_protocol)))
             pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
             divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
+            # Todo end move outside comment
+            #  The below significance probably requires Rosetta as multiple designs need to be present given some
+            #  different sampling configurations
+
             # Calculate protocol significance
             pvalue_df = pd.DataFrame()
             scout_protocols = filter(re.compile('.*scout').match, protocol_s.index.to_list())  # list()
@@ -2910,8 +2859,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # Create figures
             # if figures:  # Todo include relevant .ipynb figures
-        else:
-            self.log.debug('No design scores found at %s' % self.scores_file)
+
+        # After parsing data sources
         other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
 
         # CONSTRUCT: Create pose series and format index names
