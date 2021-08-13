@@ -36,12 +36,11 @@ from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_direct
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB
 from Pose import fetch_pdb_file
-from ClusterUtils import pose_rmsd_mp, pose_rmsd_s, cluster_poses, cluster_designs, invert_cluster_map, \
-    group_compositions
+from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions  # pose_rmsd, cluster_poses
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
-from DesignMetrics import prioritize_design_indices, master_metrics, query_user_for_metrics, rank_dataframe_by_metric_weights
+from DesignMetrics import prioritize_design_indices, master_metrics, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 
 
@@ -1978,18 +1977,14 @@ if __name__ == '__main__':
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
             # df = pd.concat([df], axis=1, keys=['pose', 'metric'])
             # df = pd.concat([df], axis=1, keys=['metric'])
-            # print(df.loc[:, 'errat_deviation'])
             df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-            # print('AFTER', df.loc[:, 'errat_deviation'])
             group_df = df.groupby('protocol')
-            df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
-                           keys=list(zip(group_df.groups, repeat('mean'))))
+            protocol_df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
+                                    keys=list(zip(group_df.groups, repeat('mean'))))
             # Figure out designs from dataframe, filters, and weights
-            selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
+            selected_poses_df = prioritize_design_indices(protocol_df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
             design_indices = selected_poses_df.index.to_list()
-            # design_series = rank_dataframe_by_metric_weights(df, weights=sequence_weights)
-            # design_indices = design_series.index.to_list()
             if args.allow_multiple_poses:
                 logger.info('Choosing %d designs max as specified from the top designs regardless pose'
                             % args.number_sequences)
@@ -1998,10 +1993,10 @@ if __name__ == '__main__':
                 logger.info('Choosing %d designs max as specified, with only one design allowed per pose'
                             % args.number_sequences)
                 number_chosen = 0
-                results, selected_designs = [], []
+                results, selected_designs = [], set()
                 for design_directory, design in design_indices:
                     if design_directory not in selected_designs:
-                        selected_designs.append(design_directory)
+                        selected_designs.add(design_directory)
                         results.append((design_directory, design))
                         number_chosen += 1
                         if number_chosen == args.number_sequences:
@@ -2009,19 +2004,14 @@ if __name__ == '__main__':
             logger.info('%d designs were selected' % len(results))
 
             if args.filter or args.weight:
-                new_dataframe = os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
-                                             % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
-                                                timestamp))
-                # remove added index names
-                save_poses_df = selected_poses_df.loc[results, :].droplevel(0, axis=0) \
-                    .droplevel(0, axis=1).droplevel(0, axis=1)
-                # save_poses_df.to_csv(new_dataframe)
-                # logger.info('New DataFrame with selected designs was written to %s' % new_dataframe)
+                new_dataframe = \
+                    os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
+                                 % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '', timestamp))
             else:
-                save_poses_df = False  # Todo make possible!
-
+                new_dataframe = os.path.join(program_root, 'DesignPoseMetrics-%s.csv' % (timestamp))
+            # include only the found index names to the saved dataframe
+            save_poses_df = selected_poses_df.loc[results, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         else:  # select sequences from all poses provided in DesignDirectories
-            save_poses_df = False  # Todo make possible!
             if args.filter:
                 trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
                 sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
@@ -2042,36 +2032,34 @@ if __name__ == '__main__':
                 zipped_args = zip(design_directories, repeat(sequence_filters), repeat(sequence_weights),
                                   repeat(args.number_sequences), repeat(args.protocol))
                 # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, threads))
-                # returns [[], [], ...]
                 result_mp = SDUtils.mp_starmap(DesignDirectory.select_sequences, zipped_args, threads)
+                # results - contains tuple of (DesignDirectory, design index) for each sequence
+                # could simply return the design index then zip with the directory
                 results = []
                 for result in result_mp:
                     results.extend(result)
-                # results - contains tuple of (DesignDirectory, design index) for each sequence
-                # could simply return the design index then zip with the directory
             else:
                 results = []
                 for design in design_directories:
                     results.extend(design.select_sequences(filters=sequence_filters, weights=sequence_weights,
                                                            number=args.number_sequences, protocol=args.protocol))
+            save_poses_df = None  # Todo make possible!
+
         if not args.selection_string:
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
         else:
             args.selection_string += '_'
         outdir = os.path.join(os.path.dirname(program_root), '%sSelectedDesigns' % args.selection_string)
-        # outdir_traj = os.path.join(outdir, 'Trajectories')
-        # outdir_res = os.path.join(outdir, 'Residues')
+        # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
         if not os.path.exists(outdir):
-            os.makedirs(outdir)
-            # os.makedirs(outdir_traj)
-            # os.makedirs(outdir_res)
+            os.makedirs(outdir)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
 
-        logger.info('Relevant design files are being copied to the new directory: %s' % outdir)
         if save_poses_df is not None:
             selection_trajectory_df_file = os.path.join(outdir, 'TrajectoryMetrics.csv')
-            logger.info('New DataFrame with selected designs was written to %s' % selection_trajectory_df_file)
             save_poses_df.to_csv(selection_trajectory_df_file)
+            logger.info('New DataFrame with selected designs was written to %s' % selection_trajectory_df_file)
 
+        logger.info('Relevant design files are being copied to the new directory: %s' % outdir)
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
         for des_dir, design in results:
             # pose_des_dirs, design = zip(*pose)
