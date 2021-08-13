@@ -1264,7 +1264,8 @@ class Structure(StructureBase):
             if line[:3] == 'SEQ':
                 residues[idx].sasa = float(line[16:])
                 idx += 1
-
+        print(self.name, 'FREESASA returned', len(out.decode('utf-8').split('\n')), 'RESIDUES')
+        print('NUMBER of RESIDUES', self.number_of_residues)
         self.sasa = sum([residue.sasa for residue in self.residues])
 
     def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
