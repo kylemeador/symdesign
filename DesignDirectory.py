@@ -523,6 +523,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         # self.pose.get_assembly_symmetry_mates()
         if not self.pose.assembly.sasa:
+            self.pose.assembly.write(os.path.join(self.data, 'ASSEMBLY_DEBUG.pdb'))
             self.pose.assembly.get_sasa()
 
         # self.pose.assembly.write(out_path=os.path.join(self.path, 'POSE_ASSEMBLY.pdb'))
