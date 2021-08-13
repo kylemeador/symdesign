@@ -1267,7 +1267,6 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         except KeyError:
             logger.info('The protocol \'%s\' was not found in the set of designs...' % protocol)
             # raise DesignError('The protocol \'%s\' was not found in the set of designs...')
-        # else:
             available_protocols = df.columns.get_level_values(0).unique()
             while True:
                 protocol = input('What protocol would you like to choose?%s\nAvailable options are: %s%s'
@@ -1280,20 +1279,19 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
                     print('Invalid protocol %s. Please choose one of %s' % (protocol, ', '.join(available_protocols)))
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
             protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
-        print(protocol_df)
         # ensure 'dock'ing data is present in all protocols
         simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
     else:
         protocol = 'pose'
-        simple_df = df.loc[:, idx_slice['pose', df.columns.get_level_values(1) != 'std', :]]
-    simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)
+        simple_df = df.loc[:, idx_slice[protocol, df.columns.get_level_values(1) != 'std', :]]
+    simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)  # simplify headers
 
     if filter:
         if isinstance(filter, dict):
             filters = filter
         else:
             available_filters = simple_df.columns.to_list()
-            filters = query_user_for_metrics(available_filters, df=df, mode='filter', level='design')
+            filters = query_user_for_metrics(available_filters, df=simple_df, mode='filter', level='design')
         logger.info('Using filter parameters: %s' % str(filters))
 
         # When df is not ranked by percentage
@@ -1319,7 +1317,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
             weights = weight
         else:
             available_metrics = simple_df.columns.to_list()
-            weights = query_user_for_metrics(available_metrics, df=df, mode='weight', level='design')
+            weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
         logger.info('Using weighting parameters: %s' % str(weights))
         design_ranking_s = rank_dataframe_by_metric_weights(simple_df, weights=weights)
 
@@ -1340,15 +1338,10 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         #     design_ranking_s = design_score_df.sum(axis=1)
         weighted_df = pd.concat([design_ranking_s], keys=[(protocol, 'sum', 'selection_weight')], axis=1)
         final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
-        # designs = weighted_s.index.to_list()
     else:
         final_df = df.loc[simple_df.sort_values('interface_energy', ascending=True).index, :]
-        # designs = _df.index.to_list()
-    # these will be sorted by the largest value to the smallest
-    # design_scores_s = (ranked_df[weights_s.index.to_list()] * weights_s).sum(axis=1).sort_values(ascending=False)
-    # designs = design_scores_s.index.to_list()
-    # designs = design_scores_s.index.to_list()[:num_designs]
-    # return designs
+
+    # final_df is sorted by the best value to the worst
     return final_df
 
 
@@ -1701,8 +1694,7 @@ def rank_dataframe_by_metric_weights(df, weights=None):  # , save_ranking=False,
     Keyword Args:
          weights=None (dict[mapping[str, float]]): {'metric': value, ...}. If not provided, sorts by interface_energy
     Returns:
-        (pandas.Series): The sorted Series of values based on specified metrics
-        # (list): The list of indices that were selected
+        (pandas.Series): The sorted Series of values with the best indices first (top) and the worst on the bottom
     """
     if weights:
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
@@ -1714,4 +1706,4 @@ def rank_dataframe_by_metric_weights(df, weights=None):  # , save_ranking=False,
                         for metric, parameters in _weights.items()}, axis=1)
         return df.sum(axis=1).sort_values(ascending=False)
     else:  # just sort by lowest energy
-        return df.sort_values('interface_energy', ascending=True)
+        return df['interface_energy'].sort_values('interface_energy', ascending=True)
