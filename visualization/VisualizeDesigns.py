@@ -8,6 +8,10 @@ finish_launching(['pymol', '-q'])
 # from Pose import Pose
 # from SymDesignUtils import possible_symmetries
 
+# TODO integration of the capabilities of SymDesign with pymol plugins to manipulate and design
+#  https://raw.githubusercontent.com/Pymol-Scripts/Pymol-script-repo/master/plugins/SuperSymPlugin.py
+
+
 expand_matrices = \
     {'T': [[[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, -0.0, 1.0]],
            [[-1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, 1.0]],
