@@ -316,6 +316,22 @@ class PDB(Structure):
         coords, atom_info = [], []
         atom_idx = 0
         for line in pdb_lines:
+            # integration of the REMARK 350 BIOMT
+            # matrices = []
+            # current_trans = -1
+            # tokens = line.split()
+            # # REM, TAG, BIOMT, OPNO, X, Y, Z, TX = line.split()
+            #     if len(tokens) != 8:
+            #         continue
+            #     if tokens[0]=='REMARK' and tokens[1]=='350' and tokens[2].startswith('BIOMT'):
+            #         if tokens[3] != current_trans:
+            #           # new transformation matrix
+            #           current_trans = tokens[3]  # KM I think this is better here
+            #           matrices.append([])
+            #         # add the transformation to the current matrix
+            #         matrices[-1].append(list(map(float, tokens[4:])))  # np.array(map(float, tokens[4:])))
+            #         # current_trans = tokens[3]
+
             if line[:4] == 'ATOM' or line[17:20] == 'MSE' and line[:6] == 'HETATM':
                 alt_location = line[16:17].strip()
                 # if remove_alt_location and alt_location not in ['', 'A']:
