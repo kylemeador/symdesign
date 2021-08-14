@@ -1264,8 +1264,6 @@ class Structure(StructureBase):
             if line[:3] == 'SEQ':
                 residues[idx].sasa = float(line[16:])
                 idx += 1
-        print(self.name, 'FREESASA returned', len(out.decode('utf-8').split('\n')), 'RESIDUES')
-        print('NUMBER of RESIDUES', self.number_of_residues)
         self.sasa = sum([residue.sasa for residue in self.residues])
 
     def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
@@ -3507,11 +3505,13 @@ class Residue:
         return NotImplemented
 
     def __str__(self, pdb=False, chain=None, atom_offset=0, **kwargs):  # type=None, number=None, **kwargs
-        residue_str = format(self.type, '3s'), (chain or self.chain), \
-                      format(getattr(self, 'number%s' % ('_pdb' if pdb else '')), '4d')
+        """Format the Residue into the contained Atoms. The Atom number is truncated at 5 digits for PDB compliant
+        formatting"""
+        res_str = format(self.type, '3s'), (chain or self.chain), \
+            format(getattr(self, 'number%s' % ('_pdb' if pdb else '')), '4d')
         offset = 1 + atom_offset
         return '\n'.join(self._atoms.atoms[idx].__str__(**kwargs)
-                         % (format(idx + offset, '5d'), *residue_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
+                         % (format(idx + offset, '5d')[-5:], *res_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
                          for idx, coord in zip(self._atom_indices, self.coords.tolist()))
 
     def __hash__(self):
@@ -3904,7 +3904,7 @@ class Atom:
         # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
         # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
-        # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        # return'{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'
         return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
             .format('ATOM', self.type, self.alt_location, self.code_for_insertion, self.occ, self.temp_fact,
                     self.element_symbol, self.atom_charge)
