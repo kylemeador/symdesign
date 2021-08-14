@@ -2144,7 +2144,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # design_assemblies = []  # Todo use to store the assemblies generated below?
             atomic_deviation, per_residue_data = {}, {}
             per_residue_data['errat_deviation'] = {}
-            for structure in enumerate(design_structures):  # Takes 1-2 seconds for Structure -> assembly -> errat
+            for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
                 if structure.name not in scores_df.index:
                     continue
                 assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
