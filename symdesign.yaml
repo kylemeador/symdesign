@@ -161,4 +161,9 @@ dependencies:
   - xz=5.2.5=h516909a_1
   - zlib=1.2.11=h516909a_1010
   - zstd=1.5.0=ha95c52a_0
+  - pip:
+    - dnachisel==3.2.7
+    - flametree==0.1.11
+    - python-codon-tables==0.1.10
+    - tqdm==4.61.1
 prefix: /home/kmeador/miniconda3/envs/symdesign
