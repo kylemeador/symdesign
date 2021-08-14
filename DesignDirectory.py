@@ -1931,6 +1931,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # initialize empty design dataframes
         idx_slice = pd.IndexSlice
+        errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
+        collapse_significance_threshold = 0.43
         stat_s, divergence_s, sim_series = pd.Series(), pd.Series(), []
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
             self.log.debug('Missing design scores file at %s' % self.scores_file)
@@ -2336,15 +2338,18 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                            for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
             errat_df = \
                 per_residue_df.loc[:, idx_slice[:, per_residue_df.columns.get_level_values(1) == 'errat_deviation']].droplevel(-1, axis=1)
-            errat_significance_threshold = 11.52
-            collapse_significance_threshold = 0.43
-            wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
-            wt_errat_concatenated_s.index += 1
-            wt_errat_boolean = (wt_errat_concatenated_s < errat_significance_threshold)
-            errat_significance_df = (errat_df > errat_significance_threshold)
-            errat_design_significance = errat_significance_df.loc[:, wt_errat_boolean].any(axis=1)
-            errat_design_residue_significance = errat_significance_df.loc[:, wt_errat_boolean].any(axis=0)
+            wt_errat_concat_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
+            wt_errat_concat_s.index += 1
+            # include if errat score is < 2 std devs and isn't 0.  TODO what about measuring wild-type when no design?
+            wt_errat_inclusion_boolean = np.logical_or(wt_errat_concat_s < errat_2_sigma, wt_errat_concat_s != 0.)
+            # errat_sig_df = (errat_df > errat_2_sigma)
+            # find where the designs deviate over the wild-type
+            print('SUBTRACTION', errat_df.sub(wt_errat_concat_s, axis=1))
+            errat_sig_df = (errat_df.sub(wt_errat_concat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+            # then select only those residues which are expressly important by the inclusion boolean
+            errat_design_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=1)
             # print('SIGNIFICANCE', errat_design_significance)
+            errat_design_residue_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=0)
             # print('RESIDUE SIGNIFICANCE', errat_design_residue_significance[errat_design_residue_significance].index.tolist())
             pose_collapse_df['errat_deviation'] = errat_design_significance
             # significant_errat_residues = \
@@ -2446,8 +2451,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # Plot: Errat Accuracy
                 errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
-                wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='clean_asu')
-                errat_graph_df['clean_asu'] = wt_errat_concatenated_s
+                # wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='clean_asu')
+                errat_graph_df['clean_asu'] = wt_errat_concat_s
                 errat_graph_df.index += 1  # offset index to residue numbering
                 errat_graph_df.sort_index(axis=1, inplace=True)
                 # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
@@ -2470,7 +2475,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 errat_ax.vlines(design_residues_l, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
                                 label='Design Residues', colors='#f89938', lw=2)  # , orange)
                 # Plot horizontal significance
-                errat_ax.hlines([errat_significance_threshold], 0, 1, transform=errat_ax.get_yaxis_transform(),
+                errat_ax.hlines([errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
                                 label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
                 errat_ax.set_xlabel('Residue Number')
                 errat_ax.set_ylabel('Errat Score')
