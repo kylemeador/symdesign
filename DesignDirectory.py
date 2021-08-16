@@ -155,7 +155,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Analysis flags
         self.analysis = False
         self.skip_logging = False
-        self.copy_nanohedra = False  # no construction specific flags
+        self.copy_nanohedra = kwargs.get('copy_nanohedra', False)  # no construction specific flags
         self.nanohedra_root = None
         # Design attributes
         self.composition = None  # building_blocks (4ftd_5tch)
@@ -199,7 +199,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.percent_residues_fragment_total = None
         self.percent_residues_fragment_center = None
 
-        self.set_flags(**kwargs)  # Todo Depreciate has to be set before set_up_design_directory
+        self.set_flags(**kwargs)  # Todo Depreciate - has to be set before set_up_design_directory
 
         if self.nano:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
@@ -238,7 +238,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
             else:  # if self.construct_pose:
                 path_components = self.source_path.split(os.sep)
-                self.nanohedra_root = '/'.join(path_components[:-4])  # path_components[-5]
+                self.nanohedra_root = os.sep.join(path_components[:-4])  # path_components[-5]
                 # design_symmetry (P432)
                 # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
                 #     .replace(os.sep, '-')
@@ -261,6 +261,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
                 self.name = self.pose_id
                 self.path = os.path.join(self.project_designs, self.name)
+                self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
 
                 if not self.construct_pose:  # no construction specific flags
                     self.write_frags = False
@@ -281,6 +282,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 shutil.copy(self.source_path, self.path)
             else:  # initialize DesignDirectory with existing /program_root/projects/project/design
                 self.path = self.source_path
+                if not os.path.exists(self.path):
+                    raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
                 self.project_designs = os.path.dirname(self.path)
                 self.projects = os.path.dirname(self.project_designs)
                 self.program_root = os.path.dirname(self.projects)
@@ -584,11 +587,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         return int(number_steps1), int(number_steps2)
 
-    def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None, sym_entry=None, debug=False,
+    def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None, debug=False,
                   design_with_fragments=True, generate_fragments=False, write_fragments=True,
-                  output_assembly=False, design_selector=None, ignore_clashes=False, script=True, mpi=False,
-                  number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False, copy_nanohedra=False,
+                  design_selector=None, ignore_clashes=False, script=True, mpi=False,
+                  number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False,
                   **kwargs):
+        # copy_nanohedra=False, output_assembly=False, sym_entry=None,
+
         # self.sym_entry = sym_entry
         if not self.sym_entry and sym_entry_number:
             # self.sym_entry_number = sym_entry_number
@@ -613,7 +618,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.analysis = analysis
         self.skip_logging = skip_logging
         self.debug = debug
-        self.copy_nanohedra = copy_nanohedra
+        # self.copy_nanohedra = copy_nanohedra
 
     def return_symmetry_parameters(self):
         return dict(symmetry=self.design_symmetry, design_dimension=self.design_dimension,
@@ -686,7 +691,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_design_errors(errors=(DesignError, ))
     def set_up_design_directory(self):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
-        self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
+        # self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
         self.start_log()
         # self.scores = os.path.join(self.path, PUtils.scores_outdir)
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
@@ -3008,7 +3013,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @staticmethod
     def make_path(path, condition=True):
-        """Make a path if it doesn't exist yet"""
+        """Make all required directories in specified path if it doesn't exist, and optional condition is True
+
+        Keyword Args:
+            condition=True (bool): A condition to check before the path production is executed
+        """
         if not os.path.exists(path) and condition:
             os.makedirs(path)
 
