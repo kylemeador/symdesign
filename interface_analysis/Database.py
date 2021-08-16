@@ -162,7 +162,7 @@ class DataStore:
             dummy = True
         else:
             for file in glob(os.path.join(self.location, '*%s' % self.extension)):
-                print('Fetching', file)
+                # self.log.debug('Fetching %s' % file)
                 data = self.load_file(file)
                 setattr(self, os.path.splitext(os.path.basename(file))[0], data)
 
