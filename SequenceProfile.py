@@ -2139,21 +2139,17 @@ def distribution_divergence(frequencies, bgd_frequencies, lambda_=0.5):
             continue
         try:
             try:
-                with warnings.catch_warnings() as w:
-                    # Cause all warnings to always be triggered.
-                    warnings.simplefilter('error')
-                    prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
-                    sum_prob2 += prob2
-            except (ValueError, RuntimeWarning):  # math domain error
-                print('item', item)
-                print('frequency', frequency)
-                print('bkgnd', bgd_frequency)
-                print('r', r)
+                # with warnings.catch_warnings() as w:
+                #     # Cause all warnings to always be triggered.
+                #     warnings.simplefilter('error')
+                prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
+                sum_prob2 += prob2
+            except (ValueError, RuntimeWarning):  # math domain error which doesn't manifest as one, instead RunTimeWarn
                 pass  # continue
             try:
                 prob1 = (frequency * log(frequency / r, 2))
                 sum_prob1 += prob1
-            except ValueError:  # math domain error
+            except (ValueError, RuntimeWarning):  # math domain error
                 continue
         except ZeroDivisionError:  # r = 0
             continue
