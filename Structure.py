@@ -638,9 +638,9 @@ class Structure(StructureBase):
         try:
             return self._cb_indices
         except AttributeError:
-            self._cb_indices = [residue.cb_atom_index for residue in self.residues if residue.cb_atom_index]
-            # self._cb_indices = [residue.cb_atom_index if residue.cb_atom_index else residue.ca_atom_index
-            #                     for residue in self.residues]
+            # self._cb_indices = [residue.cb_atom_index for residue in self.residues if residue.cb_atom_index]
+            self._cb_indices = [residue.cb_atom_index if residue.cb_atom_index else residue.ca_atom_index
+                                for residue in self.residues]
             return self._cb_indices
 
     @property
@@ -3049,9 +3049,9 @@ class Residue:
         return [self._atom_indices[index] for index in self._bb_cb_indices]
 
     @backbone_and_cb_indices.setter
-    def backbone_and_cb_indices(self, index):
+    def backbone_and_cb_indices(self, cb_index):
         """Returns: (list[int])"""
-        self._bb_cb_indices = self._bb_indices + ([index] if index else [])
+        self._bb_cb_indices = self._bb_indices + ([cb_index] if cb_index else [])
 
     @property
     def sidechain_indices(self):
@@ -3986,10 +3986,10 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     Args:
-        fixed_coords (numpy.ndarray): The coordinates for the "frozen" object
-        moving_coords (numpy.ndarray): The coordinates for the "mobile" object
+        fixed_coords (numpy.ndarray): The coordinates for the 'frozen' object
+        moving_coords (numpy.ndarray): The coordinates for the 'mobile' object
     Keyword Args:
-        aWeights=None (numpy.ndarray): The optional weights for the calculation of RMSD
+        a_weights=None (numpy.ndarray): Weights for the calculation of RMSD
         allow_rescale=False (bool): Attempt to rescale the mobile point cloud in addition to translation/rotation?
         report_quaternion=False (bool): Whether to report the rotation angle and axis in typical quaternion fashion
     Returns:
