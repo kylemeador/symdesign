@@ -2062,12 +2062,10 @@ if __name__ == '__main__':
         logger.info('Relevant design files are being copied to the new directory: %s' % outdir)
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
         for des_dir, design in results:
-            # pose_des_dirs, design = zip(*pose)
-            # for i, des_dir in enumerate(pose_des_dirs):
-            file = glob('%s/*%s*' % (des_dir.designs, design))  # [i]))
-            if not file:
-                # add to exceptions
-                exceptions.append((des_dir.path, 'No file found for \'%s/*%s*\'' % (des_dir.designs, design)))  # [i])))
+            file_path = os.path.join(des_dir.designs, '*%s*' % design)
+            file = glob(file_path)
+            if not file:  # add to exceptions
+                exceptions.append((des_dir.path, 'No file found for \'%s\'' % file_path))
                 continue
             if not os.path.exists(os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design))):
                 shutil.copy(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
@@ -2082,8 +2080,13 @@ if __name__ == '__main__':
             #     pass
 
         # Format sequences for expression
+        args.output_design_file = os.path.join(outdir, '%sSelectedDesigns.paths' % args.selection_string)
+        design_directories = [des_dir for des_dir, design in results]
         if args.skip_sequence_generation:
             terminate(args.module, design_directories, location=location, output=False)
+        else:
+            with open(args.output_design_file, 'w') as f:
+                f.write('%s\n' % '\n'.join(des_dir.path for des_dir in design_directories))
 
         master_directory.load_pose()
         if args.entity_specification:
