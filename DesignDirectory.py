@@ -2342,10 +2342,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             wt_errat_concat_s.index += 1
             # include if errat score is < 2 std devs and isn't 0.  TODO what about measuring wild-type when no design?
             wt_errat_inclusion_boolean = np.logical_and(wt_errat_concat_s < errat_2_sigma, wt_errat_concat_s != 0.)
-            print('SEPARATE', (wt_errat_concat_s < errat_2_sigma)[30:40], (wt_errat_concat_s != 0.)[30:40])
-            print('LOGICAL AND\n', wt_errat_inclusion_boolean[30:40])
+            # print('SEPARATE', (wt_errat_concat_s < errat_2_sigma)[30:40], (wt_errat_concat_s != 0.)[30:40])
+            # print('LOGICAL AND\n', wt_errat_inclusion_boolean[30:40])
             # errat_sig_df = (errat_df > errat_2_sigma)
-            # find where the designs deviate over the wild-type
+            # find where designs deviate above wild-type errat scores
             # print('SUBTRACTION', errat_df.sub(wt_errat_concat_s, axis=1).iloc[:5, 30:40])
             errat_sig_df = (errat_df.sub(wt_errat_concat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
             # then select only those residues which are expressly important by the inclusion boolean
