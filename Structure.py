@@ -1256,8 +1256,8 @@ class Structure(StructureBase):
         p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius)],
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
-        if err:
-            self.log.warning('\n%s' % err.decode('utf-8'))
+        # if err:  # usually results from Hydrogen atoms, silencing
+        #     self.log.warning('\n%s' % err.decode('utf-8'))
         residues = self.residues
         idx = 0
         for line in out.decode('utf-8').split('\n'):
