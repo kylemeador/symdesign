@@ -44,8 +44,11 @@ class Database:  # Todo ensure that the single object is completely loaded befor
     def load_all_data(self):
         """For every resource, acquire all existing data in memory"""
         #              self.oriented_asu, self.sequences,
-        for source in [self.stride, self.alignments, self.hhblits_profiles, self.oriented, self.refined]:
-            source.get_all_data()
+        for source in [self.stride, self.alignments, self.hhblits_profiles, self.oriented, self.refined]:  # self.full_models
+            try:
+                source.get_all_data()
+            except ValueError:
+                raise ValueError('Issue from source %s' % source)
         # self.log.debug('The data in the Database is: %s'
         #                % '\n'.join(str(store.__dict__) for store in self.__dict__.values()))
 
@@ -159,6 +162,7 @@ class DataStore:
             dummy = True
         else:
             for file in glob(os.path.join(self.location, '*%s' % self.extension)):
+                print('Fetching', file)
                 data = self.load_file(file)
                 setattr(self, os.path.splitext(os.path.basename(file))[0], data)
 

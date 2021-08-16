@@ -2199,7 +2199,10 @@ class Entity(Chain, SequenceProfile):
             chain_ids = []
             for idx, chain in enumerate(chains):  # one of these is the representative, but we can treat it the same
                 if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
-                    _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
+                    try:
+                        _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
+                    except ValueError:
+                        raise ValueError('%s couldn\'t be made oligomeric, superposition3d on different coords' % self.name)
                     self.chain_ops.append(dict(rotation=rot, translation=tx))
                     chain_ids.append(chain.name)
                 else:
