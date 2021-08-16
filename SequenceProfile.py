@@ -1,5 +1,6 @@
 import math
 import os
+import warnings
 from itertools import chain  # repeat
 from math import floor, exp, log, log2
 import subprocess
@@ -2127,21 +2128,28 @@ def distribution_divergence(frequencies, bgd_frequencies, lambda_=0.5):
     Keyword Args:
         jsd_lambda=0.5 (float): Value bounded between 0 and 1
     Returns:
-        (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
+        (float): Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
     sum_prob1, sum_prob2 = 0, 0
     for item, frequency in frequencies.items():
         bgd_frequency = bgd_frequencies.get(item)
         try:
             r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
-        except TypeError:  # bgd_frequency is None
+        except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
             continue
         try:
             try:
-                prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
-                sum_prob2 += prob2
-            except ValueError:  # math domain error
-                continue
+                with warnings.catch_warnings() as w:
+                    # Cause all warnings to always be triggered.
+                    warnings.simplefilter('error')
+                    prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
+                    sum_prob2 += prob2
+            except (ValueError, RuntimeWarning):  # math domain error
+                print('item', item)
+                print('frequency', frequency)
+                print('bkgnd', bgd_frequency)
+                print('r', r)
+                pass  # continue
             try:
                 prob1 = (frequency * log(frequency / r, 2))
                 sum_prob1 += prob1
@@ -2619,8 +2627,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             self.query = aligned_sequence.replace('-', '')
             self.query_length = len(self.query)
             self.query_with_gaps = aligned_sequence
-            self.counts =\
-                SequenceProfile.populate_design_dictionary(self.length, alphabet, dtype=int)
+            self.counts = SequenceProfile.populate_design_dictionary(self.length, alphabet, dtype=int)
             for record in self.alignment:
                 for i, aa in enumerate(record.seq, 1):
                     self.counts[i][aa] += 1
@@ -2655,10 +2662,11 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
 
     def msa_to_prob_distribution(self):
-        """Turn Alignment dictionary into a probability distribution
+        """Find the Alignment probability distribution
 
         Sets:
-            (dict): self.frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...}
+            self.frequencies (dict[mapping[int, dict[mapping[alphabet,float]]]]):
+                {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...}
         """
         for residue, amino_acid_counts in self.counts.items():
             total_column_weight = self.observations[residue]
@@ -2831,8 +2839,8 @@ def jensen_shannon_divergence(multiple_sequence_alignment, background_aa_probabi
     Returns:
         (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
     """
-    return {residue: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
-            for residue, aa_probabilities in multiple_sequence_alignment.items()}
+    return {residue_number: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
+            for residue_number, aa_probabilities in multiple_sequence_alignment.items()}
 
 
 def weight_gaps(divergence, representation, alignment_length):  # UNUSED
