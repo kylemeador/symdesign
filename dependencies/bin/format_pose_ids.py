@@ -32,8 +32,7 @@ if __name__ == '__main__':
     if args.project:
         # if os.path.exists():
         # convert path to Pose ID format
-        project = args.project
-        project.replace(os.sep, '-')
+        project = args.project.replace(os.sep, '-')
         if not project.endswith('-'):
             project += '-'
     else:
