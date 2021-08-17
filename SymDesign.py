@@ -1980,12 +1980,12 @@ if __name__ == '__main__':
             df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
             if args.protocol:
                 group_df = df.groupby('protocol')
-                protocol_df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
-                                        keys=list(zip(group_df.groups, repeat('mean'))))
+                df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
+                               keys=list(zip(group_df.groups, repeat('mean'))))
             else:
                 df = pd.concat([df], axis=1, keys=['pose', 'metric'])
             # Figure out designs from dataframe, filters, and weights
-            selected_poses_df = prioritize_design_indices(protocol_df, filter=args.filter, weight=args.weight,
+            selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
             design_indices = selected_poses_df.index.to_list()
             if args.allow_multiple_poses:
