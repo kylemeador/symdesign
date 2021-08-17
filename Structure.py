@@ -1684,21 +1684,13 @@ class Structure(StructureBase):
         # The BallTree creation is the biggest time cost regardless
 
         # Get CB Atom Coordinates including CA coordinates for Gly residues
-        # indices = self.cb_indices
-        # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
-        # query_coords = self.coords[indices]  # only get the coordinate indices we want
         tree = BallTree(self.coords)  # [self.heavy_atom_indices])  # Todo
         # entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
         query = tree.query_radius(self.coords, distance)  # get v residue w/ [0]
         coords_indexed_residues = self.coords_indexed_residues
         contacting_pairs = set((coords_indexed_residues[idx1], coords_indexed_residues[idx2])
                                for idx2, contacts in enumerate(query) for idx1 in contacts)
-        # residues1, residues2 = split_interface_pairs(contacting_pairs)
-        contact_number = len(contacting_pairs)
         for residue1, residue2 in contacting_pairs:
-            # if residue1.number < residue2.number:  # only get distances for one direction
-            #     continue
-            # residue_distance = residue1.number - residue2.number
             residue_distance = abs(residue1.number - residue2.number)
             if residue_distance < sequence_distance_cutoff:
                 continue
