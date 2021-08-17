@@ -1783,8 +1783,8 @@ if __name__ == '__main__':
         # if not args.directory or not args.project or not args.single:  Todo
         if args.dataframe and not args.directory:
             logger.critical('If using a --dataframe for selection, you must include the directory where the designs are'
-                            'located in order to properly select designs. Please specify -d/--directory on the command '
-                            'line')
+                            ' located in order to properly select designs. Please specify -d/--directory on the command'
+                            ' line')
             # logger.critical('If using a --dataframe for selection, you must include the directory where the designs are'
             #                 'located in order to properly select designs. Please specify -d/--directory, -p/--project, '
             #                 'or -s/--single on the command line') TODO
