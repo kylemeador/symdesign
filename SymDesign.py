@@ -740,7 +740,8 @@ if __name__ == '__main__':
                                help='Whether to filter sequence selection using metrics from DataFrame')
     parser_filter.add_argument('-np', '--number_poses', type=int, default=0, metavar='INT',
                                help='Number of top poses to return per pool of designs.\nDefault=All')
-    parser_filter.add_argument('-p', '--protocol', type=str, help='Use a specific protocol to grab designs from?')
+    parser_filter.add_argument('-p', '--protocol', type=str, help='Use a specific protocol to grab designs from?',
+                               default=None)
     parser_filter.add_argument('-s', '--selection_string', type=str, metavar='string',
                                help='String to prepend to output for custom design selection name')
     parser_filter.add_argument('-w', '--weight', action='store_true',
@@ -1975,12 +1976,14 @@ if __name__ == '__main__':
                 df.drop([index for index in df.index.to_list() if design_directories[idx].name not in index],
                         inplace=True)
             df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
-            # df = pd.concat([df], axis=1, keys=['pose', 'metric'])
             # df = pd.concat([df], axis=1, keys=['metric'])
             df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-            group_df = df.groupby('protocol')
-            protocol_df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
-                                    keys=list(zip(group_df.groups, repeat('mean'))))
+            if args.protocol:
+                group_df = df.groupby('protocol')
+                protocol_df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
+                                        keys=list(zip(group_df.groups, repeat('mean'))))
+            else:
+                df = pd.concat([df], axis=1, keys=['pose', 'metric'])
             # Figure out designs from dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(protocol_df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
