@@ -1283,7 +1283,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
     else:
         protocol = 'pose'
-        simple_df = df.loc[:, idx_slice[protocol, df.columns.get_level_values(1) != 'std', :]]
+        simple_df = df.loc[:, idx_slice[[protocol], df.columns.get_level_values(1) != 'std', :]]
     simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)  # simplify headers
 
     if filter:
