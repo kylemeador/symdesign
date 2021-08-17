@@ -1011,7 +1011,7 @@ def collect_designs(files=None, directory=None, project=None, single=None):
                     exit()
             with open(_file, 'r') as f:
                 paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
-                            repeat(os.sep))  # only strip the trailing '/' separator in case file names are passed
+                            repeat(os.sep))  # only strip the trailing 'os.sep' in case file names are passed
             all_paths.extend(paths)
             location = _file
     elif directory:
