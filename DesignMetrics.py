@@ -1700,7 +1700,10 @@ def rank_dataframe_by_metric_weights(df, weights=None):  # , save_ranking=False,
         _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
                     for metric, value in weights.items()}
 
-        sort_direction = {'max': False, 'min': True}  # max - ascending=False, min - ascending=True
+        # This sorts the wrong direction despite the perception that it sorts correctly
+        # sort_direction = {'max': False, 'min': True}  # max - ascending=False, min - ascending=True
+        # This sorts the correct direction, putting small and negative value (min is better) with the highest rank
+        sort_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
         df = pd.concat({metric: df[metric].rank(ascending=sort_direction[parameters['direction']],
                                                 method=parameters['direction'], pct=True) * parameters['value']
                         for metric, parameters in _weights.items()}, axis=1)
