@@ -725,10 +725,10 @@ def read_scores(file, key='decoy'):
             # entry = loads(json_entry)
             formatted_scores = {}
             for score, value in loads(json_entry).items():
-                if score.startswith('R_'):
-                    formatted_scores[score.replace('R_', '').replace('S_', '')] = value
-                elif score.startswith('per_res_'):  # there are a lot of these scores in particular
+                if score.startswith('per_res_'):  # there are a lot of these scores in particular
                     formatted_scores[score] = value
+                elif score.startswith('R_'):
+                    formatted_scores[score.replace('R_', '').replace('S_', '')] = value
                 else:
                     score = score.replace('res_summary_', '').replace('solvation_total', 'solvation')
                     formatted_scores[columns_to_rename.get(score, score)] = value
@@ -756,7 +756,7 @@ def keys_from_trajectory_number(pdb_dict):
     return {key.split('_')[-1]: value for key, value in pdb_dict.items()}
 
 
-def join_columns(row):
+def join_columns(row):  # UNUSED
     """Combine columns in a dataframe with the same column name. Keep only the last column record
 
     Returns:
@@ -795,7 +795,7 @@ def columns_to_new_column(df, column_dict, mode='add'):
     return df
 
 
-def calc_relative_sa(aa, sa):
+def calc_relative_sa(aa, sa):  # UNUSED
     """Calculate relative surface area according to theoretical values of Tien et al. 2013"""
     return round(sa / gxg_sasa[aa], 2)
 

@@ -166,7 +166,7 @@
 		<Add mover_name="repack_switch"/> # set up additional repacking after entity isolation
 		<Add mover_name="add_csts"/> # add csts with the current pose
 		# ^ ACTUALLY DON'T. WILL BE MEASURE OF HOW MUCH INPUT RESIDUE COORDINATES ARE UNHAPPY
-		## NOT THE PLACE FOR THIS ^. NEED AN ACCURATE REFERENCE FOR COMPARISON AND THEY HAVE BEEN ON UNTIL NOW.
+		## NOT THE PLACE FOR THIS ^. NEED AN ACCURATE REFERENCE FOR COMPARISON AND CONSTRAINTS HAVE BEEN ON UNTIL NOW
 		<Add mover_name="metrics"/>
 	</PROTOCOLS>
 
