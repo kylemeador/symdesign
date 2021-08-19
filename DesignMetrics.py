@@ -697,7 +697,6 @@ stats_metrics = ['mean', 'std']
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
 
-# from table 1, theoretical values of Tien et al. 2013
 residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.},
                     'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
                              'hydrophobic': {'complex': 0., 'unbound': 0.}},

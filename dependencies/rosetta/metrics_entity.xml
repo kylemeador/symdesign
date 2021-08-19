@@ -2,7 +2,9 @@
 
 	<SCOREFXNS>
 		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
 		<ScoreFunction name="2015" weights="ref2015"/>
+		<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
 		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
 		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
 	</SCOREFXNS>
@@ -20,8 +22,9 @@
 		<Not name="not_entity" selector="entity"/>
 		<And name="entity_interface_residues" selectors="entity,tot_interface"/>
 		<SymmetricalResidue name="entity_interface_residues_sym" selector="entity_interface_residues"/>
-		<Neighborhood name="entity_residue_neighbors" selector="entity_interface_residues" include_focus_in_subset="false" distance="8.0"/> # Cb neighbors
-		<Or name="entity_interface_and_neighbors" selectors="entity_interface_residues,entity_residue_neighbors"/>
+		<Neighborhood name="entity_interface_neighbors" selector="entity_interface_residues" include_focus_in_subset="false" distance="8.0"/> # Cb neighbors
+		<And name="entity_only_interface_neighbors" selectors="entity,entity_interface_neighbors"/>
+		<Or name="entity_interface_and_neighbors" selectors="entity_interface_residues,entity_only_interface_neighbors"/>
 		<SymmetricalResidue name="entity_interface_and_neighbors_sym" selector="entity_interface_and_neighbors"/>
 		<Not name="not_entity_interface_and_neighbors" selector="entity_interface_and_neighbors"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
@@ -110,15 +113,23 @@
 <!--		<DeleteRegionMover name="measure_entity" residue_selector="not_entity"/>-->
 		<ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>
 		# sample all rotamers to find minimum
-        <SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
+        <SymRotamerTrialsMover name="S_RT" scorefxn="2015_nano_cst" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
+        <RotamerTrialsMover name="RT" scorefxn="2015_cst" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
         # minimize all residues in design_map (move map)
-        <SymMinMover name="min" scorefxn="2015_nano" movemap_factory="design_map"/> # bb="0" chi="1"
+        <SymMinMover name="S_min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
+		<MinMover name="min" scorefxn="2015_cst" movemap_factory="design_map"/> # bb="0" chi="1"
+		<ParsedProtocol name="S_rotamer_trials_min_mover">
+			<Add mover_name="S_RT"/>
+			<Add mover_name="S_min"/> # Min unused in P432
+		</ParsedProtocol>
+		<LoopOver name="S_repack_loop" iterations="4" mover_name="S_rotamer_trials_min_mover"/>
 		<ParsedProtocol name="rotamer_trials_min_mover">
-            <Add mover_name="RT"/>
-            <Add mover_name="min"/> # Min unused in P432
-        </ParsedProtocol>
+			<Add mover_name="RT"/>
+			<Add mover_name="min"/> # Min unused in P432
+		</ParsedProtocol>
 		<LoopOver name="repack_loop" iterations="4" mover_name="rotamer_trials_min_mover"/>
-		<If name="repack_interface" filter_name="read_repacking" true_mover_name="repack_loop" false_mover_name="null"/>
+		<If name="repack_symmetry_check" filter_name="read_sym" true_mover_name="S_repack_loop" false_mover_name="repack_loop"/>
+		<If name="repack_interface" filter_name="read_repacking" true_mover_name="repack_symmetry_check" false_mover_name="null"/>
 		<FilterReportAsPoseExtraScoresMover name="yes" report_as="repacking" filter_name="report_true"/>
 		<FilterReportAsPoseExtraScoresMover name="no" report_as="repacking" filter_name="report_false"/>
 		<SwitchMover name="repack_switch" movers="yes,no" selected="%%repack%%"/>
