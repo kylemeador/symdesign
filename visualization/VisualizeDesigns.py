@@ -112,7 +112,19 @@ def save_group(group='all', one_file=True, out_dir=os.getcwd()):
                 cmd.save(os.path.join(out_dir, '%s.pdb' % model), model)
 
 
+# TODO
+def select_residues(obj=None, chains=None, residues=None):
+    print('Received object', obj)
+    print('Received chains', chains)
+    print('Received residues', residues)
+    cmd.select('new_selection', '%s & %s & %s'
+               % (('byobj %s' % obj) if obj else '',
+                  ' '.join('chain %s' % chain for chain in chains) if chains else '',
+                  ' '.join('resi %s' % residue for residue in residues) if residues else ''))
+
+
 cmd.extend('expand', expand)
+cmd.extend('select_residues', select_residues)
 cmd.extend('save_group', save_group)
 
 

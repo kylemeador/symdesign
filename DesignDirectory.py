@@ -1098,6 +1098,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         pdb_list = os.path.join(self.scripts, 'design_files.txt')
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list]
         main_cmd += ['-in:file:l', pdb_list, '@%s' % self.flags,
+                     # TODO out:file:score_only file is not respected if out:path:score_file given
+                     #  -run:score_only true?
                      '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
         #              '-in:file:native', self.refined_pdb,
         if self.mpi:
