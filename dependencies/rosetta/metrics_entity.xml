@@ -88,14 +88,10 @@
 		<Report name="R_buns_%%entity%%_unbound" 						filter="buns_%%entity%%_unbound"/>
 	</FILTERS>
 
-		# Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%
+    # Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%
 	<FILTERS>
 		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
 	</FILTERS>
-	<MOVERS>
-		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
-		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>
-	</MOVERS>
 
 	<MOVERS>
 		# specify coordinate constraint for the pose
@@ -169,6 +165,12 @@
 			<Add filter_name="R_interface_connectivity_%%entity%%"/>
 			<Add mover_name="run_metrics_unbound"/>
 		</ParsedProtocol>
+	</MOVERS>
+
+    # Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>
 	</MOVERS>
 
 	<PROTOCOLS>
