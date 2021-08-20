@@ -176,7 +176,7 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'errat_deviation':
                       {'description': 'Whether a residue window deviates significantly from typical Errat distribution',
-                       'direction': 'max', 'function': 'boolean', 'filter': True},
+                       'direction': 'min', 'function': 'boolean', 'filter': True},
                   'favor_residue_energy':
                       {'description': 'Total weight of sequence constraints used to favor certain amino acids in design'
                                       '. Only protocols with a favored profile have values',
