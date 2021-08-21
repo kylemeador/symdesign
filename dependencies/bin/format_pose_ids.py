@@ -44,7 +44,7 @@ if __name__ == '__main__':
     if args.keep_design_id:
         pose_ids = [project + pose_id for pose_id in map(str.strip, pose_ids) if pose_id != '']
     elif args.split_design_id:  # assumes each design will have _clean_asu suffix appended
-        pose_ids = ['%s, clean_asu%s' % (project + pose_id.split('_clean_asu')[0], pose_id.split('_clean_asu')[0])
+        pose_ids = ['%s, clean_asu%s' % (project + pose_id.split('_clean_asu')[0], pose_id.split('_clean_asu')[1])
                     for pose_id in map(str.strip, pose_ids) if pose_id != '']
     else:  # assumes each design will have _clean_asu suffix appended
         pose_ids = [project + pose_id.split('_clean_asu')[0] for pose_id in map(str.strip, pose_ids) if pose_id != '']
