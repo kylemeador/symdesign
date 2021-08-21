@@ -15,7 +15,7 @@ from collections import defaultdict
 
 import numpy as np
 # from numba import njit
-from Bio.PDB import PDBParser, Superimposer
+# from Bio.PDB import PDBParser, Superimposer
 
 # import CommandDistributer
 import PathUtils as PUtils
@@ -23,6 +23,7 @@ from classes.SymEntry import SymEntry
 
 
 # Globals
+input_string = '\nInput: '
 index_offset = 1
 rmsd_threshold = 1.0
 layer_group_d = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
@@ -503,40 +504,34 @@ def split_interface_pairs(interface_pairs):
 #################
 
 
-def io_save(data, filename=None):
+def io_save(data, file_name=None):
     """Take an iterable and either output to user, write to a file, or both. User defined choice
 
     Returns
-        None
+        (None)
     """
-    def write_file(filename):
-        if not filename:
-            filename = input('What is your desired filename? (appended to current working directory)\n')
-            filename = os.path.join(os.getcwd(), filename)
-        with open(filename, 'w') as f:
-            f.write('\n'.join(data))
-        print('File \'%s\' was written' % filename)
+    def write_file(file_name):
+        if not file_name:
+            file_name = os.path.join(os.getcwd(), input('What is your desired filename? (appended to current working '
+                                                        'directory)%s' % input_string))
+        with open(file_name, 'w') as f:
+            f.write('%s\n' % '\n'.join(data))
+        print('File \'%s\' was written' % file_name)
 
     while True:
-        _input = input('Enter P to print Data, W to write Data to file, or B for both:').upper()
+        _input = input('Enter P to print Data, W to write Data to file, or B for both%s' % input_string).upper()
         if _input == 'W':
-            write_file(filename)
+            write_file(file_name)
             break
         elif _input == 'P':
             print(data)
             break
         elif _input == 'B':
             print(data)
-            # if not filename:
-            #     filename = input('What is your desired filename? (appended to current directory)\n')
-            #     filename = os.path.join(os.getcwd(), filename)
-            # with open(filename, 'w') as f:
-            #     f.write('\n'.join(data))
-            # print('File \'%s\' was written' % filename)
-            # break
-            write_file(filename)
+            write_file(file_name)
+            break
         else:
-            print('Invalid Input...')
+            print('Invalid input... Try again.')
 
 
 def to_iterable(_obj):
