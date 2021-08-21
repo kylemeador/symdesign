@@ -20,7 +20,10 @@ if __name__ == '__main__':
                                             'Module flags enter:\t%s\n.' % submodule_help)
     # ---------------------------------------------------
     extract_parser = subparsers.add_parser('extract', help='Extract Pose IDs from file for poses of interest.')
-    extract_parser.add_argument('-k', '--keep_design_id', action='store_true', help='An extension in the files to search for.')
+    extract_parser.add_argument('-k', '--keep_design_id', action='store_true',
+                                help='Whether to keep a Design ID appended to the Pose ID')
+    extract_parser.add_argument('-s', '--split_design_id', action='store_true',
+                                help='Whether an additional design name should be split into pose, design pairs')
     extract_parser.add_argument('-p', '--project', type=str, help='Add a project directory to the Pose IDs')
 
     args, additional_args = parser.parse_known_args()
@@ -40,6 +43,9 @@ if __name__ == '__main__':
 
     if args.keep_design_id:
         pose_ids = [project + pose_id for pose_id in map(str.strip, pose_ids) if pose_id != '']
+    elif args.split_design_id:  # assumes each design will have _clean_asu suffix appended
+        pose_ids = ['%s, clean_asu%s' % (project + pose_id.split('_clean_asu')[0], pose_id.split('_clean_asu')[0])
+                    for pose_id in map(str.strip, pose_ids) if pose_id != '']
     else:  # assumes each design will have _clean_asu suffix appended
         pose_ids = [project + pose_id.split('_clean_asu')[0] for pose_id in map(str.strip, pose_ids) if pose_id != '']
 
