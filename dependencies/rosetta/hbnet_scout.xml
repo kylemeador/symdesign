@@ -63,7 +63,7 @@
 <!--		<CalculatorMetric name="M_interaction_energy_density_metric" equation="E / Number" custom_type="filter_core_pack">-->
 <!--			<Var name="E" reported="M_interaction_energy"/> #  metric="M_interaction_energy"-->
 <!--			<Var name="Number" reported="M_core_residue_count"/>-->
-<!--		</CalculatorMetric>--> # Todo not supported in my release
+<!--		</CalculatorMetric>--> # Todo not supported in cassini release version
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
