@@ -741,7 +741,7 @@ if __name__ == '__main__':
     parser_filter.add_argument('-np', '--number_poses', type=int, default=0, metavar='INT',
                                help='Number of top poses to return per pool of designs.\nDefault=All')
     parser_filter.add_argument('-p', '--protocol', type=str, help='Use a specific protocol to grab designs from?',
-                               default=None)
+                               default=None, nargs='*')
     parser_filter.add_argument('-s', '--selection_string', type=str, metavar='string',
                                help='String to prepend to output for custom design selection name')
     parser_filter.add_argument('-w', '--weight', action='store_true',
@@ -788,8 +788,8 @@ if __name__ == '__main__':
     parser_sequence.add_argument('-o', '--optimize_species', type=str, default='e_coli',
                                  help='The organism where expression will occur and nucleotide usage should be '
                                       'optimized')
-    parser_sequence.add_argument('-p', '--protocol', type=str,
-                                 help='Use a specific protocol when selecting sequences?')
+    parser_sequence.add_argument('-p', '--protocol', type=str, help='Use a specific protocol to grab designs from?',
+                                 default=None, nargs='*')
     parser_sequence.add_argument('-S', '--skip_sequence_generation', action='store_true',
                                  help='Should sequence generation be skipped? Only selected structure files will be '
                                       'collected')
