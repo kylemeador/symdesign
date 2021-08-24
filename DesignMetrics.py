@@ -1260,17 +1260,22 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
     logger.info('Number of starting designs = %d' % len(df))
 
-    if protocol and isinstance(protocol, str):
+    if protocol:
+        if not isinstance(protocol, list):  # protocol is a str
+            # protocol = protocol
+            protocol = [protocol]
+
         try:
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
         except KeyError:
-            logger.info('The protocol \'%s\' was not found in the set of designs...' % protocol)
+            logger.info('Protocol \'%s\' was not found in the set of designs...' % protocol)
             # raise DesignError('The protocol \'%s\' was not found in the set of designs...')
             available_protocols = df.columns.get_level_values(0).unique()
             while True:
                 protocol = input('What protocol would you like to choose?%s\nAvailable options are: %s%s'
                                  % (describe_string, ', '.join(available_protocols), input_string))
                 if protocol in available_protocols:
+                    protocol = [protocol]  # todo make multiple protocol inputs
                     break
                 elif protocol in describe:
                     describe_data(df=df)
@@ -1335,7 +1340,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         #     design_ranking_s = design_score_df.sum(axis=1).sort_values(ascending=False)
         # else:
         #     design_ranking_s = design_score_df.sum(axis=1)
-        weighted_df = pd.concat([design_ranking_s], keys=[(protocol, 'sum', 'selection_weight')], axis=1)
+        weighted_df = pd.concat([design_ranking_s], keys=[('-'.join(weights), 'sum', 'selection_weight')], axis=1)
         final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
     else:
         final_df = df.loc[simple_df.sort_values('interface_energy', ascending=True).index, :]

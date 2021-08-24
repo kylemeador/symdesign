@@ -2890,7 +2890,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return pose_s
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def select_sequences(self, filters=None, weights=None, number=1, protocol=None):
+    def select_sequences(self, filters=None, weights=None, number=1, protocols=None):
         """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
         sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
         sequence with the lowest weight will be selected
@@ -2899,17 +2899,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             filters=None (Iterable): The filters to use in sequence selection
             weights=None (Iterable): The weights to use in sequence selection
             number=1 (int): The number of sequences to consider for each design
-            protocol=None (str): Whether a particular design protocol should be chosen
+            protocols=None (str): Whether particular design protocol(s) should be chosen
         Returns:
             (list[tuple[DesignDirectory, str]]): Containing the selected sequences found
         """
         # Load relevant data from the design directory
         trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
         trajectory_df.dropna(inplace=True)
-        if protocol:
-            designs = trajectory_df[trajectory_df['protocol'] == protocol].index.to_list()
+        if protocols:
+            designs = []
+            for protocol in protocols:
+                designs.extend(trajectory_df[trajectory_df['protocol'] == protocol].index.to_list())
+
             if not designs:
-                raise DesignError('No designs found for protocol %s!' % protocol)
+                raise DesignError('No designs found for protocols %s!' % protocols)
         else:
             designs = trajectory_df.index.to_list()
 
