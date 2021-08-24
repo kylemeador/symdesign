@@ -1285,6 +1285,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
             protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
         # ensure 'dock'ing data is present in all protocols
         simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
+        logger.info('Number of designs after protocol selection = %d' % len(simple_df))
     else:
         protocol = 'pose'
         simple_df = df.loc[:, idx_slice[[protocol], df.columns.get_level_values(1) != 'std', :]]
