@@ -1258,7 +1258,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     else:
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
         df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
-    logger.info('Number of starting designs = %d' % len(df))
+    logger.info('Number of starting designs: %d' % len(df))
 
     if protocol:
         if not isinstance(protocol, list):  # protocol is a str
@@ -1282,10 +1282,12 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
                 else:
                     print('Invalid protocol %s. Please choose one of %s' % (protocol, ', '.join(available_protocols)))
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
+            print(protocol_df)
             protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
+        logger.info('Number of designs (protocol_df) after protocol selection: %d' % len(protocol_df))
         # ensure 'dock'ing data is present in all protocols
         simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
-        logger.info('Number of designs after protocol selection = %d' % len(simple_df))
+        logger.info('Number of designs (simple_df) after protocol selection: %d' % len(simple_df))
     else:
         protocol = 'pose'
         simple_df = df.loc[:, idx_slice[[protocol], df.columns.get_level_values(1) != 'std', :]]
@@ -1309,7 +1311,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         logger.info('Number of designs passing filters:\n\t%s'
                     % '\n\t'.join('%6d - %s' % (len(indices), metric) for metric, indices in filtered_indices.items()))
         final_indices = index_intersection(filtered_indices.values())
-        logger.info('Final set of designs passing all filters has %d members' % len(final_indices))
+        logger.info('Number of designs passing all filters: %d' % len(final_indices))
         if len(final_indices) == 0:
             raise DesignError('There are no poses left after filtering! Try choosing less stringent values or make '
                               'better designs!')

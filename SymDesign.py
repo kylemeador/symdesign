@@ -1989,11 +1989,11 @@ if __name__ == '__main__':
                                                           protocol=args.protocol)
             design_indices = selected_poses_df.index.to_list()
             if args.allow_multiple_poses:
-                logger.info('Choosing %d designs max as specified from the top designs regardless pose'
+                logger.info('Choosing maximum %d designs as specified, from the top ranked designs regardless of pose'
                             % args.number_sequences)
                 results = design_indices[:args.number_sequences]
             else:
-                logger.info('Choosing %d designs max as specified, with only one design allowed per pose'
+                logger.info('Choosing maximum %d designs as specified, with only one design allowed per pose'
                             % args.number_sequences)
                 number_chosen = 0
                 results, selected_designs = [], set()
