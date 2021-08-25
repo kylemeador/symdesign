@@ -1261,8 +1261,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     logger.info('Number of starting designs: %d' % len(df))
 
     if protocol:
-        if not isinstance(protocol, list):  # protocol is a str
-            # protocol = protocol
+        if not isinstance(protocol, list):  # treat protocol as a str
             protocol = [protocol]
 
         try:
@@ -1275,19 +1274,17 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
                 protocol = input('What protocol would you like to choose?%s\nAvailable options are: %s%s'
                                  % (describe_string, ', '.join(available_protocols), input_string))
                 if protocol in available_protocols:
-                    protocol = [protocol]  # todo make multiple protocol inputs
+                    protocol = [protocol]  # todo make multiple protocols available for input ^
                     break
                 elif protocol in describe:
                     describe_data(df=df)
                 else:
                     print('Invalid protocol %s. Please choose one of %s' % (protocol, ', '.join(available_protocols)))
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
-        print(protocol_df)
         protocol_df.dropna(how='all', inplace=True, axis=0)  # drop completely empty rows in case of groupby ops
-        logger.info('Number of designs (protocol_df) after protocol selection: %d' % len(protocol_df))
         # ensure 'dock'ing data is present in all protocols
         simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
-        logger.info('Number of designs (simple_df) after protocol selection: %d' % len(simple_df))
+        logger.info('Number of designs after protocol selection: %d' % len(simple_df))
     else:
         protocol = 'pose'
         simple_df = df.loc[:, idx_slice[[protocol], df.columns.get_level_values(1) != 'std', :]]
