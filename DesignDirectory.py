@@ -2149,7 +2149,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                  for entity, design_sequences in entity_sequences.items()}
 
             # design_assemblies = []  # Todo use to store the assemblies generated below?
-            atomic_deviation, per_residue_data = {}, {}
+            atomic_deviation, per_residue_data = {}, {}  # per residue data includes every residue in the pose
             per_residue_data['errat_deviation'] = {}
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
                 if structure.name not in scores_df.index:
@@ -2157,11 +2157,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
                 # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
-                per_residue_data['interface_density'][structure.name] = \
-                    [density for residue_number, density in enumerate(assembly.local_density(), 1)
-                     if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
+                # per_residue_data['local_density'][structure.name] = \
+                #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
+                #      if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
+                per_residue_data['local_density'][structure.name] = assembly.local_density()[:pose_length]
                 atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
+                assembly.get_sasa()
+                # per_residue_sasa = [residue.sasa for residue in structure.residues
+                #                     if residue.number in self.design_residues]
+                per_residue_sasa = [residue.sasa for residue in structure.residues[:pose_length]]
+                per_residue_data['sasa_total'][structure.name] = per_residue_sasa[:pose_length]
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
             # Calculate hydrophobic collapse for each design
@@ -2546,11 +2552,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # Add local_density information to scores_df
             scores_df['interface_local_density'] = \
                 residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
+            # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+            sasa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
+                                                           residue_df.columns.get_level_values(-1) == 'sasa_total']]
+            bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
+                                                          residue_df.columns.get_level_values(-1) == 'bsa_total']]
+            total_surface_area_df = sasa_assembly_df + bsa_assembly_df
+            scores_df['interface_area_to_residue_surface_ratio'] = \
+                (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
             residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
 
             # POSE ANALYSIS
-            # cst_weights are very large and destroy the mean. remove v'drop' if consensus is run multiple times
+            # consensus cst_weights are very large and destroy the mean. remove v if consensus is run multiple times
             trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
             # add all docking and pose information to each trajectory
             pose_metrics_df = pd.concat([pd.Series(other_pose_metrics)] * len(trajectory_df), axis=1).T
