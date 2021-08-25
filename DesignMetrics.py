@@ -200,6 +200,10 @@ master_metrics = {'average_fragment_z_score':
                   'interface_area_polar':
                       {'description': 'Total polar interface buried surface area',
                        'direction': 'max', 'function': 'rank', 'filter': True},
+                  'interface_area_to_residue_surface_ratio':
+                      {'description': 'The average ratio of interface buried surface area to the surface accessible '
+                                      'residue area in the uncomplexed pose',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'interface_area_total':
                       {'description': 'Total interface buried surface area',
                        'direction': 'max', 'function': 'rank', 'filter': True},
