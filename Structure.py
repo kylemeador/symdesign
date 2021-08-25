@@ -329,7 +329,7 @@ class Structure(StructureBase):
 
     @property
     def coords_indexed_residues(self):
-        """Returns a map of the Residues and Residue atom_indices for each Coord in the Structure
+        """Returns a map of the Residues for each Coord in the Structure
 
         Returns:
             (list[Residue]]): In order of the Residue which owns the corresponding index in .coords attribute
@@ -1160,6 +1160,38 @@ class Structure(StructureBase):
         # self.set_residues_attributes(coords=self._coords)
         # self.renumber_atoms()
 
+    def local_density(self, distance=12.):
+        """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
+        value over each Residue
+
+        Keyword Args:
+            distance=12.0 (float): The cutoff distance with which Atoms should be included in local density
+        Sets:
+            self.residues.local_density
+        Returns:
+            (list[float]): An array like containing the local density around each Residue
+        """
+        all_atom_tree = BallTree(self.coords)  # faster 131 msec/loop
+        all_atom_counts_query = all_atom_tree.query_radius(self.coords, distance, count_only=True)
+        coords_indexed_residues = self.coords_indexed_residues
+        # residue_neighbor_counts, current_residue = 0, coords_indexed_residues[0]
+        current_residue = coords_indexed_residues[0]
+        for residue, atom_neighbor_counts in zip(coords_indexed_residues, all_atom_counts_query):  # should be same len
+            if residue == current_residue:
+                # residue_neighbor_counts += atom_neighbor_counts
+                current_residue.local_density += atom_neighbor_counts
+            else:  # we have a new residue
+                # residue_neighbor_counts /= current_residue.number_of_atoms  # find the average
+                current_residue.local_density /= current_residue.number_of_atoms  # find the average
+                # current_residue.local_density = residue_neighbor_counts  # , add to residue
+                # residue_neighbor_counts, current_residue = atom_neighbor_counts, residue
+                current_residue = residue
+                current_residue.local_density += atom_neighbor_counts
+        # ensure the last residue is calculated
+        current_residue.local_density /= current_residue.number_of_atoms  # find the average
+
+        return [residue.local_density for residue in self.residues]
+
     def is_clash(self, distance=2.1):
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms
@@ -1233,9 +1265,8 @@ class Structure(StructureBase):
             if side_chain_clashes:
                 sc_info = '\n\t'.join('Residue %5d: %s' % (residue.number, str(other).split('\n')[atom_idx])
                                       for residue, other, atom_idx in side_chain_clashes)
-                self.log.warning(
-                    '%s contains %d side-chain clashes from the following Residues to the corresponding Atom:'
-                    '\n\t%s' % (self.name, len(side_chain_clashes), sc_info))
+                self.log.warning('%s contains %d side-chain clashes from the following Residues to the corresponding '
+                                 'Atom:\n\t%s' % (self.name, len(side_chain_clashes), sc_info))
             return False
 
     def get_sasa(self, probe_radius=1.4):
@@ -2937,6 +2968,7 @@ class Residue:
         if coords:
             self.coords = coords
         self.secondary_structure = None
+        self.local_density = 0
         self._contact_order = 0
         self.log = log
 
