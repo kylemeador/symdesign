@@ -2161,6 +2161,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
                 #      if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
                 per_residue_data['local_density'][structure.name] = assembly.local_density()[:pose_length]
+                print('Local Density', per_residue_data['local_density'][structure.name])
                 atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
                 assembly.get_sasa()
@@ -2558,6 +2559,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
                                                           residue_df.columns.get_level_values(-1) == 'bsa_total']]
             total_surface_area_df = sasa_assembly_df + bsa_assembly_df
+            print('SURFACE', sasa_assembly_df)
+            print('BURIED', bsa_assembly_df)
             scores_df['interface_area_to_residue_surface_ratio'] = \
                 (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
