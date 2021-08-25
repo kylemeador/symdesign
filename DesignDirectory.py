@@ -2149,8 +2149,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                  for entity, design_sequences in entity_sequences.items()}
 
             # design_assemblies = []  # Todo use to store the assemblies generated below?
-            atomic_deviation, per_residue_data = {}, {}  # per residue data includes every residue in the pose
-            per_residue_data['errat_deviation'] = {}
+            atomic_deviation = {}
+            per_residue_data = {'errat_deviation': {}, 'local_density': {}}  # per residue data includes every residue in the pose
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
                 if structure.name not in scores_df.index:
                     continue
