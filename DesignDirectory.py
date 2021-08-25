@@ -2167,7 +2167,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 assembly.get_sasa()
                 # per_residue_sasa = [residue.sasa for residue in structure.residues
                 #                     if residue.number in self.design_residues]
-                per_residue_sasa = [residue.sasa for residue in structure.residues[:pose_length]]
+                per_residue_sasa = [residue.sasa for residue in assembly.residues[:pose_length]]
                 per_residue_data['sasa_total'][structure.name] = per_residue_sasa[:pose_length]
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
 
