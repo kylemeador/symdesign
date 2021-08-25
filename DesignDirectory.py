@@ -749,7 +749,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # self._info = self.info.copy()  # create a copy of the state upon initialization
                 # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-                # Todo v temporary patch, remove if, else and else statements once active designs are converted
+                # Todo v temporary patch, remove if and else statements once active designs are converted
                 self.design_residue_ids = self.info.get('design_residue_ids')
                 if self.design_residue_ids:
                     self.design_residue_ids = self.info.get('design_residue_ids', {})
@@ -2156,7 +2156,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     continue
                 assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
-                # atomic_deviation[pdb.name] = pdb.errat(out_path=self.data)
+                # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
+                per_residue_data['interface_density'][structure.name] = \
+                    [density for residue_number, density in enumerate(assembly.local_density(), 1)
+                     if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
                 atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
@@ -2540,6 +2543,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
                                   left_index=True, right_index=True)
+            # Add local_density information to scores_df
+            scores_df['interface_local_density'] = \
+                residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
+
             residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
 
             # POSE ANALYSIS
@@ -2560,8 +2567,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             designs_by_protocol.pop(PUtils.stage[5], None)  # remove consensus if present
             # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
             #                        for protocol, indices in protocol_groups.indices.items()}
+
             # Get unique protocols
-            # unique_protocols = trajectory_df[groups].unique().tolist()
             unique_protocols = list(designs_by_protocol.keys())
             self.log.info('Unique Design Protocols: %s' % ', '.join(unique_protocols))
             pose_stats, protocol_stats = [], []
@@ -2573,7 +2580,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
             pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
             stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
-            # change statistic names for all df that are not groupby means for the output trajectory.csv
+            # change statistic names for all df that are not groupby means for the final trajectory dataframe
             for idx, stat in enumerate(stats_metrics):
                 if stat != 'mean':
                     protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
