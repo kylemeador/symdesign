@@ -278,6 +278,9 @@ master_metrics = {'average_fragment_z_score':
                                       ' values are - H:Alpha helix, G:3-10 helix, I:PI-helix, E:Extended conformation, '
                                       'B/b:Isolated bridge, T:Turn, C:Coil (none of the above)',
                        'direction': None, 'function': None, 'filter': None},
+                  'interface_local_density':
+                      {'description': 'A measure of the average number of atom neighbors for each atom in the interface'
+                       , 'direction': 'max', 'function': 'rank', 'filter': True},
                   'multiple_fragment_ratio':
                       {'description': 'The extent to which fragment observations are connected in the interface. Higher'
                                       ' ratio means multiple fragment observations per residue',
@@ -1144,14 +1147,14 @@ def mutation_conserved(residue_info, bkgnd):
 
 
 def per_res_metric(sequence_metrics, key=None):
-    """Find metric value/residue in sequence dictionary specified by key
+    """Find metric value average over all residues in a per residue dictionary with metric specified by key
 
     Args:
         sequence_metrics (dict): {16: {'S': 0.134, 'A': 0.050, ..., 'jsd': 0.732, 'int_jsd': 0.412}, ...}
     Keyword Args:
-        key='jsd' (str): Name of the residue metric to average
+        key=None (str): Name of the metric to average
     Returns:
-        jsd_per_res (float): 0.367
+        (float): 0.367
     """
     s, total = 0.0, 0
     if key:
