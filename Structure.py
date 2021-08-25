@@ -1182,7 +1182,11 @@ class Structure(StructureBase):
                 current_residue.local_density += atom_neighbor_counts
             else:  # we have a new residue
                 # residue_neighbor_counts /= current_residue.number_of_atoms  # find the average
+                print('Found %d atom neighbors' % current_residue.local_density)
                 current_residue.local_density /= current_residue.number_of_atoms  # find the average
+                print('Local density = %f' % current_residue.local_density)
+                print('Next atom (%s) from residue %d%s has %d atom neighbors'
+                      % (residue.atoms[0].type, residue.number, residue.chain, atom_neighbor_counts))
                 # current_residue.local_density = residue_neighbor_counts  # , add to residue
                 # residue_neighbor_counts, current_residue = atom_neighbor_counts, residue
                 current_residue = residue
