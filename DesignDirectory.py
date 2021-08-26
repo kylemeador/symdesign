@@ -2150,7 +2150,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             # design_assemblies = []  # Todo use to store the assemblies generated below?
             atomic_deviation = {}
-            per_residue_data = {'errat_deviation': {}, 'local_density': {}}  # per residue data includes every residue in the pose
+            per_residue_data = {'errat_deviation': {}, 'local_density': {}, 'sasa_total': {}}  # per residue data includes every residue in the pose
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
                 if structure.name not in scores_df.index:
                     continue
@@ -2160,7 +2160,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # per_residue_data['local_density'][structure.name] = \
                 #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
                 #      if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
-                per_residue_data['local_density'][structure.name] = assembly.local_density()[:pose_length]
+                # per_residue_data['local_density'][structure.name] = assembly.local_density()[:pose_length]
+                per_residue_data['local_density'][structure.name] = \
+                    assembly.local_density(residue_numbers=self.design_residues)[:pose_length]
                 print('Local Density', per_residue_data['local_density'][structure.name])
                 atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
