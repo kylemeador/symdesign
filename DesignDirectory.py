@@ -2162,8 +2162,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 #      if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
                 # per_residue_data['local_density'][structure.name] = assembly.local_density()[:pose_length]
                 per_residue_data['local_density'][structure.name] = \
-                    assembly.local_density(residue_numbers=self.design_residues)[:pose_length]
-                print('Local Density', per_residue_data['local_density'][structure.name])
+                    assembly.local_density(residue_numbers=self.interface_residues)[:pose_length]
                 atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
                 assembly.get_sasa()
@@ -2554,7 +2553,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                   left_index=True, right_index=True)
             # Add local_density information to scores_df
             scores_df['interface_local_density'] = \
-                residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
+                residue_df.loc[:, idx_slice[self.interface_residues,
+                                            residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
             # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
             sasa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
                                                            residue_df.columns.get_level_values(-1) == 'sasa_total']]
@@ -2565,6 +2565,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             print('BURIED', bsa_assembly_df)
             scores_df['interface_area_to_residue_surface_ratio'] = \
                 (bsa_assembly_df / total_surface_area_df).mean(axis=1)
+            print(scores_df['interface_area_to_residue_surface_ratio'])
 
             residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
 
