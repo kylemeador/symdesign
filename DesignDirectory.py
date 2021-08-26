@@ -1919,7 +1919,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose
         design_structures = []
-        for idx, file in enumerate(self.get_designs()):
+        for idx, file in enumerate(self.get_designs()[:5]):
             decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
             # if decoy_name not in scores_df.index:
             #     continue
