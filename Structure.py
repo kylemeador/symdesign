@@ -1160,20 +1160,32 @@ class Structure(StructureBase):
         # self.set_residues_attributes(coords=self._coords)
         # self.renumber_atoms()
 
-    def local_density(self, distance=12.):
+    def local_density(self, residue_numbers=None, distance=12.):
         """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
         value over each Residue
 
         Keyword Args:
+            residue_numbers=None (list[int]): The number of the Residues to include in the calculation
             distance=12.0 (float): The cutoff distance with which Atoms should be included in local density
         Sets:
             self.residues.local_density
         Returns:
             (list[float]): An array like containing the local density around each Residue
         """
-        all_atom_tree = BallTree(self.coords)  # faster 131 msec/loop
-        all_atom_counts_query = all_atom_tree.query_radius(self.coords, distance, count_only=True)
-        coords_indexed_residues = self.coords_indexed_residues
+        if residue_numbers:
+            coords = []
+            residues = self.get_residues(numbers=residue_numbers)
+            for residue in residues:
+                coords.extend(residue.heavy_coords)
+            coords_indexed_residues = [residue for residue in residues for _ in residue.heavy_atom_indices]
+        else:
+            heavy_atom_indices = self.heavy_atom_indices
+            coords = self.coords[heavy_atom_indices]
+            coords_indexed_residues = \
+                [residue for idx, residue in enumerate(self.coords_indexed_residues) if idx in heavy_atom_indices]
+
+        all_atom_tree = BallTree(coords)  # faster 131 msec/loop
+        all_atom_counts_query = all_atom_tree.query_radius(coords, distance, count_only=True)
         # residue_neighbor_counts, current_residue = 0, coords_indexed_residues[0]
         current_residue = coords_indexed_residues[0]
         for residue, atom_neighbor_counts in zip(coords_indexed_residues, all_atom_counts_query):  # should be same len
@@ -1182,11 +1194,9 @@ class Structure(StructureBase):
                 current_residue.local_density += atom_neighbor_counts
             else:  # we have a new residue
                 # residue_neighbor_counts /= current_residue.number_of_atoms  # find the average
-                print('Found %d atom neighbors' % current_residue.local_density)
                 current_residue.local_density /= current_residue.number_of_atoms  # find the average
-                print('Local density = %f' % current_residue.local_density)
-                print('Next atom (%s) from residue %d%s has %d atom neighbors'
-                      % (residue.atoms[0].type, residue.number, residue.chain, atom_neighbor_counts))
+                # print('Next atom (%s) from residue %d%s has %d atom neighbors'
+                #       % (residue.atoms[0].type, residue.number, residue.chain, atom_neighbor_counts))
                 # current_residue.local_density = residue_neighbor_counts  # , add to residue
                 # residue_neighbor_counts, current_residue = atom_neighbor_counts, residue
                 current_residue = residue
@@ -3062,17 +3072,17 @@ class Residue:
     @property
     def backbone_indices(self):
         """Returns: (list[int])"""
-        return [self._atom_indices[index] for index in self._bb_indices]
+        return [self._atom_indices[idx] for idx in self._bb_indices]
 
     @backbone_indices.setter
     def backbone_indices(self, indices):
         """Returns: (list[int])"""
-        self._bb_indices = [index for index in indices if index]
+        self._bb_indices = [idx for idx in indices if idx]
 
     @property
     def backbone_and_cb_indices(self):
         """Returns: (list[int])"""
-        return [self._atom_indices[index] for index in self._bb_cb_indices]
+        return [self._atom_indices[idx] for idx in self._bb_cb_indices]
 
     @backbone_and_cb_indices.setter
     def backbone_and_cb_indices(self, cb_index):
@@ -3106,14 +3116,20 @@ class Residue:
         return self._coords.coords[self._atom_indices]  # .tolist() Todo ?
 
     @property
+    def heavy_coords(self):
+        """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
+        # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
+        return self._coords.coords[[self._atom_indices[idx] for idx in self._heavy_atom_indices]]
+
+    @property
     def backbone_coords(self):
         """The backbone atomic coords. Provides a view from the Structure that the Residue belongs too"""
-        return self._coords.coords[[self._atom_indices[index] for index in self._bb_indices]]
+        return self._coords.coords[[self._atom_indices[idx] for idx in self._bb_indices]]
 
     @property
     def backbone_and_cb_coords(self):  # in structure too
         """The backbone and CB atomic coords. Provides a view from the Structure that the Residue belongs too"""
-        return self._coords.coords[[self._atom_indices[index] for index in self._bb_cb_indices]]
+        return self._coords.coords[[self._atom_indices[idx] for idx in self._bb_cb_indices]]
 
     @property
     def sidechain_coords(self):
