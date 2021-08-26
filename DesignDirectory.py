@@ -2557,9 +2557,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                             residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
             # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
             sasa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
-                                                           residue_df.columns.get_level_values(-1) == 'sasa_total']]
+                                                           residue_df.columns.get_level_values(-1) == 'sasa_total']]\
+                .droplevel(-1, axis=1)
             bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
-                                                          residue_df.columns.get_level_values(-1) == 'bsa_total']]
+                                                          residue_df.columns.get_level_values(-1) == 'bsa_total']]\
+                .droplevel(-1, axis=1)
             total_surface_area_df = sasa_assembly_df + bsa_assembly_df
             print('SURFACE', sasa_assembly_df)
             print('BURIED', bsa_assembly_df)
