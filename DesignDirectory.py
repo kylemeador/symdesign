@@ -2563,6 +2563,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             total_surface_area_df = sasa_assembly_df + bsa_assembly_df
             print('SURFACE', sasa_assembly_df)
             print('BURIED', bsa_assembly_df)
+            print('TOTAL', total_surface_area_df)
+            ratio_df = bsa_assembly_df / total_surface_area_df
+            print('Ratio', ratio_df)
+            print('Ratio mean axis 0', ratio_df.mean(axis=0))
+            print('Ratio mean axis 1', ratio_df.mean(axis=1))
             scores_df['interface_area_to_residue_surface_ratio'] = \
                 (bsa_assembly_df / total_surface_area_df).mean(axis=1)
             print(scores_df['interface_area_to_residue_surface_ratio'])
