@@ -1295,8 +1295,10 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     else:
         protocol = 'pose'
         simple_df = df.loc[:, idx_slice[[protocol], df.columns.get_level_values(1) != 'std', :]]
+    # this is required for a multi-index column where the different protocols are in the top row of the df columns
     simple_df = pd.concat([simple_df.loc[:, idx_slice[prot, :, :]].droplevel(0, axis=1).droplevel(0, axis=1)
                            for prot in protocol])
+    simple_df.dropna(how='all', inplace=True, axis=0)
     # simple_df = simple_df.droplevel(0, axis=1).droplevel(0, axis=1)  # simplify headers
 
     if filter:
