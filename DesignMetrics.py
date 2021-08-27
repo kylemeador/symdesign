@@ -1259,7 +1259,6 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     if isinstance(df, pd.DataFrame):
-        # df = df
         if list(range(3 - len(df.columns[0]))):
             df = pd.concat([df], axis=1, keys=['pose' for _ in range(3 - len(df.columns[0]))])
     else:
@@ -1351,8 +1350,14 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         #     design_ranking_s = design_score_df.sum(axis=1).sort_values(ascending=False)
         # else:
         #     design_ranking_s = design_score_df.sum(axis=1)
-        weighted_df = pd.concat([design_ranking_s], keys=[('-'.join(weights), 'sum', 'selection_weight')], axis=1)
-        final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
+        design_ranking_s.name = 'selection_weight'
+        print(design_ranking_s)
+        final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
+        print(final_df)
+        # simple_df = pd.concat([simple_df], keys=df.columns.levels[0:1])
+        # weighted_df = pd.concat([design_ranking_s], keys=[('-'.join(weights), 'sum', 'selection_weight')], axis=1)
+        # final_df = pd.merge(weighted_df, simple_df, left_index=True, right_index=True)
+        # final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
     else:
         final_df = df.loc[simple_df.sort_values('interface_energy', ascending=True).index, :]
 
