@@ -1352,7 +1352,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         #     design_ranking_s = design_score_df.sum(axis=1)
         design_ranking_s.name = 'selection_weight'
         final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
-        final_df = pd.concat([final_df], keys=['pose', 'metric'])
+        final_df = pd.concat([final_df], keys=['pose', 'metric'], axis=1)
         # simple_df = pd.concat([simple_df], keys=df.columns.levels[0:1])
         # weighted_df = pd.concat([design_ranking_s], keys=[('-'.join(weights), 'sum', 'selection_weight')], axis=1)
         # final_df = pd.merge(weighted_df, simple_df, left_index=True, right_index=True)
