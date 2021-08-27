@@ -1745,7 +1745,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.interface_residues = []  # update False to list or replace list and attempt addition of new residues
         for entity in self.pose.pdb.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
-            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, lazy=True)  # entities=False)
             entity_oligomer.get_sasa()
             for residue_number in self.design_residues:
                 residue = entity_oligomer.residue(residue_number)
@@ -2083,7 +2083,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 raise DesignError('No residues were found with your design criteria... Your flags may be to stringent '
                                   'or incorrect. Check input files for interface existance')
             self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.design_residues))))
-            interior_residues = self.design_residues.difference(interface_residues)
+            # interior_residues = self.design_residues.difference(interface_residues)
             # if interface_residues != self.design_residues:
             if interior_residues:
                 self.log.info('Residues %s are located in the interior' % ', '.join(map(str, interior_residues)))
