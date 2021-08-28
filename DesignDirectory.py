@@ -772,7 +772,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
 
         if self.specific_design:
-            matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design_path))
+            matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design))
             if matching_designs and os.path.exists(matching_designs[0]):
                 self.specific_design_path = matching_designs[0]
             else:
