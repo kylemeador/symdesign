@@ -772,16 +772,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
 
         if self.specific_design:
-            matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design))
+            matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design_path))
             if matching_designs and os.path.exists(matching_designs[0]):
-                self.specific_design = matching_designs[0]
+                self.specific_design_path = matching_designs[0]
             else:
                 raise DesignError('Couldn\'t locate a design matching the specific_design name %s'
-                                  % self.specific_design)
+                                  % self.specific_design_path)
             if len(matching_designs) > 1:
                 self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
                                  % (len(matching_designs), matching_designs[0]))
-            self.source = self.specific_design
+            self.source = self.specific_design_path
         elif not self.source and os.path.exists(self.asu):  # standard mechanism of loading the pose
             self.source = self.asu
         else:
@@ -1854,7 +1854,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + \
             (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
-            ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb,
+            ['-in:file:s', self.specific_design_path if self.specific_design_path else self.refined_pdb,
              '@%s' % self.flags, '-out:suffix', '_%s' % protocol, '-packing:resfile', res_file,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct
 
