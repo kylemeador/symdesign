@@ -498,6 +498,20 @@ def terminate(module, designs, location=None, results=None, output=True):
     exit(exit_code)
 
 
+def load_global_dataframe():
+    all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
+    for idx, df in enumerate(all_dfs):
+        # all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
+        # get rid of all statistic entries
+        df.drop([index for index in df.index.to_list() if design_directories[idx].name not in index],
+                inplace=True)
+    df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
+    # df = pd.concat([df], axis=1, keys=['metric'])
+    df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+
+    return df
+
+
 def generate_sequence_template(pdb_file):
     pdb = PDB.from_file(pdb_file)
     sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), 'Protein'), id=pdb.filepath)
@@ -1956,15 +1970,7 @@ if __name__ == '__main__':
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = master_directory.program_root
         if args.global_sequences:
-            all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
-            for idx, df in enumerate(all_dfs):
-                # all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
-                # get rid of all statistic entries
-                df.drop([index for index in df.index.to_list() if design_directories[idx].name not in index],
-                        inplace=True)
-            df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
-            # df = pd.concat([df], axis=1, keys=['metric'])
-            df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+            df = load_global_dataframe()
             if args.protocol:
                 group_df = df.groupby('protocol')
                 df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -2002,8 +2008,11 @@ if __name__ == '__main__':
             # include only the found index names to the saved dataframe
             save_poses_df = selected_poses_df.loc[results, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:
-            save_poses_df = None
             results = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
+            df = load_global_dataframe()
+            selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
+                                                          protocol=args.protocol)
+            save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         else:  # select sequences from all poses provided in DesignDirectories
             if args.filter:
                 trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
