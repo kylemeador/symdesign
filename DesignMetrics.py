@@ -1259,7 +1259,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     if isinstance(df, pd.DataFrame):
-        if list(range(3 - len(df.columns.nlevels))):
+        if list(range(3 - df.columns.nlevels)):
             df = pd.concat([df], axis=1, keys=['pose' for _ in range(3 - len(df.columns[0]))])
     else:
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
