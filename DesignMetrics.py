@@ -1259,7 +1259,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     if isinstance(df, pd.DataFrame):
-        if list(range(3 - len(df.columns[0]))):
+        if list(range(3 - len(df.columns.nlevels))):
             df = pd.concat([df], axis=1, keys=['pose' for _ in range(3 - len(df.columns[0]))])
     else:
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
@@ -1292,8 +1292,8 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
         simple_df = pd.merge(df.loc[:, idx_slice[['pose'], ['dock'], :]], protocol_df, left_index=True, right_index=True)
         logger.info('Number of designs after protocol selection: %d' % len(simple_df))
     else:
-        protocol = 'pose'
-        simple_df = df.loc[:, idx_slice[[protocol], df.columns.get_level_values(1) != 'std', :]]
+        protocol = ['pose']  # Todo change to :?
+        simple_df = df.loc[:, idx_slice[protocol, df.columns.get_level_values(1) != 'std', :]]
     # this is required for a multi-index column where the different protocols are in the top row of the df columns
     simple_df = pd.concat([simple_df.loc[:, idx_slice[prot, :, :]].droplevel(0, axis=1).droplevel(0, axis=1)
                            for prot in protocol])
