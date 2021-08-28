@@ -1797,20 +1797,7 @@ if __name__ == '__main__':
         else:
             program_root = master_directory.program_root
 
-        if args.pose_design_file:
-            # Grab all poses (directories) to be processed from either directory name or file
-            with open(args.pose_design_file) as csv_file:
-                csv_lines = [line for line in reader(csv_file)]
-            all_poses, pose_design_numbers = zip(*csv_lines)
-
-            design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
-                                  for pose in all_poses]
-            master_directory = next(iter(design_directories))
-            program_root = master_directory.program_root
-            # design_directories = set_up_directory_objects(all_poses, project=args.project)  # **queried_flags
-            results.append(zip(design_directories, pose_design_numbers))
-            location = args.pose_design_file
-        elif args.dataframe:
+        if args.dataframe:
             # Figure out poses from a dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(args.dataframe, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
@@ -2014,6 +2001,9 @@ if __name__ == '__main__':
                 new_dataframe = os.path.join(program_root, 'DesignPoseMetrics-%s.csv' % (timestamp))
             # include only the found index names to the saved dataframe
             save_poses_df = selected_poses_df.loc[results, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
+        elif args.specification_file:
+            save_poses_df = None
+            results = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
         else:  # select sequences from all poses provided in DesignDirectories
             if args.filter:
                 trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
@@ -2045,7 +2035,7 @@ if __name__ == '__main__':
                 results = []
                 for design in design_directories:
                     results.extend(design.select_sequences(filters=sequence_filters, weights=sequence_weights,
-                                                           number=args.number_sequences, protocol=args.protocol))
+                                                           number=args.number_sequences, protocols=args.protocol))
             save_poses_df = None  # Todo make possible!
 
         if not args.selection_string:
