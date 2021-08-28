@@ -2010,6 +2010,8 @@ if __name__ == '__main__':
         elif args.specification_file:
             results = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
             df = load_global_dataframe()
+            print('INDEX', df.index[:5])
+            print('RESULTS', results[:5])
             selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
             save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
