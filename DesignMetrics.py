@@ -1260,7 +1260,7 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
     if isinstance(df, pd.DataFrame):
         if list(range(3 - df.columns.nlevels)):
-            df = pd.concat([df], axis=1, keys=['pose' for _ in range(3 - df.columns.nlevels)])
+            df = pd.concat([df], axis=1, keys=[('pose') for _ in range(3 - df.columns.nlevels)])
     else:
         df = pd.read_csv(df, index_col=0, header=[0, 1, 2])
         df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
