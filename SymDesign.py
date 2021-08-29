@@ -2392,6 +2392,7 @@ if __name__ == '__main__':
                     except NoSolutionError:  # add the protein sequence?
                         logger.warning('Optimization of %s was not successful!' % design_string)
                         codon_optimization_errors[design_string] = design_sequence
+                        break
 
                     if args.multicistronic:
                         if idx > 0:
