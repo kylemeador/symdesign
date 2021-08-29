@@ -34,11 +34,20 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        }
 
 
-def get_all_file_paths(dir, suffix='', extension=None):
+def get_all_file_paths(dir, suffix='', extension=None, sorted=True):
+    """Return all files in a directory with specified extensions and suffixes
+
+    Keyword Args:
+        sorted=True (bool): Whether to return the files in alphanumerically sorted order
+    """
     if not extension:
         extension = '.pdb'
-    return [os.path.join(os.path.abspath(dir), file)
-            for file in sorted(glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension))))]
+    if sorted:
+        return [os.path.join(os.path.abspath(dir), file)
+                for file in sorted(glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension))))]
+    else:
+        return [os.path.join(os.path.abspath(dir), file)
+                for file in glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension)))]
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):
@@ -132,12 +141,21 @@ cmd.extend('save_group', save_group)
 if __name__ == '__main__':
     if len(sys.argv) < 2:
         exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs 0-10 [original_name]')
+
+    original_name, original_order = False, False
+    if len(sys.argv) > 3:
+        for arg in sys.argv[3:]:
+            if arg == 'original_name':  # design_name:
+                original_name = True
+            elif arg == 'original_order':
+                original_order = True
+
     if 'escher' in sys.argv[1]:
         print('Starting the data transfer now...')
         os.system('scp -r %s .' % sys.argv[1])
-        files = get_all_file_paths(os.path.basename(sys.argv[1]), extension='.pdb')
+        files = get_all_file_paths(os.path.basename(sys.argv[1]), extension='.pdb', sorted=not original_order)
     else:  # assume the files are local
-        files = get_all_file_paths(sys.argv[1], extension='.pdb')
+        files = get_all_file_paths(sys.argv[1], extension='.pdb', sorted=not original_order)
     # print(list(map(str.lstrip, map(os.path.basename, files), 'NanohedraEntry54DockedPoses_Designs-')))
 
     if not files:
@@ -153,10 +171,11 @@ if __name__ == '__main__':
         low_range, high_range = None, None
 
     for idx, file in enumerate(files[low_range:high_range], low_range + 1):
-        if len(sys.argv) == 4 and sys.argv[3] == 'original_name':  # design_name:
+        if original_name:
             cmd.load(file)
         else:
             cmd.load(file, object=idx)
+
 
     print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T')
           # '\nReplace \'T\' with whatever symmetry your design is in\n')
