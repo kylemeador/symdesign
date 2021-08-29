@@ -370,7 +370,7 @@ def optimize_protein_sequence(sequence, species='e_coli'):
         (str): The input sequence optimized to nucleotides for expression considerations
     """
     seq_length = len(sequence)
-    problem = DnaOptimizationProblem(sequence=reverse_translate(sequence), max_random_iters=20000,
+    problem = DnaOptimizationProblem(sequence=reverse_translate(sequence),  # max_random_iters=20000,
                                      objectives=[CodonOptimize(species=species)], logger=None,
                                      constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # twist required
                                                   EnforceGCContent(mini=0.35, maxi=0.65, window=50),  # twist required
@@ -388,7 +388,7 @@ def optimize_protein_sequence(sequence, species='e_coli'):
                                                   ])
 
     # Solve constraints and solve with regards to the objective
-    # problem.max_random_iters = 20000
+    problem.max_random_iters = 20000
     problem.resolve_constraints()
     problem.optimize()
 
