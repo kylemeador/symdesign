@@ -21,6 +21,7 @@ import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Data.IUPACData import protein_letters
+from dependencies.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
@@ -2131,6 +2132,7 @@ if __name__ == '__main__':
 
         missing_tags = {}  # result: [True, True] for result in results
         tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
+        codon_optimization_errors = {}
         for des_dir, design in results:
             file = glob('%s/*%s*' % (des_dir.designs, design))
             if not file:
@@ -2385,7 +2387,12 @@ if __name__ == '__main__':
                                                                 design_sequence)
                 final_sequences[design_string] = design_sequence
                 if args.nucleotide:
-                    nucleotide_sequence = optimize_protein_sequence(design_sequence, species=args.optimize_species)
+                    try:
+                        nucleotide_sequence = optimize_protein_sequence(design_sequence, species=args.optimize_species)
+                    except NoSolutionError:  # add the protein sequence?
+                        logger.warning('Optimization of %s was not successful!' % design_string)
+                        codon_optimization_errors[design_string] = design_sequence
+
                     if args.multicistronic:
                         if idx > 0:
                             cistronic_sequence += intergenic_sequence
@@ -2395,6 +2402,11 @@ if __name__ == '__main__':
             if args.multicistronic:
                 nucleotide_sequences[str(des_dir)] = cistronic_sequence
 
+        # Report Errors
+        if codon_optimization_errors:
+            error_file = SDUtils.write_fasta_file(codon_optimization_errors,
+                                                  '%sOptimizationErrorProteinSequences' % args.selection_string,
+                                                  out_path=outdir, csv=args.csv)
         # Write output sequences to fasta file
         seq_file = SDUtils.write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
                                             out_path=outdir, csv=args.csv)
