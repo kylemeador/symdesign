@@ -90,7 +90,8 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues_sym"/>
 		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano"/>
+<!--		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano"/>-->
+		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015_nano"/>
 		# used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
 		# find the per residue energy of residues in a residue_selector
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
