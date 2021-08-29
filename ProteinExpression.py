@@ -383,7 +383,7 @@ def optimize_protein_sequence(sequence, species='e_coli'):
                                                   UniquifyAllKmers(20),  # twist required
                                                   AvoidRareCodons(0.08, species=species),
                                                   EnforceTranslation(),
-                                                  EnforceMeltingTemperature(mini=10, maxi=60),
+                                                  EnforceMeltingTemperature(mini=10, maxi=60, location=(1, seq_length, 0)),
                                                   ], objectives=[CodonOptimize(species=species)], logger=None)
 
     # Solve constraints and solve with regards to the objective
