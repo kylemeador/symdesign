@@ -387,7 +387,7 @@ def optimize_protein_sequence(sequence, species='e_coli'):
                                                   ], objectives=[CodonOptimize(species=species)], logger=None)
 
     # Solve constraints and solve with regards to the objective
-    problem.max_random_iters = 5000
+    problem.max_random_iters = 20000
     problem.resolve_constraints()
     problem.optimize()
 
