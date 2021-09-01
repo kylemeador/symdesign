@@ -2368,11 +2368,15 @@ if __name__ == '__main__':
                         while True:
                             new_amino_acid = input('What amino acid should be swapped for \'X\' in this sequence '
                                                    'context?\n\t%s\n\t%s%s'
-                                                   % ('%d%s%d' % (idx_range[0] + 1, ' ' * (len(range(*idx_range)) - 2),
+                                                   % ('%d%s%d' % (idx_range[0] + 1, ' ' *
+                                                                  (len(range(*idx_range)) -
+                                                                   (len(str(idx_range[0])) - len(str(idx_range[0])))),
                                                                   idx_range[1] + 1),
                                                       design_sequence[idx_range[0]:idx_range[1]], input_string)).upper()
                             if new_amino_acid in protein_letters:
-                                design_sequence[idx] = new_amino_acid
+                                # design_sequence[idx] = new_amino_acid
+                                design_sequence = design_sequence[idx - 1] + new_amino_acid + design_sequence[idx + 1]
+                                print(design_sequence)
                             else:
                                 print('Input doesn\'t match a canonical amino acid. Please try again')
 
