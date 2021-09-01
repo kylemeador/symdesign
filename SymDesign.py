@@ -500,14 +500,18 @@ def terminate(module, designs, location=None, results=None, output=True):
 
 
 def load_global_dataframe():
+    """Return a pandas DataFrame with the trajectories of every design_directory loaded and formatted according to the
+    design directory and design on the index
+
+    Returns:
+        (pandas.DataFrame)
+    """
     all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
     for idx, df in enumerate(all_dfs):
-        # all_dfs[idx] = df.drop([des for des in df.index.to_list() if design_directories[idx].name in des])
-        # get rid of all statistic entries
+        # get rid of all statistic entries, mean, std, etc.
         df.drop([index for index in df.index.to_list() if design_directories[idx].name not in index],
                 inplace=True)
     df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
-    # df = pd.concat([df], axis=1, keys=['metric'])
     df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
 
     return df
@@ -2011,8 +2015,6 @@ if __name__ == '__main__':
         elif args.specification_file:
             results = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
             df = load_global_dataframe()
-            # print('INDEX', df.index[:5])  # WHY IS THIS THE REPR INSTEAD OF THE DESIGNDIR?
-            # print('RESULTS', results[:5])
             selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
             save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
@@ -2285,30 +2287,31 @@ if __name__ == '__main__':
                                 while True:
                                     termini = input('Your preferred tag will be added to one of the termini. Which '
                                                     'termini would you prefer? [n/c]%s' % input_string)
-                                    if termini in ['n', 'c']:
+                                    if termini.lower() in ['n', 'c']:
                                         break
                                     else:
-                                        print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
+                                        print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required')
                             else:
                                 while True:
-                                    tag_input = int(
-                                        input('What tag would you like to use? Enter the number of the below options.'
-                                              '\n\t%s\n%s'
-                                              % ('\n\t'.join(['%d - %s' % (i, tag)
-                                                              for i, tag in enumerate(expression_tags, 1)]),
-                                                 input_string)))
-                                    if tag_input <= len(expression_tags):
-                                        tag = list(expression_tags.keys())[tag_input - 1]
-                                        break
-                                    else:
-                                        print('Input doesn\'t match available options. Please try again')
+                                    tag_input = input('What tag would you like to use? Enter the number of the below '
+                                                      'options.\n\t%s\n%s' %
+                                                      ('\n\t'.join(['%d - %s' % (i, tag)
+                                                                    for i, tag in enumerate(expression_tags, 1)]),
+                                                       input_string))
+                                    if tag_input.isdigit():
+                                        tag_input = int(tag_input)
+                                        if tag_input <= len(expression_tags):
+                                            tag = list(expression_tags.keys())[tag_input - 1]
+                                            break
+                                    # else:
+                                    print('Input doesn\'t match available options. Please try again')
                                 while True:
                                     termini = input('Your tag will be added to one of the termini. Which termini would '
                                                     'you prefer? [n/c]%s' % input_string)
-                                    if termini in ['n', 'c']:
+                                    if termini.lower() in ['n', 'c']:
                                         break
                                     else:
-                                        print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required.')
+                                        print('\'%s\' is an invalid input. One of \'n\' or \'c\' is required' % termini)
 
                             selected_entity = list(sequences_and_tags.keys())[idx]
                             if termini == 'n':
@@ -2324,7 +2327,7 @@ if __name__ == '__main__':
                         iteration_idx += 1
                         number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
-                elif number_of_tags < number_of_found_tags:
+                elif number_of_tags < number_of_found_tags:  # when more than the requested number of tags were id'd
                     print('There were only %d requested tags for design %s and %d were found'
                           % (number_of_tags, des_dir, number_of_found_tags))
                     while number_of_tags != number_of_found_tags:
@@ -2336,7 +2339,7 @@ if __name__ == '__main__':
                                                           in enumerate(sequences_and_tags.items(), 1)]), input_string))
                         if tag_input == 'keep':
                             break
-                        else:
+                        elif tag_input.isdigit():
                             tag_input = int(tag_input)
                             if tag_input <= len(sequences_and_tags):
                                 missing_tags[(des_dir, design)][tag_input - 1] = 1
@@ -2346,7 +2349,10 @@ if __name__ == '__main__':
                                 # tag = list(expression_tags.keys())[tag_input - 1]
                                 break
                             else:
-                                print('Input doesn\'t match available options. Please try again')
+                                print('Input doesn\'t match an integer from the available options. Please try again')
+                        else:
+                            print('\'%s\' is an invalid input. Try again'
+                                  % tag_input)
                         number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
             # apply all tags to the sequences
@@ -2379,7 +2385,7 @@ if __name__ == '__main__':
                                 design_sequence = design_sequence[:idx] + new_amino_acid + design_sequence[idx + 1:]
                                 break
                             else:
-                                print('Input doesn\'t match a canonical amino acid. Please try again')
+                                print('Input doesn\'t match a single letter canonical amino acid. Please try again')
 
                 # For a final manual check of sequence generation, find sequence additions compared to the design model
                 # and save to view where additions lie on sequence. Cross these additions with design structure to check
