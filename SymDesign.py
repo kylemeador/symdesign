@@ -2363,7 +2363,6 @@ if __name__ == '__main__':
                     # idx = 0
                     seq_length = len(design_sequence)
                     while True:
-                        # idx = design_sequence[idx:].find('X')
                         idx = design_sequence.find('X')
                         if idx == -1:  # Todo clean
                             break
