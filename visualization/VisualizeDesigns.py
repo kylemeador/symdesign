@@ -157,13 +157,11 @@ if __name__ == '__main__':
     if 'escher' in sys.argv[1]:
         print('Starting the data transfer now...')
         os.system('scp -r %s .' % sys.argv[1])
-        # files = get_all_file_paths(os.path.basename(sys.argv[1]), extension='.pdb', sorted=not original_order)
         file_dir = os.path.basename(sys.argv[1])
     else:  # assume the files are local
         file_dir = sys.argv[1]
-        # files = get_all_file_paths(sys.argv[1], extension='.pdb', sorted=not original_order)
     files = get_all_file_paths(file_dir, extension='.pdb', sort=not original_order)
-    # print(list(map(str.lstrip, map(os.path.basename, files), 'NanohedraEntry54DockedPoses_Designs-')))
+
     df_glob = glob(os.path.join(file_dir, 'TrajectoryMetrics.csv'))
     if ranked_order and df_glob:
         df = pd.read_csv(df_glob[0], index_col=0, header=[0])
