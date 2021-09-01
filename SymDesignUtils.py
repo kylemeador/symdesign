@@ -781,9 +781,9 @@ def write_fasta_file(sequence, name, out_path=os.getcwd(), csv=False):
                 raise DesignError('Cannot parse data to make fasta')
         elif isinstance(sequence, dict):
             if csv:
-                outfile.write('\n'.join('%s,%s' % item for item in sequence.items()))
+                outfile.write('%s\n' % '\n'.join('%s,%s' % item for item in sequence.items()))
             else:
-                outfile.write('\n'.join('>%s\n%s' % item for item in sequence.items()))
+                outfile.write('%s\n' % '\n'.join('>%s\n%s' % item for item in sequence.items()))
         elif isinstance(sequence, str):
             outfile.write('>%s\n%s\n' % (name, sequence))
         else:
