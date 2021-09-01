@@ -2360,10 +2360,11 @@ if __name__ == '__main__':
                 if 'X' in design_sequence:
                     logger.critical('An unrecognized amino acid was specified in the sequence %s. '
                                     'This requires manual intervention!' % design_string)
-                    idx = 0
+                    # idx = 0
                     seq_length = len(design_sequence)
                     while True:
-                        idx = design_sequence[idx:].find('X')
+                        # idx = design_sequence[idx:].find('X')
+                        idx = design_sequence.find('X')
                         if idx == -1:  # Todo clean
                             break
                         idx_range = (idx - 6 if idx - 6 > 0 else 0, idx + 6 if idx + 6 < seq_length else seq_length)
@@ -2376,7 +2377,7 @@ if __name__ == '__main__':
                                                                   idx_range[1] + 1),
                                                       design_sequence[idx_range[0]:idx_range[1]], input_string)).upper()
                             if new_amino_acid in protein_letters:
-                                design_sequence = design_sequence[:idx - 1] + new_amino_acid + design_sequence[idx + 1:]
+                                design_sequence = design_sequence[:idx] + new_amino_acid + design_sequence[idx + 1:]
                                 break
                             else:
                                 print('Input doesn\'t match a canonical amino acid. Please try again')
