@@ -122,7 +122,7 @@ def select_tags_for_sequence(sequence_id, pdb_tag_tally, preferred=None, n=True,
             termini = \
                 input('For sequence target %s, NEITHER termini are available for tagging.\n\n'
                       'You can set up tags anyway and modify this sequence later, or skip tagging.\nThe tag options, '
-                      'formatted as, termini: {tag name: count}}, are as follows:\n%s\nWhich termini would you prefer '
+                      'are as follows:\nFormat: termini: {tag name: count}}\n%s\nWhich termini would you prefer '
                       '[n/c]? To skip, input \'skip\'%s' %
                       (sequence_id, '\n'.join('\t%s: %s' % item for item in pdb_tag_tally.items()
                                               if item[0] != 'matching_tags'),
