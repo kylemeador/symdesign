@@ -2,6 +2,7 @@ import os
 import sys
 from glob import glob
 
+import pandas as pd
 from pymol import finish_launching, cmd, stored
 finish_launching(['pymol', '-q'])
 # finish_launching()
@@ -34,7 +35,7 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        }
 
 
-def get_all_file_paths(dir, suffix='', extension=None, sorted=True):
+def get_all_file_paths(dir, suffix='', extension=None, sort=True):
     """Return all files in a directory with specified extensions and suffixes
 
     Keyword Args:
@@ -42,7 +43,7 @@ def get_all_file_paths(dir, suffix='', extension=None, sorted=True):
     """
     if not extension:
         extension = '.pdb'
-    if sorted:
+    if sort:
         return [os.path.join(os.path.abspath(dir), file)
                 for file in sorted(glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension))))]
     else:
@@ -143,20 +144,36 @@ if __name__ == '__main__':
         exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs 0-10 [original_name]')
 
     original_name, original_order = False, False
+    ranked_order = False
     if len(sys.argv) > 3:
         for arg in sys.argv[3:]:
             if arg == 'original_name':  # design_name:
                 original_name = True
             elif arg == 'original_order':
                 original_order = True
+            elif arg == 'ranked_order':
+                ranked_order = True
 
     if 'escher' in sys.argv[1]:
         print('Starting the data transfer now...')
         os.system('scp -r %s .' % sys.argv[1])
-        files = get_all_file_paths(os.path.basename(sys.argv[1]), extension='.pdb', sorted=not original_order)
+        # files = get_all_file_paths(os.path.basename(sys.argv[1]), extension='.pdb', sorted=not original_order)
+        file_dir = os.path.basename(sys.argv[1])
     else:  # assume the files are local
-        files = get_all_file_paths(sys.argv[1], extension='.pdb', sorted=not original_order)
+        file_dir = sys.argv[1]
+        # files = get_all_file_paths(sys.argv[1], extension='.pdb', sorted=not original_order)
+    files = get_all_file_paths(file_dir, extension='.pdb', sort=not original_order)
     # print(list(map(str.lstrip, map(os.path.basename, files), 'NanohedraEntry54DockedPoses_Designs-')))
+    df_glob = glob(os.path.join(file_dir, 'TrajectoryMetrics.csv'))
+    if ranked_order and df_glob:
+        df = pd.read_csv(df_glob[0], index_col=0, header=[0])
+        ordered_files = []
+        for index in df.index:
+            for file in files:
+                if index in file:
+                    ordered_files.append(file)
+                    break
+        files = ordered_files
 
     if not files:
         exit('No .pdb files found in directory %s. Are you sure this is correct?' % sys.argv[1])
@@ -175,7 +192,6 @@ if __name__ == '__main__':
             cmd.load(file)
         else:
             cmd.load(file, object=idx)
-
 
     print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T')
           # '\nReplace \'T\' with whatever symmetry your design is in\n')
