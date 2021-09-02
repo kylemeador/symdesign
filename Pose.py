@@ -2247,15 +2247,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
             # print('INDICES1', atoms_indices1, '\nINDICES2', atoms_indices2)
 
-        # interface_indices = interface_indices1 + interface_indices2
-        # print('INTERFACE ATOMS len', len(interface_indices))
         interface_indices = list(set(interface_indices1).union(interface_indices2))
         # print('INTERFACE ATOMS SET len', len(interface_indices))
         interface_coords = self.model_coords[interface_indices]  # OPERATION ASSUMES ASU IS MODEL_COORDS GROUP 1
         interface_tree = BallTree(interface_coords)
         interface_counts = interface_tree.query_radius(interface_coords, distance, count_only=True)
         # print('COUNTS LEN', len(interface_counts))
-        print('COUNTS', interface_counts)
+        # print('COUNTS', interface_counts)
         return interface_counts.mean()
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
