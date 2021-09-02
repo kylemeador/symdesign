@@ -2238,18 +2238,18 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Returns:
             (float): The local density around each interface
         """
-        interface_atoms1, interface_atoms2 = [], []
+        interface_indices1, interface_indices2 = [], []
         for entity1, entity2 in self.interface_residues:
             atoms_indices1, atoms_indices2 = \
                 split_interface_numbers(self.find_interface_atoms(entity1=entity1, entity2=entity2))
-            interface_atoms1.extend(atoms_indices1), interface_atoms2.extend(atoms_indices2)
-            print('INDICES1', atoms_indices1, '\nINDICES2', atoms_indices2)
+            interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
+            # print('INDICES1', atoms_indices1, '\nINDICES2', atoms_indices2)
 
-        # interface_atoms = interface_atoms1 + interface_atoms2
-        # print('INTERFACE ATOMS len', len(interface_atoms))
-        interface_atoms = list(set(interface_atoms1).union(interface_atoms2))
-        # print('INTERFACE ATOMS SET len', len(interface_atoms))
-        interface_coords = self.model_coords[interface_atoms]
+        # interface_indices = interface_indices1 + interface_indices2
+        # print('INTERFACE ATOMS len', len(interface_indices))
+        interface_indices = list(set(interface_indices1).union(interface_indices2))
+        # print('INTERFACE ATOMS SET len', len(interface_indices))
+        interface_coords = self.model_coords[interface_indices]  # OPERATION ASSUMES ASU IS MODEL_COORDS GROUP 1
         interface_tree = BallTree(interface_coords)
         interface_counts = interface_tree.query_radius(interface_coords, distance, count_only=True)
         # print('COUNTS LEN', len(interface_counts))
