@@ -208,10 +208,14 @@ if __name__ == '__main__':
         logger.info('Node Failure error size: %d' % len(failure))
         logger.info('Other error size: %d' % len(other))
         all_array = sorted(set(memory + failure + other))
-        logger.info('Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, map(operator.add, memory, repeat(1)))))
-        logger.info('Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, map(operator.add, failure, repeat(1)))))
-        logger.info('Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, map(operator.add, other, repeat(1)))))
-        logger.info('Job Array ID\'s with failed outcome:\n\t%s' % ','.join(map(str, map(operator.add, all_array, repeat(1)))))
+        logger.info('Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, memory)))
+        logger.info('Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, failure)))
+        logger.info('Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, other)))
+        logger.info('Job Array ID\'s with failed outcome:\n\t%s' % ','.join(map(str, all_array)))
+        # logger.info('Job Array ID\'s with error due to memory:\n\t%s' % ','.join(map(str, map(operator.add, memory, repeat(1)))))
+        # logger.info('Job Array ID\'s with error due to node failure:\n\t%s' % ','.join(map(str, map(operator.add, failure, repeat(1)))))
+        # logger.info('Job Array ID\'s with other outcome:\n\t%s' % ','.join(map(str, map(operator.add, other, repeat(1)))))
+        # logger.info('Job Array ID\'s with failed outcome:\n\t%s' % ','.join(map(str, map(operator.add, all_array, repeat(1)))))
         if args.file:
             reference_commands = SDUtils.to_iterable(args.file)
             logger.info('There are %d total commands found in %s' % (len(reference_commands), args.file))
@@ -225,7 +229,7 @@ if __name__ == '__main__':
                 raise IndexError('No jobs with ID %s found in the directory %s' % (args.job_id, args.directory))
             reference_array = set(range(len(last_job_array)))
 
-        if args.exclude:
+        if args.exclude:  # TODO test is operator is correct here?
             memory = reference_array.difference(memory)
             failure = reference_array.difference(failure)
             other = reference_array.difference(other)
@@ -238,7 +242,8 @@ if __name__ == '__main__':
         if args.script:
             # commands = SDUtils.to_iterable(args.file)
             args.file = parse_script(args.script)
-            script_with_new_array = change_script_array(args.script, map(operator.add, all_array, repeat(1)))
+            script_with_new_array = change_script_array(args.script, all_array,)
+            # script_with_new_array = change_script_array(args.script, map(operator.add, all_array, repeat(1)))
             logger.info('\n\nRun new script with:\nsbatch %s' % script_with_new_array)
             if len(memory) > 0:
                 logger.info('Memory failures may require you to rerun with a higher memory. It is suggested to edit the'
