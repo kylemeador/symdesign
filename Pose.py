@@ -2063,7 +2063,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #     return entity1_tree.query_radius(entity2_coords, distance)
 
     def find_interface_pairs(self, entity1=None, entity2=None, distance=8):
-        """Get pairs of Residues that have CB atoms within a certain distance between two named Entities
+        """Get pairs of Residues that have CB Atoms within a distance between two Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
@@ -2192,7 +2192,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                        for residue in entity_residues])
 
     def find_interface_atoms(self, entity1=None, entity2=None, distance=4.68):
-        """Get pairs of atom indices that are within a certain distance in the interface between two named Entities
+        """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
@@ -2246,12 +2246,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             print('INDICES1', atoms_indices1, '\nINDICES2', atoms_indices2)
 
         interface_atoms = interface_atoms1 + interface_atoms2
-        print('INTERFACE ATOMS', interface_atoms)
-        print('Model COORDS LEN', len(self.model_coords))
+        print('INTERFACE ATOMS len', len(interface_atoms))
+        interface_atoms = list(set(interface_atoms1).union(interface_atoms2))
+        print('INTERFACE ATOMS SET len', len(interface_atoms))
         interface_coords = self.model_coords[interface_atoms]
         interface_tree = BallTree(interface_coords)
         interface_counts = interface_tree.query_radius(interface_coords, distance, count_only=True)
-        print('COUNTS', interface_counts)
+        print('COUNTS LEN', len(interface_counts))
         return interface_counts.mean()
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
