@@ -1190,19 +1190,13 @@ class Structure(StructureBase):
         current_residue = coords_indexed_residues[0]
         for residue, atom_neighbor_counts in zip(coords_indexed_residues, all_atom_counts_query):  # should be same len
             if residue == current_residue:
-                # residue_neighbor_counts += atom_neighbor_counts
                 current_residue.local_density += atom_neighbor_counts
             else:  # we have a new residue
-                # residue_neighbor_counts /= current_residue.number_of_atoms  # find the average
-                current_residue.local_density /= current_residue.number_of_atoms  # find the average
-                # print('Next atom (%s) from residue %d%s has %d atom neighbors'
-                #       % (residue.atoms[0].type, residue.number, residue.chain, atom_neighbor_counts))
-                # current_residue.local_density = residue_neighbor_counts  # , add to residue
-                # residue_neighbor_counts, current_residue = atom_neighbor_counts, residue
+                current_residue.local_density /= current_residue.number_of_heavy_atoms  # find the average
                 current_residue = residue
                 current_residue.local_density += atom_neighbor_counts
         # ensure the last residue is calculated
-        current_residue.local_density /= current_residue.number_of_atoms  # find the average
+        current_residue.local_density /= current_residue.number_of_heavy_atoms  # find the average
 
         return [residue.local_density for residue in self.residues]
 
@@ -1283,12 +1277,29 @@ class Structure(StructureBase):
                                  'Atom:\n\t%s' % (self.name, len(side_chain_clashes), sc_info))
             return False
 
-    def get_sasa(self, probe_radius=1.4):
+    def get_sasa(self, probe_radius=1.4, atom=False):
         """Use FreeSASA to calculate the surface area of residues in the Structure object.
 
         Sets:
             self.sasa (float)
         """
+        if atom:
+            out_format = 'pdb'
+        # --format=pdb --depth=atom
+        #                                                        RADII  SASA
+        # ATOM   2557  C   PHE C 113      -2.627 -17.654  13.108  1.61  1.39
+        # ATOM   2558  O   PHE C 113      -2.767 -18.772  13.648  1.42 39.95
+        # ATOM   2559  CB  PHE C 113      -1.255 -16.970  11.143  1.88 13.46
+        # ATOM   2560  CG  PHE C 113      -0.886 -17.270   9.721  1.61  1.98
+        # ATOM   2563 CE1  PHE C 113      -0.041 -18.799   8.042  1.76 28.76
+        # ATOM   2564 CE2  PHE C 113      -0.694 -16.569   7.413  1.76  2.92
+        # ATOM   2565  CZ  PHE C 113      -0.196 -17.820   7.063  1.76  4.24
+        # ATOM   2566 OXT  PHE C 113      -2.515 -16.590  13.750  1.46 15.09
+        #
+        # if residue:
+        else:
+            out_format = 'seq'
+        # --format=seq
         # SEQ A    1 MET :   74.46
         # SEQ A    2 LYS :   96.30
         # SEQ A    3 VAL :    0.00
@@ -1299,7 +1310,7 @@ class Structure(StructureBase):
         # SEQ A    8 LYS :    0.87
         # SEQ A    9 ASP :    1.30
         # SEQ A   10 PHE :   64.55
-        p = subprocess.Popen([free_sasa_exe_path, '--format=seq', '--probe-radius', str(probe_radius)],
+        p = subprocess.Popen([free_sasa_exe_path, '--format=%s' % out_format, '--probe-radius', str(probe_radius)],
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         # if err:  # usually results from Hydrogen atoms, silencing
@@ -3444,6 +3455,10 @@ class Residue:
     @property
     def number_of_atoms(self):
         return len(self._atom_indices)
+
+    @property
+    def number_of_heavy_atoms(self):
+        return len(self._heavy_atom_indices)
 
     @property
     def b_factor(self):
