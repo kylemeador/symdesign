@@ -1,4 +1,5 @@
 import os
+import subprocess
 from itertools import combinations
 from warnings import catch_warnings, simplefilter
 
@@ -13,6 +14,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 import pandas as pd
 
+from PathUtils import ialign_exe_path
 from SymDesignUtils import handle_design_errors, DesignError, index_intersection, mp_map, sym, rmsd_threshold
 from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from Structure import superposition3d
@@ -87,7 +89,7 @@ def pose_pair_rmsd(pair):
     # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
     # could use the union as well...?
     des_residue_set = index_intersection(design_residues)
-    if not des_residue_set:  # when the two structures are not significantly overlapped
+    if not des_residue_set:  # when the two structures are not overlapped
         return np.nan
     else:
         # pdb_parser = PDBParser(QUIET=True)
@@ -165,6 +167,21 @@ def pose_rmsd_s(all_des_dirs):
                 # pose_map[pair[0].composition] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
 
     return pose_map
+
+
+def ialign(pdb_file1, pdb_file2, chains1, chains2, out_path=os.getcwd()):
+    """Run ialign on two .pdb files"""
+    # example command
+    # perl ../bin/ialign.pl -w output -s -a 0 1lyl.pdb AC 12as.pdb AB | grep "IS-score = "
+    # output
+    # IS-score = 0.38840, P-value = 0.3808E-003, Z-score =  7.873
+    cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-c1', chains1, '-p2', pdb_file2, '-c2', chains2]
+    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ialign_out, ialign_err = p.communicate()
+    # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
+    grep_p = subprocess.Popen(['grep', 'slurmstepd: error: Exceeded job memory limit'],
+                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    is_score, err = grep_p.communicate(input=ialign_out)
 
 
 def cluster_poses(pose_map):
@@ -439,7 +456,6 @@ def group_compositions(design_directories):
     """From a set of DesignDirectories, find all the compositions and group together"""
     compositions = {}
     for design in design_directories:
-        # design.gather_pose_metrics()
         oligomer_names = tuple(design.entity_names)
         if compositions.get(oligomer_names, None):
             compositions[oligomer_names].append(design)
