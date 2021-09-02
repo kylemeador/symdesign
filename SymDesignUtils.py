@@ -480,7 +480,7 @@ def format_index_string(index_string):
 #     return query
 
 
-def split_interface_pairs(interface_pairs):
+def split_interface_residues(interface_pairs):
     """Used to split Residue pairs and sort by Residue.number"""
     if interface_pairs:
         residues1, residues2 = zip(*interface_pairs)
@@ -490,13 +490,13 @@ def split_interface_pairs(interface_pairs):
         return [], []
 
 
-# def split_interface_pairs(interface_pairs):
-#     """Used to split residue number pairs and sort"""
-#     if interface_pairs:
-#         residues1, residues2 = zip(*interface_pairs)
-#         return sorted(set(residues1), key=int), sorted(set(residues2), key=int)
-#     else:
-#         return [], []
+def split_interface_numbers(interface_pairs):
+    """Used to split residue number pairs and sort"""
+    if interface_pairs:
+        numbers1, numbers2 = zip(*interface_pairs)
+        return sorted(set(numbers1), key=int), sorted(set(numbers2), key=int)
+    else:
+        return [], []
 
 
 #################
