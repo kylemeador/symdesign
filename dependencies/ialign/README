@@ -1,0 +1,23 @@
+You need Perl installed for running iAlign.
+
+Invoke iAlign by typing:
+
+  > perl <intall_dir>/bin/ialign.pl
+
+or
+  > <intall_dir>/bin/ialign.pl
+
+if your perl is installed at /usr/bin/perl.
+
+You may set the following alias in .bashrc (in the bash shell)
+
+  alias ialign='<intall_dir>/bin/ialign.pl'
+
+and invoke ialign simply by
+
+  > ialign
+
+
+See examples under the "example" subdirectory.
+
+Use the option -m for full documentation.

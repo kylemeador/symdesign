@@ -1,0 +1,11 @@
+Two simple examples illustrating usage of iAlign
+
+Align two protein-protein interfaces
+  perl ../bin/ialign.pl -w output 1lyl.pdb AC 12as.pdb AB
+
+All-against-all of a list
+  perl ../bin/ialign.pl -w output test.lst
+
+List against list
+  perl ../bin/ialign.pl -w output -l test.lst -l2 target.lst
+
