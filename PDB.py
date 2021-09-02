@@ -15,7 +15,7 @@ from Bio.Data.IUPACData import protein_letters_3to1_extended
 from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
 from Structure import Structure, Chain, Entity, Atom, Residues
-from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_pairs
+from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues
 from utils.SymmetryUtils import valid_subunit_number
 
 logger = start_log(name=__name__)
@@ -1554,7 +1554,7 @@ class PDB(Structure):
                 iteration += 1
                 self.log.debug('Iteration %d, Chain %s' % (iteration, chain.chain_id))
                 chain_residue_numbers, contacting_residue_numbers = \
-                    split_interface_pairs(self.chain_interface_contacts(chain))
+                    split_interface_residues(self.chain_interface_contacts(chain))
 
                 # find all chains in contact and their corresponding atoms
                 interface_d = {}
