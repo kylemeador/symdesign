@@ -2063,7 +2063,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #     return entity1_tree.query_radius(entity2_coords, distance)
 
     def find_interface_pairs(self, entity1=None, entity2=None, distance=8):
-        """Get pairs of residue numbers that have CB atoms within a certain distance between two named Entities
+        """Get pairs of Residues that have CB atoms within a certain distance between two named Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
@@ -2170,13 +2170,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if not entity1_residues or not entity2_residues:
             self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
-            # self.fragment_queries[(entity1, entity2)] = []
             self.interface_residues[(entity1, entity2)] = ([], [])
             return
         else:
             if entity1 == entity2:
-                for residue in entity2_residues:  # enitty2 usually has fewer residues, this might be quickest
-                    if residue in entity1_residues:  # interface is dimeric and should only have residues on one side
+                for residue in entity2_residues:  # entity2 usually has fewer residues, this might be quickest
+                    if residue in entity1_residues:
+                        # the whole interface is dimeric and should only have residues on one side
                         entity1_residues, entity2_residues = \
                             sorted(set(entity1_residues).union(entity2_residues), key=lambda res: res.number), []
                         break
@@ -2190,6 +2190,69 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.log.debug('Added interface_residues: %s' % ['%d%s' % (residue.number, entities[idx].chain_id)
                        for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)])
                        for residue in entity_residues])
+
+    def find_interface_atoms(self, entity1=None, entity2=None, distance=4.68):
+        """Get pairs of atom indices that are within a certain distance in the interface between two named Entities
+
+        Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
+        Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
+
+        Keyword Args:
+            entity1=None (Entity): First Entity to measure interface between
+            entity2=None (Entity): Second Entity to measure interface between
+            distance=3.28 (float): The distance to measure contacts between atoms. Default = CB radius + 2.8 H2O probe
+        Returns:
+            (list[tuple]): The Atom indices for the interface
+        """
+        residues1, residues2 = self.interface_residues.get((entity1, entity2))
+        if not residues2:  # check if the interface is a self and all residues are in residues1
+            residues2 = copy(residues1)
+
+        entity1_indices = []
+        for residue in residues1:
+            entity1_indices.extend(residue.heavy_atom_indices)
+
+        entity2_indices = []
+        for residue in residues2:
+            entity2_indices.extend(residue.heavy_atom_indices)
+
+        coords_length = len(self.coords)
+        if self.symmetry:
+            # get all symmetric indices
+            entity2_indices = [idx + (coords_length * model_number)
+                               for model_number in range(self.number_of_symmetry_mates) for idx in entity2_indices]
+
+        interface_atom_tree = BallTree(self.coords[entity1_indices])
+        atom_query = interface_atom_tree.query_radius(self.model_coords[entity2_indices], distance)
+        contacting_pairs = [([entity1_indices[entity1_idx]], [entity2_indices[entity2_idx]])
+                            for entity2_idx, entity1_contacts in enumerate(atom_query)
+                            for entity1_idx in entity1_contacts]
+        return contacting_pairs
+
+    def interface_local_density(self, distance=12.):
+        """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
+           value over each Residue
+
+        Keyword Args:
+            distance=12.0 (float): The cutoff distance with which Atoms should be included in local density
+        Returns:
+            (float): The local density around each interface
+        """
+        interface_atoms1, interface_atoms2 = [], []
+        for entity1, entity2 in self.interface_residues:
+            atoms_indices1, atoms_indices2 = \
+                split_interface_numbers(self.find_interface_atoms(entity1=entity1, entity2=entity2))
+            interface_atoms1.extend(atoms_indices1), interface_atoms2.extend(atoms_indices2)
+            print('INDICES1', atoms_indices1, '\nINDICES2', atoms_indices2)
+
+        interface_atoms = interface_atoms1 + interface_atoms2
+        print('INTERFACE ATOMS', interface_atoms)
+        print('Model COORDS LEN', len(self.model_coords))
+        interface_coords = self.model_coords[interface_atoms]
+        interface_tree = BallTree(interface_coords)
+        interface_counts = interface_tree.query_radius(interface_coords, distance, count_only=True)
+        print('COUNTS', interface_counts)
+        return interface_counts.mean()
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
         """For all found interface residues in a Entity/Entity interface, search for corresponding fragment pairs

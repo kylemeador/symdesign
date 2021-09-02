@@ -2149,21 +2149,28 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             entity_alignments = {entity: msa_from_dictionary(design_sequences)
                                  for entity, design_sequences in entity_sequences.items()}
 
-            # design_assemblies = []  # Todo use to store the assemblies generated below?
+            # design_assemblies = []  # Todo use to store the poses generated below?
             atomic_deviation = {}
-            per_residue_data = {'errat_deviation': {}, 'local_density': {}, 'sasa_total': {}}  # per residue data includes every residue in the pose
+            # per residue data includes every residue in the pose
+            per_residue_data = {'errat_deviation': {}, 'sasa_total': {}}  # 'local_density': {},
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
                 if structure.name not in scores_df.index:
                     continue
-                assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
+                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
+                assembly = design_pose.assembly
+                # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
+
                 # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
                 # per_residue_data['local_density'][structure.name] = \
                 #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
                 #      if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
-                # per_residue_data['local_density'][structure.name] = assembly.local_density()[:pose_length]
-                per_residue_data['local_density'][structure.name] = \
-                    assembly.local_density(residue_numbers=self.interface_residues)[:pose_length]
+                # per_residue_data['local_density'][structure.name] = \
+                #     assembly.local_density(residue_numbers=self.interface_residues)[:pose_length]
+
+                # must find interface residues before measure local_density
+                design_pose.find_and_split_interface()
+                scores_df['interface_local_density'] = design_pose.interface_local_density()
                 atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
                 assembly.get_sasa()
@@ -2553,9 +2560,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
                                   left_index=True, right_index=True)
             # Add local_density information to scores_df
-            scores_df['interface_local_density'] = \
-                residue_df.loc[:, idx_slice[self.interface_residues,
-                                            residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
+            # scores_df['interface_local_density'] = \
+            #     residue_df.loc[:, idx_slice[self.interface_residues,
+            #                                 residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
             # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
             sasa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
                                                            residue_df.columns.get_level_values(-1) == 'sasa_total']]\
