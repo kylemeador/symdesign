@@ -2583,7 +2583,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                           residue_df.columns.get_level_values(-1) == 'bsa_total']]\
                 .droplevel(-1, axis=1)
             total_surface_area_df = sasa_assembly_df + bsa_assembly_df
-            ratio_df = bsa_assembly_df / total_surface_area_df
+            # ratio_df = bsa_assembly_df / total_surface_area_df
             scores_df['interface_area_to_residue_surface_ratio'] = \
                 (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
