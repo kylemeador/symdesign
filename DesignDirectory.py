@@ -1518,7 +1518,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
             self.info['entity_names'] = self.entity_names
 
-        if self.pose_transformation:
+        if self.pose_transformation:  # TODO consolidate mechanism as is used in design_analysis
             for idx, entity in enumerate(self.pose.entities, 1):
                 # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
                 entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
@@ -1924,7 +1924,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
             # if decoy_name not in scores_df.index:
             #     continue
-            design_structures.append(PDB.from_file(file, name=decoy_name, log=self.log, entities=False))
+            # design_structures.append(PDB.from_file(file, name=decoy_name, log=self.log, entities=False))
+            structure = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
+            #                        pass names if available ^
+            if self.pose_transformation:
+                for idx, entity in enumerate(self.pose.entities, 1):
+                    # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
+                    entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
+                    # write out new oligomers to the DesignDirectory TODO add flag to include these
+                    # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
+                    # entity.write_oligomer(out_path=out_path)
+            design_structures.append(structure)
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
         profile_background = {}
