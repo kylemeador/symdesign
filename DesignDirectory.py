@@ -2156,7 +2156,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
                 if structure.name not in scores_df.index:
                     continue
-                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
+                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, source_db=self.resources,
+                                            design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
+                                            ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
                 assembly = design_pose.assembly
                 # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
