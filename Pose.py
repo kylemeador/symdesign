@@ -2224,7 +2224,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         interface_atom_tree = BallTree(self.coords[entity1_indices])
         atom_query = interface_atom_tree.query_radius(self.model_coords[entity2_indices], distance)
-        contacting_pairs = [([entity1_indices[entity1_idx]], [entity2_indices[entity2_idx]])
+        contacting_pairs = [(entity1_indices[entity1_idx], entity2_indices[entity2_idx])
                             for entity2_idx, entity1_contacts in enumerate(atom_query)
                             for entity1_idx in entity1_contacts]
         return contacting_pairs
