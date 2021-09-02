@@ -2205,6 +2205,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             (list[tuple]): The Atom indices for the interface
         """
         residues1, residues2 = self.interface_residues.get((entity1, entity2))
+        if not residues1:
+            return
         if not residues2:  # check if the interface is a self and all residues are in residues1
             residues2 = copy(residues1)
 
