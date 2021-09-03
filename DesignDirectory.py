@@ -2162,7 +2162,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                  for entity, design_sequences in entity_sequences.items()}
 
             # design_assemblies = []  # Todo use to store the poses generated below?
-            atomic_deviation = {}
+            interface_local_density, atomic_deviation = {}, {}
             # per residue data includes every residue in the pose
             per_residue_data = {'errat_deviation': {}, 'sasa_total': {}}  # 'local_density': {},
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
@@ -2184,7 +2184,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 # must find interface residues before measure local_density
                 design_pose.find_and_split_interface()
-                scores_df['interface_local_density'] = design_pose.interface_local_density()
+                interface_local_density[structure.name] = design_pose.interface_local_density()
                 atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
                 assembly.get_sasa()
@@ -2193,6 +2193,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 per_residue_sasa = [residue.sasa for residue in assembly.residues[:pose_length]]
                 per_residue_data['sasa_total'][structure.name] = per_residue_sasa[:pose_length]
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
+            scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
             # Calculate hydrophobic collapse for each design
             # Measure the wild type entity versus the modified entity to find the hci delta
