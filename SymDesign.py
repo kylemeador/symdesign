@@ -396,12 +396,9 @@ def catch_and_clean_exceptions():
         raise ex
 
 
-def terminate(module, designs, location=None, results=None, output=True):
+def terminate(location=None, results=None, output=True):
     """Format designs passing output parameters and report program exceptions
 
-    Args:
-        module (str): The module used
-        designs (list(DesignDirectory)): The designs processed
     Keyword Args:
         location=None (str): Where the designs were retrieved from
         results=None (list): The returned results from the module run. By convention contains results and exceptions
@@ -411,12 +408,14 @@ def terminate(module, designs, location=None, results=None, output=True):
     """
     global out_path, timestamp
     # save any information found during the design command to it's serialized state
-    for design in designs:
+    for design in design_directories:
         design.pickle_info()
 
     if results:
-        success = [designs[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
-        exceptions = [(designs[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
+        success = \
+            [design_directories[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
+        exceptions = \
+            [(design_directories[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
     else:
         success, exceptions = [], []
 
@@ -430,7 +429,7 @@ def terminate(module, designs, location=None, results=None, output=True):
         # exit_code = 1
 
     if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
-        master_directory = next(iter(designs))
+        master_directory = next(iter(design_directories))
         job_paths = master_directory.job_paths
         if not location:
             design_source = os.path.basename(master_directory.project_designs)
@@ -444,7 +443,7 @@ def terminate(module, designs, location=None, results=None, output=True):
         if args.output_design_file:
             designs_file = args.output_design_file
         else:
-            designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % (module, design_source, timestamp))
+            designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % (args.module, design_source, timestamp))
 
         with open(designs_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design.path for design in success))
@@ -453,26 +452,33 @@ def terminate(module, designs, location=None, results=None, output=True):
                         'for this project such as \'%s --file %s MODULE\'\n'
                         % (designs_file, PUtils.program_name, PUtils.program_command, designs_file))
 
-        if module == PUtils.analysis:
-            # failures = [idx for idx, result in enumerate(results) if isinstance(result, BaseException)]
-            # for index in reversed(failures):
-            #     del results[index]
-            successes = [result for result in results if not isinstance(result, BaseException)]
-
-            if len(success) > 0:
-                all_scores = master_directory.all_scores
-                # Save Design DataFrame
-                design_df = pd.DataFrame(successes)
-                if args.output == PUtils.analysis_file:
-                    out_path = os.path.join(all_scores, args.output % (os.path.splitext(location)[0], timestamp))
-                else:  # user provided the output path
-                    local_dummy = True  # the global out_path should be used
-                    # out_path = os.path.join(all_scores, args.output)
-                out_path = out_path if out_path.endswith('.csv') else '%s.csv' % out_path
-                design_df.to_csv(out_path)
-                logger.info('Analysis of all poses written to %s' % out_path)
-                if save:
-                    logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
+        if args.module == PUtils.analysis:
+            all_scores = master_directory.all_scores
+            # Save Design DataFrame
+            design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
+            if args.output == PUtils.analysis_file:
+                out_path = os.path.join(all_scores, args.output % (os.path.splitext(location)[0], timestamp))
+            else:  # user provided the output path
+                local_dummy = True  # the global out_path should be used
+                # out_path = os.path.join(all_scores, args.output)
+            out_path = out_path if out_path.endswith('.csv') else '%s.csv' % out_path
+            design_df.to_csv(out_path)
+            logger.info('Analysis of all poses written to %s' % out_path)
+            if save:
+                logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
+        elif args.module == PUtils.cluster_poses:
+            logger.info('Clustering analysis results in the following similar poses:')
+            for cluster, members, in results.items():
+                print('%s\n\t%s' % (cluster, '\n\t'.join(members)))
+            logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
+                        % (len(cluster_representative_pose_member_map), len(design_directories), pose_cluster_file))
+            logger.info('Each cluster above has one representative which identifies with each of the members. If '
+                        'clustering was performed by transformation or interface_residues, then the representative is '
+                        'the most similar to all members. If clustering was performed by ialign, then the '
+                        'representative is randomly chosen.')
+            logger.info('To utilize the above clustering, during %s, using the option --cluster_map, will apply '
+                        'clustering to poses to select a cluster representative based on the most favorable cluster '
+                        'member' % PUtils.select_designs)
 
         design_stage = PUtils.stage[12] if getattr(args, 'scout', None) \
             else (PUtils.stage[2] if getattr(args, 'legacy', None)
@@ -482,14 +488,16 @@ def terminate(module, designs, location=None, results=None, output=True):
                         'interface_metrics': 'interface_metrics',
                         'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
                         'optimize_designs': 'optimize_design'}
-        stage = module_files.get(module)
+        stage = module_files.get(args.module)
         if stage:
             if len(success) == 0:
+                exit_code = 1
                 exit(exit_code)
             # sbatch_scripts = master_directory.sbatch_scripts
             command_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % stage) for design in success],
-                                                  out_path=job_paths, name='_'.join((module, design_source, timestamp)))
-            sbatch_file = distribute(file=command_file, out_path=master_directory.sbatch_scripts, scale=module)
+                                                  out_path=job_paths,
+                                                  name='_'.join((args.module, design_source, timestamp)))
+            sbatch_file = distribute(file=command_file, out_path=master_directory.sbatch_scripts, scale=args.module)
             #                                                                    ^ for sbatch template
             logger.critical('Ensure the created SBATCH script(s) are correct. Specifically, check that the job array '
                             'and any node specifications are accurate. You can look at the SBATCH manual (man sbatch or'
@@ -1394,7 +1402,7 @@ if __name__ == '__main__':
             if load_resources:
                 logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
                             % (PUtils.program_name, ' '.join(sys.argv)))
-                terminate(args.module, design_directories, output=False)
+                terminate(output=False)
                 # The next time this directory is initialized, there will be no refine files left... hopefully and while
                 # loop won't be entered allowing DesignDirectory initialization to proceed
 
@@ -1557,7 +1565,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.orient())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'find_asu':
         if args.multi_processing:
@@ -1566,7 +1574,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.find_asu())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
@@ -1575,7 +1583,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.expand_asu())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'rename_chains':
         if args.multi_processing:
@@ -1584,7 +1592,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.rename_chains())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
     # ---------------------------------------------------
     elif args.module == 'check_clashes':
         if args.multi_processing:
@@ -1593,7 +1601,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.check_clashes())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
@@ -1627,7 +1635,7 @@ if __name__ == '__main__':
                         result = nanohedra_design_recap(dock_directory, args.project)
                         results.append(result)
 
-        terminate(args.module, design_directories, location=args.directory, results=results, output=False)
+        terminate(location=args.directory, results=results, output=False)
         #                                          location=location,
         # # Make single file with names of each directory. Specific for docking due to no established directory
         # args.file = os.path.join(args.directory, 'all_docked_directories.paths')
@@ -1655,7 +1663,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.generate_interface_fragments())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
 
     # ---------------------------------------------------
     elif args.module == 'interface_metrics':
@@ -1667,7 +1675,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.rosetta_interface_metrics())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
 
     # ---------------------------------------------------
     elif args.module == 'optimize_designs':
@@ -1679,7 +1687,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.optimize_designs())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
 
     # ---------------------------------------------------
     elif args.module == 'custom_script':
@@ -1696,7 +1704,7 @@ if __name__ == '__main__':
                                                             suffix=args.suffix, score_only=args.score_only,
                                                             variables=args.variables))
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
 
     # ---------------------------------------------------
     elif args.module == PUtils.interface_design:  # -i fragment_library, -s scout
@@ -1721,7 +1729,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.interface_design())
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
 
     # ---------------------------------------------------
     elif args.module == PUtils.analysis:  # -o output, -f figures, -n no_save, -j join
@@ -1751,7 +1759,7 @@ if __name__ == '__main__':
                 results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
                                                       figures=args.figures))
 
-        terminate(args.module, design_directories, location=location, results=results)
+        terminate(location=location, results=results)
     # ---------------------------------------------------
     # elif args.module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
     #     directory_pairs, failures = None, None
@@ -1917,7 +1925,7 @@ if __name__ == '__main__':
                 design.set_up_design_directory()
             location = program_root
             # write out the chosen poses to a pose.paths file
-            terminate(args.module, design_directories, location=location, results=design_directories)
+            terminate(location=location, results=design_directories)
         else:
             logger.debug('Collecting designs to sort')
             if args.metric == 'score':
@@ -2039,6 +2047,8 @@ if __name__ == '__main__':
             df = load_global_dataframe()
             selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
+            # specify the result order according to any filtering and weighting
+            results = selected_poses_df.index.to_list()
             save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         else:  # select sequences from all poses provided in DesignDirectories
             if args.filter:
@@ -2112,7 +2122,7 @@ if __name__ == '__main__':
         args.output_design_file = os.path.join(outdir, '%sSelectedDesigns.paths' % args.selection_string)
         design_directories = [des_dir for des_dir, design in results]
         if args.skip_sequence_generation:
-            terminate(args.module, design_directories, location=location, output=False)
+            terminate(location=location, output=False)
         else:
             with open(args.output_design_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(des_dir.path for des_dir in design_directories))
