@@ -212,7 +212,7 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'interface_bound_activation_energy':
                       {'description': 'Energy required for the unbound interface to adopt the conformation in the '
-                                      'complexed state', 'direction': 'max', 'function': 'rank', 'filter': True},
+                                      'complexed state', 'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_composition_similarity':
                       {'description': 'The similarity to the expected interface composition given interface buried '
                                       'surface area. 1 is similar to natural interfaces, 0 is dissimilar',
