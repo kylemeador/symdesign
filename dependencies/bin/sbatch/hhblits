@@ -1,7 +1,8 @@
 #!/bin/bash
-#SBATCH --partition=medium
+#SBATCH --partition=long
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=1
+##SBATCH --threads-per-core=2  # requires that cores contain dual threads (hyperthreading). not specified on cassini
 #SBATCH --mem-per-cpu=20000
 #SBATCH --no-requeue  # prevent failures from restarting automatically
 ##Additional SBATCH arguments you may want to uncomment

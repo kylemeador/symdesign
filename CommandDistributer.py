@@ -72,7 +72,7 @@ sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
                     stage[9]: os.path.join(sbatch_template_dir, stage[6]),
                     'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
                     'interface_metrics': os.path.join(sbatch_template_dir, stage[2]),
-                    'optimize_designs': os.path.join(sbatch_template_dir, stage[2]),
+                    'optimize_designs': os.path.join(sbatch_template_dir, 'hhblits'),
                     'hhblits': os.path.join(sbatch_template_dir, 'hhblits'),
                     'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
                     }
