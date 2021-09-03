@@ -37,7 +37,7 @@ from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_direct
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB
 from Pose import fetch_pdb_file
-from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions  # pose_rmsd, cluster_poses
+from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
@@ -1940,37 +1940,59 @@ if __name__ == '__main__':
                 logger.info('Top ranked Designs cutoff at 7995')
     # ---------------------------------------------------
     elif args.module == PUtils.cluster_poses:
-        # First, identify the same compositions
-        compositions = group_compositions(design_directories)
+        if args.mode == 'ialign':  # interface_residues, tranformation
+            is_threshold = 0.5  # TODO
+            # measure the alignment of all selected design_directories
+            # all_files = [design.source_file for design in design_directories]
+            design_pairs = []
+            for design1, design2 in combinations(design_directories, 2):  # all_files
+                is_score = ialign(design1.source_file, design2.source_file,
+                                  out_path=os.path.join(master_directory.protein_data, 'ialign_output'))
+                if is_score > is_threshold:
+                    design_pairs.append({design1, design2})
 
-        if args.multi_processing:
-            results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
-            cluster_representative_pose_member_map = {}
-            for result in results:
-                cluster_representative_pose_member_map.update(result.items())
+            # cluster all those designs together that are in alignment
+            design_clusters = [design_pairs[0]]
+            # for design1, design2 in design_pairs[1:]:
+            for design_set in design_pairs[1:]:
+                cluster_found = False
+                for cluster in design_clusters:
+                    design1, design2 = design_set
+                    if design1 in cluster or design2 in cluster:
+                        cluster_found = True
+                        break
+                if cluster_found:
+                    # cluster.add(design1), cluster.add(design2)
+                    cluster.add(design_set)
+                else:
+                    # design_clusters.append({design1, design2})
+                    design_clusters.append(design_set)
+
+            design_clusters = [list(cluster) for cluster in design_clusters]
+            cluster_representative_pose_member_map = {cluster[0]: cluster for cluster in design_clusters}
         else:
-            # pose_map = pose_rmsd_s(design_directories)
-            # cluster_representative_pose_member_map = cluster_poses(pose_map)
-            cluster_representative_pose_member_map = {}
-            for composition_group in compositions.values():
-                cluster_representative_pose_member_map.update(cluster_designs(composition_group))
+            # First, identify the same compositions
+            compositions = group_compositions(design_directories)
+            if args.multi_processing:
+                results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
+                cluster_representative_pose_member_map = {}
+                for result in results:
+                    cluster_representative_pose_member_map.update(result.items())
+            else:
+                # pose_map = pose_rmsd_s(design_directories)
+                # cluster_representative_pose_member_map = cluster_poses(pose_map)
+                cluster_representative_pose_member_map = {}
+                for composition_group in compositions.values():
+                    cluster_representative_pose_member_map.update(cluster_designs(composition_group))
 
         if args.output:
-            pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map, args.output, out_path='')
+            pose_cluster_file = \
+                SDUtils.pickle_object(cluster_representative_pose_member_map, args.output, out_path='')
         else:
             pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
                                                       PUtils.clustered_poses % (location, timestamp),
-                                                      out_path=next(iter(design_directories)).protein_data)
-        logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
-                    % (len(cluster_representative_pose_member_map), len(design_directories), pose_cluster_file))
-        logger.info('To utilize the clustering, perform %s and cluster analysis will be applied to the poses to select '
-                    'the cluster representative.' % PUtils.select_designs)
-        # for protein_pair in pose_map:
-        #     if os.path.basename(protein_pair) == '4f47_4grd':
-        #     logger.info('\n'.join(['%s\n%s' % (pose1, '\n'.join(['%s\t%f' %
-        #                                                          (pose2, pose_map[protein_pair][pose1][pose2])
-        #                                                          for pose2 in pose_map[protein_pair][pose1]]))
-        #                            for pose1 in pose_map[protein_pair]]))
+                                                      out_path=master_directory.clustered_poses)
+        terminate(location=location, results=cluster_representative_pose_member_map)
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = master_directory.program_root

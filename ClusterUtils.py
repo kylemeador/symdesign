@@ -169,19 +169,29 @@ def pose_rmsd_s(all_des_dirs):
     return pose_map
 
 
-def ialign(pdb_file1, pdb_file2, chains1, chains2, out_path=os.getcwd()):
-    """Run ialign on two .pdb files"""
+def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join(os.getcwd(), 'ialign_output')):
+    """Run non-sequential iAlign on two .pdb files
+
+    Returns:
+        (float): The IS score from Mu & Skolnic 2010
+    """
     # example command
     # perl ../bin/ialign.pl -w output -s -a 0 1lyl.pdb AC 12as.pdb AB | grep "IS-score = "
     # output
     # IS-score = 0.38840, P-value = 0.3808E-003, Z-score =  7.873
-    cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-c1', chains1, '-p2', pdb_file2, '-c2', chains2]
-    p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
-    ialign_out, ialign_err = p.communicate()
+    chains = []
+    if chain1:
+        chains += ['-c1', chain1]
+    if chain2:
+        chains += ['-c2', chain2]
+    cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-p2', pdb_file2] + chains
+    ialign_p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ialign_out, ialign_err = ialign_p.communicate()
     # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
-    grep_p = subprocess.Popen(['grep', 'slurmstepd: error: Exceeded job memory limit'],
-                              stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
+    grep_p = subprocess.Popen(['grep', 'IS-score = '], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     is_score, err = grep_p.communicate(input=ialign_out)
+
+    return is_score
 
 
 def cluster_poses(pose_map):

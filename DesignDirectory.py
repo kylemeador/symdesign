@@ -64,6 +64,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # MasterDirectory path attributes
         self.all_scores = None  # program_root/AllScores
         self.resources = None
+        self.clustered_poses = None  # program_root/Data/ClusteredPoses
         self.design_sequences = None  # program_root/AllScores/str(self)_Sequences.pkl
         self.full_model_dir = None  # program_root/Data/PDBs/full_models
         self.job_paths = None  # program_root/JobPaths
@@ -87,7 +88,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.log = None
         self.nano = kwargs.get('nano', False)
         if pose_id:
-            self.directory_string_to_path(root, design_path)
+            self.directory_string_to_path(root, design_path)  # sets self.path
             self.source_path = self.path
         else:
             self.source_path = os.path.abspath(design_path)
@@ -670,6 +671,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sequence_info = os.path.join(self.protein_data, PUtils.sequence_info)
         self.sequences = os.path.join(self.sequence_info, 'sequences')
         self.profiles = os.path.join(self.sequence_info, 'profiles')
+        self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO ScoreDatabase integration
@@ -3072,6 +3074,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         if not os.path.exists(path) and condition:
             os.makedirs(path)
+
+    def __key(self):
+        return self.name
+
+    def __eq__(self, other):
+        if isinstance(other, DesignDirectory):
+            return self.__key() == other.__key()
+        return NotImplemented
+
+    def __hash__(self):
+        return hash(self.__key())
 
     def __str__(self):
         if self.nano:
