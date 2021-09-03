@@ -252,9 +252,9 @@ if __name__ == '__main__':
             restart_memory = [reference_commands[idx] for idx in memory]
             restart_failure = [reference_commands[idx] for idx in failure]
             restart_other = [reference_commands[idx] for idx in other]
-            SDUtils.io_save(restart_memory, filename='%s_%s' % (args.file, 'memory_failures'))
-            SDUtils.io_save(restart_failure, filename='%s_%s' % (args.file, 'other_failures'))
-            SDUtils.io_save(restart_other, filename='%s_%s' % (args.file, 'other_output'))
+            SDUtils.io_save(restart_memory, file_name='%s_%s' % (args.file, 'memory_failures'))
+            SDUtils.io_save(restart_failure, file_name='%s_%s' % (args.file, 'other_failures'))
+            SDUtils.io_save(restart_other, file_name='%s_%s' % (args.file, 'other_output'))
 
     elif args.sub_module == 'scancel':
         array_ids = SDUtils.to_iterable(args.file)
