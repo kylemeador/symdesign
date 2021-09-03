@@ -2048,7 +2048,7 @@ if __name__ == '__main__':
             selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol)
             # specify the result order according to any filtering and weighting
-            results = selected_poses_df.index.to_list()
+            # results = selected_poses_df.index.to_list()  TODO reinstate
             save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         else:  # select sequences from all poses provided in DesignDirectories
             if args.filter:
