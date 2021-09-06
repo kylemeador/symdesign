@@ -11,7 +11,6 @@ import shutil
 from subprocess import Popen, list2cmdline
 import sys
 import time
-from csv import reader
 from glob import glob
 from itertools import repeat, product, combinations
 from json import loads, dumps
@@ -25,13 +24,13 @@ from dependencies.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError imp
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from Query.PDB import input_string, bool_d, invalid_string, verify_choice, boolean_choice
+from Query.PDB import input_string, bool_d, invalid_string, boolean_choice, verify_choice
 from utils.CmdLineArgParseUtils import query_mode
 from utils.PDBUtils import orient_pdb_file
 from Query import Flags
 from classes.SymEntry import SymEntry
 from classes.EulerLookup import EulerLookup
-from interface_analysis.Database import FragmentDatabase, Database
+from interface_analysis.Database import Database  # FragmentDatabase,
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status, script_cmd, rosetta_flags
 from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, relax_flags
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
@@ -40,7 +39,7 @@ from Pose import fetch_pdb_file
 from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
-    default_multicistronic_sequence
+    default_multicistronic_sequence, add_expression_tag_local
 from DesignMetrics import prioritize_design_indices, master_metrics, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 
@@ -2188,7 +2187,8 @@ if __name__ == '__main__':
                 source_entity.retrieve_info_from_api()
                 source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
                 sequence_id = '%s_%s' % (des_dir, source_entity.name)
-                design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
+                # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
+                design_string = '%s_%s' % (design, source_entity.name)
                 uniprot_id = source_entity.uniprot_id
                 termini_availability = des_dir.return_termini_accessibility(source_entity)
                 logger.debug('Design %s has the following termini accessible for tags: %s'
@@ -2226,11 +2226,8 @@ if __name__ == '__main__':
                 selected_tag = {}
                 available_tags = find_expression_tags(formatted_design_sequence)
                 if available_tags:  # look for existing tag to remove from sequence and save identity
-                    # if available_tags:
                     tag_names, tag_termini, ind_tag_sequences = \
                         zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
-                    # else:
-                    #     tag_names, tag_termini, ind_tag_sequences = [], [], []
                     try:
                         preferred_tag_index = tag_names.index(args.preferred_tag)
                         if tag_termini[preferred_tag_index] in true_termini:
@@ -2246,31 +2243,31 @@ if __name__ == '__main__':
                     continue
 
                 if not selected_tag:  # find compatible tags from matching PDB observations
-                    matching_tags_by_unp_id = tag_sequences.get(uniprot_id, None)
-                    if not matching_tags_by_unp_id:
-                        matching_tags_by_unp_id = find_matching_expression_tags(uniprot_id=uniprot_id)
-                        tag_sequences[uniprot_id] = matching_tags_by_unp_id
-                    if matching_tags_by_unp_id['matching_tags']:
+                    uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
+                    if not uniprot_id_matching_tags:
+                        uniprot_id_matching_tags = find_matching_expression_tags(uniprot_id=uniprot_id)
+                        tag_sequences[uniprot_id] = uniprot_id_matching_tags
+
+                    if uniprot_id_matching_tags:
                         tag_names, tag_termini, ind_tag_sequences = \
-                            zip(*[(tag['name'], tag['termini'], tag['sequence'])
-                                  for tag in matching_tags_by_unp_id['matching_tags']])
-                        # tag_names, tag_termini, ind_tag_sequences =
-                        # list(tag_names), list(tag_termini), list(ind_tag_sequences)
+                            zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in uniprot_id_matching_tags])
                     else:
                         tag_names, tag_termini, ind_tag_sequences = [], [], []
+
                     iteration = 0
                     while iteration < len(tag_names):
                         try:
                             preferred_tag_index_2 = tag_names[iteration:].index(args.preferred_tag)
                             if tag_termini[preferred_tag_index_2] in true_termini:
-                                selected_tag = matching_tags_by_unp_id['matching_tags'][preferred_tag_index_2]
+                                selected_tag = uniprot_id_matching_tags[preferred_tag_index_2]
                                 break
                         except ValueError:
+                            selected_tag = \
+                                select_tags_for_sequence(sequence_id, uniprot_id_matching_tags,
+                                                         preferred=args.preferred_tag, **termini_availability)
                             break
                         iteration += 1
 
-                    selected_tag = select_tags_for_sequence(sequence_id, matching_tags_by_unp_id,
-                                                            preferred=args.preferred_tag, **termini_availability)
                 if selected_tag.get('name'):
                     missing_tags[(des_dir, design)][idx] = 0
                 sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': selected_tag}
@@ -2390,9 +2387,11 @@ if __name__ == '__main__':
             # apply all tags to the sequences
             cistronic_sequence = ''
             for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
-                print('TAG:\n', sequence_tag['tag'].get('sequence'), 'SEQUENCE:\n', sequence_tag['sequence'])
+                print('TAG:\n', sequence_tag['tag'].get('sequence'), '\nSEQUENCE:\n', sequence_tag['sequence'])
                 design_sequence = add_expression_tag(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
-                print('DesignSequence:', design_sequence)
+                design_sequence_local = add_expression_tag_local(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
+                print('DesignSequence:\n', design_sequence)
+                print('DesignSequenceLocal:\n', design_sequence_local)
                 # If no MET start site, include one
                 if design_sequence[0] != 'M':
                     design_sequence = 'M%s' % design_sequence

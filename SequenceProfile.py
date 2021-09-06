@@ -2274,6 +2274,20 @@ def find_orf_offset(seq, mutations):
     return orf_offset_index
 
 
+def generate_alignment_local(seq1, seq2, matrix='BLOSUM62'):
+    """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
+
+    Returns:
+
+    """
+    _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
+    gap_penalty = -10
+    gap_ext_penalty = -1
+    logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
+    # Create sequence alignment
+    return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+
+
 def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
     """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
 
@@ -2286,7 +2300,6 @@ def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
     logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
     # Create sequence alignment
     return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
-    # return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
 def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
