@@ -2218,16 +2218,13 @@ if __name__ == '__main__':
                     logger.debug('Inserting %s into position %d on chain %s'
                                  % (mutation['from'], residue_number, source_entity.chain_id))
                     design_pose.insert_residue_type(mutation['from'], at=residue_number, chain=source_entity.chain_id)
-                # Find the open reading frame offset using the structure sequence after insertion
-                offset = find_orf_offset(design_entity.structure_sequence, mutations)
-                formatted_design_sequence = design_entity.structure_sequence[offset:]
-                logger.debug('The formatted_design sequence is:\n%s' % formatted_design_sequence)
 
                 # Check for expression tag addition to the designed sequences
+                inserted_design_sequence = design_entity.structure_sequence
                 selected_tag = {}
-                available_tags = find_expression_tags(formatted_design_sequence)
+                available_tags = find_expression_tags(inserted_design_sequence)
                 if available_tags:  # look for existing tag to remove from sequence and save identity
-                    tag_names, tag_termini, ind_tag_sequences = \
+                    tag_names, tag_termini, existing_tag_sequences = \
                         zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
                     try:
                         preferred_tag_index = tag_names.index(args.preferred_tag)
@@ -2235,13 +2232,22 @@ if __name__ == '__main__':
                             selected_tag = available_tags[preferred_tag_index]
                     except ValueError:
                         pass
-                    pretag_sequence = remove_expression_tags(formatted_design_sequence, ind_tag_sequences)
+                    pretag_sequence = remove_expression_tags(inserted_design_sequence, existing_tag_sequences)
                 else:
-                    pretag_sequence = formatted_design_sequence
+                    pretag_sequence = inserted_design_sequence
+                    # pretag_sequence = formatted_design_sequence
                 logger.debug('The pretag sequence is:\n%s' % pretag_sequence)
 
+                # Find the open reading frame offset using the structure sequence after insertion
+                # offset = find_orf_offset(design_entity.structure_sequence, mutations)
+                # formatted_design_sequence = design_entity.structure_sequence[offset:]
+                offset = find_orf_offset(pretag_sequence, mutations)
+                formatted_design_sequence = design_entity.structure_sequence[offset:]
+                logger.debug('The formatted_design sequence is:\n%s' % formatted_design_sequence)
+
                 if number_of_tags is None:  # don't solve tags
-                    sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': {}}
+                    # sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': {}}
+                    sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': {}}
                     continue
 
                 if not selected_tag:  # find compatible tags from matching PDB observations
@@ -2251,10 +2257,10 @@ if __name__ == '__main__':
                         tag_sequences[uniprot_id] = uniprot_id_matching_tags
 
                     if uniprot_id_matching_tags:
-                        tag_names, tag_termini, ind_tag_sequences = \
+                        tag_names, tag_termini, _ = \
                             zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in uniprot_id_matching_tags])
                     else:
-                        tag_names, tag_termini, ind_tag_sequences = [], [], []
+                        tag_names, tag_termini, _ = [], [], []
 
                     iteration = 0
                     while iteration < len(tag_names):
@@ -2272,7 +2278,8 @@ if __name__ == '__main__':
 
                 if selected_tag.get('name'):
                     missing_tags[(des_dir, design)][idx] = 0
-                sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': selected_tag}
+                # sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': selected_tag}
+                sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': selected_tag}
                 logger.debug('The pre-existing, identified tag is:\n%s' % sequences_and_tags[design_string]['tag'])
 
             # after selecting all tags, consider tagging the design as a whole
@@ -2309,7 +2316,7 @@ if __name__ == '__main__':
                         for idx, entity_missing_tag in enumerate(missing_tags[(des_dir, design)][iteration_idx:]):
                             sequence_id = '%s_%s' % (des_dir, des_dir.pose.entities[idx].name)
                             if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
-                                print('The entity %s is missing a tag. Would you like to tag this entity?' % sequence_id)
+                                print('Entity %s is missing a tag. Would you like to tag this entity?' % sequence_id)
                                 if not boolean_choice():
                                     continue
                             else:
@@ -2389,11 +2396,18 @@ if __name__ == '__main__':
             # apply all tags to the sequences
             cistronic_sequence = ''
             for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
-                print('TAG:\n', sequence_tag['tag'].get('sequence'), '\nSEQUENCE:\n', sequence_tag['sequence'])
-                design_sequence = add_expression_tag(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
-                design_sequence_local = add_expression_tag_local(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
+                tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
+                print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
+                design_sequence = add_expression_tag(tag.get('sequence'), sequence)
+                # design_sequence_local = add_expression_tag_local(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
+                # print('DesignSequenceLocal:\n', design_sequence_local)
+                if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
+                    tag_sequence = expression_tags[tag.get('name')]
+                    if tag.get('termini') == 'n':
+                        design_sequence = tag_sequence + 'SG' + design_sequence
+                    else:  # termini == 'c'
+                        design_sequence = design_sequence + 'GS' + tag_sequence
                 print('DesignSequence:\n', design_sequence)
-                print('DesignSequenceLocal:\n', design_sequence_local)
                 # If no MET start site, include one
                 if design_sequence[0] != 'M':
                     design_sequence = 'M%s' % design_sequence
