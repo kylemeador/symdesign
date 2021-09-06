@@ -2174,7 +2174,7 @@ if __name__ == '__main__':
             design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
             designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
 
-            des_dir.load_pose()  # des_dir.source)
+            des_dir.load_pose(source=des_dir.asu)
             des_dir.pose.pdb.reorder_chains()  # Do I need to modify chains?
             missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]
             prior_offset = 0
