@@ -2404,6 +2404,8 @@ if __name__ == '__main__':
                 if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
                     tag_sequence = expression_tags[tag.get('name')]
                     if tag.get('termini') == 'n':
+                        if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
+                            design_sequence = design_sequence[1:]
                         design_sequence = tag_sequence + 'SG' + design_sequence
                     else:  # termini == 'c'
                         design_sequence = design_sequence + 'GS' + tag_sequence
