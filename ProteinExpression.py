@@ -381,7 +381,7 @@ def remove_expression_tags(sequence, tags):
         sequence (str): 'MSGHHHHHHGKLKPNDLRI...'
         tags (list): A list with the sequences of found tags
     Returns:
-        (str): The modified sequence without the tag
+        (str): 'MSGGKLKPNDLRI...' The modified sequence without the tag
     """
     for tag in tags:
         tag_index = sequence.find(tag)
