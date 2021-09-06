@@ -269,10 +269,10 @@ def add_expression_tag(tag, sequence):
     """Take a raw sequence and add expression tag by aligning a specified tag by PDB reference
 
     Args:
-        tag (dict):
+        tag (str):
         sequence (str):
     Returns:
-        tagged_sequence (str): The final sequence with the tag added
+        (str): The final sequence with the tag added
     """
     if not tag:
         return sequence
@@ -354,7 +354,7 @@ def remove_expression_tags(sequence, tags):
         tag_index = sequence.find(tag)
         if tag_index == -1:  # no match was found
             continue
-        sequence = sequence[:tag_index] + sequence[:tag_index + len(tag)]
+        sequence = sequence[:tag_index] + sequence[tag_index + len(tag):]
 
     return sequence
 

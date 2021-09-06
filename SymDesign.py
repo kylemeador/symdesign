@@ -2390,8 +2390,9 @@ if __name__ == '__main__':
             # apply all tags to the sequences
             cistronic_sequence = ''
             for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
+                print('TAG:\n', sequence_tag['tag'].get('sequence'), 'SEQUENCE:\n', sequence_tag['sequence'])
                 design_sequence = add_expression_tag(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
-
+                print('DesignSequence:', design_sequence)
                 # If no MET start site, include one
                 if design_sequence[0] != 'M':
                     design_sequence = 'M%s' % design_sequence
