@@ -1492,13 +1492,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         assert len(self.oligomers) == len(self.oligomer_names), \
             'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.oligomer_names))
 
-    def load_pose(self):
+    def load_pose(self, source=None):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
 
         Handles clash testing and writing the assembly if those options are True
         """
-        if self.pose:
+        if self.pose and not source:  # pose is already loaded and no source was provided
             return
         if not self.source or not os.path.exists(self.source):
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
@@ -1509,6 +1509,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 entities.extend(oligomer.entities)
 
             asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log)
+        elif source:
+            asu = PDB.from_file(source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
         else:  # |                              pass names if available v
             asu = PDB.from_file(self.source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
 
