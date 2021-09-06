@@ -2214,10 +2214,18 @@ if __name__ == '__main__':
                 mutations = \
                     generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence, offset=False)
                 # Insert the disordered residues into the design pose
+                print('MUTATIONS CHECK SORT:\n', sorted(mutations.keys(), reverse=True))
                 for residue_number, mutation in indexed_disordered_residues.items():
                     logger.debug('Inserting %s into position %d on chain %s'
                                  % (mutation['from'], residue_number, source_entity.chain_id))
                     design_pose.insert_residue_type(mutation['from'], at=residue_number, chain=source_entity.chain_id)
+                    # adjust mutations to account for insertion
+                    for mutation_index in sorted(mutations.keys(), reverse=True):
+                        if mutation_index < residue_number:
+                            break
+                        else:  # mutation should be incremented by one
+                            mutations[mutation_index + 1] = mutations.pop(mutation_index)
+                print('MUTATIONS CHECK SORT AFTER:\n', sorted(mutations.keys(), reverse=True))
 
                 # Check for expression tag addition to the designed sequences
                 inserted_design_sequence = design_entity.structure_sequence
@@ -2242,7 +2250,8 @@ if __name__ == '__main__':
                 # offset = find_orf_offset(design_entity.structure_sequence, mutations)
                 # formatted_design_sequence = design_entity.structure_sequence[offset:]
                 offset = find_orf_offset(pretag_sequence, mutations)
-                formatted_design_sequence = design_entity.structure_sequence[offset:]
+                logger.debug('The open reading frame offset is %d' % offset)
+                formatted_design_sequence = pretag_sequence[offset:]
                 logger.debug('The formatted_design sequence is:\n%s' % formatted_design_sequence)
 
                 if number_of_tags is None:  # don't solve tags

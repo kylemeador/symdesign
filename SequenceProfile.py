@@ -2216,62 +2216,57 @@ def make_mutations(seq, mutations, find_orf=True):
     return seq
 
 
-def find_orf_offset(seq, mutations):
-    """Using one sequence and mutation data, find the sequence offset which matches mutations closest
+def find_orf_offset(sequence, mutations):
+    """Using a sequence and mutation data, find the open reading frame that matches mutations closest
 
     Args:
-        seq (str): 'Wild-type' sequence to mutate in 1 letter format
-        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
+        sequence (str): Sequence to search for ORF in 1 letter format
+        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...} One-indexed sequence dictionary
     Returns:
-        orf_offset_index (int): The index to offset the sequence by in order to match the mutations the best
+        (int): The zero-indexed integer to offset the provided sequence to best match the provided mutations
     """
     unsolvable = False
-    # for idx, aa in enumerate(seq):
-    #     if aa == 'M':
-    #         met_offset_d[idx] = 0
-    met_offset_d = {idx: 0 for idx, aa in enumerate(seq) if aa == 'M'}
-    methionine_positions = list(met_offset_d.keys())
-
+    orf_start_idx = 0
+    orf_offsets = {idx: 0 for idx, aa in enumerate(sequence) if aa == 'M'}
+    methionine_positions = list(orf_offsets.keys())
     while True:
-        if not met_offset_d:  # == dict():  # MET is missing/not the ORF start
-            met_offset_d = {start_idx: 0 for start_idx in range(0, 50)}
+        if not orf_offsets:  # MET is missing/not the ORF start
+            orf_offsets = {start_idx: 0 for start_idx in range(0, 50)}
 
         # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
-        for test_orf_index in met_offset_d:
-            for mutation_index in mutations:
+        for test_orf_index in orf_offsets:
+            for mutation_index, mutation in mutations.items():
                 try:
-                    if seq[test_orf_index + mutation_index - index_offset] == mutations[mutation_index]['from']:
-                        met_offset_d[test_orf_index] += 1
-                except IndexError:
+                    if sequence[test_orf_index + mutation_index - index_offset] == mutation['from']:
+                        orf_offsets[test_orf_index] += 1
+                except IndexError:  # we have reached the end of the sequence
                     break
 
-        max_count = max(list(met_offset_d.values()))
+        max_count = max(list(orf_offsets.values()))
         # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
         if max_count < len(mutations) / 2:
             if unsolvable:
-                return 0  # TODO return not index change?
-                # break
-            unsolvable = True
-            met_offset_d = {}
-        else:
-            for offset in met_offset_d:  # offset is index here
-                if max_count == met_offset_d[offset]:
-                    orf_offset_index = offset  # + index_offset  # change to one-index
+                return orf_start_idx
+            orf_offsets = {}
+            unsolvable = True  # if we reach this spot again, the problem is deemed unsolvable
+        else:  # find the index of the max_count
+            for idx, count in orf_offsets.items():
+                if max_count == count:  # orf_offsets[offset]:
+                    orf_start_idx = idx  # select the first occurrence of the max count
                     break
 
+            # for cases where the orf doesn't begin on Met, try to find a prior Met. Otherwise, selects the id'd Met
             closest_met = None
-            for met in methionine_positions:
-                if met <= orf_offset_index:
-                    closest_met = met
-                else:
+            for met_index in methionine_positions:
+                if met_index <= orf_start_idx:
+                    closest_met = met_index
+                else:  # we have passed the identified orf_start_idx
                     if closest_met is not None:
-                        orf_offset_index = closest_met  # + index_offset # change to one-index
+                        orf_start_idx = closest_met  # + index_offset # change to one-index
                     break
-
             break
-            # orf_offset_index = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
 
-    return orf_offset_index
+    return orf_start_idx
 
 
 def generate_alignment_local(seq1, seq2, matrix='BLOSUM62'):
