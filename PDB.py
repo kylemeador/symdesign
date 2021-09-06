@@ -1269,7 +1269,7 @@ class PDB(Structure):
         for entity in self.entities:
             if entity_id == entity.name:
                 return entity
-        return None
+        return
 
     def create_entities(self, query_by_sequence=True, entity_names=None, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during

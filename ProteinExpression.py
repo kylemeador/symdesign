@@ -138,7 +138,7 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
             elif termini == 'skip':
                 return final_tag_sequence
             else:
-                print('\'%s\' is an invalid input, one of \'n\', \'c\', or \'skip\' is required.')
+                print('\'%s\' is an invalid input, one of \'n\', \'c\', or \'skip\' is required.' % termini)
     else:  # termini = 'Both'
         if c and not n:
             termini = 'c'
@@ -157,7 +157,7 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
                 elif termini == 'skip':
                     return final_tag_sequence
                 else:
-                    print('\'%s\' is an invalid input, one of \'n\', \'c\', or \'skip\' is required.')
+                    print('\'%s\' is an invalid input, one of \'n\', \'c\', or \'skip\' is required.' % termini)
 
     # Find the most common tag at the specific termini
     all_tags = []
