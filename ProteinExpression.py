@@ -310,6 +310,14 @@ def add_expression_tag(tag, sequence):
     if not tag:
         return sequence
     alignment = SequenceProfile.generate_alignment(tag, sequence)
+    print('Expression TAG alignment:', alignment[0])
+    score = alignment[0][2]  # first alignment, grab score value
+    print('Expression TAG alignment score:', score)
+    if score == 0:  # there was no productive alignment
+        # alignment[0][4]:  # the length of alignment
+        match_score = score / len(sequence)  # could also use which ever sequence is greater
+        return sequence
+
     tag_seq = alignment[0][0]
     seq = alignment[0][1]
     # print(alignment[0])
