@@ -2214,7 +2214,6 @@ if __name__ == '__main__':
                 mutations = \
                     generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence, offset=False)
                 # Insert the disordered residues into the design pose
-                print('MUTATIONS CHECK SORT:\n', sorted(mutations.keys(), reverse=True))
                 for residue_number, mutation in indexed_disordered_residues.items():
                     logger.debug('Inserting %s into position %d on chain %s'
                                  % (mutation['from'], residue_number, source_entity.chain_id))
@@ -2225,7 +2224,6 @@ if __name__ == '__main__':
                             break
                         else:  # mutation should be incremented by one
                             mutations[mutation_index + 1] = mutations.pop(mutation_index)
-                print('MUTATIONS CHECK SORT AFTER:\n', sorted(mutations.keys(), reverse=True))
 
                 # Check for expression tag addition to the designed sequences
                 inserted_design_sequence = design_entity.structure_sequence
@@ -2243,19 +2241,15 @@ if __name__ == '__main__':
                     pretag_sequence = remove_expression_tags(inserted_design_sequence, existing_tag_sequences)
                 else:
                     pretag_sequence = inserted_design_sequence
-                    # pretag_sequence = formatted_design_sequence
                 logger.debug('The pretag sequence is:\n%s' % pretag_sequence)
 
                 # Find the open reading frame offset using the structure sequence after insertion
-                # offset = find_orf_offset(design_entity.structure_sequence, mutations)
-                # formatted_design_sequence = design_entity.structure_sequence[offset:]
                 offset = find_orf_offset(pretag_sequence, mutations)
-                logger.debug('The open reading frame offset is %d' % offset)
                 formatted_design_sequence = pretag_sequence[offset:]
+                logger.debug('The open reading frame offset is %d' % offset)
                 logger.debug('The formatted_design sequence is:\n%s' % formatted_design_sequence)
 
                 if number_of_tags is None:  # don't solve tags
-                    # sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': {}}
                     sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': {}}
                     continue
 
@@ -2287,9 +2281,8 @@ if __name__ == '__main__':
 
                 if selected_tag.get('name'):
                     missing_tags[(des_dir, design)][idx] = 0
-                # sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': selected_tag}
+                    logger.debug('The pre-existing, identified tag is:\n%s' % selected_tag)
                 sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': selected_tag}
-                logger.debug('The pre-existing, identified tag is:\n%s' % sequences_and_tags[design_string]['tag'])
 
             # after selecting all tags, consider tagging the design as a whole
             if number_of_tags is not None:
@@ -2408,8 +2401,6 @@ if __name__ == '__main__':
                 tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
                 print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
                 design_sequence = add_expression_tag(tag.get('sequence'), sequence)
-                # design_sequence_local = add_expression_tag_local(sequence_tag['tag'].get('sequence'), sequence_tag['sequence'])
-                # print('DesignSequenceLocal:\n', design_sequence_local)
                 if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
                     tag_sequence = expression_tags[tag.get('name')]
                     if tag.get('termini') == 'n':
@@ -2452,6 +2443,7 @@ if __name__ == '__main__':
                 # Reduce to sequence only
                 inserted_sequences[design_string] = '%s\n%s' % (''.join([res['to'] for res in all_insertions.values()]),
                                                                 design_sequence)
+                logger.info('Formatted sequence comparison:\n%s' % inserted_sequences[design_string])
                 final_sequences[design_string] = design_sequence
                 if args.nucleotide:
                     try:

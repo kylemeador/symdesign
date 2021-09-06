@@ -268,36 +268,6 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
     return final_tag_sequence
 
 
-def add_expression_tag_local(tag, sequence):
-    """Take a raw sequence and add expression tag by aligning a specified tag by PDB reference
-
-    Args:
-        tag (str):
-        sequence (str):
-    Returns:
-        (str): The final sequence with the tag added
-    """
-    if not tag:
-        return sequence
-    alignment = SequenceProfile.generate_alignment_local(tag, sequence)
-    tag_seq = alignment[0][0]
-    seq = alignment[0][1]
-    # print(alignment[0])
-    # print(tag_seq)
-    # print(seq)
-    # starting_index_of_seq2 = seq.find(sequence[0])
-    # i = -starting_index_of_seq2 + index_offset  # make 1 index so residue value starts at 1
-    final_seq = ''
-    for i, (seq1_aa, seq2_aa) in enumerate(zip(tag_seq, seq)):
-        if seq2_aa == '-':
-            if seq1_aa in protein_letters:
-                final_seq += seq1_aa
-        else:
-            final_seq += seq2_aa
-
-    return final_seq
-
-
 def add_expression_tag(tag, sequence):
     """Take a raw sequence and add expression tag by aligning a specified tag by PDB reference
 
@@ -312,8 +282,8 @@ def add_expression_tag(tag, sequence):
     alignment = SequenceProfile.generate_alignment(tag, sequence)
     # print('Expression TAG alignment:', alignment[0])
     score = alignment[0][2]  # first alignment, grab score value
-    print('Expression TAG alignment score:', score)
-    # if score == 0:  # TODO find the correct score for a bad alignment to indicate there was no productive alignment
+    # print('Expression TAG alignment score:', score)
+    # if score == 0:  # TODO find the correct score for a bad alignment to indicate there was no productive alignment?
     #     # alignment[0][4]:  # the length of alignment
     #     # match_score = score / len(sequence)  # could also use which ever sequence is greater
     #     return sequence
