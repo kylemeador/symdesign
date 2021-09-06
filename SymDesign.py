@@ -39,7 +39,7 @@ from Pose import fetch_pdb_file
 from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
-    default_multicistronic_sequence, add_expression_tag_local
+    default_multicistronic_sequence
 from DesignMetrics import prioritize_design_indices, master_metrics, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 
