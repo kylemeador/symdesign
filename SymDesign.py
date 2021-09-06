@@ -1359,7 +1359,6 @@ if __name__ == '__main__':
                 logger.info('Preparing blueprint and loop files for entity:')
                 out_paths, blueprints, loop_files = [], [], []
                 for entity in olgomers_to_loop_model:
-                    print(entity)
                     entity_out_path = os.path.join(full_model_dir, entity)
                     master_directory.make_path(entity_out_path)
                     out_paths.append(entity_out_path)
@@ -2399,7 +2398,7 @@ if __name__ == '__main__':
             cistronic_sequence = ''
             for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
                 tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
-                print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
+                # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
                 design_sequence = add_expression_tag(tag.get('sequence'), sequence)
                 if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
                     tag_sequence = expression_tags[tag.get('name')]
@@ -2409,7 +2408,7 @@ if __name__ == '__main__':
                         design_sequence = tag_sequence + 'SG' + design_sequence
                     else:  # termini == 'c'
                         design_sequence = design_sequence + 'GS' + tag_sequence
-                print('DesignSequence:\n', design_sequence)
+
                 # If no MET start site, include one
                 if design_sequence[0] != 'M':
                     design_sequence = 'M%s' % design_sequence
