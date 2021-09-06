@@ -2221,6 +2221,7 @@ if __name__ == '__main__':
                 # Find the open reading frame offset using the structure sequence after insertion
                 offset = find_orf_offset(design_entity.structure_sequence, mutations)
                 formatted_design_sequence = design_entity.structure_sequence[offset:]
+                logger.debug('The formatted_design sequence is:\n%s' % formatted_design_sequence)
 
                 # Check for expression tag addition to the designed sequences
                 selected_tag = {}
@@ -2237,6 +2238,7 @@ if __name__ == '__main__':
                     pretag_sequence = remove_expression_tags(formatted_design_sequence, ind_tag_sequences)
                 else:
                     pretag_sequence = formatted_design_sequence
+                logger.debug('The pretag sequence is:\n%s' % pretag_sequence)
 
                 if number_of_tags is None:  # don't solve tags
                     sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': {}}
@@ -2271,6 +2273,7 @@ if __name__ == '__main__':
                 if selected_tag.get('name'):
                     missing_tags[(des_dir, design)][idx] = 0
                 sequences_and_tags[design_string] = {'sequence': pretag_sequence, 'tag': selected_tag}
+                logger.debug('The pre-existing, identified tag is:\n%s' % sequences_and_tags[design_string]['tag'])
 
             # after selecting all tags, consider tagging the design as a whole
             if number_of_tags is not None:
@@ -2332,7 +2335,6 @@ if __name__ == '__main__':
                                         if tag_input <= len(expression_tags):
                                             tag = list(expression_tags.keys())[tag_input - 1]
                                             break
-                                    # else:
                                     print('Input doesn\'t match available options. Please try again')
                                 while True:
                                     termini = input('Your tag will be added to one of the termini. Which termini would '
