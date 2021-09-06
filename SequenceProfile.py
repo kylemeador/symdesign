@@ -2321,8 +2321,7 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
     """
     # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
     if offset:
-        # alignment = generate_alignment(mutant, reference)
-        align_seq_1, align_seq_2, *_ = generate_alignment(mutant, reference)[0]  # alignment[0][0], alignment[0][1]
+        align_seq_1, align_seq_2, *_ = generate_alignment(mutant, reference)[0]
     else:
         align_seq_1, align_seq_2 = mutant, reference
 
