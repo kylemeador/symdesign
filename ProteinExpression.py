@@ -341,7 +341,7 @@ def find_expression_tags(sequence, alignment_length=12):
         # save the tag name, the termini of the sequence it is closest to, and the source sequence context
         tag_length = len(tag_sequence)
         alignment_size = tag_length + alignment_length
-        if tag_index == 0 or tag_index < len(sequence)/2:
+        if tag_index == 0 or tag_index < len(sequence) / 2:
             termini = 'n'
             matching_sequence = sequence[tag_index:tag_index + alignment_size]
         else:

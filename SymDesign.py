@@ -2259,6 +2259,7 @@ if __name__ == '__main__':
                         tag_sequences[uniprot_id] = uniprot_id_matching_tags
 
                     if uniprot_id_matching_tags:
+                        print(uniprot_id_matching_tags)
                         tag_names, tag_termini, _ = \
                             zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in uniprot_id_matching_tags])
                     else:
