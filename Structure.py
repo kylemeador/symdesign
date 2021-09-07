@@ -2304,6 +2304,7 @@ class Entity(Chain, SequenceProfile):
         except AttributeError:
             try:
                 chain_api_data = self.api_entry[next(iter(self.api_entry))]
+                print('ERROR Retrieving UNP ID for %s' % self.name)
                 if chain_api_data.get('db', None) == 'UNP':
                     self._uniprot_id = chain_api_data.get('accession', None)
                 return self._uniprot_id
