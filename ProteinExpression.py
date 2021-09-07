@@ -37,11 +37,12 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     """
     #         (dict): {'n': {His Tag: 2}, 'c': {Spy Catcher: 1},
     #                  'matching_tags': [{'name': 'his_tag', 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...]}
+    matching_pdb_tags = []
     if not uniprot_id:
         if not pdb_code or not chain:
             # raise AttributeError('One of uniprot_id or pdb_code AND chain is required')
             logger.error('One of uniprot_id OR pdb_code AND chain is required')
-            return {'n': {}, 'c': {}, 'matching_tags': []}
+            return matching_pdb_tags
         uniprot_id = pull_uniprot_id_by_pdb(uniprot_pdb_d, pdb_code, chain=chain)
 
     # from PDB API
@@ -72,7 +73,6 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     # [[{'name': tag_name, 'termini': 'n', 'sequence': 'MSGHHHHHHGKLKPNDLRI'}, ...], ...]
     # matching_pdb_tags = list(iter_chain.from_iterable(find_expression_tags(sequence) for sequence in partner_sequences))
     # reduce the iter of iterables for missing values. ^ can return empty lists
-    matching_pdb_tags = []
     for sequence in partner_sequences:
         matching_pdb_tags.extend(find_expression_tags(sequence))
 
