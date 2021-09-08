@@ -669,6 +669,8 @@ if __name__ == '__main__':
                                            help='Cluster all designs by their spatial similarity. This can remove '
                                                 'redundancy or be useful in identifying conformationally flexible '
                                                 'docked configurations.')
+    parser_cluster.add_argument('-m', '--mode', type=str, choices=['transform', 'ialign', 'interface_residues'],
+                                default='transform')
     parser_cluster.add_argument('-o', '--output', type=str, default=PUtils.clustered_poses,
                                 help='Name of the output .pkl file containing design clusters Will be saved to the %s/'
                                      ' folder of the output.\nDefault=%s'
@@ -2259,7 +2261,6 @@ if __name__ == '__main__':
                         tag_sequences[uniprot_id] = uniprot_id_matching_tags
 
                     if uniprot_id_matching_tags:
-                        print(uniprot_id_matching_tags)
                         tag_names, tag_termini, _ = \
                             zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in uniprot_id_matching_tags])
                     else:
@@ -2428,8 +2429,7 @@ if __name__ == '__main__':
                                                    'context?\n\t%s\n\t%s%s'
                                                    % ('%d%s%d' % (idx_range[0] + 1, ' ' *
                                                                   (len(range(*idx_range)) -
-                                                                   (len(str(idx_range[0])) + len(str(idx_range[0])))),
-                                                                  idx_range[1] + 1),
+                                                                   (len(str(idx_range[0])) + 1)), idx_range[1] + 1),
                                                       design_sequence[idx_range[0]:idx_range[1]], input_string)).upper()
                             if new_amino_acid in protein_letters:
                                 design_sequence = design_sequence[:idx] + new_amino_acid + design_sequence[idx + 1:]
