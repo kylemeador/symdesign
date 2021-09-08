@@ -606,6 +606,8 @@ if __name__ == '__main__':
                                             'enter:\t%s\n\nTo get help with Module flags enter:\t%s\n, Any Module '
                                             '--guide or --help can be accessed in this way.'
                                             % (PUtils.submodule_guide, PUtils.submodule_help))
+    parser.add_argument('-sdb', '--skip_master_db', action='store_true',
+                        help='Skip loading of the entire master database, instead opting to load on the fly')
     parser.add_argument('-F', '--force_flags', action='store_true',
                         help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
@@ -1406,7 +1408,8 @@ if __name__ == '__main__':
                 # The next time this directory is initialized, there will be no refine files left... hopefully and while
                 # loop won't be entered allowing DesignDirectory initialization to proceed
 
-        if args.multi_processing:  # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
+        if args.multi_processing and not args.skip_master_db:
+            # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
             master_db.load_all_data()
             # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
             # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, threads=threads)
