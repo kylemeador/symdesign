@@ -169,7 +169,7 @@ def pose_rmsd_s(all_des_dirs):
     return pose_map
 
 
-def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join(os.getcwd(), 'ialign_output')):
+def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join(os.getcwd(), 'ialign')):
     """Run non-sequential iAlign on two .pdb files
 
     Returns:
@@ -184,12 +184,18 @@ def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join
         chains += ['-c1', chain1]
     if chain2:
         chains += ['-c2', chain2]
-    cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-p2', pdb_file2] + chains
+    temp_pdb_file1 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file1))
+    temp_pdb_file2 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file2))
+    os.system('scp %s %s' % (pdb_file1, temp_pdb_file1))
+    os.system('scp %s %s' % (pdb_file2, temp_pdb_file2))
+    # cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-p2', pdb_file2] + chains
+    cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', temp_pdb_file1, '-p2', temp_pdb_file2] + chains
     print(subprocess.list2cmdline(cmd))
     ialign_p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     ialign_out, ialign_err = ialign_p.communicate()
     # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
     print(ialign_out.decode())
+    print(ialign_err.decode())
     grep_p = subprocess.Popen(['grep', 'IS-score = '], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     ialign_is_score, err = grep_p.communicate(input=ialign_out)
 
