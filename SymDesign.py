@@ -1954,7 +1954,7 @@ if __name__ == '__main__':
             # all_files = [design.source_file for design in design_directories]
             design_pairs = []
             for design1, design2 in combinations(design_directories, 2):  # all_files
-                is_score = ialign(design1.source_file, design2.source_file,
+                is_score = ialign(design1.source, design2.source,
                                   out_path=os.path.join(master_directory.protein_data, 'ialign_output'))
                 if is_score > is_threshold:
                     design_pairs.append({design1, design2})
