@@ -2078,7 +2078,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         interface_residues = []
         for residues1, residues2 in self.interface_residues.values():
-            if not residues2:  # symmetric case
+            if not residues1 and not residues2:  # no interface
+                continue
+            elif residues1 and not residues2:  # symmetric case
                 residues1_coords = []
                 for residue in residues1:
                     residues1_coords.extend(residue.coords)
