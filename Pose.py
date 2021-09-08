@@ -1760,7 +1760,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.design_selector_indices = set()
         self.required_indices = set()
         self.required_residues = None
-        self.interface_residues = {}
+        self.interface_residues = {}  # {(entity1, entity2): (entity1_residues, entity2_residues), ...}
         self.source_db = kwargs.get('source_db', None)
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
         #                                     {1: '23A,45A,46A,...' , 2: '234B,236B,239B,...'}
@@ -2077,7 +2077,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             (Structure): The Structure containing only the Residues in the interface
         """
         interface_residues = []
-        for residues1, residues2 in self.interface_residues:
+        for residues1, residues2 in self.interface_residues.values():
             if not residues2:  # symmetric case
                 residues1_coords = []
                 for residue in residues1:

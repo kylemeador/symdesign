@@ -1963,7 +1963,8 @@ if __name__ == '__main__':
             # save the interface for each design to the temp directory
             design_interfaces = []
             for design in design_directories:
-                design.load_pose()
+                # design.load_pose()
+                design.identify_interface()
                 interface = design.pose.return_interface()
                 design_interfaces.append(
                     # interface.write(out_path=os.path.join(temp_file_dir, '%s_interface.pdb' % design.name)))  # Todo reinstate
