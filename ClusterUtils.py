@@ -16,10 +16,14 @@ import pandas as pd
 
 from PathUtils import ialign_exe_path
 from SymDesignUtils import handle_design_errors, DesignError, index_intersection, mp_map, sym, rmsd_threshold, \
-    digit_translate_table
+    digit_translate_table, start_log
 from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from Structure import superposition3d
 from utils.GeneralUtils import transform_coordinate_sets
+
+
+# globals
+logger = start_log(name=__name__)
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -191,23 +195,20 @@ def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join
     os.system('scp %s %s' % (pdb_file2, temp_pdb_file2))
     # cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-p2', pdb_file2] + chains
     cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', temp_pdb_file1, '-p2', temp_pdb_file2] + chains
-    print(subprocess.list2cmdline(cmd))
+    logger.debug('iAlign command: %s' % subprocess.list2cmdline(cmd))
     ialign_p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
     ialign_out, ialign_err = ialign_p.communicate()
-    # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
-    print(ialign_out.decode())
-    print(ialign_err.decode())
     grep_p = subprocess.Popen(['grep', 'IS-score = '], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     ialign_is_score, err = grep_p.communicate(input=ialign_out)
 
     ialign_is_score = ialign_is_score.decode()
-    print(ialign_is_score)
     try:
         is_score, pvalue, z_score = [score.split('=')[-1].strip() for score in ialign_is_score.split(',')]
-        print(is_score, pvalue, z_score)
         if is_score.isdigit():
+            logger.info(ialign_is_score)
             return float(is_score)
     except ValueError:
+        logger.info('No significiant interface found')
         pass
     return 0.0
 
