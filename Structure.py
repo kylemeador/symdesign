@@ -111,10 +111,11 @@ class Structure(StructureBase):
             self.atoms = atoms
             if coords is None:
                 try:
-                    coords = [atom.coords for atom in atoms]
+                    # coords = [atom.coords for atom in atoms]
+                    coords = np.concatenate([atom.coords for atom in atoms])
                 except AttributeError:
-                    raise DesignError('Can\'t initialize Structure with Atom objects lacking coords if no _coords are '
-                                      'passed! Either pass Atom objects with coords or pass _coords.')
+                    raise DesignError('Can\'t initialize Structure with Atom objects lacking coords when no Coords '
+                                      'object is passed! Either pass Atom objects with coords attribute or pass Coords')
                 self.coords = coords
         if residues is not None:
             if not residue_indices:
@@ -139,11 +140,17 @@ class Structure(StructureBase):
 
     @classmethod
     def from_atoms(cls, atoms=None, coords=None, **kwargs):
-        return cls(atoms=atoms, coords=coords, **kwargs)
+        new_structure = cls(atoms=atoms, coords=coords, **kwargs)
+        if coords:
+            new_structure.set_coords(coords)
+        return new_structure
 
     @classmethod
     def from_residues(cls, residues=None, residue_indices=None, coords=None, **kwargs):
-        return cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
+        new_structure = cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
+        if coords:
+            new_structure.set_coords(coords)
+        return new_structure
 
     @property  # Todo these do nothing and could be removed
     def name(self):
