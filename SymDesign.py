@@ -1959,12 +1959,39 @@ if __name__ == '__main__':
             temp_file_dir = os.path.join(os.getcwd(), 'temp')
             if not os.path.exists(temp_file_dir):
                 os.makedirs(temp_file_dir)
-            design_pairs = []
-            for design1, design2 in combinations(design_directories, 2):  # all_files
-                is_score = ialign(design1.source, design2.source, out_path='ialign')
-                #                   out_path=os.path.join(master_directory.protein_data, 'ialign_output'))
-                if is_score > is_threshold:
-                    design_pairs.append({design1, design2})
+
+            # save the interface for each design to the temp directory
+            design_interfaces = []
+            for design in design_directories:
+                interface = design.pose.return_interface()
+                design_interfaces.append(
+                    # interface.write(out_path=os.path.join(temp_file_dir, '%s_interface.pdb' % design.name)))  # Todo reinstate
+                    interface.write(out_path=os.path.join(temp_file_dir, '%s.pdb' % design.name)))
+
+            design_directory_pairs = list(combinations(design_directories, 2))
+            if args.multi_processing:
+                # zipped_args = zip(combinations(design_interfaces, 2))
+                design_scores = SDUtils.mp_starmap(ialign, combinations(design_interfaces, 2), threads=threads)
+
+                design_pairs = []
+                # for idx, is_score in enumerate(design_scores):  # Todo reinstate
+                for idx, (is_score, pair) in enumerate(design_scores):  # Todo remove
+                    if is_score > is_threshold:
+                        pair1, pair2 = design_directory_pairs[idx]  # Todo remove
+                        # if pair != design_directory_pairs[idx]: # Todo remove
+                        if pair != (pair1.name, pair2.name):  # Todo remove
+                            print('Pair is not aligned with idx!')  # Todo remove
+                        design_pairs.append(set(design_directory_pairs[idx]))
+            else:
+                design_pairs = []
+                # for design1, design2 in combinations(design_directories, 2):  # all_files
+                for idx, (interface_file1, interface_file2) in enumerate(combinations(design_interfaces, 2)):  # all_files
+                    # is_score = ialign(design1.source, design2.source, out_path='ialign')
+                    is_score = ialign(interface_file1, interface_file2)
+                    #                   out_path=os.path.join(master_directory.protein_data, 'ialign_output'))
+                    if is_score > is_threshold:
+                        design_pairs.append(set(design_directory_pairs[idx]))
+                        # design_pairs.append({design1, design2})
             # now return to prior directory
             os.chdir(prior_directory)
 
