@@ -1952,12 +1952,21 @@ if __name__ == '__main__':
             is_threshold = 0.5  # TODO
             # measure the alignment of all selected design_directories
             # all_files = [design.source_file for design in design_directories]
+
+            # need to change directories to prevent issues with the path length being passed to ialign
+            prior_directory = os.getcwd()
+            os.chdir(master_directory.protein_data)  # os.path.join(master_directory.protein_data, 'ialign_output'))
+            temp_file_dir = os.path.join(os.getcwd(), 'temp')
+            if not os.path.exists(temp_file_dir):
+                os.makedirs(temp_file_dir)
             design_pairs = []
             for design1, design2 in combinations(design_directories, 2):  # all_files
-                is_score = ialign(design1.source, design2.source,
-                                  out_path=os.path.join(master_directory.protein_data, 'ialign_output'))
+                is_score = ialign(design1.source, design2.source, out_path='ialign')
+                #                   out_path=os.path.join(master_directory.protein_data, 'ialign_output'))
                 if is_score > is_threshold:
                     design_pairs.append({design1, design2})
+            # now return to prior directory
+            os.chdir(prior_directory)
 
             # cluster all those designs together that are in alignment
             design_clusters = [design_pairs[0]]
