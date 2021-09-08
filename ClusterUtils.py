@@ -191,7 +191,7 @@ def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join
     grep_p = subprocess.Popen(['grep', 'IS-score = '], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
     is_score, err = grep_p.communicate(input=ialign_out)
 
-    return is_score
+    return float(is_score.decode())
 
 
 def cluster_poses(pose_map):
