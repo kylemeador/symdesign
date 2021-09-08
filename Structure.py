@@ -117,11 +117,8 @@ class Structure(StructureBase):
                                       'passed! Either pass Atom objects with coords or pass _coords.')
                 self.coords = coords
         if residues is not None:
-            if residue_indices:
-                self.residue_indices = residue_indices
-                self.set_residues(residues)
-                if coords is None:
-                    self.coords = self.residues[0]._coords
+            if not residue_indices:
+                residue_indices = list(range(len(residues)))
                 #     try:
                 #         coords = [atom.coords for residue in residues for atom in residue.atoms]
                 #     except AttributeError:
@@ -129,9 +126,12 @@ class Structure(StructureBase):
                 #                           'lacking coords! Either pass Atom objects with coords or pass coords.')
                 #     self.reindex_atoms()
                 #     self.coords = coords
-            else:
-                raise DesignError('Without passing residue_indices, can\'t initialize Structure with residue objects '
-                                  'lacking coords! Either pass Atom objects with coords or pass coords.')
+            # else:
+            #     raise DesignError('Without passing residue_indices, can\'t initialize Structure with Residue objects!')
+            self.residue_indices = residue_indices
+            self.set_residues(residues)
+            if coords is None:
+                self.coords = self.residues[0]._coords
         if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
             self.coords = coords
 
@@ -4206,5 +4206,5 @@ def parse_stride(stride_file, **kwargs):
 
 
 reference_residues = unpickle(reference_residues_pkl)  # zero-indexed 1 letter alphabetically sorted aa at the origin
-reference_aa = Structure.from_residues(residues=reference_residues, residue_indices=list(range(len(reference_residues))))
+reference_aa = Structure.from_residues(residues=reference_residues)
 # pickle_object(ref, '/home/kylemeador/symdesign/data/AAreferenceStruct.pkl', out_path='')
