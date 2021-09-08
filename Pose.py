@@ -2081,13 +2081,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             if not residues1 and not residues2:  # no interface
                 continue
             elif residues1 and not residues2:  # symmetric case
-                residues1_coords = []
-                for residue in residues1:
-                    residues1_coords.extend(residue.coords)
-                print('NO CONCATENTATE\n', residues1_coords)
                 residues1_coords = np.concatenate([residue.coords for residue in residues1])
-                print('CONCATENTATE\n', residues1_coords)
-
                 residues_tree = BallTree(residues1_coords)
                 symmetric_residues2_coords = self.return_symmetric_coords(residues1_coords)
                 symmetric_query = residues_tree.query_radius(symmetric_residues2_coords, distance)
@@ -2097,7 +2091,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 #                     for symmetry_idx, asu_contacts in enumerate(symmetric_query)
                 #                     for asu_idx in asu_contacts]
                 symmetric_indices = [symmetry_idx for symmetry_idx, asu_contacts in enumerate(symmetric_query)
-                                     if asu_contacts]
+                                     if asu_contacts.any()]
 
                 symmetric_residues = []
                 for _ in range(self.number_of_symmetry_mates):
