@@ -15,7 +15,8 @@ from sklearn.neighbors import NearestNeighbors
 import pandas as pd
 
 from PathUtils import ialign_exe_path
-from SymDesignUtils import handle_design_errors, DesignError, index_intersection, mp_map, sym, rmsd_threshold
+from SymDesignUtils import handle_design_errors, DesignError, index_intersection, mp_map, sym, rmsd_threshold, \
+    digit_translate_table
 from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from Structure import superposition3d
 from utils.GeneralUtils import transform_coordinate_sets
@@ -184,8 +185,8 @@ def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join
         chains += ['-c1', chain1]
     if chain2:
         chains += ['-c2', chain2]
-    temp_pdb_file1 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file1))
-    temp_pdb_file2 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file2))
+    temp_pdb_file1 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file1.translate(digit_translate_table)))
+    temp_pdb_file2 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file2.translate(digit_translate_table)))
     os.system('scp %s %s' % (pdb_file1, temp_pdb_file1))
     os.system('scp %s %s' % (pdb_file2, temp_pdb_file2))
     # cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-p2', pdb_file2] + chains
