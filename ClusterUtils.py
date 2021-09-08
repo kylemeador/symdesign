@@ -204,8 +204,8 @@ def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join
     ialign_is_score = ialign_is_score.decode()
     try:
         is_score, pvalue, z_score = [score.split('=')[-1].strip() for score in ialign_is_score.split(',')]
+        logger.info('iAlign interface alignment: %s' % ialign_is_score)
         if is_score.isdigit():
-            logger.info(ialign_is_score)
             return float(is_score)
     except ValueError:
         logger.info('No significiant interface found')
