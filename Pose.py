@@ -1365,7 +1365,13 @@ class SymmetricModel(Model):
             return self.return_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
 
     def return_symmetric_coords(self, coords):
-        """Return the unit cell coordinates from a set of coordinates for the specified SymmetricModel"""
+        """Return the coordinates from a set of coordinates for the specified SymmetricModel
+
+        Args:
+            coords (Union[numpy.ndarray, list]): The coordinates to symmetrize
+        Returns:
+            (numpy.ndarray): The symmetrized coordinates
+        """
         if self.dimension == 0:
             coords_length = len(coords)
             model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
@@ -2061,6 +2067,46 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #
     #     # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
     #     return entity1_tree.query_radius(entity2_coords, distance)
+
+    def return_interface(self, distance=8.0):
+        """Provide a view of the Pose interface by generating a Structure containing only interface Residues
+
+        Keyword Args:
+            distance=8.0 (float): The distance across the interface to query for Residue contacts
+        Returns:
+            (Structure): The Structure containing only the Residues in the interface
+        """
+        interface_residues = []
+        for residues1, residues2 in self.interface_residues:
+            if not residues2:  # symmetric case
+                residues1_coords = []
+                for residue in residues1:
+                    residues1_coords.extend(residue.coords)
+
+                residues_tree = BallTree(residues1_coords)
+                symmetric_residues2_coords = self.return_symmetric_coords(residues1_coords)
+                symmetric_query = residues_tree.query_radius(symmetric_residues2_coords, distance)
+
+                # contacting_pairs = [(entity1_indices[asu_idx],
+                #                      entity2_indices[symmetry_idx] % coords_length)
+                #                     for symmetry_idx, asu_contacts in enumerate(symmetric_query)
+                #                     for asu_idx in asu_contacts]
+                symmetric_indices = [symmetry_idx for symmetry_idx, asu_contacts in enumerate(symmetric_query)
+                                     if asu_contacts]
+
+                symmetric_residues = []
+                for _ in range(self.number_of_symmetry_mates):
+                    symmetric_residues.extend(residues1)
+                symmetric_residue_structure = Structure.from_residues(residues=symmetric_residues)
+                symmetric_residue_structure.replace_coords(symmetric_residues2_coords)
+                # interface_residues.extend(residue for idx, residue in enumerate(symmetric_residue_structure.residues)
+                #                           if idx in symmetric_indices)
+                coords_indexed_residues = symmetric_residue_structure.coords_indexed_residues
+                interface_residues.extend(set(coords_indexed_residues[sym_idx] for sym_idx in symmetric_indices))
+            else:  # non-symmetric case
+                interface_residues.extend(residues1), interface_residues.extend(residues2)
+
+        return Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
 
     def find_interface_pairs(self, entity1=None, entity2=None, distance=8):
         """Get pairs of Residues that have CB Atoms within a distance between two Entities
