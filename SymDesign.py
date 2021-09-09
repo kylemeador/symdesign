@@ -2019,6 +2019,8 @@ if __name__ == '__main__':
 
                 design_clusters = [list(cluster) for cluster in design_clusters]
                 cluster_representative_pose_member_map = {cluster[0]: cluster for cluster in design_clusters}
+            else:
+                cluster_representative_pose_member_map = {}
         else:
             # First, identify the same compositions
             compositions = group_compositions(design_directories)
@@ -2033,14 +2035,14 @@ if __name__ == '__main__':
                 cluster_representative_pose_member_map = {}
                 for composition_group in compositions.values():
                     cluster_representative_pose_member_map.update(cluster_designs(composition_group))
-
-        if args.output:
-            pose_cluster_file = \
-                SDUtils.pickle_object(cluster_representative_pose_member_map, args.output, out_path='')
-        else:
-            pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
-                                                      PUtils.clustered_poses % (location, timestamp),
-                                                      out_path=master_directory.clustered_poses)
+        if cluster_representative_pose_member_map:
+            if args.output:
+                pose_cluster_file = \
+                    SDUtils.pickle_object(cluster_representative_pose_member_map, args.output, out_path='')
+            else:
+                pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
+                                                          PUtils.clustered_poses % (location, timestamp),
+                                                          out_path=master_directory.clustered_poses)
         terminate(location=location, results=cluster_representative_pose_member_map)
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
