@@ -118,26 +118,33 @@ class Structure(StructureBase):
                     raise DesignError('Can\'t initialize Structure with Atom objects lacking coords when no Coords '
                                       'object is passed! Either pass Atom objects with coords attribute or pass Coords')
         if residues is not None:
-            if not residue_indices:
-                residue_indices = list(range(len(residues)))
-                #     try:
-                #         coords = [atom.coords for residue in residues for atom in residue.atoms]
-                #     except AttributeError:
-                #         raise DesignError('Can\'t initialize Structure with Atom objects '
-                #                           'lacking coords! Either pass Atom objects with coords or pass coords.')
-                #     self.reindex_atoms()
-                #     self.coords = coords
-            # else:
-            #     raise DesignError('Without passing residue_indices, can\'t initialize Structure with Residue objects!')
-            self.residue_indices = residue_indices
-            self.set_residues(residues)
-            if coords is None:  # assumes that this is a Structure init without existing shared coords
-                # try:
-                #     self.coords = self.residues[0]._coords
-                coords = np.concatenate([residue.coords for residue in residues])
-                self.set_coords(coords=coords)
-                # except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
-                #     self.coords = None
+            if not residue_indices:  # assume that the passed residues shouldn't be bound to an existing Structure
+                # residue_indices = list(range(len(residues)))
+                # self.atoms = [residue.atoms for residue in self.residues]
+                atoms = []
+                for residue in self.residues:
+                    atoms.extend(residue.atoms)
+                self.atom_indices = list(range(len(atoms)))
+                self.residue_indices = list(range(len(residues)))  # residue_indices
+                self.atoms = atoms
+                residues = Residues(residues)
+                # have to copy Residues object to set new attributes on each member Residue
+                self.residues = copy(residues)
+                # set residue attributes, index according to new Atoms/Coords index
+                self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
+                self._residues.reindex_residue_atoms()
+                self.set_coords(coords=np.concatenate([residue.coords for residue in residues]))
+            else:
+                self.residue_indices = residue_indices
+                self.set_residue_slice(residues)
+                # self.set_residues(residues)
+            # if coords is None:  # assumes that this is a Structure init without existing shared coords
+            #     # try:
+            #     #     self.coords = self.residues[0]._coords
+            #     coords = np.concatenate([residue.coords for residue in residues])
+            #     self.set_coords(coords=coords)
+            #     # except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
+            #     #     self.coords = None
         if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
             self.coords = coords
 
