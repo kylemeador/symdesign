@@ -2140,8 +2140,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         symmetric_model_indices = closest_asu_sym_cb_indices // coords_length
         symmetry_mate_index_symmetric_coords = symmetric_interface_coords.reshape((self.number_of_symmetry_mates, -1, 3))
         closest_interface_coords = \
-            [symmetry_mate_index_symmetric_coords[symmetric_model_indices[idx]][residue.atom_indices]
-             for idx, residue in enumerate(interface_asu_structure.residues)]
+            np.concatenate([symmetry_mate_index_symmetric_coords[symmetric_model_indices[idx]][residue.atom_indices]
+                            for idx, residue in enumerate(interface_asu_structure.residues)])
         # closest_symmetric_coords = \
         #     np.where(index_cluster_labels[:, None] == asu_index, symmetric_interface_coords, np.array([0.0, 0.0, 0.0]))
         # closest_interface_coords = \
