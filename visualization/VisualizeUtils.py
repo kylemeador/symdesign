@@ -141,7 +141,7 @@ cmd.extend('save_group', save_group)
 # if __name__ == 'pymol':
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        exit('Usage: pymol -r VisualizeDesigns.py -- path/to/designs 0-10 [original_name]')
+        exit('Usage: pymol -r VisualizeUtils.py -- path/to/designs 0-10 [original_name]')
 
     original_name, original_order = False, False
     ranked_order = False

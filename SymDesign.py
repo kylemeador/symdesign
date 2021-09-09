@@ -533,6 +533,10 @@ def generate_sequence_template(pdb_file):
     return write_fasta(sequences, file_name='%s_residue_selector_sequence' % os.path.splitext(pdb.filepath)[0])
 
 
+def ex_path(string):
+    return os.path.join('path', 'to', string)
+
+
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@',
                                      description=
@@ -566,6 +570,9 @@ if __name__ == '__main__':
                              'directory will be selected. For finer control over which poses to manipulate, use --file,'
                              ' --project, or --single flags.'
                              % (PUtils.program_name, PUtils.nano, PUtils.program_name, PUtils.program_name))
+    parser.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=ex_path('Metrics.csv'),
+                        help='A DataFrame created by %s analysis containing pose info. File is .csv, named such as '
+                             'Metrics.csv' % PUtils.program_name)
     parser.add_argument('-f', '--file', type=os.path.abspath, metavar='/path/to/file_with_directory_names.txt',
                         help='File with location(s) of %s designs. For each run of %s, a file will be created '
                              'specifying the specific directories to use in subsequent %s commands of the same designs.'
@@ -758,9 +765,9 @@ if __name__ == '__main__':
                                                'prioritized'
                                                % PUtils.analysis)
     filter_required = parser_filter.add_mutually_exclusive_group(required=True)
-    filter_required.add_argument('-df', '--dataframe', type=os.path.abspath,
-                                 metavar='/path/to/AllPoseDesignMetrics.csv',
-                                 help='Dataframe.csv from analysis containing pose info.')
+    # filter_required.add_argument('-df', '--dataframe', type=os.path.abspath,
+    #                              metavar='/path/to/AllPoseDesignMetrics.csv',
+    #                              help='Dataframe.csv from analysis containing pose info.')
     filter_required.add_argument('-m', '--metric', type=str,
                                  help='If a simple metric filter is required, what metric would you like to sort '
                                       'Designs by?', choices=['score', 'fragments_matched'])
@@ -857,6 +864,18 @@ if __name__ == '__main__':
     parser_status.add_argument('-u', '--update', type=str, choices=('check', 'set', 'remove'),
                                help='Provide an update to the serialized state of the specified stage', default=None)
     # ---------------------------------------------------
+    parser_visualize = subparsers.add_parser('visualize', help='Get design status for selected designs')
+    visualize_names = ['original', 'numerical']
+    parser_visualize.add_argument('-n', '--name', choices=visualize_names, default='original', type=str,
+                                  help='Number of trajectories per design. Options include \'%s\''
+                                       % ', '.join(visualize_names))
+    visualize_order = ['alphabetical', 'none', 'dataframe', 'paths']
+    parser_visualize.add_argument('-o', '--order', choices=visualize_order, default='alphabetical',
+                                  help='The order in which designs will be loaded. Options include \'%s\'.\nIf the '
+                                       'order is other than alphabetical, provide the required datasource through '
+                                       'one of the %s flags such as --dataframe or --file'
+                                       % (', '.join(visualize_order), PUtils.program_name))
+    # ---------------------------------------------------
     # parser_dist = subparsers.add_parser('distribute',
     #                                     help='Distribute specific design step commands to computational resources. '
     #                                        'In distribution mode, the --file or --directory argument specifies which '
@@ -949,6 +968,10 @@ if __name__ == '__main__':
             logger.info()
         elif args.module == PUtils.select_sequences:
             logger.info()
+        elif args.module == 'visualize':
+            logger.info('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --design_range 0-10'
+                        % (ex_path('pymol'), PUtils.program_command.replace('python ', ''), ex_path('design_directory'),
+                           ex_path('DataFrame.csv'), ex_path('design.paths')))
         exit()
     # -----------------------------------------------------------------------------------------------------------------
     # Process additional flags
@@ -1065,7 +1088,7 @@ if __name__ == '__main__':
                 all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                               project=args.project, single=args.single)
 
-        if queried_flags['design_range']:
+        if queried_flags['design_range']:  # Todo make a permanent flag
             low, high = map(float, queried_flags['design_range'].split('-'))
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
             if low_range < 0 or high_range > len(all_poses):
@@ -2590,6 +2613,75 @@ if __name__ == '__main__':
                     if s:
                         logger.info('For \'%s\' stage, default settings should generate %d files'
                                     % (stage, PUtils.stage_f[stage]['len']))
+    # ---------------------------------------------------
+    elif args.module == 'visualize':
+        import visualization.VisualizeUtils as VSUtils
+
+        # if 'escher' in sys.argv[1]:
+        if not args.directory:
+            exit('A directory with the desired designs must be specified using -d/--directory!')
+
+        if ':' in args.directory:  # args.file  Todo location
+            print('Starting the data transfer from remote source now...')
+            os.system('scp -r %s .' % args.directory)
+            file_dir = os.path.basename(args.directory)
+        else:  # assume the files are local
+            file_dir = sys.argv[1]
+        files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
+
+        if args.order == 'alphabetical':
+            files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
+        else:  # if args.order == 'none':
+            files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
+
+        if args.order == 'paths':  # TODO
+            raise NotImplementedError('--order choice \'paths\' hasn\'t been set up quite yet... Use another method')
+            ordered_files = []
+            for index in df.index:
+                for file in files:
+                    if index in file:
+                        ordered_files.append(file)
+                        break
+            files = ordered_files
+        elif args.order == 'dataframe':
+            if not args.dataframe:
+                df_glob = glob(os.path.join(file_dir, 'TrajectoryMetrics.csv'))
+                try:
+                    args.dataframe = df_glob[0]
+                except IndexError:
+                    raise IndexError('There was no --dataframe specified and one couldn\'t be located in %s. Initialize'
+                                     ' again with the path to the relevant dataframe' % location)
+
+            df = pd.read_csv(args.dataframe, index_col=0, header=[0])
+            ordered_files = []
+            for index in df.index:
+                for file in files:
+                    if index in file:
+                        ordered_files.append(file)
+                        break
+            files = ordered_files
+
+        if not files:
+            exit('No .pdb files found in %s. Are you sure this is correct?' % location)
+
+        # if len(sys.argv) > 2:
+        #     low, high = map(float, sys.argv[2].split('-'))
+        #     low_range, high_range = int((low / 100) * len(files)), int((high / 100) * len(files))
+        #     if low_range < 0 or high_range > len(files):
+        #         raise ValueError('The input range is outside of the acceptable bounds [0-100]')
+        #     print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
+        # else:
+        #     low_range, high_range = None, None
+
+        for idx, file in enumerate(files[low_range:high_range], low_range + 1):
+            if args.name == 'original':
+                cmd.load(file)
+            else:  # if args.name == 'numerical':
+                cmd.load(file, object=idx)
+
+        print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T'
+              '\nReplace \'T\' with whatever symmetry your design is in\n')
+    # ---------------------------------------------------
     # else:
     #     exit('No module was selected! Did you include one? To get started, checkout the %s' % PUtils.guide_string)
     # -----------------------------------------------------------------------------------------------------------------
