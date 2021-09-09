@@ -2096,6 +2096,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 symmetric_residues = []
                 for _ in range(self.number_of_symmetry_mates):
                     symmetric_residues.extend(residues1)
+                # symmetric_residue_structure = \
+                #     Structure.from_residues(residues=symmetric_residues, coords=symmetric_residues2_coords)
                 symmetric_residue_structure = Structure.from_residues(residues=symmetric_residues)
                 symmetric_residue_structure.replace_coords(symmetric_residues2_coords)
                 # interface_residues.extend(residue for idx, residue in enumerate(symmetric_residue_structure.residues)

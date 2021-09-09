@@ -141,15 +141,15 @@ class Structure(StructureBase):
     @classmethod
     def from_atoms(cls, atoms=None, coords=None, **kwargs):
         new_structure = cls(atoms=atoms, coords=coords, **kwargs)
-        if coords:
-            new_structure.set_coords(coords)
+        # if coords:
+        new_structure.set_coords(coords)
         return new_structure
 
     @classmethod
     def from_residues(cls, residues=None, residue_indices=None, coords=None, **kwargs):
         new_structure = cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
-        if coords:
-            new_structure.set_coords(coords)
+        # if coords:
+        new_structure.set_coords(coords)
         return new_structure
 
     @property  # Todo these do nothing and could be removed
@@ -1162,10 +1162,6 @@ class Structure(StructureBase):
 
     def replace_coords(self, new_coords):
         self._coords.coords = new_coords
-        # self.set_atoms_attributes(coords=self._coords)
-        # self.reindex_atoms()
-        # self.set_residues_attributes(coords=self._coords)
-        # self.renumber_atoms()
 
     def local_density(self, residue_numbers=None, distance=12.):
         """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
