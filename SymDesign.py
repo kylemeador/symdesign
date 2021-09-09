@@ -2006,16 +2006,14 @@ if __name__ == '__main__':
                 # for design1, design2 in design_pairs[1:]:
                 for design_set in design_pairs[1:]:
                     cluster_found = False
+                    design1, design2 = design_set
                     for cluster in design_clusters:
-                        design1, design2 = design_set
                         if design1 in cluster or design2 in cluster:
                             cluster_found = True
                             break
                     if cluster_found:
-                        # cluster.add(design1), cluster.add(design2)
-                        cluster.add(design_set)
+                        cluster.update(design_set)
                     else:
-                        # design_clusters.append({design1, design2})
                         design_clusters.append(design_set)
 
                 design_clusters = [list(cluster) for cluster in design_clusters]
