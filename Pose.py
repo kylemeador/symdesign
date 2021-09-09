@@ -2123,7 +2123,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         coords_length = interface_asu_structure.number_of_atoms
         interface_cb_indices = interface_asu_structure.cb_indices
         print('NUMBER of RESIDUES:', interface_asu_structure.number_of_residues,
-              'NUMBER of CB INDICES', len(interface_cb_indices))
+              '\nNUMBER of CB INDICES', len(interface_cb_indices))
         # residue_number = interface_asu_structure.number_of_residues
         # [interface_asu_structure.cb_indices + (residue_number * model) for model in self.number_of_symmetry_mates]
         symmetric_cb_indices = \
@@ -2135,10 +2135,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # index_cluster_labels = KMeans(n_clusters=self.number_of_symmetry_mates).fit_predict(symmetric_interface_coords)
         symmetric_interface_cb_coords = symmetric_interface_coords[symmetric_cb_indices]
         print('Number sym CB COORDS:\n', len(symmetric_interface_cb_coords))
-        initial_clusters = [interface_cb_indices[0] + (coords_length * model_number)
+        initial_cluster_indices = [interface_cb_indices[0] + (coords_length * model_number)
                             for model_number in range(self.number_of_symmetry_mates)]
         kmeans_cluster_model = \
-            KMeans(n_clusters=self.number_of_symmetry_mates, init=initial_clusters).fit(symmetric_interface_cb_coords)
+            KMeans(n_clusters=self.number_of_symmetry_mates, init=symmetric_interface_coords[initial_cluster_indices])\
+                .fit(symmetric_interface_cb_coords)
         index_cluster_labels = kmeans_cluster_model.labels_
         asu_interface_labels = kmeans_cluster_model.predict(interface_coords[interface_cb_indices])
 
