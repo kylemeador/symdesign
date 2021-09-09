@@ -1974,11 +1974,11 @@ if __name__ == '__main__':
                     interface.write(out_path=os.path.join(temp_file_dir, '%s.pdb' % design.name)))
 
             design_directory_pairs = list(combinations(design_directories, 2))
+            design_pairs = []
             if args.multi_processing:
                 # zipped_args = zip(combinations(design_interfaces, 2))
                 design_scores = SDUtils.mp_starmap(ialign, combinations(design_interfaces, 2), threads=threads)
 
-                design_pairs = []
                 # for idx, is_score in enumerate(design_scores):  # Todo reinstate
                 for idx, (is_score, des1, des2) in enumerate(design_scores):  # Todo remove
                     if is_score > is_threshold:
@@ -1988,7 +1988,6 @@ if __name__ == '__main__':
                             print('Pair is not aligned with idx!')  # Todo remove
                         design_pairs.append(set(design_directory_pairs[idx]))
             else:
-                design_pairs = []
                 # for design1, design2 in combinations(design_directories, 2):  # all_files
                 for idx, (interface_file1, interface_file2) in enumerate(combinations(design_interfaces, 2)):  # all_files
                     # is_score = ialign(design1.source, design2.source, out_path='ialign')
@@ -2001,24 +2000,25 @@ if __name__ == '__main__':
             os.chdir(prior_directory)
 
             # cluster all those designs together that are in alignment
-            design_clusters = [design_pairs[0]]
-            # for design1, design2 in design_pairs[1:]:
-            for design_set in design_pairs[1:]:
-                cluster_found = False
-                for cluster in design_clusters:
-                    design1, design2 = design_set
-                    if design1 in cluster or design2 in cluster:
-                        cluster_found = True
-                        break
-                if cluster_found:
-                    # cluster.add(design1), cluster.add(design2)
-                    cluster.add(design_set)
-                else:
-                    # design_clusters.append({design1, design2})
-                    design_clusters.append(design_set)
+            if design_pairs:
+                design_clusters = [design_pairs[0]]
+                # for design1, design2 in design_pairs[1:]:
+                for design_set in design_pairs[1:]:
+                    cluster_found = False
+                    for cluster in design_clusters:
+                        design1, design2 = design_set
+                        if design1 in cluster or design2 in cluster:
+                            cluster_found = True
+                            break
+                    if cluster_found:
+                        # cluster.add(design1), cluster.add(design2)
+                        cluster.add(design_set)
+                    else:
+                        # design_clusters.append({design1, design2})
+                        design_clusters.append(design_set)
 
-            design_clusters = [list(cluster) for cluster in design_clusters]
-            cluster_representative_pose_member_map = {cluster[0]: cluster for cluster in design_clusters}
+                design_clusters = [list(cluster) for cluster in design_clusters]
+                cluster_representative_pose_member_map = {cluster[0]: cluster for cluster in design_clusters}
         else:
             # First, identify the same compositions
             compositions = group_compositions(design_directories)
