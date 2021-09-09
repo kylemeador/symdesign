@@ -2043,6 +2043,10 @@ if __name__ == '__main__':
                 pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
                                                           PUtils.clustered_poses % (location, timestamp),
                                                           out_path=master_directory.clustered_poses)
+            logger.info('Cluster map written to %s' % pose_cluster_file)
+        else:
+            logger.info('No significant cluster were located! Clustering ended')
+
         terminate(location=location, results=cluster_representative_pose_member_map)
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
