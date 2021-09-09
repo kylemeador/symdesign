@@ -112,11 +112,10 @@ class Structure(StructureBase):
             if coords is None:
                 try:
                     # coords = [atom.coords for atom in atoms]
-                    coords = np.concatenate([atom.coords for atom in atoms])
+                    self.coords = np.concatenate([atom.coords for atom in atoms])
                 except AttributeError:
                     raise DesignError('Can\'t initialize Structure with Atom objects lacking coords when no Coords '
                                       'object is passed! Either pass Atom objects with coords attribute or pass Coords')
-                self.coords = coords
         if residues is not None:
             if not residue_indices:
                 residue_indices = list(range(len(residues)))
@@ -132,10 +131,11 @@ class Structure(StructureBase):
             self.residue_indices = residue_indices
             self.set_residues(residues)
             if coords is None:
-                try:
-                    self.coords = self.residues[0]._coords
-                except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
-                    self.coords = None
+                # try:
+                #     self.coords = self.residues[0]._coords
+                self.coords = np.concatenate([residue.coords for residue in residues])
+                # except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
+                #     self.coords = None
         if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
             self.coords = coords
 
