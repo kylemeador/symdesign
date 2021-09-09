@@ -1981,6 +1981,7 @@ if __name__ == '__main__':
 
                 for idx, is_score in enumerate(design_scores):  # Todo reinstate
                 # for idx, (is_score, des1, des2) in enumerate(design_scores):  # Todo remove
+                    print('%5d : %f' % (idx, is_score))
                     if is_score > is_threshold:
                         # pair1, pair2 = design_directory_pairs[idx]  # Todo remove
                         # # if pair != design_directory_pairs[idx]: # Todo remove
@@ -2045,7 +2046,7 @@ if __name__ == '__main__':
                                                           out_path=master_directory.clustered_poses)
             logger.info('Cluster map written to %s' % pose_cluster_file)
         else:
-            logger.info('No significant cluster were located! Clustering ended')
+            logger.info('No significant clusters were located! Clustering ended')
 
         terminate(location=location, results=cluster_representative_pose_member_map)
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
