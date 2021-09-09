@@ -2156,9 +2156,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # interface_asu_structure.coords_indexed_residues
         # find the model indices of the closest interface asu
         print('Normal sym CB INDICES\n:', closest_asu_sym_cb_indices)
-        flat_sym_model_indices = closest_asu_sym_cb_indices.reshape((self.number_of_symmetry_mates,
-                                                                  interface_asu_structure.number_of_residues, -1)).sum(axis=0)
-        print('FLOORED sym CB INDICES to get MODEL\n:', flat_sym_model_indices)
+        flat_sym_model_indices = \
+            closest_asu_sym_cb_indices.reshape((self.number_of_symmetry_mates,
+                                                # interface_asu_structure.number_of_residues)).sum(axis=0)
+                                                -1)).sum(axis=0)
+        print('FLATTENED CB INDICES to get MODEL\n:', flat_sym_model_indices)
         symmetric_model_indices = flat_sym_model_indices // coords_length
         print('FLOORED sym CB INDICES to get MODEL\n:', symmetric_model_indices)
         symmetry_mate_index_symmetric_coords = \
