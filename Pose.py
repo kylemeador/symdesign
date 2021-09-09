@@ -2087,30 +2087,27 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Returns:
             (Structure): The Structure containing only the Residues in the interface
         """
+        # find all pertinent interface residues from results of find_interface_residues()
         interface_residues = []
         for residues1, residues2 in self.interface_residues.values():
             if not residues1 and not residues2:  # no interface
                 continue
             elif residues1 and not residues2:  # symmetric case
-                residues1_coords = np.concatenate([residue.coords for residue in residues1])
-                residues_tree = BallTree(residues1_coords)
-                symmetric_residues2_coords = self.return_symmetric_coords(residues1_coords)
-                symmetric_query = residues_tree.query_radius(symmetric_residues2_coords, distance)
-                symmetric_indices = [symmetry_idx for symmetry_idx, asu_contacts in enumerate(symmetric_query)
-                                     if asu_contacts.any()]
-
                 symmetric_residues = []
                 for _ in range(self.number_of_symmetry_mates):
                     symmetric_residues.extend(residues1)
-                # symmetric_residue_structure = \
-                #     Structure.from_residues(residues=symmetric_residues, coords=symmetric_residues2_coords)
-                # Add the number of symmetric observed structures to a new Structure
+                # Add the number of symmetric observed structures to a single new Structure
                 symmetric_residue_structure = Structure.from_residues(residues=symmetric_residues)
+                symmetric_residues2_coords = self.return_symmetric_coords(residues1_coords)
                 symmetric_residue_structure.replace_coords(symmetric_residues2_coords)
-                # interface_residues.extend(residue for idx, residue in enumerate(symmetric_residue_structure.residues)
-                #                           if idx in symmetric_indices)
+                # use a single instance of the residues to perform a distance query
+                residues1_coords = np.concatenate([residue.coords for residue in residues1])
+                residues_tree = BallTree(residues1_coords)
+                symmetric_query = residues_tree.query_radius(symmetric_residues2_coords, distance)
+                symmetric_indices = [symmetry_idx for symmetry_idx, asu_contacts in enumerate(symmetric_query)
+                                     if asu_contacts.any()]
+                # finally, add all correctly located, asu interface indexed symmetrical residues to the interface
                 coords_indexed_residues = symmetric_residue_structure.coords_indexed_residues
-                # finally add all the
                 interface_residues.extend(set(coords_indexed_residues[sym_idx] for sym_idx in symmetric_indices))
             else:  # non-symmetric case
                 interface_residues.extend(residues1), interface_residues.extend(residues2)
@@ -2138,9 +2135,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         initial_cluster_indices = [interface_cb_indices[0] + (coords_length * model_number)
                                    for model_number in range(self.number_of_symmetry_mates)]
         kmeans_cluster_model = \
-            KMeans(n_clusters=self.number_of_symmetry_mates, init=symmetric_interface_coords[initial_cluster_indices])\
-            .fit(symmetric_interface_cb_coords)
+            KMeans(n_clusters=self.number_of_symmetry_mates, init=symmetric_interface_coords[initial_cluster_indices],
+                   n_init=1).fit(symmetric_interface_cb_coords)
         index_cluster_labels = kmeans_cluster_model.labels_
+        # find the label where the asu is nearest too
         asu_interface_labels = kmeans_cluster_model.predict(interface_coords[interface_cb_indices])
 
         # closest_interface_indices = np.where(index_cluster_labels == 0, True, False)
