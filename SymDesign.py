@@ -466,9 +466,9 @@ def terminate(location=None, results=None, output=True):
             if save:
                 logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
         elif args.module == PUtils.cluster_poses:
-            logger.info('Clustering analysis results in the following similar poses:')
-            for cluster, members, in results.items():
-                print('%s\n\t%s' % (cluster, '\n\t'.join(members)))
+            logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
+            for representative, members, in results.items():
+                print('%s\n\t%s' % (representative, '\n\t'.join(map(str, members))))
             logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
                         % (len(cluster_representative_pose_member_map), len(design_directories), pose_cluster_file))
             logger.info('Each cluster above has one representative which identifies with each of the members. If '
