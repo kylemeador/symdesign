@@ -132,7 +132,10 @@ class Structure(StructureBase):
             self.residue_indices = residue_indices
             self.set_residues(residues)
             if coords is None:
-                self.coords = self.residues[0]._coords
+                try:
+                    self.coords = self.residues[0]._coords
+                except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
+                    self.coords = None
         if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
             self.coords = coords
 
