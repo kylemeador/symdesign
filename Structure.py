@@ -2257,7 +2257,8 @@ class Entity(Chain, SequenceProfile):
         self.rotation_d = {}
         self.max_symmetry = None
         self.dihedral_chain = None
-        super().__init__(residues=representative._residues, residue_indices=representative.residue_indices, **kwargs)
+        super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
+                         coords=representative._coords, **kwargs)
         self._chains = []
         self.chain_ops = []
         chains = kwargs.get('chains', list())  # [Chain objs]
@@ -3001,8 +3002,9 @@ class Residues:
 
         return other
 
-    # def __iter__(self):  # TODO Residues iteration
-    #     yield from self.residues.tolist()
+    def __iter__(self):
+        yield from self.residues.tolist()
+
 
 class Residue:
     def __init__(self, atom_indices=None, index=None, atoms=None, coords=None, log=None):
@@ -3825,6 +3827,9 @@ class Atoms:
 
     def __len__(self):
         return self.atoms.shape[0]
+
+    def __iter__(self):
+        yield from self.atoms.tolist()
 
 
 class Atom:
