@@ -1980,11 +1980,11 @@ if __name__ == '__main__':
 
                 design_pairs = []
                 # for idx, is_score in enumerate(design_scores):  # Todo reinstate
-                for idx, (is_score, pair) in enumerate(design_scores):  # Todo remove
+                for idx, (is_score, des1, des2) in enumerate(design_scores):  # Todo remove
                     if is_score > is_threshold:
                         pair1, pair2 = design_directory_pairs[idx]  # Todo remove
                         # if pair != design_directory_pairs[idx]: # Todo remove
-                        if pair != (pair1.name, pair2.name):  # Todo remove
+                        if (des1, des2) != (pair1.name, pair2.name):  # Todo remove
                             print('Pair is not aligned with idx!')  # Todo remove
                         design_pairs.append(set(design_directory_pairs[idx]))
             else:
