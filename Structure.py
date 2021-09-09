@@ -193,7 +193,7 @@ class Structure(StructureBase):
             coords=None (Union[numpy.ndarray, list]): The coordinates to set for the structure
         Only use set_coords once per Structure object creation otherwise Structures with multiple containers will be
         corrupted"""
-        if coords:
+        if coords is not None:
             self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
