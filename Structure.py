@@ -141,14 +141,12 @@ class Structure(StructureBase):
     @classmethod
     def from_atoms(cls, atoms=None, coords=None, **kwargs):
         new_structure = cls(atoms=atoms, coords=coords, **kwargs)
-        # if coords:
         new_structure.set_coords(coords)
         return new_structure
 
     @classmethod
     def from_residues(cls, residues=None, residue_indices=None, coords=None, **kwargs):
         new_structure = cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
-        # if coords:
         new_structure.set_coords(coords)
         return new_structure
 
@@ -173,20 +171,30 @@ class Structure(StructureBase):
     @coords.setter
     def coords(self, coords):
         """Replace the Structure, Atom, and Residue coordinates with specified Coords Object or numpy.ndarray"""
-        if isinstance(coords, Coords):
-            self._coords = coords
-        else:
-            self._coords = Coords(coords)
-        assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
-                                                    % (self.name, len(self.atoms), len(self.coords))
+        try:
+            coords.coords
+        except AttributeError:
+            coords = Coords(coords)
+        self._coords = coords
+        # if isinstance(coords, Coords):
+        #     self._coords = coords
+        # else:
+        #     self._coords = Coords(coords)
 
-    def set_coords(self, coords):
+        if self._coords.coords.shape[0] != 0:
+            assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
+                                                        % (self.name, len(self.atoms), len(self.coords))
+
+    def set_coords(self, coords=None):
         """Set the coordinates for the Structure as a Coord object. Additionally, updates all member Residues with the
         Coords object and maps the atom/coordinate index to each Residue, residue atom index pair.
 
+        Keyword Args:
+            coords=None (Union[numpy.ndarray, list]): The coordinates to set for the structure
         Only use set_coords once per Structure object creation otherwise Structures with multiple containers will be
         corrupted"""
-        self.coords = coords
+        if coords:
+            self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
         # self.store_coordinate_index_residue_map()
