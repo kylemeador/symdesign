@@ -107,7 +107,7 @@ class Structure(StructureBase):
         else:  # When log is explicitly passed as False, use the module logger
             self.log = logger
 
-        if atoms is not None:
+        if atoms is not None:  # Todo make look like below residues init!
             self.atoms = atoms
             if coords is None:  # assumes that this is a Structure init without existing shared coords
                 try:
@@ -817,7 +817,7 @@ class Structure(StructureBase):
         else:
             return self.residues
 
-    def set_residues(self, residues):
+    def set_residue_slice(self, residues):
         """Set the Structure Residues to Residues object. Set the Structure Atoms and atom_indices"""
         self.residues = residues
         # self.atom_indices = [atom.index for residue in self.residues for atom in residue.atoms]
@@ -827,13 +827,23 @@ class Structure(StructureBase):
         self.atom_indices = atom_indices
         self.atoms = self.residues[0]._atoms
 
-    def add_residues(self, residue_list):
-        """Add Residue objects in a list to the Structure instance"""
-        raise DesignError('This function is broken')  # TODO BROKEN
-        residues = self.residues
-        residues.extend(residue_list)
-        self.set_residues(residues)
-        # Todo need to add the residue coords to coords
+    # def set_residues(self, residues):
+    #     """Set the Structure Residues to Residues object. Set the Structure Atoms and atom_indices"""
+    #     self.residues = residues
+    #     # self.atom_indices = [atom.index for residue in self.residues for atom in residue.atoms]
+    #     atom_indices = []
+    #     for residue in self.residues:
+    #         atom_indices.extend(residue.atom_indices)
+    #     self.atom_indices = atom_indices
+    #     self.atoms = self.residues[0]._atoms
+
+    # def add_residues(self, residue_list):
+    #     """Add Residue objects in a list to the Structure instance"""
+    #     raise DesignError('This function is broken')  # TODO BROKEN
+    #     residues = self.residues
+    #     residues.extend(residue_list)
+    #     self.set_residues(residues)
+    #     # Todo need to add the residue coords to coords
 
     # update_structure():
     #  self.reindex_atoms() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->

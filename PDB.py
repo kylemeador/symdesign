@@ -14,7 +14,7 @@ from Bio.Data.IUPACData import protein_letters_3to1_extended
 
 from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
-from Structure import Structure, Chain, Entity, Atom, Residues
+from Structure import Structure, Chain, Entity, Atom, Residues, Structures
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues
 from utils.SymmetryUtils import valid_subunit_number
 
@@ -97,6 +97,7 @@ class PDB(Structure):
                     # self.coords = coords
                 self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
                 self.process_pdb(residues=residues, coords=coords, **kwargs)
+            # elif isinstance(chains, (list, Structures)) and chains:  # Todo
             elif isinstance(chains, list) and chains:  # Todo overloaded, move to process_pdb
                 atoms, residues = [], []
                 for chain in chains:
@@ -111,7 +112,7 @@ class PDB(Structure):
                 # set residue attributes, index according to new Atoms/Coords index
                 self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
                 self._residues.reindex_residue_atoms()
-                self.set_coords(np.concatenate([chain.coords for chain in chains]))
+                self.set_coords(coords=np.concatenate([chain.coords for chain in chains]))
 
                 self.chains = copy(chains)
                 self.copy_structures()
@@ -135,6 +136,7 @@ class PDB(Structure):
                     self.renumber_structure()
                     # self.create_entities()  # TODO with process_pdb
 
+            # elif isinstance(entities, (list, Structures)) and entities:  # Todo
             elif isinstance(entities, list) and entities:  # Todo overloaded, move to process_pdb
                 # there was a strange error when this function was passed three entities, 2 and 3 were the same,
                 # however, when clashes were checked, 2 was clashing with itself as it was referencing residues from 3,
@@ -153,7 +155,7 @@ class PDB(Structure):
                 # set residue attributes, index according to new Atoms/Coords index
                 self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
                 self._residues.reindex_residue_atoms()
-                self.set_coords(np.concatenate([entity.coords for entity in entities]))
+                self.set_coords(coords=np.concatenate([entity.coords for entity in entities]))
 
                 self.entities = copy(entities)  # copy the passed Structure list
                 # self.chains = copy(chains)
@@ -425,7 +427,8 @@ class PDB(Structure):
             self.set_atoms(atoms)
         if residues:  # Todo ensure that atoms is also None?
             # sets Atoms and Residues
-            self.set_residues(residues)
+            self.set_residue_slice(residues)
+            # self.set_residues(residues)
 
         if coords is not None:
             # inherently replace the Atom and Residue Coords
