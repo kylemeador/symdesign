@@ -122,7 +122,7 @@ class Structure(StructureBase):
                 # residue_indices = list(range(len(residues)))
                 # self.atoms = [residue.atoms for residue in self.residues]
                 atoms = []
-                for residue in self.residues:
+                for residue in residues:
                     atoms.extend(residue.atoms)
                 self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))  # residue_indices
