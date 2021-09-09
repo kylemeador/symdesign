@@ -2155,6 +2155,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         symmetry_mate_index_symmetric_coords = \
             symmetric_interface_coords.reshape((self.number_of_symmetry_mates, -1, 3))
         print('RESHAPED SYMMETRIC COORDS SHAPE:', symmetry_mate_index_symmetric_coords.shape)
+        print('NUMBER of RESIDUES:', interface_asu_structure.number_of_residues,
+              'NUMBER of CB INDICES', interface_asu_structure.cb_indices)
         closest_interface_coords = \
             np.concatenate([symmetry_mate_index_symmetric_coords[symmetric_model_indices[idx]][residue.atom_indices]
                             for idx, residue in enumerate(interface_asu_structure.residues)])
