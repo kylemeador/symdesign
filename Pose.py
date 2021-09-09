@@ -2096,12 +2096,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 symmetric_residues = []
                 for _ in range(self.number_of_symmetry_mates):
                     symmetric_residues.extend(residues1)
+                residues1_coords = np.concatenate([residue.coords for residue in residues1])
                 # Add the number of symmetric observed structures to a single new Structure
                 symmetric_residue_structure = Structure.from_residues(residues=symmetric_residues)
                 symmetric_residues2_coords = self.return_symmetric_coords(residues1_coords)
                 symmetric_residue_structure.replace_coords(symmetric_residues2_coords)
                 # use a single instance of the residues to perform a distance query
-                residues1_coords = np.concatenate([residue.coords for residue in residues1])
                 residues_tree = BallTree(residues1_coords)
                 symmetric_query = residues_tree.query_radius(symmetric_residues2_coords, distance)
                 symmetric_indices = [symmetry_idx for symmetry_idx, asu_contacts in enumerate(symmetric_query)
