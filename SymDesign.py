@@ -1952,7 +1952,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == PUtils.cluster_poses:
         if args.mode == 'ialign':  # interface_residues, tranformation
-            is_threshold = 0.5  # TODO
+            is_threshold = 0.3  # 0.5  # TODO
             # measure the alignment of all selected design_directories
             # all_files = [design.source_file for design in design_directories]
 
