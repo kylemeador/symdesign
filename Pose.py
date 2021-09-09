@@ -2147,15 +2147,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # closest_asu_cb_indices = closest_asu_sym_cb_indices % coords_length
         # interface_asu_structure.coords_indexed_residues
         # find the model indices of the closest interface asu
-        print(closest_asu_sym_cb_indices)
+        print('Normal CB INDICES\n:', closest_asu_sym_cb_indices)
         symmetric_model_indices = closest_asu_sym_cb_indices // coords_length
-        flat_sym_model_indices = symmetric_model_indices.reshape((self.number_of_symmetry_mates,
-                                                                  interface_asu_structure.number_of_residues, -1)).sum(axis=0)
-        print(symmetric_model_indices)
+        # flat_sym_model_indices = symmetric_model_indices.reshape((self.number_of_symmetry_mates,
+        #                                                           interface_asu_structure.number_of_residues, -1)).sum(axis=0)
+        print('FLOORED CB INDICES to get MODEL\n:', symmetric_model_indices)
         symmetry_mate_index_symmetric_coords = \
             symmetric_interface_coords.reshape((self.number_of_symmetry_mates, -1, 3))
+        print('RESHAPED SYMMETRIC COORDS SHAPE:', symmetry_mate_index_symmetric_coords.shape)
         closest_interface_coords = \
-            np.concatenate([symmetry_mate_index_symmetric_coords[flat_sym_model_indices[idx]][residue.atom_indices]
+            np.concatenate([symmetry_mate_index_symmetric_coords[symmetric_model_indices[idx]][residue.atom_indices]
                             for idx, residue in enumerate(interface_asu_structure.residues)])
         # closest_symmetric_coords = \
         #     np.where(index_cluster_labels[:, None] == asu_index, symmetric_interface_coords, np.array([0.0, 0.0, 0.0]))
