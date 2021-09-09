@@ -9,6 +9,7 @@ from typing import Set, List
 
 import numpy as np
 # from numba import njit, jit
+from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 # import requests
 
@@ -2107,7 +2108,30 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             else:  # non-symmetric case
                 interface_residues.extend(residues1), interface_residues.extend(residues2)
 
-        return Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
+        # return Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
+        interface_asu_structure = Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
+        # interface_symmetry_mates = self.return_symmetry_mates(interface_asu_structure)
+        interface_coords = interface_asu_structure.coords
+        symmetric_interface_coords = self.return_symmetric_coords(interface_coords)
+        index_cluster_labels = KMeans(n_clusters=self.number_of_symmetry_mates).fit_predict(symmetric_interface_coords)
+        print('Found %d cluster labels:\n' % len(index_cluster_labels), index_cluster_labels)
+        print('Max cluster label %d' % max(index_cluster_labels))
+        # closest_interface_indices = np.where(index_cluster_labels == 0, True, False)
+        # [False, False, False, True, True, True, True, True, True, False, False, False, False, False, ...]
+        # symmetric_residues = interface_asu_structure.residues * self.number_of_symmetry_mates
+        # [1, 2, 3, 4, 5, 6, 1, 2, 3, 4, 5, 6, 1, 2, ...]
+
+        # stacked_interface_indices = np.split(closest_interface_indices, self.number_of_symmetry_mates)
+        # index_cluster_labels2 = index_cluster_labels[:, None]
+        # empty_coords = np.array([0.0, 0.0, 0.0])
+        closest_symmetric_coords = \
+            np.where(index_cluster_labels[:, None] == 0, symmetric_interface_coords, np.array([0.0, 0.0, 0.0]))
+        #            empty_coords)
+        # stacked_interface_coords = np.split(closest_symmetric_coords, self.number_of_symmetry_mates)
+        closest_interface_coords = \
+            closest_symmetric_coords.reshape((self.number_of_symmetry_mates, interface_coords.shape[0], -1)).sum(axis=0)
+        interface_asu_structure.replace_coords(closest_interface_coords)
+        return interface_asu_structure
 
     def find_interface_pairs(self, entity1=None, entity2=None, distance=8):
         """Get pairs of Residues that have CB Atoms within a distance between two Entities
