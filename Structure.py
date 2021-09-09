@@ -109,10 +109,11 @@ class Structure(StructureBase):
 
         if atoms is not None:
             self.atoms = atoms
-            if coords is None:
+            if coords is None:  # assumes that this is a Structure init without existing shared coords
                 try:
                     # coords = [atom.coords for atom in atoms]
-                    self.coords = np.concatenate([atom.coords for atom in atoms])
+                    coords = np.concatenate([atom.coords for atom in atoms])
+                    self.set_coords(coords=coords)
                 except AttributeError:
                     raise DesignError('Can\'t initialize Structure with Atom objects lacking coords when no Coords '
                                       'object is passed! Either pass Atom objects with coords attribute or pass Coords')
@@ -130,10 +131,11 @@ class Structure(StructureBase):
             #     raise DesignError('Without passing residue_indices, can\'t initialize Structure with Residue objects!')
             self.residue_indices = residue_indices
             self.set_residues(residues)
-            if coords is None:
+            if coords is None:  # assumes that this is a Structure init without existing shared coords
                 # try:
                 #     self.coords = self.residues[0]._coords
-                self.coords = np.concatenate([residue.coords for residue in residues])
+                coords = np.concatenate([residue.coords for residue in residues])
+                self.set_coords(coords=coords)
                 # except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
                 #     self.coords = None
         if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
@@ -143,15 +145,17 @@ class Structure(StructureBase):
 
     @classmethod
     def from_atoms(cls, atoms=None, coords=None, **kwargs):
-        new_structure = cls(atoms=atoms, coords=coords, **kwargs)
-        new_structure.set_coords(coords)
-        return new_structure
+        return cls(atoms=atoms, coords=coords, **kwargs)
+        # new_structure = cls(atoms=atoms, coords=coords, **kwargs)
+        # new_structure.set_coords(coords)
+        # return new_structure
 
     @classmethod
     def from_residues(cls, residues=None, residue_indices=None, coords=None, **kwargs):
-        new_structure = cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
-        new_structure.set_coords(coords)
-        return new_structure
+        return cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
+        # new_structure = cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
+        # new_structure.set_coords(coords)
+        # return new_structure
 
     @property  # Todo these do nothing and could be removed
     def name(self):
