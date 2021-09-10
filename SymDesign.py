@@ -1008,7 +1008,7 @@ if __name__ == '__main__':
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
                        'interface_metrics', 'optimize_designs', 'custom_script', 'rename_chains', 'status',
-                       'check_clashes']:
+                       'check_clashes', 'visualize']:
         initialize, construct_pose = True, True  # set up design directories
         # if args.module in ['orient', 'expand_asu']:
         #     if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
@@ -2616,6 +2616,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == 'visualize':
         import visualization.VisualizeUtils as VSUtils
+        from pymol import cmd
 
         # if 'escher' in sys.argv[1]:
         if not args.directory:
@@ -2626,7 +2627,7 @@ if __name__ == '__main__':
             os.system('scp -r %s .' % args.directory)
             file_dir = os.path.basename(args.directory)
         else:  # assume the files are local
-            file_dir = sys.argv[1]
+            file_dir = args.directory
         files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
 
         if args.order == 'alphabetical':
@@ -2634,15 +2635,31 @@ if __name__ == '__main__':
         else:  # if args.order == 'none':
             files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
 
-        if args.order == 'paths':  # TODO
-            raise NotImplementedError('--order choice \'paths\' hasn\'t been set up quite yet... Use another method')
+        if args.order == 'paths':  # TODO FIX
+            # for design in design_directories:
+            with open(args.file[0], 'r') as f:
+                paths = \
+                    map(str.replace, map(str.strip, f.readlines()),
+                        repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
+                               'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
+                paths = list(paths)
+            print(paths[:3])
+            print(files[:3])
             ordered_files = []
-            for index in df.index:
+            for path in paths:
                 for file in files:
-                    if index in file:
+                    if path in file:
                         ordered_files.append(file)
                         break
             files = ordered_files
+            # raise NotImplementedError('--order choice \'paths\' hasn\'t been set up quite yet... Use another method')
+            # ordered_files = []
+            # for index in df.index:
+            #     for file in files:
+            #         if index in file:
+            #             ordered_files.append(file)
+            #             break
+            # files = ordered_files
         elif args.order == 'dataframe':
             if not args.dataframe:
                 df_glob = glob(os.path.join(file_dir, 'TrajectoryMetrics.csv'))
