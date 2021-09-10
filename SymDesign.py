@@ -2643,8 +2643,6 @@ if __name__ == '__main__':
                         repeat('/yeates1/kmeador/Nanohedra_T33/SymDesignOutput/Projects/'
                                'NanohedraEntry54DockedPoses_Designs/'), repeat(''))
                 paths = list(paths)
-            print(paths[:3])
-            print(files[:3])
             ordered_files = []
             for path in paths:
                 for file in files:
