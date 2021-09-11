@@ -2628,14 +2628,15 @@ if __name__ == '__main__':
             file_dir = os.path.basename(args.directory)
         else:  # assume the files are local
             file_dir = args.directory
-        files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
+        # files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=not args.order)
 
         if args.order == 'alphabetical':
             files = VSUtils.get_all_file_paths(file_dir, extension='.pdb')  # sort=True)
         else:  # if args.order == 'none':
             files = VSUtils.get_all_file_paths(file_dir, extension='.pdb', sort=False)
 
-        if args.order == 'paths':  # TODO FIX
+        print('FILES:\n %s' % files[:4])
+        if args.order == 'paths':  # TODO FIX janky paths handling below
             # for design in design_directories:
             with open(args.file[0], 'r') as f:
                 paths = \
@@ -2668,12 +2669,15 @@ if __name__ == '__main__':
                                      ' again with the path to the relevant dataframe' % location)
 
             df = pd.read_csv(args.dataframe, index_col=0, header=[0])
+            print('INDICES:\n %s' % df.index.to_list()[:4])
             ordered_files = []
             for index in df.index:
                 for file in files:
-                    if index in file:
+                    if os.path.splitext(os.path.basename(file))[0] in index:
+                    # if index in file:
                         ordered_files.append(file)
                         break
+            # print('ORDERED FILES (%d):\n %s' % (len(ordered_files), ordered_files))
             files = ordered_files
 
         if not files:
@@ -2686,16 +2690,16 @@ if __name__ == '__main__':
         #         raise ValueError('The input range is outside of the acceptable bounds [0-100]')
         #     print('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
         # else:
-        #     low_range, high_range = None, None
-
+        print(low_range, high_range)
+        print(all_poses)
         for idx, file in enumerate(files[low_range:high_range], low_range + 1):
             if args.name == 'original':
                 cmd.load(file)
             else:  # if args.name == 'numerical':
                 cmd.load(file, object=idx)
 
-        print('\nTo expand all designs to the proper symmetry, issue:\n\texpand name=all, symmetry=T'
-              '\nReplace \'T\' with whatever symmetry your design is in\n')
+        print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
+              '\nYou should replace \'T\' with whatever symmetry your design is in\n')
     # ---------------------------------------------------
     # else:
     #     exit('No module was selected! Did you include one? To get started, checkout the %s' % PUtils.guide_string)
