@@ -2133,15 +2133,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         initial_interface_coords = self.return_symmetric_coords(np.array(interface_core_coords).mean(axis=0))
 
         # index_cluster_labels = KMeans(n_clusters=self.number_of_symmetry_mates).fit_predict(symmetric_interface_coords)
-        symmetric_interface_cb_coords = symmetric_interface_coords[symmetric_cb_indices]
+        # symmetric_interface_cb_coords = symmetric_interface_coords[symmetric_cb_indices]
         # print('Number sym CB COORDS:\n', len(symmetric_interface_cb_coords))
         # initial_cluster_indices = [interface_cb_indices[0] + (coords_length * model_number)
         #                            for model_number in range(self.number_of_symmetry_mates)]
         # kmeans_cluster_model = \
         #     KMeans(n_clusters=self.number_of_symmetry_mates, init=symmetric_interface_coords[initial_cluster_indices],
         #            n_init=1).fit(symmetric_interface_cb_coords)
+        # fit a KMeans model to the symmetric interface cb coords
         kmeans_cluster_model = KMeans(n_clusters=number_of_models, init=initial_interface_coords, n_init=1)\
-            .fit(symmetric_interface_cb_coords)
+            .fit(symmetric_interface_coords[symmetric_cb_indices])
         index_cluster_labels = kmeans_cluster_model.labels_
         # find the label where the asu is nearest too
         asu_interface_labels = kmeans_cluster_model.predict(interface_asu_structure.get_cb_coords())
