@@ -2135,6 +2135,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # from the interface core, find the mean position to seed clustering
         print(np.array(interface_core_coords).mean(axis=0))
         initial_interface_coords = self.return_symmetric_coords(np.array(interface_core_coords).mean(axis=0))
+        print(initial_interface_coords)
 
         # index_cluster_labels = KMeans(n_clusters=self.number_of_symmetry_mates).fit_predict(symmetric_interface_coords)
         symmetric_interface_cb_coords = symmetric_interface_coords[symmetric_cb_indices]
