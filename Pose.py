@@ -1261,20 +1261,17 @@ class SymmetricModel(Model):
                 distance = self.asu.radius  # Todo adjust this value still!!!
 
         if calculate_contacts:
-            if self.coords_type != 'bb_cb':
-                # Need to select only coords that are BB or CB from the model coords
-                asu_indices = self.asu.backbone_and_cb_indices
-            else:
-                asu_indices = None
-
             self.generate_assembly_tree()
+            # Need to select only coords that are BB or CB from the model coords
+            asu_indices = self.asu.backbone_and_cb_indices if self.coords_type != 'bb_cb' else None
             asu_query = self.assembly_tree.query_radius(self.coords[asu_indices], distance)
-            coords_length = len(asu_indices)
+            # coords_length = len(asu_indices)
             # contacting_model_indices = [assembly_idx // coords_length
             #                             for asu_idx, assembly_contacts in enumerate(asu_query)
             #                             for assembly_idx in assembly_contacts]
             # interacting_models = sorted(set(contacting_model_indices))
-            interacting_models = np.unique(asu_query // coords_length).tolist()
+            # interacting_models = np.unique(asu_query // coords_length).tolist()
+            interacting_models = np.unique(asu_query // len(asu_query)).tolist()
         else:
             center_of_mass = self.center_of_mass
             interacting_models = [model_idx for model_idx, sym_model_com in enumerate(self.symmetric_centers_of_mass)
@@ -1385,7 +1382,7 @@ class SymmetricModel(Model):
             (numpy.ndarray): The symmetrized coordinates
         """
         if self.dimension == 0:
-            coords_length = len(coords)
+            coords_length = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
             model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
             for idx, rot in enumerate(self.expand_matrices):
                 rot_coords = np.matmul(coords, np.transpose(rot))
@@ -1395,7 +1392,7 @@ class SymmetricModel(Model):
         else:
             return self.return_unit_cell_coords(coords)
 
-    def return_unit_cell_coords(self, coords, fractional=False):
+    def return_unit_cell_coords(self, coords, fractional=False):  # Todo surrounding_uc=True
         """Return the unit cell coordinates from a set of coordinates for the specified SymmetricModel
 
         Args:
@@ -1406,7 +1403,7 @@ class SymmetricModel(Model):
             (numpy.ndarray): All unit cell coordinates
         """
         asu_frac_coords = self.cart_to_frac(coords)
-        coords_length = len(coords)
+        coords_length = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
         model_coords = np.empty((coords_length * self.number_of_uc_symmetry_mates, 3), dtype=float)
         # model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
         # Todo pickled operators don't have identity matrix (currently), so we add the asu
@@ -1430,15 +1427,16 @@ class SymmetricModel(Model):
         Returns:
             (list[Structure]): The symmetric copies of the input structure
         """
+        # Caution, this function will return poor if the number of atoms in the structure is 1!
         if return_side_chains:  # get different function calls depending on the return type
             # extract_pdb_atoms = getattr(PDB, 'atoms')  # Not using. The copy() versus PDB() changes residue objs
-            pdb_coords = structure.coords
+            coords = structure.coords
         else:
             # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
-            pdb_coords = structure.get_backbone_and_cb_coords()
+            coords = structure.get_backbone_and_cb_coords()
 
-        sym_cart_coords = self.return_unit_cell_coords(pdb_coords)
-        coords_length = len(pdb_coords)
+        sym_cart_coords = self.return_unit_cell_coords(coords)
+        coords_length = sym_cart_coords.shape[0]
         sym_mates = []
         for model_num in range(self.number_of_symmetry_mates):
             symmetry_mate_pdb = copy(structure)
@@ -1460,10 +1458,10 @@ class SymmetricModel(Model):
         """
         if return_side_chains:  # get different function calls depending on the return type
             # extract_pdb_atoms = getattr(PDB, 'atoms')  # Not using. The copy() versus PDB() changes residue objs
-            pdb_coords = structure.coords
+            coords = structure.coords
         else:
             # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
-            pdb_coords = structure.get_backbone_and_cb_coords()
+            coords = structure.get_backbone_and_cb_coords()
 
         if self.dimension == 3:
             z_shifts, uc_number = [0, 1, -1], 9
@@ -1473,7 +1471,7 @@ class SymmetricModel(Model):
             return
 
         # pdb_coords = extract_pdb_atoms
-        uc_frac_coords = self.return_unit_cell_coords(pdb_coords, fractional=True)
+        uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
         surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
                                    for y_shift in [0, 1, -1] for z_shift in z_shifts]
 
@@ -1678,7 +1676,6 @@ class SymmetricModel(Model):
             self.log.warning('%s: Found %d clashing sites! Pose is not a viable symmetric assembly'
                              % (self.name, clashes[0]))
             return True  # clash
-
         else:
             return False  # no clash
 
@@ -2088,7 +2085,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Returns:
             (Structure): The Structure containing only the Residues in the interface
         """
-        number_models = self.number_of_symmetry_mates
+        number_of_models = self.number_of_symmetry_mates
         # find all pertinent interface residues from results of find_interface_residues()
         interface_residues = []
         interface_core_coords = []
@@ -2097,7 +2094,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 continue
             elif residues1 and not residues2:  # symmetric case
                 symmetric_residues = []
-                for _ in range(number_models):
+                for _ in range(number_of_models):
                     symmetric_residues.extend(residues1)
                 residues1_coords = np.concatenate([residue.coords for residue in residues1])
                 # Add the number of symmetric observed structures to a single new Structure
@@ -2128,14 +2125,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         #       '\nNUMBER of CB INDICES', len(interface_cb_indices))
         # residue_number = interface_asu_structure.number_of_residues
         # [interface_asu_structure.cb_indices + (residue_number * model) for model in self.number_of_symmetry_mates]
-        symmetric_cb_indices = np.array([idx + (coords_length * model_number) for model_number in range(number_models)
+        symmetric_cb_indices = np.array([idx + (coords_length * model_num) for model_num in range(number_of_models)
                                          for idx in interface_asu_structure.cb_indices])
         # print('Number sym CB INDICES:\n', len(symmetric_cb_indices))
         symmetric_interface_coords = self.return_symmetric_coords(interface_asu_structure.coords)
         # from the interface core, find the mean position to seed clustering
-        print(np.array(interface_core_coords).mean(axis=0))
         initial_interface_coords = self.return_symmetric_coords(np.array(interface_core_coords).mean(axis=0))
-        print(initial_interface_coords)
 
         # index_cluster_labels = KMeans(n_clusters=self.number_of_symmetry_mates).fit_predict(symmetric_interface_coords)
         symmetric_interface_cb_coords = symmetric_interface_coords[symmetric_cb_indices]
@@ -2145,7 +2140,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # kmeans_cluster_model = \
         #     KMeans(n_clusters=self.number_of_symmetry_mates, init=symmetric_interface_coords[initial_cluster_indices],
         #            n_init=1).fit(symmetric_interface_cb_coords)
-        kmeans_cluster_model = KMeans(n_clusters=number_models, init=initial_interface_coords, n_init=1)\
+        kmeans_cluster_model = KMeans(n_clusters=number_of_models, init=initial_interface_coords, n_init=1)\
             .fit(symmetric_interface_cb_coords)
         index_cluster_labels = kmeans_cluster_model.labels_
         # find the label where the asu is nearest too
@@ -2164,11 +2159,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # interface_asu_structure.coords_indexed_residues
         # find the model indices of the closest interface asu
         # print('Normal sym CB INDICES\n:', closest_asu_sym_cb_indices)
-        flat_sym_model_indices = closest_asu_sym_cb_indices.reshape((number_models, -1)).sum(axis=0)
+        flat_sym_model_indices = closest_asu_sym_cb_indices.reshape((number_of_models, -1)).sum(axis=0)
         # print('FLATTENED CB INDICES to get MODEL\n:', flat_sym_model_indices)
         symmetric_model_indices = flat_sym_model_indices // coords_length
         # print('FLOORED sym CB INDICES to get MODEL\n:', symmetric_model_indices)
-        symmetry_mate_index_symmetric_coords = symmetric_interface_coords.reshape((number_models, -1, 3))
+        symmetry_mate_index_symmetric_coords = symmetric_interface_coords.reshape((number_of_models, -1, 3))
         # print('RESHAPED SYMMETRIC COORDS SHAPE:', symmetry_mate_index_symmetric_coords.shape,
         #       '\nCOORDS length:', coords_length)
         closest_interface_coords = \
