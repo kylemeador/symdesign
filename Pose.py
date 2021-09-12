@@ -2086,32 +2086,41 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         number_of_models = self.number_of_symmetry_mates
         # find all pertinent interface residues from results of find_interface_residues()
-        interface_residues = []
-        interface_core_coords = []
-        for residues1, residues2 in self.interface_residues.values():
-            if not residues1 and not residues2:  # no interface
-                continue
-            elif residues1 and not residues2:  # symmetric case
-                symmetric_residues = []
-                for _ in range(number_of_models):
-                    symmetric_residues.extend(residues1)
-                residues1_coords = np.concatenate([residue.coords for residue in residues1])
-                # Add the number of symmetric observed structures to a single new Structure
-                symmetric_residue_structure = Structure.from_residues(residues=symmetric_residues)
-                symmetric_residues2_coords = self.return_symmetric_coords(residues1_coords)
-                symmetric_residue_structure.replace_coords(symmetric_residues2_coords)
-                # use a single instance of the residues to perform a distance query
-                residues_tree = BallTree(residues1_coords)
-                symmetric_query = residues_tree.query_radius(symmetric_residues2_coords, distance)
-                symmetric_indices = [symmetry_idx for symmetry_idx, asu_contacts in enumerate(symmetric_query)
-                                     if asu_contacts.any()]
-                # finally, add all correctly located, asu interface indexed symmetrical residues to the interface
-                coords_indexed_residues = symmetric_residue_structure.coords_indexed_residues
-                interface_residues.extend(set(coords_indexed_residues[sym_idx] for sym_idx in symmetric_indices))
-            else:  # non-symmetric case
-                interface_core_coords.extend([residue.cb_coords for residue in residues1])
-                interface_core_coords.extend([residue.cb_coords for residue in residues2])
-                interface_residues.extend(residues1), interface_residues.extend(residues2)
+        residues_entities = []
+        for residue_entities in self.split_interface_residues.values():
+            residues_entities.extend(residue_entities)
+        interface_residues, interface_entities = list(zip(*residues_entities))
+
+        # interface_residues = []
+        # interface_core_coords = []
+        # for residues1, residues2 in self.interface_residues.values():
+        #     if not residues1 and not residues2:  # no interface
+        #         continue
+        #     elif residues1 and not residues2:  # symmetric case
+        #         interface_residues.extend(residues1)
+        #         # This was useful when not doing the symmetrization below...
+        #         # symmetric_residues = []
+        #         # for _ in range(number_of_models):
+        #         #     symmetric_residues.extend(residues1)
+        #         # residues1_coords = np.concatenate([residue.coords for residue in residues1])
+        #         # # Add the number of symmetric observed structures to a single new Structure
+        #         # symmetric_residue_structure = Structure.from_residues(residues=symmetric_residues)
+        #         # # symmetric_residues2_coords = self.return_symmetric_coords(residues1_coords)
+        #         # symmetric_residue_structure.replace_coords(self.return_symmetric_coords(residues1_coords))
+        #         # # use a single instance of the residue coords to perform a distance query against symmetric coords
+        #         # residues_tree = BallTree(residues1_coords)
+        #         # symmetric_query = residues_tree.query_radius(symmetric_residue_structure.coords, distance)
+        #         # # symmetric_indices = [symmetry_idx for symmetry_idx, asu_contacts in enumerate(symmetric_query)
+        #         # #                      if asu_contacts.any()]
+        #         # # finally, add all correctly located, asu interface indexed symmetrical residues to the interface
+        #         # coords_indexed_residues = symmetric_residue_structure.coords_indexed_residues
+        #         # interface_residues.extend(set(coords_indexed_residues[sym_idx]
+        #         #                               for sym_idx, asu_contacts in enumerate(symmetric_query)
+        #         #                               if asu_contacts.any()))
+        #     else:  # non-symmetric case
+        #         interface_core_coords.extend([residue.cb_coords for residue in residues1])
+        #         interface_core_coords.extend([residue.cb_coords for residue in residues2])
+        #         interface_residues.extend(residues1), interface_residues.extend(residues2)
 
         # return Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
         interface_asu_structure = \
