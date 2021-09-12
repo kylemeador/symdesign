@@ -2115,7 +2115,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         # return Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
         interface_asu_structure = \
-            Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
+            Structure.from_residues(residues=sorted(set(interface_residues), key=lambda residue: residue.number))
         # interface_symmetry_mates = self.return_symmetry_mates(interface_asu_structure)
         # interface_coords = interface_asu_structure.coords
         coords_length = interface_asu_structure.number_of_atoms
@@ -2146,7 +2146,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         #            n_init=1).fit(symmetric_interface_cb_coords)
         index_cluster_labels = kmeans_cluster_model.labels_
         # find the label where the asu is nearest too
-        asu_label = kmeans_cluster_model.predict(entities_asu_com)
+        asu_label = kmeans_cluster_model.predict(entities_asu_com[None, :])  # add new first axis
         # asu_interface_labels = kmeans_cluster_model.predict(interface_asu_structure.get_cb_coords())
 
         # closest_interface_indices = np.where(index_cluster_labels == 0, True, False)
