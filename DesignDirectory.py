@@ -818,7 +818,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 return os.path.join(self.program_root[sym_idx], self.building_block_dirs[sym_idx][bb_idx])
             except ValueError:
                 continue
-        return None
+        return
 
     # def return_symmetry_stats(self):  # Depreciated
     #     return len(symm for symm in self.program_root)
