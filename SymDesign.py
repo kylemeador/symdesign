@@ -470,7 +470,7 @@ def terminate(location=None, results=None, output=True):
             for representative, members, in results.items():
                 print('%s\n\t%s' % (representative, '\n\t'.join(map(str, members))))
             logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
-                        % (len(cluster_representative_pose_member_map), len(design_directories), pose_cluster_file))
+                        % (len(pose_cluster_map), len(design_directories), pose_cluster_file))
             logger.info('Each cluster above has one representative which identifies with each of the members. If '
                         'clustering was performed by transformation or interface_residues, then the representative is '
                         'the most similar to all members. If clustering was performed by ialign, then the '
@@ -1870,7 +1870,7 @@ if __name__ == '__main__':
                 # cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
                 cluster_map = os.path.join(program_root, PUtils.data.title(), '%s.pkl' % PUtils.clustered_poses)
             if os.path.exists(cluster_map):
-                cluster_representative_pose_member_map = SDUtils.unpickle(cluster_map)
+                pose_cluster_map = SDUtils.unpickle(cluster_map)
             else:
                 logger.info('No cluster pose map was found at %s. Clustering similar poses may eliminate redundancy '
                             'from the final design selection. To cluster poses broadly, run \'%s %s\''
@@ -1890,30 +1890,30 @@ if __name__ == '__main__':
                     compositions = group_compositions(design_directories)
                     if args.multi_processing:
                         results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
-                        cluster_representative_pose_member_map = {}
+                        pose_cluster_map = {}
                         for result in results:
-                            cluster_representative_pose_member_map.update(result.items())
+                            pose_cluster_map.update(result.items())
                     else:
-                        cluster_representative_pose_member_map = {}
+                        pose_cluster_map = {}
                         for composition_group in compositions.values():
-                            cluster_representative_pose_member_map.update(cluster_designs(composition_group))
+                            pose_cluster_map.update(cluster_designs(composition_group))
                     # cluster_representative_pose_member_string_map = \
                     #     {str(representative): str(member)
-                    #      for representative, members in cluster_representative_pose_member_map.items()
+                    #      for representative, members in pose_cluster_map.items()
                     #      for member in members}
-                    pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
+                    pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
                                                               PUtils.clustered_poses % (location, timestamp),
                                                               out_path=next(iter(design_directories)).protein_data)
                     logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
-                                % (len(cluster_representative_pose_member_map), len(design_directories),
+                                % (len(pose_cluster_map), len(design_directories),
                                    pose_cluster_file))
                 else:
-                    cluster_representative_pose_member_map = {}
+                    pose_cluster_map = {}
 
-            if cluster_representative_pose_member_map:
+            if pose_cluster_map:
                 # {design_string: [design_string, ...]} where key is representative, values are matching designs
                 # OLD -> {composition: {design_string: cluster_representative}, ...}
-                pose_cluster_membership_map = invert_cluster_map(cluster_representative_pose_member_map)
+                pose_cluster_membership_map = invert_cluster_map(pose_cluster_map)
                 pose_clusters_found, pose_not_found = {}, []
                 for idx, pose in enumerate(selected_poses):
                     cluster_membership = pose_cluster_membership_map.get(pose, None)
@@ -1974,8 +1974,9 @@ if __name__ == '__main__':
                 logger.info('Top ranked Designs cutoff at 7995')
     # ---------------------------------------------------
     elif args.module == PUtils.cluster_poses:
+        pose_cluster_map = {}
         if args.mode == 'ialign':  # interface_residues, tranformation
-            is_threshold = 0.3  # 0.5  # TODO
+            is_threshold = 0.4  # 0.5  # TODO
             # measure the alignment of all selected design_directories
             # all_files = [design.source_file for design in design_directories]
 
@@ -1989,8 +1990,7 @@ if __name__ == '__main__':
             # save the interface for each design to the temp directory
             design_interfaces = []
             for design in design_directories:
-                # design.load_pose()
-                design.identify_interface()
+                design.identify_interface()  # calls design.load_pose()
                 interface = design.pose.return_interface()
                 design_interfaces.append(
                     # interface.write(out_path=os.path.join(temp_file_dir, '%s_interface.pdb' % design.name)))  # Todo reinstate
@@ -2004,7 +2004,7 @@ if __name__ == '__main__':
 
                 for idx, is_score in enumerate(design_scores):  # Todo reinstate
                 # for idx, (is_score, des1, des2) in enumerate(design_scores):  # Todo remove
-                    print('%5d : %f' % (idx, is_score))
+                #     print('%5d : %f' % (idx, is_score))
                     if is_score > is_threshold:
                         # pair1, pair2 = design_directory_pairs[idx]  # Todo remove
                         # # if pair != design_directory_pairs[idx]: # Todo remove
@@ -2025,51 +2025,48 @@ if __name__ == '__main__':
 
             # cluster all those designs together that are in alignment
             if design_pairs:
-                design_clusters = [design_pairs[0]]
-                # for design1, design2 in design_pairs[1:]:
-                for design_set in design_pairs[1:]:
-                    cluster_found = False
-                    design1, design2 = design_set
-                    for cluster in design_clusters:
-                        if design1 in cluster or design2 in cluster:
-                            cluster_found = True
-                            break
-                    if cluster_found:
-                        cluster.update(design_set)
-                    else:
-                        design_clusters.append(design_set)
-
-                design_clusters = [list(cluster) for cluster in design_clusters]
-                cluster_representative_pose_member_map = {cluster[0]: cluster for cluster in design_clusters}
-            else:
-                cluster_representative_pose_member_map = {}
-        else:
+                for design1, design2 in design_pairs:
+                    cluster1, cluster2 = pose_cluster_map.get(design1), pose_cluster_map.get(design2)
+                    # if cluster1:
+                    #     cluster1.append(design2)
+                    # else:
+                    #     design_clusters[design1] = [design2]
+                    try:
+                        cluster1.append(design2)
+                    except AttributeError:
+                        pose_cluster_map[design1] = [design2]
+                    try:
+                        cluster2.append(design1)
+                    except AttributeError:
+                        pose_cluster_map[design2] = [design1]
+        elif args.mode == 'transform':
             # First, identify the same compositions
             compositions = group_compositions(design_directories)
             if args.multi_processing:
                 results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
-                cluster_representative_pose_member_map = {}
                 for result in results:
-                    cluster_representative_pose_member_map.update(result.items())
+                    pose_cluster_map.update(result.items())
             else:
                 # pose_map = pose_rmsd_s(design_directories)
-                # cluster_representative_pose_member_map = cluster_poses(pose_map)
-                cluster_representative_pose_member_map = {}
+                # pose_cluster_map = cluster_poses(pose_map)
                 for composition_group in compositions.values():
-                    cluster_representative_pose_member_map.update(cluster_designs(composition_group))
-        if cluster_representative_pose_member_map:
+                    pose_cluster_map.update(cluster_designs(composition_group))
+        # elif args.mode == 'interface_residues':
+        else:
+            exit('%s is not a viable mode!' % args.mode)
+
+        if pose_cluster_map:
             if args.output:
-                pose_cluster_file = \
-                    SDUtils.pickle_object(cluster_representative_pose_member_map, args.output, out_path='')
+                pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, args.output, out_path='')
             else:
-                pose_cluster_file = SDUtils.pickle_object(cluster_representative_pose_member_map,
+                pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
                                                           PUtils.clustered_poses % (location, timestamp),
                                                           out_path=master_directory.clustered_poses)
             logger.info('Cluster map written to %s' % pose_cluster_file)
         else:
             logger.info('No significant clusters were located! Clustering ended')
 
-        terminate(location=location, results=cluster_representative_pose_member_map)
+        terminate(location=location, results=pose_cluster_map)
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = master_directory.program_root
