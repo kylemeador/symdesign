@@ -184,11 +184,18 @@ def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join
     # perl ../bin/ialign.pl -w output -s -a 0 1lyl.pdb AC 12as.pdb AB | grep "IS-score = "
     # output
     # IS-score = 0.38840, P-value = 0.3808E-003, Z-score =  7.873
-    chains = []
-    if chain1:
-        chains += ['-c1', chain1]
-    if chain2:
-        chains += ['-c2', chain2]
+    # chains = []
+    # if chain1:
+    #     chains += ['-c1', chain1]
+    # if chain2:
+    #     chains += ['-c2', chain2]
+
+    if not chain1:
+        chain1 = 'AB'
+    if not chain2:
+        chain2 = 'AB'
+    chains = ['-c1', chain1, '-c2', chain2]
+
     temp_pdb_file1 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file1.translate(digit_translate_table)))
     temp_pdb_file2 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file2.translate(digit_translate_table)))
     os.system('scp %s %s' % (pdb_file1, temp_pdb_file1))
