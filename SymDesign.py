@@ -2560,14 +2560,13 @@ if __name__ == '__main__':
         file = args.file[0]
         design_sequences = list(read_fasta_file(file))
         nucleotide_sequences = {}
-        for idx, design_group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
-            cistronic_sequence = optimize_protein_sequence(design_sequences[design_group_start_idx],
-                                                           species=args.optimize_species)
-            for protein_sequence in design_sequences[design_group_start_idx + 1:
-                                                     design_group_start_idx + args.number_of_genes]:
+        for idx, group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
+            cistronic_sequence = \
+                optimize_protein_sequence(design_sequences[group_start_idx], species=args.optimize_species)
+            for protein_sequence in design_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
                 cistronic_sequence += intergenic_sequence
                 cistronic_sequence += optimize_protein_sequence(protein_sequence, species=args.optimize_species)
-            new_name = '%s_cistronic' % design_sequences[design_group_start_idx].name
+            new_name = '%s_cistronic' % design_sequences[group_start_idx].name
             nucleotide_sequences[new_name] = cistronic_sequence
             logger.info('Finished sequence %d - %s' % (idx, new_name))
 
