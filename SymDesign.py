@@ -2576,7 +2576,7 @@ if __name__ == '__main__':
             for protein_sequence in design_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
                 cistronic_sequence += intergenic_sequence
                 cistronic_sequence += optimize_protein_sequence(protein_sequence, species=args.optimize_species)
-            new_name = '%s_cistronic' % design_sequences[group_start_idx].name
+            new_name = '%s_cistronic' % design_sequences[group_start_idx].id
             nucleotide_sequences[new_name] = cistronic_sequence
             logger.info('Finished sequence %d - %s' % (idx, new_name))
 
