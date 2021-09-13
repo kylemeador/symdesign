@@ -563,7 +563,7 @@ if __name__ == '__main__':
                         help='Number of cores to use with --multiprocessing. If -mp is run in a cluster environment, '
                              'the number of cores will reflect the allocation provided by the cluster, otherwise, '
                              'specify the number of cores\nDefault=#ofCores - 1')
-    parser.add_argument('-d', '--directory', type=os.path.abspath, metavar='/path/to_your_pdb_files/',
+    parser.add_argument('-d', '--directory', type=os.path.abspath, metavar=ex_path('your_pdb_files'),
                         help='Master directory where poses to be designed with %s are located. This may be the output '
                              'directory from %s.py, a random directory with poses requiring interface design, or the '
                              'output from %s. If the directory lives in a %sOutput directory, all projects within the '
@@ -573,7 +573,7 @@ if __name__ == '__main__':
     parser.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                         help='A DataFrame created by %s analysis containing pose info. File is .csv, named such as '
                              'Metrics.csv' % PUtils.program_name)
-    parser.add_argument('-f', '--file', type=os.path.abspath, metavar='/path/to/file_with_directory_names.txt',
+    parser.add_argument('-f', '--file', type=os.path.abspath, metavar=ex_path('file_with_directory_names.txt'),
                         help='File with location(s) of %s designs. For each run of %s, a file will be created '
                              'specifying the specific directories to use in subsequent %s commands of the same designs.'
                              ' If pose-IDs are specified in a file, say as the result of %s or %s, in addition to the '
@@ -581,7 +581,7 @@ if __name__ == '__main__':
                              % (PUtils.program_name, PUtils.program_name, PUtils.program_name, PUtils.analysis,
                                 PUtils.select_designs, PUtils.program_name),
                         default=None, nargs=1)  # , nargs='*')  # TODO make list of unknown length
-    parser.add_argument('-sf', '--specification_file', type=str, metavar='/path/to/pose_design_specifications.csv',
+    parser.add_argument('-sf', '--specification_file', type=str, metavar=ex_path('pose_design_specifications.csv'),
                         help='Name of comma separated file with each line formatted:\n'
                              'poseID, [designID], [residue_number:design_directive '
                              'residue_number2-residue_number9:directive ...]')
@@ -597,14 +597,14 @@ if __name__ == '__main__':
                         help='If provided, the name of the output designs file. If blank, one will be automatically '
                              'generated based off input_location, module, and the time.')
     parser.add_argument('-p', '--project', type=os.path.abspath,
-                        metavar='/path/to/SymDesignOutput/Projects/your_project',
+                        metavar=ex_path('SymDesignOutput/Projects/your_project'),
                         help='If pose names are specified by project instead of directories, which project to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
                         help='Should commands be executed through %s command? Doesn\'t maximize cassini\'s '
                              'computational resources and can cause long trajectories to fail on a single mistake.'
                              '\nDefault=False' % PUtils.program_name)
     parser.add_argument('-s', '--single', type=os.path.abspath,
-                        metavar='/path/to/SymDesignOutput/Projects/your_project/single_design[.pdb]',
+                        metavar=ex_path('SymDesignOutput/Projects/your_project/single_design[.pdb]'),
                         help='If design name is specified by a single path instead')
     subparsers = parser.add_subparsers(title='Modules', dest='module',
                                        description='These are the different modes that designs can be processed',
@@ -766,12 +766,12 @@ if __name__ == '__main__':
                                                % PUtils.analysis)
     filter_required = parser_filter.add_mutually_exclusive_group(required=True)
     # filter_required.add_argument('-df', '--dataframe', type=os.path.abspath,
-    #                              metavar='/path/to/AllPoseDesignMetrics.csv',
+    #                              metavar=ex_path('AllPoseDesignMetrics.csv'),
     #                              help='Dataframe.csv from analysis containing pose info.')
     filter_required.add_argument('-m', '--metric', type=str,
                                  help='If a simple metric filter is required, what metric would you like to sort '
                                       'Designs by?', choices=['score', 'fragments_matched'])
-    filter_required.add_argument('-pf', '--pose_design_file', type=str, metavar='/path/to/pose_design.csv',
+    filter_required.add_argument('-pf', '--pose_design_file', type=str, metavar=ex_path('pose_design.csv'),
                                  help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_filter.add_argument('-f', '--filter', action='store_true',
                                help='Whether to filter sequence selection using metrics from DataFrame')
@@ -783,6 +783,9 @@ if __name__ == '__main__':
                                help='String to prepend to output for custom design selection name')
     parser_filter.add_argument('-w', '--weight', action='store_true',
                                help='Whether to weight sequence selection using metrics from DataFrame')
+    metric_weight_functions = ['rank', 'normalize']
+    parser_filter.add_argument('-wf', '--weight_function', choices=metric_weight_functions,
+                               help='How to standardize metrics during sequence selection weighting')
     # ---------------------------------------------------
     parser_sequence = subparsers.add_parser(PUtils.select_sequences,
                                             help='From the provided Design Poses, generate nucleotide/protein sequences'
@@ -837,6 +840,8 @@ if __name__ == '__main__':
                                  choices=expression_tags.keys(), default='his_tag')
     parser_sequence.add_argument('-w', '--weight', action='store_true',
                                  help='Whether to weight sequence selection using metrics from DataFrame')
+    parser_sequence.add_argument('-wf', '--weight_function', choices=metric_weight_functions,
+                                 help='How to standardize metrics during sequence selection weighting')
     # ---------------------------------------------------
     parser_multicistron = subparsers.add_parser('multicistronic',
                                                 help='Generate nucleotide sequences for selected designs by codon '
@@ -1853,7 +1858,7 @@ if __name__ == '__main__':
         if args.dataframe:
             # Figure out poses from a dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(args.dataframe, filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol)
+                                                          protocol=args.protocol, function=args.weight_function)
             selected_poses = selected_poses_df.index.to_list()
             logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
             if args.filter or args.weight:
@@ -2080,7 +2085,7 @@ if __name__ == '__main__':
                 df = pd.concat([df], axis=1, keys=['pose', 'metric'])
             # Figure out designs from dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol)
+                                                          protocol=args.protocol, function=args.weight_function)
             design_indices = selected_poses_df.index.to_list()
             if args.allow_multiple_poses:
                 logger.info('Choosing maximum %d designs as specified, from the top ranked designs regardless of pose'
@@ -2112,7 +2117,7 @@ if __name__ == '__main__':
             results = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
             df = load_global_dataframe()
             selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol)
+                                                          protocol=args.protocol, function=args.weight_function)
             # specify the result order according to any filtering and weighting
             # results = selected_poses_df.index.to_list()  TODO reinstate
             save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
