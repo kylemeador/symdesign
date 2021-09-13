@@ -538,7 +538,7 @@ def io_save(data, file_name=None):
             print('Invalid input... Try again.')
 
 
-def to_iterable(_obj):
+def to_iterable(_obj, skip_comma=False):
     """Take a file/object and return a list of individual objects splitting on newline or comma"""
     try:
         with open(_obj, 'r') as f:
@@ -551,7 +551,10 @@ def to_iterable(_obj):
 
     clean_list = []
     for it in _list:
-        it_list = it.split(',')
+        if skip_comma:
+            it_list = [it]
+        else:
+            it_list = it.split(',')
         clean_list.extend([_it.strip() for _it in it_list])
 
     # remove duplicates but keep the order
