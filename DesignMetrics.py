@@ -1718,7 +1718,7 @@ def rank_dataframe_by_metric_weights(df, weights=None, function='rank', **kwargs
                     metric_min, metric_max = metric_s.min(), metric_s.max()
                 else:  # parameters['direction'] == 'min:'
                     metric_min, metric_max = metric_s.max(), metric_s.min()
-                normalized_metric_df[metric] = (metric_s - metric_min / metric_max - metric_min) * parameters['value']
+                normalized_metric_df[metric] = ((metric_s - metric_min) / (metric_max - metric_min)) * parameters['value']
             df = pd.concat(normalized_metric_df, axis=1)
         else:
             raise ValueError('The value %s is not a viable choice for metric weighting \'function\'' % function)
