@@ -1699,6 +1699,8 @@ def rank_dataframe_by_metric_weights(df, weights=None, function='rank', **kwargs
     Returns:
         (pandas.Series): The sorted Series of values with the best indices first (top) and the worst on the bottom
     """
+    if not function:
+        function = 'rank'
     if weights:
         weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
                    for metric, value in weights.items()}
