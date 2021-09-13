@@ -1241,7 +1241,7 @@ def filter_df_for_index_by_value(df, metrics):
     return filtered_indices
 
 
-def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # , sort_df=True
+def prioritize_design_indices(df, filter=None, weight=None, protocol=None, **kwargs):  # , sort_df=True
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
     according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
@@ -1326,30 +1326,13 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None):  # ,
 
     # {column: {'direction': 'min', 'value': 0.3, 'idx_slice': ['0001', '0002', ...]}, ...}
     if weight:
-        # display(ranked_df[weights_s.index.to_list()] * weights_s)
         if isinstance(weight, dict):
             weights = weight
         else:
             available_metrics = simple_df.columns.to_list()
             weights = query_user_for_metrics(available_metrics, df=simple_df, mode='weight', level='design')
         logger.info('Using weighting parameters: %s' % str(weights))
-        design_ranking_s = rank_dataframe_by_metric_weights(simple_df, weights=weights)
-
-        # _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
-        #             for metric, value in weights.items()}
-        # weight_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
-        # weights_s = pd.Series(weights)
-        # weight_score_s_d = {}
-        # for metric in _weights:
-        #     weight_score_s_d[metric] = \
-        #         simple_df[metric].rank(ascending=weight_direction[_weights[metric]['direction']],
-        #                                method=_weights[metric]['direction'], pct=True) * _weights[metric]['value']
-
-        # design_score_df = pd.concat([weight_score_s_d[weight] for weight in weights], axis=1)
-        # if sort_df:
-        #     design_ranking_s = design_score_df.sum(axis=1).sort_values(ascending=False)
-        # else:
-        #     design_ranking_s = design_score_df.sum(axis=1)
+        design_ranking_s = rank_dataframe_by_metric_weights(simple_df, weights=weights, **kwargs)
         design_ranking_s.name = 'selection_weight'
         final_df = pd.merge(design_ranking_s, simple_df, left_index=True, right_index=True)
         final_df = pd.concat([final_df], keys=[('pose', 'metric')], axis=1)
@@ -1704,7 +1687,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
     return metric_values
 
 
-def rank_dataframe_by_metric_weights(df, weights=None):  # , save_ranking=False, out_path=os.getcwd()):
+def rank_dataframe_by_metric_weights(df, weights=None, function='rank', **kwargs):
     """From a provided DataFrame with individual design trajectories, select trajectories based on provided metric and
     weighting parameters
 
@@ -1716,16 +1699,29 @@ def rank_dataframe_by_metric_weights(df, weights=None):  # , save_ranking=False,
         (pandas.Series): The sorted Series of values with the best indices first (top) and the worst on the bottom
     """
     if weights:
-        _weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
-                    for metric, value in weights.items()}
-
+        weights = {metric: {'direction': filter_df.loc['direction', metric], 'value': value}
+                   for metric, value in weights.items()}
         # This sorts the wrong direction despite the perception that it sorts correctly
         # sort_direction = {'max': False, 'min': True}  # max - ascending=False, min - ascending=True
-        # This sorts the correct direction, putting small and negative value (min is better) with the highest rank
+        # This sorts the correct direction, putting small and negative value (when min is better) with higher rank
         sort_direction = {'max': True, 'min': False}  # max - ascending=False, min - ascending=True
-        df = pd.concat({metric: df[metric].rank(ascending=sort_direction[parameters['direction']],
-                                                method=parameters['direction'], pct=True) * parameters['value']
-                        for metric, parameters in _weights.items()}, axis=1)
+        if function == 'rank':
+            df = pd.concat({metric: df[metric].rank(ascending=sort_direction[parameters['direction']],
+                                                    method=parameters['direction'], pct=True) * parameters['value']
+                            for metric, parameters in weights.items()}, axis=1)
+        elif function == 'normalize':  # get the MinMax normalization (df - df.min()) / (df.max() - df.min())
+            normalized_metric_df = {}
+            for metric, parameters in weights.items():
+                metric_s = df[metric]
+                if parameters['direction'] == 'max':
+                    metric_min, metric_max = metric_s.min(), metric_s.max()
+                else:  # parameters['direction'] == 'min:'
+                    metric_min, metric_max = metric_s.max(), metric_s.min()
+                normalized_metric_df[metric] = (metric_s - metric_min / metric_max - metric_min) * parameters['value']
+            df = pd.concat(normalized_metric_df, axis=1)
+        else:
+            raise ValueError('The value %s is not a viable choice for metric weighting \'function\'' % function)
+
         return df.sum(axis=1).sort_values(ascending=False)
     else:  # just sort by lowest energy
         return df['interface_energy'].sort_values('interface_energy', ascending=True)

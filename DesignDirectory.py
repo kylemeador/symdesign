@@ -2942,7 +2942,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return pose_s
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def select_sequences(self, filters=None, weights=None, number=1, protocols=None):
+    def select_sequences(self, filters=None, weights=None, number=1, protocols=None, **kwargs):
         """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
         sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
         sequence with the lowest weight will be selected
@@ -2980,7 +2980,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if weights:
             # No filtering of protocol/indices to use as poses should have similar protocol scores coming in
             self.log.info('Using weighting parameters: %s' % str(weights))
-            design_list = rank_dataframe_by_metric_weights(df, weights=weights).index.to_list()
+            design_list = rank_dataframe_by_metric_weights(df, weights=weights, **kwargs).index.to_list()
             self.log.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
 
             return list(zip(repeat(self), design_list[:number]))
