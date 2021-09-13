@@ -507,7 +507,11 @@ def split_interface_numbers(interface_pairs):
 def io_save(data, file_name=None):
     """Take an iterable and either output to user, write to a file, or both. User defined choice
 
-    Returns
+    Args:
+        data (Iterable): The data to write to file
+    Keyword Args:
+        file_name=None (str): The name of the file to write to
+    Returns:
         (None)
     """
     def write_file(file_name):

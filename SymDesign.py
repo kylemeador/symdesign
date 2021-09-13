@@ -2561,7 +2561,7 @@ if __name__ == '__main__':
             intergenic_sequence = default_multicistronic_sequence
 
         file = args.file[0]
-        if args.file.endswith('.csv'):
+        if file.endswith('.csv'):
             with open(args.file) as file:
                 design_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
                                     for name, sequence in zip(*reader(file))]
