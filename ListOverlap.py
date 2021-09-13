@@ -51,6 +51,8 @@ if __name__ == '__main__':
                                                  'operators.' % os.path.basename(__file__))
     parser.add_argument('-f', '--files', nargs='+', help='Files with items to be compared. Two required',
                         required=True, default=None)
+    parser.add_argument('-sc', '--skip_commas', action='store_true',
+                        help='Whether commas in files should be split or maintained')
     args = parser.parse_args()
 
     num_lists = len(args.files)
@@ -62,7 +64,7 @@ if __name__ == '__main__':
         exit('No list files found: %' % args.files)
     for i in range(num_lists):
         file[i] = args.files[i]
-        _list[i] = to_iterable(file[i])
+        _list[i] = to_iterable(file[i], skip_comma=args.skip_commas)
         # Uncomment below for use with ugly prefixes or suffixes
         # if i == 1:
         #     for j, _item in enumerate(_list[i]):
