@@ -2564,7 +2564,8 @@ if __name__ == '__main__':
         if file.endswith('.csv'):
             with open(file) as f:
                 design_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
-                                    for name, sequence in zip(*reader(f))]
+                                    for name, sequence in reader(f)]
+                                    # for name, sequence in zip(*reader(f))]
         else:
             design_sequences = list(read_fasta_file(file))
 
