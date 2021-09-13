@@ -1695,6 +1695,7 @@ def rank_dataframe_by_metric_weights(df, weights=None, function='rank', **kwargs
         df (pandas.DataFrame): The designs x metrics DataFrame (single index metrics column) to select trajectories from
     Keyword Args:
          weights=None (dict[mapping[str, float]]): {'metric': value, ...}. If not provided, sorts by interface_energy
+         function='rank' (str): The function to use for weighting. Either 'rank' or 'normalize' is possible
     Returns:
         (pandas.Series): The sorted Series of values with the best indices first (top) and the worst on the bottom
     """
