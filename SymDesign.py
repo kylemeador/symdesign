@@ -14,6 +14,7 @@ import time
 from glob import glob
 from itertools import repeat, product, combinations
 from json import loads, dumps
+from csv import reader
 
 import pandas as pd
 import psutil
@@ -2560,7 +2561,13 @@ if __name__ == '__main__':
             intergenic_sequence = default_multicistronic_sequence
 
         file = args.file[0]
-        design_sequences = list(read_fasta_file(file))
+        if args.file.endswith('.csv'):
+            with open(args.file) as file:
+                design_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
+                                    for name, sequence in zip(*reader(file))]
+        else:
+            design_sequences = list(read_fasta_file(file))
+
         nucleotide_sequences = {}
         for idx, group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
             cistronic_sequence = \
