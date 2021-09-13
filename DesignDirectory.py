@@ -780,7 +780,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.specific_design_path = matching_designs[0]
             else:
                 raise DesignError('Couldn\'t locate a design matching the specific_design name %s'
-                                  % self.specific_design_path)
+                                  % self.specific_design)
             if len(matching_designs) > 1:
                 self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
                                  % (len(matching_designs), matching_designs[0]))
