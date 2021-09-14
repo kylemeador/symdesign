@@ -29,10 +29,10 @@ if __name__ == '__main__':
                                        help='Chose a Module followed by Module specific flags. To get help with a '
                                             'Module flags enter:\t%s\n.' % submodule_help)
     # ---------------------------------------------------
-    filter_parser = subparsers.add_parser('filter', help='Extract Pose IDs from file for poses of interest.')
+    filter_parser = subparsers.add_parser('filter', help='Filter Pose IDs from file by a selection file to retrieve '
+                                                         'poses of interest.')
     filter_parser.add_argument('-sf', '--selection_id_file', type=str,
                                help='The file used to filter (select) IDs of interest')
-
     # ---------------------------------------------------
     extract_parser = subparsers.add_parser('extract', help='Extract Pose IDs from file for poses of interest.')
     # extract_parser.add_argument('-k', '--keep_design_id', action='store_true',
@@ -44,12 +44,13 @@ if __name__ == '__main__':
     args, additional_args = parser.parse_known_args()
     # ---------------------------------------------------
 
-    if args.file.endswith('.csv'):
+    if args.file.endswith('.csv'):  # assumes from a metrics.csv or a sequences.csv
         with open(args.file) as file:
             pose_id_lines, *extra_info = zip(*reader(file))
     else:
         with open(args.file) as file:
-            pose_id_lines = list(map(str.strip, file.readlines()))
+            # pose_id_lines = list(map(str.strip, file.readlines()))
+            pose_id_lines, *extra_info = zip(*map(str.split, map(str.strip, file.readlines()), repeat(',')))
 
     if args.project:
         # if os.path.exists():
