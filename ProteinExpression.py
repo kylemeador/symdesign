@@ -18,11 +18,19 @@ logger = SDUtils.start_log(name=__name__)
 uniprot_pdb_d = SDUtils.unpickle(PUtils.uniprot_pdb_map)
 with open(PUtils.affinity_tags, 'r') as f:
     expression_tags = {'_'.join(map(str.lower, row[0].split())): row[1] for row in csv.reader(f)}
-default_multicistronic_sequence = \
+ndeI_multicistronic_sequence = \
     'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
-    'taatacgactcactataggggaattgtgagcggataacaattccccatcttagtatattagttaagtataagaaggagatatacat'
-#    ^ Start of T7 promoter
-#                       ^ start of LacO       ^ last nucleotid of LacO
+    'taatacgactcactataggggaattgtgagcggataacaattccccatcttagtatattagttaagtataagaaggagatatacat'  # ATG
+#    ^ Start of T7 promoter                   ^ last nucleotide of LacO         ^ S-D stop        ^ NdeI end
+#                       ^ start of LacO                                  ^ Shine Dalgarno start
+#                                                                                       ^ NdeI start
+ncoI_multicistronic_sequence = \
+    'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
+    'taatacgactcactataggggaattgtgagcggataacaattccccatcttagtatattagttaagtataagaaggagatatacc'  # ATGG
+#    ^ Start of T7 promoter                   ^ last nucleotide of LacO         ^ S-D stop        ^ NcoI end
+#                       ^ start of LacO                                  ^ Shine Dalgarno start
+#                                                                                       ^ NcoI start
+default_multicistronic_sequence = ncoI_multicistronic_sequence
 
 
 def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
