@@ -802,11 +802,12 @@ if __name__ == '__main__':
                                  help='Should tags be avoided at termini with helices?')
     parser_sequence.add_argument('--csv', action='store_true', help='Write the sequences file as a .csv')
     parser_sequence.add_argument('-e', '--entity_specification', type=str,
+                                 # choices=['single', 'all', 'none'], Todo make work with list...
                                  help='If there are specific entities in the designs you want to tag, indicate how '
-                                      'tagging should occur. Viable options include \'single\'- a single entity, '
-                                      '\'all\'- all antities, \'none\'- no entities, or provide a comma separated list '
-                                      'such as \'1,0,1\' where \'1\' indicates a tag requirement and \'0\' indicates no'
-                                      ' tag is required.')
+                                      'tagging should occur. Viable options include \'single\' - a single entity, '
+                                      '\'all\' - all entities, \'none\' - no entities, or provide a comma separated '
+                                      'list such as \'1,0,1\' where \'1\' indicates a tag requirement and \'0\' '
+                                      'indicates no tag is required.')
     parser_sequence.add_argument('-f', '--filter', action='store_true',
                                  help='Whether to filter sequence selection using metrics from DataFrame')
     parser_sequence.add_argument('-g', '--global_sequences', action='store_true',

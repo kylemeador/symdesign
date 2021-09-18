@@ -111,7 +111,7 @@ if __name__ == '__main__':
                 if final_id in group[0]:
                     final_groups.append(group)
         final_pose_ids = list(map(str.join, repeat(','), final_groups))
-        print('GROUPS', final_groups[:5])
-        print('FINAL POSE IDS', final_pose_ids[:5])
+        # print('GROUPS', final_groups[:5])
+        # print('FINAL POSE IDS', final_pose_ids[:5])
 
     io_save(final_pose_ids)
