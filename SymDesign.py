@@ -21,11 +21,13 @@ import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Data.IUPACData import protein_letters
+
+from SymDesignUtils import ex_path
 from dependencies.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from Query.PDB import input_string, bool_d, invalid_string, boolean_choice, verify_choice
+from Query.PDB import input_string, bool_d, invalid_string, boolean_choice
 from utils.CmdLineArgParseUtils import query_mode
 from utils.PDBUtils import orient_pdb_file
 from Query import Flags
@@ -534,10 +536,6 @@ def generate_sequence_template(pdb_file):
     return write_fasta(sequences, file_name='%s_residue_selector_sequence' % os.path.splitext(pdb.filepath)[0])
 
 
-def ex_path(string):
-    return os.path.join('path', 'to', string)
-
-
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(fromfile_prefix_chars='@',
                                      description=
@@ -703,13 +701,15 @@ if __name__ == '__main__':
         subparsers.add_parser('interface_metrics',
                               help='Set up RosettaScript to analyze interface metrics from an interface design job. '
                                    'If the specific flags should be generated fresh use --force_flags')
+    parser_interface_metrics.add_argument('-sp', '--specific_protocol', type=str,
+                                          help='The specific protocol to perform interface_metrics on')
     # parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
     #                                       help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
     parser_optimize_designs = \
         subparsers.add_parser('optimize_designs',
                               help='Optimize and touch up designs after running an interface design job. Useful for '
-                                   'reverting excess mutations to wild-type, or directing targetted exploration of '
+                                   'reverting excess mutations to wild-type, or directing targeted exploration of '
                                    'specific troublesome areas.')
     # ---------------------------------------------------
     parser_custom_script = \

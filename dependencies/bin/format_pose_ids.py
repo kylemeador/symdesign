@@ -10,7 +10,7 @@ from SymDesignUtils import io_save
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(description='Create a list of files the belong in a directory')
+    parser = argparse.ArgumentParser(description='Create a list of files that should be grouped into a continuous job')
     # parser.add_argument('-d', '--directory', type=os.path.abspath, help='Directory where models are located',
     #                     required=True)
     parser.add_argument('-f', '--file', type=os.path.abspath, help='File where pose IDs are located', required=True)
@@ -27,7 +27,7 @@ if __name__ == '__main__':
     subparsers = parser.add_subparsers(title='Modules', dest='module',
                                        description='These are the different modes that Pose IDs can be processed',
                                        help='Chose a Module followed by Module specific flags. To get help with a '
-                                            'Module flags enter:\t%s\n.' % submodule_help)
+                                            'Module flags enter:\t%s.\n' % submodule_help)
     # ---------------------------------------------------
     filter_parser = subparsers.add_parser('filter', help='Extract Pose IDs from file for poses of interest.')
     filter_parser.add_argument('-sf', '--selection_id_file', type=str,

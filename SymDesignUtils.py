@@ -1252,3 +1252,7 @@ def condensed_to_square(k, n):
     j = calc_col_idx(k, i, n)
 
     return i, j
+
+
+def ex_path(string):
+    return os.path.join('path', 'to', string)
