@@ -1706,6 +1706,8 @@ if __name__ == '__main__':
             results = SDUtils.mp_map(DesignDirectory.rosetta_interface_metrics, design_directories, threads=threads)
         else:
             for design in design_directories:
+                if design.sym_entry is None:
+                    continue
                 results.append(design.rosetta_interface_metrics())
 
         terminate(location=location, results=results)
