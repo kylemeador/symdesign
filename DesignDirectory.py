@@ -18,6 +18,7 @@ import pandas as pd
 from Bio.Data.IUPACData import protein_letters_3to1, protein_letters_1to3
 from cycler import cycler
 from matplotlib.ticker import MultipleLocator
+from pickle import UnpicklingError
 from scipy.spatial.distance import pdist, cdist
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
@@ -732,7 +733,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
             if os.path.exists(self.serialized_info):  # Pose has already been processed, gather state data
-                self.info = unpickle(self.serialized_info)
+                try:
+                    self.info = unpickle(self.serialized_info)
+                except UnpicklingError:  # pickle.UnpicklingError:
+                    raise DesignError('There was an issue retreiving design state from binary file...')
                 # if os.stat(self.serialized_info).st_size > 10000:
                 #     print('Found pickled file with huge size %d. fragmentdatabase being removed'
                 #           % os.stat(self.serialized_info).st_size)
@@ -1099,9 +1103,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
-        pdb_list = os.path.join(self.scripts, 'design_files%s.txt' % ('_%s' % self.specific_protocol if self.specific_protocol else ''))
+        pdb_list = os.path.join(self.scripts, 'design_files%s.txt' %
+                                ('_%s' % self.specific_protocol if self.specific_protocol else ''))
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list] + \
-                             (['-s', self.specific_protocol] if self.specific_protocol else [])
+            (['-s', self.specific_protocol] if self.specific_protocol else [])
         main_cmd += ['-in:file:l', pdb_list, '@%s' % self.flags,
                      # TODO out:file:score_only file is not respected if out:path:score_file given
                      #  -run:score_only true?
