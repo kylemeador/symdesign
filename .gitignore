@@ -4,3 +4,4 @@ dependencies/hh-suite
 dependencies/orient/orient_oligomer
 data/databases/fragment_db/biological_interfaces
 .DS_Store
+dependencies/ialign/bin/.svn/
