@@ -1,5 +1,7 @@
 #! /bin/bash
-# from a silent file provided as argument 1 ($1), grab the top X structures integer from argument 2 ($2), using the shape_complementarity and energy_density overlap, and finally the structures which have the highest residue count from this overlap
+# from a silent file provided as argument 1 ($1), grab the top X structures integer from argument 2 ($2),
+# using the shape_complementarity and energy_density overlap, and finally the structures
+# which have the highest residue count from this overlap
 
 # create the file which contains the hbnet scores
 hbnet_scores=$(dirname -- "$1")/hbnet.sc  # $(basename -- "$1")}
@@ -35,7 +37,7 @@ for item in ${sc_array[@]}; do
   fi
 done
 # in case the overlap is shorter than the requested amount in $2, add all the members from the sc array
-if [[ ${#overlap[@]} < 1 ]] ; then
+if [[ ${#overlap[@]} < $2 ]] ; then
   for ((i=0 ; i<$2 ; i++)); do
 	overlap+=${sc_array[$i]}
   done
