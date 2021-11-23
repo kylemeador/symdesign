@@ -33,7 +33,8 @@ def get_complex_interfaces(pdb_code):
     exact PISA interface id that is dissociating when a ligand with more than one copy is involved
     """
     pdb_biomol = 1  # I believe this is always true
-    header = {'User-Agent': 'Mozilla/5.0 (X11; CrOS x86_64 13505.100.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.142 Safari/537.36'}
+    header = {'User-Agent': 'Mozilla/5.0 (X11; CrOS x86_64 13505.100.0) AppleWebKit/537.36 (KHTML, like Gecko) '
+                            'Chrome/87.0.4280.142 Safari/537.36'}
     pisa_query = get('https://www.ebi.ac.uk/pdbe/pisa/cgi-bin/piserver?qa=%s' % pdb_code, headers=header)
     # print(pisa_query.content)
     # print('\n' * 10)

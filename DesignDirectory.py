@@ -141,7 +141,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.force_flags = kwargs.get('force_flags', False)
         self.interface_residues = False
         self.legacy = kwargs.get('legacy', False)
-        self.number_of_trajectories = None
+        self.number_of_trajectories = kwargs.get('number_of_trajectories', False)
         self.pre_refine = True
         self.query_fragments = False
         self.scout = kwargs.get('scout', False)
@@ -736,7 +736,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 try:
                     self.info = unpickle(self.serialized_info)
                 except UnpicklingError:  # pickle.UnpicklingError:
-                    raise DesignError('There was an issue retreiving design state from binary file...')
+                    print('%s: There was an issue retrieving design state from binary file...' % self.name)
+                    raise DesignError('There was an issue retrieving design state from binary file...')
                 # if os.stat(self.serialized_info).st_size > 10000:
                 #     print('Found pickled file with huge size %d. fragmentdatabase being removed'
                 #           % os.stat(self.serialized_info).st_size)
