@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 from glob import glob
 
@@ -26,6 +27,45 @@ expand_matrices = \
            [[0.0, -1.0, 0.0], [0.0, 0.0, -1.0], [1.0, 0.0, 0.0]],
            [[0.0, 1.0, 0.0], [0.0, 0.0, -1.0], [-1.0, 0.0, 0.0]],
            [[0.0, -1.0, 0.0], [0.0, 0.0, 1.0], [-1.0, -0.0, 0.0]]]}
+# REMARK 350 formatting
+# REMARK 350 BIOMOLECULE: 1
+# REMARK 350 APPLY THE FOLLOWING TO CHAINS: A, B
+# REMARK 350   BIOMT1   1  1.0 0.0 0.0 0
+# REMARK 350   BIOMT2   1  0.0 1.0 0.0 0
+# REMARK 350   BIOMT3   1  0.0 -0.0 1.0 0
+# REMARK 350   BIOMT1   2  -1.0 0.0 0.0 0
+# REMARK 350   BIOMT2   2  0.0 -1.0 0.0 0
+# REMARK 350   BIOMT3   2  0.0 0.0 1.0 0
+# REMARK 350   BIOMT1   3  1.0 0.0 0.0 0
+# REMARK 350   BIOMT2   3  0.0 -1.0 0.0 0
+# REMARK 350   BIOMT3   3  0.0 -0.0 -1.0 0
+# REMARK 350   BIOMT1   4  -1.0 0.0 0.0 0
+# REMARK 350   BIOMT2   4  0.0 1.0 0.0 0
+# REMARK 350   BIOMT3   4  0.0 0.0 -1.0 0
+# REMARK 350   BIOMT1   5  0.0 0.0 1.0 0
+# REMARK 350   BIOMT2   5  1.0 0.0 0.0 0
+# REMARK 350   BIOMT3   5  0.0 1.0 0.0 0
+# REMARK 350   BIOMT1   6  0.0 0.0 -1.0 0
+# REMARK 350   BIOMT2   6  -1.0 0.0 0.0 0
+# REMARK 350   BIOMT3   6  0.0 1.0 0.0 0
+# REMARK 350   BIOMT1   7  0.0 0.0 1.0 0
+# REMARK 350   BIOMT2   7  -1.0 0.0 0.0 0
+# REMARK 350   BIOMT3   7  0.0 -1.0 0.0 0
+# REMARK 350   BIOMT1   8  0.0 0.0 -1.0 0
+# REMARK 350   BIOMT2   8  1.0 0.0 0.0 0
+# REMARK 350   BIOMT3   8  0.0 -1.0 0.0 0
+# REMARK 350   BIOMT1   9  0.0 1.0 0.0 0
+# REMARK 350   BIOMT2   9  0.0 0.0 1.0 0
+# REMARK 350   BIOMT3   9  1.0 -0.0 0.0 0
+# REMARK 350   BIOMT1  10  0.0 -1.0 0.0 0
+# REMARK 350   BIOMT2  10  0.0 0.0 -1.0 0
+# REMARK 350   BIOMT3  10  1.0 0.0 0.0 0
+# REMARK 350   BIOMT1  11  0.0 1.0 0.0 0
+# REMARK 350   BIOMT2  11  0.0 0.0 -1.0 0
+# REMARK 350   BIOMT3  11  -1.0 0.0 0.0 0
+# REMARK 350   BIOMT1  12  0.0 -1.0 0.0 0
+# REMARK 350   BIOMT2  12  0.0 0.0 1.0 0
+# REMARK 350   BIOMT3  12  -1.0 -0.0 0.0 0
 possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T',
                        'I23': 'I', 'I25': 'I', 'I35': 'I', 'T23': 'T',
                        'T:{C2}{C3}': 'T', 'T:{C3}{C2}': 'T', 'T:{C3}{C3}': 'T',
@@ -141,7 +181,7 @@ cmd.extend('save_group', save_group)
 # if __name__ == 'pymol':
 if __name__ == '__main__':
     if len(sys.argv) < 2:
-        exit('Usage:     pymol -r VisualizeUtils.py -- path/to/designs 0-10 [original_name,original_order,ranked_order]'
+        exit('Usage:     pymol -r VisualizeUtils.py -- path/to/designs 0-10 [original_name original_order ranked_order]'
              '\n'
              'pymol executable       this script               design range      flags for naming/sorting designs')
 
@@ -168,9 +208,19 @@ if __name__ == '__main__':
     if ranked_order and df_glob:
         df = pd.read_csv(df_glob[0], index_col=0, header=[0])
         ordered_files = []
+        df_indices_pose_ids = list(filter(re.compile('(\w{4})_(\w{4})[/-]'
+                                                     '.*_?[0-9]_[0-9][/-]'
+                                                     '.*_?([0-9]+)_([0-9]+)[/-]'
+                                                     '[tT][xX]_([0-9]+)').match, df.index))
+
         for index in df.index:
+            index = re.compile('(\w{4})_(\w{4})[/-].*_?[0-9]_[0-9][/-].*_?([0-9]+)_([0-9]+)[/-][tT][xX]_([0-9]+)')\
+                .match(index)
+            if not index:
+                continue
+        # for index in df_indices_pose_ids:
             for file in files:
-                if index in file:
+                if index.group(0) in file:
                     ordered_files.append(file)
                     break
         files = ordered_files
