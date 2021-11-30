@@ -3750,8 +3750,9 @@ class MonoFragment:
     # def structure(self, structure):
     #     self._structure = structure
 
-    # def residue_number(self):
-    #     return self.central_residue.number
+    @property
+    def residue_number(self):
+        return self.central_residue.number
     #
     # def chain(self):
     #     return self.central_residue.chain

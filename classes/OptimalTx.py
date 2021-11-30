@@ -4,7 +4,8 @@ import numpy as np
 
 
 class OptimalTx:
-    def __init__(self, dof_ext=None, zshift1=None, zshift2=None):
+    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1.):
+        self.max_z_value = max_z_value
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
         self.zshift1 = zshift1  # internal translational DOF1
@@ -29,12 +30,13 @@ class OptimalTx:
             raise ValueError('n_dof is not set! Can\'t get the OptimalTx without passing DOF')
 
     @classmethod
-    def from_dof(cls, dof_ext=None, zshift1=None, zshift2=None):  # setting1, setting2,
-        return cls(dof_ext=dof_ext, zshift1=zshift1, zshift2=zshift2)  # setting1=setting1 setting2=setting2
+    def from_dof(cls, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1.):  # setting1, setting2,
+        return cls(dof_ext=dof_ext, zshift1=zshift1, zshift2=zshift2, max_z_value=max_z_value)
+        # setting1=setting1 setting2=setting2
 
-    @classmethod
-    def from_tx_params(cls, optimal_tx_params, error_zvalue):
-        return cls(tx_params=optimal_tx_params, error=error_zvalue)
+    # @classmethod
+    # def from_tx_params(cls, optimal_tx_params, error_zvalue):
+    #     return cls(tx_params=optimal_tx_params, error=error_zvalue)
 
     def dof_convert9(self, number_of_coordinates=3):
         """convert input degrees of freedom to 9-dim arrays, repeat DOF ext for each set of 3 coordinates (3 sets)"""
@@ -45,7 +47,7 @@ class OptimalTx:
         self.dof9_t = self.dof9
         self.dof9 = np.transpose(self.dof9)
 
-    def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference, max_z_value=1.0):
+    def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
         """This routine does the work to solve the optimal shift problem
 
         Args:
@@ -91,7 +93,7 @@ class OptimalTx:
         error = sqrt(np.matmul(resid_t, resid) / float(3.0)) / coords_rmsd_reference  # NEW. Is float(3.0) a scale?
         # sqrt(variance / 3) / cluster_rmsd # old error
 
-        if error <= max_z_value:
+        if error <= self.max_z_value:
             # print('Found match (shift, rmsd ref)', shift, coords_rmsd_reference)
             return shift[:, 0].tolist()  # , error
         else:

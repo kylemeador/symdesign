@@ -57,8 +57,7 @@ class EulerLookup:
 
     # @njit
     def check_lookup_table(self, guide_coords1, guide_coords2):
-        """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
-        overlap
+        """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
         # ensure the atoms are passed as an array of 3x3 matrices
         for guide_coords in [guide_coords1, guide_coords2]:
