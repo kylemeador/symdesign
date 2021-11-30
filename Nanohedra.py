@@ -1,5 +1,6 @@
 import os
 import sys
+import time
 from itertools import product, combinations
 
 import PathUtils as PUtils
@@ -18,6 +19,7 @@ __copyright__ = "Copyright 2020, Nanohedra"
 __version__ = "1.0"
 
 if __name__ == "__main__":
+    start_time = time.time()
     if len(sys.argv) > 1 and sys.argv[1] == '-query':
         query_mode(sys.argv)
 
@@ -168,6 +170,8 @@ if __name__ == "__main__":
                 master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
 
             # with open(master_log_filepath, "a+") as master_log_file:
+            total_time = time.time() - start_time
+            master_logger.info("\nTOTAL TIME: %s\n\n" % str(total_time))
             master_logger.info('\nCOMPLETED FRAGMENT-BASED SYMMETRY DOCKING PROTOCOL\n\nDONE\n')
             exit(0)
 
