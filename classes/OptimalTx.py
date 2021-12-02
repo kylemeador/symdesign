@@ -39,14 +39,13 @@ class OptimalTx:
     # def from_tx_params(cls, optimal_tx_params, error_zvalue):
     #     return cls(tx_params=optimal_tx_params, error=error_zvalue)
 
-    def dof_convert9(self, number_of_coordinates=3):
-        """convert input degrees of freedom to 9-dim arrays, repeat DOF ext for each set of 3 coordinates (3 sets)"""
-        self.dof9 = np.zeros((self.n_dof, 9))
+    def dof_convert9(self):
+        """Convert input degrees of freedom to 9-dim arrays. Repeat DOF ext for each set of 3 coordinates (3 sets)"""
+        self.dof9_t = np.zeros((self.n_dof, 9))
         for i in range(self.n_dof):
-            self.dof9[i] = (np.array(number_of_coordinates * [self.dof[i]])).flatten()
+            self.dof9_t[i] = np.array(self.number_of_coordinates * [self.dof[i]]).flatten()
             # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
-        self.dof9_t = self.dof9
-        self.dof9 = np.transpose(self.dof9)
+        self.dof9 = np.transpose(self.dof9_t)
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
         """This routine does solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
