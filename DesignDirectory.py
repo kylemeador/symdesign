@@ -312,7 +312,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @property
     def design_symmetry(self):
         try:
-            return self.sym_entry.get_result_design_sym()
+            return self.sym_entry.get_result_design_sym
         except AttributeError:
             return
 
@@ -326,7 +326,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @property
     def design_dimension(self):
         try:
-            return self.sym_entry.get_design_dim()
+            return self.sym_entry.get_design_dim
         except AttributeError:
             return
 

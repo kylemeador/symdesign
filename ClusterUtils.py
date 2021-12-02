@@ -378,8 +378,8 @@ def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):
     """
     test_docking_df = pd.read_csv(test_trajectories_file, index_col=0, header=[0, 1, 2])
 
-    for cluster_representative, cluster_designs in clustered_poses.items():
-        trajectory_df = test_docking_df.loc[cluster_designs, nanohedra_metrics]
+    for cluster_representative, designs in clustered_poses.items():
+        trajectory_df = test_docking_df.loc[designs, nanohedra_metrics]
         trajectory_df['model_predict'] = model.predict(trajectory_df)
         trajectory_df.sort_values('model_predict')
 
@@ -403,10 +403,7 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     #  a similar tx and a 3 degree step of rotation.
     # make a blank set of guide coordinates for each incoming transformation
     guide_coords = np.tile(np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]]), (len(transform1['rotation']), 1, 1))
-    # transform1 =
-
     transformed_guide_coords1 = transform_coordinate_sets(guide_coords, **transform1)
-
     transformed_guide_coords2 = transform_coordinate_sets(guide_coords, **transform2)
 
     transformed_guide_coords = np.concatenate([transformed_guide_coords1.reshape(-1, 9),
@@ -419,7 +416,7 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     distance_graph = transform_tree.radius_neighbors_graph(mode='distance', sort_results=True)  # <- sort doesn't work?
     #                                                      X=transformed_guide_coords is implied
     # because this doesn't work to sort_results and pull out indices, I have to do another step 'radius_neighbors'
-    cluster = DBSCAN(eps=distance, min_samples=2, metric='precomputed').fit(distance_graph)  # , sample_weight=SOME WEIGHTS?
+    cluster = DBSCAN(eps=distance, min_samples=2, metric='precomputed').fit(distance_graph)  # , sample_weight=A WEIGHT?
     outlier = -1  # -1 are outliers in DBSCAN
     labels = set(cluster.labels_) - {outlier}  # labels live here
     tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
@@ -480,7 +477,7 @@ def cluster_designs(composition_designs, return_pose_id=True):
         # add the outliers as separate occurrences
         composition_map.update({str(composition_designs[idx]): []
                                 for idx in np.flatnonzero(cluster_labels == -1).tolist()})
-    else:
+    else:  # return the DesignDirectory object
         composition_map = {composition_designs[rep_idx]: [composition_designs[idx]
                                                           for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
                            for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)

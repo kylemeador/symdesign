@@ -17,7 +17,7 @@ import PathUtils as PUtils
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
     start_log, null_log, possible_symmetries, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
     split_interface_numbers
-from classes.SymEntry import get_rot_matrices, RotRangeDict, get_degen_rotmatrices, SymEntry, flip_x_matrix
+from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatrices, SymEntry, flip_x_matrix
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues
 from classes.EulerLookup import EulerLookup
@@ -1502,8 +1502,8 @@ class SymmetricModel(Model):
         if self.sym_entry.group1 in ['D2', 'D3', 'D4', 'D6'] or self.sym_entry.group2 in ['D2', 'D3', 'D4', 'D6']:
             group1 = self.sym_entry.group1.replace('D', 'C')
             group2 = self.sym_entry.group1.replace('D', 'C')
-            rotation_matrices_only1 = get_rot_matrices(RotRangeDict[group1], 'z', 360)
-            rotation_matrices_only2 = get_rot_matrices(RotRangeDict[group2], 'z', 360)
+            rotation_matrices_only1 = get_rot_matrices(rotation_range[group1], 'z', 360)
+            rotation_matrices_only2 = get_rot_matrices(rotation_range[group2], 'z', 360)
             # provide a 180 degree rotation along x (all D orient symmetries have axis here)
             # apparently passing the degeneracy matrix first without any specification towards the row/column major
             # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
@@ -1517,8 +1517,8 @@ class SymmetricModel(Model):
         else:
             group1 = self.sym_entry.group1
             group2 = self.sym_entry.group1
-            rotation_matrices_group1 = get_rot_matrices(RotRangeDict[group1], 'z', 360)
-            rotation_matrices_group2 = get_rot_matrices(RotRangeDict[group2], 'z', 360)
+            rotation_matrices_group1 = get_rot_matrices(rotation_range[group1], 'z', 360)
+            rotation_matrices_group2 = get_rot_matrices(rotation_range[group2], 'z', 360)
 
         # Assign each Entity to a symmetry group
         # entity_coms = [entity.center_of_mass for entity in self.asu]
@@ -1558,8 +1558,8 @@ class SymmetricModel(Model):
         approx_entity_com_reference = np.linalg.norm(all_entities_com - ext_tx)
         approx_entity_z_tx = [0., 0., approx_entity_com_reference]
         # apply the setting matrix for each group to the approximate translation
-        set_mat1 = self.sym_entry.get_rot_set_mat_group1()
-        set_mat2 = self.sym_entry.get_rot_set_mat_group2()
+        set_mat1 = self.sym_entry.setting_matrix1
+        set_mat2 = self.sym_entry.setting_matrix2
         # TODO test transform_coordinate_sets has the correct input format (numpy.ndarray)
         com_group1 = \
             transform_coordinate_sets(origin, translation=approx_entity_z_tx, rotation2=set_mat1, translation2=ext_tx)

@@ -18,7 +18,7 @@ from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
-from classes.SymEntry import identity_matrix, get_rot_matrices, RotRangeDict, flip_x_matrix, get_degen_rotmatrices
+from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices
 from utils.GeneralUtils import transform_coordinate_sets
 
 # globals
@@ -2483,13 +2483,13 @@ class Entity(Chain, SequenceProfile):
 
         self.symmetry = sym
         if 'D' in sym:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
-            rotation_matrices = get_rot_matrices(RotRangeDict[sym.replace('D', 'C')], 'z', 360)
+            rotation_matrices = get_rot_matrices(rotation_range[sym.replace('D', 'C')], 'z', 360)
             # apparently passing the degeneracy matrix first without any specification towards the row/column major
             # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
             # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
             degeneracy_rotation_matrices = get_degen_rotmatrices([flip_x_matrix], rotation_matrices)
         else:
-            rotation_matrices = get_rot_matrices(RotRangeDict[sym], 'z', 360)
+            rotation_matrices = get_rot_matrices(rotation_range[sym], 'z', 360)
             degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
         inv_rotation = np.linalg.inv(rotation)

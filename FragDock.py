@@ -12,10 +12,10 @@ from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
     transform_coordinate_sets, get_rotation_step, write_docking_parameters
 from utils.PDBUtils import get_contacting_asu, get_interface_residues
-from utils.SymmetryUtils import get_uc_dimensions, generate_cryst1_record, get_central_asu
+from utils.SymmetryUtils import generate_cryst1_record, get_central_asu
 from classes.EulerLookup import EulerLookup
 from classes.OptimalTx import OptimalTx
-from classes.SymEntry import SymEntry, get_optimal_external_tx_vector, get_rot_matrices, get_degen_rotmatrices
+from classes.SymEntry import SymEntry, get_rot_matrices, get_degen_rotmatrices
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from PDB import PDB
 from Pose import Pose
@@ -40,75 +40,33 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
     for tx_idx, tx_parameters in enumerate(optimal_tx_params, 1):
         log.info('Optimal Shift %d' % tx_idx)
         # tx_parameters contains [OptimalExternalDOFShifts (n_dof_ext), OptimalInternalDOFShifts (n_dof_int)]
-        n_dof_external = len(sym_entry.get_ext_dof())  # returns 0 - 3
         # Get Oligomer1, Oligomer2 Optimal Internal Translation vector
         internal_tx_param1, internal_tx_param2 = None, None
-        if sym_entry.is_internal_tx1():
-            internal_tx_param1 = [0, 0, tx_parameters[n_dof_external]]
-        if sym_entry.is_internal_tx2():
-            internal_tx_param2 = [0, 0, tx_parameters[n_dof_external + 1]]
+        if sym_entry.is_internal_tx1:
+            internal_tx_param1 = [0, 0, tx_parameters[sym_entry.n_dof_external]]
+        if sym_entry.is_internal_tx2:
+            internal_tx_param2 = [0, 0, tx_parameters[sym_entry.n_dof_external + 1]]
 
         # Get Optimal External DOF shifts
-        # if n_dof_external > 0:
-        optimal_ext_dof_shifts = tx_parameters[:n_dof_external]
-        # else:
-        #     optimal_ext_dof_shifts = None
-
+        optimal_ext_dof_shifts = tx_parameters[:sym_entry.n_dof_external]
         external_tx_params1, external_tx_params2 = None, None
         ref_frame_var_is_pos, uc_dimensions = False, None
         if optimal_ext_dof_shifts:  # Todo TEST
-            # ref_frame_tx_dof_e, ref_frame_tx_dof_f, ref_frame_tx_dof_g = 0, 0, 0
-            # if len(optimal_ext_dof_shifts) == 1:
-            #     ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
-            #     if ref_frame_tx_dof_e > 0:
-            #         ref_frame_var_is_pos = True
-            # if len(optimal_ext_dof_shifts) == 2:
-            #     ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
-            #     ref_frame_tx_dof_f = optimal_ext_dof_shifts[1]
-            #     if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0:
-            #         ref_frame_var_is_pos = True
-            # if len(optimal_ext_dof_shifts) == 3:
-            #     ref_frame_tx_dof_e = optimal_ext_dof_shifts[0]
-            #     ref_frame_tx_dof_f = optimal_ext_dof_shifts[1]
-            #     ref_frame_tx_dof_g = optimal_ext_dof_shifts[2]
-            #     if ref_frame_tx_dof_e > 0 and ref_frame_tx_dof_f > 0 and ref_frame_tx_dof_g > 0:
-            #         ref_frame_var_is_pos = True
-
             # Restrict all reference frame translation parameters to > 0 for SCMs with reference frame translational dof
             ref_frame_var_is_neg = False
-            for ref_frame_tx_dof in optimal_ext_dof_shifts:
+            for ref_idx, ref_frame_tx_dof in enumerate(optimal_ext_dof_shifts, 1):
                 if ref_frame_tx_dof < 0:
                     ref_frame_var_is_neg = True
                     break
-
-            # if (optimal_ext_dof_shifts is not None and ref_frame_var_is_pos) or (optimal_ext_dof_shifts is None):  # Old
-            # if (optimal_ext_dof_shifts and ref_frame_var_is_pos) or not optimal_ext_dof_shifts:  # clean
-            #     # true and true or not true
-            #     dummy = True # enter docking
-            # if optimal_ext_dof_shifts and not ref_frame_var_is_pos:  # negated
-            if ref_frame_var_is_neg:
-                # true and not true
-                # don't enter docking
-                # efg_tx_params_str = [str(None), str(None), str(None)]
-                # for param_index in range(len(optimal_ext_dof_shifts)):
-                #     efg_tx_params_str[param_index] = optimal_ext_dof_shifts[param_index]
-                log.info('\tReference Frame Shift Parameter is Negative: %s\n' % optimal_ext_dof_shifts)
+            if ref_frame_var_is_neg:  # don't dock
+                log.info('\tReference Frame Shift Parameter %d is Negative: %s\n' % (ref_idx, optimal_ext_dof_shifts))
                 continue
-            else:  # not optimal_ext_dof_shifts or (optimal_ext_dof_shifts and ref_frame_var_is_pos)
-                # write uc_dimensions and dock
+            else:
                 # Get Oligomer1 & Oligomer2 Optimal External Translation vector
-                external_tx_params1 = get_optimal_external_tx_vector(
-                    sym_entry.get_ref_frame_tx_dof_group1(),
-                    optimal_ext_dof_shifts)
-                external_tx_params2 = get_optimal_external_tx_vector(
-                    sym_entry.get_ref_frame_tx_dof_group2(),
-                    optimal_ext_dof_shifts)
-
+                external_tx_params1 = sym_entry.get_optimal_external_tx_vector(optimal_ext_dof_shifts, group_number=1)
+                external_tx_params2 = sym_entry.get_optimal_external_tx_vector(optimal_ext_dof_shifts, group_number=2)
                 # Get Unit Cell Dimensions for 2D and 3D SCMs
-                uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), *optimal_ext_dof_shifts)
-                # uc_dimensions = get_uc_dimensions(sym_entry.get_uc_spec_string(), ref_frame_tx_dof_e,
-                #                                   ref_frame_tx_dof_f,
-                #                                   ref_frame_tx_dof_g)
+                uc_dimensions = sym_entry.get_uc_dimensions(optimal_ext_dof_shifts)
 
         # Rotate, Translate and Set PDB1, PDB2
         copy_rot_tr_set_time_start = time.time()
@@ -117,10 +75,10 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         #  order of operations matters? by applying the setting matrix to the translation, in theory the translation
         #  will be along the same axis. This removes repeated multiplications and instead has array addition
         pdb1_copy = pdb1.return_transformed_copy(rotation=rot_mat1, translation=internal_tx_param1,
-                                                 rotation2=sym_entry.get_rot_set_mat_group1(),
+                                                 rotation2=sym_entry.setting_matrix1,
                                                  translation2=external_tx_params1)
         pdb2_copy = pdb2.return_transformed_copy(rotation=rot_mat2, translation=internal_tx_param2,
-                                                 rotation2=sym_entry.get_rot_set_mat_group2(),
+                                                 rotation2=sym_entry.setting_matrix2,
                                                  translation2=external_tx_params2)
 
         copy_rot_tr_set_time_stop = time.time()
@@ -170,11 +128,11 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
         transformed_ghostfrag_guide_coords_np = \
             transform_coordinate_sets(ghost_frag_guide_coords, rotation=rot_mat1, translation=internal_tx_param1,
-                                      rotation2=sym_entry.get_rot_set_mat_group1(), translation2=external_tx_params1)
+                                      rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
 
         transformed_monofrag2_guide_coords_np = \
             transform_coordinate_sets(surf_frag_guide_coords, rotation=rot_mat2, translation=internal_tx_param2,
-                                      rotation2=sym_entry.get_rot_set_mat_group2(), translation2=external_tx_params2)
+                                      rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
 
         # log.debug('Transformed guide_coords')
         get_int_ghost_surf_frags_time_end = time.time()
@@ -246,7 +204,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         exp_des_clash_time_start = time.time()
         asu.uc_dimensions = uc_dimensions
         asu.expand_matrices = sym_entry.expand_matrices
-        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.get_result_design_sym(), ignore_clashes=True,
+        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.resulting_symmetry, ignore_clashes=True,
                                            log=log)  # surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
@@ -282,8 +240,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # Write ASU, PDB1, PDB2, and expanded assembly files
         cryst1_record = None
         if optimal_ext_dof_shifts:
-            asu = get_central_asu(asu, uc_dimensions, sym_entry.get_design_dim())
-            cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.get_result_design_sym())
+            asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
+            cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
@@ -354,7 +312,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             # if write_frags:  # write out aligned cluster representative fragment
             transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
                 rotation=rot_mat1, translation=internal_tx_param1,
-                rotation2=sym_entry.get_rot_set_mat_group1(), translation2=external_tx_params1)
+                rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
                                                           % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
 
@@ -397,8 +355,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # Write Out Docked Pose Info to docked_pose_info_file.txt
         write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
                                unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
-                               sym_entry.get_rot_set_mat_group1(), external_tx_params1, rot_mat2, internal_tx_param2,
-                               sym_entry.get_rot_set_mat_group2(), external_tx_params2, cryst1_record, pdb1_path,
+                               sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
+                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1_path,
                                pdb2_path, pose_id)
 
 
@@ -872,7 +830,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         exp_des_clash_time_start = time.time()
         asu.uc_dimensions = uc_dimensions
         asu.expand_matrices = sym_entry.expand_matrices
-        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.get_result_design_sym(), ignore_clashes=True,
+        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.resulting_symmetry, ignore_clashes=True,
                                            log=log)  # surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
@@ -886,16 +844,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         # Todo replace with DesignDirectory? Path object?
         degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
         rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
-        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)
+        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % idx)
         oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
         degen_dir = rot_subdir_out_path.split(os.sep)[-2]
         rot_dir = rot_subdir_out_path.split(os.sep)[-1]
-        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, tx_idx)
-        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, tx_idx)
-        if not os.path.exists(degen_subdir_out_path):
-            os.makedirs(degen_subdir_out_path)
-        if not os.path.exists(rot_subdir_out_path):
-            os.makedirs(rot_subdir_out_path)
+        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, idx)
+        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, idx)
+        # if not os.path.exists(degen_subdir_out_path):
+        #     os.makedirs(degen_subdir_out_path)
+        # if not os.path.exists(rot_subdir_out_path):
+        #     os.makedirs(rot_subdir_out_path)
         if not os.path.exists(tx_dir):
             os.makedirs(tx_dir)
 
@@ -909,16 +867,18 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
         # Write ASU, PDB1, PDB2, and expanded assembly files
         cryst1_record = None
-        if optimal_ext_dof_shifts:
-            asu = get_central_asu(asu, uc_dimensions, sym_entry.get_design_dim())
-            cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.get_result_design_sym())
+        # if optimal_ext_dof_shifts:  # 2, 3 dimensions
+        if sym_entry.unit_cell:
+            asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
+            cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
         if output_assembly:
             symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
-            if optimal_ext_dof_shifts:  # 2, 3 dimensions
+            # if optimal_ext_dof_shifts:  # 2, 3 dimensions
+            if sym_entry.unit_cell:
                 if output_surrounding_uc:
                     symmetric_material.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
                                              header=cryst1_record)
@@ -929,9 +889,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         log.info('\tSUCCESSFUL DOCKED POSE: %s' % tx_dir)
 
         # return the indices sorted by z_value then pull information accordingly
-        sorted_fragment_indices = np.argsort(passing_z_values)
-        sorted_z_values = passing_z_values[sorted_fragment_indices]
-        match_scores = match_score_from_z_value(sorted_z_values)
+        sorted_fragment_indices = np.argsort(all_fragment_match)
+        match_scores = all_fragment_match[sorted_fragment_indices]
+        # match_scores = match_score_from_z_value(sorted_z_values)
         # log.debug('Overlapping Match Scores: %s' % match_scores)
         sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
         int_ghostfrags = [interface_ghost_frags[idx] for idx in passing_ghost_indices[sorted_overlap_indices].tolist()]
@@ -952,27 +912,27 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
-            score_term = match_scores[frag_idx]
+            match = match_scores[frag_idx]
             for k in range(fragment_length):
                 chain_resnum1 = covered_residues_pdb1[k]
                 chain_resnum2 = covered_residues_pdb2[k]
                 if chain_resnum1 not in chid_resnum_scores_dict_pdb1:
-                    chid_resnum_scores_dict_pdb1[chain_resnum1] = [score_term]
+                    chid_resnum_scores_dict_pdb1[chain_resnum1] = [match]
                 else:
-                    chid_resnum_scores_dict_pdb1[chain_resnum1].append(score_term)
+                    chid_resnum_scores_dict_pdb1[chain_resnum1].append(match)
 
                 if chain_resnum2 not in chid_resnum_scores_dict_pdb2:
-                    chid_resnum_scores_dict_pdb2[chain_resnum2] = [score_term]
+                    chid_resnum_scores_dict_pdb2[chain_resnum2] = [match]
                 else:
-                    chid_resnum_scores_dict_pdb2[chain_resnum2].append(score_term)
+                    chid_resnum_scores_dict_pdb2[chain_resnum2].append(match)
 
             # if (surf_frag_chain1, surf_frag_central_res_num1) not in unique_frags_info1:
             unique_frags_info1.add((surf_frag_chain1, surf_frag_central_res_num1))
             # if (surf_frag_chain2, surf_frag_central_res_num2) not in unique_frags_info2:
             unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
 
-            z_value = sorted_z_values[frag_idx]
-            if z_value <= 1:  # the overlap z-value has is greater than 1 std deviation
+            # match = sorted_z_values[frag_idx]
+            if match >= 0.5:  # the overlap z-value has is greater than 1 std deviation, therefore match >= 0.5
                 matched_fragment_dir = high_quality_matches_dir
             else:
                 matched_fragment_dir = low_quality_matches_dir
@@ -982,10 +942,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
             # if write_frags:  # write out aligned cluster representative fragment
             transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
                 rotation=rot_mat1, translation=internal_tx_param1,
-                rotation2=sym_entry.get_rot_set_mat_group1(), translation2=external_tx_params1)
+                rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
                                                           % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
-
+            z_value = z_value_from_match_score(match)
             ghost_frag_central_freqs = \
                 dictionary_lookup(ijk_frag_db.info, int_ghost_frag.get_ijk()).central_residue_pair_freqs
             # write out associated match information to frag_info_file
@@ -1025,8 +985,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         # Write Out Docked Pose Info to docked_pose_info_file.txt
         write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
                                unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
-                               sym_entry.get_rot_set_mat_group1(), external_tx_params1, rot_mat2, internal_tx_param2,
-                               sym_entry.get_rot_set_mat_group2(), external_tx_params2, cryst1_record, pdb1_path,
+                               sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
+                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1_path,
                                pdb2_path, pose_id)
 
 

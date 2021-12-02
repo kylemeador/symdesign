@@ -1465,8 +1465,8 @@ if __name__ == '__main__':
                 exit()
             else:
                 sym_entry = SymEntry(args.entry)
-                oligomer_symmetry_1 = sym_entry.get_group1_sym()
-                oligomer_symmetry_2 = sym_entry.get_group2_sym()
+                oligomer_symmetry_1 = sym_entry.group1_sym
+                oligomer_symmetry_2 = sym_entry.group2_sym
 
             # Orient Input Oligomers to Canonical Orientation
             logger.info('Orienting PDB\'s for Nanohedra Docking')
