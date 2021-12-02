@@ -1126,6 +1126,25 @@ class DesignError(Exception):
 
 
 # @njit
+def calculate_match(coords1=None, coords2=None, coords_rmsd_reference=None):
+    """Calculate the overlap between two sets of coordinates given a reference rmsd
+
+    Keyword Args:
+        coords1=None (numpy.ndarray): The first set of coordinates
+        coords2=None (numpy.ndarray): The second set of coordinates
+        coords_rmsd_reference=None (numpy.ndarray): The reference RMSD to compared each pair of coordinates against
+        max_z_value=2.0 (float): The z-score deviation threshold of the overlap to be considered a match
+    Returns:
+        (numpy.ndarray): The match score between coords1 and coords2
+    """
+    rmsds = rmsd(coords1, coords2)
+    # Calculate Guide Atom Overlap Z-Value
+    z_values = rmsds / coords_rmsd_reference
+    # filter z_values by passing threshold
+    return match_score_from_z_value(z_values)
+
+
+# @njit
 def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2.0):
     """Calculate the overlap between two sets of coordinates given a reference rmsd
 
@@ -1163,7 +1182,7 @@ def rmsd(coords1=None, coords2=None):
 
 
 def z_value_from_match_score(match_score):
-    return math.sqrt((1 / match_score) - 1)
+    return np.sqrt((1 / match_score) - 1)
 
 
 # @njit

@@ -105,8 +105,8 @@ sym_comb_dict = {
     91: [91, 'D2', 6, ['None'], 1, '<0,0,2*e>', 'D3', 7, ['None'], 4, '<e,e,e>', 'D6', 'P4232', 3, '(4*e, 4*e, 4*e), (90, 90, 90)', 1, 2],
     92: [92, 'D2', 6, ['None'], 3, '<2*e,e,0>', 'D3', 7, ['None'], 4, '<e,e,e>', 'O', 'I4132', 3, '(8*e, 8*e, 8*e), (90, 90, 90)', 1, 1],
     93: [93, 'D2', 6, ['None'], 1, '<e,0,0>', 'D4', 8, ['None'], 1, '<0,0,0>', 'D4', 'p422', 2, '(2*e, 2*e), 90', 1, 1],
-    94: [94, 'D2', 6, ['None'], 1, '<e,0,f>', 'D4', 8, ['None'], 1, '<0,0,0>', 'D4', 'P422', 3, '(2*e, 2*e, 2*f), (90, 90,90)', 2, 2],
-    95: [95, 'D2', 6, ['None'], 5, '<e,0,f>', 'D4', 8, ['None'], 1, '<0,0,0>', 'D4', 'I422', 3, '(2*e, 2*e, 4*f), (90, 90,90)', 2, 2],
+    94: [94, 'D2', 6, ['None'], 1, '<e,0,f>', 'D4', 8, ['None'], 1, '<0,0,0>', 'D4', 'P422', 3, '(2*e, 2*e, 2*f), (90, 90, 90)', 2, 2],
+    95: [95, 'D2', 6, ['None'], 5, '<e,0,f>', 'D4', 8, ['None'], 1, '<0,0,0>', 'D4', 'I422', 3, '(2*e, 2*e, 4*f), (90, 90, 90)', 2, 2],
     96: [96, 'D2', 6, ['None'], 3, '<0,e,2*e>', 'D4', 8, ['None'], 1, '<0,0,2*e>', 'O', 'I432', 3, '(4*e, 4*e, 4*e), (90, 90, 90)', 1, 1],
     97: [97, 'D2', 6, ['None'], 1, '<e,0,0>', 'D6', 9, ['None'], 1, '<0,0,0>', 'D6', 'p622', 2, '(2*e, 2*e), 120', 1, 1],
     98: [98, 'D2', 6, ['None'], 1, '<e,0,f>', 'D6', 9, ['None'], 1, '<0,0,0>', 'D6', 'P622', 3, '(2*e, 2*e, 2*f), (90, 90, 120)', 2, 2],
@@ -159,130 +159,155 @@ C3 = 120
 C4 = 90
 C5 = 72
 C6 = 60
-RotRangeDict = {"C2": 180, "C3": 120, "C4": 90, "C5": 72, "C6": 60}
+rotation_range = {"C2": 180, "C3": 120, "C4": 90, "C5": 72, "C6": 60}
 # ROTATION SETTING MATRICES
-RotSetDict = {1: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],  # identity
-              2: [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],  # 90 degrees CC on Y
-              3: [[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]],
-              4: [[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]],
-              5: [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]],
-              6: [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]],  # # 90 degrees CC on X
-              7: [[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]],
-              8: [[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]],
-              9: [[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]],
-              10: [[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]],
-              11: [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
-              12: [[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]],
-              13: [[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]]}
+setting_matrices = {1: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],  # identity
+                    2: [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],  # 90 degrees CC on Y
+                    3: [[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]],
+                    4: [[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]],
+                    5: [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]],
+                    6: [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]],  # # 90 degrees CC on X
+                    7: [[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]],
+                    8: [[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]],
+                    9: [[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]],
+                    10: [[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]],
+                    11: [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
+                    12: [[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]],
+                    13: [[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]]}
 flip_x_matrix = [[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]]  # rot 180x
 flip_y_matrix = [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]  # rot 180y
-identity_matrix = RotSetDict[1]
+identity_matrix = setting_matrices[1]
 
 
 class SymEntry:
     def __init__(self, entry):
-        if entry in sym_comb_dict:
-            # GETTING ENTRY INFORMATION FROM sym_comb_dict
-            self.entry_number = entry
-            sym_comb_info = sym_comb_dict[self.entry_number]
-
-            # ASSIGNING CLASS VARIABLES
-            self.group1 = sym_comb_info[1]
-            self.group1_indx = sym_comb_info[2]
-            self.int_dof_group1 = sym_comb_info[3]
-            self.rot_set_group1 = sym_comb_info[4]
-            self.ref_frame_tx_dof_group1 = sym_comb_info[5]
-            self.group2 = sym_comb_info[6]
-            self.group2_indx = sym_comb_info[7]
-            self.int_dof_group2 = sym_comb_info[8]
-            self.rot_set_group2 = sym_comb_info[9]
-            self.ref_frame_tx_dof_group2 = sym_comb_info[10]
-            self.pt_grp = sym_comb_info[11]
-            self.result = sym_comb_info[12]
-            self.dim = sym_comb_info[13]
-            self.unit_cell = sym_comb_info[14]
-            self.tot_dof = sym_comb_info[15]
-            self.cycle_size = sym_comb_info[16]
-
-            if self.get_design_dim() == 0:
-                self.expand_matrices = get_ptgrp_sym_op(self.get_result_design_sym())
-            elif self.get_design_dim() in [2, 3]:
-                self.expand_matrices = get_sg_sym_op(self.get_result_design_sym())
-            else:
-                raise ValueError('\nINVALID SYMMETRY ENTRY. SUPPORTED DESIGN DIMENSIONS: %s\n'
-                                 % ', '.join(map(str, [0, 2, 3])))
-            self.degeneracy_matrices_1, self.degeneracy_matrices_2 = self.get_degeneracy_matrices()
-
-        else:
+        sym_entry = sym_comb_dict.get(self.entry_number)
+        try:
+            _, self.group1, self.group1_indx, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
+                self.group2, self.group2_indx, self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2, \
+                self.pt_grp, self.result, self.dim, self.unit_cell, self.tot_dof, self.cycle_size = sym_entry
+        except TypeError:
             raise ValueError("\nINVALID SYMMETRY ENTRY \'%s\'. SUPPORTED VALUES ARE: %d to %d\n"
                              % (entry, 1, len(sym_comb_dict)))
+        self.entry_number = entry
+        # Reformat reference_frame entries
+        self._is_ref_frame_tx_dof1 = True if self.ref_frame_tx_dof1 != '<0,0,0>' else False
+        self._is_ref_frame_tx_dof2 = True if self.ref_frame_tx_dof2 != '<0,0,0>' else False
+        self.ref_frame_tx_dof1 = list(map(str.strip, self.ref_frame_tx_dof1.strip('<>').split(',')))
+        self.ref_frame_tx_dof2 = list(map(str.strip, self.ref_frame_tx_dof2.strip('<>').split(',')))
+        self.group_external_dof1 = construct_tx_dof_ref_frame_matrix(self.ref_frame_tx_dof1)
+        self.group_external_dof2 = construct_tx_dof_ref_frame_matrix(self.ref_frame_tx_dof2)
 
-    def get_group1_sym(self):
+        ext_dof_indices = []
+        if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
+            self.ext_dof = np.array([0., 0., 0.])
+        else:
+            difference_matrix = self.group_external_dof2 - self.group_external_dof1
+            difference_sum = difference_matrix.sum(axis=1)
+            for idx in range(3):
+                if difference_sum[idx] != 0:
+                    ext_dof_indices.append(idx)
+            self.ext_dof = difference_matrix[ext_dof_indices]
+
+        self.n_dof_external = len(ext_dof_indices)
+        self.unit_cell = None if self.unit_cell == 'N/A' else \
+            [[x.replace(' ', '') for x in dim.replace('()', '').split(',')] for dim in self.unit_cell.split('), ')]
+
+        if self.dimension == 0:
+            self.expand_matrices = get_ptgrp_sym_op(self.resulting_symmetry)
+        elif self.dimension in [2, 3]:
+            self.expand_matrices = get_sg_sym_op(self.resulting_symmetry)
+        else:
+            raise ValueError('\nINVALID SYMMETRY ENTRY. SUPPORTED DESIGN DIMENSIONS: %s\n'
+                             % ', '.join(map(str, [0, 2, 3])))
+        self.degeneracy_matrices_1, self.degeneracy_matrices_2 = self.get_degeneracy_matrices()
+
+    @property
+    def group1_sym(self):
         return self.group1
 
-    def get_group2_sym(self):
+    @property
+    def group2_sym(self):
         return self.group2
 
-    def get_pt_grp_sym(self):
+    @property
+    def point_group_sym(self):
         return self.pt_grp
 
-    def get_rot_range_deg_1(self):
-        if self.group1 in RotRangeDict:
-            return RotRangeDict[self.group1]
-        else:
-            return 0
+    @property
+    def rotation_range1(self):
+        try:
+            return self._rotation_range1
+        except AttributeError:
+            self._rotation_range1 = rotation_range.get(self.group1, 0)
+        return self._rotation_range1
 
-    def get_rot_range_deg_2(self):
-        if self.group2 in RotRangeDict:
-            return RotRangeDict[self.group2]
-        else:
-            return 0
+    @property
+    def rotation_range2(self):
+        try:
+            return self._rotation_range2
+        except AttributeError:
+            self._rotation_range2 = rotation_range.get(self.group2, 0)
+        return self._rotation_range2
 
-    def get_rot_set_mat_group1(self):
-        return RotSetDict[self.rot_set_group1]
+    @property
+    def setting_matrix1(self):
+        try:
+            return self._setting_matrix1
+        except AttributeError:
+            self._setting_matrix1 = np.array(setting_matrices[self.rot_set_group1])
+        return self._setting_matrix1
 
-    def get_ref_frame_tx_dof_group1(self):
-        return self.ref_frame_tx_dof_group1
+    # @property
+    # def ref_frame_tx_dof1(self):
+    #     return self.ref_frame_tx_dof1
 
-    def get_rot_set_mat_group2(self):
-        return RotSetDict[self.rot_set_group2]
+    @property
+    def setting_matrix2(self):
+        try:
+            return self._setting_matrix2
+        except AttributeError:
+            self._setting_matrix2 = np.array(setting_matrices[self.rot_set_group2])
+        return self._setting_matrix2
 
-    def get_ref_frame_tx_dof_group2(self):
-        return self.ref_frame_tx_dof_group2
+    # @property
+    # def ref_frame_tx_dof2(self):
+    #     return self.ref_frame_tx_dof2
 
-    def get_result_design_sym(self):
+    @property
+    def resulting_symmetry(self):
         """The final symmetry of the symmetry combination material"""
         return self.result
 
-    def get_design_dim(self):
+    @property
+    def dimension(self):
         return self.dim
 
-    def get_uc_spec_string(self):
+    @property
+    def uc_specification(self):
         return self.unit_cell
 
+    @property
     def is_internal_tx1(self):
-        if 't:<0,0,b>' in self.int_dof_group1:
-            return True
-        else:
-            return False
+        try:
+            return self._internal_tx1
+        except AttributeError:
+            if 't:<0,0,b>' in self.int_dof_group1:
+                self._internal_tx1 = True
+            else:
+                self._internal_tx1 = False
+        return self._internal_tx1
 
+    @property
     def is_internal_tx2(self):
-        if 't:<0,0,d>' in self.int_dof_group2:
-            return True
-        else:
-            return False
-
-    def get_internal_tx1(self):
-        if 't:<0,0,b>' in self.int_dof_group1:
-            return 't:<0,0,b>'
-        else:
-            return None
-
-    def get_internal_tx2(self):
-        if 't:<0,0,d>' in self.int_dof_group2:
-            return 't:<0,0,d>'
-        else:
-            return None
+        try:
+            return self._internal_tx1
+        except AttributeError:
+            if 't:<0,0,b>' in self.int_dof_group1:
+                self._internal_tx1 = True
+            else:
+                self._internal_tx1 = False
+        return self._internal_tx1
 
     def is_internal_rot1(self):
         if 'r:<0,0,1,a>' in self.int_dof_group1:
@@ -296,65 +321,20 @@ class SymEntry:
         else:
             return False
 
-    def get_internal_rot1(self):
-        if 'r:<0,0,1,a>' in self.int_dof_group1:
-            return 'r:<0,0,1,a>'
-        else:
-            return None
-
-    def get_internal_rot2(self):
-        if 'r:<0,0,1,c>' in self.int_dof_group2:
-            return 'r:<0,0,1,c>'
-        else:
-            return None
-
     def is_ref_frame_tx_dof1(self):
-        if self.ref_frame_tx_dof_group1 != '<0,0,0>':
-            return True
-        else:
-            return False
+        return self._is_ref_frame_tx_dof1
 
     def is_ref_frame_tx_dof2(self):
-        if self.ref_frame_tx_dof_group2 != '<0,0,0>':
-            return True
-        else:
-            return False
+        return self._is_ref_frame_tx_dof2
 
-    def get_ext_dof(self):
-        """Return the external degrees of freedom given a symmetry entry
-
-        Returns:
-            (numpy.ndarray)
-        """
-        parsed_ref_frame_tx_dof1 = parse_ref_tx_dof_str_to_list(self.get_ref_frame_tx_dof_group1())
-        parsed_ref_frame_tx_dof2 = parse_ref_tx_dof_str_to_list(self.get_ref_frame_tx_dof_group2())
-
-        if parsed_ref_frame_tx_dof1 == ['0', '0', '0'] and parsed_ref_frame_tx_dof2 == ['0', '0', '0']:
-            return np.empty((0, 3), float)
-
-        e1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof1, 'e')
-        f1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof1, 'f')
-        g1_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof1, 'g')
-
-        e2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof2, 'e')
-        f2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof2, 'f')
-        g2_var_vec = get_tx_dof_ref_frame_var_vec(parsed_ref_frame_tx_dof2, 'g')
-
-        e2e1_diff = (np.array(e2_var_vec) - np.array(e1_var_vec)).tolist()
-        f2f1_diff = (np.array(f2_var_vec) - np.array(f1_var_vec)).tolist()
-        g2g1_diff = (np.array(g2_var_vec) - np.array(g1_var_vec)).tolist()
-
-        ext_dof = []
-        if e2e1_diff != [0, 0, 0]:
-            ext_dof.append(e2e1_diff)
-
-        if f2f1_diff != [0, 0, 0]:
-            ext_dof.append(f2f1_diff)
-
-        if g2g1_diff != [0, 0, 0]:
-            ext_dof.append(g2g1_diff)
-
-        return np.array(ext_dof)
+    # @property
+    # def ext_dof(self):
+    #     """Return the external degrees of freedom given a symmetry entry
+    #
+    #     Returns:
+    #         (numpy.ndarray)
+    #     """
+    #     return self.ext_dof
 
     def get_degeneracy_matrices(self):
         """From the intended point group symmetry and a single component, find the degeneracy matrices that produce all
@@ -368,79 +348,162 @@ class SymEntry:
         valid_pt_gp_symm_list = list(valid_subunit_number.keys())
         valid_pt_gp_symm_list.remove('D5')
 
-        if self.get_group1_sym() not in valid_pt_gp_symm_list:
+        if self.group1_sym not in valid_pt_gp_symm_list:
             raise ValueError("Invalid Point Group Symmetry")
 
-        if self.get_group2_sym() not in valid_pt_gp_symm_list:
+        if self.group2_sym not in valid_pt_gp_symm_list:
             raise ValueError("Invalid Point Group Symmetry")
 
-        if self.get_pt_grp_sym() not in valid_pt_gp_symm_list:
+        if self.point_group_sym not in valid_pt_gp_symm_list:
             raise ValueError("Invalid Point Group Symmetry")
 
-        if self.get_design_dim() not in [0, 2, 3]:
+        if self.dimension not in [0, 2, 3]:
             raise ValueError("Invalid Design Dimension")
 
         degeneracies = []
         for i in range(2):
             degeneracy_matrices = None
-            oligomer_symmetry = self.get_group1_sym() if i == 0 else self.get_group2_sym()
+            oligomer_symmetry = self.group1_sym if i == 0 else self.group2_sym
 
             # For cages, only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
-            if self.get_design_dim() == 0 and i == 1:
+            if self.dimension == 0 and i == 1:
                 degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
             # For layers that obey a cyclic point group symmetry
             # and that are constructed from two oligomers that both obey cyclic symmetry
             # only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
-            elif self.get_design_dim() == 2 and i == 1 and \
-                    (self.get_group1_sym()[0], self.get_group2_sym()[0], self.get_pt_grp_sym()[0]) == ('C', 'C', 'C'):
+            elif self.dimension == 2 and i == 1 and \
+                    (self.group1_sym[0], self.group2_sym[0], self.point_group_sym[0]) == ('C', 'C', 'C'):
                 degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
             # else:
             #     if oligomer_symmetry[0] == "C" and design_symmetry[0] == "C":
             #         degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
-            elif oligomer_symmetry in ["D3", "D4", "D6"] and self.get_pt_grp_sym() in ["D3", "D4", "D6", "T", "O"]:
+            elif oligomer_symmetry in ['D3', 'D4', 'D6'] and self.point_group_sym in ['D3', 'D4', 'D6', 'T', 'O']:
                 # commented out "if" statement below because all possible translations are not always tested for D3
                 # example: in entry 82, only translations along <e,0.577e> are sampled.
                 # This restriction only considers 1 out of the 2 equivalent Wyckoff positions.
                 # <0,e> would also have to be searched as well to remove the "if" statement below.
-                # if (oligomer_symmetry, design_symmetry_pg) != ("D3", "D6"):
-                if oligomer_symmetry == "D3":
+                # if (oligomer_symmetry, design_symmetry_pg) != ('D3', 'D6'):
+                if oligomer_symmetry == 'D3':
                     # ROT 60 degrees about z
                     degeneracy_matrices = [[[0.5, -0.86603, 0.0], [0.86603, 0.5, 0.0], [0.0, 0.0, 1.0]]]
-                elif oligomer_symmetry == "D4":
+                elif oligomer_symmetry == 'D4':
                     # 45 degrees about z; z unaffected; x goes to [1,-1,0] direction
                     degeneracy_matrices = [[[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]]
-                elif oligomer_symmetry == "D6":
+                elif oligomer_symmetry == 'D6':
                     # ROT 30 degrees about z
                     degeneracy_matrices = [[[0.86603, -0.5, 0.0], [0.5, 0.86603, 0.0], [0.0, 0.0, 1.0]]]
 
-            elif oligomer_symmetry == "D2" and self.get_pt_grp_sym() != "O":
-                if self.get_pt_grp_sym() == "T":
+            elif oligomer_symmetry == 'D2' and self.point_group_sym != 'O':
+                if self.point_group_sym == 'T':
                     degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
 
-                elif self.get_pt_grp_sym() == "D4":
+                elif self.point_group_sym == 'D4':
                     degeneracy_matrices = [[[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]]]  # z,x,y and y,z,x
 
-                elif self.get_pt_grp_sym() == "D2" or self.get_pt_grp_sym() == "D6":
+                elif self.point_group_sym == 'D2' or self.point_group_sym == 'D6':
                     degeneracy_matrices = [[[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]],
                                            [[-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 0.0, 1.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]]]
 
-            elif oligomer_symmetry == "T" and self.get_pt_grp_sym() == "T":
+            elif oligomer_symmetry == 'T' and self.point_group_sym == 'T':
                 degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
 
             degeneracies.append(degeneracy_matrices)
 
         return degeneracies
 
+    def get_optimal_external_tx_vector(self, optimal_ext_dof_shifts, group_number=1):
+        """From the DOF and the computed shifts, return the translation vector
 
-def parse_ref_tx_dof_str_to_list(ref_frame_tx_dof_string):
-    return list(map(str.strip, ref_frame_tx_dof_string.strip('<>').split(',')))
+        Args:
+            optimal_ext_dof_shifts:
+        Keyword Args:
+            group_number=1 (int): The number of the group to find the vector for
+        Returns:
+            (numpy.ndarray[float]): The optimal vector for translation
+        """
+        optimal_shifts_t = getattr(self, 'group_external_dof%d' % group_number).T * optimal_ext_dof_shifts
+        return optimal_shifts_t.T.sum(axis=0)
+
+    def get_uc_dimensions(self, optimal_shift_vec):
+        """Return an array with the three unit cell lengths and three angles [20, 20, 20, 90, 90, 90] by combining UC
+        basis vectors with component translation degrees of freedom
+
+        Args:
+            optimal_shift_vec (numpy.ndarray)
+        Returns:
+            (Union[numpy.ndarray, None]): The Unit Cell dimensions for each optimal shift vector passed
+        """
+        if not self.unit_cell:
+            return None
+        string_lengths, string_angles = self.unit_cell
+        uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
+
+        lengths = np.abs(uc_mat.sum(axis=1))
+        # lengths = [0.0, 0.0, 0.0]
+        # for i in range(len(string_vec_lens)):
+        #     lengths[i] = abs((e1[i] + f1[i] + g1[i]))
+        if len(string_lengths) == 2:
+            lengths[:, 2] = 1.0
+
+        if len(string_angles) == 1:
+            angles = [90.0, 90.0, float(string_angles[0])]
+        else:
+            # angles = [float(string_angle) for string_angle in string_angles]
+            angles = [0.0, 0.0, 0.0]  # need this incase there are only 2 angles... which there aren't right now
+            for idx, string_angle in enumerate(string_angles):
+                angles[idx] = float(string_angle)
+
+        return np.concatenate(lengths, angles)
+
+
+def construct_uc_matrix(string_vector):
+    """
+
+    Args:
+        string_vector (list[str]):
+
+    Returns:
+        (numpy.ndarray)
+    """
+    string_position = {'e': 0, 'f': 1, 'g': 2}
+    variable_matrix = np.zeros((3, 3))
+    for col_idx, string in enumerate(string_vector):
+        if string[-1] != '0':
+            row_idx = string_position.get(string[-1])
+            variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
+
+            if '-' in string:
+                variable_matrix[row_idx][col_idx] *= -1
+
+    return variable_matrix
+
+
+def construct_tx_dof_ref_frame_matrix(string_vector):
+    """
+
+    Args:
+        string_vector (list[str]):
+    Returns:
+        (numpy.ndarray)
+    """
+    string_position = {'e': 0, 'f': 1, 'g': 2}
+    variable_matrix = np.zeros((3, 3))
+    for col_idx, string in enumerate(string_vector):
+        if string[-1] != '0':
+            row_idx = string_position.get(string[-1])
+            variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
+
+            if '-' in string:
+                variable_matrix[row_idx][col_idx] *= -1
+
+    return variable_matrix
 
 
 def get_tx_dof_ref_frame_var_vec(string_vec, var):
@@ -453,6 +516,10 @@ def get_tx_dof_ref_frame_var_vec(string_vec, var):
         elif var == string_vec[i]:
             return_vec[i] = 1.0
     return return_vec
+
+
+def parse_ref_tx_dof_str_to_list(ref_frame_tx_dof_string):
+    return list(map(str.strip, ref_frame_tx_dof_string.strip('<>').split(',')))
 
 
 def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):
@@ -541,3 +608,58 @@ def get_degen_rotmatrices(degeneracy_matrices, rotation_matrices):
     else:
         print('This shouldn\'t be possible')
         exit()
+
+
+def parse_uc_str_to_tuples(uc_string):
+    """Acquire unit cell parameters from specified external degrees of freedom string"""
+    def s_to_l(string):
+        s1 = string.replace('(', '')
+        s2 = s1.replace(')', '')
+        l1 = s2.split(',')
+        l2 = [x.replace(' ', '') for x in l1]
+        return l2
+
+    # if '),' in uc_string:
+    #     l = uc_string.split('),')
+    # else:
+    #     l = [uc_string]
+
+    return [s_to_l(s) for s in uc_string.split('), ')]
+
+
+def get_uc_var_vec(string_vec, var):
+    """From the length specification return the unit vector"""
+    return_vec = [0.0, 0.0, 0.0]
+    for i in range(len(string_vec)):
+        if var in string_vec[i] and '*' in string_vec[i]:
+            return_vec[i] = (float(string_vec[i].split('*')[0]))
+        elif var == string_vec[i]:
+            return_vec.append(1.0)
+    return return_vec
+
+
+def get_uc_dimensions(uc_string, e=1, f=0, g=0):
+    """Return an array with the three unit cell lengths and three angles [20, 20, 20, 90, 90, 90] by combining UC
+    basis vectors with component translation degrees of freedom"""
+    string_vec_lens, string_vec_angles = parse_uc_str_to_tuples(uc_string)
+    e_vec = get_uc_var_vec(string_vec_lens, 'e')
+    f_vec = get_uc_var_vec(string_vec_lens, 'f')
+    g_vec = get_uc_var_vec(string_vec_lens, 'g')
+    e1 = [e_vec_val * e for e_vec_val in e_vec]
+    f1 = [f_vec_val * f for f_vec_val in f_vec]
+    g1 = [g_vec_val * g for g_vec_val in g_vec]
+
+    lengths = [0.0, 0.0, 0.0]
+    for i in range(len(string_vec_lens)):
+        lengths[i] = abs((e1[i] + f1[i] + g1[i]))
+    if len(string_vec_lens) == 2:
+        lengths[2] = 1.0
+
+    if len(string_vec_angles) == 1:
+        angles = [90.0, 90.0, float(string_vec_angles[0])]
+    else:
+        angles = [0.0, 0.0, 0.0]
+        for idx, string_vec_angle in enumerate(string_vec_angles):
+            angles[i] = float(string_vec_angle)
+
+    return lengths + angles

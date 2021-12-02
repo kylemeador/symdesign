@@ -4,8 +4,9 @@ import numpy as np
 
 
 class OptimalTx:
-    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1.):
+    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1., number_of_coordinates=3):
         self.max_z_value = max_z_value
+        self.number_of_coordinates = number_of_coordinates
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
         self.zshift1 = zshift1  # internal translational DOF1
@@ -27,7 +28,7 @@ class OptimalTx:
         if self.n_dof > 0:
             self.dof_convert9()
         else:
-            raise ValueError('n_dof is not set! Can\'t get the OptimalTx without passing DOF')
+            raise ValueError('n_dof is not set! Can\'t get the OptimalTx without passing dof_ext, zshift1, or zshift2')
 
     @classmethod
     def from_dof(cls, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1.):  # setting1, setting2,
@@ -48,7 +49,8 @@ class OptimalTx:
         self.dof9 = np.transpose(self.dof9)
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
-        """This routine does the work to solve the optimal shift problem
+        """This routine does solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
+        reference RMSD to compute an error
 
         Args:
             coords1 (np.ndarray): A 3 x 3 array with cartesian coordinates
@@ -57,7 +59,8 @@ class OptimalTx:
         Keyword Args:
             max_z_value=1 (float): The maximum initial error tolerated
         Returns:
-            (list(list)), (float): Returns the optimal translation for the set of coordinates
+            (Union[list[list], None]): Returns the optimal translation or None if error is too large.
+                Optimal translation has external dof first, followed by internal tx dof
         """
 
         # form the guide coords into a matrix (column vectors)
@@ -72,7 +75,7 @@ class OptimalTx:
         var_tot_inv = np.zeros([9, 9])
         for i in range(9):
             # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
-            var_tot_inv[i, i] = 1. / (3. * coords_rmsd_reference ** 2)
+            var_tot_inv[i, i] = 1. / (self.number_of_coordinates * coords_rmsd_reference ** 2)
 
         # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
@@ -90,11 +93,10 @@ class OptimalTx:
         resid = np.matmul(self.dof9, shift) - guide_delta
         resid_t = np.transpose(resid)
 
-        error = sqrt(np.matmul(resid_t, resid) / float(3.0)) / coords_rmsd_reference  # NEW. Is float(3.0) a scale?
+        error = np.sqrt(np.matmul(resid_t, resid) / float(self.number_of_coordinates)) / coords_rmsd_reference  # NEW. Is float(3.0) a scale?
         # sqrt(variance / 3) / cluster_rmsd # old error
 
         if error <= self.max_z_value:
-            # print('Found match (shift, rmsd ref)', shift, coords_rmsd_reference)
             return shift[:, 0].tolist()  # , error
         else:
             return None
