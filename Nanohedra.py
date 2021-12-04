@@ -153,13 +153,13 @@ if __name__ == "__main__":
 
                 building_blocks = '%s_%s' % (pdb1_name, pdb2_name)
                 log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-                bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
                 if os.path.exists(log_file_path):
                     resume = True
-                    # with open(log_file_path, 'a+') as log_file:
-                    bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
                 else:
                     resume = False
+                bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+                bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
+                    if resume else None
 
                 # Write to Logfile
                 if not resume:
