@@ -851,7 +851,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     #              translation2=external_tx_params2)
 
                     log.info('Optimal Shift Search Took: %s s for %d guide coordinate pairs\n'
-                             % (optimal_shifts_time, possible_ghost_frag_indices))
+                             % (optimal_shifts_time, len(possible_ghost_frag_indices)))
                     log.info('%s Initial Interface Fragment Match%s Found\n'
                              % (final_passing_shifts if final_passing_shifts else 'No',
                                 'es' if final_passing_shifts != 1 else ''))
