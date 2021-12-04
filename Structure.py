@@ -2487,7 +2487,7 @@ class Entity(Chain, SequenceProfile):
             # apparently passing the degeneracy matrix first without any specification towards the row/column major
             # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
             # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
-            degeneracy_rotation_matrices = get_degen_rotmatrices([flip_x_matrix], rotation_matrices)
+            degeneracy_rotation_matrices = get_degen_rotmatrices(np.array([flip_x_matrix]), rotation_matrices)
         else:
             rotation_matrices = get_rot_matrices(rotation_range[sym], 'z', 360)
             degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
