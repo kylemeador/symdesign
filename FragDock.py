@@ -688,7 +688,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         forward_index = np.where(forward_surface == residue)
                         reverse_index = np.where(reverse_ghosts == residue)
                         # indexed_forward_index = np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
-                        current = prior + len(forward_index)
+                        current = prior + len(forward_index[0])
+                        # print(prior, current)
                         possible_overlaps[prior:current] = \
                             np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index], assume_unique=True)
                         prior = current
