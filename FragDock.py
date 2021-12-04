@@ -661,7 +661,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         eul_lookup.check_lookup_table(ghost_frag2_guide_coords_rot_and_set,
                                                       surf_frags1_guide_coords_rot_and_set)
                     euler_time = time.time() - euler_start
-                    log.debug('Number of matching euler angle pairs FORWARD: %d' % len(overlapping_ghost_frags))
+                    number_overlapping_pairs = len(overlapping_ghost_frags)
+                    log.debug('Number of matching euler angle pairs FORWARD: %d' % number_overlapping_pairs)
                     log.debug('Number of matching euler angle pairs REVERSE: %d' % len(overlapping_ghost_frags_rev))
                     # ensure pairs are similar between overlapping_ghost_frags and overlapping_ghost_frags_rev
                     # by indexing the ghost_frag_residues
@@ -681,9 +682,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     #  This way, sorting of the arrays is not necessary.
                     #  For residue number B on surface of 1, np.where(forward_ghosts == B)
                     #  For residue number B on surface of 1, np.where(reverse_surface == B)
+
+                    # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
                     # indexing_possible_overlap_start = time.time()
                     prior = 0
-                    possible_overlaps = np.empty(len(forward_surface), dtype=np.int8)
+                    possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.int8)
                     for residue in init_surf_frag2_residues:
                         forward_index = np.where(forward_surface == residue)
                         reverse_index = np.where(reverse_ghosts == residue)
@@ -694,7 +697,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                             np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index], assume_unique=True)
                         prior = current
 
-                    print(possible_overlaps[:25])
+                    # print(possible_overlaps[:25])
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
                     # # check if forward and reverse are both present
@@ -706,8 +709,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     #             break
 
                     forward_reverse_comparison_time = time.time() - forward_reverse_comparison_start
-                    log.info('Indexing possible overlap took %f s for %d euler lookup pairs\n'
-                             % (forward_reverse_comparison_time, len(overlapping_ghost_frags) * len(overlapping_ghost_frags_rev)))
+                    log.info('Indexing %d possible overlap pairs found only %d possible out of %d (took %f s)\n'
+                             % (len(overlapping_ghost_frags) * len(overlapping_ghost_frags_rev), possible_overlaps.sum()
+                                , number_overlapping_pairs, forward_reverse_comparison_time))
 
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
                     log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
@@ -722,10 +726,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     #                             for ghost_idx in overlapping_ghost_frags.tolist()])
                     # reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
                     optimal_shifts_start = time.time()
-                    optimal_shifts = [optimal_tx.solve_optimal_shift(passing_ghost_coords[idx],
-                                                                     passing_surf_coords[idx],
+                    optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
                                                                      reference_rmsds[idx])
-                                      for idx in range(len(passing_ghost_coords))]
+                                      for idx, ghost_coords in enumerate(passing_ghost_coords)]
                     optimal_shifts_time = time.time() - optimal_shifts_start
                     # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
                     # passing_optimal_shifts.extend(transform_passing_shifts)
@@ -733,6 +736,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     #                                number_passing_shifts))
                     # for idx, tx_parameters in enumerate(transform_passing_shifts, 1):
                     transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
+                    if transform_passing_shifts.shape[0] == 0:
+                        print(len(optimal_shifts))
+                        log.info('No transforms were found passing optimal shift criteria (took %f s)'
+                                 % optimal_shifts_time)
+                        continue
                     number_passing_shifts = len(transform_passing_shifts)
                     blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)  # length is by column
                     if sym_entry.unit_cell:
