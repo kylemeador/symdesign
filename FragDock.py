@@ -690,17 +690,18 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     for residue in init_surf_frag2_residues:
                         forward_index = np.where(forward_surface == residue)
                         reverse_index = np.where(reverse_ghosts == residue)
-                        print('f_surf', forward_surface[forward_index])
-                        print('r_ghost', reverse_ghosts[reverse_index])
-                        print('f_ghost', forward_ghosts[forward_index])
-                        print('r_surf', reverse_surface[reverse_index])
                         # indexed_forward_index = np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
                         current = prior + len(forward_index[0])
                         # print(prior, current)
                         possible_overlaps[prior:current] = \
-                            np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index], assume_unique=True)
-                        print('possible', possible_overlaps[prior:current])
+                            np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
+                        prior_prior = prior
                         prior = current
+                    print('f_surf', forward_surface[forward_index])
+                    print('r_ghost', reverse_ghosts[reverse_index])
+                    print('f_ghost', forward_ghosts[forward_index])
+                    print('r_surf', reverse_surface[reverse_index])
+                    print('possible', possible_overlaps[prior_prior:current])
 
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
@@ -784,8 +785,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         if sym_entry.is_internal_tx1 else blank_vector
                     internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external + 1] \
                         if sym_entry.is_internal_tx2 else blank_vector
-                    stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
-                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
+                    stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1[:, None]))
+                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2[:, None]))
                     stacked_rot_mat1 = np.tile(rot_mat1, (number_passing_shifts, 1, 1))
                     # stacked_set_mat1 = np.tile(set_mat1, (number_passing_shifts, 1, 1))
                     stacked_rot_mat2 = np.tile(rot_mat2, (number_passing_shifts, 1, 1))
