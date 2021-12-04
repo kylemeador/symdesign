@@ -414,7 +414,8 @@ class SymEntry:
             elif oligomer_symmetry == 'T' and self.point_group_sym == 'T':
                 degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
 
-            degeneracies.append(np.array(degeneracy_matrices)) if degeneracy_matrices is not None else None
+            degeneracies.append(np.array(degeneracy_matrices)) if degeneracy_matrices is not None \
+                else degeneracies.append(None)
 
         return degeneracies
 
