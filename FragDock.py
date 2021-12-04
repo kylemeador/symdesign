@@ -683,7 +683,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     #  For residue number B on surface of 1, np.where(reverse_surface == B)
                     # indexing_possible_overlap_start = time.time()
                     prior = 0
-                    possible_overlaps = np.empty(len(forward_surface))
+                    possible_overlaps = np.empty(len(forward_surface), dtype=np.int8)
                     for residue in init_surf_frag2_residues:
                         forward_index = np.where(forward_surface == residue)
                         reverse_index = np.where(reverse_ghosts == residue)
@@ -694,6 +694,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                             np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index], assume_unique=True)
                         prior = current
 
+                    print(possible_overlaps[:25])
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
                     # # check if forward and reverse are both present
@@ -706,7 +707,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
                     forward_reverse_comparison_time = time.time() - forward_reverse_comparison_start
                     log.info('Indexing possible overlap took %f s for %d euler lookup pairs\n'
-                             % (euler_time, len(overlapping_ghost_frags) * len(overlapping_ghost_frags_rev)))
+                             % (forward_reverse_comparison_time, len(overlapping_ghost_frags) * len(overlapping_ghost_frags_rev)))
 
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
                     log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
