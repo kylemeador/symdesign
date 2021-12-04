@@ -460,9 +460,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     # log.debug('Found initial fragment type: %d' % initial_surf_type2)
     get_complete_surf_frags2_time_stop = time.time()
 
-    log.debug('%s: %s' % slice_variable_for_log(init_surf_frag_indices2))
-    log.debug('%s: %s' % slice_variable_for_log(init_surf_frags2_guide_coords))
-    log.debug('%s: %s' % slice_variable_for_log(init_surf_frag2_residues))
+    log.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
+    log.debug('init_surf_frags2_guide_coords: %s' % slice_variable_for_log(init_surf_frags2_guide_coords))
+    log.debug('init_surf_frag2_residues: %s' % slice_variable_for_log(init_surf_frag2_residues))
     # Get Building Block1
     pdb1 = PDB.from_file(pdb1_path, log=log)
     oligomer1_backbone_cb_tree = BallTree(pdb1.get_backbone_and_cb_coords())
@@ -482,11 +482,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     # log.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
     # log.debug('Found initial fragment type: %d' % initial_surf_type2)
     get_complete_surf_frags1_time_stop = time.time()
-    log.debug('%s: %s' % slice_variable_for_log(init_surf_frag_indices2))
-    log.debug('%s: %s' % slice_variable_for_log(init_surf_frags2_guide_coords))
-    log.debug('%s: %s' % slice_variable_for_log(init_surf_frag2_residues))
-    log.debug('%s: %s' % slice_variable_for_log(init_surf_frags1_guide_coords))
-    log.debug('%s: %s' % slice_variable_for_log(init_surf_frag1_residues))
+    log.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
+    log.debug('init_surf_frags2_guide_coords: %s' % slice_variable_for_log(init_surf_frags2_guide_coords))
+    log.debug('init_surf_frag2_residues: %s' % slice_variable_for_log(init_surf_frag2_residues))
+    log.debug('init_surf_frags1_guide_coords: %s' % slice_variable_for_log(init_surf_frags1_guide_coords))
+    log.debug('init_surf_frag1_residues: %s' % slice_variable_for_log(init_surf_frag1_residues))
 
     if not resume and keep_time:
         get_complete_surf_frags2_time = get_complete_surf_frags2_time_stop - get_complete_surf_frags2_time_start
@@ -515,10 +515,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
     get_complete_ghost_frags1_time_stop = time.time()
 
-    log.debug('%s: %s' % slice_variable_for_log(ghost_frag1_j_indices))
-    log.debug('%s: %s' % slice_variable_for_log(init_ghost_frag1_guide_coords))
-    log.debug('%s: %s' % slice_variable_for_log(init_ghost_frag1_rmsds))
-    log.debug('%s: %s' % slice_variable_for_log(init_ghost_frag1_residues))
+    log.debug('ghost_frag1_j_indices: %s' % slice_variable_for_log(ghost_frag1_j_indices))
+    log.debug('init_ghost_frag1_guide_coords: %s' % slice_variable_for_log(init_ghost_frag1_guide_coords))
+    log.debug('init_ghost_frag1_rmsds: %s' % slice_variable_for_log(init_ghost_frag1_rmsds))
+    log.debug('init_ghost_frag1_residues: %s' % slice_variable_for_log(init_ghost_frag1_residues))
 
     # Again for component 2
     get_complete_ghost_frags2_time_start = time.time()
@@ -531,8 +531,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     # ghost_frag2_residues = [ghost_frag.aligned_residue.residue_number for ghost_frag in complete_ghost_frags2]
 
     get_complete_ghost_frags2_time_stop = time.time()
-    log.debug('%s: %s' % slice_variable_for_log(init_ghost_frag2_guide_coords))
-    log.debug('%s: %s' % slice_variable_for_log(init_ghost_frag2_residues))
+    log.debug('init_ghost_frag2_guide_coords: %s' % slice_variable_for_log(init_ghost_frag2_guide_coords))
+    log.debug('init_ghost_frag2_residues: %s' % slice_variable_for_log(init_ghost_frag2_residues))
     # Prepare precomputed arrays for fast pair lookup
     # ghost1_residue_array = np.repeat(init_ghost_frag1_residues, len(init_surf_frag2_residues))
     # ghost2_residue_array = np.repeat(init_ghost_frag2_residues, len(init_surf_frag1_residues))
@@ -1441,12 +1441,13 @@ if __name__ == '__main__':
                 os.makedirs(outdir)
 
             log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-            bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
             if os.path.exists(log_file_path):
                 resume = True
-                bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
             else:
                 resume = False
+            bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+            bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
+                if resume else None
 
             # Write to Logfile
             if not resume:
