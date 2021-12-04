@@ -736,6 +736,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                                           for idx, ghost_coords in enumerate(passing_ghost_coords)]
                         optimal_shifts_time = time.time() - optimal_shifts_start
                     else:
+                        possible_ghost_frag_indices = overlapping_ghost_frags
                         passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[overlapping_ghost_frags]
                         passing_surf_coords = surf_frags2_guide_coords_rot_and_set[overlapping_surf_frags]
                         reference_rmsds = init_ghost_frag1_rmsds[overlapping_ghost_frags]
