@@ -384,7 +384,16 @@ def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):
         trajectory_df.sort_values('model_predict')
 
 
-def cluster_transformations(transform1, transform2, distance=1.0):
+def return_transform_pair_as_guide_coordinate_pair(transform1, transform2):
+    # make a blank set of guide coordinates for each incoming transformation
+    guide_coords = np.tile(np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]]), (len(transform1['rotation']), 1, 1))
+    transformed_guide_coords1 = transform_coordinate_sets(guide_coords, **transform1)
+    transformed_guide_coords2 = transform_coordinate_sets(guide_coords, **transform2)
+
+    return np.concatenate([transformed_guide_coords1.reshape(-1, 9), transformed_guide_coords2.reshape(-1, 9)], axis=1)
+
+
+def cluster_transformation_pairs(transform1, transform2, distance=1.0, minimum_members=2):  # , return_representatives=True):
     """Cluster Pose conformations according to their specific transformation parameters to find Poses which occupy
     essentially the same space
 
@@ -395,32 +404,41 @@ def cluster_transformations(transform1, transform2, distance=1.0):
             {'rotation': rot_array, 'translation': tx_array, 'rotation2': rot2_array, 'translation2': tx2_array}
     Keyword Args:
         distance=1.0 (float): The distance to query neighbors in transformational space
+        minimum_members (int): The minimum number of members in each cluster
     Returns:
-        (tuple[numpy.ndarray(int), numpy.ndarray(int)]): Representative indices, cluster membership indices
+        (tuple[sklearn.neighbors.NearestNeighbors, sklearn.dbscan_cluster.DBSCAN]): Representative indices DBSCAN cluster membership indices
     """
     # Todo tune DBSCAN distance (epsilon) to be reflective of the data, should be related to radius in NearestNeighbors
     #  but smaller by some amount. Ideal amount would be the distance between two transformed guide coordinate sets of
     #  a similar tx and a 3 degree step of rotation.
-    # make a blank set of guide coordinates for each incoming transformation
-    guide_coords = np.tile(np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]]), (len(transform1['rotation']), 1, 1))
-    transformed_guide_coords1 = transform_coordinate_sets(guide_coords, **transform1)
-    transformed_guide_coords2 = transform_coordinate_sets(guide_coords, **transform2)
-
-    transformed_guide_coords = np.concatenate([transformed_guide_coords1.reshape(-1, 9),
-                                               transformed_guide_coords2.reshape(-1, 9)], axis=1)
+    transformed_guide_coords = return_transform_pair_as_guide_coordinate_pair(transform1, transform2)
 
     # create a tree structure describing the distances of all transformed points relative to one another
-    transform_tree = NearestNeighbors(algorithm='ball_tree', radius=distance)
-    transform_tree.fit(transformed_guide_coords)
+    nearest_neightbors_ball_tree = NearestNeighbors(algorithm='ball_tree', radius=distance)
+    nearest_neightbors_ball_tree.fit(transformed_guide_coords)
     #                                sort_results returns only non-zero entries and provides the smallest distance first
-    distance_graph = transform_tree.radius_neighbors_graph(mode='distance', sort_results=True)  # <- sort doesn't work?
+    distance_graph = nearest_neightbors_ball_tree.radius_neighbors_graph(mode='distance', sort_results=True)  # <- sort doesn't work?
     #                                                      X=transformed_guide_coords is implied
     # because this doesn't work to sort_results and pull out indices, I have to do another step 'radius_neighbors'
-    cluster = DBSCAN(eps=distance, min_samples=2, metric='precomputed').fit(distance_graph)  # , sample_weight=A WEIGHT?
-    outlier = -1  # -1 are outliers in DBSCAN
-    labels = set(cluster.labels_) - {outlier}  # labels live here
-    tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
+    dbscan_cluster = DBSCAN(eps=distance, min_samples=minimum_members, metric='precomputed').fit(distance_graph)  # , sample_weight=A WEIGHT?
 
+    # if return_representatives:
+    #     return find_cluster_representatives(nearest_neightbors_ball_tree, dbscan_cluster)
+    # else:  # return data structure
+    return nearest_neightbors_ball_tree, dbscan_cluster  # .labels_
+
+
+def find_cluster_representatives(transform_tree, cluster):
+    """Return the cluster representative indices and the cluster membership identity for all member data
+
+    Args:
+        transform_tree (sklearn.neighbors.NearestNeighbors):
+        cluster (sklearn.cluster.DBSCAN):
+    Returns:
+        (tuple[list, numpy.ndarray]) The list of representative indices and the array of all indices membership
+    """
+    outlier = -1  # -1 are outliers in DBSCAN
+    tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
     # find cluster mean for each index
     with catch_warnings():
         # empty slices can't have mean, so catch warning if cluster is an outlier
@@ -431,7 +449,7 @@ def cluster_transformations(transform1, transform2, distance=1.0):
 
     # for each label (cluster), add the minimal mean (representative) the representative transformation indices
     representative_transformation_indices = []
-    for label in labels:
+    for label in set(cluster.labels_) - {outlier}:  # labels live here
         cluster_indices = np.flatnonzero(cluster.labels_ == label)
         representative_transformation_indices.append(cluster_indices[mean_cluster_dist[cluster_indices].argmin()])
     # add all outliers to representatives
@@ -465,24 +483,25 @@ def cluster_designs(composition_designs, return_pose_id=True):
                        'rotation2': np.array(trans2_rot2), 'translation2': np.array(trans2_tx2)[:, np.newaxis, :]}
 
     # This section could be added to the Nanohedra docking routine
-    cluster_representative_indices, cluster_labels = cluster_transformations(transformation1, transformation2)
-    representative_labels = cluster_labels[cluster_representative_indices]
+    cluster_representative_indices, cluster_labels = \
+        find_cluster_representatives(*cluster_transformation_pairs(transformation1, transformation2))
 
-    # pull out the pose-id from the input composition_designs groups (DesignDirectory)
+    representative_labels = cluster_labels[cluster_representative_indices]
+    # pull out pose's from the input composition_designs groups (DesignDirectory)
     if return_pose_id:  # convert all DesignDirectories to pose-id's
-        composition_map = {str(composition_designs[rep_idx]): [str(composition_designs[idx])
-                                                               for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-                           for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
-                           if rep_label != -1}  # don't add outliers (-1 labels) now
+        # don't add the outliers now (-1 labels)
+        composition_map = \
+            {str(composition_designs[rep_idx]):
+                 [str(composition_designs[idx]) for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+             for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
         # add the outliers as separate occurrences
         composition_map.update({str(composition_designs[idx]): []
                                 for idx in np.flatnonzero(cluster_labels == -1).tolist()})
     else:  # return the DesignDirectory object
-        composition_map = {composition_designs[rep_idx]: [composition_designs[idx]
-                                                          for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-                           for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
-                           if rep_label != -1}  # don't add outliers (-1 labels) now
-        # add the outliers as separate occurrences
+        composition_map = \
+            {composition_designs[rep_idx]: [composition_designs[idx]
+                                            for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+             for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
         composition_map.update({composition_designs[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
 
     return composition_map
