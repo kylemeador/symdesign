@@ -8,8 +8,8 @@ import re
 import numpy as np
 
 from PDB import PDB
-from classes.SymEntry import get_optimal_external_tx_vector
-from utils.SymmetryUtils import get_uc_dimensions, generate_cryst1_record
+from classes.SymEntry import get_optimal_external_tx_vector, get_uc_dimensions
+from utils.SymmetryUtils import generate_cryst1_record
 
 
 def get_rot_matrix_z(angle_deg):
