@@ -1390,10 +1390,16 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
-            output_surrounding_uc, min_matched, timer, initial = get_docking_parameters(sys.argv)
+            output_surrounding_uc, min_matched, timer, initial, debug = get_docking_parameters(sys.argv)
 
         # Master Log File
         master_log_filepath = os.path.join(master_outdir, master_log)
+        if debug:
+            # Root logs to stream with level debug
+            logger = start_log(level=1, set_logger_level=True)
+            logger.debug('Debug mode. Verbose output')
+        else:
+            master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
         # SymEntry Parameters
         sym_entry = SymEntry(sym_entry_number)
 
@@ -1401,8 +1407,9 @@ if __name__ == '__main__':
             # make master output directory
             if not os.path.exists(master_outdir):
                 os.makedirs(master_outdir)
-            with open(master_log_filepath, 'w') as master_logfile:
-                master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
+            # with open(master_log_filepath, 'w') as master_logfile:
+            #     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
+            master_logger.info('Nanohedra\nMODE: DOCK\n\n')
             write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
                                      master_log_filepath)
         else:
@@ -1412,8 +1419,9 @@ if __name__ == '__main__':
 
         pdb1_name = os.path.basename(os.path.splitext(pdb1_path)[0])
         pdb2_name = os.path.basename(os.path.splitext(pdb2_path)[0])
-        with open(master_log_filepath, 'a+') as master_log_file:
-            master_log_file.write('Docking %s / %s \n' % (pdb1_name, pdb2_name))
+        # with open(master_log_filepath, 'a+') as master_log_file:
+        #     master_log_file.write('Docking %s / %s \n' % (pdb1_name, pdb2_name))
+        master_logger.info('Docking %s / %s \n' % (pdb1_name, pdb2_name))
 
         # Create fragment database for all ijk cluster representatives
         # Todo move to inside loop for single iteration docking
@@ -1449,11 +1457,13 @@ if __name__ == '__main__':
                            output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
                            min_matched=min_matched, log=bb_logger, resume=resume, keep_time=timer)
 
-            with open(master_log_filepath, 'a+') as master_log_file:
-                master_log_file.write('COMPLETE ==> %s\n\n'
-                                      % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
+            # with open(master_log_filepath, 'a+') as master_log_file:
+            #     master_log_file.write('COMPLETE ==> %s\n\n'
+            #                           % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
+            master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
 
         except KeyboardInterrupt:
-            with open(master_log_filepath, 'a+') as master_log:
-                master_log.write('\nRun Ended By KeyboardInterrupt\n')
+            # with open(master_log_filepath, 'a+') as master_log:
+            #     master_log.write('\nRun Ended By KeyboardInterrupt\n')
+            master_logger.info('\nRun Ended By KeyboardInterrupt\n')
             exit(2)

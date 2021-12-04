@@ -30,12 +30,17 @@ if __name__ == "__main__":
 
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, \
-        output_assembly, output_surrounding_uc, min_matched, timer, initial = \
+            output_assembly, output_surrounding_uc, min_matched, timer, initial, debug = \
             get_docking_parameters(sys.argv)
 
         # Master Log File
         master_log_filepath = os.path.join(master_outdir, PUtils.master_log)
-        master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
+        if debug:
+            # Root logs to stream with level debug
+            logger = start_log(level=1, set_logger_level=True)
+            logger.debug('Debug mode. Verbose output')
+        else:
+            master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
         # Making Master Output Directory
         if not os.path.exists(master_outdir):
             os.makedirs(master_outdir)
