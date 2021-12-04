@@ -1397,6 +1397,7 @@ if __name__ == '__main__':
         if debug:
             # Root logs to stream with level debug
             logger = start_log(level=1, set_logger_level=True)
+            master_logger, bb_logger = logger, logger
             logger.debug('Debug mode. Verbose output')
         else:
             master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
