@@ -686,7 +686,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
                     # indexing_possible_overlap_start = time.time()
                     prior = 0
-                    possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.int8)
+                    # possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.int8)
+                    possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.bool8)
                     for residue in init_surf_frag2_residues:
                         forward_index = np.where(forward_surface == residue)
                         reverse_index = np.where(reverse_ghosts == residue)
@@ -809,7 +810,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     # full_setting1.append(stacked_set_mat1[positive_indices])
                     # full_setting2.append(stacked_set_mat2[positive_indices])
 
-                    final_passing_shifts = number_passing_shifts - positive_indices.sum()
+                    final_passing_shifts = number_passing_shifts - len(positive_indices)
                     # for tx_parameters in enumerate(optimal_shifts, 1):
                     #     if tx_parameters is None:  # move on
                     #         continue
