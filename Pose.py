@@ -1517,7 +1517,7 @@ class SymmetricModel(Model):
         else:
             group1 = self.sym_entry.group1
             group2 = self.sym_entry.group1
-            rotation_matrices_group1 = get_rot_matrices(rotation_range[group1], 'z', 360)
+            rotation_matrices_group1 = get_rot_matrices(rotation_range[group1], 'z', 360)  # np.array (rotations, 3, 3)
             rotation_matrices_group2 = get_rot_matrices(rotation_range[group2], 'z', 360)
 
         # Assign each Entity to a symmetry group

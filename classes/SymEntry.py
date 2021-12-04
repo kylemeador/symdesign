@@ -362,9 +362,9 @@ class SymEntry:
 
         degeneracies = []
         for i in range(2):
-            degeneracy_matrices = None
             oligomer_symmetry = self.group1_sym if i == 0 else self.group2_sym
 
+            degeneracy_matrices = None
             # For cages, only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
             if self.dimension == 0 and i == 1:
                 degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
@@ -414,7 +414,7 @@ class SymEntry:
             elif oligomer_symmetry == 'T' and self.point_group_sym == 'T':
                 degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
 
-            degeneracies.append(degeneracy_matrices)
+            degeneracies.append(np.array(degeneracy_matrices))
 
         return degeneracies
 
@@ -550,12 +550,10 @@ def get_rot_matrices(step_deg, axis, rot_range_deg):
         step_deg (int): The number of degrees for each rotation step
         axis (str): The axis about which to rotate
         rot_range_deg (int): The range with which rotation is possible
-
     Returns:
-        (list[list[list]])
+        (np.array): The rotation matrics with shape (rotations, 3, 3) # list[list[list]])
     """
     if rot_range_deg == 0:
-        # return [identity_matrix]
         return None
 
     rot_matrices = []
@@ -563,51 +561,47 @@ def get_rot_matrices(step_deg, axis, rot_range_deg):
         for angle_deg in range(0, rot_range_deg, step_deg):
             rad = math.radians(float(angle_deg))
             rot_matrices.append([[1, 0, 0], [0, math.cos(rad), -1 * math.sin(rad)], [0, math.sin(rad), math.cos(rad)]])
-        return rot_matrices  # [[[], [], []], ...]
-
     elif axis == 'y':
         for angle_deg in range(0, rot_range_deg, step_deg):
             rad = math.radians(float(angle_deg))
             rot_matrices.append([[math.cos(rad), 0, math.sin(rad)], [0, 1, 0], [-1 * math.sin(rad), 0, math.cos(rad)]])
-        return rot_matrices  # [[[], [], []], ...]
-
     elif axis == 'z':
         for angle_deg in range(0, rot_range_deg, step_deg):
             rad = math.radians(float(angle_deg))
             rot_matrices.append([[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]])
-        return rot_matrices  # [[[], [], []], ...]
-
     else:
-        print("AXIS SELECTED FOR SAMPLING IS NOT SUPPORTED")
+        print('Axis \'%s\' is not supported' % axis)
         return None
 
+    return np.array(rot_matrices)
 
-def get_degen_rotmatrices(degeneracy_matrices, rotation_matrices):
+
+def get_degen_rotmatrices(degeneracy_matrices=None, rotation_matrices=None):
     """From a set of degeneracy matrices and a set of rotation matrices, produce the complete combination of the
     specified transformations.
 
-    Args:
-         degeneracy_matrices (list): [[[x, y, z], [x, y, z], [x, y, z]], ...] (column major)
-         rotation_matrices (list[list[list]]): [[[x, y, z], [x, y, z], [x, y, z]], ...] (row major)
+    Keyword Args:
+        degeneracy_matrices (np.ndarray): column major with shape (degeneracies, 3, 3)
+            # [[[x, y, z], [x, y, z], [x, y, z]], ...]
+        rotation_matrices (np.ndarray): row major with shape (rotations, 3, 3)
+            # [[[x, y, z], [x, y, z], [x, y, z]], ...]
     Returns:
-        (list[list[list[list]]]) or (list[list[2D numpy.ndarray like]])
+        (list[np.ndarray])  # (list[list[list[list]]])
     """
     if rotation_matrices is not None and degeneracy_matrices is not None:
-        degen_rot_matrices = [[np.matmul(rot, degen_mat).tolist() for rot in rotation_matrices]
-                              for degen_mat in degeneracy_matrices]
+        degen_rot_matrices = [np.matmul(rotation_matrices, degen_mat) for degen_mat in degeneracy_matrices]
+        # degen_rot_matrices = \
+        #     [[np.matmul(rotation_matrices, degen_mat)] for degen_mat in degeneracy_matrices]
         return [rotation_matrices] + degen_rot_matrices
 
     elif rotation_matrices is not None and degeneracy_matrices is None:
         return [rotation_matrices]
 
     elif rotation_matrices is None and degeneracy_matrices is not None:  # is this ever true? list addition seems wrong
-        return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracy_matrices]
+        return [[np.array(identity_matrix)]] + [[degen_mat] for degen_mat in degeneracy_matrices]
 
     elif rotation_matrices is None and degeneracy_matrices is None:
-        return [[identity_matrix]]
-    else:
-        print('This shouldn\'t be possible')
-        exit()
+        return [[np.array(identity_matrix)]]
 
 
 def parse_uc_str_to_tuples(uc_string):
