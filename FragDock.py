@@ -476,7 +476,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     init_surf_type1 = np.argmax(fragment_content1) + 1
     init_surf_frags1 = [monofrag for monofrag in surf_frags1 if monofrag.i_type == init_surf_type1]
     init_surf_frags1_guide_coords = np.array([surf_frag.guide_coords for surf_frag in init_surf_frags1])
-    init_surf_frag1_residues = [surf_frag.residue_number for surf_frag in init_surf_frags1]
+    init_surf_frag1_residues = np.array([surf_frag.residue_number for surf_frag in init_surf_frags1])
     # surf_frag1_residues = [surf_frag.residue_number for surf_frag in surf_frags1]
 
     # log.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
@@ -527,7 +527,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         complete_ghost_frags2.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, oligomer2_backbone_cb_tree))
     init_ghost_frags2 = [ghost_frag for ghost_frag in complete_ghost_frags2 if ghost_frag.j_type == init_surf_type1]
     init_ghost_frag2_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in init_ghost_frags2])
-    init_ghost_frag2_residues = [ghost_frag.aligned_fragment.residue_number for ghost_frag in init_ghost_frags2]
+    init_ghost_frag2_residues = \
+        np.array([ghost_frag.aligned_fragment.residue_number for ghost_frag in init_ghost_frags2])
     # ghost_frag2_residues = [ghost_frag.aligned_residue.residue_number for ghost_frag in complete_ghost_frags2]
 
     get_complete_ghost_frags2_time_stop = time.time()
