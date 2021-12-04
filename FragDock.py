@@ -695,13 +695,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         # print(prior, current)
                         possible_overlaps[prior:current] = \
                             np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
-                        prior_prior = prior
+                        # prior_prior = prior
                         prior = current
-                    print('f_surf', forward_surface[forward_index])
-                    print('r_ghost', reverse_ghosts[reverse_index])
-                    print('f_ghost', forward_ghosts[forward_index])
-                    print('r_surf', reverse_surface[reverse_index])
-                    print('possible', possible_overlaps[prior_prior:current])
+                    # print('f_surf', forward_surface[forward_index])
+                    # print('r_ghost', reverse_ghosts[reverse_index])
+                    # print('f_ghost', forward_ghosts[forward_index])
+                    # print('r_surf', reverse_surface[reverse_index])
+                    # print('possible', possible_overlaps[prior_prior:current])
 
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
@@ -774,11 +774,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
                         stacked_external_tx1 = optimal_ext_dof_shifts[:, :, None] * sym_entry.group_external_dof1
                         stacked_external_tx2 = optimal_ext_dof_shifts[:, :, None] * sym_entry.group_external_dof2
+                        full_ext_tx1.append(stacked_external_tx1[positive_indices])
+                        full_ext_tx2.append(stacked_external_tx2[positive_indices])
+                        full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
                     else:
-                        optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
-                        positive_indices = list(repeat(True, number_passing_shifts))
-                        stacked_external_tx1 = list(repeat(None, number_passing_shifts))
-                        stacked_external_tx2 = list(repeat(None, number_passing_shifts))
+                        # optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
+                        positive_indices = np.arange(number_passing_shifts)
+                        stacked_external_tx1, stacked_external_tx2 = None, None
+                        full_ext_tx1, full_ext_tx2 = None, None
+                        # stacked_external_tx1 = list(repeat(None, number_passing_shifts))
+                        # stacked_external_tx2 = list(repeat(None, number_passing_shifts))
 
                     # Prepare the transformation parameters for storage in full transformation arrays
                     internal_tx_params1 = transform_passing_shifts[:, sym_entry.n_dof_external] \
@@ -788,19 +793,19 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1[:, None]))
                     stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2[:, None]))
                     stacked_rot_mat1 = np.tile(rot_mat1, (number_passing_shifts, 1, 1))
-                    # stacked_set_mat1 = np.tile(set_mat1, (number_passing_shifts, 1, 1))
                     stacked_rot_mat2 = np.tile(rot_mat2, (number_passing_shifts, 1, 1))
+                    # stacked_set_mat1 = np.tile(set_mat1, (number_passing_shifts, 1, 1))
                     # stacked_set_mat2 = np.tile(set_mat2, (number_passing_shifts, 1, 1))
 
                     # Store transformation parameters
-                    full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
-                    full_ext_tx1.append(stacked_external_tx1[positive_indices])
-                    full_ext_tx2.append(stacked_external_tx2[positive_indices])
+                    # full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
+                    # full_ext_tx1.append(stacked_external_tx1[positive_indices])
+                    # full_ext_tx2.append(stacked_external_tx2[positive_indices])
                     full_int_tx1.append(stacked_internal_tx_vectors1[positive_indices])
                     full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
                     full_rotation1.append(stacked_rot_mat1[positive_indices])
-                    # full_setting1.append(stacked_set_mat1[positive_indices])
                     full_rotation2.append(stacked_rot_mat2[positive_indices])
+                    # full_setting1.append(stacked_set_mat1[positive_indices])
                     # full_setting2.append(stacked_set_mat2[positive_indices])
 
                     final_passing_shifts = number_passing_shifts - positive_indices.sum()
@@ -864,7 +869,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     # here represents an important edit line in the execution of this code. Vectorized scoring and clash testing!
     ##############
     # this returns the vectorized uc_dimensions
-    full_uc_dimensions = sym_entry.get_uc_dimensions(np.stack(full_optimal_ext_dof_shifts))
+    if sym_entry.unit_cell:
+        full_uc_dimensions = sym_entry.get_uc_dimensions(np.stack(full_optimal_ext_dof_shifts))
+        full_ext_tx1 = np.stack(full_ext_tx1)[:, np.newaxis, :]
+        full_ext_tx2 = np.stack(full_ext_tx2)[:, np.newaxis, :]
     # make full vectorized transformations overwriting individual variables
     full_rotation1 = np.stack(full_rotation1)
     full_rotation2 = np.stack(full_rotation2)
@@ -874,14 +882,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     full_setting1 = np.tile(set_mat1, (startng_transforms, 1, 1))  # Todo stop stacking these
     full_setting2 = np.tile(set_mat2, (startng_transforms, 1, 1))  # Todo stop stacking these
     # full_setting2 = np.stack(full_setting2, startng_transforms)
-    full_ext_tx1 = np.stack(full_ext_tx1)
-    full_ext_tx2 = np.stack(full_ext_tx2)
 
     # must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
     transformation1 = {'rotation': full_rotation1, 'translation': full_int_tx1[:, np.newaxis, :],
-                       'rotation2': full_setting1, 'translation2': full_ext_tx1[:, np.newaxis, :]}
+                       'rotation2': full_setting1, 'translation2': full_ext_tx1}
     transformation2 = {'rotation': full_rotation2, 'translation': full_int_tx2[:, np.newaxis, :],
-                       'rotation2': full_setting2, 'translation2': full_ext_tx2[:, np.newaxis, :]}
+                       'rotation2': full_setting2, 'translation2': full_ext_tx2}
 
     # find the clustered transformations to expedite search of ASU clashing
     # Todo
@@ -929,8 +935,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     full_int_tx2 = full_int_tx2[sufficiently_dense_indices]
     # full_setting1 = full_setting1[sufficiently_dense_indices]
     # full_setting2 = full_setting2[sufficiently_dense_indices]
-    full_ext_tx1 = full_ext_tx1[sufficiently_dense_indices]
-    full_ext_tx2 = full_ext_tx2[sufficiently_dense_indices]
+    if sym_entry.unit_cell:
+        full_uc_dimensions = full_uc_dimensions[sufficiently_dense_indices]
+        # multiply by -1 to invert the translation
+        full_ext_tx1 = full_ext_tx1[sufficiently_dense_indices][:, np.newaxis, :] * -1
+        full_ext_tx2 = full_ext_tx2[sufficiently_dense_indices][:, np.newaxis, :]
     full_inv_rotation2 = np.linalg.inv(full_rotation2)
     number_of_dense_transforms = len(sufficiently_dense_indices)
     superposition_setting1_stack = np.tile(superposition_setting_1to2, (number_of_dense_transforms, 1, 1))
@@ -938,11 +947,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
                        'rotation2': superposition_setting1_stack,
-                       'translation2': full_int_tx1[:, np.newaxis, :] * -1}
+                       'translation2': full_int_tx1[:, np.newaxis, :] * -1}  # invert translation
     tile_transform2 = {'rotation': full_inv_rotation2,
-                       'translation': full_ext_tx2[:, np.newaxis, :],
+                       'translation': full_ext_tx2,
                        'rotation2': None,
-                       'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
+                       'translation2': full_ext_tx1}
     pdb2_tiled_coords = np.tile(pdb2_bb_cb_coords, (number_of_dense_transforms, 1, 1))
     transformed_pdb2_tiled_coords = transform_coordinate_sets(pdb2_tiled_coords, **tile_transform1)
     inverse_transformed_pdb2_tiled_coords = transform_coordinate_sets(transformed_pdb2_tiled_coords, **tile_transform2)
@@ -959,15 +968,18 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s)' % check_clash_coords_time)
 
     asu_is_viable = np.where(asu_clash_counts == 0)  # , True, False)
-    viable_uc_dimensions = full_uc_dimensions[asu_is_viable]
     full_rotation1 = full_rotation1[asu_is_viable]
     full_rotation2 = full_rotation2[asu_is_viable]
     full_int_tx1 = full_int_tx1[asu_is_viable]
     full_int_tx2 = full_int_tx2[asu_is_viable]
     # full_setting1 = full_setting1[asu_is_viable]
     # full_setting2 = full_setting2[asu_is_viable]
-    full_ext_tx1 = full_ext_tx1[asu_is_viable]
-    full_ext_tx2 = full_ext_tx2[asu_is_viable]
+    if sym_entry.unit_cell:
+        full_uc_dimensions = full_uc_dimensions[asu_is_viable]
+        # viable_uc_dimensions = full_uc_dimensions[asu_is_viable]
+        # multiply by -1 to invert the translation
+        full_ext_tx1 = full_ext_tx1[asu_is_viable][:, np.newaxis, :] * -1
+        full_ext_tx2 = full_ext_tx2[asu_is_viable][:, np.newaxis, :]
     full_inv_rotation2 = full_inv_rotation2[asu_is_viable]
     viable_cluster_labels = cluster_labels[asu_is_viable]
     number_of_non_clashing_transforms = len(asu_is_viable)
@@ -1018,10 +1030,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     tile_transform1 = \
         {'rotation': full_rotation2, 'translation': full_int_tx2[:, np.newaxis, :],
          'rotation2': superposition_setting1_stack,
-         'translation2': full_int_tx1[:, np.newaxis, :] * -1}
+         'translation2': full_int_tx1[:, np.newaxis, :] * -1}  # invert translation
     tile_transform2 = \
-        {'rotation': full_inv_rotation2, 'translation': full_ext_tx2[:, np.newaxis, :],
-         'rotation2': None, 'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
+        {'rotation': full_inv_rotation2, 'translation': full_ext_tx2,
+         'rotation2': None, 'translation2': full_ext_tx1}
     int_cb_and_frags_start = time.time()
     pdb2_tiled_cb_coords = np.tile(pdb2.get_cb_coords(), (number_of_non_clashing_transforms, 1, 1))
     transformed_pdb2_tiled_cb_coords = transform_coordinate_sets(pdb2_tiled_cb_coords, **tile_transform1)
@@ -1271,7 +1283,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
             continue
 
         # Check if design has any clashes when expanded
-        uc_dimensions = viable_uc_dimensions[idx]
+        uc_dimensions = full_uc_dimensions[idx]
         exp_des_clash_time_start = time.time()
         asu.uc_dimensions = uc_dimensions
         asu.expand_matrices = sym_entry.expand_matrices
