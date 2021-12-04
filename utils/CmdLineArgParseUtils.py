@@ -58,7 +58,7 @@ def query_mode(arg_list):
 def get_docking_parameters(arg_list):
     valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
                    "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-output_assembly",
-                   '-no_time', '-initial']
+                   '-no_time', '-initial', '-debug']
     if "-outdir" in arg_list:
         outdir_index = arg_list.index('-outdir') + 1
         if outdir_index < len(arg_list):
@@ -76,12 +76,12 @@ def get_docking_parameters(arg_list):
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
         if sys_input.startswith('-') and sys_input not in valid_flags:
-            logger.error("%s IS AN INVALID FLAG\nVALID FLAGS FOR DOCKING ARE:\n%s"
+            logger.error('%s IS AN INVALID FLAG\nVALID FLAGS FOR DOCKING ARE:\n%s'
                          % (sys_input, '\n'.join(valid_flags)))
             exit(1)
 
     # SymEntry PARAMETER
-    if "-entry" in arg_list:
+    if '-entry' in arg_list:
         entry_index = arg_list.index('-entry') + 1
         if entry_index < len(arg_list):
             if arg_list[entry_index].isdigit() and (int(arg_list[entry_index]) in range(1, len(sym_comb_dict))):
@@ -179,8 +179,13 @@ def get_docking_parameters(arg_list):
     else:
         initial = False
 
+    if '-debug' in arg_list:
+        debug = True
+    else:
+        debug = False
+
     return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_assembly, \
-        output_surrounding_uc, min_matched, keep_time, initial
+        output_surrounding_uc, min_matched, keep_time, initial, debug
 
 
 def postprocess_mode(arg_list):
