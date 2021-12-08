@@ -1157,9 +1157,9 @@ if __name__ == '__main__':
             # logger.info('The required files for %s designs are being collected and oriented if necessary' % PUtils.nano)
             # for design in design_directories:
             #     print(design.info.keys())
-            required_oligomers1 = set(design.oligomer_names[0] for design in design_directories)
-            required_oligomers2 = set(design.oligomer_names[1] for design in design_directories)
-            all_entity_names = required_oligomers1.union(required_oligomers2)
+            required_entities1 = set(design.entity_names[0] for design in design_directories)
+            required_entities2 = set(design.entity_names[1] for design in design_directories)
+            all_entity_names = required_entities1.union(required_entities2)
             # all_entities = []
             all_entities = {}
             load_resources = False
@@ -1167,16 +1167,19 @@ if __name__ == '__main__':
             qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
             orient_log = SDUtils.start_log(name='orient', handler=1)
             SDUtils.start_log(name='orient', handler=2, location=os.path.join(orient_dir, PUtils.orient_log_file))
-            if master_directory.sym_entry.group1 == master_directory.sym_entry.group1:
-                required_oligomers1, required_oligomers2 = all_entity_names, set()
-            for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
-                if required_oligomers:
+            if master_directory.sym_entry.group1 == master_directory.sym_entry.group2:
+                required_entities1, required_entities2 = all_entity_names, set()
+            for idx, required_oligomers in enumerate([required_entities1, required_entities2], 1):
+                if not required_oligomers:
+                    break
+                else:
                     symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
                     if symmetry:
                         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
                                     % (symmetry, orient_dir, ', '.join(required_oligomers)))
-                    # else:
-                    #     break
+                    else:
+                        master_directory.transform_d[idx]['translation'] = -center_of_mass
+                        master_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
                 for oligomer in required_oligomers:
                     biological_assemblies = qsbio_confirmed.get(oligomer)
                     if biological_assemblies:  # first   v   assembly in matching oligomers
@@ -1308,8 +1311,8 @@ if __name__ == '__main__':
             full_model_files = os.listdir(full_model_dir)
             # oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), set(), {}
             oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), {}, {}
-            for idx, required_oligomers in enumerate([required_oligomers1, required_oligomers2], 1):
-                symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)  # Todo return monomer if monomer
+            for idx, required_oligomers in enumerate([required_entities1, required_entities2], 1):
+                symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
                 sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
                 for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
                     base_pdb_code = os.path.splitext(orient_asu_file)[0]

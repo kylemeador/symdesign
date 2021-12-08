@@ -256,7 +256,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # copy the master log
                 if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
                     shutil.copy(os.path.join(self.nanohedra_root, PUtils.master_log), self.project_designs)
-
+                # path_components[-3] are the oligomeric names
                 self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
@@ -277,6 +277,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                                               PUtils.design_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
+                self.load_pose()  # load the source pdb to find the entity_names
+                self.entity_names = [entity.name for entity in self.pose.entities]
+
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
@@ -1445,7 +1448,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                  ' will lead to issues in sequence design if the structure is not refined first...')
 
             self.oligomers.clear()
-            for name in self.oligomer_names:
+            for name in self.oligomer_names:  # TODO should all oligomer_names be changed to entity_names?
                 oligomer = None
                 while not oligomer:
                     oligomer = self.resources.retrieve_data(source=source_preference[source_idx], name=name)
