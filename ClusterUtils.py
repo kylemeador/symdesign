@@ -511,11 +511,11 @@ def group_compositions(design_directories):
     """From a set of DesignDirectories, find all the compositions and group together"""
     compositions = {}
     for design in design_directories:
-        oligomer_names = tuple(design.entity_names)
-        if compositions.get(oligomer_names, None):
-            compositions[oligomer_names].append(design)
+        entity_names = tuple(design.entity_names)
+        if compositions.get(entity_names, None):
+            compositions[entity_names].append(design)
         else:
-            compositions[oligomer_names] = [design]
+            compositions[entity_names] = [design]
 
     return compositions
 
