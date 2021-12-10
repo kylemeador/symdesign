@@ -19,45 +19,15 @@ import numpy as np
 
 # import CommandDistributer
 import PathUtils as PUtils
-from classes.SymEntry import SymEntry
-
 
 # Globals
 input_string = '\nInput: '
 index_offset = 1
 rmsd_threshold = 1.0
-layer_group_d = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
-                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
-                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
-layer_groups = {2, 4, 10, 12, 17, 19, 20, 21, 23,
-                27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
-                71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
-space_groups = {'P23', 'P4222', 'P321', 'P6322', 'P312', 'P622', 'F23', 'F222', 'P6222', 'I422', 'I213', 'R32', 'P4212',
-                'I432', 'P4132', 'I4132', 'P3', 'P6', 'I4122', 'P4', 'C222', 'P222', 'P432', 'F4132', 'P422', 'P213',
-                'F432', 'P4232'}
-space_group_to_sym_entry = {}
 
 # Todo get SDF files for all commented out
-possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T',  # O32': 'O', 'O42': 'O', 'O43': 'O',
-                       'I23': 'I', 'I25': 'I', 'I35': 'I', 'T23': 'T',  # O23': 'O', 'O24': 'O', 'O34': 'O',
-                       'T:{C2}{C3}': 'T', 'T:{C3}{C2}': 'T', 'T:{C3}{C3}': 'T',
-                       # 'O:{C2}{C3}': 'O', 'O:{C2}{C4}': 'O', 'O:{C3}{C4}': 'I',
-                       # 'O:{C3}{C2}': 'O', 'O:{C4}{C2}': 'O', 'O:{C4}{C3}': 'I'
-                       'I:{C2}{C3}': 'I', 'I:{C2}{C5}': 'I', 'I:{C3}{C5}': 'I',
-                       'I:{C3}{C2}': 'I', 'I:{C5}{C2}': 'I', 'I:{C5}{C3}': 'I',
-                       'T': 'T', 'O': 'O', 'I': 'I',
-                       # layer groups
-                       # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
-                       # space groups  # Todo
-                       # 'cryst': 'cryst'
-                       }
 # Todo space and cryst
-all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': -1},
-                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': -2},
-                      'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}}}
 
-point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7: 'O32', 13: 'O42', 56: 'O43',
-                       }
 # from colorbrewer (https://colorbrewer2.org/)
 color_arrays = [
     # pink to cyan
@@ -74,31 +44,6 @@ color_arrays = [
 large_color_array = []
 for array in color_arrays:
     large_color_array.extend(array)
-
-
-def parse_symmetry_to_sym_entry(symmetry_string):
-    symmetry_string = symmetry_string.strip()
-    if len(symmetry_string) > 3:
-        symmetry_split = symmetry_string.split('{')
-        clean_split = [split.strip('}:') for split in symmetry_split]
-    elif len(symmetry_string) == 3:  # Rosetta Formatting
-        clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
-    elif symmetry_string in ['T', 'O']:  # , 'I']:
-        logger.warning('This functionality is not working properly yet!')
-        clean_split = [symmetry_string, symmetry_string]  # , symmetry_string]
-    else:  # C2, D6, C34
-        raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
-
-    # logger.debug('Symmetry parsing split: %s' % clean_split)
-    try:
-        sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
-    except KeyError:
-        # the prescribed symmetry was a plane or space group or point group that isn't recognized/ not in nanohedra
-        sym_entry = symmetry_string
-        raise ValueError('%s is not a supported symmetry!' % symmetry_string)
-
-    # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
-    return SymEntry(sym_entry)
 
 
 def dictionary_lookup(dictionary, items):
@@ -168,40 +113,6 @@ def handle_errors(errors=(Exception,)):
 ############
 # Symmetry
 ############
-
-
-def handle_symmetry(symmetry_entry_number):
-    # group = cryst1_record.split()[-1]/
-    if symmetry_entry_number not in point_group_sdf_map.keys():
-        if symmetry_entry_number in layer_groups:  # .keys():
-            return 2
-        else:
-            return 3
-    else:
-        return 0
-
-
-def sdf_lookup(symmetry=None):
-    """From the set of possible point groups, locate the proper symmetry definition file depending on the specified
-    symmetry. If none specified (default) a viable, but completely garbage symmetry definition file will be returned
-
-    Keyword Args:
-        symmetry=None (union[str, int]): Can be one of the valid_point_groups or a point group SymmetryEntry number
-    Returns:
-        (str): The location of the symmetry definition file on disk
-    """
-    if not symmetry:
-        return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
-    elif isinstance(symmetry, int):
-        symmetry_name = point_group_sdf_map[symmetry]
-    else:
-        symmetry_name = symmetry
-
-    for file in os.listdir(PUtils.symmetry_def_files):
-        if symmetry_name in file:
-            return os.path.join(PUtils.symmetry_def_files, file)
-
-    raise DesignError('Error locating specified symmetry entry: %s' % symmetry_name)
 
 
 #####################
