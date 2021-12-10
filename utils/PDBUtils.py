@@ -66,7 +66,8 @@ logger = start_log(name=__name__)
 def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
     """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
     resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
-    of symmetry along z, and additional axis along canonically defined vectors
+    of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
+    will be transformed so the center of mass resides at the origin
 
     Args:
         pdb_path (str): The location of the .pdb file to be oriented
