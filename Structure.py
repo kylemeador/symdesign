@@ -401,7 +401,7 @@ class Structure(StructureBase):
 
     @property
     def center_of_mass(self):
-        """Returns: (Numpy.ndarray)"""
+        """Returns: (numpy.ndarray)"""
         structure_length = self.number_of_atoms
         return np.matmul(np.full(structure_length, 1 / structure_length), self.coords)
         # try:
@@ -1193,6 +1193,7 @@ class Structure(StructureBase):
         return new_structure
 
     def replace_coords(self, new_coords):
+        """Replace the current Coords array with a new Coords array"""
         self._coords.coords = new_coords
 
     def local_density(self, residue_numbers=None, distance=12.):
@@ -1886,7 +1887,7 @@ class Structure(StructureBase):
         self.set_residues_attributes(b_factor=dtype)  # , **kwargs)
 
     def copy_structures(self):
-        """Copy all member Structures that residue in Structure containers"""
+        """Copy all member Structures that reside in Structure containers"""
         for structure_type in self.structure_containers:
             structure = getattr(self, structure_type)
             for idx, instance in enumerate(structure):
@@ -1981,7 +1982,8 @@ class Structures(Structure):  # todo subclass UserList (https://docs.python.org/
             for structure in self.structures:
                 new_atoms = total_atoms + structure.number_of_atoms
                 self._coords[total_atoms: new_atoms] = structure.coords
-                total_atoms += total_atoms
+                total_atoms = new_atoms
+
             return self._coords
         except AttributeError:
             coords = [structure.coords for structure in self.structures]
@@ -2112,6 +2114,12 @@ class Structures(Structure):  # todo subclass UserList (https://docs.python.org/
                 self._ca_indices.extend(structure.coords_indexed_ca_indices)
             return self._ca_indices
 
+    @property
+    def center_of_mass(self):
+        """Returns: (numpy.ndarray)"""
+        structure_length = self.number_of_atoms
+        return np.matmul(np.full(structure_length, 1 / structure_length), self.coords)
+
     def translate(self, tx):
         for structure in self.structures:
             structure.translate(tx)
@@ -2123,6 +2131,10 @@ class Structures(Structure):  # todo subclass UserList (https://docs.python.org/
     def transform(self, **kwargs):  # rotation=None, translation=None):
         for structure in self.structures:
             structure.transform(**kwargs)
+
+    # def replace_coords(self, new_coords):
+    #     """Replace the current Coords array with a new Coords array"""
+    #     self._coords.coords = new_coords
 
     # @classmethod
     # def return_transformed_copy(cls, **kwargs):  # rotation=None, translation=None, rotation2=None, translation2=None):
@@ -2538,18 +2550,20 @@ class Entity(Chain, SequenceProfile):
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
 
     @property
-    def oligomer(self,):
+    def oligomer(self):
         """Access the oligomeric Structure
 
         Returns:
+            (Structures[Structure]): Structures object with the underlying chains in the oligomer
             (list[Structure]): The underlying chains in the oligomer
         """
         if self.is_oligomeric:
-            return self.chains
+            return Structures(self.chains)
         else:
             self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
                              'instead' % self.name)
-            return [self]
+            return self
+            # return [self]
 
     # Todo overwrite Structure.write() method...
     def write_oligomer(self, out_path=None, file_handle=None, header=None, **kwargs):

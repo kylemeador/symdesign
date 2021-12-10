@@ -1268,7 +1268,7 @@ class PDB(Structure):
     #     else:
     #         return False
 
-    def entity(self, entity_id):
+    def entity(self, entity_id: str):
         for entity in self.entities:
             if entity_id == entity.name:
                 return entity

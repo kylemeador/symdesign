@@ -26,9 +26,9 @@ from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
 from Structure import Structure  # , Structures
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors, sdf_lookup, write_shell_script, DesignError, \
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, \
-    all_vs_all, condensed_to_square, space_group_to_sym_entry, digit_translate_table, sym, pretty_format_table, \
+    all_vs_all, condensed_to_square, digit_translate_table, sym, pretty_format_table, \
     index_intersection, z_score, large_color_array
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
@@ -43,7 +43,7 @@ from DesignMetrics import read_scores, groups, necessary_metrics, division_pairs
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
     hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
-from classes.SymEntry import SymEntry
+from classes.SymEntry import SymEntry, space_group_to_sym_entry, sdf_lookup
 from interface_analysis.Database import FragmentDatabase
 from utils.SymmetryUtils import valid_subunit_number
 
