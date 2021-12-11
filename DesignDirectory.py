@@ -126,7 +126,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sym_entry = kwargs.get('sym_entry', None)
         self.uc_dimensions = None
         self.expand_matrices = None
-        self.transform_d = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
+        self._pose_transformation = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
         self.cryst_record = None
         # Design flags
         self.command_only = kwargs.get('command_only', False)
@@ -172,7 +172,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.info = {}  # internal state info
         self.design_residue_ids = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self._info = {}  # internal state info at load time
-        self.oligomer_names = []
+        # self.oligomer_names = []
         self.oligomers = []
         self.pose = None  # contains the design's Pose object
         self.pose_id = None
@@ -259,7 +259,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 # path_components[-3] are the oligomeric names
                 self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
-                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+                # self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+                self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
 
                 self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
                 self.name = self.pose_id
@@ -277,8 +278,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                                               PUtils.design_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
-                self.load_pose()  # load the source pdb to find the entity_names
-                self.entity_names = [entity.name for entity in self.pose.entities]
+                if not self._pose_transformation:
+                    self.load_pose()  # load the source pdb to find the entity_names
+                    self.entity_names = [entity.name for entity in self.pose.entities]
 
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
@@ -570,13 +572,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                          'translation2': numpy.ndarray},
                      2: {...}}
         """
-        if not self.transform_d:
-            self.retrieve_pose_metrics_from_file()
-            self.info['pose_transformation'] = self.transform_d
-            self.log.debug('Using transformation parameters:\n\t%s'
-                           % '\n\t'.join(pretty_format_table(self.transform_d.items())))
+        if not self._pose_transformation:
+            # self.retrieve_pose_metrics_from_file()
+            # self.info['pose_transformation'] = self._pose_transformation
+            # self.log.debug('Using transformation parameters:\n\t%s'
+            #                % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
 
-        return self.transform_d
+        return self._pose_transformation
 
     def rotation_parameters(self):
         return self.rot_range_deg_pdb1, self.rot_range_deg_pdb2, self.rot_step_deg1, self.rot_step_deg2
@@ -728,8 +730,12 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['nanohedra'] = True
                 self.info['sym_entry'] = self.sym_entry
                 self.info['oligomer_names'] = self.oligomer_names
-                self.entity_names = ['%s_1' % name for name in self.oligomer_names]
-                # self.info['entity_names'] = self.entity_names  # Todo remove after T33
+                self.retrieve_pose_metrics_from_file()
+                self.info['pose_transformation'] = self._pose_transformation
+                self.log.debug('Using transformation parameters:\n\t%s'
+                               % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
+                # self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
+                self.info['entity_names'] = self.entity_names  # Todo remove after T33
                 # self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
                 self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
@@ -739,7 +745,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 try:
                     self.info = unpickle(self.serialized_info)
                 except UnpicklingError:  # pickle.UnpicklingError:
-                    print('%s: There was an issue retrieving design state from binary file...' % self.name)
+                    self.log('%s: There was an issue retrieving design state from binary file...' % self.name)
                     raise DesignError('There was an issue retrieving design state from binary file...')
                 # if os.stat(self.serialized_info).st_size > 10000:
                 #     print('Found pickled file with huge size %d. fragmentdatabase being removed'
@@ -749,7 +755,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 #     self.pickle_info()  # save this info so that we don't have this issue again!
                 self._info = self.info.copy()  # create a copy of the state upon initialization
                 # if self.info.get('nanohedra'):
-                self.transform_d = self.info.get('pose_transformation', {})
+                self._pose_transformation = self.info.get('pose_transformation', {})
                 if not self.sym_entry:
                     self.sym_entry = self.info.get('sym_entry', None)
                 else:
@@ -970,22 +976,22 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     self.percent_overlapping_fragment = float(line[25:].strip()) / 100
                 elif line[:20] == 'ROT/DEGEN MATRIX PDB':
                     data = eval(line[22:].strip())  # Todo remove eval(), this is a program vulnerability
-                    self.transform_d[int(line[20:21])] = {'rotation': np.array(data)}
+                    self._pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
                 elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
                     data = eval(line[17:].strip())
                     if data:  # == 'None'
-                        self.transform_d[int(line[15:16])]['translation'] = np.array(data)
+                        self._pose_transformation[int(line[15:16])]['translation'] = np.array(data)
                     else:
-                        self.transform_d[int(line[15:16])]['translation'] = np.array([0, 0, 0])
+                        self._pose_transformation[int(line[15:16])]['translation'] = np.array([0, 0, 0])
                 elif line[:18] == 'SETTING MATRIX PDB':
                     data = eval(line[20:].strip())
-                    self.transform_d[int(line[18:19])]['rotation2'] = np.array(data)
+                    self._pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
                 elif line[:22] == 'REFERENCE FRAME Tx PDB':
                     data = eval(line[24:].strip())
                     if data:
-                        self.transform_d[int(line[22:23])]['translation2'] = np.array(data)
+                        self._pose_transformation[int(line[22:23])]['translation2'] = np.array(data)
                     else:
-                        self.transform_d[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
+                        self._pose_transformation[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
                 elif 'Nanohedra Score:' in line:  # res_lev_sum_score
                     self.all_residue_score = float(line[16:].rstrip())
                 elif 'CRYST1 RECORD:' in line:
@@ -998,7 +1004,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""
-        if self.nano and not self.construct_pose:
+        if self.nano and not self.construct_pose:  # don't write anything as we are just querying Nanohedra
             return
         self.make_path(self.data)
         if self.info != self._info:  # if the state has changed from the original version
@@ -1448,7 +1454,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                  ' will lead to issues in sequence design if the structure is not refined first...')
 
             self.oligomers.clear()
-            for name in self.oligomer_names:  # TODO should all oligomer_names be changed to entity_names?
+            for name in self.entity_names:
                 oligomer = None
                 while not oligomer:
                     oligomer = self.resources.retrieve_data(source=source_preference[source_idx], name=name)
@@ -1472,14 +1478,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:  # Todo consolidate this with above as far as iterative mechanism
             if refined:  # prioritize the refined version
                 path = self.refine_dir
-                for name in self.oligomer_names:
+                for name in self.entity_names:
                     if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % name))[0]):
                         oriented = True  # fall back to the oriented version
                         self.log.debug('Couldn\'t find oligomers in the refined directory')
                         break
             if oriented:
                 path = self.orient_dir
-                for name in self.oligomer_names:
+                for name in self.entity_names:
                     if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % name))[0]):
                         path = self.path
                         self.log.debug('Couldn\'t find oligomers in the oriented directory')
@@ -1489,7 +1495,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
             idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
             oligomer_files = []
-            for idx, name in enumerate(self.oligomer_names, 1):
+            for idx, name in enumerate(self.entity_names, 1):
                 oligomer_files.extend(glob(os.path.join(path, '%s*.pdb*' % name)))  # first * is for DesignDirectory
             assert len(oligomer_files) == idx, \
                 'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
@@ -1500,8 +1506,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.oligomers.append(PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
                                                     log=self.log))
         self.log.debug('%d matching oligomers found' % len(self.oligomers))
-        assert len(self.oligomers) == len(self.oligomer_names), \
-            'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.oligomer_names))
+        assert len(self.oligomers) == len(self.entity_names), \
+            'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.entity_names))
 
     def load_pose(self, source=None):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
@@ -1533,7 +1539,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
             self.info['entity_names'] = self.entity_names
 
-        if self.pose_transformation:  # TODO consolidate mechanism as is used in design_analysis
+        if self.pose_transformation:
             for idx, entity in enumerate(self.pose.entities, 1):
                 # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
                 entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
@@ -1946,9 +1952,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 for idx, entity in enumerate(design.entities, 1):
                     # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
                     entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
-                    # write out new oligomers to the DesignDirectory TODO add flag to include these
-                    # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
-                    # entity.write_oligomer(out_path=out_path)
             design_structures.append(design)
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
