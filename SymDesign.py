@@ -31,7 +31,7 @@ from Query.PDB import input_string, bool_d, invalid_string, boolean_choice
 from utils.CmdLineArgParseUtils import query_mode
 from utils.PDBUtils import orient_pdb_file
 from Query import Flags
-from classes.SymEntry import SymEntry
+from classes.SymEntry import SymEntry, sdf_lookup
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import Database  # FragmentDatabase,
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status, script_cmd, rosetta_flags
@@ -1182,77 +1182,88 @@ if __name__ == '__main__':
                         # master_directory.transform_d[idx]['translation'] = -center_of_mass
                         # master_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
                 for entry_entity in entities:
-                    if entry_entity in orient_files:
-                        asu_files = glob(os.path.join(orient_asu_dir, '%s_*.pdb' % entry_entity))
-                        oriented_pdb = PDB.from_file(asu_files[0], log=None, entity_names=[entry_entity])
-                        oriented_asu = oriented_pdb.entities[0]
-                        oriented_asu.name = oriented_pdb.name  # use oriented_pdb name as this has no API query
-                        # all_entities.append(oriented_pdb.entities[0])
-                        all_entities[oriented_asu.name] = oriented_asu
-                        continue
-                    # else:
-                    logger.debug('Fetching entry %s from PDB' % entry_entity)
-                    # entry, entity = entry_entity.split('_')
-                    # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
-                    entry = entry_entity.split('_')
-                    if len(entry) == 2:
-                        # pull_entity = True
-                        entry = entry[0]
-                        entity = entry[-1]  # True
-                    else:
-                        # pull_entity = False
-                        entry = entry[0]
-                        entity = None  # False
-
-                    biological_assemblies = qsbio_confirmed.get(entry)
-                    if biological_assemblies:  # first   v   assembly in matching oligomers
-                        assembly = biological_assemblies[0]
-                    else:
-                        assembly = 1
-                        logger.warning('No confirmed biological assembly for %s. Using PDB default bioassembly' % entry)
-                    file_path = fetch_pdb_file('%s_%d' % (entry, assembly), out_dir=master_directory.pdbs, asu=False)
-
-                    if not file_path:
-                        logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
-                                       'downloading it from the PDB. Attempting to copy from %s job data source'
-                                       % (file_path, PUtils.nano))
-                        raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
-                                                  'canonical_pdb1/2 attribute of DesignDirectory to pull the'
-                                                  'pdb file source.')
-                        # Todo
+                    if entry_entity not in orient_files:
+                        # asu_files = glob(os.path.join(orient_asu_dir, '%s_*.pdb' % entry_entity))
+                        # oriented_pdb = PDB.from_file(asu_files[0], log=None, entity_names=[entry_entity])
+                        # oriented_asu = oriented_pdb.entities[0]
+                        # oriented_asu.name = oriented_pdb.name  # use oriented_pdb name as this has no API query
+                        # # all_entities.append(oriented_pdb.entities[0])
+                        # all_entities[oriented_asu.name] = oriented_asu
                         # continue
-
-                    if entity:  # replace fetched_pdb with the entity pdb
-                        pdb = PDB.from_file(file_path, log=None, lazy=True)
-                        # Todo check if .oligomer returning Structures is good
-                        entity_pdb = pdb.entity(entry_entity).oligomer
-                        if entity_pdb:  # ensure not none, otherwise, report
-                            pdb = entity_pdb
+                    # else:
+                        logger.debug('Fetching entry %s from PDB' % entry_entity)
+                        # entry, entity = entry_entity.split('_')
+                        # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
+                        entry = entry_entity.split('_')
+                        if len(entry) == 2:
+                            # pull_entity = True
+                            entry = entry[0]
+                            entity = entry[-1]  # True
                         else:
-                            # logger.warning('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
-                            raise \
-                                ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
-                        file_path = pdb.write(out_path=os.path.join(master_directory.pdbs, '%s.pdb' % entry_entity))
+                            # pull_entity = False
+                            entry = entry[0]
+                            entity = None  # False
 
-                    if symmetry == 'C1':
-                        pdb.translate(-pdb.center_of_mass)
-                        orient_file = pdb.write(out_path=os.path.join(orient_dir, '%s.pdb' % entry_entity))
-                    else:
-                        orient_file = orient_pdb_file(file_path, log=orient_log, sym=symmetry, out_dir=orient_dir)
+                        biological_assemblies = qsbio_confirmed.get(entry)
+                        if biological_assemblies:  # first   v   assembly in matching oligomers
+                            assembly = biological_assemblies[0]
+                        else:
+                            assembly = 1
+                            logger.warning('No confirmed biological assembly for %s. Using PDB default bioassembly' %
+                                           entry)
+                        file_path = \
+                            fetch_pdb_file('%s_%d' % (entry, assembly), out_dir=master_directory.pdbs, asu=False)
 
-                    # extract the asu from the oriented file for symmetric refinement
-                    if orient_file:
-                        oriented_pdb = PDB.from_file(orient_file, log=None)
-                        oriented_asu = oriented_pdb.entities[0]
-                        oriented_asu.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
-                        # all_entities.append(oriented_asu)
-                        all_entities[oriented_asu.name] = oriented_asu
-                        oriented_asu.write(out_path=os.path.join(orient_asu_dir, '%s.pdb' % oriented_asu.name))
-                        # save Stride results
-                        oriented_asu.stride(to_file=os.path.join(stride_dir, '%s.stride' % oriented_asu.name))
+                        if not file_path:
+                            logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
+                                           'downloading it from the PDB. Attempting to copy from %s job data source'
+                                           % (file_path, PUtils.nano))
+                            raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
+                                                      'canonical_pdb1/2 attribute of DesignDirectory to pull the'
+                                                      'pdb file source.')
+                            # Todo
+                            # continue
+
+                        pdb = PDB.from_file(file_path, log=None, lazy=True)
+                        if entity:  # replace fetched_pdb with the entity pdb
+                            # Todo check if .oligomer returning Structures is good
+                            entity_pdb = pdb.entity(entry_entity).oligomer
+                            if entity_pdb:  # ensure not none, otherwise, report
+                                pdb = entity_pdb
+                            else:
+                                # logger.warning('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
+                                raise \
+                                    ValueError('No entity with the name %s found in file %s' % (entry_entity,
+                                                                                                pdb.filepath))
+                            file_path = pdb.write(out_path=os.path.join(master_directory.pdbs, '%s.pdb' % entry_entity))
+                        # else:
+                        #     pdb = PDB.from_file(file_path, log=None, lazy=True)
+
+                        if symmetry == 'C1':  # translate the monomer to the origin for the database
+                            pdb.translate(-pdb.center_of_mass)
+                            orient_file = pdb.write(out_path=os.path.join(orient_dir, '%s.pdb' % entry_entity))
+                            oriented_asu_file = pdb.write(out_path=os.path.join(orient_asu_dir, '%s.pdb' % entry_entity))
+                            # save Stride results
+                            oriented_asu.stride(to_file=os.path.join(stride_dir, '%s.stride' % entry_entity))
+                        else:
+                            orient_file = orient_pdb_file(file_path, log=orient_log, sym=symmetry, out_dir=orient_dir)
+                            # extract the asu from the oriented file for symmetric refinement
+                            if orient_file:
+                                oriented_pdb = PDB.from_file(orient_file, log=None, entity_names=[entry_entity])
+                                oriented_asu = oriented_pdb.entities[0]
+                                oriented_asu.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
+                                # all_entities.append(oriented_asu)
+                                all_entities[oriented_asu.name] = oriented_asu
+                                oriented_asu.write(out_path=os.path.join(orient_asu_dir, '%s.pdb' % oriented_asu.name))
+                                # save Stride results
+                                oriented_asu.stride(to_file=os.path.join(stride_dir, '%s.stride' % oriented_asu.name))
+                            else:
+                                logger.warning('No oriented file possible for %s. See the orient log' % entry_entity)
+                                continue
                     else:
-                        logger.warning('No oriented file possible for %s. See the orient log' % entry_entity)
-                        continue
+                        oriented_asu_files = glob(os.path.join(orient_asu_dir, '%s_*.pdb' % entry_entity))
+                        oriented_asu = PDB.from_file(oriented_asu_files[0], log=None, entity_names=[entry_entity])
+                        all_entities[oriented_asu.name] = oriented_asu.entities[0]
 
             # set up the hhblits profile for each input entity
             profile_dir = master_directory.profiles
@@ -1340,9 +1351,12 @@ if __name__ == '__main__':
             full_model_files = os.listdir(full_model_dir)
             # oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), set(), {}
             oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), {}, {}
-            for idx, required_oligomers in enumerate([required_entities1, required_entities2], 1):
+            for idx, entities in enumerate([required_entities1, required_entities2], 1):
                 symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
-                sym_def_files[symmetry] = SDUtils.sdf_lookup(symmetry)
+                sym_def_files[symmetry] = sdf_lookup(symmetry)
+                for entry_entity in entities:
+                    entry = entry_entity.split('_')
+                # TODO ensure that entities is for the correct group!
                 for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
                     base_pdb_code = os.path.splitext(orient_asu_file)[0]
                     if base_pdb_code in all_entities:
@@ -1467,7 +1481,7 @@ if __name__ == '__main__':
                 logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
                             % (PUtils.program_name, ' '.join(sys.argv)))
                 terminate(output=False)
-                # The next time this directory is initialized, there will be no refine files left... hopefully and while
+                # The next time this directory is initialized, there will be no refine files left and the while
                 # loop won't be entered allowing DesignDirectory initialization to proceed
 
         if args.multi_processing and not args.skip_master_db:
