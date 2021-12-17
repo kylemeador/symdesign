@@ -433,6 +433,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     #################################
 
     # Get Building Block2
+    pdb1_name = os.path.basename(os.path.splitext(pdb1_path)[0])
+    pdb2_name = os.path.basename(os.path.splitext(pdb2_path)[0])
     pdb2 = PDB.from_file(pdb2_path, log=log)
     pdb2_bb_cb_coords = pdb2.get_backbone_and_cb_coords()
     oligomer2_backbone_cb_tree = BallTree(pdb2_bb_cb_coords)
