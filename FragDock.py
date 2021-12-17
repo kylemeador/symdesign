@@ -686,7 +686,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     # possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.int8)
                     possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.bool8)
                     print('forward_surface:\n%s' % forward_surface.tolist())  # assuming a linear ordering...
-                    print('forward_ghosts:\n%s' % forward_ghosts.tolist())  # assuming a tiled ordering...
+                    # print('forward_ghosts:\n%s' % forward_ghosts.tolist())  # assuming a tiled ordering...
                     # residue numbers should be in order, surface fragments as well
                     for residue in init_surf_frag2_residues:
                         # print('Residue: %d' % residue)
@@ -720,7 +720,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
                     log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
                              'coordinate pairs')
-                    if rot2_count % 2 == 0:
+                    if rot2_count % 1 == 0:
                         possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # bool index the indices
                         possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
                         passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
@@ -748,7 +748,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
                     transform_passing_shift_indices = np.array([idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
                     # DEBUG
-                    if rot2_count % 2 == 0:
+                    if rot2_count % 1 == 0:
                         print('***** possible overlap indices:', np.where(possible_overlaps is True)[0].tolist())
                     else:
                         print('Passing shift indices:', transform_passing_shift_indices.tolist())
