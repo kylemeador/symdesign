@@ -676,21 +676,25 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     prior = 0
                     # possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.int8)
                     possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.bool8)
+                    print('forward_surface:\n%s' % forward_surface)  # assuming a linear ordering...
+                    print('forward_ghosts:\n%s' % forward_ghosts)  # assuming a tiled ordering...
+                    # residue numbers should be in order, surface fragments as well
                     for residue in init_surf_frag2_residues:
+                        print('Residue: %d' % residue)
                         forward_index = np.where(forward_surface == residue)
                         reverse_index = np.where(reverse_ghosts == residue)
                         # indexed_forward_index = np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
-                        current = prior + len(forward_index[0])
+                        current = prior + len(forward_index[0])  # length of tuple index 0
                         # print(prior, current)
                         possible_overlaps[prior:current] = \
                             np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
-                        # prior_prior = prior
+                        prior_prior = prior
                         prior = current
-                    # print('f_surf', forward_surface[forward_index])
-                    # print('r_ghost', reverse_ghosts[reverse_index])
-                    # print('f_ghost', forward_ghosts[forward_index])
-                    # print('r_surf', reverse_surface[reverse_index])
-                    # print('possible', possible_overlaps[prior_prior:current])
+                    print('f_surf', forward_surface[forward_index][:20])
+                    print('r_ghost', reverse_ghosts[reverse_index][:20])
+                    print('f_ghost', forward_ghosts[forward_index][:20])
+                    print('r_surf', reverse_surface[reverse_index][:20])
+                    print('possible', possible_overlaps[prior_prior:current][:20])
 
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
@@ -703,7 +707,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
                              'coordinate pairs')
                     if rot2_count % 2 == 0:
-                        possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]
+                        possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # index the indices
                         possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
                         passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
                         passing_surf_coords = surf_frags2_guide_coords_rot_and_set[possible_surf_frag_indices]
@@ -711,21 +715,17 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         # reference_rmsds = np.array([init_ghost_frags1[ghost_idx].rmsd
                         #                             for ghost_idx in overlapping_ghost_frags.tolist()])
                         # reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
-                        optimal_shifts_start = time.time()
-                        optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
-                                                                         reference_rmsds[idx])
-                                          for idx, ghost_coords in enumerate(passing_ghost_coords)]
-                        optimal_shifts_time = time.time() - optimal_shifts_start
                     else:
                         possible_ghost_frag_indices = overlapping_ghost_frags
                         passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[overlapping_ghost_frags]
                         passing_surf_coords = surf_frags2_guide_coords_rot_and_set[overlapping_surf_frags]
                         reference_rmsds = init_ghost_frag1_rmsds[overlapping_ghost_frags]
-                        optimal_shifts_start = time.time()
-                        optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
-                                                                         reference_rmsds[idx])
-                                          for idx, ghost_coords in enumerate(passing_ghost_coords)]
-                        optimal_shifts_time = time.time() - optimal_shifts_start
+
+                    optimal_shifts_start = time.time()
+                    optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
+                                                                     reference_rmsds[idx])
+                                      for idx, ghost_coords in enumerate(passing_ghost_coords)]
+                    optimal_shifts_time = time.time() - optimal_shifts_start
                     # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
                     # passing_optimal_shifts.extend(transform_passing_shifts)
                     # degen_rot_counts.extend(repeat((degen1_count, degen2_count, rot1_count, rot2_count),
