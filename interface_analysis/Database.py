@@ -225,10 +225,11 @@ class ClusterInfoFile:
 
 
 class FragmentDB:
-    def __init__(self):
+    def __init__(self, fragment_length=5):
         self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
         self.cluster_representatives_path = intfrag_cluster_rep_dirpath
         self.cluster_info_path = intfrag_cluster_info_dirpath
+        self.fragment_length = fragment_length
         self.reps = None
         self.paired_frags = None
         self.indexed_ghosts = {}

@@ -7,10 +7,10 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
-from PathUtils import frag_text_file, master_log
+from PathUtils import frag_text_file, master_log, biological_fragment_db_pickle
 from Structure import superposition3d
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
-    split_interface_numbers, calculate_match, z_value_from_match_score
+    split_interface_numbers, calculate_match, z_value_from_match_score, unpickle
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
     transform_coordinate_sets, get_rotation_step, write_docking_parameters, transform_coordinates
@@ -22,11 +22,10 @@ from classes.SymEntry import SymEntry, get_rot_matrices, get_degen_rotmatrices
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from PDB import PDB
 from Pose import Pose
-from interface_analysis.Database import FragmentDB
+# from interface_analysis.Database import FragmentDB
 
 # Globals
 logger = start_log(name=__name__)
-fragment_length = 5
 
 
 def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frags, complete_surf_frags,
@@ -286,7 +285,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
             score_term = match_scores[frag_idx]
-            for k in range(fragment_length):
+            for k in range(ijk_frag_db.fragment_length):
                 chain_resnum1 = covered_residues_pdb1[k]
                 chain_resnum2 = covered_residues_pdb2[k]
                 if chain_resnum1 not in chid_resnum_scores_dict_pdb1:
@@ -374,8 +373,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     Returns:
         None
     """
-    def slice_variable_for_log(var):
-        return var[:5]
+    def slice_variable_for_log(var, length=5):
+        return var[:length]
     #################################
     # # surface ghost frag overlap from the same oligomer scratch code
     # surffrags1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
@@ -444,7 +443,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
     # calculate the initial match type by finding the predominant surface type
     frag_types2 = [monofrag2.i_type for monofrag2 in surf_frags2]
-    fragment_content2 = [frag_types2.count(frag_type) for frag_type in range(1, fragment_length + 1)]
+    fragment_content2 = [frag_types2.count(frag_type) for frag_type in range(1, ijk_frag_db.fragment_length + 1)]
     initial_surf_type2 = np.argmax(fragment_content2) + 1
     # initial_surf_frags2 = [monofrag2 for monofrag2 in surf_frags2 if monofrag2.i_type == initial_surf_type2]
 
@@ -472,7 +471,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
     # calculate the initial match type by finding the predominant surface type
     frag_types1 = [monofrag.i_type for monofrag in surf_frags1]
-    fragment_content1 = [frag_types1.count(frag_type) for frag_type in range(1, fragment_length + 1)]
+    fragment_content1 = [frag_types1.count(frag_type) for frag_type in range(1, ijk_frag_db.fragment_length + 1)]
     init_surf_type1 = np.argmax(fragment_content1) + 1
     init_surf_frags1 = [monofrag for monofrag in surf_frags1 if monofrag.i_type == init_surf_type1]
     init_surf_frags1_guide_coords = np.array([surf_frag.guide_coords for surf_frag in init_surf_frags1])
@@ -569,7 +568,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     # Check if the job was running but stopped. Resume where last left off
     degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
     if resume:
-        # degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log)
         degen1_count, degen2_count, rot1_count, rot2_count = get_last_sampling_state(log.handlers[0].baseFilename)
 
     if not resume:
@@ -592,8 +590,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     eul_lookup = EulerLookup()
 
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
-    # Transpose Setting Matrices to Set Guide Coordinates just for Euler Lookup Using np.matmul
-    # set_mat1_t, set_mat2_t = np.transpose(set_mat1), np.transpose(set_mat2)
     # find superposition matrices to rotate setting matrix1 to setting matrix2 and vise versa
     # guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])
     asym_guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 2., 0.]])
@@ -622,12 +618,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         for rot_mat1 in degen1[rot1_count:]:
             rot1_count += 1
             # Rotate Oligomer1 Surface and Ghost Fragment Guide Coordinates using rot_mat1
-            # ghost_frag1_guide_coords_rot = np.matmul(init_ghost_frag1_guide_coords, np.transpose(rot_mat1))
-            # ghost_frag1_guide_coords_rot_and_set = np.matmul(ghost_frag1_guide_coords_rot, set_mat1_t)
             ghost_frag1_guide_coords_rot_and_set = \
                 transform_coordinate_sets(init_ghost_frag1_guide_coords, rotation=rot_mat1, rotation2=set_mat1)
-            # surf_frags1_guide_coords_rot = np.matmul(init_surf_frags1_guide_coords, np.transpose(rot_mat1))
-            # surf_frags1_guide_coords_rot_and_set = np.matmul(surf_frags1_guide_coords_rot, set_mat1_t)
             surf_frags1_guide_coords_rot_and_set = \
                 transform_coordinate_sets(init_surf_frags1_guide_coords, rotation=rot_mat1, rotation2=set_mat1)
 
@@ -636,12 +628,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                 for rot_mat2 in degen2[rot2_count:]:
                     rot2_count += 1
                     # Rotate Oligomer2 Surface and Ghost Fragment Guide Coordinates using rot_mat2
-                    # surf_frags2_guide_coords_rot = np.matmul(init_surf_frags2_guide_coords, np.transpose(rot_mat2))
-                    # surf_frags2_guide_coords_rot_and_set = np.matmul(surf_frags2_guide_coords_rot, set_mat2_t)
                     surf_frags2_guide_coords_rot_and_set = \
                         transform_coordinate_sets(init_surf_frags2_guide_coords, rotation=rot_mat2, rotation2=set_mat2)
-                    # ghost_frag2_guide_coords_rot = np.matmul(init_ghost_frag2_guide_coords, np.transpose(rot_mat2))
-                    # ghost_frag2_guide_coords_rot_and_set = np.matmul(ghost_frag2_guide_coords_rot, set_mat2_t)
                     ghost_frag2_guide_coords_rot_and_set = \
                         transform_coordinate_sets(init_ghost_frag2_guide_coords, rotation=rot_mat2, rotation2=set_mat2)
 
@@ -705,14 +693,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     # print('possible', possible_overlaps[prior_prior:current])
 
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
-
-                    # # check if forward and reverse are both present
-                    # possible_overlaps = []
-                    # for idx1 in range(len(overlapping_ghost_frags)):
-                    #     for idx2 in range(len(overlapping_ghost_frags_rev)):
-                    #         if (forward_ghosts[idx1], forward_surface[idx1]) == (reverse_surface[idx2], reverse_ghosts[idx2]):
-                    #             possible_overlaps.append(idx1)
-                    #             break
 
                     forward_reverse_comparison_time = time.time() - forward_reverse_comparison_start
                     log.info('Indexing %d possible overlap pairs found only %d possible out of %d (took %f s)\n'
@@ -868,7 +848,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     #                   min_matched=min_matched, log=log)
 
     ##############
-    # here represents an important edit line in the execution of this code. Vectorized scoring and clash testing!
+    # here represents an important break in the execution of this code. Vectorized scoring and clash testing!
     ##############
     # this returns the vectorized uc_dimensions
     if sym_entry.unit_cell:
@@ -985,42 +965,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     full_inv_rotation2 = full_inv_rotation2[asu_is_viable]
     viable_cluster_labels = cluster_labels[asu_is_viable]
     number_of_non_clashing_transforms = len(asu_is_viable)
-    # TODO
-    #  Next overlay the clash measurements on the cluster labels and cluster graph where their aren't clashes to create
-    #  boundaries on the cluster graph. These boundaries constitute clashing that wouldn't be allowed to be searched for
-    #  ideal nanohedra score given a differentiable search of the transformation parameters
-
-    # for idx, transform_idx in enumerate(asu_is_viable.tolist(), 1):
-    #     log.info('Optimal Shift %d' % idx)
-    #     # Rotate, Translate and Set PDB1, PDB2
-    #     copy_rot_tr_set_time_start = time.time()
-    #     specific_transformation1 = {'rotation': full_rotation1[tx_idx], 'translation': full_int_tx1[tx_idx],
-    #                                 'rotation2': full_setting1[tx_idx], 'translation2': full_ext_tx1[tx_idx]}
-    #     specific_transformation2 = {'rotation': full_rotation2[tx_idx], 'translation': full_int_tx2[tx_idx],
-    #                                 'rotation2': full_setting2[tx_idx], 'translation2': full_ext_tx2[tx_idx]}
-    #
-    #     pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
-    #     pdb2_copy = pdb2.return_transformed_copy(**specific_transformation2)
-    #
-    #     copy_rot_tr_set_time_stop = time.time()
-    #     copy_rot_tr_set_time = copy_rot_tr_set_time_stop - copy_rot_tr_set_time_start
-    #     log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took: %s s)' % str(copy_rot_tr_set_time))
-    #
-    #     # Check if PDB1 and PDB2 backbones clash
-    #     oligomer1_oligomer2_clash_time_start = time.time()
-    #     # Todo @profile for KDTree or Neighbors 'brute'
-    #     kdtree_oligomer1_backbone = BallTree(pdb1_copy.get_backbone_and_cb_coords())
-    #     asu_cb_clash_count = kdtree_oligomer1_backbone.two_point_correlation(pdb2_copy.get_backbone_and_cb_coords(),
-    #                                                                          [clash_dist])
-    #     oligomer1_oligomer2_clash_time_end = time.time()
-    #     oligomer1_oligomer2_clash_time = oligomer1_oligomer2_clash_time_end - oligomer1_oligomer2_clash_time_start
-    #
-    #     if asu_cb_clash_count[0] > 0:
-    #         log.info('\tBackbone Clash when Oligomer1 and Oligomer2 are Docked (took: %s s)'
-    #                  % str(oligomer1_oligomer2_clash_time))
-    #         continue
-    #     log.info('\tNO Backbone Clash when Oligomer1 and Oligomer2 are Docked (took: %s s)'
-    #              % str(oligomer1_oligomer2_clash_time))
 
     #################
     pdb1_cb_balltree = BallTree(pdb1.get_cb_coords())
@@ -1058,6 +1002,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
     # Use below instead of above until can TODO vectorize asu_interface_residue_processing
 
+    # Full Interface Fragment Match
     # Get Residue Number for all Interacting PDB1 CB, PDB2 CB Pairs
     cb_distance = 9.  # change to 8.?
     for idx, trans_surf_guide_coords in enumerate(inverse_transformed_surf_frags2_guide_coords.tolist()):
@@ -1374,7 +1319,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
             match = match_scores[frag_idx]
-            for k in range(fragment_length):
+            for k in range(ijk_frag_db.fragment_length):
                 chain_resnum1 = covered_residues_pdb1[k]
                 chain_resnum2 = covered_residues_pdb2[k]
                 if chain_resnum1 not in chid_resnum_scores_dict_pdb1:
@@ -1490,13 +1435,13 @@ if __name__ == '__main__':
         master_logger.info('Docking %s / %s \n' % (pdb1_name, pdb2_name))
 
         # Create fragment database for all ijk cluster representatives
-        # Todo move to inside loop for single iteration docking
-        ijk_frag_db = FragmentDB()
-
-        # Get complete IJK fragment representatives database dictionaries
-        ijk_frag_db.get_monofrag_cluster_rep_dict()
-        ijk_frag_db.get_intfrag_cluster_rep_dict()
-        ijk_frag_db.get_intfrag_cluster_info_dict()
+        ijk_frag_db = unpickle(biological_fragment_db_pickle)
+        # ijk_frag_db = FragmentDB()
+        #
+        # # Get complete IJK fragment representatives database dictionaries
+        # ijk_frag_db.get_monofrag_cluster_rep_dict()
+        # ijk_frag_db.get_intfrag_cluster_rep_dict()
+        # ijk_frag_db.get_intfrag_cluster_info_dict()
 
         try:
             # Output Directory  # Todo DesignDirectory
