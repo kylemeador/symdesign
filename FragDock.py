@@ -750,17 +750,18 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     # DEBUG
                     if rot2_count % 1 == 0:
                         # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
-                        print('Passing shift ghost residue pairs:', forward_ghosts[possible_overlaps][transform_passing_shift_indices])
-                        print('Passing shift surf residue pairs:', forward_surface[possible_overlaps][transform_passing_shift_indices])
+                        log.debug('Passing shift ghost residue pairs:', forward_ghosts[possible_overlaps][transform_passing_shift_indices])
+                        log.debug('Passing shift surf residue pairs:', forward_surface[possible_overlaps][transform_passing_shift_indices])
                     else:
                         # print('Passing shift indices:', transform_passing_shift_indices.tolist())
                         # print('Passing shift ghost indices:', overlapping_ghost_frags[transform_passing_shift_indices].tolist())
-                        print('Passing shift ghost residue pairs:', forward_ghosts[transform_passing_shift_indices].tolist())
+                        log.debug('Passing shift ghost residue pairs:', forward_ghosts[transform_passing_shift_indices].tolist())
                         # print('Passing shift surf indices:', overlapping_surf_frags[transform_passing_shift_indices].tolist())
-                        print('Passing shift surf residue pairs:', forward_surface[transform_passing_shift_indices].tolist())
+                        log.debug('Passing shift surf residue pairs:', forward_surface[transform_passing_shift_indices].tolist())
 
                     if transform_passing_shifts.shape[0] == 0:
-                        print(len(optimal_shifts))
+                        print('Length', len(optimal_shifts))
+                        print('Shape', transform_passing_shifts.shape[0])
                         log.info('No transforms were found passing optimal shift criteria (took %f s)'
                                  % optimal_shifts_time)
                         continue
