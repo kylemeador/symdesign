@@ -5,9 +5,9 @@ from itertools import product, combinations
 
 import PathUtils as PUtils
 from FragDock import nanohedra_dock
-from interface_analysis.Database import FragmentDB
+# from interface_analysis.Database import FragmentDB
 from classes.SymEntry import SymEntry
-from SymDesignUtils import get_all_pdb_file_paths, start_log
+from SymDesignUtils import get_all_pdb_file_paths, start_log, unpickle
 from utils.GeneralUtils import write_docking_parameters, get_rotation_step
 from utils.PDBUtils import orient_pdb_file
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
@@ -133,12 +133,13 @@ if __name__ == "__main__":
                 pdb_filepaths = product(pdb1_oriented_filepaths, pdb2_oriented_filepaths)
 
             # Create fragment database for all ijk cluster representatives
-            # frag_db = PUtils.frag_directory['biological_interfaces']  # Todo make dynamically start/use all fragDB
-            ijk_frag_db = FragmentDB()
-            # Get complete IJK fragment representatives database dictionaries
-            ijk_frag_db.get_monofrag_cluster_rep_dict()
-            ijk_frag_db.get_intfrag_cluster_rep_dict()
-            ijk_frag_db.get_intfrag_cluster_info_dict()
+            ijk_frag_db = unpickle(PUtils.biological_fragment_db_pickle)
+            # ijk_frag_db = FragmentDB()
+            #
+            # # Get complete IJK fragment representatives database dictionaries
+            # ijk_frag_db.get_monofrag_cluster_rep_dict()
+            # ijk_frag_db.get_intfrag_cluster_rep_dict()
+            # ijk_frag_db.get_intfrag_cluster_info_dict()
 
             for pdb1_path, pdb2_path in pdb_filepaths:
                 pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]

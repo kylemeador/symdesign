@@ -7,10 +7,11 @@ import shutil
 from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
+from typing import Union
 # from textwrap import fill
 
 import matplotlib.pyplot as plt
-import seaborn as sns
+# import seaborn as sns
 import numpy as np
 import pandas as pd
 # from matplotlib.axes import Axes
@@ -60,6 +61,8 @@ relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp
 
 
 class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
+    frag_db: Union[FragmentDatabase, None]
+
     def __init__(self, design_path, pose_id=None, root=None, **kwargs):
         #        project=None, specific_design=None, nano=False, dock=False, construct_pose=False,
         # MasterDirectory path attributes
