@@ -576,9 +576,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 1')
 
     # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
-    # Ready to go for sampling nothing if rot_range_deg == 0
     rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, 'z', sym_entry.rotation_range1)
-    # Ready to go returning identity matrices if there is no sampling on either degen or rotation
     degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
 
     if not resume:
@@ -601,7 +599,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     superposition_setting_2to1 = np.linalg.inv(superposition_setting_1to2)
     # log.debug('sup_rmsd, superposition_setting_1to2, sup_tx: %s, %s, %s' % (sup_rmsd, superposition_setting_1to2, sup_tx))
 
-    # these must be 2d array, thus the 2:3].T instead of 2. [:, 2][:, None] would also work
+    # these must be 2d array, thus the 2:3].T instead of 2. Using [:, 2][:, None] would also work
     zshift1 = set_mat1[:, 2:3].T if sym_entry.is_internal_tx1 else None
     zshift2 = set_mat2[:, 2:3].T if sym_entry.is_internal_tx2 else None
 
@@ -683,7 +681,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     # inverse transform at 1 (i) 1 (j) 230 (k) for instance
                     # indexing_possible_overlap_start = time.time()
                     prior = 0
-                    # possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.int8)
                     possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.bool8)
                     # print('forward_surface:\n%s' % forward_surface.tolist())  # assuming a linear ordering...
                     # print('forward_ghosts:\n%s' % forward_ghosts.tolist())  # assuming a tiled ordering...
@@ -699,7 +696,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         # next, use pulled out residue indices to search for overlapping numbers
                         possible_overlaps[prior:current] = \
                             np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
-                        prior_prior = prior
+                        # prior_prior = prior
                         prior = current
                     # print('f_surf', forward_surface[forward_index][:20])
                     # print('r_ghost', reverse_ghosts[reverse_index][:20])
@@ -723,17 +720,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     if rot2_count % 1 == 0:
                         possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # bool index the indices
                         possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
-                        passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
-                        passing_surf_coords = surf_frags2_guide_coords_rot_and_set[possible_surf_frag_indices]
-                        reference_rmsds = init_ghost_frag1_rmsds[possible_ghost_frag_indices]
-                        # reference_rmsds = np.array([init_ghost_frags1[ghost_idx].rmsd
-                        #                             for ghost_idx in overlapping_ghost_frags.tolist()])
-                        # reference_rmsds = np.where(reference_rmsds == 0, 0.01, reference_rmsds)
                     else:
                         possible_ghost_frag_indices = overlapping_ghost_frags
-                        passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[overlapping_ghost_frags]
-                        passing_surf_coords = surf_frags2_guide_coords_rot_and_set[overlapping_surf_frags]
-                        reference_rmsds = init_ghost_frag1_rmsds[overlapping_ghost_frags]
+                        possible_surf_frag_indices = overlapping_surf_frags
+                        # passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[overlapping_ghost_frags]
+                        # passing_surf_coords = surf_frags2_guide_coords_rot_and_set[overlapping_surf_frags]
+                        # reference_rmsds = init_ghost_frag1_rmsds[overlapping_ghost_frags]
+
+                    passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
+                    passing_surf_coords = surf_frags2_guide_coords_rot_and_set[possible_surf_frag_indices]
+                    reference_rmsds = init_ghost_frag1_rmsds[possible_ghost_frag_indices]
 
                     optimal_shifts_start = time.time()
                     optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
@@ -757,7 +753,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
                     transform_passing_shift_indices = np.array(
                         [idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
-                    # DEBUG
+
                     if rot2_count % 1 == 0:
                         # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
                         log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts[possible_overlaps][
@@ -837,13 +833,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
             degen2_count = 0
         rot1_count = 0
 
-    # find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, passing_optimal_shifts,
-    #                   complete_ghost_frags1, surf_frags2, degen_subdir_out_path,
-    #                   rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
-    #                   rot_mat1=rot_mat1, rot_mat2=rot_mat2, max_z_val=subseq_max_z_val,
-    #                   output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-    #                   min_matched=min_matched, log=log)
-
     ##############
     # here represents an important break in the execution of this code. Vectorized scoring and clash testing!
     ##############
@@ -873,10 +862,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     #  can I use the cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
     #  seems that I could use the distances to expedite clashing checks, especially for more timeconsuming expansion
     #  checks...
-    #  |
-    #  I NEED TO FIGURE OUT MY DOCKING ETHOS
-    #  Do I find the entire landscape and then place upon it a clashing mask?
-    #  Do I search the available landscape given the clashing mask?
     #  At some point, extracting the exact rotation degree from the rotation matrix and extracting translation params
     #  will provide the bounds around, what I believe will appear as docking "islands" where docks are possible,
     #  likely and preferred. Searching these docks is far more important than just outputting the possible docks and
@@ -901,7 +886,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     clustering_time = time.time() - clustering_start
 
     log.info('Found %d total transforms, %d of which are missing the minimum number of close transforms to be viable. '
-             '%d remain (took %f s)' % (startng_transforms, startng_transforms - sufficiently_dense_indices[0],
+             '%d remain (took %f s)' % (starting_transforms, starting_transforms - sufficiently_dense_indices[0],
                                         sufficiently_dense_indices[0], clustering_time))
     # representative_labels = cluster_labels[cluster_representative_indices]
 
@@ -916,13 +901,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     # full_setting2 = full_setting2[sufficiently_dense_indices]
     if sym_entry.unit_cell:
         full_uc_dimensions = full_uc_dimensions[sufficiently_dense_indices]
-        # multiply by -1 to invert the translation
         full_ext_tx1 = full_ext_tx1[sufficiently_dense_indices]
         full_ext_tx2 = full_ext_tx2[sufficiently_dense_indices]
     full_inv_rotation2 = np.linalg.inv(full_rotation2)
     number_of_dense_transforms = len(sufficiently_dense_indices)
     superposition_setting1_stack = np.tile(superposition_setting_1to2, (number_of_dense_transforms, 1, 1))
+
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with pdb1 ORIGINAL
+    # multiply by -1 to invert the translation
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
                        'rotation2': superposition_setting1_stack,
@@ -951,6 +937,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     full_rotation2 = full_rotation2[asu_is_viable]
     full_int_tx1 = full_int_tx1[asu_is_viable]
     full_int_tx2 = full_int_tx2[asu_is_viable]
+    superposition_setting1_stack = superposition_setting1_stack[asu_is_viable]
     # full_setting1 = full_setting1[asu_is_viable]
     # full_setting2 = full_setting2[asu_is_viable]
     if sym_entry.unit_cell:
