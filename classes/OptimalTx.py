@@ -48,7 +48,7 @@ class OptimalTx:
         self.dof9 = np.transpose(self.dof9_t)
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
-        """This routine does solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
+        """This routine solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
         reference RMSD to compute an error
 
         Args:
@@ -58,7 +58,7 @@ class OptimalTx:
         Keyword Args:
             max_z_value=1 (float): The maximum initial error tolerated
         Returns:
-            (Union[list[list], None]): Returns the optimal translation or None if error is too large.
+            (Union[numpy.ndarray, None]): Returns the optimal translation or None if error is too large.
                 Optimal translation has external dof first, followed by internal tx dof
         """
 
@@ -92,20 +92,11 @@ class OptimalTx:
         resid = np.matmul(self.dof9, shift) - guide_delta
         resid_t = np.transpose(resid)
 
-        error = np.sqrt(np.matmul(resid_t, resid) / float(self.number_of_coordinates)) / coords_rmsd_reference  # NEW. Is float(3.0) a scale?
-        # sqrt(variance / 3) / cluster_rmsd # old error
+        error = np.sqrt(np.matmul(resid_t, resid) / float(self.number_of_coordinates)) / coords_rmsd_reference
+        # NEW. Is float(3.0) a scale?
+        # OLD. sqrt(variance / 3) / cluster_rmsd
 
         if error <= self.max_z_value:
-            return shift[:, 0].tolist()  # , error
+            return shift[:, 0]  # .tolist()  # , error
         else:
-            return None
-
-    def apply(self, coords1=None, coords2=None, coords_rmsd_reference=None):  # UNUSED
-        """Apply Setting Matrix to provided Coords and solve for the translational shifts to overlap them"""
-        # coords1_set = self.set_coords(self.setting1, coords1)
-        # coords2_set = self.set_coords(self.setting2, coords2)
-        coords1_set = np.matmul(coords1, np.transpose(self.setting1))
-        coords2_set = np.matmul(coords2, np.transpose(self.setting2))
-
-        # solve for shifts and resulting error
-        return self.solve_optimal_shift(coords1_set, coords2_set, coords_rmsd_reference)
+            return
