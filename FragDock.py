@@ -838,17 +838,17 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     ##############
     # this returns the vectorized uc_dimensions
     if sym_entry.unit_cell:
-        full_uc_dimensions = sym_entry.get_uc_dimensions(np.stack(full_optimal_ext_dof_shifts))
-        full_ext_tx1 = np.stack(full_ext_tx1)
-        full_ext_tx2 = np.stack(full_ext_tx2)
+        full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
+        full_ext_tx1 = np.concatenate(full_ext_tx1)
+        full_ext_tx2 = np.concatenate(full_ext_tx2)
     # make full vectorized transformations overwriting individual variables
-    full_rotation1 = np.stack(full_rotation1)
-    full_rotation2 = np.stack(full_rotation2)
-    full_int_tx1 = np.stack(full_int_tx1)
-    full_int_tx2 = np.stack(full_int_tx2)
-    startng_transforms = len(full_int_tx1)
-    full_setting1 = np.tile(set_mat1, (startng_transforms, 1, 1))  # Todo stop stacking these
-    full_setting2 = np.tile(set_mat2, (startng_transforms, 1, 1))  # Todo stop stacking these
+    full_rotation1 = np.concatenate(full_rotation1)
+    full_rotation2 = np.concatenate(full_rotation2)
+    full_int_tx1 = np.concatenate(full_int_tx1)
+    full_int_tx2 = np.concatenate(full_int_tx2)
+    starting_transforms = len(full_int_tx1)
+    full_setting1 = np.tile(set_mat1, (starting_transforms, 1, 1))  # Todo stop stacking these
+    full_setting2 = np.tile(set_mat2, (starting_transforms, 1, 1))  # Todo stop stacking these
     # full_setting2 = np.stack(full_setting2, startng_transforms)
 
     # must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
