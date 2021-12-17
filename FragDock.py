@@ -759,13 +759,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         # print('Passing shift surf indices:', overlapping_surf_frags[transform_passing_shift_indices].tolist())
                         log.debug('Passing shift surf residue pairs: %s' % forward_surface[transform_passing_shift_indices].tolist())
 
-                    if transform_passing_shifts.shape[0] == 0:
-                        log.debug('Length %d' % len(optimal_shifts))
-                        log.debug('Shape %d' % transform_passing_shifts.shape[0])
+                    number_passing_shifts = len(transform_passing_shifts)
+                    if number_passing_shifts == 0:
+                        # log.debug('Length %d' % len(optimal_shifts))
+                        # log.debug('Shape %d' % transform_passing_shifts.shape[0])
                         log.info('No transforms were found passing optimal shift criteria (took %f s)'
                                  % optimal_shifts_time)
                         continue
-                    number_passing_shifts = len(transform_passing_shifts)
                     blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)  # length is by column
                     if sym_entry.unit_cell:
                         # must take the optimal_ext_dof_shifts and multiply the column number by the corresponding row
@@ -780,7 +780,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                                                             np.hstack((blank_vector,) * (sym_entry.n_dof_external -3))))
                         # ^ I think for the sake of cleanliness, I need to make this matrix
                         # must find positive indices before group_external_dof1 multiplication in case negatives there
-                        positive_indices = np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1)
+                        positive_indices = \
+                            np.where(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) == True)
                         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
                         stacked_external_tx1 = optimal_ext_dof_shifts[:, :, None] * sym_entry.group_external_dof1
                         stacked_external_tx2 = optimal_ext_dof_shifts[:, :, None] * sym_entry.group_external_dof2
@@ -819,47 +820,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     # full_setting1.append(stacked_set_mat1[positive_indices])
                     # full_setting2.append(stacked_set_mat2[positive_indices])
 
-                    final_passing_shifts = number_passing_shifts - len(positive_indices)
-                    # for tx_parameters in enumerate(optimal_shifts, 1):
-                    #     if tx_parameters is None:  # move on
-                    #         continue
-                    #     # else collect the translations
-                    #     # Get Optimal External DOF shifts
-                    #     optimal_ext_dof_shifts = tx_parameters[:sym_entry.n_dof_external]
-                    #     external_tx_params1, external_tx_params2 = None, None
-                    #     if optimal_ext_dof_shifts:  # Todo TEST
-                    #         # Restrict all reference frame translation parameters to > 0 for SCMs with reference frame translational dof
-                    #         ref_frame_var_is_neg = False
-                    #         for ref_idx, ref_frame_tx_dof in enumerate(optimal_ext_dof_shifts, 1):
-                    #             if ref_frame_tx_dof < 0:
-                    #                 ref_frame_var_is_neg = True
-                    #                 break
-                    #         if ref_frame_var_is_neg:  # don't dock
-                    #             log.info('\tReference Frame Shift Parameter %d is Negative: %s\n' % (
-                    #                 ref_idx, optimal_ext_dof_shifts))
-                    #             continue
-                    #         else:
-                    #             # Get Oligomer1 & Oligomer2 Optimal External Translation vector
-                    #             external_tx_params1 = sym_entry.get_optimal_external_tx_vector(optimal_ext_dof_shifts,
-                    #                                                                            group_number=1)
-                    #             external_tx_params2 = sym_entry.get_optimal_external_tx_vector(optimal_ext_dof_shifts,
-                    #                                                                            group_number=2)
-                    #     # Get Oligomer1, Oligomer2 Optimal Internal Translation vector
-                    #     # tx_parameters contains [OptimalExternalDOFShifts (n_dof_ext), OptimalInternalDOFShifts (n_dof_int)]
-                    #     # grab index immediately after dof_ext    v
-                    #     internal_tx_param1 = [0, 0, tx_parameters[
-                    #         sym_entry.n_dof_external]] if sym_entry.is_internal_tx1 else None
-                    #     internal_tx_param2 = [0, 0, tx_parameters[
-                    #         sym_entry.n_dof_external + 1]] if sym_entry.is_internal_tx2 else None
-                    #     # grab index immediately after dof_int1   ^
-                    #
-                    #     stacked_transforms1[idx] = \
-                    #         dict(rotation=rot_mat1, translation=internal_tx_param1, rotation2=set_mat1,
-                    #              translation2=external_tx_params1)
-                    #     stacked_transforms2[idx] = \
-                    #         dict(rotation=rot_mat2, translation=internal_tx_param2, rotation2=set_mat2,
-                    #              translation2=external_tx_params2)
-
+                    final_passing_shifts = len(positive_indices)
                     log.info('Optimal Shift Search Took: %s s for %d guide coordinate pairs\n'
                              % (optimal_shifts_time, len(possible_ghost_frag_indices)))
                     log.info('%s Initial Interface Fragment Match%s Found\n'
