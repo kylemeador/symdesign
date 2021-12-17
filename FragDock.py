@@ -599,7 +599,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     transformed_guide_coords2 = transform_coordinates(asym_guide_coords, rotation=set_mat2)
     sup_rmsd, superposition_setting_1to2, sup_tx, _ = superposition3d(transformed_guide_coords2, transformed_guide_coords1)
     superposition_setting_2to1 = np.linalg.inv(superposition_setting_1to2)
-    log.debug('sup_rmsd, superposition_setting_1to2, sup_tx: %s, %s, %s' % (sup_rmsd, superposition_setting_1to2, sup_tx))
+    # log.debug('sup_rmsd, superposition_setting_1to2, sup_tx: %s, %s, %s' % (sup_rmsd, superposition_setting_1to2, sup_tx))
 
     # these must be 2d array, thus the 2:3].T instead of 2. [:, 2][:, None] would also work
     zshift1 = set_mat1[:, 2:3].T if sym_entry.is_internal_tx1 else None
@@ -749,9 +749,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     transform_passing_shift_indices = np.array([idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
                     # DEBUG
                     if rot2_count % 1 == 0:
-                        print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
+                        # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
+                        print('Passing shift ghost residue pairs:', forward_ghosts[possible_overlaps][transform_passing_shift_indices])
+                        print('Passing shift surf residue pairs:', forward_surface[possible_overlaps][transform_passing_shift_indices])
                     else:
-                        print('Passing shift indices:', transform_passing_shift_indices.tolist())
+                        # print('Passing shift indices:', transform_passing_shift_indices.tolist())
                         # print('Passing shift ghost indices:', overlapping_ghost_frags[transform_passing_shift_indices].tolist())
                         print('Passing shift ghost residue pairs:', forward_ghosts[transform_passing_shift_indices].tolist())
                         # print('Passing shift surf indices:', overlapping_surf_frags[transform_passing_shift_indices].tolist())
