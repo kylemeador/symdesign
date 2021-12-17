@@ -685,7 +685,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     prior = 0
                     # possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.int8)
                     possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.bool8)
-                    print('forward_surface:\n%s' % forward_surface.tolist())  # assuming a linear ordering...
+                    # print('forward_surface:\n%s' % forward_surface.tolist())  # assuming a linear ordering...
                     # print('forward_ghosts:\n%s' % forward_ghosts.tolist())  # assuming a tiled ordering...
                     # residue numbers should be in order, surface fragments as well
                     for residue in init_surf_frag2_residues:
@@ -701,11 +701,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                             np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
                         prior_prior = prior
                         prior = current
-                    print('f_surf', forward_surface[forward_index][:20])
-                    print('r_ghost', reverse_ghosts[reverse_index][:20])
-                    print('f_ghost', forward_ghosts[forward_index][:20])
-                    print('r_surf', reverse_surface[reverse_index][:20])
-                    print('possible', possible_overlaps[prior_prior:current][:20])
+                    # print('f_surf', forward_surface[forward_index][:20])
+                    # print('r_ghost', reverse_ghosts[reverse_index][:20])
+                    # print('f_ghost', forward_ghosts[forward_index][:20])
+                    # print('r_surf', reverse_surface[reverse_index][:20])
+                    # print('possible', possible_overlaps[prior_prior:current][:20])
                     # forward_ghosts[possible_overlaps]
                     # forward_surface[possible_overlaps]
 
@@ -715,8 +715,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     log.info('Indexing %d possible overlap pairs found only %d possible out of %d (took %f s)\n'
                              % (len(overlapping_ghost_frags) * len(overlapping_ghost_frags_rev), possible_overlaps.sum()
                                 , number_overlapping_pairs, forward_reverse_comparison_time))
-                    print('The number of euler overlaps (%d) is equal to the number of possible overlaps (%d)' %
-                          (len(overlapping_ghost_frags), len(possible_overlaps)))
+                    # print('The number of euler overlaps (%d) is equal to the number of possible overlaps (%d)' %
+                    #       (len(overlapping_ghost_frags), len(possible_overlaps)))
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
                     log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
                              'coordinate pairs')
@@ -764,7 +764,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                         log.info('No transforms were found passing optimal shift criteria (took %f s)'
                                  % optimal_shifts_time)
                         continue
-                    exit(1)
                     number_passing_shifts = len(transform_passing_shifts)
                     blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)  # length is by column
                     if sym_entry.unit_cell:
