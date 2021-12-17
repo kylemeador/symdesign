@@ -749,7 +749,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     transform_passing_shift_indices = np.array([idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
                     # DEBUG
                     if rot2_count % 1 == 0:
-                        print('***** possible overlap indices:', np.where(possible_overlaps is True)[0].tolist())
+                        print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
                     else:
                         print('Passing shift indices:', transform_passing_shift_indices.tolist())
                         # print('Passing shift ghost indices:', overlapping_ghost_frags[transform_passing_shift_indices].tolist())
