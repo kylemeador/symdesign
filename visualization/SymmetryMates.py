@@ -2,7 +2,7 @@ import os
 from pymol import cmd, stored
 
 from Pose import Pose
-from SymDesignUtils import possible_symmetries
+from classes.SymEntry import possible_symmetries
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):
