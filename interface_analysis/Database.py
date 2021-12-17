@@ -299,7 +299,7 @@ class FragmentDB:
 
 
 class FragmentDatabase(FragmentDB):
-    def __init__(self, source='biological_interfaces', length=5, init_db=False, sql=False):
+    def __init__(self, source='biological_interfaces', fragment_length=5, init_db=False, sql=False):
         super().__init__()  # FragmentDB
         # self.monofrag_representatives_path = monofrag_representatives_path
         # self.cluster_representatives_path
@@ -330,7 +330,7 @@ class FragmentDatabase(FragmentDB):
                 # self.get_cluster_info()
 
         self.get_db_statistics()
-        self.parameterize_frag_length(length)
+        self.parameterize_frag_length(fragment_length)
 
     def get_db_statistics(self):
         """Retrieve summary statistics for a specific fragment database located on directory

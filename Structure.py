@@ -4114,7 +4114,8 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     # moving_coords = np.array(moving_coords)
 
     if fixed_coords.shape[0] != moving_coords.shape[0]:
-        raise ValueError("%s: Inputs should have the same size." % superposition3d.__name__)
+        raise ValueError('%s: Inputs should have the same size. Input 1=%d, 2=%d' %
+                         (superposition3d.__name__, fixed_coords.shape[0], moving_coords.shape[0]))
 
     number_of_points = fixed_coords.shape[0]
     # Find the center of mass of each object:

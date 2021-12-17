@@ -11,10 +11,10 @@ from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_in
 from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
 from SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, get_all_file_paths, to_iterable, \
     ex_path
-# from PDB import extract_interface
-# from Pose import retrieve_pdb_file_path
 from interface_analysis.Database import FragmentDatabase
 import Query.PDB as qPDB
+# from PDB import extract_interface
+# from Pose import retrieve_pdb_file_path
 
 
 def pisa_polymer_interface(interface):
