@@ -240,7 +240,7 @@ class SymEntry:
     def __init__(self, entry):
         sym_entry = sym_comb_dict.get(entry)
         try:
-            _, self.group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
+            self.group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
                 self.group2, self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2, \
                 self.pt_grp, self.result, self.dim, self.unit_cell, self.tot_dof, self.cycle_size = sym_entry
         except TypeError:
