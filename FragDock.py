@@ -642,6 +642,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                              'space bucket')
 
                     euler_start = time.time()
+                    # first returned variable has indices increasing 1,1,1,1,1,2,2,2,2,3,4,4,4,...
                     overlapping_surf_frags, overlapping_ghost_frags = \
                         eul_lookup.check_lookup_table(surf_frags2_guide_coords_rot_and_set,
                                                       ghost_frag1_guide_coords_rot_and_set)
@@ -659,8 +660,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
 
                     forward_reverse_comparison_start = time.time()
 
-                    forward_ghosts = init_ghost_frag1_residues[overlapping_ghost_frags]
                     forward_surface = init_surf_frag2_residues[overlapping_surf_frags]
+                    forward_ghosts = init_ghost_frag1_residues[overlapping_ghost_frags]
                     reverse_ghosts = init_ghost_frag2_residues[overlapping_ghost_frags_rev]
                     reverse_surface = init_surf_frag1_residues[overlapping_surf_frags_rev]
 
@@ -672,20 +673,28 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     #  For residue number B on surface of 1, np.where(reverse_surface == B)
 
                     # Make an index indicating where the forward and reverse euler lookups have the same residue pairs
+                    # Important! This method only pulls out initial fragment matches that go both ways, i.e. component1
+                    # surface (type1) matches with component2 ghost (type1) and vice versa, so the expanded checks of
+                    # for instance the surface loop (i type 3,4,5) with ghost helical (i type 1) matches is completely
+                    # unnecessary during euler look up as this will never be included
+                    # Also, this assumes that the ghost fragment display is symmetric, i.e. 1 (i) 1 (j) 10 (K) has an
+                    # inverse transform at 1 (i) 1 (j) 230 (k) for instance
                     # indexing_possible_overlap_start = time.time()
                     prior = 0
                     # possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.int8)
                     possible_overlaps = np.empty(number_overlapping_pairs, dtype=np.bool8)
-                    print('forward_surface:\n%s' % forward_surface)  # assuming a linear ordering...
-                    print('forward_ghosts:\n%s' % forward_ghosts)  # assuming a tiled ordering...
+                    print('forward_surface:\n%s' % forward_surface.tolist())  # assuming a linear ordering...
+                    print('forward_ghosts:\n%s' % forward_ghosts.tolist())  # assuming a tiled ordering...
                     # residue numbers should be in order, surface fragments as well
                     for residue in init_surf_frag2_residues:
-                        print('Residue: %d' % residue)
+                        # print('Residue: %d' % residue)
+                        # where the residue number of component 2 is equal pull out the indices
                         forward_index = np.where(forward_surface == residue)
                         reverse_index = np.where(reverse_ghosts == residue)
                         # indexed_forward_index = np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
                         current = prior + len(forward_index[0])  # length of tuple index 0
                         # print(prior, current)
+                        # next, use pulled out residue indices to search for overlapping numbers
                         possible_overlaps[prior:current] = \
                             np.isin(forward_ghosts[forward_index], reverse_surface[reverse_index])
                         prior_prior = prior
@@ -695,6 +704,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     print('f_ghost', forward_ghosts[forward_index][:20])
                     print('r_surf', reverse_surface[reverse_index][:20])
                     print('possible', possible_overlaps[prior_prior:current][:20])
+                    # forward_ghosts[possible_overlaps]
+                    # forward_surface[possible_overlaps]
 
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
@@ -702,12 +713,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     log.info('Indexing %d possible overlap pairs found only %d possible out of %d (took %f s)\n'
                              % (len(overlapping_ghost_frags) * len(overlapping_ghost_frags_rev), possible_overlaps.sum()
                                 , number_overlapping_pairs, forward_reverse_comparison_time))
-
+                    print('The number of euler overlaps (%d) is equal to the number of possible overlaps (%d)' %
+                          (len(overlapping_ghost_frags), len(possible_overlaps)))
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
                     log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
                              'coordinate pairs')
                     if rot2_count % 2 == 0:
-                        possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # index the indices
+                        possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # bool index the indices
                         possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
                         passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
                         passing_surf_coords = surf_frags2_guide_coords_rot_and_set[possible_surf_frag_indices]
@@ -732,11 +744,23 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     #                                number_passing_shifts))
                     # for idx, tx_parameters in enumerate(transform_passing_shifts, 1):
                     transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
+                    transform_passing_shift_indices = np.array([idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
+                    # DEBUG
+                    if rot2_count % 2 == 0:
+                        print('***** possible overlap indices:', np.where(possible_overlaps is True)[0].tolist())
+                    else:
+                        print('Passing shift indices:', transform_passing_shift_indices.tolist())
+                        # print('Passing shift ghost indices:', overlapping_ghost_frags[transform_passing_shift_indices].tolist())
+                        print('Passing shift ghost residue pairs:', forward_ghosts[transform_passing_shift_indices].tolist())
+                        # print('Passing shift surf indices:', overlapping_surf_frags[transform_passing_shift_indices].tolist())
+                        print('Passing shift surf residue pairs:', forward_surface[transform_passing_shift_indices].tolist())
+
                     if transform_passing_shifts.shape[0] == 0:
                         print(len(optimal_shifts))
                         log.info('No transforms were found passing optimal shift criteria (took %f s)'
                                  % optimal_shifts_time)
                         continue
+                    exit(1)
                     number_passing_shifts = len(transform_passing_shifts)
                     blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)  # length is by column
                     if sym_entry.unit_cell:
@@ -773,7 +797,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external + 1] \
                         if sym_entry.is_internal_tx2 else blank_vector
                     stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1[:, None]))
-                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2[:, None]))
+                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
+                    # stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2[:, None]))
                     stacked_rot_mat1 = np.tile(rot_mat1, (number_passing_shifts, 1, 1))
                     stacked_rot_mat2 = np.tile(rot_mat2, (number_passing_shifts, 1, 1))
                     # stacked_set_mat1 = np.tile(set_mat1, (number_passing_shifts, 1, 1))
