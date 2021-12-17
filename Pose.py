@@ -15,9 +15,10 @@ from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
 from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
-    start_log, null_log, possible_symmetries, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
+    start_log, null_log, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
     split_interface_numbers
-from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatrices, SymEntry, flip_x_matrix
+from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatrices, SymEntry, flip_x_matrix, \
+    possible_symmetries
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues
 from classes.EulerLookup import EulerLookup
