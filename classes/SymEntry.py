@@ -360,7 +360,7 @@ class SymEntry:
         try:
             return self._internal_tx2
         except AttributeError:
-            if 't:<0,0,b>' in self.int_dof_group2:
+            if 't:<0,0,d>' in self.int_dof_group2:
                 self._internal_tx2 = True
             else:
                 self._internal_tx2 = False

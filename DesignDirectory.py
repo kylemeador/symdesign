@@ -1606,7 +1606,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         pdb = PDB.from_file(self.source, log=self.log)
         if self.design_symmetry:
-            oriented_pdb = pdb.orient(sym=self.design_symmetry, out_dir=self.orient_dir)
+            oriented_pdb = pdb.orient(sym=self.design_symmetry, out_dir=self.orient_dir, log=self.log)
             if to_design_directory:
                 path = self.assembly
             else:
@@ -1770,7 +1770,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         self.interface_residues = []  # update False to list or replace list and attempt addition of new residues
         for entity in self.pose.pdb.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
-            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, lazy=True)  # entities=False)
+            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, pose_format=False, entities=False)
             entity_oligomer.get_sasa()
             for residue_number in self.design_residues:
                 residue = entity_oligomer.residue(residue_number)

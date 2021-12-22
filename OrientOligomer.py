@@ -6,7 +6,7 @@ from PathUtils import orient_dir
 
 
 def orient_oligomer(pdb_path, sym, out_dir=os.getcwd(), orient_dir=orient_dir):
-    pdb = PDB(file=pdb_path)
+    pdb = PDB.from_file(pdb_path)
     oriented_pdb = pdb.orient(sym=sym, orient_dir=orient_dir)
     oriented_pdb.write(os.path.join(out_dir, os.path.basename(os.path.splitext(pdb_path)[0]) + '_oriented.pdb'))
 

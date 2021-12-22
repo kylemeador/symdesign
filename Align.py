@@ -1412,8 +1412,7 @@ class HelixFusion:
             if os.path.isfile(oriented_oligomer_filepath):
                 for i in range(6):
                     # Read in Moving PDB
-                    pdb_oligomer = PDB()
-                    pdb_oligomer.readfile(oriented_oligomer_filepath)
+                    pdb_oligomer = PDB.from_file(oriented_oligomer_filepath)
 
                     # Run Stride On Oligomer
                     if self.oligomer_term == "N" or self.oligomer_term == "C":
@@ -1600,7 +1599,7 @@ class HelixFusion:
 
                                 if distance_check_1.distance() <= 3:
                                     pdb_oligomer.apply(rot, tx)
-                                    pdb_oligomer.rename_chains(target_protein.chain_id_list)
+                                    pdb_oligomer.reorder_chains(exclude_chains=target_protein.chain_id_list)
 
                                     out_pdb = PDB.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
 

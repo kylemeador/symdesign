@@ -802,7 +802,8 @@ class SymmetricModel(Model):
         self.asu_equivalent_model_idx = None
         self.oligomeric_equivalent_model_idxs = {}
 
-        kwargs.update(self.asu.symmetry.copy())
+        if self.asu.space_group:
+            kwargs.update(self.asu.symmetry.copy())
         self.set_symmetry(**kwargs)
 
     @classmethod
@@ -925,7 +926,6 @@ class SymmetricModel(Model):
             return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
-        # if not expand_matrices:  # or not self.symmetry:
         if cryst1:
             uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1_string=cryst1)
 

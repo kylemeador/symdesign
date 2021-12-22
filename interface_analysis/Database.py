@@ -237,7 +237,8 @@ class FragmentDB:
 
     def get_monofrag_cluster_rep_dict(self):
         self.reps = {int(os.path.splitext(file)[0]):
-                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, lazy=True, log=None)
+                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, pose_format=False,
+                                   entitites=False, log=None)
                      for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
@@ -253,7 +254,7 @@ class FragmentDB:
 
                 for file in files:
                     ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), solve_discrepancy=False,
-                                                             lazy=True, log=None)
+                                                             pose_format=False, entities=False, log=None)
                     # ijk_cluster_rep_mapped_chain = file[file.find('mappedchain') + 12:file.find('mappedchain') + 13]
                     ijk_cluster_rep_partner_chain = file[file.find('partnerchain') + 13:file.find('partnerchain') + 14]
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type][k_cluster_type] = \

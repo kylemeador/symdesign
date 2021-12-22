@@ -195,8 +195,9 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             continue
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
-        # Todo ensure asu chain names are different
-        asu = get_contacting_asu(pdb1_copy, pdb2_copy)  # _pdb_1, asu_pdb_2
+        pdb1_name = os.path.basename(os.path.splitext(pdb1_path)[0])
+        pdb2_name = os.path.basename(os.path.splitext(pdb2_path)[0])
+        asu = get_contacting_asu(pdb1_copy, pdb2_copy, entity_names=[pdb1_name, pdb2_name])
         # log.debug('Grabbing asu')
         if not asu:  # _pdb_1 and not asu_pdb_2:
             log.info('\tNO Design ASU Found')
@@ -206,8 +207,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         exp_des_clash_time_start = time.time()
         asu.uc_dimensions = uc_dimensions
         asu.expand_matrices = sym_entry.expand_matrices
-        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.resulting_symmetry, ignore_clashes=True,
-                                           log=log)  # surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
+        symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
+        #                      surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
 
@@ -312,11 +313,17 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                 os.makedirs(matched_fragment_dir)
 
             # if write_frags:  # write out aligned cluster representative fragment
-            transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
-                rotation=rot_mat1, translation=internal_tx_param1,
-                rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
-            transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
-                                                          % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
+            fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.get_ijk())
+            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_fragment.transformation)
+            trnsfmd_ghost_fragment.transform(rotation=rot_mat1, translation=internal_tx_param1,
+                                             rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
+            trnsfmd_ghost_fragment.write(out_path=os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
+                                                               % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
+            # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
+            #     rotation=rot_mat1, translation=internal_tx_param1,
+            #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
+            # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
+            #                                               % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
 
             ghost_frag_central_freqs = \
                 dictionary_lookup(ijk_frag_db.info, int_ghost_frag.get_ijk()).central_residue_pair_freqs
@@ -596,13 +603,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     transformed_guide_coords1 = transform_coordinates(asym_guide_coords, rotation=set_mat1)
     transformed_guide_coords2 = transform_coordinates(asym_guide_coords, rotation=set_mat2)
     sup_rmsd, superposition_setting_1to2, sup_tx, _ = superposition3d(transformed_guide_coords2, transformed_guide_coords1)
-    superposition_setting_2to1 = np.linalg.inv(superposition_setting_1to2)
+    # superposition_setting_2to1 = np.linalg.inv(superposition_setting_1to2)
     # log.debug('sup_rmsd, superposition_setting_1to2, sup_tx: %s, %s, %s' % (sup_rmsd, superposition_setting_1to2, sup_tx))
 
     # these must be 2d array, thus the 2:3].T instead of 2. Using [:, 2][:, None] would also work
     zshift1 = set_mat1[:, 2:3].T if sym_entry.is_internal_tx1 else None
     zshift2 = set_mat2[:, 2:3].T if sym_entry.is_internal_tx2 else None
 
+    log.debug('zshift1 = %s, zshift2 = %s, max_z_value=%f' % (str(zshift1), str(zshift2), init_max_z_val))
     optimal_tx = \
         OptimalTx.from_dof(sym_entry.ext_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=init_max_z_val)
 
