@@ -195,9 +195,9 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             continue
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
-        pdb1_name = os.path.basename(os.path.splitext(pdb1_path)[0])
-        pdb2_name = os.path.basename(os.path.splitext(pdb2_path)[0])
-        asu = get_contacting_asu(pdb1_copy, pdb2_copy, entity_names=[pdb1_name, pdb2_name])
+        # pdb1_name = os.path.basename(os.path.splitext(pdb1_path)[0])
+        # pdb2_name = os.path.basename(os.path.splitext(pdb2_path)[0])
+        asu = get_contacting_asu(pdb1_copy, pdb2_copy, entity_names=[pdb1_copy.name, pdb2_copy.name])
         # log.debug('Grabbing asu')
         if not asu:  # _pdb_1 and not asu_pdb_2:
             log.info('\tNO Design ASU Found')
@@ -954,6 +954,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         # multiply by -1 to invert the translation
         full_ext_tx1 = full_ext_tx1[asu_is_viable]
         full_ext_tx2 = full_ext_tx2[asu_is_viable]
+    else:
+        full_uc_dimensions = None
     full_inv_rotation2 = full_inv_rotation2[asu_is_viable]
     viable_cluster_labels = cluster_labels[asu_is_viable]
     number_of_non_clashing_transforms = len(asu_is_viable)
@@ -1215,7 +1217,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         # Todo ensure asu chain names are different
-        asu = get_contacting_asu(pdb1_copy, pdb2_copy)  # _pdb_1, asu_pdb_2
+        asu = get_contacting_asu(pdb1_copy, pdb2_copy, entity_names=[pdb1_copy.name, pdb2_copy.name])
         # log.debug('Grabbing asu')
         if not asu:  # _pdb_1 and not asu_pdb_2:
             log.info('\tNO Design ASU Found')
@@ -1226,8 +1228,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         if sym_entry.unit_cell:
             asu.uc_dimensions = full_uc_dimensions[idx]
         asu.expand_matrices = sym_entry.expand_matrices
-        symmetric_material = Pose.from_asu(asu, symmetry=sym_entry.resulting_symmetry, ignore_clashes=True,
-                                           log=log)  # surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
+        symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
+        #                      surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
         exp_des_clash_time = time.time() - exp_des_clash_time_start
 
         # log.debug('Checked expand clash')
@@ -1264,8 +1266,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         cryst1_record = None
         # if optimal_ext_dof_shifts:  # 2, 3 dimensions
         if sym_entry.unit_cell:
-            asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
-            cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
+            asu = get_central_asu(asu, asu.uc_dimensions, sym_entry.dimension)
+            cryst1_record = generate_cryst1_record(asu.uc_dimensions, sym_entry.resulting_symmetry)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
@@ -1337,11 +1339,17 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                 os.makedirs(matched_fragment_dir)
 
             # if write_frags:  # write out aligned cluster representative fragment
-            transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
-                rotation=rot_mat1, translation=internal_tx_param1,
-                rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
-            transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
-                                                          % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
+            fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.get_ijk())
+            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_fragment.transformation)
+            trnsfmd_ghost_fragment.transform(**specific_transformation1)
+            trnsfmd_ghost_fragment.write(out_path=os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
+                                                               % (
+                                                               'i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
+            # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
+            #     rotation=rot_mat1, translation=internal_tx_param1,
+            #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
+            # transformed_ghost_fragment.write(os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
+            #                                               % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
             z_value = z_value_from_match_score(match)
             ghost_frag_central_freqs = \
                 dictionary_lookup(ijk_frag_db.info, int_ghost_frag.get_ijk()).central_residue_pair_freqs
@@ -1380,6 +1388,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                 n2 = n2 * 2
 
         # Write Out Docked Pose Info to docked_pose_info_file.txt
+        # specific_transformation2 = {'rotation': full_rotation2[idx], 'translation': full_int_tx2[idx],
+        #                             'rotation2': full_setting2[idx], 'translation2': full_ext_tx2[idx]}
         write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
                                unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
                                sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
