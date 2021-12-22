@@ -1,7 +1,7 @@
 """Add expression tags onto the termini of specific designs"""
 import csv
 # from itertools import chain as iter_chain  # combinations,
-
+import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
 import PathUtils as PUtils
@@ -22,16 +22,236 @@ ndeI_multicistronic_sequence = \
     'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
     'taatacgactcactataggggaattgtgagcggataacaattccccatcttagtatattagttaagtataagaaggagatatacat'  # ATG
 #    ^ Start of T7 promoter                   ^ last nucleotide of LacO         ^ S-D stop        ^ NdeI end
-#                       ^ start of LacO                                  ^ Shine Dalgarno start
+#                       ^^ start of LacO                                 ^ Shine Dalgarno start
 #                                                                                       ^ NdeI start
 ncoI_multicistronic_sequence = \
     'taatgcttaagtcgaacagaaagtaatcgtattgtacacggccgcataatcgaaat' \
     'taatacgactcactataggggaattgtgagcggataacaattccccatcttagtatattagttaagtataagaaggagatatacc'  # ATGG
 #    ^ Start of T7 promoter                   ^ last nucleotide of LacO         ^ S-D stop        ^ NcoI end
-#                       ^ start of LacO                                  ^ Shine Dalgarno start
+#                       ^^ start of LacO                                 ^ Shine Dalgarno start
 #                                                                                       ^ NcoI start
 default_multicistronic_sequence = ncoI_multicistronic_sequence
+# Retrieved from https://www.chem.ucalgary.ca/courses/351/Carey5th/Ch27/ch27-1-4-2.html 12/22/21
+isoelectric_point_table = \
+    {'A': {'c': 2.34, 'n': 9.69, 'sc': None, 'pi': 6.00},
+     'C': {'c': 1.96, 'n': 8.18, 'sc': None, 'pi': 5.07},
+     'D': {'c': 1.88, 'n': 9.60, 'sc': 3.65, 'pi': 2.77},
+     'E': {'c': 2.19, 'n': 9.67, 'sc': 4.25, 'pi': 3.22},
+     'F': {'c': 1.83, 'n': 9.13, 'sc': None, 'pi': 5.48},
+     'G': {'c': 2.34, 'n': 9.60, 'sc': None, 'pi': 5.97},
+     'H': {'c': 1.82, 'n': 9.17, 'sc': 6.00, 'pi': 7.59},
+     'I': {'c': 2.36, 'n': 9.60, 'sc': None, 'pi': 6.02},
+     'K': {'c': 2.18, 'n': 8.95, 'sc': 10.53, 'pi': 9.74},
+     'L': {'c': 2.36, 'n': 9.60, 'sc': None, 'pi': 5.98},
+     'M': {'c': 2.28, 'n': 9.21, 'sc': None, 'pi': 5.74},
+     'N': {'c': 2.02, 'n': 8.80, 'sc': None, 'pi': 5.41},
+     'P': {'c': 1.99, 'n': 10.60, 'sc': None, 'pi': 6.30},
+     'Q': {'c': 2.17, 'n': 9.13, 'sc': None, 'pi': 5.65},
+     'R': {'c': 2.17, 'n': 9.04, 'sc': 12.48, 'pi': 10.76},
+     'S': {'c': 2.21, 'n': 9.15, 'sc': None, 'pi': 5.68},
+     'T': {'c': 2.09, 'n': 9.10, 'sc': None, 'pi': 5.60},
+     'V': {'c': 2.32, 'n': 9.62, 'sc': None, 'pi': 5.96},
+     'W': {'c': 2.83, 'n': 9.39, 'sc': None, 'pi': 5.89},
+     'Y': {'c': 2.20, 'n': 9.11, 'sc': None, 'pi': 5.66}}
+# these values are for individual amino acids (benchling), subtract h20_mass to get weight in a polymer
+# aa_molecular_weights = \
+#     {'A': 89.09,
+#      'B': 132.65,
+#      'C': 121.15,
+#      'D': 133.1,
+#      'E': 147.13,
+#      'F': 165.19,
+#      'G': 75.07,
+#      'H': 155.16,
+#      'I': 131.17,
+#      'J': 131.2,
+#      'K': 146.19,
+#      'L': 131.17,
+#      'M': 149.21,
+#      'N': 132.12,
+#      'O': 255.31,
+#      'P': 115.13,
+#      'Q': 146.15,
+#      'R': 174.2,
+#      'S': 105.09,
+#      'T': 119.12,
+#      'U': 168.06,
+#      'V': 117.15,
+#      'W': 204.23,
+#      'X': 143.7,
+#      'Y': 181.19,
+#      'Z': 146.75}
+aa_molecular_weights = np.array(
+    [89.09,  # A
+     121.15,  # C
+     133.1,  # D
+     147.13,  # E
+     165.19,  # F
+     75.07,  # G
+     155.16,  # H
+     131.17,  # I
+     146.19,  # K
+     131.17,  # L
+     149.21,  # M
+     132.12,  # N
+     115.13,  # P
+     146.15,  # Q
+     174.2,  # R
+     105.09,  # S
+     119.12,  # T
+     117.15,  # V
+     204.23,  # W
+     181.19])  # y
+# these values are for amino acids in a polypeptide. Add the weight of one water molecule to get the correct mass
+# average used here  monoisotopic    average isotopic
+h2o_mass = 18.0152
+# aa_polymer_molecular_weights = \
+#     {'A': 71.0788,   #   71.03711  	    71.0788
+#      'B': 114.6348,  # calculated from individual values above
+#      'C': 103.1388,  #   103.00919  	103.1388
+#      'D': 115.0886,  # 	 115.02694  	115.0886
+#      'E': 129.1155,  # 	 129.04259  	129.1155
+#      'F': 147.1766,  # 	 147.06841  	147.1766
+#      'G': 57.0519,   # 	 57.02146  	    57.0519
+#      'H': 137.1411,  # 	 137.05891  	137.1411
+#      'I': 113.1594,  # 	 113.08406  	113.1594
+#      'J': 113.1848,  # calculated from individual values above
+#      'K': 128.1741,  # 	 128.09496  	128.1741
+#      'L': 113.1594,  # 	 113.08406  	113.1594
+#      'M': 131.1926,  # 	 131.04049  	131.1926
+#      'N': 114.1038,  #   114.04293  	114.1038
+#      'O': 237.3018,  #   237.147727  	237.3018
+#      'P': 97.1167,   # 	 97.05276  	    97.1167
+#      'Q': 128.1307,  # 	 128.05858  	128.1307
+#      'R': 156.1875,  # 	 156.10111  	156.1875
+#      'S': 87.0782,   # 	 87.03203  	    87.0782
+#      'T': 101.1051,  # 	 101.04768  	101.1051
+#      'U': 150.0388,  #   150.953636  	150.0388
+#      'V': 99.1326,   #   99.06841  	    99.1326
+#      'W': 186.2132,  # 	 186.07931  	186.2132
+#      'X': 125.6848,  # calculated from individual values above
+#      'Y': 163.1760,  #   163.06333  	163.1760
+#      'Z': 128.7348}  # calculated from individual values above
 
+# aa 1 letter alphabetical order
+# average used here  monoisotopic    average isotopic
+aa_polymer_molecular_weights = np.array(
+    [71.0788,  # A  71.03711    71.0788
+     103.1388,  # C  103.00919   103.1388
+     115.0886,  # D  115.02694   115.0886
+     129.1155,  # E  129.04259   129.1155
+     147.1766,  # F  147.06841   147.1766
+     57.0519,   # G  57.02146    57.0519
+     137.1411,  # H  137.05891   137.1411
+     113.1594,  # I  113.08406   113.1594
+     128.1741,  # K  128.09496   128.1741
+     113.1594,  # L  113.08406   113.1594
+     131.1926,  # M  131.04049   131.1926
+     114.1038,  # N  114.04293   114.1038
+     97.1167,   # P  97.05276    97.1167
+     128.1307,  # Q  128.05858   128.1307
+     156.1875,  # R  156.10111   156.1875
+     87.0782,   # S  87.03203    87.0782
+     101.1051,  # T  101.04768   101.1051
+     99.1326,   # V  99.06841    99.1326
+     186.2132,  # W  186.07931   186.2132
+     163.1760])  # Y  163.06333   163.1760
+
+
+def calculate_protein_molecular_weight(sequence):
+    sequence = sequence.upper()
+    # weight = 0.
+    # for aa in sequence:
+    #     weight += aa_polymer_molecular_weights[aa]
+    #
+    # return weight + h2o_mass
+
+    # use this to input all sequences to SequenceProfile. This will form the basis for all sequence handling by array
+    seq_index = [instability_order.index(aa) for aa in sequence]
+    return aa_polymer_molecular_weights[seq_index].sum() + h2o_mass
+
+
+#  biojava version
+# order = ['W', 'C', 'M', 'H', 'Y', 'F', 'Q', 'N', 'I', 'R', 'D', 'P', 'T', 'K', 'E', 'V', 'S', 'G', 'A', 'L']
+# instability_array = \
+#     [[1., 1., 24.68, 24.68, 1., 1., 1., 13.34, 1., 1., 1., 1., -14.03, 1., 1., -7.49, 1., -9.37, -14.03, 13.34],
+#      [24.68, 1., 33.6, 33.6, 1., 1., -6.54, 1., 1., 1., 20.26, 20.26, 33.6, 1., 1., -6.54, 1., 1., 1., 20.26],
+#      [1., 1., -1.88, 58.28, 24.68, 1., -6.54, 1., 1., -6.54, 1., 44.94, -1.88, 1., 1., 1., 44.94, 1., 13.34, 1.],
+#      [-1.88, 1., 1., 1., 44.94, -9.37, 1., 24.68, 44.94, 1., 1., -1.88, -6.54, 24.68, 1., 1., 1., -9.37, 1., 1.],
+#      [-9.37, 1., 44.94, 13.34, 13.34, 1., 1., 1., 1., -15.91, 24.68, 13.34, -7.49, 1., -6.54, 1., 1., -7.49, 24.68, 1.],
+#      [1., 1., 1., 1., 33.6, 1., 1., 1., 1., 1., 13.34, 20.26, 1., -14.03, 1., 1., 1., 1., 1., 1.],
+#      [1., -6.54, 1., 1., -6.54, -6.54, 20.26, 1., 1., 1., 20.26, 20.26, 1., 1., 20.26, -6.54, 44.94, 1., 1., 1.],
+#      [-9.37, -1.88, 1., 1., 1., -14.03, -6.54, 1., 44.94, 1., 1., -1.88, -7.49, 24.68, 1., 1., 1., -14.03, 1., 1.],
+#      [1., 1., 1., 13.34, 1., 1., 1., 1., 1., 1., 1., -1.88, 1., -7.49, 44.94, -7.49, 1., 1., 1., 20.26],
+#      [58.28, 1., 1., 20.26, -6.54, 1., 20.26, 13.34, 1., 58.28, 1., 20.26, 1., 1., 1., 1., 44.94, -7.49, 1., 1.],
+#      [1., 1., 1., 1., 1., -6.54, 1., 1., 1., -6.54, 1., 1., -14.03, -7.49, 1., 1., 20.26, 1., 1., 1.],
+#      [-1.88, -6.54, -6.54, 1., 1., 20.26, 20.26, 1., 1., -6.54, -6.54, 20.26, 1., 1., 18.38, 20.26, 20.26, 1., 20.26, 1.],
+#      [-14.03, 1., 1., 1., 1., 13.34, -6.54, -14.03, 1., 1., 1., 1., 1., 1., 20.26, 1., 1., -7.49, 1., 1.],
+#      [1., 1., 33.6, 1., 1., 1., 24.68, 1., -7.49, 33.6, 1., -6.54, 1., 1., 1., -7.49, 1., -7.49, 1., -7.49],
+#      [-14.03, 44.94, 1., -6.54, 1., 1., 20.26, 1., 20.26, 1., 20.26, 20.26, 1., 1., 33.6, 1., 20.26, 1., 1., 1.],
+#      [1., 1., 1., 1., -6.54, 1., 1., 1., 1., 1., -14.03, 20.26, -7.49, -1.88, 1., 1., 1., -7.49, 1., 1.],
+#      [1., 33.6, 1., 1., 1., 1., 20.26, 1., 1., 20.26, 1., 44.94, 1., 1., 20.26, 1., 20.26, 1., 1., 1.],
+#      [13.34, 1., 1., 1., -7.49, 1., 1., -7.49, -7.49, 1., 1., 1., -7.49, -7.49, -6.54, 1., 1., 13.34, -7.49, 1.],
+#      [1., 44.94, 1., -7.49, 1., 1., 1., 1., 1., 1., -7.49, 20.26, 1., 1., 1., 1., 1., 1., 1., 1.],
+#      [24.68, 1., 1., 1., 1., 1., 33.6, 1., 1., 20.26, 1., 20.26, 1., -7.49, 1., 1., 1., 1., 1., 1.]]
+# 1. 24.68 1. -14.03 1. 13.34 -1.88 <- W test when reordered as below
+
+# derived from
+# Guruprasad, K., Reddy, B.V.B. and Pandit, M.W. (1990)
+# Correlation between stability of a protein and its dipeptide composition: a novel approach for predicting in vivo
+# stability of a protein from its primary sequence.
+# Protein Eng. 4,155-161. Table III.
+# KM reorganization according to aa 1 letter alphabetical
+instability_order = ['A', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'K', 'L', 'M', 'N', 'P', 'Q', 'R', 'S', 'T', 'V', 'W', 'Y']
+instability_array = np.array(
+    [[1., 44.94, -7.49, 1., 1., 1., -7.49, 1., 1., 1., 1., 1., 20.26, 1., 1., 1., 1., 1., 1., 1.], 
+     [1., 1., 20.26, 1., 1., 1., 33.6, 1., 1., 20.26, 33.6, 1., 20.26, -6.54, 1., 1., 33.6, -6.54, 24.68, 1.], 
+     [1., 1., 1., 1., -6.54, 1., 1., 1., -7.49, 1., 1., 1., 1., 1., -6.54, 20.26, -14.03, 1., 1., 1.], 
+     [1., 44.94, 20.26, 33.6, 1., 1., -6.54, 20.26, 1., 1., 1., 1., 20.26, 20.26, 1., 20.26, 1., 1., -14.03, 1.], 
+     [1., 1., 13.34, 1., 1., 1., 1., 1., -14.03, 1., 1., 1., 20.26, 1., 1., 1., 1., 1., 1., 33.6], 
+     [-7.49, 1., 1., -6.54, 1., 13.34, 1., -7.49, -7.49, 1., 1., -7.49, 1., 1., 1., 1., -7.49, 1., 13.34, -7.49], 
+     [1., 1., 1., 1., -9.37, -9.37, 1., 44.94, 24.68, 1., 1., 24.68, -1.88, 1., 1., 1., -6.54, 1., -1.88, 44.94], 
+     [1., 1., 1., 44.94, 1., 1., 13.34, 1., -7.49, 20.26, 1., 1., -1.88, 1., 1., 1., 1., -7.49, 1., 1.], 
+     [1., 1., 1., 1., 1., -7.49, 1., -7.49, 1., -7.49, 33.6, 1., -6.54, 24.68, 33.6, 1., 1., -7.49, 1., 1.], 
+     [1., 1., 1., 1., 1., 1., 1., 1., -7.49, 1., 1., 1., 20.26, 33.6, 20.26, 1., 1., 1., 24.68, 1.], 
+     [13.34, 1., 1., 1., 1., 1., 58.28, 1., 1., 1., -1.88, 1., 44.94, -6.54, -6.54, 44.94, -1.88, 1., 1., 24.68], 
+     [1., -1.88, 1., 1., -14.03, -14.03, 1., 44.94, 24.68, 1., 1., 1., -1.88, -6.54, 1., 1., -7.49, 1., -9.37, 1.], 
+     [20.26, -6.54, -6.54, 18.38, 20.26, 1., 1., 1., 1., 1., -6.54, 1., 20.26, 20.26, -6.54, 20.26, 1., 20.26, -1.88, 1.], 
+     [1., -6.54, 20.26, 20.26, -6.54, 1., 1., 1., 1., 1., 1., 1., 20.26, 20.26, 1., 44.94, 1., -6.54, 1., -6.54], 
+     [1., 1., 1., 1., 1., -7.49, 20.26, 1., 1., 1., 1., 13.34, 20.26, 20.26, 58.28, 44.94, 1., 1., 58.28, -6.54], 
+     [1., 33.6, 1., 20.26, 1., 1., 1., 1., 1., 1., 1., 1., 44.94, 20.26, 20.26, 20.26, 1., 1., 1., 1.], 
+     [1., 1., 1., 20.26, 13.34, -7.49, 1., 1., 1., 1., 1., -14.03, 1., -6.54, 1., 1., 1., 1., -14.03, 1.],
+     [1., 1., -14.03, 1., 1., -7.49, 1., 1., -1.88, 1., 1., 1., 20.26, 1., 1., 1., -7.49, 1., 1., -6.54], 
+     [-14.03, 1., 1., 1., 1., -9.37, 24.68, 1., 1., 13.34, 24.68, 13.34, 1., 1., 1., 1., -14.03, -7.49, 1., 1.], 
+     [24.68, 1., 24.68, -6.54, 1., -7.49, 13.34, 1., 1., 1., 44.94, 1., 13.34, 1., -15.91, 1., -7.49, 1., -9.37, 13.34]])
+
+
+def calculate_instability_index(sequence):
+    sequence = sequence.upper()
+    # dipeptide_stability_sum = 0.
+    # for idx, aa in enumerate(sequence[:-2], 1):  # only want to iterate until the second to last amino acid
+    #     # get the current amino acid and the next amino acid
+    #     dipeptide_stability_sum += instability_array[instability_order.index(aa)][instability_order.index(sequence[idx])]
+    #
+    # return dipeptide_stability_sum
+
+    # index1, index2 = [], []
+    # for idx, aa in enumerate(sequence[:-2], 1):  # only want to iterate until the second to last amino acid
+    #     index1.append(instability_order.index(aa))
+    #     index2.append(instability_order.index(sequence[idx]))
+    # return instability_array[index1, index2].sum()
+
+    # index_pairs = list(zip(*((instability_order.index(aa), instability_order.index(sequence[idx])) for idx, aa in
+    #                          enumerate(sequence[:-1], 1))))
+    # return instability_array[index_pairs].sum()
+
+    # use this to input all sequences to SequenceProfile. This will form the basis for all sequence handling by array
+    seq_index = [instability_order.index(aa) for aa in sequence]
+    return instability_array[seq_index[:-1], seq_index[1:]].sum()
+
+
+# E(Prot) = Numb(Tyr) * Ext(Tyr) + Numb(Trp) * Ext(Trp) + Numb(Cystine) * Ext(Cystine)
+# where(for proteins in water measured at 280 nm): Ext(Tyr) = 1490, Ext(Trp) = 5500, Ext(Cystine) = 125
 
 def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     """Take a pose and find expression tags from each PDB reference asking user for input on tag choice
