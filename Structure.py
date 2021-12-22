@@ -73,9 +73,9 @@ origin = np.array([0, 0, 0])
 
 class StructureBase:
     """Collect extra keyword arguments such as:
-        chains, entities, seqres, multimodel, lazy, solve_discrepancy
+        chains, entities, seqres, multimodel, pose_format, solve_discrepancy
     """
-    def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, lazy=None, solve_discrepancy=None,
+    def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, solve_discrepancy=None,
                  sequence=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
                  query_by_sequence=True, entity_names=None, **kwargs):
         super().__init__(**kwargs)
@@ -361,7 +361,7 @@ class Structure(StructureBase):
         """Returns a map of the Residues for each Coord in the Structure
 
         Returns:
-            (list[Residue]]): In order of the Residue which owns the corresponding index in .coords attribute
+            (list[Residue]): In order of the Residue which owns the corresponding index in .coords attribute
         """
         try:
             return self._coords_residue_index[self.atom_indices].tolist()
@@ -372,15 +372,15 @@ class Structure(StructureBase):
 
     @coords_indexed_residues.setter
     def coords_indexed_residues(self, residues):
-        """Create a map of the coordinate indices to the Residue and Residue atom index"""
+        """Create a map of the coordinate indices to the Residue"""
         self._coords_residue_index = np.array(residues)
 
     @property
     def coords_indexed_residue_atoms(self):
-        """Returns a map of the Residues and Residue atom_indices for each Coord in the Structure
+        """Returns a map of the Residue atom_indices for each Coord in the Structure
 
         Returns:
-            (list[int]): Indexed of the Atom position in the Residue for the index of the .coords attribute
+            (list[int]): Index of the Atom position in the Residue for the index of the .coords attribute
         """
         try:
             return self._coords_indexed_residue_atoms[self.atom_indices].tolist()
@@ -1142,7 +1142,7 @@ class Structure(StructureBase):
         new_coords = np.matmul(self.coords, np.transpose(rotation))
         self.replace_coords(new_coords)
 
-    def transform(self, rotation=None, translation=None):
+    def transform(self, rotation=None, translation=None, rotation2=None, translation2=None):
         if rotation is not None:  # required for np.ndarray or None checks
             new_coords = np.matmul(self.coords, np.transpose(rotation))
         else:
@@ -1150,6 +1150,12 @@ class Structure(StructureBase):
 
         if translation is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation)
+
+        if rotation2 is not None:  # required for np.ndarray or None checks
+            new_coords = np.matmul(new_coords, np.transpose(rotation2))
+
+        if translation2 is not None:  # required for np.ndarray or None checks
+            new_coords += np.array(translation2)
         self.replace_coords(new_coords)
 
     def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
@@ -3665,8 +3671,7 @@ class GhostFragment:
         """Return the fragment information the GhostFragment instance is aligned to
         Returns:
             (tuple[str,int]): aligned chain, aligned residue_number"""
-        return self.aligned_fragment.central_residue.chain, self.aligned_fragment.central_residue.number
-        # return self.aligned_surf_frag_central_res_tup
+        return self.aligned_fragment.central_residue.chain, self.aligned_fragment.residue_number
 
     def get_i_type(self):
         return self.i_type
@@ -3706,7 +3711,7 @@ class MonoFragment:
             frag_ca_coords = np.array([residue.ca_coords for residue in residues])
             min_rmsd = float('inf')
             for cluster_type, cluster_rep in fragment_representatives.items():
-                rmsd, rot, tx, rescale = superposition3d(frag_ca_coords, cluster_rep.get_ca_coords())
+                rmsd, rot, tx, _ = superposition3d(frag_ca_coords, cluster_rep.get_ca_coords())
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     self.i_type = cluster_type
                     min_rmsd, self.rotation, self.translation = rmsd, rot, tx
@@ -4106,7 +4111,7 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
         allow_rescale=False (bool): Attempt to rescale the mobile point cloud in addition to translation/rotation?
         report_quaternion=False (bool): Whether to report the rotation angle and axis in typical quaternion fashion
     Returns:
-        (tuple[float,numpy.ndarray,numpy.ndarray,float]): rmsd, rotation_matrix/quaternion_matrix, translation_vector,
+        (tuple[float, numpy.ndarray, numpy.ndarray, float]): rmsd, rotation/quaternion_matrix, translation_vector,
         scale_factor
     """
     # convert input lists to numpy arrays

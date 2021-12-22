@@ -29,6 +29,20 @@ valid_subunit_number = {'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D
                         'T': 12, 'O': 24, 'I': 60}
 
 
+def multicomponent_by_number(number):
+    return [multiplier * number for multiplier in range(1, 10)]
+
+
+multicomponent_valid_subunit_number = \
+    {sym: multicomponent_by_number(copy_number) for sym, copy_number in valid_subunit_number.items()}
+# multicomponent_valid_subunit_number = \
+#     {'C2': multicomponent_by_number(2), 'C3': multicomponent_by_number(3), 'C4': multicomponent_by_number(4),
+#      'C5': multicomponent_by_number(5), 'C6': multicomponent_by_number(6), 'D2': multicomponent_by_number(4),
+#      'D3': multicomponent_by_number(6), 'D4': multicomponent_by_number(8), 'D5': multicomponent_by_number(10),
+#      'D6': multicomponent_by_number(12), 'T': multicomponent_by_number(12), 'O': multicomponent_by_number(24),
+#      'I': multicomponent_by_number(60)}
+
+
 def generate_cryst1_record(dimensions, space_group):
     """Format the CRYST1 record from specified unit cell dimensions and space group for a .pdb file
 

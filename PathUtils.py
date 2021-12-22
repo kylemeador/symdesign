@@ -22,7 +22,20 @@ select_sequences = 'select_sequences'
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
-rosetta = os.environ.get('ROSETTA')
+rosetta_str = 'ROSETTA'
+string_ops = [str.upper, str.lower, str.title]
+rosetta = None
+idx = 0
+search_strings = []
+while idx < 3 and not rosetta:
+    search_strings.append(string_ops[idx](rosetta_str))
+    rosetta = os.environ.get(search_strings[idx])
+    idx += 1
+
+if not rosetta:
+    print('No environmental variable specifying Rosetta software location found at %s. Rosetta inaccessible'
+          % ', '.join(search_strings))
+
 nstruct = 20  # Todo back to 50?
 stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',

@@ -18,7 +18,7 @@ __author__ = "Joshua Laniado and Todd O. Yeates"
 __copyright__ = "Copyright 2020, Nanohedra"
 __version__ = "1.0"
 
-if __name__ == "__main__":
+if __name__ == '__main__':
     start_time = time.time()
     if len(sys.argv) > 1 and sys.argv[1] == '-query':
         query_mode(sys.argv)
@@ -83,7 +83,7 @@ if __name__ == "__main__":
                 oligomer_input = 'Oligomer 1 Input'
                 master_logger.info('ORIENTING OLIGOMER 1 INPUT PDB FILE(S)\n')
 
-            oriented_pdb1_outdir = os.path.join(master_outdir, "%s_oriented" % sym_entry.group1_sym)
+            oriented_pdb1_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group1_sym)
             if not os.path.exists(oriented_pdb1_outdir):
                 os.makedirs(oriented_pdb1_outdir)
             pdb1_oriented_filepaths = [orient_pdb_file(pdb1_path, log=master_logger, sym=sym_entry.group1_sym,

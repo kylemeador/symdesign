@@ -54,8 +54,8 @@ logger = start_log(name=__name__)
 #             atom_index += 1
 #
 #         transformed_pdb.set_all_atoms(transformed_atoms)
-#         transformed_pdb.set_chain_id_list(pdb.get_chain_id_list())
-#         transformed_pdb.set_filepath(pdb.get_filepath())
+#         transformed_pdb.chain_id_list = pdb.chain_id_list
+#         transformed_pdb.filepath = pdb.filepath
 #
 #         return transformed_pdb
 #
@@ -81,20 +81,20 @@ def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
     oriented_file_path = os.path.join(out_dir, pdb_filename)
     if os.path.exists(oriented_file_path):
         return oriented_file_path
-    elif sym in valid_subunit_number:
-        pdb = PDB.from_file(pdb_path, log=None, lazy=True, entities=False)
+    # elif sym in valid_subunit_number:
+    else:
+        pdb = PDB.from_file(pdb_path, log=None, pose_format=False, entities=False)
         try:
-            pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True)
+            oriented_file_path = pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True, log=log)
             log.info('Oriented: %s' % pdb_filename)
             return oriented_file_path
         except (ValueError, RuntimeError) as err:
             log.error(str(err))
-        return
-    else:
-        log.error('The specified symmetry is not a valid orient input!')
+    # else:
+    #     log.error('The specified symmetry is not a valid orient input!')
 
 
-def get_contacting_asu(pdb1, pdb2, contact_dist=8):
+def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
     max_contact_count = 0
     max_contact_chain1, max_contact_chain2 = None, None
     for chain1 in pdb1.chains:
@@ -107,9 +107,10 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8):
                 max_contact_chain1, max_contact_chain2 = chain1, chain2
 
     if max_contact_count > 0:  # and max_contact_chain1 is not None and max_contact_chain2 is not None:
-        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', log=None, lazy=True)  # add logger when set up
+        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', log=None, pose_format=False,
+                               entities=True, **kwargs)  # add logger when set up
     else:
-        return None
+        return
 
 
 def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
@@ -119,12 +120,12 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
     return copies of these translated fragments
 
     Returns:
-        (tuple): transformed ghost fragments, transformed surface fragments, transformed ghost guide corrdinates,
-        transformed surface guide coordinates, number of interface residues on pdb1 where fragments are possible, number
-        on pdb2 where fragments are possible
+        (tuple[list[tuple], list[tuple]]): interface chain/residues on pdb1, interface chain/residues on pdb2
     """
     pdb1_cb_indices = pdb1.cb_indices
     pdb2_cb_indices = pdb2.cb_indices
+    pdb1_coords_indexed_residues = pdb1.coords_indexed_residues
+    pdb2_coords_indexed_residues = pdb2.coords_indexed_residues
 
     pdb1_cb_kdtree = BallTree(pdb1.get_cb_coords())
 
@@ -132,17 +133,21 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
     query = pdb1_cb_kdtree.query_radius(pdb2.get_cb_coords(), cb_distance)
 
     # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
+    # interacting_pairs = [(pdb1_residue.number, pdb1_residue.chain, pdb2_residue.number, pdb2_residue.chain)
+    #                      for pdb2_query_index, pdb1_query in enumerate(query) for pdb1_query_index in pdb1_query]
     interacting_pairs = []
     for pdb2_query_index in range(len(query)):
         if query[pdb2_query_index].size > 0:
-            pdb2_atom = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]]
+            # pdb2_atom = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]]
+            pdb2_residue = pdb2_coords_indexed_residues[pdb2_cb_indices[pdb2_query_index]]
             # pdb2_cb_chain_id = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].chain
             for pdb1_query_index in query[pdb2_query_index]:
-                pdb1_atom = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]]
+                # pdb1_atom = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]]
+                pdb1_residue = pdb1_coords_indexed_residues[pdb1_cb_indices[pdb1_query_index]]
                 # pdb1_cb_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
                 # pdb1_cb_chain_id = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].chain
-                interacting_pairs.append((pdb1_atom.residue_number, pdb1_atom.chain, pdb2_atom.residue_number,
-                                          pdb2_atom.chain))
+                interacting_pairs.append((pdb1_residue.number, pdb1_residue.chain, pdb2_residue.number,
+                                          pdb2_residue.chain))
 
     pdb1_unique_chain_central_resnums, pdb2_unique_chain_central_resnums = [], []
     for pdb1_central_res_num, pdb1_central_chain_id, pdb2_central_res_num, pdb2_central_chain_id in interacting_pairs:

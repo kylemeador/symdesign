@@ -141,7 +141,7 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
         out_info_file.write("Unique Mono Fragments at Interface: %d\n" % unique_total_interface_monofrags_count)
         out_info_file.write("Interface Matched (%s): %f\n\n" % ("%", percent_of_interface_covered * 100))
 
-        out_info_file.write("ROT/DEGEN MATRIX PDB1: %s\n" % str(rot_mat1))
+        out_info_file.write("ROT/DEGEN MATRIX PDB1: %s\n" % str(rot_mat1.tolist()))
         if representative_int_dof_tx_param_1 is not None:
             int_dof_tx_vec_1 = representative_int_dof_tx_param_1
         else:
@@ -154,7 +154,7 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
             ref_frame_tx_vec_1 = representative_ext_dof_tx_params_1
         out_info_file.write("REFERENCE FRAME Tx PDB1: %s\n\n" % str(ref_frame_tx_vec_1))
 
-        out_info_file.write("ROT/DEGEN MATRIX PDB2: %s\n" % str(rot_mat2))
+        out_info_file.write("ROT/DEGEN MATRIX PDB2: %s\n" % str(rot_mat2.tolist()))
         if representative_int_dof_tx_param_2 is not None:
             int_dof_tx_vec_2 = representative_int_dof_tx_param_2
         else:
