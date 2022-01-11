@@ -281,9 +281,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                                               PUtils.design_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
-                if not self._pose_transformation:
+                if not self.pose_transformation:
                     self.load_pose()  # load the source pdb to find the entity_names
                     self.entity_names = [entity.name for entity in self.pose.entities]
+                    # need to extract the _pose_transformation...
 
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
@@ -576,7 +577,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      2: {...}}
         """
         if not self._pose_transformation:
-            # self.retrieve_pose_metrics_from_file()
+            try:
+                self.retrieve_pose_metrics_from_file()
+            except FileNotFoundError:
+                # TODO generate transformation parameters from input?
+                raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
             # self.info['pose_transformation'] = self._pose_transformation
             # self.log.debug('Using transformation parameters:\n\t%s'
             #                % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
@@ -734,9 +739,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['sym_entry'] = self.sym_entry
                 self.info['oligomer_names'] = self.oligomer_names
                 self.retrieve_pose_metrics_from_file()
-                self.info['pose_transformation'] = self._pose_transformation
+                self.info['pose_transformation'] = self.pose_transformation
                 self.log.debug('Using transformation parameters:\n\t%s'
-                               % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
+                               % '\n\t'.join(pretty_format_table(self.pose_transformation.items())))
                 # self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
                 self.info['entity_names'] = self.entity_names  # Todo remove after T33
                 # self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
