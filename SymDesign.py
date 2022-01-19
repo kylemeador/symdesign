@@ -355,37 +355,41 @@ def format_additional_flags(flags):
     Returns:
         (dict)
     """
-    formatted_flags = []
-    for flag in flags:
-        if flag[0] == '-' and flag[1] != '-':
-            formatted_flags.append(flag)
-        elif flag[0] == '-' and flag[1] == '-':
-            formatted_flags.append(flag[1:])
-        elif flag[0] != '-':
-            formatted_flags.append(flag)  # '-%s' % flag)
-
     # combines ['-symmetry', 'O', '-nanohedra_output', True', ...]
     combined_extra_flags = []
-    for idx, flag in enumerate(formatted_flags):
+    for idx, flag in enumerate(flags):
+        if len(flag) > 1 and flag[0] == '-' and flag[1] == '-':  # format flags by removing extra '-'
+            flags[idx] = flag[1:]
+
         if flag.startswith('-'):  # this is a real flag
             extra_arguments = ''
+            # iterate over arguments after the flag
             increment = 1
-            while (idx + increment) != len(formatted_flags) and not formatted_flags[idx + 1].startswith('-'):  # an argument
-                extra_arguments += ' %s' % formatted_flags[idx + increment]
+            while (idx + increment) != len(flags) and not flags[idx + 1].startswith('-'):  # we have an argument
+                extra_arguments += ' %s' % flags[idx + increment]
                 increment += 1
-            combined_extra_flags.append('%s%s' % (flag, extra_arguments))  # extra_flags[idx + 1]))
+            # remove - from the front and add all arguments to single flag argument list item
+            combined_extra_flags.append('%s%s' % (flag.lstrip('-'), extra_arguments))  # extra_flags[idx + 1]))
     # logger.debug('Combined flags: %s' % combined_extra_flags)
 
-    # parses ['-nanohedra_output True', ...]
+    # parse the combined flags ['-nanohedra_output True', ...]
     final_flags = {}
     for flag_arg in combined_extra_flags:
         if ' ' in flag_arg:
-            flag = flag_arg.split()[0].lstrip('-')
-            final_flags[flag] = flag_arg.split()[1]
-            if final_flags[flag].title() in ['None', 'True', 'False']:
-                final_flags[flag] = eval(final_flags[flag].title())
-        else:  # remove - from the front and add to the dictionary
-            final_flags[flag_arg[1:]] = None
+            flag, *args = flag_arg.split()[0]
+            # flag = flag.lstrip('-')
+            # final_flags[flag] = flag_arg.split()[1]
+            if len(args) > 1:
+                final_flags[flag] = args
+            elif args.lower() == 'none':
+                # final_flags[flag] = eval(final_flags[flag].title())
+                final_flags[flag] = None
+            elif args.lower() == 'true':
+                final_flags[flag] = True
+            elif args.lower() == 'false':
+                final_flags[flag] = False
+        else:  # add to the dictionary with default argument of True
+            final_flags[flag_arg] = True
 
     return final_flags
 
@@ -915,6 +919,10 @@ if __name__ == '__main__':
     #                            help='Which type of modification?\nChoose from consolidate_degen or pose_map')
     # ---------------------------------------------------
     parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
+
+    # -----------------------------------------------------------------------------------------------------------------
+    # Process flags
+    # -----------------------------------------------------------------------------------------------------------------
     # these might be helpful for intermixing arguments before/after subparsers... (Modules)
     # parser.parse_intermixed_args(args=None, namespace=None)
     # parser.parse_known_intermixed_args
@@ -925,6 +933,15 @@ if __name__ == '__main__':
     #     args, additional_args = parser.parse_known_args(additional_args, args)
     #     unknown_args = additional_args
     # args, additional_args = parser.parse_known_args(additional_args, args)
+
+    default_flags = Flags.return_default_flags(args.module)
+    formatted_flags = format_additional_flags(additional_args)
+    default_flags.update(formatted_flags)
+
+    # Add additional program flags to queried_flags
+    queried_flags = vars(args)
+    queried_flags.update(default_flags)
+    queried_flags.update(Flags.process_residue_selector_flags(queried_flags))
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
@@ -943,7 +960,7 @@ if __name__ == '__main__':
         logger = SDUtils.start_log(name=os.path.basename(__file__).split('.')[0], propagate=False)
         # All Designs will log to specific file with level info unless -skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
-    # Display the program guide
+    # Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
     if args.guide or not args.module:
         if not args.module:
@@ -981,23 +998,8 @@ if __name__ == '__main__':
                            ex_path('DataFrame.csv'), ex_path('design.paths')))
         exit()
     # -----------------------------------------------------------------------------------------------------------------
-    # Process additional flags
+    # Process arguments for program initialization
     # -----------------------------------------------------------------------------------------------------------------
-    default_flags = Flags.return_default_flags(args.module)
-    if additional_args:
-        formatted_flags = format_additional_flags(additional_args)
-    else:
-        formatted_flags = dict()
-        extra_flags = None
-        # Todo remove/modify
-        #  This serves to pass additional arguments to NanohedraWrap. it does so through a list of args. Not very
-        #  compatible with the above parsing
-    default_flags.update(formatted_flags)
-
-    # Add additional program flags to queried_flags
-    queried_flags = vars(args)
-    queried_flags.update(default_flags)
-    queried_flags.update(Flags.process_residue_selector_flags(queried_flags))
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags.get('sym_entry'):
         queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
@@ -1011,7 +1013,6 @@ if __name__ == '__main__':
             raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
                                       '\n\t%s\nCorrect your flags and try again'
                                       % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
-
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
                        'interface_metrics', 'optimize_designs', 'custom_script', 'rename_chains', 'status',
@@ -1104,7 +1105,7 @@ if __name__ == '__main__':
             logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
 
         if all_poses:  # TODO fetch a state from files that have already been SymDesigned...
-            if all_poses[0].count('/') == 0:  # assume that we have received pose-IDs and process accordingly
+            if all_poses[0].count(os.sep) == 0:  # assume that we have received pose-IDs and process accordingly
                 if nano:
                     queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(args.directory)
                 design_directories = [DesignDirectory.from_pose_id(pose, nano=nano, root=args.directory,
