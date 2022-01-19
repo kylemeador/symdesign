@@ -129,7 +129,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.sym_entry = kwargs.get('sym_entry', None)
         self.uc_dimensions = None
         self.expand_matrices = None
-        self._pose_transformation = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
+        # self._pose_transformation = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
         self.cryst_record = None
         # Design flags
         self.command_only = kwargs.get('command_only', False)
@@ -576,17 +576,26 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                          'translation2': numpy.ndarray},
                      2: {...}}
         """
-        if not self._pose_transformation:
+        # if self._pose_transformation:
+        try:
+            return self._pose_transformation
+        except AttributeError:
+        # else:
             try:
-                self.retrieve_pose_metrics_from_file()
+                self.retrieve_pose_metrics_from_file()  # creates self._pose_transformation attribute
             except FileNotFoundError:
                 # TODO generate transformation parameters from input?
-                raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
+                origin = np.array([0., 0., 0.])
+                identity = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
+                self._pose_transformation = \
+                    {idx: {'rotation': identity, 'translation': origin, 'rotation2': identity, 'translation2': origin}
+                     for idx, entity in enumerate(self.pose.entities)}
+                self.log.error('There was no pose transformation file specified at %s' % self.pose_file)
+                # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
             # self.info['pose_transformation'] = self._pose_transformation
             # self.log.debug('Using transformation parameters:\n\t%s'
             #                % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
-
-        return self._pose_transformation
+            return self._pose_transformation
 
     def rotation_parameters(self):
         return self.rot_range_deg_pdb1, self.rot_range_deg_pdb2, self.rot_step_deg1, self.rot_step_deg2
@@ -968,6 +977,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def retrieve_pose_metrics_from_file(self):
         """Gather information for the docked Pose from Nanohedra output. Includes coarse fragment metrics"""
         with open(self.pose_file, 'r') as f:
+            self._pose_transformation = {}
             for line in f.readlines():
                 if line[:15] == 'DOCKED POSE ID:':
                     self.pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').\
@@ -1416,6 +1426,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.pose_transformation:
             self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
                               for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
+            # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
             # Todo make oligomer, oligomer! If symmetry permits now that storing as refined asu, oriented asu, model asu
             self.log.debug('Oligomers were transformed to the found docking parameters')
         else:
@@ -1433,8 +1444,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         if self.pose_transformation:
             self.log.debug('Oligomers were transformed to the found docking parameters')
-            return [structure.return_transformed_copy(**self.pose_transformation[oligomer_number])
-                    for oligomer_number, structure in enumerate(structures, 1)]
+            # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
+            return [structure.return_transformed_copy(**self.pose_transformation[idx])
+                    for idx, structure in enumerate(structures, 1)]
         else:
             raise DesignError('The design could not be transformed as it is missing the required transformation '
                               'parameters. Were they generated properly?')
@@ -1534,10 +1546,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 entities.extend(oligomer.entities)
 
             asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log)
-        elif source:
-            asu = PDB.from_file(source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
-        else:  # |                              pass names if available v
-            asu = PDB.from_file(self.source, name='%s-asu' % str(self), entity_names=self.entity_names, log=self.log)
+        else:
+            asu = PDB.from_file(source if source else self.source, name='%s-asu' % str(self),
+                                entity_names=self.entity_names, log=self.log)
+            # pass names if available ^
 
         self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.resources,
                                   design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
@@ -1547,19 +1559,20 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
             self.info['entity_names'] = self.entity_names
 
-        if self.pose_transformation:
-            for idx, entity in enumerate(self.pose.entities, 1):
-                # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
-                entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
-                # write out new oligomers to the DesignDirectory TODO add flag to include these
-                # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
-                # entity.write_oligomer(out_path=out_path)
-        else:
-            # may switch this whole function to align the assembly identified by the asu entities PDB code after
-            # download from PDB API
-            raise DesignError('The functionality for specifying the pose transformation parameters is not possible yet.'
-                              '\nThis pose is not designable with the current version of %s' % PUtils.program_name)
-            self.pose.assign_entities_to_sub_symmetry()  # Todo debugggererer
+        # generate oligomers for each entity in the pose
+        # if self.pose_transformation:
+        for idx, entity in enumerate(self.pose.entities, 1):
+            # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
+            entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
+            # write out new oligomers to the DesignDirectory TODO add flag to include these
+            # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
+            # entity.write_oligomer(out_path=out_path)
+        # else:
+        #     # may switch this whole function to align the assembly identified by the asu entities PDB code after
+        #     # download from PDB API
+        #     raise DesignError('The functionality for specifying the pose transformation parameters is not possible yet.'
+        #                       '\nThis pose is not designable with the current version of %s' % PUtils.program_name)
+        #     self.pose.assign_entities_to_sub_symmetry()  # Todo debugggererer
 
         # Save renumbered PDB to clean_asu.pdb
         if not os.path.exists(self.asu):

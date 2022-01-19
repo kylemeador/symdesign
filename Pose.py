@@ -1502,7 +1502,7 @@ class SymmetricModel(Model):
         # Get the rotation matrices for each group then orient along the setting matrix "axis"
         if self.sym_entry.group1 in ['D2', 'D3', 'D4', 'D6'] or self.sym_entry.group2 in ['D2', 'D3', 'D4', 'D6']:
             group1 = self.sym_entry.group1.replace('D', 'C')
-            group2 = self.sym_entry.group1.replace('D', 'C')
+            group2 = self.sym_entry.group2.replace('D', 'C')
             rotation_matrices_only1 = get_rot_matrices(rotation_range[group1], 'z', 360)
             rotation_matrices_only2 = get_rot_matrices(rotation_range[group2], 'z', 360)
             # provide a 180 degree rotation along x (all D orient symmetries have axis here)
@@ -1517,7 +1517,7 @@ class SymmetricModel(Model):
                               ' before continuing with design of symmetry entry %d!' % self.sym_entry.entry_number)
         else:
             group1 = self.sym_entry.group1
-            group2 = self.sym_entry.group1
+            group2 = self.sym_entry.group2
             rotation_matrices_group1 = get_rot_matrices(rotation_range[group1], 'z', 360)  # np.array (rotations, 3, 3)
             rotation_matrices_group2 = get_rot_matrices(rotation_range[group2], 'z', 360)
 
@@ -2300,18 +2300,17 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.log.info('Interface search at %s | %s found no interface residues' % (entity1.name, entity2.name))
             self.interface_residues[(entity1, entity2)] = ([], [])
             return
-        else:
-            if entity1 == entity2:  # symmetric query
-                for residue in entity2_residues:  # entity2 usually has fewer residues, this might be quickest
-                    if residue in entity1_residues:
-                        # the whole interface is dimeric and should only have residues on one side
-                        entity1_residues, entity2_residues = \
-                            sorted(set(entity1_residues).union(entity2_residues), key=lambda res: res.number), []
-                        break
-            self.log.info(
-                'At Entity %s | Entity %s interface:\n\t%s found residue numbers: %s\n\t%s found residue numbers: %s'
-                % (entity1.name, entity2.name, entity1.name, ', '.join(str(res.number) for res in entity1_residues),
-                   entity2.name, ', '.join(str(res.number) for res in entity2_residues)))
+        # else:
+        if entity1 == entity2:  # symmetric query
+            for residue in entity2_residues:  # entity2 usually has fewer residues, this might be quickest
+                if residue in entity1_residues:  # the interface is dimeric and should only have residues on one side
+                    entity1_residues, entity2_residues = \
+                        sorted(set(entity1_residues).union(entity2_residues), key=lambda res: res.number), []
+                    break
+        self.log.info(
+            'At Entity %s | Entity %s interface:\n\t%s found residue numbers: %s\n\t%s found residue numbers: %s'
+            % (entity1.name, entity2.name, entity1.name, ', '.join(str(res.number) for res in entity1_residues),
+               entity2.name, ', '.join(str(res.number) for res in entity2_residues)))
 
         self.interface_residues[(entity1, entity2)] = (entity1_residues, entity2_residues)
         entities = [entity1, entity2]
