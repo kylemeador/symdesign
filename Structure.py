@@ -15,10 +15,12 @@ from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_le
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl
 # from ProteinExpression import find_expression_tags, remove_expression_tags
+from Pose import Pose
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
-from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices
+from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
+    possible_symmetries
 from utils.GeneralUtils import transform_coordinate_sets
 
 # globals
@@ -2500,7 +2502,11 @@ class Entity(Chain, SequenceProfile):
             translation2 = origin
 
         self.symmetry = sym
-        if 'D' in sym:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
+        if sym in possible_symmetries:  # ['T', 'O', 'I']:
+            self.symmetry = possible_symmetries[sym]
+            rotation_matrices = Pose.get_ptgrp_sym_op(self.symmetry)
+            degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
+        elif 'D' in sym:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
             rotation_matrices = get_rot_matrices(rotation_range[sym.replace('D', 'C')], 'z', 360)
             # apparently passing the degeneracy matrix first without any specification towards the row/column major
             # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
