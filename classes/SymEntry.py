@@ -143,16 +143,16 @@ sym_comb_dict = {
     123: ['O', [], 1, '<0,0,0>', 'O', [], 1, '<e,e,e>', 'O', 'P432', 3, '(2*e, 2*e, 2*e), (90, 90, 90)', 1, 1],
     124: ['O', [], 1, '<0,0,0>', 'O', [], 1, '<e,0,0>', 'O', 'F432', 3, '(2*e, 2*e, 2*e), (90, 90, 90)', 1, 1],
     # KM Custom entries
-    200: ['T', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 1, 1],
+    200: ['T', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 1, 1],  # T alone
     201: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'T', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 1, 1],
     202: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 3, '<0,0,0>', 'T', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 1, 1],
     203: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 4, '<0,0,0>', 'T', [], 1, '<0,0,0>', 'T', 'T', 0, 'N/A', 1, 1],
-    210: ['O', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 1, 1],
+    210: ['O', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 1, 1],  # O alone
     211: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'O', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 1, 1],
     212: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 3, '<0,0,0>', 'O', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 1, 1],
     213: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 4, '<0,0,0>', 'O', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 1, 1],
     214: ['C4', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'O', [], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 1, 1],
-    220: ['I', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 1, 1],
+    220: ['I', [], 1, '<0,0,0>', 'None', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 1, 1],  # I alone
     221: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 1, 1],
     222: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 1, 1],
     223: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 7, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 1, 1],
@@ -216,7 +216,7 @@ C3 = 120
 C4 = 90
 C5 = 72
 C6 = 60
-rotation_range = {'C2': 180, 'C3': 120, 'C4': 90, 'C5': 72, 'C6': 60}
+rotation_range = {'C1': 360, 'C2': 180, 'C3': 120, 'C4': 90, 'C5': 72, 'C6': 60}
 # ROTATION SETTING MATRICES
 setting_matrices = {1: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],  # identity
                     2: [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],  # 90 degrees CC on Y
@@ -602,19 +602,22 @@ def get_optimal_external_tx_vector(ref_frame_tx_dof, optimal_ext_dof_shifts):
     return optimal_external_tx_vector.tolist()
 
 
-def get_rot_matrices(step_deg, axis, rot_range_deg):
+def get_rot_matrices(step_deg, axis='z', rot_range_deg=360):
     """Return a group of rotation matrices to rotate coordinates about a specified axis in set step increments
+
     Args:
         step_deg (int): The number of degrees for each rotation step
-        axis (str): The axis about which to rotate
-        rot_range_deg (int): The range with which rotation is possible
+    Keyword Args:
+        axis='z' (str): The axis about which to rotate
+        rot_range_deg=360 (int): The range with which rotation is possible
     Returns:
-        (np.array): The rotation matrics with shape (rotations, 3, 3) # list[list[list]])
+        (numpy.ndarray): The rotation matrices with shape (rotations, 3, 3) # list[list[list]])
     """
     if rot_range_deg == 0:
-        return None
+        return
 
     rot_matrices = []
+    axis = axis.lower()
     if axis == 'x':
         for angle_deg in range(0, rot_range_deg, step_deg):
             rad = math.radians(float(angle_deg))
@@ -629,7 +632,7 @@ def get_rot_matrices(step_deg, axis, rot_range_deg):
             rot_matrices.append([[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]])
     else:
         print('Axis \'%s\' is not supported' % axis)
-        return None
+        return
 
     return np.array(rot_matrices)
 
