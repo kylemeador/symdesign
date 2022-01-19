@@ -1182,8 +1182,8 @@ if __name__ == '__main__':
                         continue  # Todo make something happen?
                         # master_directory.transform_d[idx]['translation'] = -center_of_mass
                         # master_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
-                for entry_entity in entities:
-                    if entry_entity not in orient_files:
+                for entry_entity in entities:  # ex: 1ABC_1
+                    if entry_entity not in orient_files:  # add the proper files
                         # asu_files = glob(os.path.join(orient_asu_dir, '%s_*.pdb' % entry_entity))
                         # oriented_pdb = PDB.from_file(asu_files[0], log=None, entity_names=[entry_entity])
                         # oriented_asu = oriented_pdb.entities[0]
@@ -1198,8 +1198,8 @@ if __name__ == '__main__':
                         entry = entry_entity.split('_')
                         if len(entry) == 2:
                             # pull_entity = True
-                            entry = entry[0]
-                            entity = entry[-1]  # True
+                            entry, entity = entry
+                            # entity = entry[-1]  # True
                         else:
                             # pull_entity = False
                             entry = entry[0]
@@ -1227,8 +1227,8 @@ if __name__ == '__main__':
 
                         pdb = PDB.from_file(file_path, log=None, lazy=True)
                         if entity:  # replace fetched_pdb with the entity pdb
-                            # Todo check if .oligomer returning Structures is good
-                            entity_pdb = pdb.entity(entry_entity).oligomer
+                            # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
+                            entity_pdb = pdb.entity(entry_entity)
                             if entity_pdb:  # ensure not none, otherwise, report
                                 pdb = entity_pdb
                             else:
@@ -1245,7 +1245,8 @@ if __name__ == '__main__':
                             orient_file = pdb.write(out_path=os.path.join(orient_dir, '%s.pdb' % entry_entity))
                             oriented_asu_file = pdb.write(out_path=os.path.join(orient_asu_dir, '%s.pdb' % entry_entity))
                             # save Stride results
-                            oriented_asu.stride(to_file=os.path.join(stride_dir, '%s.stride' % entry_entity))
+                            pdb.stride(to_file=os.path.join(stride_dir, '%s.stride' % entry_entity))
+                            all_entities[pdb.name] = pdb.entities[0]
                         else:
                             orient_file = orient_pdb_file(file_path, log=orient_log, sym=symmetry, out_dir=orient_dir)
                             # extract the asu from the oriented file for symmetric refinement
@@ -1261,7 +1262,7 @@ if __name__ == '__main__':
                             else:
                                 logger.warning('No oriented file possible for %s. See the orient log' % entry_entity)
                                 continue
-                    else:
+                    else:  # proper file exists, load and continue
                         oriented_asu_files = glob(os.path.join(orient_asu_dir, '%s_*.pdb' % entry_entity))
                         oriented_asu = PDB.from_file(oriented_asu_files[0], log=None, entity_names=[entry_entity])
                         all_entities[oriented_asu.name] = oriented_asu.entities[0]
