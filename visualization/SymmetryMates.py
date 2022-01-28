@@ -1,8 +1,9 @@
 import os
 from pymol import cmd, stored
 
-from Pose import Pose
+# from Pose import Pose
 from classes.SymEntry import possible_symmetries
+from utils.SymmetryUtils import get_ptgrp_sym_op
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):
@@ -25,7 +26,7 @@ def generate_symmetry_mates_pymol(name, expand_matrices):
 def expand(name=None, symmetry=None):
     symmetry_ = possible_symmetries.get(symmetry)
     if symmetry_:  # ['T', 'O', 'I']:
-        expand_matrices = Pose.get_ptgrp_sym_op(symmetry_)
+        expand_matrices = get_ptgrp_sym_op(symmetry_)
         # if self.dimension == 0 else self.get_sg_sym_op(self.symmetry)  # ensure symmetry is Hermann–Mauguin notation
     else:
         print('No symmetry \'%s\' was found in the possible symmetries. Must be one of the following:\n%s'
