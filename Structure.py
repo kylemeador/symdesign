@@ -24,6 +24,8 @@ from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, 
 from utils.GeneralUtils import transform_coordinate_sets
 
 # globals
+from utils.SymmetryUtils import get_ptgrp_sym_op
+
 logger = start_log(name=__name__)
 # from table 1, theoretical values of Tien et al. 2013
 gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225, 'G': 104, 'H': 224, 'I': 197,
@@ -2504,7 +2506,7 @@ class Entity(Chain, SequenceProfile):
         self.symmetry = sym
         if sym in possible_symmetries:  # ['T', 'O', 'I']:
             self.symmetry = possible_symmetries[sym]
-            rotation_matrices = Pose.get_ptgrp_sym_op(self.symmetry)
+            rotation_matrices = get_ptgrp_sym_op(self.symmetry)
             degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
         elif 'D' in sym:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
             rotation_matrices = get_rot_matrices(rotation_range[sym.replace('D', 'C')], 'z', 360)
