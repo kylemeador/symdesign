@@ -20,7 +20,8 @@ from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_ov
 from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatrices, SymEntry, flip_x_matrix, \
     possible_symmetries
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
-from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues
+from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues, \
+    get_ptgrp_sym_op
 from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
@@ -966,7 +967,7 @@ class SymmetricModel(Model):
         if expand_matrices:
             self.expand_matrices = expand_matrices
         else:
-            self.expand_matrices = self.get_ptgrp_sym_op(self.symmetry) if self.dimension == 0 \
+            self.expand_matrices = get_ptgrp_sym_op(self.symmetry) if self.dimension == 0 \
                 else self.get_sg_sym_op(self.symmetry)  # ensure symmetry is Hermann–Mauguin notation
 
         if self.asu and generate_assembly:
@@ -1548,7 +1549,7 @@ class SymmetricModel(Model):
                 assert self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates, \
                     'Cannot have more models (%d) than a single unit cell (%d)!' \
                     % (self.number_of_symmetry_mates, self.number_of_uc_symmetry_mates)
-                expand_matrices = self.get_ptgrp_sym_op(self.symmetry_point_group)
+                expand_matrices = get_ptgrp_sym_op(self.symmetry_point_group)
             else:
                 expand_matrices = self.expand_matrices
             ext_tx = self.symmetric_center_of_mass  # only works for unit cell or point group NOT surrounding UC
@@ -1722,31 +1723,29 @@ class SymmetricModel(Model):
     #     """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
     #     one was written"""
 
-    @staticmethod
-    def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
-        """Get the symmetry operations for a specified point group oriented in the canonical orientation
-        Returns:
-            (list[list])
-        """
-        expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
-        with open(expand_matrix_filepath, "r") as expand_matrix_f:
-            expand_matrix_lines = expand_matrix_f.readlines()
-
-        # Todo pickle these to match SDUtils
-        line_count = 0
-        expand_matrices = []
-        mat = []
-        for line in expand_matrix_lines:
-            line = line.split()
-            if len(line) == 3:
-                line_float = [float(s) for s in line]
-                mat.append(line_float)
-                line_count += 1
-                if line_count % 3 == 0:
-                    expand_matrices.append(mat)
-                    mat = []
-
-        return expand_matrices
+    # @staticmethod
+    # def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
+    #     """Get the symmetry operations for a specified point group oriented in the canonical orientation
+    #     Returns:
+    #         (list[list])
+    #     """
+    #     expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
+    #     with open(expand_matrix_filepath, "r") as expand_matrix_f:
+    #         # Todo pickle these to match SDUtils
+    #         line_count = 0
+    #         expand_matrices = []
+    #         mat = []
+    #         for line in expand_matrix_f.readlines():
+    #             line = line.split()
+    #             if len(line) == 3:
+    #                 line_float = [float(s) for s in line]
+    #                 mat.append(line_float)
+    #                 line_count += 1
+    #                 if line_count % 3 == 0:
+    #                     expand_matrices.append(mat)
+    #                     mat = []
+    #
+    #         return expand_matrices
 
     @staticmethod  # Todo clean this pickle to match SDUtils
     def get_sg_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS')):

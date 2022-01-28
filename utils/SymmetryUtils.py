@@ -170,24 +170,28 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):
         # return xyz_min_shifted_asu_pdb
 
 
-def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, "POINT_GROUP_SYMM_OPERATORS")):
-    expand_matrix_filepath = expand_matrix_dir + "/" + sym_type + ".txt"
-    expand_matrix_file = open(expand_matrix_filepath, "r")
-    expand_matrix_lines = expand_matrix_file.readlines()
-    expand_matrix_file.close()
-    line_count = 0
-    expand_matrices = []
-    mat = []
-    for line in expand_matrix_lines:
-        line = line.split()
-        if len(line) == 3:
-            line_float = [float(s) for s in line]
-            mat.append(line_float)
-            line_count += 1
-            if line_count % 3 == 0:
-                expand_matrices.append(mat)
-                mat = []
-    return expand_matrices
+def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
+    """Get the symmetry operations for a specified point group oriented in the canonical orientation
+    Returns:
+        (list[list])
+    """
+    expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
+    with open(expand_matrix_filepath, 'r') as expand_matrix_f:
+        # Todo pickle these to match SDUtils
+        line_count = 0
+        expand_matrices = []
+        mat = []
+        for line in expand_matrix_f.readlines():
+            line = line.split()
+            if len(line) == 3:
+                line_float = [float(s) for s in line]
+                mat.append(line_float)
+                line_count += 1
+                if line_count % 3 == 0:
+                    expand_matrices.append(mat)
+                    mat = []
+
+        return expand_matrices
 
 
 def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
