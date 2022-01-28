@@ -1413,7 +1413,7 @@ if __name__ == '__main__':
         else:
             master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
         # SymEntry Parameters
-        sym_entry = SymEntry(sym_entry_number)
+        sym_entry = SymEntry(sym_entry_number)  # sym_map inclusion?
 
         if initial:
             # make master output directory

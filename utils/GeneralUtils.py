@@ -211,8 +211,8 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
 
         master_log_file.write("SYMMETRY COMBINATION MATERIAL INFORMATION\n")
         master_log_file.write("Nanohedra Entry Number: %d\n" % sym_entry.entry_number)
-        master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % sym_entry.group1_sym)
-        master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % sym_entry.group2_sym)
+        master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % sym_entry.group1)
+        master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % sym_entry.group2)
         master_log_file.write("SCM Point Group Symmetry: %s\n" % sym_entry.point_group_sym)
 
         # master_log_file.write("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))

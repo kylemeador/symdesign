@@ -56,7 +56,7 @@ if __name__ == '__main__':
             assert os.path.exists(orient_executable_path), orient_assert_error_message
 
             # SymEntry Parameters
-            sym_entry = SymEntry(sym_entry_number)
+            sym_entry = SymEntry(sym_entry_number)  # sym_map inclusion?
 
             # initialize the main Nanohedra log
             write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
@@ -76,17 +76,17 @@ if __name__ == '__main__':
                 pdb2_filepaths = get_all_pdb_file_paths(pdb2_path)
 
             # Orient Input Oligomers to Canonical Orientation
-            if sym_entry.group1_sym == sym_entry.group2_sym:
+            if sym_entry.group1 == sym_entry.group2:
                 oligomer_input = 'Oligomer Input'
                 master_logger.info('ORIENTING INPUT OLIGOMER PDB FILES\n')
             else:
                 oligomer_input = 'Oligomer 1 Input'
                 master_logger.info('ORIENTING OLIGOMER 1 INPUT PDB FILE(S)\n')
 
-            oriented_pdb1_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group1_sym)
+            oriented_pdb1_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group1)
             if not os.path.exists(oriented_pdb1_outdir):
                 os.makedirs(oriented_pdb1_outdir)
-            pdb1_oriented_filepaths = [orient_pdb_file(pdb1_path, log=master_logger, sym=sym_entry.group1_sym,
+            pdb1_oriented_filepaths = [orient_pdb_file(pdb1_path, log=master_logger, sym=sym_entry.group1,
                                                        out_dir=oriented_pdb1_outdir) for pdb1_path in pdb1_filepaths]
 
             if len(pdb1_oriented_filepaths) == 0:
@@ -95,13 +95,13 @@ if __name__ == '__main__':
                 master_logger.info('NANOHEDRA DOCKING RUN ENDED\n')
                 # master_log_file.close()
                 exit(1)
-            elif len(pdb1_oriented_filepaths) == 1 and sym_entry.group1_sym == sym_entry.group2_sym \
+            elif len(pdb1_oriented_filepaths) == 1 and sym_entry.group1 == sym_entry.group2 \
                     and '.pdb' not in pdb2_path:
                 master_logger.info('\nAT LEAST 2 OLIGOMERS ARE REQUIRED WHEN THE 2 OLIGOMERIC COMPONENTS OF '
                                    'A SCM OBEY THE SAME POINT GROUP SYMMETRY (IN THIS CASE: %s)\nHOWEVER '
                                    'ONLY 1 INPUT OLIGOMER PDB FILE COULD BE ORIENTED\nCHECK '
                                    '%s/orient_oligomer_log.txt FOR MORE INFORMATION\n'
-                                   % (sym_entry.group1_sym, oriented_pdb1_outdir))
+                                   % (sym_entry.group1, oriented_pdb1_outdir))
                 master_logger.info('NANOHEDRA DOCKING RUN ENDED\n')
                 # master_log_file.close()
                 exit(1)
@@ -109,15 +109,15 @@ if __name__ == '__main__':
                 master_logger.info('Successfully Oriented %d out of the %d Oligomer Input PDB File(s)\n==> %s\n\n'
                                    % (len(pdb1_oriented_filepaths), len(pdb1_filepaths), oriented_pdb1_outdir))
 
-            if sym_entry.group1_sym == sym_entry.group2_sym and '.pdb' not in pdb2_path:
+            if sym_entry.group1 == sym_entry.group2 and '.pdb' not in pdb2_path:
                 # in case two paths have same sym, otherwise we need to orient pdb2_filepaths as well
                 pdb_filepaths = combinations(pdb1_oriented_filepaths, 2)
             else:
                 master_logger.info('\nORIENTING OLIGOMER 2 INPUT PDB FILE(S)\n')
-                oriented_pdb2_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group2_sym)
+                oriented_pdb2_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group2)
                 if not os.path.exists(oriented_pdb2_outdir):
                     os.makedirs(oriented_pdb2_outdir)
-                pdb2_oriented_filepaths = [orient_pdb_file(pdb2_path, log=master_logger, sym=sym_entry.group2_sym,
+                pdb2_oriented_filepaths = [orient_pdb_file(pdb2_path, log=master_logger, sym=sym_entry.group2,
                                                            out_dir=oriented_pdb2_outdir)
                                            for pdb2_path in pdb2_filepaths]
 
