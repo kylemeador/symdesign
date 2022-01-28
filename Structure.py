@@ -15,7 +15,7 @@ from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_le
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl
 # from ProteinExpression import find_expression_tags, remove_expression_tags
-from Pose import Pose
+# from Pose import Pose
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
