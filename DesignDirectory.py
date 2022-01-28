@@ -463,8 +463,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.sym_entry:
             metrics['design_dimension'] = self.design_dimension
             # Todo must clarify symmetry separation if non-nanohedra
-            for group_idx, name in enumerate(self.entity_names, 1):
-                metrics['symmetry_group_%d' % group_idx] = getattr(self.sym_entry, 'group%d' % group_idx)
+            for idx, name in enumerate(self.entity_names, 1):
+                metrics['symmetry_group_%d' % idx] = getattr(self.sym_entry, 'group%d' % self.sym_entry.sym_map[idx])
         else:
             metrics['design_dimension'] = 'asymmetric'
 
@@ -616,7 +616,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                   design_with_fragments=True, generate_fragments=False, write_fragments=True,
                   design_selector=None, ignore_clashes=False, script=True, mpi=False,
                   number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False,
-                  **kwargs):
+                  **kwargs):  # TODO Depreciate
         # copy_nanohedra=False, output_assembly=False, sym_entry=None,
 
         # self.sym_entry = sym_entry
@@ -1563,7 +1563,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # if self.pose_transformation:
         for idx, entity in enumerate(self.pose.entities, 1):
             # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
-            entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
+            entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % self.sym_entry.sym_map[idx]),
+                                 **self.pose_transformation[idx])
             # write out new oligomers to the DesignDirectory TODO add flag to include these
             # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
             # entity.write_oligomer(out_path=out_path)
@@ -3137,7 +3138,7 @@ def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
         with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
             for line in f.readlines():
                 if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                    return SymEntry(int(line.split(':')[-1]))
+                    return SymEntry(int(line.split(':')[-1]))  # sym_map inclusion?
     except FileNotFoundError:
         raise FileNotFoundError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
                                 % os.path.join(nanohedra_dir, PUtils.master_log))

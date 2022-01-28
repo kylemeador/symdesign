@@ -1002,7 +1002,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags.get('sym_entry'):
-        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
+        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))  # sym_map inclusion?
     if queried_flags['symmetry']:
         if queried_flags['symmetry'] in SDUtils.possible_symmetries:
             queried_flags['sym_entry'] = SDUtils.parse_symmetry_to_sym_entry(queried_flags['symmetry'])
@@ -1174,7 +1174,7 @@ if __name__ == '__main__':
                 if not entities:
                     break
                 else:
-                    symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
+                    symmetry = getattr(master_directory.sym_entry, 'group%d' % master_directory.sym_entry.sym_map[idx])
                     if symmetry:
                         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
                                     % (symmetry, orient_dir, ', '.join(entities)))
@@ -1354,7 +1354,7 @@ if __name__ == '__main__':
             # oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), set(), {}
             oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), {}, {}
             for idx, entities in enumerate([required_entities1, required_entities2], 1):
-                symmetry = getattr(master_directory.sym_entry, 'group%d' % idx)
+                symmetry = getattr(master_directory.sym_entry, 'group%d' % master_directory.sym_entry.sym_map[idx])
                 sym_def_files[symmetry] = sdf_lookup(symmetry)
                 for entry_entity in entities:
                     entry = entry_entity.split('_')
@@ -1512,9 +1512,9 @@ if __name__ == '__main__':
                                 % PUtils.program_command)
                 exit()
             else:
-                sym_entry = SymEntry(args.entry)
-                oligomer_symmetry_1 = sym_entry.group1_sym
-                oligomer_symmetry_2 = sym_entry.group2_sym
+                sym_entry = SymEntry(args.entry)  # sym_map inclusion?
+                oligomer_symmetry_1 = sym_entry.group1
+                oligomer_symmetry_2 = sym_entry.group2
 
             # Orient Input Oligomers to Canonical Orientation
             logger.info('Orienting PDB\'s for Nanohedra Docking')

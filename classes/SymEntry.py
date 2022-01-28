@@ -237,7 +237,7 @@ identity_matrix = setting_matrices[1]
 
 
 class SymEntry:
-    def __init__(self, entry):
+    def __init__(self, entry, sym_map=None):
         sym_entry = sym_comb_dict.get(entry)
         try:
             self.group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
@@ -278,6 +278,11 @@ class SymEntry:
             raise ValueError('\nINVALID SYMMETRY ENTRY. SUPPORTED DESIGN DIMENSIONS: %s\n'
                              % ', '.join(map(str, [0, 2, 3])))
         self.degeneracy_matrices_1, self.degeneracy_matrices_2 = self.get_degeneracy_matrices()
+
+        if not map:
+            self.sym_map = [1, 2]  # assumes we have a two component creation and index with only two options
+        else:
+            self.sym_map = sym_map
 
     @property
     def group1_sym(self):
@@ -405,10 +410,10 @@ class SymEntry:
         valid_pt_gp_symm_list = list(valid_subunit_number.keys())
         valid_pt_gp_symm_list.remove('D5')
 
-        if self.group1_sym not in valid_pt_gp_symm_list:
+        if self.group1 not in valid_pt_gp_symm_list:
             raise ValueError("Invalid Point Group Symmetry")
 
-        if self.group2_sym not in valid_pt_gp_symm_list:
+        if self.group2 not in valid_pt_gp_symm_list:
             raise ValueError("Invalid Point Group Symmetry")
 
         if self.point_group_sym not in valid_pt_gp_symm_list:
@@ -419,7 +424,7 @@ class SymEntry:
 
         degeneracies = []
         for i in range(2):
-            oligomer_symmetry = self.group1_sym if i == 0 else self.group2_sym
+            oligomer_symmetry = self.group1 if i == 0 else self.group2
 
             degeneracy_matrices = None
             # For cages, only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
@@ -430,7 +435,7 @@ class SymEntry:
             # and that are constructed from two oligomers that both obey cyclic symmetry
             # only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
             elif self.dimension == 2 and i == 1 and \
-                    (self.group1_sym[0], self.group2_sym[0], self.point_group_sym[0]) == ('C', 'C', 'C'):
+                    (self.group1[0], self.group2[0], self.point_group_sym[0]) == ('C', 'C', 'C'):
                 degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
             # else:
@@ -720,9 +725,9 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
     return lengths + angles
 
 
-
 def parse_symmetry_to_sym_entry(symmetry_string):
     symmetry_string = symmetry_string.strip()
+    clean_split = None
     if len(symmetry_string) > 3:
         clean_split = [split.strip('}:') for split in symmetry_string.split('{')]
     elif len(symmetry_string) == 3:  # Rosetta Formatting
@@ -742,7 +747,7 @@ def parse_symmetry_to_sym_entry(symmetry_string):
         raise ValueError('%s is not a supported symmetry!' % symmetry_string)
 
     # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
-    return SymEntry(sym_entry)
+    return SymEntry(sym_entry, sym_map=clean_split)
 
 
 def handle_symmetry(symmetry_entry_number):
