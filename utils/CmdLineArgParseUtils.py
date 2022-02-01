@@ -1,7 +1,8 @@
 import os
 import sys
 
-from PathUtils import master_log
+# from PathUtils import master_log
+from classes.SymEntry import all_entries, query_combination, query_result, query_counterpart, dimension
 from classes.SymEntry import sym_comb_dict
 from utils import PostProcessUtils, SymQueryUtils
 from SymDesignUtils import start_log
@@ -18,38 +19,33 @@ def query_mode(arg_list):
         print('\033[1m' + '\033[95m' + "MODE: QUERY" + '\033[95m' + '\033[0m' + '\n')
         if arg_list[2] == "-all_entries":
             if len(arg_list) == 3:
-                SymQueryUtils.all_entries()
+                all_entries()
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID QUERY" + '\033[0m')
-
         elif arg_list[2] == "-combination":
             if len(arg_list) == 5:
                 query = [arg_list[3], arg_list[4]]
-                SymQueryUtils.query_combination(query)
+                query_combination(query)
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID COMBINATION QUERY" + '\033[0m')
-
         elif arg_list[2] == "-result":
             if len(arg_list) == 4:
                 query = arg_list[3]
-                SymQueryUtils.query_result(query)
+                query_result(query)
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID RESULT QUERY" + '\033[0m')
-
         elif arg_list[2] == "-counterpart":
             if len(arg_list) == 4:
                 query = arg_list[3]
-                SymQueryUtils.query_counterpart(query)
+                query_counterpart(query)
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID COUNTERPART QUERY" + '\033[0m')
-
         elif arg_list[2] == "-dimension":
             if len(arg_list) == 4 and arg_list[3].isdigit():
                 query = int(arg_list[3])
-                SymQueryUtils.dimension(query)
+                dimension(query)
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID QUERY" + '\033[0m')
-
     else:
         sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID QUERY, CHOOSE ONE OF THE FOLLOWING QUERY FLAGS: -all_entries,"
                                           " -combination, -result, -counterpart, -dimension" + '\033[0m')

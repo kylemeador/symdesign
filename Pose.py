@@ -932,8 +932,8 @@ class SymmetricModel(Model):
 
         if sym_entry and isinstance(sym_entry, SymEntry):
             self.sym_entry = sym_entry
-            self.symmetry = sym_entry.result
-            self.dimension = sym_entry.dim
+            self.symmetry = sym_entry.resulting_symmetry
+            self.dimension = sym_entry.dimension
             if self.dimension > 0:
                 self.symmetry_point_group = sym_entry.pt_grp
                 self.uc_dimensions = uc_dimensions
