@@ -464,7 +464,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             metrics['design_dimension'] = self.design_dimension
             # Todo must clarify symmetry separation if non-nanohedra
             for idx, name in enumerate(self.entity_names, 1):
-                metrics['symmetry_group_%d' % idx] = getattr(self.sym_entry, 'group%d' % self.sym_entry.sym_map[idx])
+                metrics['symmetry_group_%d' % idx] = self.sym_entry.sym_map[idx]
         else:
             metrics['design_dimension'] = 'asymmetric'
 
@@ -1563,8 +1563,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # if self.pose_transformation:
         for idx, entity in enumerate(self.pose.entities, 1):
             # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
-            entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % self.sym_entry.sym_map[idx]),
-                                 **self.pose_transformation[idx])
+            entity.make_oligomer(sym=self.sym_entry.sym_map[idx], **self.pose_transformation[idx])
             # write out new oligomers to the DesignDirectory TODO add flag to include these
             # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
             # entity.write_oligomer(out_path=out_path)
