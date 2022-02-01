@@ -1174,7 +1174,7 @@ if __name__ == '__main__':
                 if not entities:
                     break
                 else:
-                    symmetry = getattr(master_directory.sym_entry, 'group%d' % master_directory.sym_entry.sym_map[idx])
+                    symmetry = master_directory.sym_entry.sym_map[idx]
                     if symmetry:
                         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
                                     % (symmetry, orient_dir, ', '.join(entities)))
@@ -1354,7 +1354,7 @@ if __name__ == '__main__':
             # oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), set(), {}
             oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), {}, {}
             for idx, entities in enumerate([required_entities1, required_entities2], 1):
-                symmetry = getattr(master_directory.sym_entry, 'group%d' % master_directory.sym_entry.sym_map[idx])
+                symmetry = master_directory.sym_entry.sym_map[idx]
                 sym_def_files[symmetry] = sdf_lookup(symmetry)
                 for entry_entity in entities:
                     entry = entry_entity.split('_')
