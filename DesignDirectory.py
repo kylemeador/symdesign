@@ -125,12 +125,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.design_profile_file = None  # /program_root/Projects/project_Designs/design/data/design.pssm
         self.evolutionary_profile_file = None  # /program_root/Projects/project_Designs/design/data/evolutionary.pssm
         self.fragment_data_pkl = None  # /program_root/Projects/project_Designs/design/data/%s_fragment_profile.pkl
-        # Symmetry attributes Todo fully integrate with SymEntry
-        self.sym_entry = kwargs.get('sym_entry', None)
-        self.uc_dimensions = None
-        self.expand_matrices = None
-        # self._pose_transformation = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
-        self.cryst_record = None
+
         # Design flags
         self.command_only = kwargs.get('command_only', False)
         self.consensus = None  # Whether to run consensus or not
@@ -158,11 +153,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.output_assembly = kwargs.get('output_assembly', False)
         self.increment_chains = kwargs.get('increment_chains', False)
         self.ignore_clashes = False
+
         # Analysis flags
         self.analysis = False
         self.skip_logging = False
         self.copy_nanohedra = kwargs.get('copy_nanohedra', False)  # no construction specific flags
         self.nanohedra_root = None
+
         # Design attributes
         self.composition = None  # building_blocks (4ftd_5tch)
         self.design_background = kwargs.get('design_background', 'design_profile')  # by default, grab design profile
@@ -179,11 +176,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.oligomers = []
         self.pose = None  # contains the design's Pose object
         self.pose_id = None
+        self.score_db = None
         self.source = None
+
+        # Symmetry attributes Todo fully integrate with SymEntry
+        # self._pose_transformation = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
+        self.cryst_record = None
+        self.expand_matrices = None
         # self.sdfs = {}
         self.sym_def_file = None
+        self.sym_entry = kwargs.get('sym_entry', None)
         self.symmetry_protocol = None
-        self.score_db = None
+        self.uc_dimensions = None
+
         # Metric attributes TODO MOVE Metrics
         self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
         self.interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
@@ -281,16 +286,17 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                                               PUtils.design_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
-                # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
-                self.start_log()  # need to start here... ugh
-                self.load_pose()  # load the source pdb to find the entity_names
-                self.entity_names = [entity.name for entity in self.pose.entities]
-                # TODO need to extract the _pose_transformation...
-
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
                 self.make_path(self.path)
+
+                # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
+                # self.start_log()  # need to start here... ugh
+                self.set_up_design_directory()
+                self.load_pose()  # load the source pdb to find the entity_names
+                self.entity_names = [entity.name for entity in self.pose.entities]
+                # TODO need to extract the _pose_transformation...
 
                 shutil.copy(self.source_path, self.path)
             else:  # initialize DesignDirectory with existing /program_root/projects/project/design
@@ -591,6 +597,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self._pose_transformation = \
                     {idx: {'rotation': identity, 'translation': origin, 'rotation2': identity, 'translation2': origin}
                      for idx, entity in enumerate(self.pose.entities)}
+                self.info['pose_transformation'] = self._pose_transformation
                 self.log.error('There was no pose transformation file specified at %s' % self.pose_file)
                 # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
             # self.info['pose_transformation'] = self._pose_transformation
@@ -776,7 +783,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 #     self.pickle_info()  # save this info so that we don't have this issue again!
                 self._info = self.info.copy()  # create a copy of the state upon initialization
                 # if self.info.get('nanohedra'):
-                self._pose_transformation = self.info.get('pose_transformation', {})
+                self._pose_transformation = self.info.get('pose_transformation', None)
                 if not self.sym_entry:
                     self.sym_entry = self.info.get('sym_entry', None)
                 else:
@@ -821,13 +828,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
                                  % (len(matching_designs), matching_designs[0]))
             self.source = self.specific_design_path
-        elif not self.source and os.path.exists(self.asu):  # standard mechanism of loading the pose
-            self.source = self.asu
-        else:
-            try:
-                self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
-            except IndexError:  # glob found no files
-                self.source = None
+        elif not self.source:
+            if os.path.exists(self.asu):  # standard mechanism of loading the pose
+                self.source = self.asu
+            else:
+                try:
+                    self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
+                except IndexError:  # glob found no files
+                    self.source = None
+        else:  # if the DesignDirectory is loaded as .pdb, the source should be loaded already
+            pass
 
         # design specific files
         self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
@@ -1453,7 +1463,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.debug('Oligomers were transformed to the found docking parameters')
             # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
             return [structure.return_transformed_copy(**self.pose_transformation[idx])
-                    for idx, structure in enumerate(structures, 1)]
+                    for idx, structure in enumerate(structures)]
         else:
             raise DesignError('The design could not be transformed as it is missing the required transformation '
                               'parameters. Were they generated properly?')
@@ -1568,9 +1578,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # generate oligomers for each entity in the pose
         # if self.pose_transformation:
-        for idx, entity in enumerate(self.pose.entities, 1):
+        for idx, entity in enumerate(self.pose.entities):
             # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
-            entity.make_oligomer(sym=self.sym_entry.sym_map[idx], **self.pose_transformation[idx])
+            entity.make_oligomer(sym=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
             # write out new oligomers to the DesignDirectory TODO add flag to include these
             # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
             # entity.write_oligomer(out_path=out_path)
@@ -1582,7 +1592,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     self.pose.assign_entities_to_sub_symmetry()  # Todo debugggererer
 
         # Save renumbered PDB to clean_asu.pdb
-        if not os.path.exists(self.asu):
+        if not self.asu or not os.path.exists(self.asu):
             if self.nano and not self.construct_pose:
                 return
             # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily most contacting
@@ -1969,7 +1979,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose
         design_structures = []
-        for idx, file in enumerate(self.get_designs()):
+        for file in self.get_designs():
             decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
             # if decoy_name not in scores_df.index:
             #     continue
@@ -1977,9 +1987,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             design = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
             #                        pass names if available ^
             if self.pose_transformation:
-                for idx, entity in enumerate(design.entities, 1):
+                for idx, entity in enumerate(design.entities):
                     # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
-                    entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx), **self.pose_transformation[idx])
+                    entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx + 1), **self.pose_transformation[idx])
             design_structures.append(design)
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
