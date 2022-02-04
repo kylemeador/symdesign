@@ -754,13 +754,13 @@ def parse_symmetry_to_sym_entry(symmetry_string):
     # logger.debug('Symmetry parsing split: %s' % clean_split)
     try:
         sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
-    except KeyError:
+    except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
         # the prescribed symmetry was a plane, space group, or point group that isn't in nanohedra. try a custom input
         # raise ValueError('%s is not a supported symmetry!' % symmetry_string)
-        sym_entry = lookup_sym_entry_by_symmetry_combination(clean_split)
+        sym_entry = lookup_sym_entry_by_symmetry_combination(*clean_split)
 
     # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
-    return SymEntry(sym_entry, sym_map=clean_split)
+    return SymEntry(sym_entry, sym_map=clean_split[1:])  # remove the result
 
 
 def handle_symmetry(symmetry_entry_number):

@@ -1008,15 +1008,15 @@ if __name__ == '__main__':
     if queried_flags.get('sym_entry'):
         queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))  # sym_map inclusion?
     if queried_flags['symmetry']:
-        if queried_flags['symmetry'] in SDUtils.possible_symmetries:
-            queried_flags['sym_entry'] = SDUtils.parse_symmetry_to_sym_entry(queried_flags['symmetry'])
-        elif queried_flags['symmetry'].lower()[:5] == 'cryst':
+        if queried_flags['symmetry'].lower()[:5] == 'cryst':
+            # the symmetry information is in the pdb header
             queried_flags['symmetry'] = 'cryst'
-            # the symmetry information should be in the pdb headers
-        else:
-            raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
-                                      '\n\t%s\nCorrect your flags and try again'
-                                      % (queried_flags['symmetry'], ', '.join(SDUtils.possible_symmetries)))
+        else:  # queried_flags['symmetry'] in possible_symmetries:
+            queried_flags['sym_entry'] = parse_symmetry_to_sym_entry(queried_flags['symmetry'])
+        # else:
+        #     raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
+        #                               '\n\t%s\nCorrect your flags and try again'
+        #                               % (queried_flags['symmetry'], ', '.join(possible_symmetries)))
     # TODO consolidate this check
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
                        'interface_metrics', 'optimize_designs', 'custom_script', 'rename_chains', 'status',
