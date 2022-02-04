@@ -281,10 +281,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                                               PUtils.design_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
-                if not self.pose_transformation:
-                    self.load_pose()  # load the source pdb to find the entity_names
-                    self.entity_names = [entity.name for entity in self.pose.entities]
-                    # need to extract the _pose_transformation...
+                # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
+                self.start_log()  # need to start here... ugh
+                self.load_pose()  # load the source pdb to find the entity_names
+                self.entity_names = [entity.name for entity in self.pose.entities]
+                # TODO need to extract the _pose_transformation...
 
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
@@ -650,6 +651,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
     def start_log(self, level=2):
+        if self.log:
+            return
+
         if self.skip_logging:  # set up null_logger
             self.log = null_log
             return
@@ -747,7 +751,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['nanohedra'] = True
                 self.info['sym_entry'] = self.sym_entry
                 self.info['oligomer_names'] = self.oligomer_names
-                self.retrieve_pose_metrics_from_file()
+                # self.retrieve_pose_metrics_from_file()  # inherent in call to self.pose_transformation
                 self.info['pose_transformation'] = self.pose_transformation
                 self.log.debug('Using transformation parameters:\n\t%s'
                                % '\n\t'.join(pretty_format_table(self.pose_transformation.items())))
@@ -973,52 +977,55 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                       for frag_obs in fragment_observations]
         self.info['fragments'] = self.fragment_observations  # inform the design state that fragments have been produced
 
-    @handle_errors(errors=(FileNotFoundError,))
+    # @handle_errors(errors=(FileNotFoundError,))
     def retrieve_pose_metrics_from_file(self):
         """Gather information for the docked Pose from Nanohedra output. Includes coarse fragment metrics"""
-        with open(self.pose_file, 'r') as f:
-            self._pose_transformation = {}
-            for line in f.readlines():
-                if line[:15] == 'DOCKED POSE ID:':
-                    self.pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').\
-                        replace('_TX_', '-tx_')
-                elif line[:38] == 'Unique Mono Fragments Matched (z<=1): ':
-                    self.high_quality_int_residues_matched = int(line[38:].strip())
-                # number of interface residues with fragment overlap potential from other oligomer
-                elif line[:31] == 'Unique Mono Fragments Matched: ':
-                    self.central_residues_with_fragment_overlap = int(line[31:].strip())
-                # number of interface residues with 2 residues on either side of central residue
-                elif line[:36] == 'Unique Mono Fragments at Interface: ':
-                    self.fragment_residues_total = int(line[36:].strip())
-                elif line[:25] == 'Interface Matched (%): ':  # matched / at interface * 100
-                    self.percent_overlapping_fragment = float(line[25:].strip()) / 100
-                elif line[:20] == 'ROT/DEGEN MATRIX PDB':
-                    data = eval(line[22:].strip())  # Todo remove eval(), this is a program vulnerability
-                    self._pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
-                elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
-                    data = eval(line[17:].strip())
-                    if data:  # == 'None'
-                        self._pose_transformation[int(line[15:16])]['translation'] = np.array(data)
-                    else:
-                        self._pose_transformation[int(line[15:16])]['translation'] = np.array([0, 0, 0])
-                elif line[:18] == 'SETTING MATRIX PDB':
-                    data = eval(line[20:].strip())
-                    self._pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
-                elif line[:22] == 'REFERENCE FRAME Tx PDB':
-                    data = eval(line[24:].strip())
-                    if data:
-                        self._pose_transformation[int(line[22:23])]['translation2'] = np.array(data)
-                    else:
-                        self._pose_transformation[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
-                elif 'Nanohedra Score:' in line:  # res_lev_sum_score
-                    self.all_residue_score = float(line[16:].rstrip())
-                elif 'CRYST1 RECORD:' in line:
-                    cryst_record = line[15:].strip()
-                    self.cryst_record = None if cryst_record == 'None' else cryst_record
-                elif line[:31] == 'Canonical Orientation PDB1 Path':
-                    self.canonical_pdb1 = line[:31].strip()
-                elif line[:31] == 'Canonical Orientation PDB2 Path':
-                    self.canonical_pdb2 = line[:31].strip()
+        try:
+            with open(self.pose_file, 'r') as f:
+                self._pose_transformation = {}
+                for line in f.readlines():
+                    if line[:15] == 'DOCKED POSE ID:':
+                        self.pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').\
+                            replace('_TX_', '-tx_')
+                    elif line[:38] == 'Unique Mono Fragments Matched (z<=1): ':
+                        self.high_quality_int_residues_matched = int(line[38:].strip())
+                    # number of interface residues with fragment overlap potential from other oligomer
+                    elif line[:31] == 'Unique Mono Fragments Matched: ':
+                        self.central_residues_with_fragment_overlap = int(line[31:].strip())
+                    # number of interface residues with 2 residues on either side of central residue
+                    elif line[:36] == 'Unique Mono Fragments at Interface: ':
+                        self.fragment_residues_total = int(line[36:].strip())
+                    elif line[:25] == 'Interface Matched (%): ':  # matched / at interface * 100
+                        self.percent_overlapping_fragment = float(line[25:].strip()) / 100
+                    elif line[:20] == 'ROT/DEGEN MATRIX PDB':
+                        data = eval(line[22:].strip())  # Todo remove eval(), this is a program vulnerability
+                        self._pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
+                    elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
+                        data = eval(line[17:].strip())
+                        if data:  # == 'None'
+                            self._pose_transformation[int(line[15:16])]['translation'] = np.array(data)
+                        else:
+                            self._pose_transformation[int(line[15:16])]['translation'] = np.array([0, 0, 0])
+                    elif line[:18] == 'SETTING MATRIX PDB':
+                        data = eval(line[20:].strip())
+                        self._pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
+                    elif line[:22] == 'REFERENCE FRAME Tx PDB':
+                        data = eval(line[24:].strip())
+                        if data:
+                            self._pose_transformation[int(line[22:23])]['translation2'] = np.array(data)
+                        else:
+                            self._pose_transformation[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
+                    elif 'Nanohedra Score:' in line:  # res_lev_sum_score
+                        self.all_residue_score = float(line[16:].rstrip())
+                    elif 'CRYST1 RECORD:' in line:
+                        cryst_record = line[15:].strip()
+                        self.cryst_record = None if cryst_record == 'None' else cryst_record
+                    elif line[:31] == 'Canonical Orientation PDB1 Path':
+                        self.canonical_pdb1 = line[:31].strip()
+                    elif line[:31] == 'Canonical Orientation PDB2 Path':
+                        self.canonical_pdb2 = line[:31].strip()
+        except TypeError:
+            raise FileNotFoundError('The specified pose metrics file was not declared and cannot be found!')
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""

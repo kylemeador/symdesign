@@ -97,7 +97,7 @@ def handle_errors(errors=(Exception,)):
     Keyword Args:
         errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
     Returns:
-        (Union[Callable, Exception): Function return upon proper execution, else the Exception if one was raised
+        (Union[Callable, Exception]): Function return upon proper execution, else the Exception if one was raised
     """
     def wrapper(func):
         @wraps(func)
@@ -922,11 +922,14 @@ def collect_designs(files=None, directory=None, project=None, single=None):
                 if not os.path.exists(_file):
                     logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
                     exit()
-            with open(_file, 'r') as f:
-                paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
-                            repeat(os.sep))  # only strip the trailing 'os.sep' in case file names are passed
-            all_paths.extend(paths)
-            location = _file
+            if '.pdb' in _file:  # single .pdb files were passed as input and should be loaded as such
+                all_paths.append(_file)
+            else:  # assume a file that specifies individual designs was passed and load all design names in that file
+                with open(_file, 'r') as f:
+                    paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
+                                repeat(os.sep))  # only strip the trailing 'os.sep' in case file names are passed
+                all_paths.extend(paths)
+            location = _file  # assigned to the last file even if there are multiple...
     elif directory:
         location = directory
         base_directories = get_base_symdesign_dirs(directory)
