@@ -31,7 +31,7 @@ sym_comb_dict = {
     11: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'C4', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'D4', 'D4', 0, 'N/A', 4, 2],
     12: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 8, '<0,0,0>', 'C4', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<e,0,0>', 'D4', 'p4212', 2, '(2*e, 2*e), 90', 5, 4],
     13: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 3, '<0,0,0>', 'C4', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'O', 'O', 0, 'N/A', 4, 3],
-    14: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 3, '<2*e,e,0>', 'C4', 3, ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'O', 'I432', 3, '(4*e, 4*e, 4*e), (90, 90, 90)', 5, 8],
+    14: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 3, '<2*e,e,0>', 'C4', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'O', 'I432', 3, '(4*e, 4*e, 4*e), (90, 90, 90)', 5, 8],
     15: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'C5', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'D5', 'D5', 0, 'N/A', 4, 2],
     16: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'C5', ['r:<0,0,1,c>', 't:<0,0,d>'], 9, '<0,0,0>', 'I', 'I', 0, 'N/A', 4, 3],
     17: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<e,0,0>', 'C6', ['r:<0,0,1,c>'], 1, '<0,0,0>', 'C6', 'p6', 2, '(2*e, 2*e), 120', 4, 3],
@@ -158,10 +158,10 @@ sym_comb_dict = {
     223: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 7, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 1, 1],
     224: ['C5', ['r:<0,0,1,a>', 't:<0,0,b>'], 9, '<0,0,0>', 'I', [], 1, '<0,0,0>', 'I', 'I', 0, 'N/A', 1, 1],
     # KM 3 component entries
-    301: {'components': [{'symmetry': 'C1', 'dof_internal': ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 'setting': 1, 'dof_external': '<0,0,0>'},
-                         {'symmetry': 'C2', 'dof_internal': ['r:<0,0,1,a>', 't:<0,0,b>'], 'setting': 1, 'dof_external': '<0,0,0>'},
-                         {'symmetry': 'C3', 'dof_internal': ['r:<0,0,1,a>', 't:<0,0,b>'], 'setting': 4, 'dof_external': '<0,0,0>'}]
-                          , 'result': ['T', 'T', 0, 'N/A', 1, 1]},
+    # 301: {'components': [{'symmetry': 'C1', 'dof_internal': ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 'setting': 1, 'dof_external': '<0,0,0>'},
+    #                      {'symmetry': 'C2', 'dof_internal': ['r:<0,0,1,a>', 't:<0,0,b>'], 'setting': 1, 'dof_external': '<0,0,0>'},
+    #                      {'symmetry': 'C3', 'dof_internal': ['r:<0,0,1,a>', 't:<0,0,b>'], 'setting': 4, 'dof_external': '<0,0,0>'}]
+    #                       , 'result': ['T', 'T', 0, 'N/A', 1, 1]},
 }
 # Standard T:{C3}{C3}
 # 54: [54, 'C3', 2, ['r:<0,0,1,a>', 't:<0,0,b>'], 4, '<0,0,0>', 'C3', 2, ['r:<0,0,1,c>', 't:<0,0,d>'], 12, '<0,0,0>',
@@ -424,19 +424,19 @@ class SymEntry:
         valid_pt_gp_symm_list.remove('D5')
 
         if self.group1 not in valid_pt_gp_symm_list:
-            raise ValueError("Invalid Point Group Symmetry")
+            raise ValueError('Invalid Point Group Symmetry')
 
         if self.group2 not in valid_pt_gp_symm_list:
-            raise ValueError("Invalid Point Group Symmetry")
+            raise ValueError('Invalid Point Group Symmetry')
 
         if self.point_group_sym not in valid_pt_gp_symm_list:
-            raise ValueError("Invalid Point Group Symmetry")
+            raise ValueError('Invalid Point Group Symmetry')
 
         if self.dimension not in [0, 2, 3]:
-            raise ValueError("Invalid Design Dimension")
+            raise ValueError('Invalid Design Dimension')
 
         degeneracies = []
-        for i in range(2):
+        for i in range(2):  # Todo expand to situations where more than 2 symmetries...
             oligomer_symmetry = self.group1 if i == 0 else self.group2
 
             degeneracy_matrices = None
@@ -802,7 +802,7 @@ def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
         matching_entries = []
         for entry_number, entry in sym_comb_dict.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _ = entry
+                ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _, _, _ = entry
             # group2 = entry[6]
             # int_dof_group1 = entry[3]
             # int_dof_group2 = entry[8]
@@ -855,7 +855,7 @@ def query_combination(combination_list):
         matching_entries = []
         for entry_number, entry in sym_comb_dict.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, _ = entry
+                ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
             # group2 = entry[6]
             # int_dof_group1 = entry[3]
             # int_dof_group2 = entry[8]
@@ -899,7 +899,7 @@ def query_result(desired_result):
         matching_entries = []
         for entry_number, entry in sym_comb_dict.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, _ = entry
+                ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
             # group2 = entry[6]
             # int_dof_group1 = entry[3]
             # int_dof_group2 = entry[8]
@@ -942,7 +942,7 @@ def query_counterpart(query_group):
         matching_entries = []
         for entry_number, entry in sym_comb_dict.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, _ = entry
+                ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
             # group2 = entry[6]
             # int_dof_group1 = entry[3]
             # int_dof_group2 = entry[8]
@@ -984,7 +984,7 @@ def all_entries():
     all_entries_list = []
     for entry_number, entry in sym_comb_dict.items():
         group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-        ref_frame_tx_dof_group2, _, result, dimension, _ = entry
+        ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
         # group2 = entry[6]
         # int_dof_group1 = entry[3]
         # int_dof_group2 = entry[8]
@@ -1020,7 +1020,7 @@ def dimension(dim):
         matching_entries_list = []
         for entry_number, entry in sym_comb_dict.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                ref_frame_tx_dof_group2, _, result, dimension, _ = entry
+                ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
             # group1 = entry[1]
             # group2 = entry[6]
             # int_dof_group1 = entry[3]
@@ -1047,9 +1047,9 @@ def dimension(dim):
                                                                                str(int_tx1), ref_frame_tx_dof_group1,
                                                                                group2, str(int_rot2), str(int_tx2),
                                                                                ref_frame_tx_dof_group2, result))
-        print('\033[1m' + "ALL ENTRIES FOUND WITH DIMENSION " + str(dim) + ": " + '\033[0m')
+        print('\033[1m' + 'ALL ENTRIES FOUND WITH DIMENSION %d: ' % dim + '\033[0m')
         print_query_header()
         for entry in matching_entries_list:
             print(entry)
     else:
-        print("DIMENSION NOT SUPPORTED, VALID DIMENSIONS ARE: 0, 2 or 3 ")
+        print('DIMENSION NOT SUPPORTED, VALID DIMENSIONS ARE: 0, 2 or 3')

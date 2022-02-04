@@ -31,7 +31,7 @@ from Query.PDB import input_string, bool_d, invalid_string, boolean_choice
 from utils.CmdLineArgParseUtils import query_mode
 from utils.PDBUtils import orient_pdb_file
 from Query import Flags
-from classes.SymEntry import SymEntry, sdf_lookup
+from classes.SymEntry import SymEntry, sdf_lookup, possible_symmetries, parse_symmetry_to_sym_entry
 from classes.EulerLookup import EulerLookup
 from interface_analysis.Database import Database  # FragmentDatabase,
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status, script_cmd, rosetta_flags
@@ -358,14 +358,14 @@ def format_additional_flags(flags):
     # combines ['-symmetry', 'O', '-nanohedra_output', True', ...]
     combined_extra_flags = []
     for idx, flag in enumerate(flags):
-        if len(flag) > 1 and flag[0] == '-' and flag[1] == '-':  # format flags by removing extra '-'
+        if flag[0] == '-' and flag[1] == '-':  # format flags by removing extra '-'. Issue with PyMol command in future?
             flags[idx] = flag[1:]
 
         if flag.startswith('-'):  # this is a real flag
             extra_arguments = ''
-            # iterate over arguments after the flag
+            # iterate over arguments after the flag until a flag with "-" is reached. This is a new flag
             increment = 1
-            while (idx + increment) != len(flags) and not flags[idx + 1].startswith('-'):  # we have an argument
+            while (idx + increment) != len(flags) and not flags[idx + increment].startswith('-'):  # we have an argument
                 extra_arguments += ' %s' % flags[idx + increment]
                 increment += 1
             # remove - from the front and add all arguments to single flag argument list item
@@ -376,18 +376,22 @@ def format_additional_flags(flags):
     final_flags = {}
     for flag_arg in combined_extra_flags:
         if ' ' in flag_arg:
-            flag, *args = flag_arg.split()[0]
+            flag, *args = flag_arg.split()  #[0]
             # flag = flag.lstrip('-')
             # final_flags[flag] = flag_arg.split()[1]
-            if len(args) > 1:
+            if len(args) > 1:  # we have multiple arguments, set all to the flag
                 final_flags[flag] = args
-            elif args.lower() == 'none':
+
+            # check for specific strings and set to corresponding python values
+            elif args[0].lower() == 'true':
                 # final_flags[flag] = eval(final_flags[flag].title())
-                final_flags[flag] = None
-            elif args.lower() == 'true':
                 final_flags[flag] = True
-            elif args.lower() == 'false':
+            elif args[0].lower() == 'false':
                 final_flags[flag] = False
+            elif args[0].lower() == 'none':
+                final_flags[flag] = None
+            else:
+                final_flags[flag] = args[0]
         else:  # add to the dictionary with default argument of True
             final_flags[flag_arg] = True
 
@@ -557,7 +561,7 @@ if __name__ == '__main__':
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
     # ---------------------------------------------------
     # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
-    #                                                             'include %s' % ', '.join(SDUtils.possible_symmetries))
+    #                                                             'include %s' % ', '.join(possible_symmetries))
     parser.add_argument('-b', '--debug', action='store_true',
                         help='Whether to log debugging messages to stdout\nDefault=False')
     parser.add_argument('-C', '--cluster_map', type=os.path.abspath,

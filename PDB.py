@@ -402,9 +402,6 @@ class PDB(Structure):
             # inherently replace the Atom and Residue Coords
             self.set_coords(coords)
 
-        if pose_format:
-            self.renumber_structure()
-
         if isinstance(chains, (list, Structures)) or isinstance(entities, (list, Structures)):  # create from existing
             atoms, residues = [], []
             # add lists together, only one is populated from class construction
@@ -475,6 +472,9 @@ class PDB(Structure):
             else:
                 # create Entities from Chain.Residues
                 self.create_entities(**kwargs)
+
+        if pose_format:
+            self.renumber_structure()
         # if self.design:  # Todo maybe??
         #     self.process_symmetry()
         # self.entities.make_oligomers()  # Todo institute if needed

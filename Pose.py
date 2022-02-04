@@ -1930,7 +1930,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # self.debug_pdb(tag='get_contacting')
         idx = 0
         chain_combinations, entity_combinations = [], []
-        contact_count = np.zeros((prod([len(entity.chains) for entity in self.active_entities])))
+        contact_count = \
+            np.zeros(sum(map(prod, combinations((len(entity.chains) for entity in self.active_entities), 2))))
+        # contact_count = np.zeros((prod([len(entity.chains) for entity in self.active_entities])))
         for entity1, entity2 in combinations(self.active_entities, 2):
             for chain1 in entity1.chains:
                 chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
