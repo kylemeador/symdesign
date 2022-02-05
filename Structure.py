@@ -1695,7 +1695,7 @@ class Structure(StructureBase):
         def write_header(location):
             if header and isinstance(header, Iterable):
                 if isinstance(header, str):
-                    location.write(header)
+                    location.write('%s\n' % header)
                 # else:  # TODO
                 #     location.write('\n'.join(header))
 
@@ -1934,7 +1934,12 @@ class Structure(StructureBase):
         return self.name
 
 
-class Structures(Structure):  # todo subclass UserList (https://docs.python.org/3/library/collections.html#userlist-objects)
+class Structures(Structure):
+    # todo subclass UserList (https://docs.python.org/3/library/collections.html#userlist-objects)
+    #  the constructor of any subclasses of UserList must be able to construct with one or no arguments.
+    #  I believe that the constructor as specified here on 2/4/22 would suffice
+    #  The inheritance of both a Structure and UserClass may get sticky...
+    #  As all the functions I have here overwrite Structure class functions, the inheritance may not be neccessary
     """Keep track of groups of Structure objects"""
     def __init__(self, structures=None, **kwargs):  # log=None,
         super().__init__(**kwargs)
@@ -2572,7 +2577,8 @@ class Entity(Chain, SequenceProfile):
             (list[Structure]): The underlying chains in the oligomer
         """
         if self.is_oligomeric:
-            return Structures(self.chains)
+            # return Structures(self.chains)
+            return self.chains
         else:
             self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
                              'instead' % self.name)

@@ -1928,6 +1928,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             (PDB): The PDB object with the minimal set of Entities containing the maximally touching configuration
         """
         # self.debug_pdb(tag='get_contacting')
+        if len(self.active_entities) == 1:
+            return PDB.from_entities(self.active_entities, name='asu', log=self.log)
         idx = 0
         chain_combinations, entity_combinations = [], []
         contact_count = \
@@ -2253,6 +2255,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # Construct CB tree for entity1 and query entity2 CBs for a distance less than a threshold
         entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want
         entity1_tree = BallTree(entity1_coords)
+        if len(entity2_coords) == 0:  # ensure the array is not empty
+            return []
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates
@@ -2395,7 +2399,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         entity1_residues, entity2_residues = self.interface_residues.get((entity1, entity2))
         if not entity1_residues or not entity2_residues:
-            self.log.debug('At Entity %s | Entity %s interface, No residues found. Fragments not available')
+            self.log.debug('At Entity %s | Entity %s interface, No residues found. Fragments not available'
+                           % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
             return
         if entity1 == entity2 and entity1.is_oligomeric:

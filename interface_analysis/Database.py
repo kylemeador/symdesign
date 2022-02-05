@@ -238,7 +238,7 @@ class FragmentDB:
     def get_monofrag_cluster_rep_dict(self):
         self.reps = {int(os.path.splitext(file)[0]):
                      PDB.from_file(os.path.join(root, file), solve_discrepancy=False, pose_format=False,
-                                   entitites=False, log=None)
+                                   entities=False, log=None)
                      for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):

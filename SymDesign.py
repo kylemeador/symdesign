@@ -637,7 +637,7 @@ if __name__ == '__main__':
                                              help='Generate a residue selection for %s' % PUtils.program_name)
     # ---------------------------------------------------
     parser_orient = subparsers.add_parser('orient',
-                                          help='Orient a symmetric assembly in a cannonical orientation at the origin')
+                                          help='Orient a symmetric assembly in a canonical orientation at the origin')
     # ---------------------------------------------------
     parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
     # ---------------------------------------------------
@@ -1805,8 +1805,8 @@ if __name__ == '__main__':
         if queried_flags['design_with_evolution']:
             if psutil.virtual_memory().available <= hhblits_memory_threshold:
                 logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
-                                '(the backbone of -design_with_evolution)! Please allocate the job to a computer with'
-                                'more memory or the process will fail. Otherwise, select -design_with_evolution False')
+                                '(the backbone of --design_with_evolution)! Please allocate the job to a computer with '
+                                'more memory or the process will fail. Otherwise, select --design_with_evolution False')
             master_directory.make_path(master_directory.sequences)
             master_directory.make_path(master_directory.profiles)
         # Start pose processing and preparation for Rosetta

@@ -140,10 +140,13 @@ class SequenceProfile:
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Keyword Args:
-            fragment_source=None (list):
-            alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
+            # fragment_source=None (list):
+            evolution=True (bool): Whether to add evolutionary information to the sequence profile
+            fragments=True (bool): Whether to add fragment information to the sequence profile
+            null=False (bool): Whether to use a null profile (non-functional) as the sequence profile
+            # alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
             out_path=os.getcwd() (str): Location where sequence files should be written
-            pdb_numbering=True (bool):
+            # pdb_numbering=True (bool):
         """
         if null or not evolution and not fragments:
             null, evolution, fragments = True, False, False
@@ -662,7 +665,7 @@ class SequenceProfile:
                 self.log.error('No fragment information associated with the Entity %s yet! You must add to the profile '
                                'otherwise only evolutionary values will be used.\n%s'
                                % (self.name, add_fragment_profile_instructions))
-                return None
+                return
 
     def assign_fragments(self, fragments=None, alignment_type=None):
         """Distribute fragment information to self.fragment_map. One-indexed residue dictionary
@@ -672,12 +675,13 @@ class SequenceProfile:
             [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
             alignment_type=None (str): Either mapped or paired
         Sets:
-            self.fragment_map (dict): {1: [{'chain']: 'mapped', 'cluster': 1_2_123, 'match': 0.61}, ...], ...}
+            self.fragment_map (dict): {1: [{'chain': 'mapped', 'cluster': 1_2_123, 'match': 0.61}, ...], ...}
         """
         if alignment_type not in ['mapped', 'paired']:
-            return None
+            return
         if not fragments:
-            return None
+            self.fragment_map = {}
+            return
 
         if not self.fragment_map:
             self.fragment_map = self.populate_design_dictionary(self.profile_length,

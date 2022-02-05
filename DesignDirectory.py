@@ -328,7 +328,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @property
     def design_symmetry(self):
         try:
-            return self.sym_entry.get_result_design_sym
+            return self.sym_entry.resulting_symmetry
         except AttributeError:
             return
 
@@ -342,7 +342,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @property
     def design_dimension(self):
         try:
-            return self.sym_entry.get_design_dim
+            return self.sym_entry.dimension
         except AttributeError:
             return
 
@@ -1639,7 +1639,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         self.symmetry is used to specify the orientation
         """
-        pdb = PDB.from_file(self.source, log=self.log)
+        pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
         if self.design_symmetry:
             oriented_pdb = pdb.orient(sym=self.design_symmetry, out_dir=self.orient_dir, log=self.log)
             if to_design_directory:
@@ -1648,7 +1648,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 path = self.orient_dir
                 self.make_path(self.orient_dir)
 
-            return oriented_pdb.write(out_path=path)
+            return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
@@ -1787,8 +1787,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.interface_residues (list[int]): The residues in contact across the interface
         """
         # self.expand_asu()  # can't use this as it is a stand in for SymDesign call which needs to catch Errors!
-        if not self.pose:
-            self.load_pose()
+        # if not self.pose:
+        self.load_pose()
         if self.pose.symmetry:
             self.symmetric_assembly_is_clash()
             if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
