@@ -46,7 +46,7 @@ class SequenceProfile:
         self.frag_db = None
         self.fragment_queries = {}
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
-        self.fragment_map = {}
+        self.fragment_map = None  # {}
         self.alpha = {}
         self.fragment_profile = {}
         self.fragment_pssm_file = None
@@ -160,14 +160,18 @@ class SequenceProfile:
             self.null_pssm()
 
         if fragments:  # add fragment information to the SequenceProfile
-            if self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
+            if self.fragment_map is None:
+                raise DesignError('Fragments were specified but have not been added to the SequenceProfile! '
+                                  'The Pose/Entity must call assign_fragments() with fragment information')
+            elif self.frag_db:  # fragments have already been added, connect DB info
                 retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
                                       for fragments in idx_d.values() for fragment in fragments
                                       if fragment['cluster'] not in self.frag_db.cluster_info]
                 self.frag_db.get_cluster_info(ids=retrieve_fragments)
             else:
-                raise DesignError('Fragments were specified but have not been added to the SequenceProfile! '
-                                  'The Pose/Entity must call assign_fragments() with fragment information')
+                raise DesignError('Fragments were specified but there is no fragment database attached to the '
+                                  'SequenceProfile. Ensure frag_db is set before requesting fragment information')
+
             # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()
             self.find_alpha()
@@ -650,10 +654,10 @@ class SequenceProfile:
         """
         # v now done at the pose_level
         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
-        if self.fragment_map:
+        if self.fragment_map is not None:
             self.generate_fragment_profile()
             self.simplify_fragment_profile(keep_extras=True)
-        else:
+        else:  # try to separate any fragment queries to this entity
             if self.fragment_queries:  # Todo refactor this to Pose
                 for query_pair, fragments in self.fragment_queries.items():
                     for query_idx, entity in enumerate(query_pair):
