@@ -290,23 +290,9 @@ class PDB(Structure):
         entity = None
         coords, atom_info = [], []
         atom_idx = 0
+        matrices = []
+        current_operation = -1
         for line in pdb_lines:
-            # integration of the REMARK 350 BIOMT
-            # matrices = []
-            # current_trans = -1
-            # tokens = line.split()
-            # # REM, TAG, BIOMT, OPNO, X, Y, Z, TX = line.split()
-            #     if len(tokens) != 8:
-            #         continue
-            #     if tokens[0]=='REMARK' and tokens[1]=='350' and tokens[2].startswith('BIOMT'):
-            #         if tokens[3] != current_trans:
-            #           # new transformation matrix
-            #           current_trans = tokens[3]  # KM I think this is better here
-            #           matrices.append([])
-            #         # add the transformation to the current matrix
-            #         matrices[-1].append(list(map(float, tokens[4:])))  # np.array(map(float, tokens[4:])))
-            #         # current_trans = tokens[3]
-
             if line[:4] == 'ATOM' or line[17:20] == 'MSE' and line[:6] == 'HETATM':
                 alt_location = line[16:17].strip()
                 # if remove_alt_location and alt_location not in ['', 'A']:
@@ -351,6 +337,27 @@ class PDB(Structure):
             #     continue
             elif line[:6] == 'SEQRES':
                 seq_res_lines.append(line[11:])
+            elif line[:18] == 'REMARK 350   BIOMT':
+                # integration of the REMARK 350 BIOMT
+                # REMARK 350
+                # REMARK 350 BIOMOLECULE: 1
+                # REMARK 350 AUTHOR DETERMINED BIOLOGICAL UNIT: TRIMERIC
+                # REMARK 350 SOFTWARE DETERMINED QUATERNARY STRUCTURE: TRIMERIC
+                # REMARK 350 SOFTWARE USED: PISA
+                # REMARK 350 TOTAL BURIED SURFACE AREA: 6220 ANGSTROM**2
+                # REMARK 350 SURFACE AREA OF THE COMPLEX: 28790 ANGSTROM**2
+                # REMARK 350 CHANGE IN SOLVENT FREE ENERGY: -42.0 KCAL/MOL
+                # REMARK 350 APPLY THE FOLLOWING TO CHAINS: A, B, C
+                # REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000
+                # REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000
+                # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
+                # tokens = line.split()
+                rem, tag, biomt, operation_number, x, y, z, tx = line.split()
+                if operation_number != current_operation:  # we reached a new transformation matrix
+                    current_operation = operation_number
+                    matrices.append([])
+                # add the transformation to the current matrix
+                matrices[-1].append(list(map(float, [x, y, z, tx])))
             elif line[:5] == 'DBREF':
                 chain = line[12:14].strip().upper()
                 if line[5:6] == '2':
