@@ -204,11 +204,11 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        # space groups  # Todo
                        # 'cryst': 'cryst'
                        }
-all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': -1},
-                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': -2},
-                      'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}}}
+all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200},
+                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': 210},
+                      'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}, 'I': 220}}
 point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7: 'O32', 13: 'O42', 56: 'O43',
-                       }
+                       200: 'T', 210: 'O', 220: 'I'}
 
 sub_symmetries = {'C1': ['C1'],
                   'C2': ['C1', 'C2'],
@@ -422,11 +422,11 @@ class SymEntry:
         valid_pt_gp_symm_list = list(valid_subunit_number.keys())
         valid_pt_gp_symm_list.remove('D5')
 
-        if self.group1 not in valid_pt_gp_symm_list:
-            raise ValueError('Invalid Point Group Symmetry')
-
-        if self.group2 not in valid_pt_gp_symm_list:
-            raise ValueError('Invalid Point Group Symmetry')
+        # if self.group1 not in valid_pt_gp_symm_list:
+        #     raise ValueError('Invalid Point Group Symmetry')
+        #
+        # if self.group2 not in valid_pt_gp_symm_list:
+        #     raise ValueError('Invalid Point Group Symmetry')
 
         if self.point_group_sym not in valid_pt_gp_symm_list:
             raise ValueError('Invalid Point Group Symmetry')
