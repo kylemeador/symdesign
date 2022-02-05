@@ -256,7 +256,7 @@ class SymEntry:
                 sym_entry
         except TypeError:
             raise ValueError('\nINVALID SYMMETRY ENTRY \'%s\'. SUPPORTED VALUES ARE: %d to %d and CUSTOM ENTRIES: %s\n'
-                             % (entry, 1, len(sym_comb_dict), ', '.join(custom_entries)))
+                             % (entry, 1, len(sym_comb_dict), ', '.join(map(str, custom_entries))))
         self.entry_number = entry
         # Reformat reference_frame entries
         self._is_ref_frame_tx_dof1 = True if self.ref_frame_tx_dof1 != '<0,0,0>' else False
@@ -418,7 +418,6 @@ class SymEntry:
         Returns:
             (tuple[list[list[list[float]]] or None])
         """
-        # valid_pt_gp_symm_list = ["C2", "C3", "C4", "C5", "C6", "D2", "D3", "D4", "D6", "T", "O", "I"]
         # here allows for D5. Is this bad? .pop('D5') The sym_entries are hardcoded...
         valid_pt_gp_symm_list = list(valid_subunit_number.keys())
         valid_pt_gp_symm_list.remove('D5')
@@ -444,9 +443,8 @@ class SymEntry:
             if self.dimension == 0 and i == 1:
                 degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
-            # For layers that obey a cyclic point group symmetry
-            # and that are constructed from two oligomers that both obey cyclic symmetry
-            # only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
+            # For layers that obey a cyclic point group symmetry and that are constructed from two oligomers that both
+            # obey cyclic symmetry only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
             elif self.dimension == 2 and i == 1 and \
                     (self.group1[0], self.group2[0], self.point_group_sym[0]) == ('C', 'C', 'C'):
                 degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y

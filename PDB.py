@@ -14,9 +14,9 @@ from Bio.Data.IUPACData import protein_letters_3to1_extended
 
 from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
-from Structure import Structure, Chain, Entity, Atom, Residues, Structures
+from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues
-from utils.SymmetryUtils import valid_subunit_number
+from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number
 
 logger = start_log(name=__name__)
 
@@ -77,10 +77,11 @@ class PDB(Structure):
                                           'lacking coords! Either pass Residue objects with coords or pass coords.')
                 self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
                 self.process_pdb(residues=residues, coords=coords, **kwargs)
+            # Todo add residues, atoms back to kwargs?
             elif chains:
-                self.process_pdb(chains=chains, **kwargs)
+                self.process_pdb(chains=chains, entities=entities, **kwargs)
             elif entities:
-                self.process_pdb(entities=entities, **kwargs)
+                self.process_pdb(entities=entities, chains=chains, **kwargs)
             # # elif isinstance(chains, (list, Structures)) and chains:
             # elif isinstance(chains, list) and chains:
             #     atoms, residues = [], []
@@ -419,7 +420,7 @@ class PDB(Structure):
             # set residue attributes, index according to new Atoms/Coords index
             self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
             self._residues.reindex_residue_atoms()
-            self.set_coords(coords=np.concatenate([chain.coords for chain in chains]))
+            self.set_coords(coords=np.concatenate([structure.coords for structure in structures]))
 
         if chains:
             if isinstance(chains, list):  # create the instance from existing chains
@@ -828,7 +829,7 @@ class PDB(Structure):
                 oriented_pdb = os.path.join(out_dir, pdb_file_name)
                 move(orient_output, oriented_pdb)
             else:
-                oriented_pdb = PDB.from_file(orient_output)
+                oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
         clean_orient_input_output()
 
         return oriented_pdb
@@ -1248,7 +1249,7 @@ class PDB(Structure):
                      'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
                      }
         """
-        if len(self.name) == 4:
+        if self.name and len(self.name) == 4:
             if not self.api_entry:
                 self.api_entry = get_pdb_info_by_entry(self.name)
                 if self.api_entry:
