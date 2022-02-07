@@ -1907,7 +1907,11 @@ class Structure(StructureBase):
     def return_chain_generator():
         return (first + second for modification in ['upper', 'lower']
                 for first in [''] + list(getattr(Structure.available_letters, modification)())
-                for second in getattr(Structure.available_letters, modification)())
+                for second in list(getattr(Structure.available_letters, 'upper')()) +
+                list(getattr(Structure.available_letters, 'lower')()))
+        # return (first + second for modification in ['upper', 'lower']
+        #         for first in [''] + list(getattr(Structure.available_letters, modification)())
+        #         for second in getattr(Structure.available_letters, modification)())
 
     def __key(self):
         return self.name, (*self._residue_indices)
