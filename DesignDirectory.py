@@ -140,7 +140,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.interface_residues = False
         self.legacy = kwargs.get('legacy', False)
         self.number_of_trajectories = kwargs.get('number_of_trajectories', False)
-        self.pre_refine = True
+        self.pre_refine = False  # True
         self.query_fragments = False
         self.scout = kwargs.get('scout', False)
         self.sequence_background = kwargs.get('sequence_background', False)
@@ -1513,8 +1513,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                                                                     name=os.path.splitext(os.path.basename(file))[0]))
                             else:
                                 raise DesignError('Couldn\'t located the specified oligomer %s' % name)
-            if source_idx > 0:
-                self.pre_refine = False
+            if source_idx == 0:
+                self.pre_refine = True
         else:  # Todo consolidate this with above as far as iterative mechanism
             if refined:  # prioritize the refined version
                 path = self.refine_dir
@@ -1523,6 +1523,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         oriented = True  # fall back to the oriented version
                         self.log.debug('Couldn\'t find oligomers in the refined directory')
                         break
+                self.pre_refine = True if not oriented else False
             if oriented:
                 path = self.orient_dir
                 for name in self.entity_names:
