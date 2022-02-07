@@ -2748,7 +2748,19 @@ class Entity(Chain, SequenceProfile):
         if os.path.exists(out_file):
             return out_file
 
-        struct_file = self.scout_symmetry(struct_file=struct_file)
+        # if self.symmetry == 'C1':
+        #     return
+        # el
+        if self.symmetry in ['T', 'O', 'I']:
+            if not struct_file:
+                struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
+            sdf_mode = 'PSEUDO'
+            self.log.warning('Using experimental symmetry definition file generation, proceed with caution as Rosetta '
+                             'runs may fail due to improper set up')
+        else:
+            sdf_mode = 'NCS'
+            struct_file = self.scout_symmetry(struct_file=struct_file)
+
         dihedral = self.is_dihedral()
         if dihedral:  # dihedral_chain will be set
             chains = [self.max_symmetry, self.dihedral_chain]
@@ -2757,7 +2769,8 @@ class Entity(Chain, SequenceProfile):
 
         # if not struct_file:
         #     struct_file = self.write(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
-        sdf_cmd = ['perl', make_symmdef, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'] + chains
+        sdf_cmd = \
+            ['perl', make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'] + chains
         self.log.info('Creating symmetry definition file: %s' % subprocess.list2cmdline(sdf_cmd))
         # with open(out_file, 'w') as file:
         p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
