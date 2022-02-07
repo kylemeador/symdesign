@@ -757,7 +757,7 @@ class Model:  # Todo (Structure)
                 # if isinstance(header, Iterable):
 
             if increment_chains:
-                available_chain_ids = self.return_chain_generator()
+                available_chain_ids = Structure.return_chain_generator()
                 for structure in self.models:
                     for entity in structure.entities:  # Todo handle with multiple Structure containers
                         chain = next(available_chain_ids)
@@ -840,7 +840,11 @@ class SymmetricModel(Model):
         Returns:
             (int)
         """
-        return self._number_of_symmetry_mates
+        try:
+            return self._number_of_symmetry_mates
+        except AttributeError:
+            self._number_of_symmetry_mates = 1
+            return self._number_of_symmetry_mates
 
     @number_of_symmetry_mates.setter
     def number_of_symmetry_mates(self, number_of_symmetry_mates):
@@ -1661,7 +1665,7 @@ class SymmetricModel(Model):
         """
         if not self.symmetry:
             raise DesignError('Cannot check if the assembly is clashing as it has no symmetry!')
-        elif not self.number_of_symmetry_mates:
+        elif self.number_of_symmetry_mates == 1:
             raise DesignError('Cannot check if the assembly is clashing without first calling %s'
                               % self.generate_symmetric_assembly.__name__)
 
@@ -1861,7 +1865,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     @property
     def active_entities(self):
-        return [entity for entity in self.entities if entity in self.design_selector_entities]
+        try:
+            return self._active_entities
+        except AttributeError:
+            self._active_entities = [entity for entity in self.entities if entity in self.design_selector_entities]
+            return self._active_entities
 
     @property
     def entities(self):  # TODO COMMENT OUT .pdb
@@ -1929,7 +1937,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         # self.debug_pdb(tag='get_contacting')
         if len(self.active_entities) == 1:
-            return PDB.from_entities(self.active_entities, name='asu', log=self.log)
+            return PDB.from_entities(self.active_entities, name='asu', log=self.log, pose_format=False)
         idx = 0
         chain_combinations, entity_combinations = [], []
         contact_count = \
@@ -1948,19 +1956,26 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         additional_chains = []
         max_chains = list(chain_combinations[max_contact_idx])
         if len(max_chains) != len(self.active_entities):
+            # find the indices where either of the maximally contacting chains are utilized
             selected_chain_indices = [idx for idx, chain_pair in enumerate(chain_combinations)
                                       if max_chains[0] in chain_pair or max_chains[1] in chain_pair]
             remaining_entities = set(self.active_entities).difference(entity_combinations[max_contact_idx])
             for entity in remaining_entities:  # get the maximum contacts and the associated entity and chain indices
+                # find the indices where the missing entity is utilized
                 remaining_indices = [idx for idx, entity_pair in enumerate(entity_combinations)
                                      if entity in entity_pair]
-                pair_position = [0 if entity_pair[0] == entity else 1
-                                 for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair]
+                # pair_position = [0 if entity_pair[0] == entity else 1
+                #                  for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair]
                 viable_remaining_indices = list(set(remaining_indices).intersection(selected_chain_indices))
+                # out of the viable indices where the selected chains are matched with the missing entity,
+                # find the highest contact
                 max_index = contact_count[viable_remaining_indices].argmax()
-                additional_chains.append(chain_combinations[max_index][pair_position[max_index]])
+                for entity_idx, entity_in_combo in enumerate(entity_combinations[viable_remaining_indices[max_index]]):
+                    if entity == entity_in_combo:
+                        additional_chains.append(chain_combinations[viable_remaining_indices[max_index]][entity_idx])
 
-        return PDB.from_chains(max_chains + additional_chains, name='asu', log=self.log)
+        # return PDB.from_chains(max_chains + additional_chains, name='asu', log=self.log)
+        return PDB.from_entities(max_chains + additional_chains, name='asu', log=self.log, pose_format=False)
 
     # def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
     #     self.ignore_clashes = ignore_clashes
@@ -2471,7 +2486,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         Sets:
             self.split_interface_residues (dict): Residue/Entity id of each residue at the interface identified by interface id
-            as split by topology
+                as split by topology
         """
         self.log.debug('Find and split interface using active_entities: %s' %
                        [entity.name for entity in self.active_entities])
@@ -2483,6 +2498,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def check_interface_topology(self):
         """From each pair of entities that share an interface, split the identified residues into two distinct groups.
         If an interface can't be composed into two distinct groups, raise a DesignError
+
+        Sets:
+            self.split_interface_residues (dict): Residue/Entity id of each residue at the interface identified by interface id
+                as split by topology
         """
         first_side, second_side = 0, 1
         interface = {first_side: {}, second_side: {}, 'self': [False, False]}  # assume no symmetric contacts to start

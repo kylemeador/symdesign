@@ -1101,13 +1101,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             sym_def_file = self.sym_def_file
         variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
         # out_of_bounds_residue = self.pose.chain_breaks[-1] * self.pose.number_of_models + 1
-        out_of_bounds_residue = self.pose.number_of_residues * self.pose.number_of_models + 1
+        out_of_bounds_residue = self.pose.number_of_residues * self.pose.number_of_symmetry_mates + 1
         variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
                           for interface, residues in self.design_residue_ids.items()])
 
         # assign any additional designable residues
         if self.pose.required_residues:
-            variables.extend([('required_residues', ','.join(str(res.number) for res in self.pose.required_residues))])
+            variables.extend([('required_residues', ','.join('%d%s' % (res.number, res.chain)
+                                                             for res in self.pose.required_residues))])
         else:  # get an out of bounds index
             variables.extend([('required_residues', out_of_bounds_residue)])
 
@@ -1174,12 +1175,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 continue
             if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
                 entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
+                entity_sym = 'symmetry=make_point_group'
             else:
-                entity_sdf = ''
-            metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sdf,
-                                       'symmetry=%s' % 'make_point_group' if entity.is_oligomeric else 'asymmetric']
-            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(metric_cmd)))
-            metric_cmds.append(metric_cmd)
+                entity_sdf, entity_sym = '', 'symmetry=asymmetric'
+            _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+                ([entity_sdf] if entity_sdf != '' else [])
+            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
+            metric_cmds.append(_metric_cmd)
         # Create executable to gather interface Metrics on all Designs
         if self.script:
             write_shell_script(list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
@@ -1283,7 +1285,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
 
-    def prepare_rosetta_interface_design(self):
+    def rosetta_interface_design(self):
         """For the basic process of sequence design between two halves of an interface, write the necessary files for
         refinement (FastRelax), redesign (FastDesign), and metrics collection (Filters & SimpleMetrics)
 
@@ -1399,7 +1401,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            _metric_cmd = metric_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sdf, entity_sym]
+            _metric_cmd = metric_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+                ([entity_sdf] if entity_sdf != '' else [])
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
@@ -1562,7 +1565,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             for oligomer in self.oligomers:
                 entities.extend(oligomer.entities)
 
-            asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log)
+            asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log,
+                                    rename_chains=True)
+            # because the file wasn't specified on the way in, no chain names should be binding
         else:
             asu = PDB.from_file(source if source else self.source, name='%s-asu' % str(self),
                                 entity_names=self.entity_names, log=self.log)
@@ -1579,7 +1584,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # generate oligomers for each entity in the pose
         # if self.pose_transformation:
         for idx, entity in enumerate(self.pose.entities):
-            # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
             entity.make_oligomer(sym=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
             # write out new oligomers to the DesignDirectory TODO add flag to include these
             # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
@@ -1597,7 +1601,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 return
             # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily most contacting
             # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() making new entities...
-            new_asu = self.pose.get_contacting_asu()
+            new_asu = self.pose.get_contacting_asu()  # returns a new Structure from multiple Chain or Entity objects
             new_asu.write(out_path=self.asu, header=self.cryst_record)
             # self.pose.pdb.write(out_path=self.asu, header=self.cryst_record)
             self.info['pre_refine'] = self.pre_refine
@@ -1864,7 +1868,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.info['fragment_profile'] = self.pose.fragment_pssm_file
             self.info['fragment_database'] = self.pose.frag_db.source
 
-        self.prepare_rosetta_interface_design()
+        self.rosetta_interface_design()
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
@@ -1942,7 +1946,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            _metric_cmd = metric_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sdf, entity_sym]
+            _metric_cmd = metric_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+                ([entity_sdf] if entity_sdf != '' else [])
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
@@ -1988,8 +1993,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #                        pass names if available ^
             if self.pose_transformation:
                 for idx, entity in enumerate(design.entities):
-                    # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
-                    entity.make_oligomer(sym=getattr(self.sym_entry, 'group%d' % idx + 1), **self.pose_transformation[idx])
+                    entity.make_oligomer(sym=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
             design_structures.append(design)
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
