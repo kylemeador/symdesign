@@ -503,9 +503,9 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
 
     file_name = os.path.join(out_path, name if name.endswith('.sh') else '%s.sh' % name)
     with open(file_name, 'w') as f:
-        f.write('#!/bin/%s\n\n%s%s %s\n' % (shell, check, command, modifier))
+        f.write('#!/bin/%s\n\n%s%s %s\n\n' % (shell, check, command, modifier))
         if additional:
-            f.write('%s\n' % ('\n\n'.join('%s %s' % (x, modifier) for x in additional)))
+            f.write('%s\n\n' % ('\n\n'.join('%s %s' % (x, modifier) for x in additional)))
         f.write('%s\n' % _set)
 
     return file_name

@@ -72,7 +72,7 @@ aa_by_property = \
      'aromatic': {'PHE', 'HIS', 'TRP', 'TYR'},
      'hbonding': {'CYS', 'ASP', 'GLU', 'HIS', 'LYS', 'ASN', 'GLN', 'ARG', 'SER', 'THR', 'TRP', 'TYR'},
      'branched': {'ILE', 'LEU', 'THR', 'VAL'}}
-origin = np.array([0, 0, 0])
+origin = np.array([0., 0., 0.])
 
 
 class StructureBase:
@@ -81,7 +81,7 @@ class StructureBase:
     """
     def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, solve_discrepancy=None,
                  sequence=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
-                 query_by_sequence=True, entity_names=None, **kwargs):
+                 query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
         super().__init__(**kwargs)
 
 
@@ -2292,6 +2292,7 @@ class Entity(Chain, SequenceProfile):
         PDB EntryID_EntityID
     """
     def __init__(self, representative=None, uniprot_id=None, **kwargs):
+        # When init occurs chain_ids are set if chains were passed. If not, then they are auto generated
         #                                                                             name=None, coords=None, log=None):
         # assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
         #                                           'Chain object as the representative!'
@@ -2304,20 +2305,27 @@ class Entity(Chain, SequenceProfile):
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          coords=representative._coords, **kwargs)
         self._chains = []
-        self.chain_ops = []
-        chains = kwargs.get('chains', list())  # [Chain objs]
-        if chains and len(chains) > 1:
-            self.is_oligomeric = True
+        self.chain_transforms = []  # Todo, make a property that is a list?
+        chains = kwargs.get('chains', [])  # [Chain objs]
+        if chains:
+            if len(chains) > 1:
+                self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
+
             chain_ids = []
             for idx, chain in enumerate(chains):  # one of these is the representative, but we can treat it the same
                 if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
-                    self.chain_ops.append(dict(rotation=rot, translation=tx))
+                    self.chain_transforms.append(dict(rotation=rot, translation=tx))
                     chain_ids.append(chain.name)
                 else:
                     self.log.warning('The Chain %s passed to %s doesn\'t have the same number of residues'
                                      % (chain.name, self.name))
             self.chain_ids = chain_ids
+            # else:  # elif len(chains) == 1:
+            #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
+        else:
+            self.chain_ids = [self.chain_id]
+            self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
             # self.chain_ids = [chain.name for chain in chains]
             # self.structure_containers.extend(['chains'])
         self.api_entry = None
@@ -2340,11 +2348,11 @@ class Entity(Chain, SequenceProfile):
             #                         and setter is not happening because of a copy (no new info, update unimportant)
             if self.is_oligomeric:  # and not (coords.coords == self._coords.coords).all():
                 # each mate chain coords are dependent on the representative (captain) coords, find the transform
-                self.chain_ops.clear()
+                self.chain_transforms.clear()
                 for chain in self.chains:
                     # rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], self.get_cb_coords())
                     rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], chain.get_cb_coords())
-                    self.chain_ops.append(dict(rotation=rot, translation=tx))
+                    self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 self._chains.clear()
                 # then apply to mates
                 # for chain in self.chains:
@@ -2395,8 +2403,9 @@ class Entity(Chain, SequenceProfile):
     def chain_ids(self):
         try:
             return self._chain_ids
-        except AttributeError:
-            return list()
+        except AttributeError:  # This shouldn't be possible with the constructor available
+            self._chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+            return self._chain_ids
 
     @chain_ids.setter
     def chain_ids(self, chain_ids):
@@ -2404,10 +2413,13 @@ class Entity(Chain, SequenceProfile):
 
     @property
     def chains(self):
+        """Returns:
+            (list[Entity]): Transformed copies of the Entity itself
+        """
         if self._chains:
             return self._chains
         else:
-            self._chains = [self.return_transformed_copy(**transformation) for transformation in self.chain_ops]
+            self._chains = [self.return_transformed_copy(**transformation) for transformation in self.chain_transforms]
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
                 chain.chain_id = self.chain_ids[idx]
@@ -2444,10 +2456,10 @@ class Entity(Chain, SequenceProfile):
                 try:
                     return self._chains[idx]
                 except IndexError:  # could make all the chains too?
-                    chain = self.return_transformed_copy(**self.chain_ops[idx])
+                    chain = self.return_transformed_copy(**self.chain_transforms[idx])
                     chain.chain_id = chain_name
                     return chain
-        return None
+        return
 
     def retrieve_sequence_from_api(self, entity_id=None):
         if not entity_id:
@@ -2493,12 +2505,20 @@ class Entity(Chain, SequenceProfile):
         reference frame if any was provided
 
         Sets:
-            self.chains
+            # self.chains
+            self.chain_transforms
+            self.chain_ids
         """
         # if transform:
         #     translation, rotation, ext_translation, setting_rotation
+        # origin = np.array([0., 0., 0.])
+        if sym == 'C1':  # not symmetric
+            self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]
+            # This resets the chain_ids which would fuck up the logical permanence of this object!
+            # self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+            return
+
         self.is_oligomeric = True
-        origin = np.array([0., 0., 0.])
         if rotation is None:
             rotation = identity_matrix
         if translation is None:
@@ -2543,7 +2563,7 @@ class Entity(Chain, SequenceProfile):
         # self.chain_representative.start_indices(dtype='atom', at=self.atom_indices[0])
         # self.chain_representative.start_indices(dtype='residue', at=self.residue_indices[0])
         # self.chains.append(self.chain_representative)
-        self.chain_ops.clear()
+        self.chain_transforms.clear()
         # for idx, rot in enumerate(degeneracy_rotation_matrices[1:], 1):  # exclude the first rotation matrix as it is identity
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
@@ -2564,8 +2584,8 @@ class Entity(Chain, SequenceProfile):
                 # self.chains.append(sub_symmetry_mate_pdb)
                 # # self.chains[idx] = sub_symmetry_mate_pdb
                 rmsd, rot, tx, _ = superposition3d(new_coords, cb_coords)
-                self.chain_ops.append(dict(rotation=rot, translation=tx))
-        self.chain_ids = list(self.return_chain_generator())[:len(self.chain_ops)]
+                self.chain_transforms.append(dict(rotation=rot, translation=tx))
+        self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
 
     @property
@@ -2582,8 +2602,8 @@ class Entity(Chain, SequenceProfile):
         else:
             self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
                              'instead' % self.name)
-            return self
-            # return [self]
+            # return self
+            return [self]
 
     # Todo overwrite Structure.write() method...
     def write_oligomer(self, out_path=None, file_handle=None, header=None, **kwargs):

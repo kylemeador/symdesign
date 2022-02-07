@@ -459,7 +459,7 @@ def terminate(location=None, results=None, output=True):
             f.write('%s\n' % '\n'.join(design.path for design in success))
         logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
                         'internal checks/filtering. Utilize this file to interact with %s designs in future commands '
-                        'for this project such as \'%s --file %s MODULE\'\n'
+                        'for this project such as:\n\t%s --file %s MODULE\n'
                         % (designs_file, PUtils.program_name, PUtils.program_command, designs_file))
 
         if args.module == PUtils.analysis:

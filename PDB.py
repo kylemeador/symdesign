@@ -395,7 +395,8 @@ class PDB(Structure):
                          seqres=seq_res_lines, multimodel=multimodel, **kwargs)  # pose_format=pose_format,
 
     def process_pdb(self, atoms=None, residues=None, coords=None, chains=True, entities=True,
-                    seqres=None, multimodel=False, pose_format=True, solve_discrepancy=True, **kwargs):
+                    seqres=None, multimodel=False, pose_format=True, solve_discrepancy=True, rename_chains=False,
+                    **kwargs):
         #           reference_sequence=None
         """Process Structure Atoms, Residues, Chain, and Entity to compliant Structure objects"""
         if atoms:
@@ -428,11 +429,13 @@ class PDB(Structure):
             self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
             self._residues.reindex_residue_atoms()
             self.set_coords(coords=np.concatenate([structure.coords for structure in structures]))
+            self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
 
         if chains:
             if isinstance(chains, list):  # create the instance from existing chains
                 self.chains = copy(chains)  # copy the passed chains list
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
+                # Reindex all residue and atom indices
                 self.chains[0].start_indices(dtype='residue', at=0)
                 self.chains[0].start_indices(dtype='atom', at=0)
                 for prior_idx, chain in enumerate(self.chains[1:]):
@@ -440,8 +443,10 @@ class PDB(Structure):
                     chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
-                # rename chains
-                self.reorder_chains()
+                if rename_chains:
+                    self.reorder_chains()
+                # else:
+                #     self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
             else:  # create Chains from Residues
                 if multimodel:  # discrepancy is not possible
                     self.create_chains(solve_discrepancy=False)
@@ -459,6 +464,7 @@ class PDB(Structure):
             if isinstance(entities, list):  # create the instance from existing entities
                 self.entities = copy(entities)  # copy the passed entities list
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
+                # Reindex all residue and atom indices
                 self.entities[0].start_indices(dtype='residue', at=0)
                 self.entities[0].start_indices(dtype='atom', at=0)
                 for prior_idx, entity in enumerate(self.entities[1:]):
@@ -466,17 +472,20 @@ class PDB(Structure):
                     entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
-                # set each successive Entity to have an incrementally higher chain id
-                available_chain_ids = self.return_chain_generator()
-                for idx, entity in enumerate(self.entities):
-                    # print('Entity %s update indices' % entity.name, entity.atom_indices)
-                    entity.chain_id = next(available_chain_ids)
-                    self.log.debug('Entity %s new chain identifier %s' % (entity.name, entity.residues[0].chain))
-                # because we don't care for chains attributes (YET) we update after everything is set
-                # self.chains = chains
-                # self.reorder_chains()
-                # self.chain_id_list = [chain.name for chain in self.chains]
-                # self.chain_id_list = [chain.name for chain in chains]
+                if rename_chains:
+                    # set each successive Entity to have an incrementally higher chain id
+                    available_chain_ids = self.return_chain_generator()
+                    for idx, entity in enumerate(self.entities):
+                        # print('Entity %s update indices' % entity.name, entity.atom_indices)
+                        entity.chain_id = next(available_chain_ids)
+                        self.log.debug('Entity %s new chain identifier %s' % (entity.name, entity.chain_id))
+                # else:
+                #     pass
+                    # because we don't care for chains attributes (YET) we update after everything is set
+                    # self.chains = chains
+                    # self.reorder_chains()
+                    # self.chain_id_list = [chain.name for chain in self.chains]
+                    # self.chain_id_list = [chain.name for chain in chains]
             else:
                 # create Entities from Chain.Residues
                 self.create_entities(**kwargs)
@@ -601,15 +610,14 @@ class PDB(Structure):
                 out_coords.append([x, y, z])
             return out_coords
 
-
     def reorder_chains(self, exclude_chains=None):
         """Renames chains using PDB.available_letter. Caution, doesn't update self.reference_sequence chain info
         """
-        available_chain_ids = list(self.return_chain_generator())
+        available_chain_ids = self.return_chain_generator()
         if exclude_chains:
             available_chains = sorted(set(available_chain_ids).difference(exclude_chains))
         else:
-            available_chains = available_chain_ids
+            available_chains = list(available_chain_ids)
 
         # Update chain_id_list, then each chain
         self.chain_id_list = available_chains[:self.number_of_chains]
@@ -1286,13 +1294,13 @@ class PDB(Structure):
                 return entity
         return
 
-    def create_entities(self, query_by_sequence=True, entity_names=None, **kwargs):
+    def create_entities(self, entity_names=None, query_by_sequence=True, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during
         parsing. First search the PDB API if a PDB entry_id is attached to instance, next from Atoms in instance
 
         Keyword Args:
-            query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
             entity_names (list): Names explicitly passed for the Entity instances. Length must equal number of entities
+            query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
         """
         self.retrieve_pdb_info_from_api()  # sets api_entry
         if not self.entity_d and self.api_entry:  # self.api_entry = {1: {'A', 'B'}, ...}
