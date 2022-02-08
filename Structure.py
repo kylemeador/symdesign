@@ -2377,17 +2377,19 @@ class Entity(Chain, SequenceProfile):
         try:
             return self._uniprot_id
         except AttributeError:
-            try:
-                chain_api_data = self.api_entry[next(iter(self.api_entry))]
-                # print('Retrieving UNP ID for %s\nAPI DATA:\n%s' % (self.name, chain_api_data))
-                if chain_api_data.get('db', None) == 'UNP':
-                    self._uniprot_id = chain_api_data.get('accession', None)
-                return self._uniprot_id
-            except AttributeError:
-                self.log.warning('No uniprot_id found for Entity %s' % self.name)
-                return
-                # # Make a random pseudo UniProtID
-                # self.uniprot_id = '%s%d' % ('R', randint(10000, 99999))
+            self.api_entry = get_pdb_info_by_entity(self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+            for chain, api_data in self.api_entry.items():  # [next(iter(self.api_entry))]
+                # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
+                if api_data.get('db', None) == 'UNP':
+                    self._uniprot_id = api_data.get('accession', None)
+                    try:
+                        return self._uniprot_id  # return/set the first found chain. They are likely the same anyway
+                    except AttributeError:
+                        continue
+        self.log.warning('No uniprot_id found for Entity %s' % self.name)
+        return
+        # # Make a random pseudo UniProtID
+        # self.uniprot_id = '%s%d' % ('R', randint(10000, 99999))
 
     @uniprot_id.setter
     def uniprot_id(self, uniprot_id):
@@ -2478,13 +2480,13 @@ class Entity(Chain, SequenceProfile):
             entity_id = self.name
         self.reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
 
-    def retrieve_info_from_api(self):
-        """Retrieve information from the PDB API about the Entity
-
-        Sets:
-            self.api_entry (dict): {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
-        """
-        self.api_entry = get_pdb_info_by_entity(self.name)
+    # def retrieve_info_from_api(self):
+    #     """Retrieve information from the PDB API about the Entity
+    #
+    #     Sets:
+    #         self.api_entry (dict): {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+    #     """
+    #     self.api_entry = get_pdb_info_by_entity(self.name)
 
     def set_up_captain_chain(self):
         raise DesignError('This function is not implemented yet')

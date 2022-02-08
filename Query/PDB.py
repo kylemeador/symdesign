@@ -634,6 +634,41 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         return None
 
 
+def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval to POST
+    """Retrieve information on the assembly for a particular entry from the PDB API
+
+    Args:
+        entry (str): The pdb code of interest
+        assembly=1 (int): The particular assembly number to query
+
+    Returns:
+        (mapping[int, list]): The mapped entity number to the chain ID's in the assembly
+            {1: ['A', 'A', 'A', ...]}
+    """
+    assembly_json = connection_exception_handler('http://data.rcsb.org/rest/v1/core/assembly/%s/%d' % (entry, assembly))
+    if not assembly_json:
+        return
+
+    entity_clustered_chains = {}
+    for entity_idx, symmetries in enumerate(assembly_json['rcsb_struct_symmetry'], 1):
+        for symmetry in symmetries:  # [{}, ...]
+            # symmetry contains:
+            # {symbol: "O", type: 'Octahedral, stoichiometry: [], oligomeric_state: "Homo 24-mer", clusters: [],
+            #  rotation_axes: [], kind: "Global Symmetry"}
+            for cluster_idx, cluster in enumerate(symmetry['clusters'], 1):  # [{}, ...]
+                # cluster contains:
+                # {members: [], avg_rmsd: 5.219512137974998e-14}
+                # for cluster in clusters:
+                cluster_members = []
+                for member in cluster['members']:  # [{}, ...]
+                    # member contains:
+                    # {asym_id: "A", pdbx_struct_oper_list_ids: []}
+                    cluster_members.append(member.get('asym_id'))
+                entity_clustered_chains[cluster_idx] = cluster_members
+
+    return entity_clustered_chains
+
+
 def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
     """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
 
@@ -656,7 +691,7 @@ def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
      'pdbx_nmr_ensemble'}
 
     Returns:
-        (dict): {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+        (dict): {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
             'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
     """
     # Ex. entry = '4atz'
@@ -711,10 +746,10 @@ def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
 
     entity_chain_d, ref_d, db_d = {}, {}, {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
-    for i in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
-        entity_ref_d = get_pdb_info_by_entity('%s_%d' % (entry, i))
+    for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
+        entity_ref_d = get_pdb_info_by_entity('%s_%d' % (entry, entity_idx))
         ref_d.update(entity_ref_d)
-        entity_chain_d[i] = list(entity_ref_d.keys())  # these are the chains
+        entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}

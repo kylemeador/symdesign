@@ -13,7 +13,7 @@ from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended
 
 from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
-from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence
+from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number
@@ -33,6 +33,7 @@ class PDB(Structure):
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+        self.assembly = False
         self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
         self.chain_id_list = []  # unique chain IDs in PDB Todo refactor
         self.chains = []
@@ -277,6 +278,10 @@ class PDB(Structure):
         if not pdb_lines:
             with open(self.filepath, 'r') as f:
                 pdb_lines = f.readlines()
+
+        if os.path.splitext(self.filepath)[-1][-1].isdigit():  # pull the extension, last character
+            # If not a letter, then the file is an assembly, or the filename was provided weird
+            self.assembly = True
 
         if not self.name:
             # formatted_filename = os.path.splitext(os.path.basename(self.filepath))[0].replace('pdb', '')
@@ -669,7 +674,11 @@ class PDB(Structure):
         self.atoms.extend(axes)
 
     def create_chains(self, solve_discrepancy=True):
-        """For all the Residues in the PDB, create Chain objects which contain their member Residues"""
+        """For all the Residues in the PDB, create Chain objects which contain their member Residues
+
+        Sets:
+            self.chains
+        """
         if solve_discrepancy:
             chain_idx = 0
             chain_residues = {chain_idx: [0]}  # self.residues[0].index]}  <- should always be zero
@@ -1258,22 +1267,29 @@ class PDB(Structure):
         """Query the PDB API for information on the PDB code found as the PDB object .name attribute
 
         Returns:
-            (dict): {'entity': {1: {'A', 'B'}, ...},
+            (dict): {'assembly': {1: ['A', 'B'], ...}
                      'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+                     'entity': {1: ['A', 'B'], ...},
                      'res': resolution,
                      'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
                      }
         """
+        if self.api_entry:
+            return
+
         if self.name and len(self.name) == 4:
-            if not self.api_entry:
-                self.api_entry = get_pdb_info_by_entry(self.name)
-                if self.api_entry:
-                    return True
-                self.log.debug('PDB code \'%s\' was not found with the PDB API.' % self.name)
+            # if not self.api_entry:
+            self.api_entry = get_pdb_info_by_entry(self.name)
+            if self.assembly:
+                # self.api_entry.update(get_pdb_info_by_assembly(self.name))
+                self.api_entry['assembly'] = get_pdb_info_by_assembly(self.name)
+            if self.api_entry:
+                return  # True
+            self.log.debug('PDB code \'%s\' was not found with the PDB API.' % self.name)
         else:
             self.log.debug('PDB code \'%s\' is not of the required format and will not be found with the PDB API.'
                            % self.name)
-        return False
+        return  # False
         # if not self.api_entry and self.name and len(self.name) == 4:
         #     self.api_entry = get_pdb_info_by_entry(self.name)
         # self.get_dbref_info_from_api()
@@ -1408,10 +1424,10 @@ class PDB(Structure):
                 self.entity_d[entity_count] = {'chains': [chain], 'seq': chain.sequence}
         self.log.debug('Entities were generated from ATOM records.')
 
-    def get_entity_info_from_api(self):  # , pdb_code=None):  UNUSED
-        """Query the PDB API for the PDB entry_ID to find the corresponding Entity information"""
-        if self.retrieve_pdb_info_from_api():  # pdb_code=pdb_code):
-            self.entity_d = {ent: {'chains': self.api_entry['entity'][ent]} for ent in self.api_entry['entity']}
+    # def get_entity_info_from_api(self):  # , pdb_code=None):  UNUSED
+    #     """Query the PDB API for the PDB entry_ID to find the corresponding Entity information"""
+    #     if self.retrieve_pdb_info_from_api():  # pdb_code=pdb_code):
+    #         self.entity_d = {ent: {'chains': self.api_entry['entity'][ent]} for ent in self.api_entry['entity']}
 
     # def update_entity_representatives(self):
     #     """For each Entity, gather the chain representative by choosing the first chain in the file
@@ -1460,7 +1476,7 @@ class PDB(Structure):
 
     def match_entity_by_struct(self, other_struct=None, entity=None, force_closest=False):
         """From another set of atoms, returns the first matching chain from the corresponding entity"""
-        return None  # TODO when entities are structure compatible
+        return  # TODO when entities are structure compatible
 
     def match_entity_by_seq(self, other_seq=None, force_closest=False, threshold=0.7):
         """From another sequence, returns the first matching chain from the corresponding entity"""
@@ -1486,7 +1502,7 @@ class PDB(Structure):
             if max_score > threshold:
                 return self.entity_d[max_score_entity]['chains'][0]
             else:
-                return None
+                return
         else:
             for entity in self.entity_d:
                 if other_seq == self.entity_d[entity]['seq']:
