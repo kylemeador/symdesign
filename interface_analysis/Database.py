@@ -143,12 +143,16 @@ class DataStore:
             setattr(self, name, self.load_data(name, log=None))  # attempt to store the new data as an attribute
             data = getattr(self, name)
             if data:
-                self.log.debug('Database file %s%s was loaded fresh' % (name, self.extension))  # not necessarily successful
+                self.log.debug('Database file %s%s was loaded fresh' % (name, self.extension))
 
         return data
 
     def load_data(self, name, **kwargs):
-        """Return the data located in a particular entry specified by name"""
+        """Return the data located in a particular entry specified by name
+
+        Returns:
+            (Union[None, Any])
+        """
         if self.sql:
             dummy = True
         else:

@@ -32,10 +32,10 @@ class FetchPDBBA:
         self.pdblist = lf.list_file
 
     def fetch(self):
-        print("FETCHING PDB FILES")
+        print('FETCHING PDB FILES')
         for pdb in self.pdblist:
-                os.system("wget https://files.rcsb.org/download/%s.pdb1 >> fetch_pdb.out 2>&1" % pdb.rstrip())
-        print("DONE FETCHING PDB FILES")
+            os.system('wget https://files.rcsb.org/download/%s.pdb1 >> fetch_pdb.out 2>&1' % pdb.rstrip())
+        print('DONE FETCHING PDB FILES')
 
 
 # class Atom:
