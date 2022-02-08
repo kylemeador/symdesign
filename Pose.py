@@ -3067,6 +3067,7 @@ def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd()):
         # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
         file_name = os.path.join(out_dir, clean_pdb)
         current_file = glob(file_name)
+        print('Found the files %s' % current_file)
         # current_files = os.listdir(location)
         # if clean_pdb not in current_files:
         if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
