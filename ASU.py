@@ -147,8 +147,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             else:
                 logger.warning('%s: %s is not verified in QSBio! Arbitrarily choosing assembly 1' % (design, pdb))
                 biological_assembly = 1
-            new_file = fetch_pdb('%s_%s' % (pdb, biological_assembly),
-                                 out_dir=os.path.join(output_dir, 'biological_assemblies'))
+            new_file = \
+                fetch_pdb(pdb, assembly=biological_assembly, out_dir=os.path.join(output_dir, 'biological_assemblies'))
             downloaded_pdb = PDB.from_file(new_file)
             oriented_pdb = downloaded_pdb.orient(sym=sym)
             if not oriented_pdb.atoms:

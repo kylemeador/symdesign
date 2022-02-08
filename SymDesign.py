@@ -1208,10 +1208,9 @@ if __name__ == '__main__':
                         # all_entities[oriented_asu.name] = oriented_asu
                         # continue
                     # else:
-                        logger.debug('Fetching entry %s from PDB' % entry_entity)
+                        entry = entry_entity.split('_')
                         # entry, entity = entry_entity.split('_')
                         # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
-                        entry = entry_entity.split('_')
                         if len(entry) == 2:
                             # pull_entity = True
                             entry, entity = entry
@@ -1220,16 +1219,17 @@ if __name__ == '__main__':
                             # pull_entity = False
                             entry = entry[0]
                             entity = None  # False
+                        logger.debug('Fetching entry %s, entity %s from PDB' % entry)
 
                         biological_assemblies = qsbio_confirmed.get(entry)
                         if biological_assemblies:  # first   v   assembly in matching oligomers
                             assembly = biological_assemblies[0]
                         else:
                             assembly = 1
-                            logger.warning('No confirmed biological assembly for %s. Using PDB default bioassembly' %
-                                           entry)
+                            logger.warning('No confirmed biological assembly for entry %s, entity %s. '
+                                           'Using PDB default assembly %d' % (entry, entity, assembly))
                         file_path = \
-                            fetch_pdb_file('%s_%d' % (entry, assembly), out_dir=master_directory.pdbs, asu=False)
+                            fetch_pdb_file(entry, assembly=assembly, asu=False, out_dir=master_directory.pdbs)
 
                         if not file_path:
                             logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
@@ -1248,11 +1248,12 @@ if __name__ == '__main__':
                             if entity_pdb:  # ensure not none, otherwise, report
                                 pdb = entity_pdb
                             else:
-                                # logger.warning('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
-                                raise \
-                                    ValueError('No entity with the name %s found in file %s' % (entry_entity,
-                                                                                                pdb.filepath))
-                            file_path = pdb.write(out_path=os.path.join(master_directory.pdbs, '%s.pdb' % entry_entity))
+                                # logger.warning('No entity with the name %s found in file %s'
+                                # % (entry_entity, pdb.filepath))
+                                raise ValueError('No entity with the name %s found in file %s'
+                                                 % (entry_entity, pdb.filepath))
+                            file_path = pdb.write_oligomer(out_path=os.path.join(master_directory.pdbs,
+                                                                                 '%s.pdb' % entry_entity))
                         # else:
                         #     pdb = PDB.from_file(file_path, log=None, pose_format=False)
 
