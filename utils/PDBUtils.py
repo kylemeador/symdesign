@@ -75,7 +75,7 @@ def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
         log=logger (logging.logger): A log handler to report on operation success
         sym=None (str): The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
     Returns:
-        (str): Filepath of oriented PDB
+        (Union[str, None]): Filepath of oriented PDB
     """
     pdb_filename = os.path.basename(pdb_path)
     oriented_file_path = os.path.join(out_dir, pdb_filename)

@@ -281,7 +281,7 @@ class SequenceProfile:
             self.evolutionary_profile[residue_number]['weight'] = 0.0
 
     def fit_evolutionary_profile_to_structure(self):
-        """From a evolutionary profile input according to a protein reference sequence, align the profile to the
+        """From an evolutionary profile input according to a protein reference sequence, align the profile to the
         structure sequence, removing all information for residues not present in the structure
 
         Sets:
@@ -321,7 +321,7 @@ class SequenceProfile:
             cmd.extend(['-num_threads', '8'])  # Todo
 
         p = subprocess.Popen(cmd)
-        p.wait()  # p.communicate() Todo?
+        p.communicate()
 
     @handle_errors(errors=(FileNotFoundError,))
     def parse_psiblast_pssm(self, **kwargs):
@@ -769,7 +769,12 @@ class SequenceProfile:
         """
         # self.log.debug(self.fragment_profile.items())
         database_bkgnd_aa_freq = self.frag_db.get_db_aa_frequencies()
-        sequence = self.structure_sequence  # self.reference_sequence  # TODO ensure fragment profile is correct size
+        # Fragment profile is correct size for indexing all STRUCTURAL residues
+        #  self.reference_sequence is not used for this. Instead, self.structure_sequence is used in place since the use
+        #  of a disorder indicator that removes any disordered residues from input evolutionary profiles is calculated
+        #  on the full reference sequence. This ensures that the profile is the right length of the structure and
+        #  captures disorder specific evolutionary signals that could be important in the calculation of profiles
+        sequence = self.structure_sequence
         no_design = []
         for residue, index_d in self.fragment_profile.items():
             total_fragment_weight, total_fragment_observations = 0, 0
@@ -1098,7 +1103,6 @@ class SequenceProfile:
     #     Returns:
     #         (dict): {index: {'from': 'A', 'to': 'K'}, ...}
     #     """
-    #     # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
     #     if offset:
     #         alignment = generate_alignment(mutant, reference)
     #         align_seq_1 = alignment[0][0]
@@ -1145,7 +1149,6 @@ class SequenceProfile:
     #     """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
     #
     #     Returns:
-    #         # TODO
     #     """
     #     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
     #     gap_penalty = -10
@@ -2534,7 +2537,7 @@ def weave_sequence_dict(base_dict=None, **kwargs):
 #         # interface_residue_count, percent_interface_matched, percent_interface_covered,
 
 
-# def residue_number_to_object(pdb, residue_dict):  # TODO DEPRECIATE
+# def residue_number_to_object(pdb, residue_dict):
 #     """Convert sets of residue numbers to sets of PDB.Residue objects
 #
 #     Args:
@@ -2682,7 +2685,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
         for residue, amino_acid_counts in self.counts.items():
             total_column_weight = self.observations[residue]
             assert total_column_weight != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' \
-                                             % (MultipleSequenceAlignment.msa_to_prob_distribution.__name__, residue)  # Todo correct?
+                                             % (MultipleSequenceAlignment.msa_to_prob_distribution.__name__, residue)
             self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
     @property
@@ -2833,7 +2836,7 @@ def msa_to_prob_distribution(alignment):
     for residue, amino_acid_counts in alignment['counts'].items():
         total_column_weight = alignment['rep'][residue]
         assert total_column_weight != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' \
-                                         % (msa_to_prob_distribution.__name__, residue)  # Todo correct?
+                                         % (msa_to_prob_distribution.__name__, residue)
         alignment['frequencies'][residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
     return alignment
@@ -2981,7 +2984,7 @@ def multi_chain_alignment(mutated_sequences):
         raise DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
 
 
-# def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=False):  # Todo DEPRECIATE
+# def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=False):
 #     """From a list of PDB's and a wild-type PDB, generate a list of 'A5K' style mutations
 #
 #     Args:
@@ -3148,7 +3151,7 @@ def generate_mutations_from_reference(reference, sequences):  # , pose_num=True)
 #         # Extract sequence from the SEQRES record
 #         sequence = pdb.seqres_sequences[chain]
 #         # fail = False
-#         # while True:  # TODO WTF is this used for
+#         # while True:
 #         #     if chain in pdb.seqres_sequences:
 #         #         sequence = pdb.seqres_sequences[chain]
 #         #         break
