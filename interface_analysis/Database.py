@@ -141,8 +141,9 @@ class DataStore:
             self.log.debug('Info %s%s was retrieved from DataStore' % (name, self.extension))
         else:
             setattr(self, name, self.load_data(name, log=None))  # attempt to store the new data as an attribute
-            self.log.debug('Database file %s%s was loaded fresh' % (name, self.extension))  # not necessarily successful
             data = getattr(self, name)
+            if data:
+                self.log.debug('Database file %s%s was loaded fresh' % (name, self.extension))  # not necessarily successful
 
         return data
 
@@ -324,7 +325,7 @@ class FragmentDatabase(FragmentDB):
             # Todo initialize as local directory
             self.db = False
             if init_db:
-                logger.info('Initializing FragmentDatabase from disk. This may take awhile...')
+                logger.info('Initializing %s FragmentDatabase from disk. This may take awhile...' % source)
                 self.get_monofrag_cluster_rep_dict()
                 self.get_intfrag_cluster_rep_dict()
                 self.get_intfrag_cluster_info_dict()
