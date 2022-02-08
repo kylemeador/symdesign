@@ -2334,7 +2334,7 @@ class Entity(Chain, SequenceProfile):
             # self.structure_containers.extend(['chains'])
         self.api_entry = None
         # self.reference_sequence = kwargs.get('sequence', self.get_structure_sequence())
-        self.reference_sequence = kwargs.get('sequence')
+        # self.reference_sequence = kwargs.get('sequence')
         # self._uniprot_id = None
         self.uniprot_id = uniprot_id
 
@@ -2429,14 +2429,18 @@ class Entity(Chain, SequenceProfile):
                 chain.chain_id = self.chain_ids[idx]
             return self._chains
 
-    # @property
-    # def reference_sequence(self):
-    #     """With the default init, all Entity instances will have the structure sequence as reference_sequence"""
-    #     return self._reference_sequence
-    #
-    # @reference_sequence.setter
-    # def reference_sequence(self, sequence):
-    #     self._reference_sequence = sequence
+    @property
+    def reference_sequence(self):
+        """With the default init, all Entity instances will have the structure sequence as reference_sequence"""
+        try:
+            return self._reference_sequence
+        except AttributeError:
+            self.retrieve_sequence_from_api()
+            return self._reference_sequence
+
+    @reference_sequence.setter
+    def reference_sequence(self, sequence):
+        self._reference_sequence = sequence
 
     @property
     def disorder(self):
@@ -2449,8 +2453,8 @@ class Entity(Chain, SequenceProfile):
         try:
             return self._disorder
         except AttributeError:
-            if not self.reference_sequence:
-                self.retrieve_sequence_from_api()
+            # if not self.reference_sequence:
+            #     self.retrieve_sequence_from_api()
             self._disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
             return self._disorder
 
@@ -2472,7 +2476,7 @@ class Entity(Chain, SequenceProfile):
                                  'the correct format (1abc_1), the query will surely fail. Ensure this is the desired '
                                  'behavior!' % (self.retrieve_sequence_from_api.__name__, self.name))
             entity_id = self.name
-        self.reference_sequence = get_entity_reference_sequence(entity_id)
+        self.reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
 
     def retrieve_info_from_api(self):
         """Retrieve information from the PDB API about the Entity
