@@ -2756,7 +2756,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     profiles_path = self.source_db.hhblits_profiles.location
                 else:
                     profiles_path = des_dir.profiles
-                if not entity.sequence_file:
+
+                if not entity.sequence_file:  # Todo move up to line 2749?
                     entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=des_dir.sequences)
                 entity.add_profile(evolution=evolution, fragments=fragments, out_path=profiles_path)
 

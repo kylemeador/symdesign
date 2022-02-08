@@ -2341,7 +2341,7 @@ if __name__ == '__main__':
             sequences_and_tags = {}
             entity_termini_availability, entity_helical_termini = {}, {}
             for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
-                source_entity.retrieve_info_from_api()
+                # source_entity.retrieve_info_from_api()
                 source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
                 sequence_id = '%s_%s' % (des_dir, source_entity.name)
                 # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
