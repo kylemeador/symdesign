@@ -1148,7 +1148,7 @@ if __name__ == '__main__':
         master_directory.make_path(master_directory.profiles)
         master_directory.make_path(master_directory.job_paths)
         master_directory.make_path(master_directory.sbatch_scripts)
-        if nano or args.load_database:
+        if nano or not master_directory.initialized or args.load_database:
             if args.load_database:
                 for design in design_directories:
                     # design.link_master_database(master_db)
