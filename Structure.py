@@ -2420,9 +2420,9 @@ class Entity(Chain, SequenceProfile):
         """Returns:
             (list[Entity]): Transformed copies of the Entity itself
         """
-        if self._chains:
+        if self._chains:  # check if it exists in the case that coords have been changed and chains cleared
             return self._chains
-        else:
+        else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transformation) for transformation in self.chain_transforms]
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
@@ -2637,18 +2637,19 @@ class Entity(Chain, SequenceProfile):
                 for chain in self.chains:
                     file_handle.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
                     offset += chain.number_of_atoms
-            else:
-                self.write(file_handle=file_handle, header=header)
+            # else:
+            #     self.write(file_handle=file_handle, header=header)
 
         if out_path:
             if self.chains:
+                print('WRITING CHAINS to %s' % out_path)
                 with open(out_path, 'w') as outfile:
                     write_header(outfile)
                     for chain in self.chains:
                         outfile.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
                         offset += chain.number_of_atoms
-            else:
-                self.write(out_path=out_path, header=header)
+            # else:
+            #     self.write(out_path=out_path, header=header)
 
             return out_path
 

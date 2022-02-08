@@ -1250,6 +1250,7 @@ if __name__ == '__main__':
                                 # % (entry_entity, pdb.filepath))
                                 raise ValueError('No entity with the name %s found in file %s'
                                                  % (entry_entity, pdb.filepath))
+                            print('TRYING TOI WRITE OLIGOMER')
                             file_path = pdb.write_oligomer(out_path=os.path.join(master_directory.pdbs,
                                                                                  '%s.pdb' % entry_entity))
                         # else:
