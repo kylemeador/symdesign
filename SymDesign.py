@@ -1239,7 +1239,7 @@ if __name__ == '__main__':
                             # Todo
                             # continue
 
-                        pdb = PDB.from_file(file_path, log=None, pose_format=False)
+                        pdb = PDB.from_file(file_path, pose_format=False)  # log=None
                         if entity:  # replace fetched_pdb with the entity pdb
                             # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
                             entity_pdb = pdb.entity(entry_entity)
