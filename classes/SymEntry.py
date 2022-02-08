@@ -777,11 +777,11 @@ def sdf_lookup(symmetry=None):
     symmetry. If none specified (default) a viable, but completely garbage symmetry definition file will be returned
 
     Keyword Args:
-        symmetry=None (Union[str, int]): Can be one of the valid_point_groups or a point group SymmetryEntry number
+        symmetry=None (Union[str, int, None]): Can be a valid_point_group, a point group SymmetryEntry number, or None
     Returns:
         (str): The location of the symmetry definition file on disk
     """
-    if not symmetry:
+    if not symmetry or symmetry == 'C1':
         return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
     elif isinstance(symmetry, int):
         symmetry_name = point_group_sdf_map[symmetry]
