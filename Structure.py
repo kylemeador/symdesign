@@ -2301,11 +2301,12 @@ class Entity(Chain, SequenceProfile):
         # assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
         #                                           'Chain object as the representative!'
         # Sets up whether Entity has full control over it's member Chain attributes
-        self.is_oligomeric = False
-        self.symmetry = None
-        self.rotation_d = {}
-        self.max_symmetry = None
+        self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
+        self.is_oligomeric = False
+        self.max_symmetry = None
+        self.rotation_d = {}
+        self.symmetry = None
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          coords=representative._coords, **kwargs)
         self._chains = []
@@ -2332,7 +2333,6 @@ class Entity(Chain, SequenceProfile):
             self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
             # self.chain_ids = [chain.name for chain in chains]
             # self.structure_containers.extend(['chains'])
-        self.api_entry = None
         # self.reference_sequence = kwargs.get('sequence', self.get_structure_sequence())
         # self.reference_sequence = kwargs.get('sequence')
         # self._uniprot_id = None
