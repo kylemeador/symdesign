@@ -89,6 +89,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.construct_pose = kwargs.get('construct_pose', False)
         self.debug = False
         self.dock = kwargs.get('dock', False)
+        self.initialized = None
         self.log = None
         self.nano = kwargs.get('nano', False)
         if pose_id:
@@ -248,6 +249,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
                         # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
             else:  # if self.construct_pose:
+                self.initialized = False
                 path_components = self.source_path.split(os.sep)
                 self.nanohedra_root = os.sep.join(path_components[:-4])  # path_components[-5]
                 # design_symmetry (P432)
@@ -279,6 +281,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     self.write_frags = False
         else:
             if '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
+                self.initialized = False
                 self.source = self.source_path
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
@@ -300,6 +303,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
                 shutil.copy(self.source_path, self.path)
             else:  # initialize DesignDirectory with existing /program_root/projects/project/design
+                self.initialized = True
                 self.path = self.source_path
                 if not os.path.exists(self.path):
                     raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
@@ -718,15 +722,19 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """Connect the design to the master Database object to fetch shared resources"""
         if resource_db:
             self.resources = resource_db
+            if self.pose:
+                self.pose.source_db = resource_db
         if frag_db:
             self.frag_db = frag_db
+            if self.pose:
+                self.pose.frag_db = frag_db
         # if design_db and isinstance(design_db, FragmentDatabase):  # Todo DesignDatabase
         #     self.design_db = design_db
         # if score_db and isinstance(score_db, FragmentDatabase):  # Todo ScoreDatabase
         #     self.score_db = score_db
 
     @handle_design_errors(errors=(DesignError, ))
-    def set_up_design_directory(self):
+    def set_up_design_directory(self, pre_refine=None):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
         # self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
         self.start_log()
@@ -791,8 +799,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.oligomer_names = self.info.get('oligomer_names', [])
                 # self.oligomer_names = self.info.get('entity_names', list())  # Todo TEMP addition
                 self.entity_names = self.info.get('entity_names', [])
+                self.pre_refine = self.info.get('pre_refine', False)  # default value is False unless set to True
                 # self._info = self.info.copy()  # create a copy of the state upon initialization
-                # self.pre_refine = self.info.get('pre_refine', True)  # Todo remove after T33
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
                 # Todo v temporary patch, remove if and else statements once active designs are converted
                 self.design_residue_ids = self.info.get('design_residue_ids')
@@ -807,6 +815,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # 'design_residues' coming in as 234B (residue_number|chain), remove chain, change type to int
                     self.design_residues = \
                         set(int(res.translate(digit_translate_table)) for res in self.design_residues.split(','))
+
+        if pre_refine is not None:
+            self.pre_refine = pre_refine
         # check if the source of the pdb files was refined upon loading
         if self.pre_refine:
             self.refined_pdb = self.asu
@@ -1277,10 +1288,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 else:
                     raise ValueError('The symmetry %s is unavailable at this time!')
             else:  # layer or space
-                self.sym_def_file = sdf_lookup()  # currently grabbing dummy.sym
+                self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
             self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
         else:
-            self.sym_def_file = sdf_lookup()  # currently grabbing dummy.sym
+            self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
             self.symmetry_protocol = 'asymmetric'
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
@@ -1859,7 +1870,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.make_path(self.data)
             self.pose.interface_design(evolution=self.evolution, fragments=self.design_with_fragments,
                                        query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
-                                       write_fragments=self.write_frags, des_dir=self)  # Todo frag_db=self.frag_db.source
+                                       write_fragments=self.write_frags, des_dir=self)
             self.make_path(self.designs)
             self.info['fragments'] = self.pose.return_fragment_observations()
             # Todo edit each of these files to be relative paths?
@@ -1868,6 +1879,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.info['fragment_data'] = self.pose.interface_data_file
             self.info['fragment_profile'] = self.pose.fragment_pssm_file
             self.info['fragment_database'] = self.pose.frag_db.source
+
+        if not self.pre_refine:
+            self.refine()
 
         self.rosetta_interface_design()
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
