@@ -514,10 +514,17 @@ def terminate(location=None, results=None, output=True):
                                                   name='_'.join((args.module, design_source, timestamp)))
             sbatch_file = distribute(file=command_file, out_path=master_directory.sbatch_scripts, scale=args.module)
             #                                                                    ^ for sbatch template
-            logger.critical('Ensure the created SBATCH script(s) are correct. Specifically, check that the job array '
-                            'and any node specifications are accurate. You can look at the SBATCH manual (man sbatch or'
-                            ' sbatch --help) to understand the variables or ask for help if you are still unsure.')
-            logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
+            logger.critical(sbatch_warning)
+            if args.module == PUtils.interface_design and not master_directory.pre_refine:  # must refine before design
+                refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % 'refine')
+                                                      for design in success], out_path=job_paths,
+                                                     name='_'.join(('refine', design_source, timestamp)))
+                sbatch_refine_file = \
+                    distribute(file=refine_file, out_path=master_directory.sbatch_scripts, scale='refine')
+                logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s\nTHEN:\n\tsbatch '
+                            '%s' % (sbatch_refine_file, sbatch_file))
+            else:
+                logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
     print('\n')
     exit(exit_code)
 
