@@ -1212,12 +1212,12 @@ if __name__ == '__main__':
                         # entry, entity = entry_entity.split('_')
                         # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
                         if len(entry) == 2:
-                            logger.debug('Fetching entry %s, entity %s from PDB' % entry)
                             entry, entity = entry
+                            logger.debug('Fetching entry %s, entity %s from PDB' % (entry, entity))
                         else:
                             entry = entry[0]
                             entity = None  # False
-                            logger.debug('Fetching entry %s, from PDB' % entry)
+                            logger.debug('Fetching entry %s from PDB' % entry)
 
                         biological_assemblies = qsbio_confirmed.get(entry)
                         if biological_assemblies:  # first   v   assembly in matching oligomers
