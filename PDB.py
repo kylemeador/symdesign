@@ -47,6 +47,8 @@ class PDB(Structure):
         self.filepath = file  # PDB filepath if instance is read from PDB file
         self.header = []
         # self.reference_aa = None  # object for reference residue coordinates
+        self.multimodel = False
+        self.multimodel_chain_map = {}  # {model number: [chain_ids], ...}
         self.resolution = kwargs.get('resolution', None)
         self.reference_sequence = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.sasa_chain = []
@@ -290,7 +292,7 @@ class PDB(Structure):
             self.name = os.path.splitext(os.path.basename(self.filepath))[0].replace('pdb', '').lower()
 
         seq_res_lines = []
-        multimodel, start_of_new_model = False, False
+        start_of_new_model = False
         model_chain_id, curr_chain_id = None, None
         entity = None
         coords, atom_info = [], []
@@ -311,12 +313,15 @@ class PDB(Structure):
                         atom_type = 'SD'  # change type from Selenium to Sulfur delta
                 else:
                     residue_type = line[17:20].strip()
-                if multimodel:
+                if self.multimodel:
                     if start_of_new_model or line[21:22] != curr_chain_id:
                         curr_chain_id = line[21:22]
-                        model_chain_id = next(available_chain_ids)
+                        chain = next(available_chain_ids)
                         start_of_new_model = False
-                    chain = model_chain_id
+                        # self.multimodel_chain_map[model_number] = [model_chain_id]
+                        # self.multimodel_chain_map[model_number][chain] = curr_chain_id
+                        self.multimodel_chain_map[chain] = curr_chain_id
+                    # chain = model_chain_id
                 else:
                     chain = line[21:22]
                 residue_number = int(line[22:26])
@@ -335,8 +340,10 @@ class PDB(Structure):
             elif line[:5] == 'MODEL':
                 # start_of_new_model signifies that the next line comes after a new model
                 start_of_new_model = True
-                if not multimodel:
-                    multimodel = True
+                # model_number = line[6:].strip()
+                # self.multimodel_chain_map[model_number] = {}
+                if not self.multimodel:
+                    self.multimodel = True
                     available_chain_ids = self.return_chain_generator()
             # elif pose_format:
             #     continue
