@@ -1328,6 +1328,7 @@ class PDB(Structure):
         # For each Entity, get the chain representative Todo choose most symmetrically average if Entity is symmetric
         for entity_name, info in self.entity_d.items():
             chains = info.get('chains')  # v make Chain objects (if they are names)
+            print('FOUND %d chains in PDB create_entities:\n%s' % (len(chains), chains))
             info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in chains]
             info['chains'] = [chain for chain in info['chains'] if chain]
             info['representative'] = info['chains'][0]
