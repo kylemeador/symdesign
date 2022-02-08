@@ -1325,28 +1325,39 @@ class PDB(Structure):
             entity_names (list): Names explicitly passed for the Entity instances. Length must equal number of entities
             query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
         """
-        self.retrieve_pdb_info_from_api()  # sets api_entry
-        if not self.entity_d and self.api_entry:  # self.api_entry = {1: {'A', 'B'}, ...}
-            self.entity_d = \
-                {ent_number: {'chains': chains} for ent_number, chains in self.api_entry.get('entity').items()}
-        else:  # still nothing, then API didn't work for pdb_name so we solve by file information
-            self.get_entity_info_from_atoms()
-            if entity_names:
-                for idx, entity_number in enumerate(list(self.entity_d.keys())):  # make a copy as update occurs w/ iter
-                    try:
-                        self.entity_d[entity_names[idx]] = self.entity_d.pop(entity_number)
-                        self.log.debug('Entity %d now named \'%s\', as directed by supplied entity_names'
-                                       % (entity_number, entity_names[idx]))
-                    except IndexError:
-                        raise IndexError('The number of indices in entity_names must equal %d' % len(self.entity_d))
-            elif query_by_sequence:
-                for entity_number, atom_info in list(self.entity_d.items()):  # make a copy as update occurs with iter
-                    pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
-                    if pdb_api_name:
-                        pdb_api_name = pdb_api_name.lower()
-                        self.entity_d[pdb_api_name] = self.entity_d.pop(entity_number)
-                        self.log.info('Entity %d now named \'%s\', as found by PDB API sequence search'
-                                      % (entity_number, pdb_api_name))
+        if not self.entity_d:  # we didn't get the info from the file, so we have to try and piece together
+            self.retrieve_pdb_info_from_api()  # First try to set self.api_entry if possible. This is probably safe
+            if self.api_entry:  # self.api_entry = {'entity': {1: ['A', 'B'], ...}, ...}
+                if self.assembly:  # When PDB API is returning information on the asu and assembly is different
+                    if self.multimodel:
+                        for new_chain, old_chain in self.multimodel_chain_map.items()
+                            self.entity_d = {}
+                    else:
+                        self.entity_d = \
+                            {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('assembly').items()}
+                else:
+                    self.entity_d = \
+                        {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('entity').items()}
+            else:  # Still nothing, then API didn't work for pdb_name. Solve by file information
+                self.get_entity_info_from_atoms()
+        # else:  # self.entity_d was pulled from file. Pass
+        #     self.get_entity_info_from_atoms()
+        if entity_names:
+            for idx, entity_number in enumerate(list(self.entity_d.keys())):  # make a copy as update occurs w/ iter
+                try:
+                    self.entity_d[entity_names[idx]] = self.entity_d.pop(entity_number)
+                    self.log.debug('Entity %d now named \'%s\', as directed by supplied entity_names'
+                                   % (entity_number, entity_names[idx]))
+                except IndexError:
+                    raise IndexError('The number of indices in entity_names must equal %d' % len(self.entity_d))
+        elif query_by_sequence:
+            for entity_number, atom_info in list(self.entity_d.items()):  # make a copy as update occurs with iter
+                pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
+                if pdb_api_name:
+                    pdb_api_name = pdb_api_name.lower()
+                    self.entity_d[pdb_api_name] = self.entity_d.pop(entity_number)
+                    self.log.info('Entity %d now named \'%s\', as found by PDB API sequence search'
+                                  % (entity_number, pdb_api_name))
 
         # For each Entity, get the chain representative Todo choose most symmetrically average if Entity is symmetric
         for entity_name, info in self.entity_d.items():
