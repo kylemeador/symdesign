@@ -1243,6 +1243,8 @@ if __name__ == '__main__':
                         if entity:  # replace fetched_pdb with the entity pdb
                             # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
                             entity_pdb = pdb.entity(entry_entity)
+                            print('FOUND %d chains in the entity. chain ops = %d'
+                                  % (len(entity_pdb.chains), len(entity_pdb.chain_transforms)))
                             if entity_pdb:  # ensure not none, otherwise, report
                                 pdb = entity_pdb
                             else:
@@ -1250,7 +1252,6 @@ if __name__ == '__main__':
                                 # % (entry_entity, pdb.filepath))
                                 raise ValueError('No entity with the name %s found in file %s'
                                                  % (entry_entity, pdb.filepath))
-                            print('TRYING TOI WRITE OLIGOMER')
                             file_path = pdb.write_oligomer(out_path=os.path.join(master_directory.pdbs,
                                                                                  '%s.pdb' % entry_entity))
                         # else:

@@ -2645,7 +2645,8 @@ class Entity(Chain, SequenceProfile):
                 print('WRITING CHAINS to %s' % out_path)
                 with open(out_path, 'w') as outfile:
                     write_header(outfile)
-                    for chain in self.chains:
+                    for idx, chain in enumerate(self.chains, 1):
+                        print('chain %d, name = %s' % (idx, chain.chain_id))
                         outfile.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
                         offset += chain.number_of_atoms
             # else:
