@@ -301,9 +301,9 @@ class SequenceProfile:
             if index not in disorder:
                 structure_evolutionary_profile[new_idx] = residue_data
                 new_idx += 1
-        log.debug('\nOld profile:\n\t%s\nNew profile:\n\t%s'
-                  % (''.join(res['type'] for res in self.evolutionary_profile.values()),
-                     ''.join(res['type'] for res in structure_evolutionary_profile.values())))
+        self.log.debug('\nOld profile:\n\t%s\nNew profile:\n\t%s'
+                       % (''.join(res['type'] for res in self.evolutionary_profile.values()),
+                          ''.join(res['type'] for res in structure_evolutionary_profile.values())))
         self.evolutionary_profile = structure_evolutionary_profile
 
     def psiblast(self, out_path=None, remote=False):
