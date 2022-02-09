@@ -293,7 +293,7 @@ class PDB(Structure):
 
         seq_res_lines = []
         start_of_new_model = False
-        model_chain_id, curr_chain_id = None, None
+        curr_chain_id = None
         entity = None
         coords, atom_info = [], []
         atom_idx = 0
@@ -389,7 +389,8 @@ class PDB(Structure):
                 entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
             elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
                 # entity number (starting from 1) = {'chains' : {A, B, C}}
-                self.entity_d[entity] = {'chains': line[line.rfind(':') + 1:].strip().rstrip(';').split(',')}
+                self.entity_d[entity] = \
+                    {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
                 entity = None
             elif line[:5] == 'SCALE':
                 self.header.append(line.strip())
@@ -400,16 +401,16 @@ class PDB(Structure):
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-        self.log.debug('File found with Multimodel: %s, Chains: %s' % (multimodel, ','.join(self.chain_id_list)))
+        if self.multimodel:
+            self.log.debug('Multimodel file found. Original Chains: %s' % ','.join(self.multimodel_chain_map.values()))
         if not atom_info:
             raise DesignError('The file %s has no atom records!' % self.filepath)
         self.process_pdb(atoms=[Atom.from_info(*info) for info in atom_info], coords=coords,
-                         seqres=seq_res_lines, multimodel=multimodel, **kwargs)  # pose_format=pose_format,
+                         seqres=seq_res_lines, **kwargs)  # pose_format=pose_format,
 
     def process_pdb(self, atoms=None, residues=None, coords=None, chains=True, entities=True,
-                    seqres=None, multimodel=False, pose_format=True, solve_discrepancy=True, rename_chains=False,
-                    **kwargs):
-        #           reference_sequence=None
+                    seqres=None, pose_format=True, solve_discrepancy=True, rename_chains=False, **kwargs):
+        #           reference_sequence=None, multimodel=False,
         """Process Structure Atoms, Residues, Chain, and Entity to compliant Structure objects"""
         if atoms:
             # create Atoms object and Residue objects
@@ -460,11 +461,11 @@ class PDB(Structure):
                 # else:
                 #     self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
             else:  # create Chains from Residues
-                if multimodel:  # discrepancy is not possible
+                if self.multimodel:  # discrepancy is not possible
                     self.create_chains(solve_discrepancy=False)
                 else:
                     self.create_chains(solve_discrepancy=solve_discrepancy)
-                self.log.debug('New Chains: %s' % ','.join(self.chain_id_list))
+                self.log.debug('Loaded with Chains: %s' % ','.join(self.chain_id_list))
 
         if seqres:
             self.parse_seqres(seqres)
@@ -733,7 +734,7 @@ class PDB(Structure):
         for chain in self.chains:
             if chain.name == chain_name:
                 return chain
-        return None
+        return
 
     # def get_chain_atoms(self, chain_ids):
     #     """Return list of Atoms containing the subset of Atoms that belong to the selected Chain(s)"""
@@ -1362,7 +1363,6 @@ class PDB(Structure):
         # For each Entity, get the chain representative Todo choose most symmetrically average if Entity is symmetric
         for entity_name, info in self.entity_d.items():
             chains = info.get('chains')  # v make Chain objects (if they are names)
-            print('FOUND %d chains in PDB create_entities:\n%s' % (len(chains), chains))
             info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in chains]
             info['chains'] = [chain for chain in info['chains'] if chain]
             info['representative'] = info['chains'][0]
