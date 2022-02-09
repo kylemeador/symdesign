@@ -1174,21 +1174,27 @@ if __name__ == '__main__':
             # logger.info('The required files for %s designs are being collected and oriented if necessary' % PUtils.nano)
             # for design in design_directories:
             #     print(design.info.keys())
-            required_entities1 = set(design.entity_names[0] for design in design_directories)
-            required_entities2 = set(design.entity_names[1] for design in design_directories)
-            all_entity_names = required_entities1.union(required_entities2)
-            # all_entities = []
+            # required_entities1 = set(design.entity_names[0] for design in design_directories)
+            # required_entities2 = set(design.entity_names[1] for design in design_directories)
+            required_entities = list(map(set, list(zip(*[design.entity_names for design in design_directories]))))
+            # all_entity_names = required_entities1.union(required_entities2)
+            all_entity_names = []
+            for entity_group in required_entities:
+                all_entity_names.extend(entity_group)
+            all_entity_names = set(all_entity_names)
             all_entities = {}
             load_resources = False
             orient_files = [os.path.splitext(file)[0] for file in os.listdir(orient_dir)]
             qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
             orient_log = SDUtils.start_log(name='orient', handler=1)
             SDUtils.start_log(name='orient', handler=2, location=os.path.join(orient_dir, PUtils.orient_log_file))
+            # todo logic to include similarity between any supplied symmetry operations
             if master_directory.sym_entry.group1 == master_directory.sym_entry.group2:
                 required_entities1, required_entities2 = all_entity_names, set()
-            for idx, entities in enumerate([required_entities1, required_entities2], 1):
+            # for idx, entities in enumerate([required_entities1, required_entities2], 1):
+            for idx, entities in enumerate(required_entities, 1):
                 if not entities:
-                    break
+                    continue
                 else:
                     symmetry = master_directory.sym_entry.sym_map[idx]
                     if symmetry:
@@ -1371,7 +1377,9 @@ if __name__ == '__main__':
             refine_files = os.listdir(refine_dir)
             full_model_files = os.listdir(full_model_dir)
             oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), {}, {}
-            for idx, entities in enumerate([required_entities1, required_entities2], 1):
+            # for idx, entities in enumerate([required_entities1, required_entities2], 1):
+            for idx, entities in enumerate(required_entities, 1):
+                # for entry_entity in entities:  # ex: 1ABC_1
                 symmetry = master_directory.sym_entry.sym_map[idx]
                 if symmetry == 'C1':
                     sym_def_files[symmetry] = sdf_lookup(None)
