@@ -1138,28 +1138,44 @@ class Structure(StructureBase):
         """
         return ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
 
-    def translate(self, tx):
-        new_coords = self.coords + tx
+    def translate(self, translation):
+        translation_array = np.zeros(self._coords.coords.shape)
+        translation_array[self.atom_indices] = translation
+        new_coords = self._coords.coords + translation_array
         self.replace_coords(new_coords)
 
     def rotate(self, rotation):
-        new_coords = np.matmul(self.coords, np.transpose(rotation))
+        rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
+        rotation_array[self.atom_indices] = rotation
+        new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially transpose for 3D array
         self.replace_coords(new_coords)
 
     def transform(self, rotation=None, translation=None, rotation2=None, translation2=None):
         if rotation is not None:  # required for np.ndarray or None checks
-            new_coords = np.matmul(self.coords, np.transpose(rotation))
+            # new_coords = np.matmul(self.coords, np.transpose(rotation))
+            rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
+            rotation_array[self.atom_indices] = rotation
+            new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially transpose
         else:
-            new_coords = self.coords
+            new_coords = self._coords.coords  # self.coords
 
         if translation is not None:  # required for np.ndarray or None checks
-            new_coords += np.array(translation)
+            # new_coords += np.array(translation)
+            translation_array = np.zeros(self._coords.coords.shape)
+            translation_array[self.atom_indices] = translation
+            new_coords = new_coords + translation_array
 
         if rotation2 is not None:  # required for np.ndarray or None checks
-            new_coords = np.matmul(new_coords, np.transpose(rotation2))
+            # new_coords = np.matmul(new_coords, np.transpose(rotation2))
+            rotation_array2 = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
+            rotation_array2[self.atom_indices] = rotation2
+            new_coords = np.matmul(self._coords.coords, rotation_array2.swapaxes(-2, -1))  # essentially transpose
 
         if translation2 is not None:  # required for np.ndarray or None checks
-            new_coords += np.array(translation2)
+            # new_coords += np.array(translation2)
+            translation_array2 = np.zeros(self._coords.coords.shape)
+            translation_array2[self.atom_indices] = translation2
+            new_coords = new_coords + translation_array2
         self.replace_coords(new_coords)
 
     def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
@@ -2320,11 +2336,13 @@ class Entity(Chain, SequenceProfile):
             for idx, chain in enumerate(chains):  # one of these is the representative, but we can treat it the same
                 if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
-                    self.chain_transforms.append(dict(rotation=rot, translation=tx))
-                    chain_ids.append(chain.name)
                 else:
                     self.log.warning('The Chain %s passed to %s doesn\'t have the same number of residues'
                                      % (chain.name, self.name))
+                    # Todo perform a superposition with overlapping residues...
+                    rot, tx = identity_matrix, origin  # Todo replace these place holders
+                self.chain_transforms.append(dict(rotation=rot, translation=tx))
+                chain_ids.append(chain.name)
             self.chain_ids = chain_ids
             # else:  # elif len(chains) == 1:
             #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
