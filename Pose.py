@@ -3134,7 +3134,7 @@ def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # ass
     if os.path.exists(location) and asu:
         get_pdb = (lambda pdb_code, location=None, **kwargs:  # asu=None, assembly=None, out_dir=None
                    glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
-        logger.debug('Searching for PDB file at \'%s\'' % glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
+        logger.debug('Searching for PDB file at \'%s\'' % os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
         #            glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))

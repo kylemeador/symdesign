@@ -1121,7 +1121,9 @@ if __name__ == '__main__':
             logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
 
         if all_poses:  # TODO fetch a state from files that have already been SymDesigned...
-            if all_poses[0].count(os.sep) == 0:  # assume that we have received pose-IDs and process accordingly
+            if all_poses[0].count(os.sep) == 0:
+                # assume that we have received pose-IDs and process accordingly
+                # TODO another case, the list of files could be in the current directory that SymDesign was run in...
                 if nano:
                     queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(args.directory)
                 design_directories = [DesignDirectory.from_pose_id(pose, nano=nano, root=args.directory,
