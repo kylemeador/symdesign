@@ -2292,13 +2292,13 @@ def generate_alignment_local(seq1, seq2, matrix='BLOSUM62'):
     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
     gap_penalty = -10
     gap_ext_penalty = -1
-    logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
+    logger.debug('Generating LOCAL sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
     # Create sequence alignment
     return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
 def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
-    """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
+    """Use Biopython's pairwise2 to generate an alignment
 
     Returns:
 
@@ -2335,7 +2335,7 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
     """
     # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
     if offset:
-        align_seq_1, align_seq_2, *_ = generate_alignment(mutant, reference)[0]
+        align_seq_1, align_seq_2, *_ = generate_alignment(mutant, reference)[0]  # first alignment has highest score
     else:
         align_seq_1, align_seq_2 = mutant, reference
 
