@@ -3038,7 +3038,7 @@ def subdirectory(name):
     return name[1:2]
 
 
-def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd()):
+def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
     """Download .pdb files from pdb_codes provided in a file, a supplied list, or a single entry
     Can download a specific biological assembly if asu=False.
     fetch_pdb(1bkh, assembly=2) fetches 1bkh biological assembly 2
@@ -3131,8 +3131,9 @@ def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # ass
     """
     # if location == PUtils.pdb_db and asu:
     if os.path.exists(location) and asu:
-        get_pdb = (lambda pdb_code, assembly=None, out_dir=None, asu=None:
-                   glob(os.path.join(out_dir, 'pdb%s.ent' % pdb_code.lower())))
+        get_pdb = (lambda pdb_code, asu=None, location=None, assembly=None:
+                   glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
+        logger.debug('Searching for PDB file at \'%s\'' % glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
         #            glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
@@ -3141,7 +3142,7 @@ def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # ass
         get_pdb = fetch_pdb
 
     # return a list where the matching file is the first (should only be one anyway)
-    pdb_file = get_pdb(pdb_code, asu=asu, **kwargs)
+    pdb_file = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
     if not pdb_file:
         logger.warning('No matching file found for PDB: %s' % pdb_code)
     else:
