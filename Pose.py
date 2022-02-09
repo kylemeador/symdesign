@@ -3049,9 +3049,9 @@ def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
         asu=False (bool): Whether to download the asymmetric unit file
         out_dir=os.getcwd() (str): The location to save downloaded files to
     Returns:
-        (str): Filename of the retrieved file, if pdb is a list then will only return the last filename
+        (list[str]): Filename(s) of the retrieved files
     """
-    file_name = None
+    file_names = []
     for pdb_code in to_iterable(pdb_codes):
         clean_pdb = pdb_code[:4].lower()
         if asu:
@@ -3084,8 +3084,9 @@ def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
             #         f.write(file_request.content)
             # else:
             #     logger.error('PDB download failed for: %s' % pdb)
+        file_names.append(file_name)
 
-    return file_name
+    return file_names
 
 
 # def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
@@ -3146,7 +3147,7 @@ def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # ass
     if not pdb_file:
         logger.warning('No matching file found for PDB: %s' % pdb_code)
     else:
-        return pdb_file  # [0]
+        return pdb_file[0]  # we should only find one file, therefore, return the first
 
 
 # def construct_cb_atom_tree(pdb1, pdb2, distance=8):  # UNUSED
