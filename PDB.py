@@ -1320,29 +1320,44 @@ class PDB(Structure):
 
     def create_entities(self, entity_names=None, query_by_sequence=True, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during
-        parsing. First search the PDB API if a PDB entry_id is attached to instance, next from Atoms in instance
+        file parsing. First, search the PDB API using an attached PDB entry_id, dependent on the presence of a
+        biological assembly file and/or multimodel file. Finally, initialize them from the Residues in each Chain
+        instance using a specified threshold of sequence homology
 
         Keyword Args:
-            entity_names (list): Names explicitly passed for the Entity instances. Length must equal number of entities
+            entity_names (list): Names explicitly passed for the Entity instances. Length must equal number of entities.
+                Names will take precedence over query_by_sequence if passed.
             query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
         """
         if not self.entity_d:  # we didn't get the info from the file, so we have to try and piece together
             self.retrieve_pdb_info_from_api()  # First try to set self.api_entry if possible. This is probably safe
             if self.api_entry:  # self.api_entry = {'entity': {1: ['A', 'B'], ...}, ...}
                 if self.assembly:  # When PDB API is returning information on the asu and assembly is different
-                    if self.multimodel:
-                        for new_chain, old_chain in self.multimodel_chain_map.items()
-                            self.entity_d = {}
-                    else:
+                    if self.multimodel:  # ensure the renaming of chains is handled correctly
+                        for ent_idx, chains in self.api_entry.get('entity').items():
+                            chain_set = set(chains)
+                            for cluster_idx, cluster_chains in self.api_entry.get('assembly').items():
+                                if set(cluster_chains) == chain_set:  # we found the right cluster
+                                    self.entity_d[ent_idx] = \
+                                        {'chains': [new_chain for new_chain, old_chain in self.multimodel_chain_map.items()
+                                                    if old_chain in chains]}
+                                    break  # this should be fine since entities will cluster together, unless they don't
+                    else:  # chain names should be the same as the assembly API if the file is source from PDB
                         self.entity_d = \
                             {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('assembly').items()}
                 else:
                     self.entity_d = \
                         {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('entity').items()}
             else:  # Still nothing, then API didn't work for pdb_name. Solve by file information
-                self.get_entity_info_from_atoms()
-        # else:  # self.entity_d was pulled from file. Pass
-        #     self.get_entity_info_from_atoms()
+                self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
+                if query_by_sequence and not entity_names:
+                    for entity_number, atom_info in list(self.entity_d.items()):  # make a copy as update occurs with iter
+                        pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
+                        if pdb_api_name:
+                            pdb_api_name = pdb_api_name.lower()
+                            self.entity_d[pdb_api_name] = self.entity_d.pop(entity_number)
+                            self.log.info('Entity %d now named \'%s\', as found by PDB API sequence search'
+                                          % (entity_number, pdb_api_name))
         if entity_names:
             for idx, entity_number in enumerate(list(self.entity_d.keys())):  # make a copy as update occurs w/ iter
                 try:
@@ -1351,14 +1366,6 @@ class PDB(Structure):
                                    % (entity_number, entity_names[idx]))
                 except IndexError:
                     raise IndexError('The number of indices in entity_names must equal %d' % len(self.entity_d))
-        elif query_by_sequence:
-            for entity_number, atom_info in list(self.entity_d.items()):  # make a copy as update occurs with iter
-                pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
-                if pdb_api_name:
-                    pdb_api_name = pdb_api_name.lower()
-                    self.entity_d[pdb_api_name] = self.entity_d.pop(entity_number)
-                    self.log.info('Entity %d now named \'%s\', as found by PDB API sequence search'
-                                  % (entity_number, pdb_api_name))
 
         # For each Entity, get the chain representative Todo choose most symmetrically average if Entity is symmetric
         for entity_name, info in self.entity_d.items():
@@ -1399,14 +1406,16 @@ class PDB(Structure):
     #
     #     self.update_entity_accession_id()
 
-    def get_entity_info_from_atoms(self, tolerance=0.9):
+    def get_entity_info_from_atoms(self, tolerance=0.9, **kwargs):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
 
         Keyword Args:
             tolerance=0.1 (float): The acceptable difference between chains to consider them the same Entity.
-            Tuning this parameter is necessary if you have chains which should be considered different entities,
-            but are fairly similar. Alternatively, the use of a structural match could be used.
-            For example, when each chain in an ASU is structurally deviating, but they all share the same sequence
+                Tuning this parameter is necessary if you have chains which should be considered different entities,
+                but are fairly similar. Alternatively, the use of a structural match could be used.
+                For example, when each chain in an ASU is structurally deviating, but they all share the same sequence
+        Sets:
+            self.entity_d
         """
         assert tolerance <= 1, '%s tolerance cannot be greater than 1!' % self.get_entity_info_from_atoms.__name__
         entity_count = 1
