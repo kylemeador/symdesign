@@ -1611,8 +1611,11 @@ class Structure(StructureBase):
                 for idx, residue in enumerate(self.residues):
                     residue.secondary_structure = secondary_structure[idx]
             else:
-                raise DesignError('The length of the passed secondary_structure (%d) is not equal to the number of '
-                                  'residues (%d)' % (len(self.secondary_structure), self.number_of_residues))
+                try:
+                    self.fit_secondary_structure_profile_to_structure()
+                except AttributeError:
+                    raise DesignError('The length of the passed secondary_structure (%d) is not equal to the number of '
+                                      'residues (%d)' % (len(self.secondary_structure), self.number_of_residues))
         else:
             if self.residues[0].secondary_structure:
                 self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
