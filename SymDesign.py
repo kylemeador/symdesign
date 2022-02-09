@@ -1219,15 +1219,20 @@ if __name__ == '__main__':
                             entity = None  # False
                             logger.debug('Fetching entry %s from PDB' % entry)
 
-                        biological_assemblies = qsbio_confirmed.get(entry)
-                        if biological_assemblies:  # first   v   assembly in matching oligomers
-                            assembly = biological_assemblies[0]
+                        if symmetry == 'C1':  # translate the monomer to the origin for the database
+                            assembly = None
+                            asu = True
                         else:
-                            assembly = 1
-                            logger.warning('No confirmed biological assembly for entry %s, entity %s. '
-                                           'Using PDB default assembly %d' % (entry, entity, assembly))
+                            asu = False
+                            biological_assemblies = qsbio_confirmed.get(entry)
+                            if biological_assemblies:  # first   v   assembly in matching oligomers
+                                assembly = biological_assemblies[0]
+                            else:
+                                assembly = 1
+                                logger.warning('No confirmed biological assembly for entry %s, entity %s. '
+                                               'Using PDB default assembly %d' % (entry, entity, assembly))
                         file_path = \
-                            fetch_pdb_file(entry, assembly=assembly, asu=False, out_dir=master_directory.pdbs)
+                            fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=master_directory.pdbs)
 
                         if not file_path:
                             logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
@@ -1235,7 +1240,7 @@ if __name__ == '__main__':
                                            % (file_path, PUtils.nano))
                             raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
                                                       'canonical_pdb1/2 attribute of DesignDirectory to pull the'
-                                                      'pdb file source.')
+                                                      ' pdb file source.')
                             # Todo
                             # continue
 
@@ -1243,8 +1248,6 @@ if __name__ == '__main__':
                         if entity:  # replace fetched_pdb with the entity pdb
                             # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
                             entity_pdb = pdb.entity(entry_entity)
-                            print('FOUND %d chains in the entity. chain ops = %d'
-                                  % (len(entity_pdb.chains), len(entity_pdb.chain_transforms)))
                             if entity_pdb:  # ensure not none, otherwise, report
                                 pdb = entity_pdb
                             else:

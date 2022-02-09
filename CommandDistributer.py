@@ -228,7 +228,7 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
                     (cmd_dist, scale, '--log_file %s ' % log_file if log_file else '', success_file, failure_file, file,
                      (script_present or '')))
         if finishing_commands:
-            new_f.write('# Wait for all to complete\nwait\n\n# Then execute\n%s' % '\n'.join(finishing_commands))
+            new_f.write('# Wait for all to complete\nwait\n\n# Then execute\n%s\n' % '\n'.join(finishing_commands))
 
     return filename
 
