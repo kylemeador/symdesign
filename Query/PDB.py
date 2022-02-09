@@ -650,21 +650,22 @@ def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval t
         return
 
     entity_clustered_chains = {}
-    for entity_idx, symmetries in enumerate(assembly_json['rcsb_struct_symmetry'], 1):
-        for symmetry in symmetries:  # [{}, ...]
-            # symmetry contains:
-            # {symbol: "O", type: 'Octahedral, stoichiometry: [], oligomeric_state: "Homo 24-mer", clusters: [],
-            #  rotation_axes: [], kind: "Global Symmetry"}
-            for cluster_idx, cluster in enumerate(symmetry['clusters'], 1):  # [{}, ...]
-                # cluster contains:
-                # {members: [], avg_rmsd: 5.219512137974998e-14}
-                # for cluster in clusters:
-                cluster_members = []
-                for member in cluster['members']:  # [{}, ...]
-                    # member contains:
-                    # {asym_id: "A", pdbx_struct_oper_list_ids: []}
-                    cluster_members.append(member.get('asym_id'))
-                entity_clustered_chains[cluster_idx] = cluster_members
+    for entity_idx, symmetry in enumerate(assembly_json['rcsb_struct_symmetry'], 1):
+        # for symmetry in symmetries:  # [{}, ...]
+        # symmetry contains:
+        # {symbol: "O", type: 'Octahedral, stoichiometry: [], oligomeric_state: "Homo 24-mer", clusters: [],
+        #  rotation_axes: [], kind: "Global Symmetry"}
+        for cluster_idx, cluster in enumerate(symmetry['clusters'], 1):  # [{}, ...]
+            # CLUSTER_IDX is not a mapping to entity index...
+            # cluster contains:
+            # {members: [], avg_rmsd: 5.219512137974998e-14}
+            # for cluster in clusters:
+            cluster_members = []
+            for member in cluster['members']:  # [{}, ...]
+                # member contains:
+                # {asym_id: "A", pdbx_struct_oper_list_ids: []}
+                cluster_members.append(member.get('asym_id'))
+            entity_clustered_chains[cluster_idx] = cluster_members
 
     return entity_clustered_chains
 
