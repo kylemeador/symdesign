@@ -282,6 +282,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             if '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
                 self.initialized = False
+                if not os.path.exists(self.source_path):
+                    raise FileNotFoundError('The file \'%s\' couldn\'t be located! Ensure this location is correct.')
                 self.source = self.source_path
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
