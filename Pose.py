@@ -2748,6 +2748,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 if self.source_db:
                     entity.sequence_file = self.source_db.sequences.retrieve_file(name=entity.name)
                     entity.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=entity.name)
+                    if not entity.pssm_file:
+                        entity.pssm_file = self.source_db.hhblits_profiles.retrieve_file(name=entity.name)
                     if len(entity.evolutionary_profile) != entity.number_of_residues:
                         # profile was made with reference or the sequence has inserts and deletions of equal length
                         # A more stringent check could move through the evolutionary_profile[idx]['type'] key versus the
