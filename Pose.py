@@ -2645,7 +2645,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         for number, residues_entities in self.split_interface_residues.items():
             self.split_interface_ss_elements[number] = []
             for residue, entity in residues_entities:
-                self.split_interface_ss_elements[number].append(self.ss_index_array[residue.number - 1])
+                try:
+                    self.split_interface_ss_elements[number].append(self.ss_index_array[residue.number - 1])
+                except IndexError:
+                    raise IndexError('The index %d, from entity %s, residue %d is not found in self.ss_index_array with length %d'
+                                     % (residue.number - 1, entity.name, residue.number, len(self.ss_index_array)))
 
         self.log.debug('Found interface secondary structure: %s' % self.split_interface_ss_elements)
 
