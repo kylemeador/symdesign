@@ -1686,9 +1686,9 @@ class Structure(StructureBase):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle
 
         Keyword Args:
-            out_path=None (str):
-            file_handle=None (FileObject) #todo:
-            header=None (str):
+            out_path=None (str): The location where the Structure object should be written to disk
+            file_handle=None (FileObject): Used to write Structure details to an open FileObject
+            header=None (str): The information which should be written to the Structure header
         Returns:
             (str): The name of the written file if out_path is used
         """
@@ -2307,11 +2307,11 @@ class Entity(Chain, SequenceProfile):
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
+        chains = kwargs.get('chains', [])  # [Chain objs]
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          coords=representative._coords, **kwargs)
         self._chains = []
         self.chain_transforms = []  # Todo, make a property that is a list?
-        chains = kwargs.get('chains', [])  # [Chain objs]
         if chains:
             if len(chains) > 1:
                 self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
@@ -2644,11 +2644,9 @@ class Entity(Chain, SequenceProfile):
 
         if out_path:
             if self.chains:
-                print('WRITING CHAINS to %s' % out_path)
                 with open(out_path, 'w') as outfile:
                     write_header(outfile)
                     for idx, chain in enumerate(self.chains, 1):
-                        print('chain %d, name = %s' % (idx, chain.chain_id))
                         outfile.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
                         offset += chain.number_of_atoms
             # else:

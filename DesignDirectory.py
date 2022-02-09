@@ -270,7 +270,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
                 # self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
-                self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
+                self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # assumes the entity is the first
 
                 self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
                 self.name = self.pose_id

@@ -3034,8 +3034,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #     return
 
 
-def subdirectory(name):  # TODO PDBdb
-    return name
+def subdirectory(name):
+    return name[1:2]
 
 
 def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd()):
@@ -3068,7 +3068,7 @@ def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd()):
         # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
         file_name = os.path.join(out_dir, clean_pdb)
         current_file = glob(file_name)
-        print('Found the files %s' % current_file)
+        # print('Found the files %s' % current_file)
         # current_files = os.listdir(location)
         # if clean_pdb not in current_files:
         if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
@@ -3134,8 +3134,9 @@ def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # ass
         get_pdb = (lambda pdb_code, assembly=None, out_dir=None, asu=None:
                    glob(os.path.join(out_dir, 'pdb%s.ent' % pdb_code.lower())))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
-        # get_pdb = (lambda pdb_code, dummy: glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code),
-        #                                                      '%s.pdb' % pdb_code)))
+        # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
+        #            glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
+        # print(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
     else:
         get_pdb = fetch_pdb
 
