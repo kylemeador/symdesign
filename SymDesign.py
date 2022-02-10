@@ -1378,7 +1378,7 @@ if __name__ == '__main__':
             master_directory.make_path(full_model_dir)
             refine_files = os.listdir(refine_dir)
             full_model_files = os.listdir(full_model_dir)
-            oligomers_to_refine, olgomers_to_loop_model, sym_def_files = set(), {}, {}
+            oligomers_to_refine, olgomers_to_loop_model, sym_def_files = {}, {}, {}
             # for idx, entities in enumerate([required_entities1, required_entities2], 1):
             for idx, entities in enumerate(required_entities, 1):
                 # for entry_entity in entities:  # ex: 1ABC_1
@@ -1394,7 +1394,7 @@ if __name__ == '__main__':
                     base_pdb_code = os.path.splitext(orient_asu_file)[0]
                     if base_pdb_code in all_entities:
                         if orient_asu_file not in refine_files:
-                            oligomers_to_refine.add((os.path.join(orient_asu_dir, orient_asu_file), symmetry))
+                            oligomers_to_refine[os.path.join(orient_asu_dir, orient_asu_file)] = symmetry
                         if orient_asu_file not in full_model_files:
                             # olgomers_to_loop_model.add((os.path.join(refine_dir, orient_asu_file), symmetry))
                             olgomers_to_loop_model[base_pdb_code] = symmetry
@@ -1403,8 +1403,8 @@ if __name__ == '__main__':
             while oligomers_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
                             ' into the Rosetta ScoreFunction for optimized sequence design: %s'
-                            % ', '.join([os.path.splitext(os.path.basename(file))[0]
-                                         for file, sym in oligomers_to_refine]))
+                            % ', '.join(set(os.path.splitext(os.path.basename(orient_asu_file))[0]
+                                            for orient_asu_file in oligomers_to_refine)))
                 print('Would you like to refine them now? If you plan on performing sequence design with models '
                       'containing them, it is highly recommended you perform refinement')
                 if not boolean_choice():
@@ -1433,7 +1433,7 @@ if __name__ == '__main__':
                 refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', orient_asu_file, '-parser:script_vars'] +
                                ['sdf=%s' % sym_def_files[sym],
                                 'symmetry=%s' % 'make_point_group' if sym != 'C1' else 'asymmetric']
-                               for orient_asu_file, sym in oligomers_to_refine]
+                               for orient_asu_file, sym in oligomers_to_refine.items()]
                 commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds],
                                                        name='refine_oligomers_%s' % timestamp, out_path=refine_dir)
                 refine_sbatch = distribute(file=commands_file, out_path=master_directory.sbatch_scripts, scale='refine',
