@@ -1729,8 +1729,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if self.script:
-            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
-                               status_wrap=self.serialized_info)
+            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir)  # ,
+                               # status_wrap=self.serialized_info)
         else:
             relax_process = Popen(relax_cmd)
             relax_process.communicate()
@@ -1883,7 +1883,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.info['fragment_database'] = self.pose.frag_db.source
 
         if not self.pre_refine:
-            self.refine()
+            self.refine(to_design_directory=True)
 
         self.rosetta_interface_design()
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP

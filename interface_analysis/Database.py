@@ -314,7 +314,8 @@ class FragmentDatabase(FragmentDB):
         # self.paired_frags = None
         # self.info = None
         self.source = source
-        self.location = frag_directory.get(source, None)  # Todo make dynamic upon unpickle and not loaded
+        # Todo make dynamic upon unpickle and not loaded. OR load all statistics files into the pickle!
+        self.location = frag_directory.get(source, None)
         self.statistics = {}
         # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
