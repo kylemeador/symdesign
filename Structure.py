@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from itertools import repeat
 from math import ceil
 from random import random  # , randint
+from typing import Union
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
@@ -1718,15 +1719,15 @@ class Structure(StructureBase):
         # return '\n'.join(atom.__str__(**kwargs) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
         #                  for atom, coord in zip(self.atoms, self.coords.tolist()))
 
-    def format_header(self):
+    def format_header(self, **kwargs):
         if type(self).__name__ in ['Entity', 'PDB']:
-            return self.format_biomt() + self.format_seqres()
+            return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
         # elif type(self).__name__ in ['Entity', 'Chain']:
         #     return self.format_biomt() + self.format_seqres()
         else:
             return ''
 
-    def format_biomt(self):
+    def format_biomt(self, **kwargs):
         """Return the BIOMT record for the PDB if there was one parsed
 
         Returns:
@@ -1741,30 +1742,42 @@ class Structure(StructureBase):
         else:
             return ''
 
-    def write_header(self, file_handle, header):
+    def write_header(self, file_handle, header=None, **kwargs) -> None:
+        """Handle writing of Structure header information to the file
+
+        Args:
+            file_handle (FileObject): An open file object where the header should be written
+        Keyword Args
+            header (Union[None, str]): A string that is desired at the top of the .pdb file
+            **kwargs:
+        Returns:
+            (None)
+        """
+        _header = self.format_header(**kwargs)  # biomt and seqres
         if header and isinstance(header, Iterable):
-            if isinstance(header, str):
-                header = self.format_header() + header
-                file_handle.write('%s\n' % header)
+            if isinstance(header, str):  # used for cryst_record now...
+                _header += (header if header[-2:] == '\n' else '%s\n' % header)
             # else:  # TODO
             #     location.write('\n'.join(header))
+        if _header != '':
+            file_handle.write('%s' % _header)
 
-    def write(self, out_path=None, file_handle=None, header=None, increment_chains=False, **kwargs):
+    def write(self, out_path=None, file_handle=None, increment_chains=False, **kwargs) -> Union[None, str]:  # header=None,
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle
 
         Keyword Args:
-            out_path=None (str): The location where the Structure object should be written to disk
-            file_handle=None (FileObject): Used to write Structure details to an open FileObject
+            out_path=None (Union[None, str]): The location where the Structure object should be written to disk
+            file_handle=None (Union[None, FileObject]): Used to write Structure details to an open FileObject
             header=None (str): The information which should be written to the Structure header
         Returns:
-            (str): The name of the written file if out_path is used
+            (Union[None, str]): The name of the written file if out_path is used
         """
         if file_handle:
             file_handle.write('%s\n' % self.return_atom_string(**kwargs))
 
         if out_path:
             with open(out_path, 'w') as outfile:
-                self.write_header(outfile, header)
+                self.write_header(outfile, **kwargs)
                 outfile.write('%s\n' % self.return_atom_string(**kwargs))
 
             return out_path
@@ -2682,31 +2695,37 @@ class Entity(Chain, SequenceProfile):
             # return self
             return [self]
 
-    def format_seqres(self) -> str:
+    def format_seqres(self, asu=True, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
+        Keyword Args:
+            asu=True (bool): Whether to output the Entity ASU or the full oligomer
+            **kwargs
         Returns:
             (str)
         """
         formated_reference_sequence = ' '.join(map(str.upper, (protein_letters_1to3_extended[aa]
                                                                for aa in self.reference_sequence)))
         chain_length = len(self.reference_sequence)
+        asu_slice = 1 if asu else None
+        # chains = self.chains if asu else None
         return '%s\n' \
             % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain.chain_id, chain_length)
                         % formated_reference_sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
-                        for chain in self.chains
+                        for chain in self.chains[:asu_slice]
                         for line_number in range(1, 1 + ceil(len(formated_reference_sequence)/seq_res_len)))
 
     # Todo overwrite Structure.write() method...
-    def write_oligomer(self, out_path=None, file_handle=None, header=None, **kwargs):
+    def write_oligomer(self, out_path=None, file_handle=None, **kwargs) -> Union[None, str]:  # header=None,
         """Write oligomeric Structure Atoms to a file specified by out_path or with a passed file_handle
 
         Keyword Args:
-            out_path=None (str):
-            file_handle=None (FileObject) #todo:
-            header=None (str):
+            out_path=None (Union[None, str]): The location where the Structure object should be written to disk
+            file_handle=None (Union[None, FileObject]): Used to write Structure details to an open FileObject
+            header=None (Union[None, str]): The information which should be written to the Structure header
+            **kwargs
         Returns:
-            (str): The name of the written file if out_path is used
+            (Union[None, str]): The name of the written file if out_path is used
         """
         offset = 0
         if file_handle:
@@ -2720,7 +2739,7 @@ class Entity(Chain, SequenceProfile):
         if out_path:
             if self.chains:
                 with open(out_path, 'w') as outfile:
-                    self.write_header(outfile, header)
+                    self.write_header(outfile, asu=False, **kwargs)  # function implies we want all chains, i.e. asu=False
                     for idx, chain in enumerate(self.chains, 1):
                         outfile.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
                         offset += chain.number_of_atoms
