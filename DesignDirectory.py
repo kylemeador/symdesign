@@ -1621,8 +1621,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.pose.pdb.write(out_path=self.asu, header=self.cryst_record)
             self.info['pre_refine'] = self.pre_refine
             self.log.info('Cleaned PDB: \'%s\'' % self.asu)
-        else:
-            print('FOUND THE ASU!', self.asu)
 
     @handle_design_errors(errors=(DesignError,))
     def check_clashes(self, clashing_threshold=0.75):
@@ -1725,7 +1723,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # RELAX: Prepare command
         relax_cmd += relax_flags + additional_flags + \
             ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [] + \
-            ['@%s' % flags, '-in:file:s', refine_pdb,
+            ['@%s' % flags, '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
              '-in:file:native', refine_pdb,  # native is here to block flags, not actually useful for refine
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
              '-parser:script_vars', 'switch=%s' % stage]
