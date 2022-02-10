@@ -38,7 +38,6 @@
 <!--&lt;!&ndash;		<Add mover_name="asymmetric"/>&ndash;&gt;-->
 <!--&lt;!&ndash;		</ParsedProtocol>&ndash;&gt;-->
 <!--		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>-->
-		<If name="refine" filter_name="read_sym" true_mover_name="sym_refine" false_mover_name="asymmetric_refine" />
 	</MOVERS>
 
 	# Symmetry set up section
@@ -47,7 +46,7 @@
 	</FILTERS>
 	<MOVERS>
 		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
-		<!--		<If name="" filter_name="read_sym" true_mover_name="sym_" false_mover_name="asymmetric_"/>-->
+		<If name="refine" filter_name="read_sym" true_mover_name="sym_refine" false_mover_name="asymmetric_refine" />
 	</MOVERS>
 
 	<PROTOCOLS>
