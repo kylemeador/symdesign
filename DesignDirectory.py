@@ -1058,14 +1058,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.info != self._info:  # if the state has changed from the original version
             pickle_object(self.info, self.serialized_info, out_path='')
 
-    def prepare_rosetta_flags(self, symmetry_protocol=None, sym_def_file=None, pdb_path=None, out_path=os.getcwd()):
+    def prepare_rosetta_flags(self, symmetry_protocol=None, sym_def_file=None, pdb_out_path=None,
+                              out_path=os.getcwd()) -> str:
         """Prepare a protocol specific Rosetta flags file with program specific variables
 
-        Args:
-            symmetry_protocol (str): The type of symmetric protocol to use for Rosetta jobs the flags are valid for
-            sym_def_file (str): The file specifying the symmetry system for Rosetta
         Keyword Args:
-            out_path=cwd (str): Disk location to write the flags file
+            symmetry_protocol=None (Union[None, str]): The type of symmetric protocol to use for Rosetta jobs the flags are valid for
+            sym_def_file=None (Union[None, str]): The file specifying the symmetry system for Rosetta
+            pdb_out_path=None (Union[None, str]): Disk location to write the resulting design files
+            out_path=os.getcwd() (str): Disk location to write the flags file
         Returns:
             (str): Disk location of the written flags file
         """
@@ -1132,8 +1133,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             variables.extend([('core_residues', out_of_bounds_residue)])
 
         flags = copy.copy(rosetta_flags)
-        if pdb_path:
-            flags.extend(['-out:path:pdb %s' % pdb_path, '-scorefile %s' % self.scores_file])
+        if pdb_out_path:
+            flags.extend(['-out:path:pdb %s' % pdb_out_path, '-scorefile %s' % self.scores_file])
         else:
             flags.extend(['-out:path:pdb %s' % self.designs, '-scorefile %s' % self.scores_file])
         flags.append('-in:file:native %s' % self.refined_pdb)
@@ -1681,7 +1682,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #  not the most accurate (I THINK)
             flags = os.path.join(self.scripts, 'flags')
             flag_dir = self.scripts
-            pdb_path = self.refined_pdb
+            pdb_out_path = self.designs
             additional_flags = []
             # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
             # Todo unnecessary? call self.load_pose with a flag for the type of file? how to reconcile with interface
@@ -1709,7 +1710,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
             flags = os.path.join(self.refine_dir, 'refine_flags')
             flag_dir = self.refine_dir
-            pdb_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
+            pdb_out_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
             # out_put_pdb_path = os.path.join(self.refine_dir, '%s.pdb' % self.pose.name)
             refine_pdb = self.source
             additional_flags = ['-no_scorefile', 'true']
@@ -1718,7 +1719,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()
             self.make_path(flag_dir)
-            flags = self.prepare_rosetta_flags(pdb_path=pdb_path, out_path=flag_dir)
+            flags = self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_path=flag_dir)
 
         # RELAX: Prepare command
         relax_cmd += relax_flags + additional_flags + \
