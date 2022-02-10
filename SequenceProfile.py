@@ -989,9 +989,10 @@ class SequenceProfile:
         # copy the evol profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
-        self.log.info('At Entity %s, combined evolutionary and fragment profile (Design Profile) with:\n\t%s'
-                      % (self.name, '\n\t'.join('Residue %4d: %d%% fragment weight' %
-                                                (entry, weight * 100) for entry, weight in self.alpha.items())))
+        if self.alpha:
+            self.log.info('At Entity %s, combined evolutionary and fragment profiles into Design Profile with:\n\t%s'
+                          % (self.name, '\n\t'.join('Residue %4d: %d%% fragment weight' %
+                                                    (entry, weight * 100) for entry, weight in self.alpha.items())))
         for entry, weight in self.alpha.items():  # weight will be 0 if the fragment_profile is empty
             for aa in protein_letters:
                 self.profile[entry][aa] = \
