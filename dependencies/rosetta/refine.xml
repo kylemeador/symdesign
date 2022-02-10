@@ -23,16 +23,16 @@
 		<FilterReportAsPoseExtraScoresMover name="asymmetric" report_as="sym_status" filter_name="false_filter"/>
 		<FilterReportAsPoseExtraScoresMover name="sym_true" report_as="sym_status" filter_name="true_filter"/>
 		<ParsedProtocol name="make_point_group">
-			<Add mover_name="sym_true"/>
 			<Add mover_name="point_group"/>
+			<Add mover_name="sym_true"/>
 		</ParsedProtocol>
 		<ParsedProtocol name="make_layer">
-			<Add mover_name="sym_true"/>
 			<Add mover_name="layer"/>
+			<Add mover_name="sym_true"/>
 		</ParsedProtocol>
 		<ParsedProtocol name="make_lattice">
-			<Add mover_name="sym_true"/>
 			<Add mover_name="lattice"/>
+			<Add mover_name="sym_true"/>
 		</ParsedProtocol>
 <!--		<ParsedProtocol name="asymmetric">-->
 <!--		<Add mover_name="asymmetric"/>-->
