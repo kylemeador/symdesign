@@ -19,12 +19,13 @@ logger = start_log(name=__name__)
 header_string = '%s %s %s\n' % ('-' * 20, '%s', '-' * 20)
 format_string = '\t%s\t\t%s'
 numbered_format_string = format_string % ('%d - %s', '%s')
-input_string = '\nInput:'
+input_string = '\nInput: '
 invalid_string = 'Invalid choice, please try again.'
 confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you can re-input.%s' % input_string
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
 user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
 additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
+boolean_input_string = '\nPlease specify [y/n]%s' % input_string
 instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
 
 # Websites
@@ -105,38 +106,78 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                           }
 
 
+def validate_type(value, dtype=str):
+    """Provide a user prompt to ensure the user input is what is desired
+
+    Returns:
+        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
+    """
+    try:
+        dtype(value)
+        return True
+    except ValueError:
+        print('The value \'%s\' cannot be converted to the type %s. Try again...' % (value, float))
+        return False
+
+
+def boolean_choice():
+    """Retrieve user input from a requested prompt to control desired program flow. Ex prompt: Please specify [y/n]
+
+    Returns:
+        (bool): A True value indicates the user wants to proceed. False indicates we do not want to proceed, possibly
+            gathering user input again or declining an option
+    """
+    while True:
+        confirm = input(boolean_input_string).lower()
+        if confirm in bool_d:  # we can find the answer
+            break
+        else:
+            print('\'%s\' is not a valid choice! Chose either [y/n]' % confirm)
+
+    return bool_d[confirm]
+
+
+def verify_choice():
+    """Provide a user prompt to ensure the user input is what is desired
+
+    Returns:
+        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
+    """
+    while True:
+        confirm = input(confirmation_string).lower()
+        if confirm in bool_d:  # we can find the answer
+            break
+        else:
+            print('\'%s\' is not a valid choice! Chose either [y/n]' % confirm)
+
+    return bool_d[confirm]
+    # else:
+    #     return False
+
+
 def retrieve_entity_id_by_sequence(sequence):
     """From a given sequence, retrieve the top matching Entity ID from the PDB API
 
     Returns:
         (str): '1ABC_1'
     """
-    return find_matching_entities_by_sequence(sequence=sequence)[0]
-    # matching_entity_ids = find_matching_entities_by_sequence(sequence=sequence)
-    # entity_json = None
-    # idx = 0
-    # while idx < 5:  # lets only give this 5 attempts. If it isn't in the top five, the sequence is likely engineered
-    #     while not entity_json:
-    #         entity_json = query_entity_id(matching_entity_ids[idx])
-    #         idx += 1
-    #     # if entity_json:
-    #     try:
-    #         return entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
-    #     except KeyError:  # if no uniprot_id
-    #         entity_json = None
+    return find_matching_entities_by_sequence(sequence=sequence, all_matching=False)[0]
 
 
-def find_matching_entities_by_sequence(sequence=None, return_type='polymer_entity', **kwargs):
-    """Search the PDB for matching IDs given a sequence and a return_type. Pass all_matching=True to retrieve all IDs
-    otherwise, only return the top 10 IDs
+def find_matching_entities_by_sequence(sequence=None, return_id='polymer_entity', **kwargs):
+    """Search the PDB for matching IDs given a sequence and a return_type. Pass all_matching=False to retrieve the top
+    10 IDs, otherwise return all IDs
 
     Keyword Args:
-        return_type='polymer_entity' (str): The type of ID to search for
+        return_id='polymer_entity' (str): The type of value to return where the acceptable values are in return_types
     Returns:
-        (list[str])
+        (list[str]): The entities matching the sequence
     """
+    if return_id not in return_types:
+        raise KeyError('The specified return type \'%s\' is not supported. Viable types include %s'
+                       % (return_id, ', '.join(return_types)))
     sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
-    sequence_query_results = query_pdb(generate_query(sequence_query, return_type=return_type, **kwargs))
+    sequence_query_results = query_pdb(generate_query(sequence_query, return_id=return_id, **kwargs))
     if sequence_query_results:
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
@@ -156,6 +197,7 @@ def parse_pdb_response_for_score(response):
 
 
 def query_pdb(_query):
+    """Take a JSON formatted PDB API query and return the results"""
     query_response = None
     iteration = 0
     while True:
@@ -178,8 +220,7 @@ def query_pdb(_query):
         if iteration > 5:
             raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
                               'Offending request %s' % getattr(query_response, 'url'))
-
-    return None
+    return
 
 
 def generate_parameters(attribute=None, operator=None, negation=None, value=None, sequence=None, **kwargs):  # Todo set up by kwargs
@@ -189,12 +230,56 @@ def generate_parameters(attribute=None, operator=None, negation=None, value=None
         return {'attribute': attribute, 'operator': operator, 'negation': negation, 'value': value}
 
 
+def pdb_id_matching_uniprot_id(uniprot_id, return_id='polymer_entity'):
+    """Find all matching PDB entries from a specified UniProt ID and specific return ID
+
+    Args:
+        uniprot_id (str): The UniProt ID of interest
+    Keyword Args:
+        return_id='polymer_entity' (str): The type of value to return where the acceptable values are in return_types
+    Returns:
+        (list[str]): The list of matching IDs
+    """
+    if return_id not in return_types:
+        raise KeyError('The specified return type \'%s\' is not supported. Viable types include %s'
+                       % (return_id, ', '.join(return_types)))
+    database = {'attribute': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_name',
+                'negation': False, 'operator': 'exact_match', 'value': 'UniProt'}
+    accession = \
+        {'attribute': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_accession',
+         'negation': False, 'operator': 'in', 'value': [uniprot_id]}
+
+    uniprot_query = [generate_terminal_group('text', **database), generate_terminal_group('text', **accession)]
+    final_query = generate_group('and', uniprot_query)
+    search_query = generate_query(final_query, return_id=return_id)
+    response_d = query_pdb(search_query)
+
+    return parse_pdb_response_for_ids(response_d)
+
+
+def generate_group(operation, child_groups):
+    return {'type': 'group', 'logical_operator': operation, 'nodes': list(child_groups)}
+
+
 def generate_terminal_group(service, *parameter_args, **kwargs):
     return {'type': 'terminal', 'service': service, 'parameters': generate_parameters(**kwargs)}
 
 
-def generate_query(search, return_type, all_matching=False):
-    query_d = {'query': search, 'return_type': return_type}
+def generate_query(search, return_id='entry', all_matching=True):
+    """Format a PDB query with the specific return type and parameters affecting search results
+
+    Args:
+        search (dict): Contains the key, value pairs in accordance with groups and terminal groups
+    Keyword Args:
+        return_id='entry' (str): The type of value to return where the acceptable values are in return_types
+    Returns:
+        (dict): The formatted query to be sent via HTTP GET
+    """
+    if return_id not in return_types:
+        raise KeyError('The specified return type \'%s\' is not supported. Viable types include %s'
+                       % (return_id, ', '.join(return_types)))
+
+    query_d = {'query': search, 'return_type': return_id}
     if all_matching:
         query_d.update({'request_options': {'return_all_hits': True}})
 
@@ -207,9 +292,6 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
     def search_schema(term):
         return [(key, schema[key]['description']) for key in schema if schema[key]['description'] and
                 term.lower() in schema[key]['description'].lower()]
-
-    def generate_group(operation, child_groups):
-        return {'type': 'group', 'logical_operator': operation, 'nodes': list(child_groups)}
 
     def make_groups(*args, recursive_depth=0):
         # Todo remove ^ * expression?
@@ -538,7 +620,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                                            # for k in child_group_nums}
         final_query = recursive_query_tree[-1][1]  #
 
-    search_query = generate_query(final_query, return_type, all_matching=True)
+    search_query = generate_query(final_query, return_id=return_type)
     response_d = query_pdb(search_query)
     print('The server returned:\n%s' % response_d)
 
@@ -552,11 +634,65 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         return None
 
 
-def get_pdb_info_by_entry(entry):
-    """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
-    # Todo change data retrieval to POST
+def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval to POST
+    """Retrieve information on the assembly for a particular entry from the PDB API
+
+    Args:
+        entry (str): The pdb code of interest
+        assembly=1 (int): The particular assembly number to query
+
     Returns:
-        (dict): {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+        (mapping[int, list]): The mapped entity number to the chain ID's in the assembly
+            {1: ['A', 'A', 'A', ...]}
+    """
+    assembly_json = connection_exception_handler('http://data.rcsb.org/rest/v1/core/assembly/%s/%d' % (entry, assembly))
+    if not assembly_json:
+        return
+
+    entity_clustered_chains = {}
+    for entity_idx, symmetry in enumerate(assembly_json['rcsb_struct_symmetry'], 1):
+        # for symmetry in symmetries:  # [{}, ...]
+        # symmetry contains:
+        # {symbol: "O", type: 'Octahedral, stoichiometry: [], oligomeric_state: "Homo 24-mer", clusters: [],
+        #  rotation_axes: [], kind: "Global Symmetry"}
+        for cluster_idx, cluster in enumerate(symmetry['clusters'], 1):  # [{}, ...]
+            # CLUSTER_IDX is not a mapping to entity index...
+            # cluster contains:
+            # {members: [], avg_rmsd: 5.219512137974998e-14}
+            # for cluster in clusters:
+            cluster_members = []
+            for member in cluster['members']:  # [{}, ...]
+                # member contains:
+                # {asym_id: "A", pdbx_struct_oper_list_ids: []}
+                cluster_members.append(member.get('asym_id'))
+            entity_clustered_chains[cluster_idx] = cluster_members
+
+    return entity_clustered_chains
+
+
+def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
+    """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
+
+    The following information is returned:
+    All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
+    {'rcsb_primary_citation', 'pdbx_vrpt_summary', 'pdbx_audit_revision_history', 'audit_author',
+     'pdbx_database_status', 'rcsb_id', 'pdbx_audit_revision_details', 'struct_keywords',
+     'rcsb_entry_container_identifiers', 'entry', 'rcsb_entry_info', 'struct', 'citation', 'exptl',
+     'rcsb_accession_info'}
+    EM only keys:
+    {'em3d_fitting', 'em3d_fitting_list', 'em_image_recording', 'em_specimen', 'em_software', 'em_entity_assembly',
+     'em_vitrification', 'em_single_particle_entity', 'em3d_reconstruction', 'em_experiment', 'pdbx_audit_support',
+     'em_imaging', 'em_ctf_correction'}
+    Xray only keys:
+    {'diffrn_radiation', 'cell', 'reflns', 'diffrn', 'software', 'refine_hist', 'diffrn_source', 'exptl_crystal',
+     'symmetry', 'diffrn_detector', 'refine', 'reflns_shell', 'exptl_crystal_grow'}
+    NMR only keys:
+    {'pdbx_nmr_exptl', 'pdbx_audit_revision_item', 'pdbx_audit_revision_category', 'pdbx_nmr_spectrometer',
+     'pdbx_nmr_refine', 'pdbx_nmr_representative', 'pdbx_nmr_software', 'pdbx_nmr_exptl_sample_conditions',
+     'pdbx_nmr_ensemble'}
+
+    Returns:
+        (dict): {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
             'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
     """
     # Ex. entry = '4atz'
@@ -564,30 +700,14 @@ def get_pdb_info_by_entry(entry):
     # url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
     # ex. chain
     # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
-    entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
-    if entry_request.status_code == 200:
-        entry_json = entry_request.json()
-    else:
-        # print('%s not found in the PDB!' % entry)
-        return None
-    # The following information is returned. This can connect the entity ID to the chain
-
-    # All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
-    # {'rcsb_primary_citation', 'pdbx_vrpt_summary', 'pdbx_audit_revision_history', 'audit_author',
-    #  'pdbx_database_status', 'rcsb_id', 'pdbx_audit_revision_details', 'struct_keywords',
-    #  'rcsb_entry_container_identifiers', 'entry', 'rcsb_entry_info', 'struct', 'citation', 'exptl',
-    #  'rcsb_accession_info'}
-    # EM only keys
-    # {'em3d_fitting', 'em3d_fitting_list', 'em_image_recording', 'em_specimen', 'em_software', 'em_entity_assembly',
-    #  'em_vitrification', 'em_single_particle_entity', 'em3d_reconstruction', 'em_experiment', 'pdbx_audit_support',
-    #  'em_imaging', 'em_ctf_correction'}
-    # Xray only keys
-    # {'diffrn_radiation', 'cell', 'reflns', 'diffrn', 'software', 'refine_hist', 'diffrn_source', 'exptl_crystal',
-    #  'symmetry', 'diffrn_detector', 'refine', 'reflns_shell', 'exptl_crystal_grow'}
-    # NMR only keys
-    # {'pdbx_nmr_exptl', 'pdbx_audit_revision_item', 'pdbx_audit_revision_category', 'pdbx_nmr_spectrometer',
-    #  'pdbx_nmr_refine', 'pdbx_nmr_representative', 'pdbx_nmr_software', 'pdbx_nmr_exptl_sample_conditions',
-    #  'pdbx_nmr_ensemble'}
+    entry_json = connection_exception_handler('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
+    if not entry_json:
+        return
+    # entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
+    # if entry_request.status_code == 200:
+    #     entry_json = entry_request.json()
+    # else:
+    #     return
 
     # entry_json['rcsb_entry_info'] = \
     #     {'assembly_count': 1, 'branched_entity_count': 0, 'cis_peptide_count': 3, 'deposited_atom_count': 8492,
@@ -622,16 +742,15 @@ def get_pdb_info_by_entry(entry):
             struct_d = {}
             resolution = None
     else:
-        print('Entry has no \'experimental_method\' keyword')
-        return None
+        logger.warning('Entry has no \'experimental_method\' keyword')
+        return
 
     entity_chain_d, ref_d, db_d = {}, {}, {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
-    for i in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
-        entity_id = '%s_%d' % (entry, i)
-        entity_ref_d = get_pdb_info_by_entity(entity_id)
+    for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
+        entity_ref_d = get_pdb_info_by_entity('%s_%d' % (entry, entity_idx))
         ref_d.update(entity_ref_d)
-        entity_chain_d[i] = list(entity_ref_d.keys())  # these are the chains
+        entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}
     # OR dbref = {entity: {'db': db, 'accession': db_accession_id}}
     # cryst = {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
@@ -640,28 +759,24 @@ def get_pdb_info_by_entry(entry):
 
 
 def get_pdb_info_by_entity(entity_id):
-    """Query the PDB API for an entity_id and return the associated chains and reference dictionary
+    """Query the PDB API for an EntityID and return the associated chains and reference dictionary
+
     Args:
-        entity_id (str):
+        entity_id (str): The EntityID with the format (PDBCode_Integer)
     Returns:
-        (dict):
+        (dict): {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
     entity_json = query_entity_id(entity_id)
-    # For all method types the following keys are available:
-    # {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
-    #  'rcsb_polymer_entity_feature_summary', 'rcsb_polymer_entity_align', 'rcsb_id', 'rcsb_cluster_membership',
-    #  'rcsb_polymer_entity_container_identifiers', 'rcsb_entity_host_organism', 'rcsb_latest_revision',
-    #  'rcsb_entity_source_organism'}
-    # NMR only - {'rcsb_polymer_entity_feature'}
-    # EM only - set()
-    # X-ray_only_keys - {'rcsb_cluster_flexibility'}
     if entity_json:
         chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', 'C']
         try:
             try:
                 uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
                 database = 'UNP'
-                db_d = {'db': database, 'accession': uniprot_id}
+                if len(uniprot_id) > 1:
+                    logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
+                                   % (entity_id, uniprot_id))
+                db_d = {'db': database, 'accession': uniprot_id[0]}  # may be an issue where there is more than one
             except KeyError:  # if no uniprot_id
                 # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
                 # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
@@ -696,31 +811,125 @@ def get_pdb_info_by_entity(entity_id):
             ref_d = {chain: None for chain in chains}
         return ref_d
     else:
-        # print('%s not found in the PDB!' % entity_id)
         return {}
 
 
-def query_entity_id(entity_id):
-    """Returns the JSON object for the entity_id requested. where entity_id format is PDBentryID_entityID. If the query
-     fails, returns None"""  # Todo change data retrieval to POST
-    entity_id_split = entity_id.split('_')
-    entry = entity_id_split[0]
-    _id = entity_id_split[1]
-    entity = requests.get('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s' % (entry, _id))
-    if entity.status_code == 200:
-        return entity.json()
-    else:
-        # print('%s entity request failed!' % entity_id)
-        return None
+def connection_exception_handler(url, max_attempts=5):
+    """Wrap requests GET commands in an exception handler which attempts to aquire the data multiple times if the
+    connection is refused due to a high volume of requests
 
-
-def get_sequence_by_entity_id(entity_id):
-    """Query the PDB API for the one letter amino acid sequence for a specified entity ID (PDB EntryID_Entity_ID)
+    Args:
+        url (str): The url to GET information from
+    Keyword Args:
+        max_attempts=5 (int): The number of queries that should be attempts without successful return
     Returns:
-        (str)
+        (union[dict, None]): The json formatted response to the url GET or None
     """
+    iteration = 1
+    while True:
+        try:
+            query_response = requests.get(url)
+            if query_response.status_code == 200:
+                return query_response.json()
+            elif query_response.status_code == 204:
+                logger.warning('No response was returned. Your query likely found no matches!')
+                break
+            else:
+                logger.debug('Your query returned an unrecognized status code (%d)' % query_response.status_code)
+                time.sleep(1)
+                iteration += 1
+        except requests.exceptions.ConnectionError:
+            logger.debug('Requests ran into a connection error. Sleeping, then retrying')
+            time.sleep(1)
+            iteration += 1
+
+        if iteration > max_attempts:
+            raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
+                              'Offending request %s' % getattr(query_response, 'url'))
+    return
+
+
+def query_entity_id(entity_id):
+    """Fetches the JSON object for the entity_id from the PDB API
+     
+    For all method types the following keys are available:
+    {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
+     'rcsb_polymer_entity_feature_summary', 'rcsb_polymer_entity_align', 'rcsb_id', 'rcsb_cluster_membership',
+     'rcsb_polymer_entity_container_identifiers', 'rcsb_entity_host_organism', 'rcsb_latest_revision',
+     'rcsb_entity_source_organism'}
+    NMR only - {'rcsb_polymer_entity_feature'}
+    EM only - set()
+    X-ray_only_keys - {'rcsb_cluster_flexibility'}
+    
+    Args:
+        entity_id (str): The entity_id with the format PDBentryID_entityID. Ex: 1abc_1
+    Returns:
+        (union[dict, None])
+    """
+    # Todo change data retrieval to POST
+    return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s'
+                                        % tuple(entity_id.split('_')))
+
+
+def get_entity_uniprot_id(entity_id=None, pdb=None, entity=None, chain=None):
+    """Retrieve a UniProtID from the PDB API by passing various PDB identifiers or combinations thereof
+
+    Keyword Args:
+        entity_id=None (str): The EntityID with the format (PDBCode_Integer)
+        pdb=None (str): The PDBCode of interest
+        chain=None (str): The chain from the PDBCode of interest
+        entity=None (str): The entity integer from the PDBCode of interest
+    Returns:
+        (str): The UniProtID
+    """
+    if pdb:
+        if entity:
+            entity_id = '%s_%s' % (pdb, entity)
+        else:
+            info = get_pdb_info_by_entry(pdb)
+            chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
+            if chain:
+                try:
+                    entity_id = '%s_%s' % (pdb, chain_entity[chain])
+                except KeyError:
+                    raise KeyError('No chain \'%s\' found in PDB ID %s. Possible chains %s' % (chain, pdb, chain_entity))
+            else:
+                all_entities = list(chain_entity.values())
+                entity_id = '%s_%s' % (pdb, all_entities[0])
+                logger.warning('%s: Using the argument \'pdb\' without either \'entity\' or \'chain\' is not '
+                               'recommended. Choosing the first EntityID reported in the PDB (%s)'
+                               % (get_entity_uniprot_id.__name__, all_entities[0]))
     entity_json = query_entity_id(entity_id)
-    return entity_json['entity_poly']['pdbx_seq_one_letter_code']
+
+    return entity_json.get('rcsb_polymer_entity_container_identifiers')['uniprot_id'][0]  # return the first entry
+
+
+def get_entity_reference_sequence(entity_id=None, pdb=None, entity=None, chain=None):
+    """Query the PDB API for the reference amino acid sequence for a specified entity ID (PDB EntryID_Entity_ID)
+
+    Returns:
+        (str): One letter amino acid sequence
+    """
+    if pdb:
+        if entity:
+            entity_id = '%s_%s' % (pdb, entity)
+        else:
+            info = get_pdb_info_by_entry(pdb)
+            chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
+            if chain:
+                try:
+                    entity_id = '%s_%s' % (pdb, chain_entity[chain])
+                except KeyError:
+                    raise KeyError('No chain \'%s\' found in PDB ID %s. Possible chains %s' % (chain, pdb, chain_entity))
+            else:
+                all_entities = list(chain_entity.values())
+                entity_id = '%s_%s' % (pdb, all_entities[0])
+                logger.warning('%s: Using the argument \'pdb\' without either \'entity\' or \'chain\' is not '
+                               'recommended. Choosing the first EntityID reported in the PDB (%s)'
+                               % (get_entity_reference_sequence.__name__, all_entities[0]))
+    entity_json = query_entity_id(entity_id)
+    # return entity_json.get('entity_poly')['pdbx_seq_one_letter_code']  # returns non-cannonical amino acids
+    return entity_json.get('entity_poly')['pdbx_seq_one_letter_code_can']  # returns non-cannonical as 'X'
 
 
 def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True, force_update=False):

@@ -1,96 +1,80 @@
+import math
 import os
+import warnings
+from itertools import chain  # repeat
 from math import floor, exp, log, log2
 import subprocess
 import time
 from copy import deepcopy, copy
-from glob import glob
+# from glob import glob
 
-from Bio import pairwise2
+import numpy as np
+import pandas as pd
+from Bio import pairwise2, SeqIO, AlignIO
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio.SeqUtils import IUPACData
+from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protein_letters_3to1
 
 import CommandDistributer
 import PathUtils as PUtils
-from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log
-
+from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log, pretty_format_table
+# import dependencies.bmdca as bmdca
 
 # Globals
 logger = start_log(name=__name__)
 index_offset = 1
 alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 aa_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0,
-                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
+             'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
 aa_weighted_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
                       'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
 add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
+subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 
 class SequenceProfile:
+    """Contains the sequence information for a Structural unit. Should always be subclassed by an object like an Entity,
+    basically any structure object with a .reference_sequence attribute could be used"""
     idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
 
-    def __init__(self, structure=None, log=None, **kwargs):
-        super().__init__(**kwargs)  # log=log,
-        # if log:
-        #     self.log = log
-        # else:
-        #     print('SequenceProfile starting log')
-        #     self.log = start_log()
-
-        # self.sequence = None
-        # self.structure = None  # should be initialized with a Entity/Chain obj, could be used with PDB obj
-        # self.structure_sequence = None
-        self.sequence_source = None
-        self.sequence_file = None
-        self.pssm_file = None
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
         self.evolutionary_profile = {}  # position specific scoring matrix
         self.design_pssm_file = None
         self.profile = {}  # design specific scoring matrix
         self.frag_db = None
         self.fragment_queries = {}
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
-        self.fragment_map = {}
+        self.fragment_map = None  # {}
+        self.alpha = {}
         self.fragment_profile = {}
         self.fragment_pssm_file = None
         self.interface_data_file = None
-        self.alpha = {}
-
-        # if structure:
-        self.structure = structure
+        self.a3m_file = None
+        self.h_fields = None
+        self.j_couplings = None
+        self.msa = None
+        self.msa_file = None
+        self.pssm_file = None
+        self.sequence_source = None
+        self.sequence_file = None
 
     @classmethod
     def from_structure(cls, structure=None):
         return cls(structure=structure)
 
     @property
-    def name(self):
-        return self.structure.name
-
-    @name.setter
-    def name(self, name):
-        self.structure.name = name
-
-    @property
     def profile_length(self):
-        # Todo in future, this wouldn't handle profile size modifications. Same issue as Structure number_of properties
-        try:
-            return self._profile_length
-        except AttributeError:
-            self.profile_length = self.structure.number_of_residues
-            return self._profile_length
-
-    @profile_length.setter
-    def profile_length(self, length):
-        self._profile_length = length
+        return self.number_of_residues
 
     @property
-    def entity_offset(self):
-        """Return the starting index for the Entitiy based on pose numbering of the residues"""
-        return self.structure.residues[0].number - 1
+    def offset(self):
+        """Return the starting index for the Entity based on pose numbering of the residues"""
+        return self.residues[0].number - 1
 
-    # @entity_offset.setter
-    # def entity_offset(self, offset):
+    # @offset.setter
+    # def offset(self, offset):
     #     self._entity_offset = offset
 
     # def set_structure(self, structure):
@@ -98,10 +82,21 @@ class SequenceProfile:
 
     @property
     def structure_sequence(self):
-        return self.structure.get_structure_sequence()
+        # return self.structure.get_structure_sequence()
+        return self.get_structure_sequence()
 
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
+
+    # @property
+    # def disorder(self):
+    #     try:
+    #         return self._disorder
+    #     except AttributeError:
+    #         if not self.reference_sequence:
+    #             self.retrieve_sequence_from_api(entity_id=self.name)
+    #         self._disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+    #         return self._disorder
 
     def attach_fragment_database(self, db=None):
         """Attach an existing Fragment Database to the SequenceProfile"""
@@ -145,49 +140,40 @@ class SequenceProfile:
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
         Keyword Args:
-            fragment_source=None (list):
-            alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
+            # fragment_source=None (list):
+            evolution=True (bool): Whether to add evolutionary information to the sequence profile
+            fragments=True (bool): Whether to add fragment information to the sequence profile
+            null=False (bool): Whether to use a null profile (non-functional) as the sequence profile
+            # alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
             out_path=os.getcwd() (str): Location where sequence files should be written
-            pdb_numbering=True (bool):
+            # pdb_numbering=True (bool):
         """
         if null or not evolution and not fragments:
             null, evolution, fragments = True, False, False
-            self.add_evolutionary_profile(null=null, **kwargs)
+            # self.add_evolutionary_profile(null=null, **kwargs)
 
         if evolution:  # add evolutionary information to the SequenceProfile
-            self.add_evolutionary_profile(out_path=out_path, **kwargs)
+            if not self.evolutionary_profile:
+                self.add_evolutionary_profile(out_path=out_path, **kwargs)
             self.verify_profile()
-            # TODO currently using self.structure.reference_sequence which could be ATOM, could be SEQRES.
-            #  For the next step, we NEED ATOM. Must resize the profile! Can use the sequence alignment from sequnce
-            #  processing
-            # Todo currently using favor_fragments as mechanism if fragments exist, this is overloaded and not intended
+        else:
+            self.null_pssm()
 
         if fragments:  # add fragment information to the SequenceProfile
-            # if fragment_observations:  # fragments should be provided, then distributed to the SequenceProfile
-            #     if entities:
-            #         self.add_fragment_query(entity1=entities[0], entity2=entities[1], query=fragment_observations,
-            #                                 pdb_numbering=pdb_numbering)
-            #         # if pdb_numbering:  # Renumber to Pose residue numbering
-            #         #     fragment_source = self.renumber_fragments_to_pose(fragment_source)
-            #         #     for idx, fragment in enumerate(fragment_source):
-            #         #         fragment['mapped'] = self.structure.residue_number_from_pdb(fragment['mapped'])
-            #         #         fragment['paired'] = self.structure.residue_number_from_pdb(fragment['paired'])
-            #         #         fragment_source[idx] = fragment
-            #         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
-            #     else:
-            #         self.log.error('%s: Argument \'entities\' (tuple) is required if fragment_observations are provided'
-            #                        % self.add_profile.__name__)
-            #         return None
-
-            if self.fragment_map and self.frag_db:  # fragments have already been added, connect DB info
-                self.frag_db.get_cluster_info(ids=[fragment['cluster'] for idx_d in self.fragment_map.values()
-                                                   for fragments in idx_d.values() for fragment in fragments])
-            else:
+            if self.fragment_map is None:
                 raise DesignError('Fragments were specified but have not been added to the SequenceProfile! '
                                   'The Pose/Entity must call assign_fragments() with fragment information')
+            elif self.frag_db:  # fragments have already been added, connect DB info
+                retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
+                                      for fragments in idx_d.values() for fragment in fragments
+                                      if fragment['cluster'] not in self.frag_db.cluster_info]
+                self.frag_db.get_cluster_info(ids=retrieve_fragments)
+            else:
+                raise DesignError('Fragments were specified but there is no fragment database attached to the '
+                                  'SequenceProfile. Ensure frag_db is set before requesting fragment information')
 
             # process fragment profile from self.fragment_map or self.fragment_query
-            self.add_fragment_profile()  # fragment_source=fragment_source, alignment_type=frag_alignment_type)
+            self.add_fragment_profile()
             self.find_alpha()
 
         self.calculate_design_profile(boltzmann=True, favor_fragments=fragments)
@@ -203,16 +189,38 @@ class SequenceProfile:
 
             if not rerun:
                 # Check sequence from Pose and self.profile to compare identity before proceeding
-                for idx, residue in enumerate(self.structure.residues, 1):
+                incorrect_count = 0
+                for idx, residue in enumerate(self.residues, 1):
                     profile_res_type = self.evolutionary_profile[idx]['type']
-                    pose_res_type = IUPACData.protein_letters_3to1[residue.type.title()]
+                    pose_res_type = protein_letters_3to1[residue.type.title()]
                     if profile_res_type != pose_res_type:
+                        # This may not be the worst thing in the world... If the profile was made off of an entity
+                        # that is not the exact structure, there should be some reality to it. I think the issue would
+                        # be with Rosetta loading of the Sequence Profile and not matching. I am trying to mutate the
+                        # offending residue type in the evolutionary profile to the Pose residue type. The frequencies
+                        # will reflect the actual values desired, however the surface level will be different.
+                        # Otherwise, generating evolutionary profiles from individual files will be required which
+                        # don't contain a reference sequence and therefore have their own caveats. Warning the user
+                        # will allow the user to understand what is happening at least
                         self.log.warning(
                             'Profile (%s) and Pose (%s) sequences mismatched!\n\tResidue %d: Profile=%s, Pose=%s'
                             % (self.pssm_file, self.sequence_file, residue.number, profile_res_type, pose_res_type))
-                        rerun = True
-                        break
-
+                        if self.evolutionary_profile[idx][pose_res_type] > 0:  # The residue choice isn't horrible...
+                            self.log.critical('The evolutionary profile must have been generated from a different file,'
+                                              ' however the evolutionary information contained is still viable. The '
+                                              'correct residue form the Pose will be substituted for the missing '
+                                              'residue in the profile')
+                            incorrect_count += 1
+                            if incorrect_count > 2:
+                                self.log.critical('This error has occurred at least 3 times and your modelling accuracy'
+                                                  ' will probably suffer')
+                            self.evolutionary_profile[idx]['type'] = pose_res_type
+                        else:
+                            self.log.critical('The evolutionary profile must have been generated from a different file,'
+                                              ' and the evolutionary information contained ISN\'T viable. Regenerating '
+                                              'evolutionary profile from the structure sequence instead')
+                            rerun = True
+                            break
             if rerun:
                 if second:
                     raise DesignError('Profile Generation got stuck, design aborted')
@@ -223,7 +231,7 @@ class SequenceProfile:
             else:
                 success = True
 
-    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', force=False, null=False):
+    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', file=None, force=False):
         """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
         homologous protein sequences (evolutionary)
 
@@ -233,63 +241,45 @@ class SequenceProfile:
         Sets:
             self.evolutionary_profile
         """
-        if null:
-            self.null_pssm()
-            return None
-
         if profile_source not in ['hhblits', 'psiblast']:
             raise DesignError('%s: Profile generation only possible from \'hhblits\' or \'psiblast\', not %s'
                               % (self.add_evolutionary_profile.__name__, profile_source))
+        if file:
+            self.pssm_file = file
+        else:  # Check to see if the files of interest already exist
+            # Extract/Format Sequence Information. SEQRES is prioritized if available
+            if not self.sequence_file:  # not made/provided before add_evolutionary_profile, make new one at out_path
+                self.write_fasta_file(self.reference_sequence, name=self.name, out_path=out_path)
+            elif not os.path.exists(self.sequence_file) or force:
+                self.log.debug('%s Sequence=%s' % (self.name, self.reference_sequence))
+                self.write_fasta_file(self.reference_sequence, name=self.sequence_file, out_path='')
+                self.log.debug('%s fasta file: %s' % (self.name, self.sequence_file))
 
-        if force:
-            self.sequence_file = None
-            self.pssm_file = None
-        else:
-            # Check to see if the files of interest already exist
             temp_file = os.path.join(out_path, '%s.hold' % self.name)
-            out_put_file_search = glob(os.path.join(out_path, '%s.*' % self.name))
-            if not out_put_file_search:  # found nothing -> []
-                with open(temp_file, 'w') as f:
-                    self.log.info('Fetching \'%s\' sequence data.\n' % self.name)
-            else:
-                for seq_file in out_put_file_search:
-                    if seq_file == os.path.join(out_path, '%s.hold' % self.name):
-                        self.log.info('Waiting for \'%s\' profile generation...' % self.name)
-                        while not os.path.exists(os.path.join(out_path, '%s.hmm' % self.name)):
-                            if int(time.time()) - int(os.path.getmtime(temp_file)) > 1800:  # > 30 minutes have passed
-                                os.remove(temp_file)
-                                raise DesignError('%s: Generation of the profile for %s took longer than the time '
-                                                  'limit. Job killed!'
-                                                  % (self.add_evolutionary_profile.__name__, self.name))
-                            time.sleep(20)
-                    elif seq_file == os.path.join(out_path, '%s.hmm' % self.name):
-                        self.pssm_file = os.path.join(out_path, seq_file)
-                        self.log.info('%s PSSM Files=%s' % (self.name, self.pssm_file))
-                        break
-                    elif seq_file == os.path.join(out_path, '%s.fasta' % self.name):
-                        self.sequence_file = seq_file
-                        self.log.info('%s fasta file: %s' % (self.name, self.sequence_file))
-                    elif seq_file == os.path.join(out_path, '%s.hhr' % self.name):
-                        pass
+            self.pssm_file = os.path.join(out_path, '%s.hmm' % self.name)
+            if not os.path.exists(self.pssm_file) or force:
+                if not os.path.exists(temp_file):  # No work on this pssm file has been initiated
+                    # Create blocking file to prevent excess work
+                    with open(temp_file, 'w') as f:
+                        self.log.info('Fetching \'%s\' sequence data.\n' % self.name)
+                    self.log.debug('%s Evolutionary Profile not yet created.' % self.name)
+                    if profile_source == 'psiblast':
+                        self.log.info('Generating PSSM Evolutionary Profile for %s' % self.name)
+                        self.psiblast(out_path=out_path)
                     else:
-                        self.log.debug('Found the file \'%s\' which was not expected in %s' % (seq_file, out_path))
-                        #     with open(temp_file, 'w') as f:
-                        #         f.write('Started fetching data. Process will resume once data is gathered\n')
-
-        if not self.sequence_file:
-            # Extract/Format Sequence Information. This will be SEQRES if available
-            self.log.debug('%s Sequence=%s' % (self.name, self.structure.reference_sequence))
-            self.write_fasta_file(self.structure.reference_sequence, name='%s' % self.name, out_path=out_path)
-            self.log.debug('%s fasta file: %s' % (self.name, self.sequence_file))
-
-        if not self.pssm_file:
-            # Make PSSM of sequence
-            self.log.debug('%s PSSM File not yet created.' % self.name)
-            self.log.info('Generating PSSM file for %s' % self.name)
-            if profile_source == 'psiblast':
-                self.psiblast(out_path=out_path)
-            else:
-                self.hhblits(out_path=out_path)
+                        self.log.info('Generating HHM Evolutionary Profile for %s' % self.name)
+                        self.hhblits(out_path=out_path)
+                    if os.path.exists(temp_file):
+                        os.remove(temp_file)
+                else:  # Block is in place, another process is working
+                    self.log.info('Waiting for \'%s\' profile generation...' % self.name)
+                    while not os.path.exists(self.pssm_file):
+                        if int(time.time()) - int(os.path.getmtime(temp_file)) > 1800:  # > 30 minutes have passed
+                            os.remove(temp_file)
+                            raise DesignError('%s: Generation of the profile for %s took longer than the time '
+                                              'limit. Job killed!'
+                                              % (self.add_evolutionary_profile.__name__, self.name))
+                        time.sleep(20)
 
         if profile_source == 'psiblast':
             self.parse_psiblast_pssm()
@@ -307,19 +297,60 @@ class SequenceProfile:
         self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa, dtype=int)
         structure_sequence = self.structure_sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
-            # line_data = line.strip().split()
-            # if len(line_data) == 44:
-            #     residue_number = int(line_data[0])
-            #     self.evolutionary_profile[residue_number] = deepcopy(aa_counts)
-            # for i, aa in enumerate(alph_3_aa, 22):  # pose_dict[residue_number], 22):
-            #     Get normalized counts for pose_dict
-                # self.evolutionary_profile[residue_number][aa] = (int(line_data[i]) / 100.0)
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
-            # for i, aa in enumerate(alph_3_aa, 2):
-            #     self.evolutionary_profile[residue_number]['lod'][aa] = line_data[i]
             self.evolutionary_profile[residue_number]['type'] = structure_sequence[idx]
             self.evolutionary_profile[residue_number]['info'] = 0.0
             self.evolutionary_profile[residue_number]['weight'] = 0.0
+
+    def fit_evolutionary_profile_to_structure(self):
+        """From an evolutionary profile input according to a protein reference sequence, align the profile to the
+        structure sequence, removing all information for residues not present in the structure
+
+        Sets:
+            (dict) self.evolutionary_profile
+        """
+        # self.retrieve_info_from_api()
+        # grab the reference sequence used for translation (expression)
+        # if not self.reference_sequence:
+        #     self.retrieve_sequence_from_api(entity_id=self.name)
+        # generate the disordered indices which are positions in reference that are missing in structure
+        # disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+        disorder = self.disorder
+        # removal of these positions from .evolutionary_profile will produce a properly indexed profile
+        new_idx = 1
+        structure_evolutionary_profile = {}
+        for index, residue_data in self.evolutionary_profile.items():
+            if index not in disorder:
+                structure_evolutionary_profile[new_idx] = residue_data
+                new_idx += 1
+        self.log.debug('Different profile lengths requires %s to be performed:\nOld profile:\n\t%s\nNew profile:\n\t%s'
+                       % (self.fit_evolutionary_profile_to_structure.__name__,
+                          ''.join(res['type'] for res in self.evolutionary_profile.values()),
+                          ''.join(res['type'] for res in structure_evolutionary_profile.values())))
+        self.evolutionary_profile = structure_evolutionary_profile
+
+    # def fit_secondary_structure_profile_to_structure(self):
+    #     """
+    #
+    #     Sets:
+    #         (dict) self.secondary_structure
+    #     """
+    #     # self.retrieve_info_from_api()
+    #     # grab the reference sequence used for translation (expression)
+    #     # if not self.reference_sequence:
+    #     #     self.retrieve_sequence_from_api(entity_id=self.name)
+    #     # generate the disordered indices which are positions in reference that are missing in structure
+    #     # disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+    #     disorder = self.disorder
+    #     # removal of these positions from .evolutionary_profile will produce a properly indexed profile
+    #     secondary_structure = ''
+    #     for index, ss_data in enumerate(self.secondary_structure, 1):
+    #         if index not in disorder:
+    #             secondary_structure += ss_data
+    #     self.log.debug('Different profile lengths requires %s to be performed:\nOld ss:\n\t%s\nNew ss:\n\t%s'
+    #                    % (self.fit_secondary_structure_profile_to_structure.__name__,
+    #                       self.secondary_structure, secondary_structure))
+    #     self.secondary_structure = secondary_structure
 
     def psiblast(self, out_path=None, remote=False):
         """Generate an position specific scoring matrix using PSI-BLAST subprocess
@@ -331,20 +362,18 @@ class SequenceProfile:
             self.pssm_file (str): Name of the file generated by psiblast
         """
         self.pssm_file = os.path.join(out_path, '%s.pssm' % str(self.name))
-
         cmd = ['psiblast', '-db', PUtils.alignmentdb, '-query', self.sequence_file + '.fasta', '-out_ascii_pssm',
                self.pssm_file, '-save_pssm_after_last_round', '-evalue', '1e-6', '-num_iterations', '0']  # Todo # iters
         if remote:
             cmd.append('-remote')
         else:
-            cmd.append('-num_threads')
-            cmd.append('8')
+            cmd.extend(['-num_threads', '8'])  # Todo
 
         p = subprocess.Popen(cmd)
-        p.wait()
+        p.communicate()
 
     @handle_errors(errors=(FileNotFoundError,))
-    def parse_psiblast_pssm(self):
+    def parse_psiblast_pssm(self, **kwargs):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
         # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_design_profile, CHANGE psiblast lod score parsing
         Sets:
@@ -370,28 +399,46 @@ class SequenceProfile:
                 self.evolutionary_profile[residue_number]['info'] = float(line_data[42])
                 self.evolutionary_profile[residue_number]['weight'] = float(line_data[43])
 
-    def hhblits(self, out_path=os.getcwd(), threads=CommandDistributer.hhblits_threads):
+    def hhblits(self, out_path=os.getcwd(), threads=CommandDistributer.hhblits_threads, return_command=False, **kwargs):
         """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
 
         Keyword Args:
             out_path=None (str): Disk location where generated file should be written
             threads=CommandDistributer.hhblits_threads (int): Number of cpu's to use for the process
+            return_command=False (bool): Whether to simply return the hhblits command
         Sets:
             self.pssm_file (str): Name of the file generated by psiblast
         """
-
         self.pssm_file = os.path.join(out_path, '%s.hmm' % str(self.name))
+        self.a3m_file = os.path.join(out_path, '%s.a3m' % str(self.name))
+        # self.msa_file = os.path.join(out_path, '%s.fasta' % str(self.name))
+        self.msa_file = os.path.join(out_path, '%s.sto' % str(self.name))  # preferred
+        fasta_msa = os.path.join(out_path, '%s.fasta' % str(self.name))
+        # todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
+        cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', self.sequence_file,
+               '-ohhm', self.pssm_file, '-oa3m', self.a3m_file,  # '-Ofas', self.msa_file,
+               '-hide_cons', '-hide_pred', '-hide_dssp', '-E', '1E-06',
+               '-v', '1', '-cpu', str(threads)]
+        # reformat_msa_cmd1 = [PUtils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc']
+        # reformat_msa_cmd2 = [PUtils.reformat_msa_exe_path, self.a3m_file, fasta_msa, '-M', 'first', '-r']
+        if return_command:
+            return subprocess.list2cmdline(cmd)  # , subprocess.list2cmdline(reformat_msa_cmd)
 
-        cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', self.sequence_file, '-ohhm', self.pssm_file, '-v', '1',
-               '-cpu', str(threads)]
         self.log.info('%s Profile Command: %s' % (self.name, subprocess.list2cmdline(cmd)))
         p = subprocess.Popen(cmd)
-        p.wait()
+        p.communicate()
+        p = subprocess.Popen([PUtils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc'])
+        p.communicate()
+        p = subprocess.Popen([PUtils.reformat_msa_exe_path, self.a3m_file, fasta_msa, '-M', 'first', '-r'])
+        p.communicate()
+        # os.system('rm %s' % self.a3m_file)
 
     @handle_errors(errors=(FileNotFoundError,))
-    def parse_hhblits_pssm(self, null_background=True):
+    def parse_hhblits_pssm(self, null_background=True, **kwargs):
         """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
+        Keyword Args:
+            null_background=True (bool): Whether to use the null background for the specific protein
         Sets:
             self.evolutionary_profile (dict): Dictionary containing residue indexed profile information
             Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
@@ -415,6 +462,7 @@ class SequenceProfile:
         with open(self.pssm_file, 'r') as f:
             lines = f.readlines()
 
+        self.evolutionary_profile = {}
         read = False
         for line in lines:
             if not read:
@@ -433,7 +481,7 @@ class SequenceProfile:
                     items = line.strip().split()
                     residue_number = int(items[1])
                     self.evolutionary_profile[residue_number] = {}
-                    for i, aa in enumerate(IUPACData.protein_letters, 2):
+                    for i, aa in enumerate(protein_letters, 2):
                         self.evolutionary_profile[residue_number][aa] = to_freq(items[i])
                     self.evolutionary_profile[residue_number]['lod'] = \
                         get_lod(self.evolutionary_profile[residue_number], null_bg)
@@ -483,6 +531,150 @@ class SequenceProfile:
                 self.profile[new_key] = position_profile
                 new_key += 1
 
+    def add_msa(self,):  # Todo adapt to different data sources
+        """Add a multiple sequence alignment to the profile"""
+        if not self.msa_file:
+            # self.msa = self.resources.alignments.retrieve_data(name=self.name)
+            raise AttributeError('No .msa_file attribute is specified yet!')
+        # self.msa = MultipleSequenceAlignment.from_stockholm(self.msa_file)
+        try:
+            self.msa = MultipleSequenceAlignment.from_stockholm(self.msa_file)
+            # self.msa = MultipleSequenceAlignment.from_fasta(self.msa_file)
+        except FileNotFoundError:
+            try:
+                self.msa = MultipleSequenceAlignment.from_fasta('%s.fasta' % os.path.splitext(self.msa_file)[0])
+                # self.msa = MultipleSequenceAlignment.from_stockholm('%s.sto' % os.path.splitext(self.msa_file)[0])
+            except FileNotFoundError:
+                raise FileNotFoundError('No multiple sequence alignment exists at %s' % self.msa_file)
+
+    def collapse_profile(self):
+        """Find the mean and standard deviation for each index in the SequenceProfile sequence MSA
+
+        Turn each sequence into a HCI array. All sequences have different lengths.
+        For each input sequence, make a gap mask into a 2D array (#sequences x length of sequence alignment)
+        iterate over the gap mask array adding the ith column of the mask to the row of the iterator array
+        where there is a gap there is a 0, sequence present is 1
+            iterator array        gap mask  Hydro Collapse Array     Aligned HCI (drop col 2)   HCI
+        iter i 1  2  3  4  element 0  1  2      0    1    2          0    1    2            0    1    3
+              [0  1  2  2         [1  1  0    [0.5  0.2  0.5       [0.5  0.2   0          [0.5  0.2  ...
+               0  0  1  2          0  1  1     0.4  0.7  0.4    =    0   0.4  0.7    ->     0   0.4  ...
+               0  0  1  2          0  1  1     0.3  0.6  0.3         0   0.3  0.6           0   0.3  ...
+
+        After the addition, the hydro collapse array index that is accessed by the iterator is multiplied by the gap
+        mask to return a null value is there is no value and the hydro collapse value if there is one
+        therefore the element such as 3 in the Aligned HCI would be dropped from the array when the aligned sequence
+        is removed of any gaps and only the iterations will be left, essentially giving the HCI for the sequence
+        profile in the native context, however adjusted to the specific context of the protein/design sequence at hand
+
+        Returns:
+            (pandas.DataFrame): DataFrame containing each sequences hydrophobic collapse values for the profile, mean,
+                and std
+        """
+        if not self.msa:
+            try:
+                self.add_msa()
+            except DesignError:
+                raise DesignError('Ensure that you have properly set up the .msa for this SequenceProfile. To do this, '
+                                  'either link the Structure to the Master Database, call %s, or pass the location of a'
+                                  ' multiple sequence alignment. Supported formats:\n%s)'
+                                  % (msa_generation_function, pretty_format_table(msa_supported_types.items())))
+        # msa_np = np.array([list(record) for record in self.msa.alignment], np.character)
+        # msa_np = np.array([list(str(record.seq)) for record in self.msa.alignment], np.character)
+        # print('msa_np', msa_np[:5, :])
+        # aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
+        # Make the output array one longer to keep a np.nan value at the 0 index for collapse gaps
+        evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))  # aligned_hci_np.copy()
+        evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
+        # print('alignment', self.msa.alignment[:5, :])
+        for idx, record in enumerate(self.msa.alignment):
+            non_gapped_sequence = str(record.seq).replace('-', '')
+            evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = hydrophobic_collapse_index(non_gapped_sequence)
+
+        # print('evolutionary_collapse_np', evolutionary_collapse_np[:5, :])
+        # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
+        # msa_mask = np.isin(self.msa.array, b'-', invert=True)  # returns bool array '-' = False. Converted during arithmetic
+        # print('msa_mask', msa_mask[:5, :])
+        iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices
+        # print('iterator_np', iterator_np[:5, :])
+        # for idx in range(self.msa.length):
+        #     # print('iterator shape', iterator_np.shape)
+        #     # print('slices mas_mask shape', msa_mask[:, idx].shape)
+        #     # print(msa_mask[:, idx])
+        #     # aligned_hci_np[:, idx] = evolutionary_collapse_np[:, iterator_np] * msa_mask[:, idx]
+        #     aligned_hci_np[:, idx] = evolutionary_collapse_np[np.ix_(:, iterator_np)] * msa_mask[:, idx]
+        #     iterator_np += msa_mask[:, idx]
+        aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
+        # print('aligned_hci_np', aligned_hci_np[:5, :])
+        sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]  # the query sequence indices are selected
+        # print('sequence:\n', '     '.join(aa for idx, aa in enumerate(map(str, self.msa.alignment[0].seq)) if msa_mask[0][idx]))
+        # print(list(map(round, sequence_hci_np[0, :].tolist(), repeat(2))), '\nsequence_hci_np')
+        sequence_hci_df = pd.DataFrame(sequence_hci_np, columns=list(range(1, self.msa.query_length + 1)))
+        # sequence_hci_mean_s = sequence_hci_df.mean()
+        # sequence_hci_mean = pd.Series(sequence_hci_np.mean(axis=1), name='mean')
+        # sequence_hci_mean.index += 1
+        # sequence_hci_std_s = sequence_hci_df.std()
+        # sequence_hci_std = pd.Series(sequence_hci_np.std(axis=1), name='std')
+        # sequence_hci_std.index += 1
+        # sequence_hci_z_value = (aligned_hci_np[0] - sequence_hci_mean) / sequence_hci_std
+        return pd.concat([sequence_hci_df,
+                          pd.concat([sequence_hci_df.mean(), sequence_hci_df.std()], axis=1, keys=['mean', 'std']).T])
+
+    def direct_coupling_analysis(self, msa=None):  # , data_dir=None):
+        """Using boltzmann machine direct coupling analysis (bmDCA), score each sequence in an alignment based on the
+         statistical energy compared to the learn DCA model
+
+        Keyword Args:
+            msa=None (MultipleSequenceAlignment): A MSA object to score. By default (None), will use self.msa attribute
+        Returns:
+            (numpy.ndarray): The energy for each residue in each sequence of the alignment based on direct coupling
+                analysis parameters. Sequences exist on axis 0, residues along axis 1
+            # (numpy.ndarray): The energy for each sequence in the alignment based on direct coupling analysis parameters
+        """
+        if not msa:
+            msa = self.msa
+        if not self.h_fields or not self.j_couplings:
+            raise AttributeError('The required data .h_fields and .j_couplings are not availble. Add them to the Entity'
+                                 ' before %s' % self.direct_coupling_analysis.__name__)
+            # return np.array([])
+        analysis_length = msa.query_length
+        idx_range = np.arange(analysis_length)
+        # h_fields = bmdca.load_fields(os.path.join(data_dir, '%s_bmDCA' % self.name, 'parameters_h_final.bin'))
+        # h_fields = h_fields.T  # this isn't required when coming in Fortran order, i.e. (21, analysis_length)
+        # sum the h_fields values for each sequence position in every sequence
+        h_values = self.h_fields[msa.numerical_alignment, idx_range[None, :]].sum(axis=1)
+        h_sum = h_values.sum(axis=1)
+
+        # coming in as a 4 dimension (analysis_length, analysis_length, alphabet_number, alphabet_number) ndarray
+        # j_couplings = bmdca.load_couplings(os.path.join(data_dir, '%s_bmDCA' % self.name, 'parameters_J_final.bin'))
+        i_idx = np.repeat(idx_range, analysis_length)
+        j_idx = np.tile(idx_range, analysis_length)
+        i_aa = np.repeat(msa.numerical_alignment, analysis_length)
+        j_aa = np.tile(msa.numerical_alignment, msa.query_length)
+        j_values = np.zeros((msa.number_of_sequences, len(i_idx)))
+        for idx in range(msa.number_of_sequences):
+            j_values[idx] = self.j_couplings[i_idx, j_idx, i_aa, j_aa]
+        # this mask is not necessary when the array comes in as a non-symmetry matrix. All i > j result in 0 values...
+        # mask = np.triu(np.ones((analysis_length, analysis_length)), k=1).flatten()
+        # j_sum = j_values[:, mask].sum(axis=1)
+        # sum the j_values for every design (axis 0) at every residue position (axis 1)
+        j_values = np.array(np.split(j_values, 3, axis=1)).sum(axis=2).T
+        j_sum = j_values.sum(axis=1)
+        # couplings_idx = np.stack((i_idx, j_idx, i_aa, j_aa), axis=1)
+        # this stacks all arrays like so
+        #  [[[ i_idx1, i_idx2, ..., i_idxN],
+        #    [ j_idx1, j_idx2, ..., j_idxN],  <- this is for one sequence
+        #    [ i_aa 1, i_aa 2, ..., i_aa N],
+        #    [ j_aa 1, j_aa 2, ..., j_aa N]],
+        #   [[NEXT SEQUENCE],
+        #    [
+        # this stacks all arrays the transpose, which would match the indexing style on j_couplings much better...
+        # couplings_idx = np.stack((i_idx, j_idx, i_aa, j_aa), axis=2)
+        # j_sum = np.zeros((self.msa.number_of_sequences, len(couplings_idx)))
+        # for idx in range(self.msa.number_of_sequences):
+        #     j_sum[idx] = j_couplings[couplings_idx[idx]]
+        # return -h_sum - j_sum
+        return -h_values - j_values
+
     def write_fasta_file(self, sequence, name=None, out_path=os.getcwd()):
         """Write a fasta file from sequence(s)
 
@@ -511,14 +703,14 @@ class SequenceProfile:
         """
         # v now done at the pose_level
         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
-        if self.fragment_map:
+        if self.fragment_map is not None:
             self.generate_fragment_profile()
             self.simplify_fragment_profile(keep_extras=True)
-        else:
+        else:  # try to separate any fragment queries to this entity
             if self.fragment_queries:  # Todo refactor this to Pose
                 for query_pair, fragments in self.fragment_queries.items():
                     for query_idx, entity in enumerate(query_pair):
-                        if entity.name == self.structure.name:
+                        if entity.name == self.name:
                             # add to fragment map
                             self.assign_fragments(fragments=fragments,
                                                   alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
@@ -526,7 +718,7 @@ class SequenceProfile:
                 self.log.error('No fragment information associated with the Entity %s yet! You must add to the profile '
                                'otherwise only evolutionary values will be used.\n%s'
                                % (self.name, add_fragment_profile_instructions))
-                return None
+                return
 
     def assign_fragments(self, fragments=None, alignment_type=None):
         """Distribute fragment information to self.fragment_map. One-indexed residue dictionary
@@ -536,12 +728,13 @@ class SequenceProfile:
             [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
             alignment_type=None (str): Either mapped or paired
         Sets:
-            self.fragment_map (dict): {1: [{'chain']: 'mapped', 'cluster': 1_2_123, 'match': 0.61}, ...], ...}
+            self.fragment_map (dict): {1: [{'chain': 'mapped', 'cluster': 1_2_123, 'match': 0.61}, ...], ...}
         """
         if alignment_type not in ['mapped', 'paired']:
-            return None
+            return
         if not fragments:
-            return None
+            self.fragment_map = {}
+            return
 
         if not self.fragment_map:
             self.fragment_map = self.populate_design_dictionary(self.profile_length,
@@ -550,12 +743,10 @@ class SequenceProfile:
         #     print('New fragment_map')
         # print(fragments)
         # print(self.name)
-        # print(self.entity_offset)
+        # print(self.offset)
         for fragment in fragments:
-            residue_number = fragment[alignment_type] - self.entity_offset
+            residue_number = fragment[alignment_type] - self.offset
             for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
-                if residue_number + j <= 0 or residue_number > self.profile_length:
-                    continue
                 self.fragment_map[residue_number + j][j].append({'chain': alignment_type,
                                                                  'cluster': fragment['cluster'],
                                                                  'match': fragment['match']})
@@ -627,7 +818,12 @@ class SequenceProfile:
         """
         # self.log.debug(self.fragment_profile.items())
         database_bkgnd_aa_freq = self.frag_db.get_db_aa_frequencies()
-        sequence = self.reference_sequence
+        # Fragment profile is correct size for indexing all STRUCTURAL residues
+        #  self.reference_sequence is not used for this. Instead, self.structure_sequence is used in place since the use
+        #  of a disorder indicator that removes any disordered residues from input evolutionary profiles is calculated
+        #  on the full reference sequence. This ensures that the profile is the right length of the structure and
+        #  captures disorder specific evolutionary signals that could be important in the calculation of profiles
+        sequence = self.structure_sequence
         no_design = []
         for residue, index_d in self.fragment_profile.items():
             total_fragment_weight, total_fragment_observations = 0, 0
@@ -793,12 +989,14 @@ class SequenceProfile:
         # copy the evol profile to self.profile (design specific scoring matrix)
         self.profile = deepcopy(self.evolutionary_profile)
         # Combine fragment and evolutionary probability profile according to alpha parameter
+        if self.alpha:
+            self.log.info('At Entity %s, combined evolutionary and fragment profiles into Design Profile with:\n\t%s'
+                          % (self.name, '\n\t'.join('Residue %4d: %d%% fragment weight' %
+                                                    (entry, weight * 100) for entry, weight in self.alpha.items())))
         for entry, weight in self.alpha.items():  # weight will be 0 if the fragment_profile is empty
-            for aa in IUPACData.protein_letters:
+            for aa in protein_letters:
                 self.profile[entry][aa] = \
                     (weight * self.fragment_profile[entry][aa]) + ((1 - weight) * self.profile[entry][aa])
-            self.log.info('Entity %s, Residue %d: Combined evolutionary and fragment profile: %.0f%% fragment'
-                          % (self.name, entry, self.alpha[entry] * 100))
 
         if favor_fragments:
             # Modify final lod scores to fragment profile lods. Otherwise use evolutionary profile lod scores
@@ -812,7 +1010,7 @@ class SequenceProfile:
 
             for entry in self.profile:
                 self.profile[entry]['lod'] = null_residue  # Caution all reference same object
-            for entry in self.alpha:  # self.fragment_profile:
+            for entry, weight in self.alpha.items():  # self.fragment_profile:
                 self.profile[entry]['lod'] = \
                     self.get_lod(self.fragment_profile[entry], database_bkgnd_aa_freq, round_lod=False)
                 # get the sum for the partition function
@@ -828,7 +1026,7 @@ class SequenceProfile:
                     if self.profile[entry]['lod'][aa] > max_lod:
                         max_lod = self.profile[entry]['lod'][aa]
                 # takes the percent of max alpha for each entry multiplied by the standard residue scaling factor
-                modified_entry_alpha = (self.alpha[entry] / alpha) * favor_seqprofile_score_modifier
+                modified_entry_alpha = (weight / alpha) * favor_seqprofile_score_modifier
                 if boltzmann:
                     modifier = partition
                     modified_entry_alpha /= (max_lod / partition)
@@ -839,8 +1037,7 @@ class SequenceProfile:
                 for aa in self.evolutionary_profile[entry]['lod']:
                     self.profile[entry]['lod'][aa] /= modifier  # get percent total (boltzman) or percent max (linear)
                     self.profile[entry]['lod'][aa] *= modified_entry_alpha  # scale by score modifier
-                self.log.info('Residue %d Fragment lod ratio generated with alpha=%f'
-                              % (entry + index_offset, self.alpha[entry] / alpha))
+                # self.log.debug('Residue %4d Fragment lod ratio generated with alpha=%f' % (entry, weight / alpha))
 
     def solve_consensus(self, fragment_source=None, alignment_type=None):
         # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
@@ -863,7 +1060,7 @@ class SequenceProfile:
                                for cluster in fragment_source}  # orange mapped to cluster tag
         frag_cluster_residue_d = {cluster: fragment_source[cluster]['pair'] for cluster in fragment_source}
 
-        frag_residue_object_d = residue_number_to_object(self.structure, frag_cluster_residue_d)
+        frag_residue_object_d = residue_number_to_object(self, frag_cluster_residue_d)
 
         # Parse Fragment Clusters into usable Dictionaries and Flatten for Sequence Design
         # # TODO all_frags
@@ -881,7 +1078,7 @@ class SequenceProfile:
         # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
         # interface = PDB(atoms=[atom for residue in total_int_residue_objects for atom in residue.atoms])
         # interface_tree = residue_interaction_graph(interface)
-        # interface_cb_indices = interface.get_cb_indices()  # InclGlyCA=True)
+        # interface_cb_indices = interface.cb_indices
 
         interface_residue_edges = {}
         for idx, residue_contacts in enumerate(interface_tree):
@@ -934,82 +1131,82 @@ class SequenceProfile:
         # mutated_pdb.write(consensus_pdb)
         # mutated_pdb.write(consensus_pdb, cryst1=cryst)
 
-    @staticmethod
-    def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
-                           only_gaps=False):
-        """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from'
-        and 'to' keywords. By default all gapped sequences are excluded from returned mutations
+    # @staticmethod
+    # def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
+    #                        only_gaps=False):
+    #     """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from'
+    #     and 'to' keywords. By default all gaped sequences are excluded from returned mutations
+    #
+    #     For PDB file comparison, mutant should be crystal sequence (ATOM), reference should be expression sequence
+    #     (SEQRES). only_gaps=True will return only the gaped area while blanks=True will return all differences between
+    #     the alignment sequences. termini=True returns missing alignments at the termini
+    #
+    #     Args:
+    #         mutant (str): Mutant sequence. Will be in the 'to' key
+    #         reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
+    #     Keyword Args:
+    #         offset=True (bool): Whether sequences are different lengths. Creates a new alignment
+    #         blanks=False (bool): Whether to include indices that are outside the reference sequence or missing residues
+    #         termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
+    #         reference_gaps=False (bool): Whether to include indices with missing residues inside the reference sequence
+    #         only_gaps=False (bool): Whether to only include indices that are missing residues
+    #     Returns:
+    #         (dict): {index: {'from': 'A', 'to': 'K'}, ...}
+    #     """
+    #     if offset:
+    #         alignment = generate_alignment(mutant, reference)
+    #         align_seq_1 = alignment[0][0]
+    #         align_seq_2 = alignment[0][1]
+    #     else:
+    #         align_seq_1 = mutant
+    #         align_seq_2 = reference
+    #
+    #     # Extract differences from the alignment
+    #     starting_index_of_seq2 = align_seq_2.find(reference[0])
+    #     ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
+    #     mutations = {}
+    #     for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
+    #         if seq1_aa != seq2_aa:
+    #             mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
+    #             # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
+    #
+    #     remove_mutation_list = []
+    #     if only_gaps:  # remove the actual mutations
+    #         for entry in mutations:
+    #             if entry > 0 or entry <= ending_index_of_seq2:
+    #                 if mutations[entry]['to'] != '-':
+    #                     remove_mutation_list.append(entry)
+    #         blanks = True
+    #     if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
+    #         termini, reference_gaps = True, True
+    #     if not termini:  # Remove indices outside of sequence 2
+    #         for entry in mutations:
+    #             if entry < 0 or entry > ending_index_of_seq2:
+    #                 remove_mutation_list.append(entry)
+    #     if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
+    #         for entry in mutations:
+    #             if entry > 0 or entry <= ending_index_of_seq2:
+    #                 if mutations[entry]['to'] == '-':
+    #                     remove_mutation_list.append(entry)
+    #
+    #     for entry in remove_mutation_list:
+    #         mutations.pop(entry, None)
+    #
+    #     return mutations
 
-        For PDB file comparison, mutant should be crystal sequence (ATOM), reference should be expression sequence
-        (SEQRES). only_gaps=True will return only the gapped area while blanks=True will return all differences between
-        the alignment sequences. termini=True returns missing alignments at the termini
-
-        Args:
-            mutant (str): Mutant sequence. Will be in the 'to' key
-            reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
-        Keyword Args:
-            offset=True (bool): Whether sequences are different lengths. Creates a new alignment
-            blanks=False (bool): Whether to include indices that are outside the reference sequence or missing residues
-            termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
-            reference_gaps=False (bool): Whether to include indices with missing residues inside the reference sequence
-            only_gaps=False (bool): Whether to only include indices that are missing residues
-        Returns:
-            (dict): {index: {'from': 'A', 'to': 'K'}, ...}
-        """
-        # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
-        if offset:
-            alignment = generate_alignment(mutant, reference)
-            align_seq_1 = alignment[0][0]
-            align_seq_2 = alignment[0][1]
-        else:
-            align_seq_1 = mutant
-            align_seq_2 = reference
-
-        # Extract differences from the alignment
-        starting_index_of_seq2 = align_seq_2.find(reference[0])
-        ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
-        mutations = {}
-        for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
-            if seq1_aa != seq2_aa:
-                mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
-                # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
-
-        remove_mutation_list = []
-        if only_gaps:  # remove the actual mutations
-            for entry in mutations:
-                if entry > 0 or entry <= ending_index_of_seq2:
-                    if mutations[entry]['to'] != '-':
-                        remove_mutation_list.append(entry)
-            blanks = True
-        if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
-            termini, reference_gaps = True, True
-        if not termini:  # Remove indices outside of sequence 2
-            for entry in mutations:
-                if entry < 0 or entry > ending_index_of_seq2:
-                    remove_mutation_list.append(entry)
-        if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
-            for entry in mutations:
-                if entry > 0 or entry <= ending_index_of_seq2:
-                    if mutations[entry]['to'] == '-':
-                        remove_mutation_list.append(entry)
-
-        for entry in remove_mutation_list:
-            mutations.pop(entry, None)
-
-        return mutations
-
-    @staticmethod
-    def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
-        """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
-
-        Returns:
-            # TODO
-        """
-        _matrix = substitution_matrices.load(matrix)
-        gap_penalty = -10
-        gap_ext_penalty = -1
-        # Create sequence alignment
-        return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+    # @staticmethod
+    # def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
+    #     """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
+    #
+    #     Returns:
+    #     """
+    #     _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
+    #     gap_penalty = -10
+    #     gap_ext_penalty = -1
+    #     logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
+    #     # Create sequence alignment
+    #     return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+    #     # return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
     # def generate_design_mutations(self, all_design_files, wild_type_file, pose_num=False):
     #     """From a wild-type sequence (original PDB structure), and a collection of structure sequences that have
@@ -1043,7 +1240,7 @@ class SequenceProfile:
             dtype=object (object): The type of object present in the interior dictionary
             zero_index=False (bool): If True, return the dictionary with zero indexing
          Returns:
-             (dict): {1: {alph1: {}, alph2: {}, ...}, 2: {}, ...}
+             (dict[mapping[int, dict[mapping[str, Any]]]): {1: {alph1: {}, alph2: {}, ...}, 2: {}, ...}
                 Custom length, 0 indexed dictionary with residue number keys
          """
         if zero_index:
@@ -1203,7 +1400,7 @@ def get_db_statistics(database):
         if file.endswith('statistics.pkl'):
             return unpickle(os.path.join(database, file))
 
-    return None  # Should never be called
+    return {}  # Should never be called
 
 
 def get_db_aa_frequencies(database):
@@ -1214,7 +1411,7 @@ def get_db_aa_frequencies(database):
     Returns:
         (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
     """
-    return get_db_statistics(database)['frequencies']
+    return get_db_statistics(database).get('frequencies', {})
 
 
 def get_cluster_dicts(db='biological_interfaces', id_list=None):  # TODO Rename
@@ -1569,7 +1766,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
 
 
 @handle_errors(errors=(FileNotFoundError,))
-def parse_pssm(file):
+def parse_pssm(file, **kwargs):
     """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
 
     Resulting residue dictionary is zero-indexed
@@ -1628,9 +1825,51 @@ def get_lod(aa_freq_dict, bg_dict, round_lod=True):
     return lods
 
 
+# @handle_errors(errors=(FileNotFoundError,))
+# def parse_stockholm_to_msa(file):
+#     """
+#     Args:
+#         file (str): The location of a file containing the .fasta records of interest
+#     Returns:
+#         (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+#                  'msa': (Bio.Align.MultipleSeqAlignment)
+#                  'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+#                  'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+#                  'rep': {1: 210, 2:211, ...}}
+#             The msa formatted with counts and indexed by residue
+#     """
+#     return generate_msa_dictionary(read_stockholm_file(file)))
+
+
+# @handle_errors(errors=(FileNotFoundError,))
+# def parse_fasta_to_msa(file):
+#     """
+#     Args:
+#         file (str): The location of a file containing the .fasta records of interest
+#     Returns:
+#         (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+#                  'msa': (Bio.Align.MultipleSeqAlignment)
+#                  'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+#                  'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+#                  'rep': {1: 210, 2:211, ...}}
+#             The msa formatted with counts and indexed by residue
+#     """
+#     return generate_msa_dictionary(msa_from_seq_records(read_fasta_file(file)))
+
+
 @handle_errors(errors=(FileNotFoundError,))
-def parse_hhblits_pssm(file, null_background=True):
-    # Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
+def parse_hhblits_pssm(file, null_background=True, **kwargs):
+    """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
+
+    Args:
+        file (str): The file to parse, typically with the extension '.hmm'
+    Keyword Args:
+        null_background=True (bool): Whether to use the null background for the specific protein
+    Returns:
+        (dict): Dictionary containing residue indexed profile information
+        Ex: {1: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
+                 'weight': 0.00}, {...}}
+    """
     dummy = 0.00
     null_bg = {'A': 0.0835, 'C': 0.0157, 'D': 0.0542, 'E': 0.0611, 'F': 0.0385, 'G': 0.0669, 'H': 0.0228, 'I': 0.0534,
                'K': 0.0521, 'L': 0.0926, 'M': 0.0219, 'N': 0.0429, 'P': 0.0523, 'Q': 0.0401, 'R': 0.0599, 'S': 0.0791,
@@ -1665,17 +1904,15 @@ def parse_hhblits_pssm(file, null_background=True):
 
             if len(line.split()) == 23:
                 items = line.strip().split()
-                resi = int(items[1]) - index_offset  # make zero index so dict starts at 0
-                pose_dict[resi] = {}
-                for i, aa in enumerate(IUPACData.protein_letters, 2):
-                    pose_dict[resi][aa] = to_freq(items[i])
-                pose_dict[resi]['lod'] = get_lod(pose_dict[resi], null_bg)
-                pose_dict[resi]['type'] = items[0]
-                pose_dict[resi]['info'] = dummy
-                pose_dict[resi]['weight'] = dummy
+                residue_number = int(items[1])
+                pose_dict[residue_number] = {}
+                for i, aa in enumerate(protein_letters, 2):
+                    pose_dict[residue_number][aa] = to_freq(items[i])
+                pose_dict[residue_number]['lod'] = get_lod(pose_dict[residue_number], null_bg)
+                pose_dict[residue_number]['type'] = items[0]
+                pose_dict[residue_number]['info'] = dummy
+                pose_dict[residue_number]['weight'] = dummy
 
-    # Output: {0: {'A': 0.04, 'C': 0.12, ..., 'lod': {'A': -5, 'C': -9, ...}, 'type': 'W', 'info': 0.00,
-    # 'weight': 0.00}, {...}}
     return pose_dict
 
 
@@ -1776,7 +2013,7 @@ def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=T
 
     # Combine fragment and evolutionary probability profile according to alpha parameter
     for entry in alpha:
-        for aa in IUPACData.protein_letters:
+        for aa in protein_letters:
             pssm[entry][aa] = (alpha[entry] * issm[entry][aa]) + ((1 - alpha[entry]) * pssm[entry][aa])
         logger.info('Residue %d Combined evolutionary and fragment profile: %.0f%% fragment'
                     % (entry + index_offset, alpha[entry] * 100))
@@ -1943,44 +2180,67 @@ def position_specific_jsd(msa, background):
     return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
 
 
-def distribution_divergence(freq, bgd_freq, lambda_=0.5):
+def distribution_divergence(frequencies, bgd_frequencies, lambda_=0.5):
     """Calculate residue specific Jensen-Shannon Divergence value
 
     Args:
-        freq (dict): {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_freq (dict): {'A': 0, 'R': 0, ...}
+        frequencies (dict): {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+        bgd_frequencies (dict): {'A': 0, 'R': 0, ...}
     Keyword Args:
         jsd_lambda=0.5 (float): Value bounded between 0 and 1
     Returns:
-        (float): 0.732, Bounded between 0 and 1. 1 is more divergent from background frequencies
+        (float): Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
     sum_prob1, sum_prob2 = 0, 0
-    for item in freq:
-        p, q = freq[item], bgd_freq[item]
-        r = (lambda_ * p) + ((1 - lambda_) * q)
-        if r == 0:
+    for item, frequency in frequencies.items():
+        bgd_frequency = bgd_frequencies.get(item)
+        try:
+            r = (lambda_ * frequency) + ((1 - lambda_) * bgd_frequency)
+        except TypeError:  # bgd_frequency is None, therefore the frequencies can't be compared. Should error be raised?
             continue
-        if q != 0:
-            prob2 = (q * log(q / r, 2))
-            sum_prob2 += prob2
-        if p != 0:
-            prob1 = (p * log(p / r, 2))
-            sum_prob1 += prob1
+        try:
+            with warnings.catch_warnings() as w:
+                # Cause all warnings to always be triggered.
+                warnings.simplefilter('ignore')
+                try:
+                    prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
+                    sum_prob2 += prob2
+                except (ValueError, RuntimeWarning):  # math domain error which doesn't manifest as one, instead RunTimeWarn
+                    pass  # continue
+                try:
+                    prob1 = (frequency * log(frequency / r, 2))
+                    sum_prob1 += prob1
+                except (ValueError, RuntimeWarning):  # math domain error
+                    continue
+        except ZeroDivisionError:  # r = 0
+            continue
 
     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
 
 
-def create_bio_msa(named_sequences):
-    """
+def msa_from_dictionary(named_sequences):
+    """Create a BioPython Multiple Sequence Alignment from a collection of sequences a dictionary
     Args:
-        named_sequences (dict): {name: sequence, ...}
-            ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+        named_sequences (dict): {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
     Returns:
-        (MultipleSeqAlignment): [SeqRecord(Seq("ACTGCTAGCTAG", generic_dna), id="Alpha"),
-                                 SeqRecord(Seq("ACT-CTAGCTAG", generic_dna), id="Beta"), ...]
+        (MultipleSequenceAlignment):
+        # (Bio.Align.MultipleSeqAlignment): [SeqRecord(Seq('MNTEELQVAAFEI...', ...), id="Alpha"),
+        #                                    SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
     """
-    return MultipleSeqAlignment([SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
-                                 for name, sequence in named_sequences.items()])
+    return MultipleSequenceAlignment(MultipleSeqAlignment([SeqRecord(Seq(sequence),
+                                                                     annotations={'molecule_type': 'Protein'}, id=name)
+                                                           for name, sequence in named_sequences.items()]))
+
+
+def msa_from_seq_records(seq_records):
+    """Create a BioPython Multiple Sequence Alignment from a collection of sequences a dictionary
+    Args:
+        seq_records (Iterator[SeqRecord]): {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+    Returns:
+        (Bio.Align.MultipleSeqAlignment): [SeqRecord(Seq('MNTEELQVAAFEI...', ...), id="Alpha"),
+                                           SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
+    """
+    return MultipleSeqAlignment(seq_records)
 
 
 def make_mutations(seq, mutations, find_orf=True):
@@ -2017,85 +2277,97 @@ def make_mutations(seq, mutations, find_orf=True):
     return seq
 
 
-def find_orf_offset(seq, mutations):
-    """Using one sequence and mutation data, find the sequence offset which matches mutations closest
+def find_orf_offset(sequence, mutations):
+    """Using a sequence and mutation data, find the open reading frame that matches mutations closest
 
     Args:
-        seq (str): 'Wild-type' sequence to mutate in 1 letter format
-        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
+        sequence (str): Sequence to search for ORF in 1 letter format
+        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...} One-indexed sequence dictionary
     Returns:
-        orf_offset_index (int): The index to offset the sequence by in order to match the mutations the best
+        (int): The zero-indexed integer to offset the provided sequence to best match the provided mutations
     """
     unsolvable = False
-    # for idx, aa in enumerate(seq):
-    #     if aa == 'M':
-    #         met_offset_d[idx] = 0
-    met_offset_d = {idx: 0 for idx, aa in enumerate(seq) if aa == 'M'}
-    methionine_positions = list(met_offset_d.keys())
-
+    orf_start_idx = 0
+    orf_offsets = {idx: 0 for idx, aa in enumerate(sequence) if aa == 'M'}
+    methionine_positions = list(orf_offsets.keys())
     while True:
-        if met_offset_d:  # == dict():  # MET is missing/not the ORF start
-            met_offset_d = {start_idx: 0 for start_idx in range(0, 50)}
+        if not orf_offsets:  # MET is missing/not the ORF start
+            orf_offsets = {start_idx: 0 for start_idx in range(0, 50)}
 
         # Weight potential MET offsets by finding the one which gives the highest number correct mutation sites
-        for test_orf_index in met_offset_d:
-            for mutation_index in mutations:
+        for test_orf_index in orf_offsets:
+            for mutation_index, mutation in mutations.items():
                 try:
-                    if seq[test_orf_index + mutation_index - index_offset] == mutations[mutation_index]['from']:
-                        met_offset_d[test_orf_index] += 1
-                except IndexError:
+                    if sequence[test_orf_index + mutation_index - index_offset] == mutation['from']:
+                        orf_offsets[test_orf_index] += 1
+                except IndexError:  # we have reached the end of the sequence
                     break
 
-        max_count = max(list(met_offset_d.values()))
+        max_count = max(list(orf_offsets.values()))
         # Check if likely ORF has been identified (count < number mutations/2). If not, MET is missing/not the ORF start
         if max_count < len(mutations) / 2:
             if unsolvable:
-                return 0  # TODO return not index change?
-                # break
-            unsolvable = True
-            met_offset_d = {}
-        else:
-            for offset in met_offset_d:  # offset is index here
-                if max_count == met_offset_d[offset]:
-                    orf_offset_index = offset  # + index_offset  # change to one-index
+                return orf_start_idx
+            orf_offsets = {}
+            unsolvable = True  # if we reach this spot again, the problem is deemed unsolvable
+        else:  # find the index of the max_count
+            for idx, count in orf_offsets.items():
+                if max_count == count:  # orf_offsets[offset]:
+                    orf_start_idx = idx  # select the first occurrence of the max count
                     break
 
+            # for cases where the orf doesn't begin on Met, try to find a prior Met. Otherwise, selects the id'd Met
             closest_met = None
-            for met in methionine_positions:
-                if met <= orf_offset_index:
-                    closest_met = met
-                else:
+            for met_index in methionine_positions:
+                if met_index <= orf_start_idx:
+                    closest_met = met_index
+                else:  # we have passed the identified orf_start_idx
                     if closest_met is not None:
-                        orf_offset_index = closest_met  # + index_offset # change to one-index
+                        orf_start_idx = closest_met  # + index_offset # change to one-index
                     break
-
             break
-            # orf_offset_index = met_offset_d[which_met_offset_counts.index(max_count)] - index_offset
 
-    return orf_offset_index
+    return orf_start_idx
 
 
-def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
+def generate_alignment_local(seq1, seq2, matrix='BLOSUM62'):
     """Use Biopython's pairwise2 to generate a local alignment. *Only use for generally similar sequences*
 
     Returns:
 
     """
-    _matrix = substitution_matrices.load(matrix)
+    _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
     gap_penalty = -10
     gap_ext_penalty = -1
+    logger.debug('Generating LOCAL sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
     # Create sequence alignment
     return pairwise2.align.localds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
+def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
+    """Use Biopython's pairwise2 to generate an alignment
+
+    Returns:
+
+    """
+    _matrix = subs_matrices.get(matrix, substitution_matrices.load(matrix))
+    gap_penalty = -10
+    gap_ext_penalty = -1
+    logger.debug('Generating sequence alignment between:\n%s\nAND:\n%s' % (seq1, seq2))
+    # Create sequence alignment
+    return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
+
+
 def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
                        only_gaps=False):
-    """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from' and
-        'to' keywords. By default all gapped sequences are excluded from returned mutations
+    """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
+     sequence index. Sequence mutations accessed by 'from' and 'to' keys. By default, all gaped sequences are excluded
+     from returned mutation dictionary
 
     For PDB file comparison, mutant should be crystal sequence (ATOM), reference should be expression sequence (SEQRES).
-     only_gaps=True will return only the gapped area while blanks=True will return all differences between the alignment
-      sequences. termini=True returns missing alignments at the termini
+    only_gaps=True will return only the gaped area while blanks=True will return all differences between the alignment
+    sequences. termini=True returns missing alignments at the termini
+
     Args:
         mutant (str): Mutant sequence. Will be in the 'to' key
         reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
@@ -2106,25 +2378,21 @@ def generate_mutations(mutant, reference, offset=True, blanks=False, termini=Fal
         reference_gaps=False (bool): Whether to include indices that are missing residues inside the reference sequence
         only_gaps=False (bool): Whether to only include all indices that are missing residues
     Returns:
-        mutations (dict): {index: {'from': 'A', 'to': 'K'}, ...}
+        (dict): {index: {'from': 'A', 'to': 'K'}, ...}
     """
     # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
     if offset:
-        alignment = generate_alignment(mutant, reference)
-        align_seq_1 = alignment[0][0]
-        align_seq_2 = alignment[0][1]
+        align_seq_1, align_seq_2, *_ = generate_alignment(mutant, reference)[0]  # first alignment has highest score
     else:
-        align_seq_1 = mutant
-        align_seq_2 = reference
+        align_seq_1, align_seq_2 = mutant, reference
 
     # Extract differences from the alignment
-    starting_index_of_seq2 = align_seq_2.find(reference[0])
-    ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find offset end_index
+    starting_index_of_seq2 = align_seq_2.find(reference[0])  # get the first matching index of the reference sequence
+    ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find last index of reference
     mutations = {}
-    for i, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
+    for idx, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
         if seq1_aa != seq2_aa:
-            mutations[i] = {'from': seq2_aa, 'to': seq1_aa}
-            # mutation_list.append(str(seq2_aa) + str(i) + str(seq1_aa))
+            mutations[idx] = {'from': seq2_aa, 'to': seq1_aa}
 
     remove_mutation_list = []
     if only_gaps:  # remove the actual mutations
@@ -2165,7 +2433,7 @@ def make_mutations_chain_agnostic(mutations):
     Args:
         mutations (dict): {design: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     Returns:
-        (dict): {pdb: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
+        (dict): {design: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
     flattened_mutations = {}
     for design, chain_mutations in mutations.items():
@@ -2319,7 +2587,7 @@ def weave_sequence_dict(base_dict=None, **kwargs):
 #         # interface_residue_count, percent_interface_matched, percent_interface_covered,
 
 
-# def residue_number_to_object(pdb, residue_dict):  # TODO DEPRECIATE
+# def residue_number_to_object(pdb, residue_dict):
 #     """Convert sets of residue numbers to sets of PDB.Residue objects
 #
 #     Args:
@@ -2347,128 +2615,281 @@ def clean_gapped_columns(alignment_dict, correct_index):  # UNUSED
     return {i: alignment_dict[index] for i, index in enumerate(correct_index)}
 
 
-def weight_sequences(msa_dict, alignment):  # UNUSED
+def weight_sequences(alignment, bio_alignment, column_counts=None):
     """Measure diversity/surprise when comparing a single alignment entry to the rest of the alignment
 
     Operation is: SUM(1 / (column_j_aa_representation * aa_ij_count)) as was described by Heinkoff and Heinkoff, 1994
     Args:
-        msa_dict (dict): { 1: {'A': 31, 'C': 0, ...}, 2: {}, ...}
-        alignment (biopython.MSA):
+        alignment (dict): {1: {'A': 31, 'C': 0, ...}, 2: {}, ...}
+        bio_alignment (biopython.MultipleSeqAlignment):
+        column_counts=None (dict): The indexed counts for each column in the msa
     Returns:
-        seq_weight_dict (dict): { 1: 2.390, 2: 2.90, 3:5.33, 4: 1.123, ...} - sequence_in_MSA: sequence_weight_factor
+        (dict): { 1: 2.390, 2: 2.90, 3:5.33, 4: 1.123, ...} - sequence_in_MSA: sequence_weight_factor
     """
-    col_tot_aa_count_dict = {}
-    for i in range(len(msa_dict)):
-        s = 0  # column amino acid representation
-        for aa in msa_dict[i]:
-            if aa == '-':
-                continue
-            elif msa_dict[i][aa] > 0:
-                s += 1
-        col_tot_aa_count_dict[i] = s
+    if not column_counts:
+        column_counts = {}
+        for idx, amino_acid_counts in alignment.items():
+            s = 0  # column amino acid representation
+            for aa in amino_acid_counts:
+                if aa == '-':
+                    continue
+                elif amino_acid_counts[aa] > 0:
+                    s += 1
+            column_counts[idx] = s
 
-    seq_weight_dict = {}
-    for k, record in enumerate(alignment):
+    sequence_weights = {}
+    for k, record in enumerate(bio_alignment):
         s = 0  # "diversity/surprise"
         for j, aa in enumerate(record.seq):
-            s += (1 / (col_tot_aa_count_dict[j] * msa_dict[j][aa]))
-        seq_weight_dict[k] = s
+            s += (1 / (column_counts[j] * alignment[j][aa]))
+        sequence_weights[k] = s
 
-    return seq_weight_dict
-
-
-def generate_msa_dictionary(alignment, alphabet=IUPACData.protein_letters, weighted_dict=None, weight=False):
-    """Generate an alignment dictionary from a Biopython MultipleSeqAlignment object. One-indexed
-
-    Args:
-        alignment (MultipleSeqAlignment): List of SeqRecords
-    Keyword Args:
-        alphabet=IUPACData.protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
-        weighted_dict=None (dict): A weighted sequence dictionary with weights for each alignment sequence
-        weight=False (bool): If weights should be used to weight the alignment
-    Returns:
-        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS---THLVLK...'},
-                 'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}}
-    """
-    aligned_seq = str(alignment[0].seq)
-    # Add Info to 'meta' record as needed
-    alignment_dict = {'meta': {'num_sequences': len(alignment), 'query': aligned_seq.replace('-', ''),
-                               'query_with_gaps': aligned_seq}}
-    # Populate Counts Dictionary (one-indexed)
-    alignment_counts_dict = SequenceProfile.populate_design_dictionary(alignment.get_alignment_length(), alphabet,
-                                                                       dtype=int)
-    if weight:
-        for record in alignment:
-            for i, aa in enumerate(record.seq, 1):
-                alignment_counts_dict[i][aa] += weighted_dict[i]
-    else:
-        for record in alignment:
-            for i, aa in enumerate(record.seq, 1):
-                alignment_counts_dict[i][aa] += 1
-    alignment_dict['counts'] = alignment_counts_dict
-
-    return alignment_dict
+    return sequence_weights
 
 
-def add_column_weight(counts_dict, gaps=False):
+msa_supported_types = {'fasta': '.fasta', 'stockholm': '.sto'}
+msa_generation_function = 'SequenceProfile.hhblits()'
+
+
+class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
+    numerical_translation = dict(zip('-ACDEFGHIKLMNPQRSTVWY', range(21)))
+
+    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + extended_protein_letters,
+                 weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
+        """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
+
+        gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
+        probability of residue i in the specific column more accurately.
+        Keyword Args:
+            bio_alignment=None ((Bio.Align.MultipleSeqAlignment)): "Array" of SeqRecords
+            aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first
+            sequence will be used
+            alphabet=extended_protein_letters (str): '-ACDEFGHIKLMNPQRSTVWYBXZJUO'
+            weight_alignment_by_sequence=False (bool): If weighting should be performed. Use in cases of
+                unrepresentative sequence population in the MSA
+            sequence_weights=None (dict): If the alignment should be weighted, and weights are already available, the
+                weights for each sequence
+            gaps=False (bool): Whether gaps (-) should be counted in column weights
+        Sets:
+            alignment - (Bio.Align.MultipleSeqAlignment)
+            number_of_sequences - 214
+            query - 'MGSTHLVLK...'
+            query_with_gaps - 'MGS--THLVLK...'
+            counts - {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+            frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+            observations - {1: 210, 2:211, ...}}
+        """
+        if not alignment:
+            pass
+        else:
+            if not aligned_sequence:
+                aligned_sequence = str(alignment[0].seq)
+            # Add Info to 'meta' record as needed and populate a amino acid count dict (one-indexed)
+            self.alignment = alignment
+            self.number_of_sequences = len(alignment)
+            self.length = alignment.get_alignment_length()
+            self.query = aligned_sequence.replace('-', '')
+            self.query_length = len(self.query)
+            self.query_with_gaps = aligned_sequence
+            self.counts = SequenceProfile.populate_design_dictionary(self.length, alphabet, dtype=int)
+            for record in self.alignment:
+                for i, aa in enumerate(record.seq, 1):
+                    self.counts[i][aa] += 1
+
+            self.observations = find_column_observations(self.counts, **kwargs)
+            if weight_alignment_by_sequence:
+                sequence_weights = weight_sequences(self.counts, self.alignment, column_counts=self.observations)
+
+            if sequence_weights:  # overwrite the current counts with weighted counts
+                self.sequence_weights = sequence_weights
+                for record in self.alignment:
+                    for i, aa in enumerate(record.seq, 1):
+                        self.counts[i][aa] += sequence_weights[i]
+            else:
+                self.sequence_weights = []
+
+            self.frequencies = {}
+            self.msa_to_prob_distribution()
+
+    @classmethod
+    def from_stockholm(cls, file, **kwargs):
+        try:
+            return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
+        except FileNotFoundError:
+            raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
+
+    @classmethod
+    def from_fasta(cls, file):
+        try:
+            return cls(alignment=read_alignment(file))
+        except FileNotFoundError:
+            raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
+
+    def msa_to_prob_distribution(self):
+        """Find the Alignment probability distribution
+
+        Sets:
+            self.frequencies (dict[mapping[int, dict[mapping[alphabet,float]]]]):
+                {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...}
+        """
+        for residue, amino_acid_counts in self.counts.items():
+            total_column_weight = self.observations[residue]
+            assert total_column_weight != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' \
+                                             % (MultipleSequenceAlignment.msa_to_prob_distribution.__name__, residue)
+            self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
+
+    @property
+    def query_indices(self):
+        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
+        1 and 0 during subsequent arithmetic
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._sequence_index[0]
+        except AttributeError:
+            self._sequence_index = np.isin(self.array, b'-', invert=True)
+            return self._sequence_index[0]
+
+    @property
+    def sequence_indices(self):
+        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
+        1 and 0 during subsequent arithmetic
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._sequence_index
+        except AttributeError:
+            self._sequence_index = np.isin(self.array, b'-', invert=True)
+            return self._sequence_index
+
+    @property
+    def numerical_alignment(self):
+        """Return the array as a numerical representation
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._numerical_alignment
+        except AttributeError:
+            self._numerical_alignment = np.array([[self.numerical_translation[aa] for aa in record]
+                                                  for record in self.alignment])
+            return self._numerical_alignment
+
+    @property
+    def array(self):
+        try:
+            return self._array
+        except AttributeError:
+            self._array = np.array([list(record) for record in self.alignment], np.character)
+            return self._array
+
+# def generate_msa_dictionary(bio_alignment, aligned_sequence=None, alphabet=protein_letters,
+#                             weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
+#     """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
+#
+#     gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
+#     probability of residue i in the specific column more accurately.
+#     Args:
+#         bio_alignment ((Bio.Align.MultipleSeqAlignment)): "Array" of SeqRecords
+#     Keyword Args:
+#         aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first sequence
+#             will be used
+#         alphabet=protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
+#         weight_alignment_by_sequence=False (bool): If weighting should be performed
+#         sequence_weights=None (dict): If the alignment should be weighted, and weights are already available, the
+#             weights for each sequence
+#         gaps=False (bool): Whether gaps (-) should be counted in column weights
+#     Returns:
+#         (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+#                  'msa': (Bio.Align.MultipleSeqAlignment)
+#                  'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+#                  'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+#                  'rep': {1: 210, 2:211, ...}}
+#             The msa formatted with counts and indexed by residue
+#     """
+#     if not aligned_sequence:
+#         aligned_sequence = str(bio_alignment[0].seq)
+#     # Add Info to 'meta' record as needed and populate a amino acid count dict (one-indexed)
+#     alignment = {'msa' : bio_alignment,
+#         'meta': {'num_sequences': len(bio_alignment), 'query': aligned_sequence.replace('-', ''),
+#                   'query_with_gaps': aligned_sequence},
+#         'counts': SequenceProfile.populate_design_dictionary(bio_alignment.get_alignment_length(), alphabet, dtype=int)}
+#     for record in bio_alignment:
+#         for i, aa in enumerate(record.seq, 1):
+#             alignment['counts'][i][aa] += 1
+#
+#     alignment['rep'] = add_column_weight(alignment['counts'], **kwargs)
+#     if weight_alignment_by_sequence:
+#         sequence_weights = weight_sequences(alignment['counts'], bio_alignment, column_counts=alignment['rep'])
+#
+#     if sequence_weights:  # overwrite the current counts with weighted counts
+#         for record in bio_alignment:
+#             for i, aa in enumerate(record.seq, 1):
+#                 alignment['counts'][i][aa] += sequence_weights[i]
+#
+#     return msa_to_prob_distribution(alignment)
+
+
+def find_column_observations(counts, **kwargs):
     """Find total representation for each column in the alignment
 
     Args:
-        counts_dict (dict): {'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}
+        counts (dict): {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...}
     Keyword Args:
-        gaps=False (bool): Whether the alignment contains gaps
+        gaps=False (bool): Whether to count gaps (True) or not in the alignment
     Returns:
-        counts_dict (dict): {1: 210, 2:211, ...}
+        (dict): {1: 210, 2:211, ...}
     """
-    return {idx: sum_column_weight(aa_counts, gaps=gaps) for idx, aa_counts in counts_dict.items()}
+    return {idx: sum_column_observations(aa_counts, **kwargs) for idx, aa_counts in counts.items()}
 
 
-def sum_column_weight(column, gaps=False):
+def sum_column_observations(column, gaps=False, **kwargs):
     """Sum the column weight for a single alignment dict column
 
     Args:
         column (dict): {'A': 13, 'C': 1, 'D': 23, ...}
     Keyword Args:
-        gaps=False (bool): Whether to count gaps or not
+        gaps=False (bool): Whether to count gaps (True) or not
     Returns:
         s (int): Total counts in the alignment
     """
-    s = 0
-    if gaps:
-        for key in column:
-            s += column[key]
-    else:
-        for key in column:
-            if key == '-':
-                continue
-            else:
-                s += column[key]
+    if not gaps:
+        column.pop('-')
 
-    return s
+    return sum(column.values())
 
 
-def msa_to_prob_distribution(alignment_dict):
+def msa_to_prob_distribution(alignment):
     """Turn Alignment dictionary into a probability distribution
 
     Args:
-        alignment_dict (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
-                                         'query_with_gaps': 'MGS---THLVLK...'}}
-                                'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
-                                'rep': {1: 210, 2:211, ...}}
+        alignment (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+                           'msa': (Bio.Align.MultipleSeqAlignment)
+                           'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+                           'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+                           'rep': {1: 210, 2:211, ...}}
+            The msa formatted with counts and indexed by residue
     Returns:
-        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...'
-                          'query_with_gaps': 'MGS---THLVLK...'}}
-                 'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+                 'msa': (Bio.Align.MultipleSeqAlignment)
+                 'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+                 'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
                  'rep': {1: 210, 2:211, ...}}
+            The msa formatted with counts and indexed by residue
     """
-    for residue in alignment_dict['counts']:
-        total_weight_in_column = alignment_dict['rep'][residue]
-        assert total_weight_in_column != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' % \
-                                            (msa_to_prob_distribution.__name__, residue)  # Todo correct?
-        for aa in alignment_dict['counts'][residue]:
-            alignment_dict['counts'][residue][aa] /= total_weight_in_column
+    alignment['frequencies'] = {}
+    for residue, amino_acid_counts in alignment['counts'].items():
+        total_column_weight = alignment['rep'][residue]
+        assert total_column_weight != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' \
+                                         % (msa_to_prob_distribution.__name__, residue)
+        alignment['frequencies'][residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
-    return alignment_dict
+    return alignment
 
 
 def jensen_shannon_divergence(multiple_sequence_alignment, background_aa_probabilities, lambda_=0.5):
@@ -2482,8 +2903,8 @@ def jensen_shannon_divergence(multiple_sequence_alignment, background_aa_probabi
     Returns:
         (dict): {15: 0.732, ...} Divergence per residue bounded between 0 and 1. 1 is more divergent from background
     """
-    return {residue: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
-            for residue, aa_probabilities in multiple_sequence_alignment.items()}
+    return {residue_number: distribution_divergence(aa_probabilities, background_aa_probabilities, lambda_=lambda_)
+            for residue_number, aa_probabilities in multiple_sequence_alignment.items()}
 
 
 def weight_gaps(divergence, representation, alignment_length):  # UNUSED
@@ -2553,24 +2974,34 @@ def rank_possibilities(probability_dict):  # UNUSED
     return sorted_alternates_dict
 
 
-def process_alignment(bio_alignment, gaps=False):
-    """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
-
-    gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
-    probability of residue i in the specific column more accurately.
-    Args:
-        bio_alignment (MultipleSeqAlignment): List of SeqRecords
-    Keyword Args:
-        gaps=False (bool): Whether gaps (-) should be counted in column weights
-    Returns:
-        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS---THLVLK...'}}
-                 'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
-                 'rep': {1: 210, 2:211, ...}}
-    """
-    alignment_dict = generate_msa_dictionary(bio_alignment)
-    alignment_dict['rep'] = add_column_weight(alignment_dict['counts'], gaps=gaps)
-
-    return msa_to_prob_distribution(alignment_dict)
+# def process_alignment(bio_alignment, **kwargs):
+#     """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
+#
+#     gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
+#     probability of residue i in the specific column more accurately.
+#     Args:
+#         bio_alignment (MultipleSeqAlignment): List of SeqRecords
+#     Keyword Args:
+#         weight_sequences=False (bool): Whether sequences should be weighted by their information content
+#         gaps=False (bool): Whether gaps (-) should be counted in column weights
+#         aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first sequence
+#             will be used
+#         alphabet=protein_letters (str): 'ACDEFGHIKLMNPQRSTVWY'
+#         sequence_weights=None (dict): If the alignment should be weighted, a dictionary with weights for each sequence
+#     Returns:
+#         (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+#                  'msa': (Bio.Align.MultipleSeqAlignment)
+#                  'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+#                  'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+#                  'rep': {1: 210, 2:211, ...}}
+#             The msa formatted with counts and indexed by residue
+#     """
+#     if weight_sequences:
+#         kwargs['sequence_weights'] = weight_sequences()
+#     alignment = generate_msa_dictionary(bio_alignment, **kwargs)
+#     # alignment['rep'] = add_column_weight(alignment['counts'], **kwargs)
+#
+#     return msa_to_prob_distribution(alignment)
 
 
 def multi_chain_alignment(mutated_sequences):
@@ -2579,25 +3010,31 @@ def multi_chain_alignment(mutated_sequences):
     Args:
         mutated_sequences (dict): {chain: {name: sequence, ...}
     Returns:
-        (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK..., 'query_with_gaps': 'MGS---THLVLK...'},
-                 'counts': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 1: {}, ...},
-                 'rep': {1: 210, 1: 211, 2:211, ...}}
+        (MultipleSequenceAlignment): The MSA object with counts, frequencies, sequences, and indexed by residue
     """
+    #         (dict): {'meta': {'num_sequences': 214, 'query': 'MGSTHLVLK...', 'query_with_gaps': 'MGS--THLVLK...'},
+    #                  'msa': (Bio.Align.MultipleSeqAlignment)
+    #                  'counts': {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+    #                  'frequencies': {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+    #                  'rep': {1: 210, 2:211, ...}}
+    #             The msa formatted with counts and indexed by residue
+
     # Combine alignments for all chains from design file Ex: A: 1-102, B: 1-130. Alignment: 1-232
     total_alignment = None
     for idx, named_sequences in enumerate(mutated_sequences.values()):
         if idx == 0:
-            total_alignment = create_bio_msa(named_sequences)[:, :]
+            total_alignment = msa_from_dictionary(named_sequences)[:, :]
         else:
-            total_alignment += create_bio_msa(named_sequences)[:, :]
+            total_alignment += msa_from_dictionary(named_sequences)[:, :]
 
     if total_alignment:
-        return process_alignment(total_alignment)
+        # return generate_msa_dictionary(total_alignment)
+        return MultipleSequenceAlignment(alignment=total_alignment)
     else:
         raise DesignError('%s - No sequences were found!' % multi_chain_alignment.__name__)
 
 
-# def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=False):  # Todo DEPRECIATE
+# def generate_all_design_mutations(all_design_files, wild_type_file, pose_num=False):
 #     """From a list of PDB's and a wild-type PDB, generate a list of 'A5K' style mutations
 #
 #     Args:
@@ -2615,73 +3052,119 @@ def multi_chain_alignment(mutated_sequences):
 #     return generate_multiple_mutations(wild_type_pdb.atom_sequences, pdb_sequences, pose_num=pose_num)
 
 
-def pdb_to_pose_num(reference):
+def pdb_to_pose_offset(reference_sequence):
     """Take a dictionary with chain name as keys and return the length of Pose numbering offset
 
     Args:
-        reference (dict(iter)): {'A': 'MSGKLDA...', ...} or {'A': {1: 'A', 2: 'S', ...}, ...}
+        reference_sequence (dict(iter)): {key1: 'MSGKLDA...', ...} or {key2: {1: 'A', 2: 'S', ...}, ...}
     Order of dictionary must maintain chain order, so 'A', 'B', 'C'. Python 3.6+ should be used
     Returns:
-        (dict): {'A': 0, 'B': 123, ...}
+        (dict): {key1: 0, key2: 123, ...}
     """
     offset = {}
     # prior_chain = None
     prior_chains_len = 0
-    for i, chain in enumerate(reference):
+    for i, key in enumerate(reference_sequence):
         if i > 0:
-            prior_chains_len += len(reference[prior_chain])
-        offset[chain] = prior_chains_len
+            prior_chains_len += len(reference_sequence[prior_key])
+        offset[key] = prior_chains_len
         # insert function here? Make this a decorator!?
-        prior_chain = chain
+        prior_key = key
 
     return offset
 
 
-def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
+def generate_multiple_mutations(reference, sequences, pose_num=True):
     """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
 
     Args:
-        reference (dict[mapping[str, str]]): {chain: sequence, ...}
-        pdb_sequences (dict[mapping[str, dict[mapping[str, str]]): {pdb_code: {chain: sequence, ...}, ...}
+        reference (dict[mapping[str, str]]): {chain: sequence, ...} The reference sequence to compare sequences to
+        sequences (dict[mapping[str, dict[mapping[str, str]]): {pdb_code: {chain: sequence, ...}, ...}
     Keyword Args:
         pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
         second Entity as Entity1 last residue + 1
     Returns:
         (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
     """
+    # add reference sequence mutations
+    mutations = {'reference': {chain: {sequence_idx: {'from': aa, 'to': aa}
+                                       for sequence_idx, aa in enumerate(ref_sequence, 1)}
+                               for chain, ref_sequence in reference.items()}}
     #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
     # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
     #                    for chain, sequence in chain_sequences.items()}
     #              for pdb, chain_sequences in pdb_sequences.items()}
     try:
-        mutations = {}
-        for pdb, chain_sequences in pdb_sequences.items():
-            mutations[pdb] = {}
+        for name, chain_sequences in sequences.items():
+            mutations[name] = {}
             for chain, sequence in chain_sequences.items():
-                mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
+                mutations[name][chain] = generate_mutations(sequence, reference[chain], offset=False)
     except KeyError:
         raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
                           'reference' % chain)
-
-    # add reference sequence mutations
-    mutations['reference'] = {chain: {sequence_idx: {'from': aa, 'to': aa}
-                                      for sequence_idx, aa in enumerate(ref_sequence, 1)}
-                              for chain, ref_sequence in reference.items()}
-
     if pose_num:
-        pose_mutations = {}
-        offset_dict = pdb_to_pose_num(reference)
-        for chain, offset in offset_dict.items():
-            for pdb_code in mutations:
-                if pdb_code not in pose_mutations:
-                    pose_mutations[pdb_code] = {}
-                pose_mutations[pdb_code][chain] = {}
-                for mutation_idx in mutations[pdb_code][chain]:
-                    pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
-        mutations = pose_mutations
-
+        offset_dict = pdb_to_pose_offset(reference)
+        # pose_mutations = {}
+        # for chain, offset in offset_dict.items():
+        #     for pdb_code in mutations:
+        #         if pdb_code not in pose_mutations:
+        #             pose_mutations[pdb_code] = {}
+        #         pose_mutations[pdb_code][chain] = {}
+        #         for mutation_idx in mutations[pdb_code][chain]:
+        #             pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
+        # mutations = pose_mutations
+        mutations = {name: {chain: {idx + offset: mutation for idx, mutation in chain_mutations[chain].iems()}
+                            for chain, offset in offset_dict.items()} for name, chain_mutations in mutations.items()}
     return mutations
 
+
+def generate_mutations_from_reference(reference, sequences):  # , pose_num=True):
+    """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
+
+    Args:
+        reference (str): The reference sequence to compare sequences to
+        sequences (dict[mapping[str, str]]): {pdb_code: sequence, ...}
+    Keyword Args:
+        # pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
+        second Entity as Entity1 last residue + 1
+    Returns:
+        (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+    """
+    # mutations = {'reference': {chain: {sequence_idx: {'from': aa, 'to': aa}
+    #                                    for sequence_idx, aa in enumerate(ref_sequence, 1)}
+    #                            for chain, ref_sequence in reference.items()}}
+    #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
+    # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
+    #                    for chain, sequence in chain_sequences.items()}
+    #              for pdb, chain_sequences in pdb_sequences.items()}
+    mutations = {name: generate_mutations(sequence, reference, offset=False) for name, sequence in sequences.items()}
+    # try:
+    #     for pdb, chain_sequences in sequences.items():
+    #         mutations[pdb] = {}
+    #         for chain, sequence in chain_sequences.items():
+    #             mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
+    # except KeyError:
+    #     raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
+    #                       'reference' % chain)
+    # add reference sequence mutations
+    mutations['reference'] = {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
+
+    # if pose_num:
+    #     offset_dict = pdb_to_pose_num(reference)
+    #     # pose_mutations = {}
+    #     # for chain, offset in offset_dict.items():
+    #     #     for pdb_code in mutations:
+    #     #         if pdb_code not in pose_mutations:
+    #     #             pose_mutations[pdb_code] = {}
+    #     #         pose_mutations[pdb_code][chain] = {}
+    #     #         for mutation_idx in mutations[pdb_code][chain]:
+    #     #             pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
+    #     # mutations = pose_mutations
+    #     mutations = {pdb_code: {chain: {idx + offset: mutation for idx, mutation in chain_mutations[chain].iems()}
+    #                             for chain, offset in offset_dict.items()}
+    #                  for pdb_code, chain_mutations in mutations.items()}
+
+    return mutations
 
 # def extract_aa_seq(pdb, aa_code=1, source='atom', chain=0):
 #     """Extracts amino acid sequence from either ATOM or SEQRES record of PDB object
@@ -2701,7 +3184,7 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
 #             for atom in pdb.all_atoms:
 #                 if atom.chain == chain and atom.type == 'N' and (atom.alt_location == '' or atom.alt_location == 'A'):
 #                     try:
-#                         sequence_list.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
+#                         sequence_list.append(protein_letters_3to1[atom.residue_type.title()])
 #                     except KeyError:
 #                         sequence_list.append('X')
 #                         failures.append((atom.residue_number, atom.residue_type))
@@ -2718,7 +3201,7 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
 #         # Extract sequence from the SEQRES record
 #         sequence = pdb.seqres_sequences[chain]
 #         # fail = False
-#         # while True:  # TODO WTF is this used for
+#         # while True:
 #         #     if chain in pdb.seqres_sequences:
 #         #         sequence = pdb.seqres_sequences[chain]
 #         #         break
@@ -2735,7 +3218,7 @@ def generate_multiple_mutations(reference, pdb_sequences, pose_num=True):
 #                     failures.append((i, sequence[i]))
 #         elif aa_code == 3:
 #             for i, residue in enumerate(sequence):
-#                 sequence_list.append(IUPACData.protein_letters_1to3[residue])
+#                 sequence_list.append(protein_letters_1to3[residue])
 #                 if residue == 'X':
 #                     failures.append((i, residue))
 #             final_sequence = sequence_list
@@ -2782,3 +3265,127 @@ def generate_sequences(wild_type_sequences, all_design_mutations):
                                                                  aligned=True)
 
     return mutated_sequences
+
+
+def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Validate
+    """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return a HCI array
+
+    Args:
+        sequence (str): The sequence to measure
+    Keyword Args:
+        hydrophobicity='standard' (str): The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FILMVWY)
+    Returns:
+        (numpy.ndarray): 1D array with the mean collapse score for every position on the input sequence
+    """
+    sequence_length = len(sequence)
+    lower_range, upper_range, range_correction = 3, 9, 1
+    range_size = upper_range - lower_range + range_correction
+    yes = 1
+    no = 0
+    if hydrophobicity == 'background':  # Todo
+        raise DesignError('This function is not yet possible')
+        # hydrophobicity_values = \
+        #     {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0, 'P': 0,
+        #      'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
+    elif hydrophobicity == 'expanded':
+        hydrophobicity_values = \
+            {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0, 'P': 0,
+             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
+    else:  # hydrophobicity == 'standard':
+        hydrophobicity_values = \
+            {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0, 'P': 0,
+             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
+
+    sequence_array = [hydrophobicity_values[aa] for aa in sequence]
+
+    # make an array with # of rows equal to upper range (+1 for indexing), length equal to # of letters in sequence
+    window_array = np.zeros((range_size, sequence_length))
+    for array_idx, window_size in enumerate(range(lower_range, upper_range + range_correction)):
+        # iterate over the window range
+        window_spread = math.floor(window_size / 2)
+        # check if the range is odd or even, then calculate score accordingly, with cases for N- and C-terminal windows
+        if window_size % 2 == 1:  # range is odd
+            for seq_idx in range(sequence_length):
+                position_sum = 0
+                if seq_idx < window_spread:  # N-terminus
+                    for window_position in range(seq_idx + window_spread + range_correction):
+                        position_sum += sequence_array[window_position]
+                elif seq_idx + window_spread >= sequence_length:  # C-terminus
+                    for window_position in range(seq_idx - window_spread, sequence_length):
+                        position_sum += sequence_array[window_position]
+                else:
+                    for window_position in range(seq_idx - window_spread, seq_idx + window_spread + range_correction):
+                        position_sum += sequence_array[window_position]
+                window_array[array_idx][seq_idx] = position_sum / window_size
+        else:  # range is even
+            for seq_idx in range(sequence_length):
+                position_sum = 0
+                if seq_idx < window_spread:  # N-terminus
+                    for window_position in range(seq_idx + window_spread + range_correction):
+                        if window_position == seq_idx + window_spread:
+                            position_sum += 0.5 * sequence_array[window_position]
+                        else:
+                            position_sum += sequence_array[window_position]
+                elif seq_idx + window_spread >= sequence_length:  # C-terminus
+                    for window_position in range(seq_idx - window_spread, sequence_length):
+                        if window_position == seq_idx - window_spread:
+                            position_sum += 0.5 * sequence_array[window_position]
+                        else:
+                            position_sum += sequence_array[window_position]
+                else:
+                    for window_position in range(seq_idx - window_spread, seq_idx + window_spread + range_correction):
+                        if window_position == seq_idx - window_spread \
+                                or window_position == seq_idx + window_spread + range_correction:
+                            position_sum += 0.5 * sequence_array[window_position]
+                        else:
+                            position_sum += sequence_array[window_position]
+                window_array[array_idx][seq_idx] = position_sum / window_size
+    logger.debug('Hydrophobic Collapse window values:\n%s' % window_array)
+    hci = window_array.mean(axis=0)
+    logger.debug('Hydrophobic Collapse Index:\n%s' % hci)
+
+    return hci
+    # hci = np.zeros(sequence_length)  # [0] * (sequence_length + 1)
+    # for seq_idx in range(sequence_length):
+    #     for window_size in range(lower_range, upper_range + range_correction):
+    #         hci[seq_idx] += window_array[window_size][seq_idx]
+    #     hci[seq_idx] /= range_size
+    #     hci[seq_idx] = round(hci[seq_idx], 3)
+
+    # return hci
+
+
+@handle_errors(errors=(FileNotFoundError,))
+def read_fasta_file(file_name, **kwargs):
+    """Open a fasta file and return a parser object to load the sequences to SeqRecords
+    Returns:
+        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
+    """
+    return SeqIO.parse(file_name, 'fasta')
+
+
+@handle_errors(errors=(FileNotFoundError,))
+def read_alignment(file_name, alignment_type='fasta', **kwargs):
+    """Open a fasta file and return a parser object to load the sequences to SeqRecords
+    Returns:
+        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
+    """
+    # return AlignIO.read(file_name, 'stockholm')
+    return AlignIO.read(file_name, alignment_type)
+
+
+def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
+    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
+    if not file_name:
+        return None
+    if '.fasta' in file_name:
+        file_name = file_name.rstrip('.fasta')
+    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
+
+    return '%s.fasta' % file_name
+
+
+def concatenate_fasta_files(file_names, output='concatenated_fasta'):
+    """Take multiple fasta files and concatenate into a single file"""
+    seq_records = [read_fasta_file(file) for file in file_names]
+    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)

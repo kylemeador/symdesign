@@ -3,7 +3,7 @@ import os
 import subprocess
 import sys
 from collections import defaultdict
-from itertools import repeat
+from itertools import repeat, chain as iter_chain
 
 from lxml import etree, html
 from requests import get, post
@@ -33,7 +33,8 @@ def get_complex_interfaces(pdb_code):
     exact PISA interface id that is dissociating when a ligand with more than one copy is involved
     """
     pdb_biomol = 1  # I believe this is always true
-    header = {'User-Agent': 'Mozilla/5.0 (X11; CrOS x86_64 13505.100.0) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/87.0.4280.142 Safari/537.36'}
+    header = {'User-Agent': 'Mozilla/5.0 (X11; CrOS x86_64 13505.100.0) AppleWebKit/537.36 (KHTML, like Gecko) '
+                            'Chrome/87.0.4280.142 Safari/537.36'}
     pisa_query = get('https://www.ebi.ac.uk/pdbe/pisa/cgi-bin/piserver?qa=%s' % pdb_code, headers=header)
     # print(pisa_query.content)
     # print('\n' * 10)
@@ -526,25 +527,20 @@ def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
         return False
 
 
-def extract_xtal_interfaces(pdb_path):
+def extract_xtal_interfaces(pdb_path):  # unused
     source_pdb = PDB.from_file(pdb_path)
     interface_data = parse_pisa_interfaces_xml(pdb_path)
     for interface in interface_data:
-        interface_pdb = PDB()
+        chains = []
         for chain in interface['chain_data']:
-            # chain = key
-            chain_pdb = PDB()
-            rot = chain['r_mat']
-            trans = chain['t_vec']
-            resi = chain['int_res']
+            rot, trans = chain['r_mat'], chain['t_vec']
             all_resi_atoms = []
-            for n in resi:
-                resi_atoms = source_pdb.getResidueAtoms(chain, n)
-                all_resi_atoms.append(resi_atoms)
-            interface_atoms = list(chain.from_iterable(all_resi_atoms))
-            chain_pdb.read_atom_list(interface_atoms)
+            for res_num in chain['int_res']:
+                all_resi_atoms.extend(source_pdb.chain(chain).residue(res_num))
+            chain_pdb = PDB.from_atoms(all_resi_atoms)
             chain_pdb.apply(rot, trans)
-            interface_pdb.read_atom_list(chain_pdb.atoms)
+            chains.append(chain_pdb)
+        interface_pdb = PDB.from_atoms(list(iter_chain.from_iterable(chain.atoms for chain in chains)))
         interface_pdb.write(pdb_path + interface + '.pdb')
 
 

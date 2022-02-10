@@ -1,0 +1,130 @@
+symmetry_name O
+subunits 24
+number_of_interfaces 23
+E = 2*VRT_0_base + 1*(VRT_0_base:VRT_1_base) + 1*(VRT_0_base:VRT_2_base) + 1*(VRT_0_base:VRT_3_base) + 1*(VRT_0_base:VRT_4_base) + 1*(VRT_0_base:VRT_5_base) + 1*(VRT_0_base:VRT_6_base) + 1*(VRT_0_base:VRT_7_base) + 1*(VRT_0_base:VRT_8_base) + 1*(VRT_0_base:VRT_9_base) + 1*(VRT_0_base:VRT_10_base) + 1*(VRT_0_base:VRT_11_base) + 1*(VRT_0_base:VRT_12_base) + 1*(VRT_0_base:VRT_13_base) + 1*(VRT_0_base:VRT_14_base) + 1*(VRT_0_base:VRT_15_base) + 1*(VRT_0_base:VRT_16_base) + 1*(VRT_0_base:VRT_17_base) + 1*(VRT_0_base:VRT_18_base) + 1*(VRT_0_base:VRT_19_base) + 1*(VRT_0_base:VRT_20_base) + 1*(VRT_0_base:VRT_21_base) + 1*(VRT_0_base:VRT_22_base) + 1*(VRT_0_base:VRT_23_base)
+anchor_residue COM
+virtual_coordinates_start
+xyz VRT_0 1.000000,0.000000,0.000000 0.000000,1.000000,0.000000 0,0,0
+xyz VRT_0_base 1.000000,0.000000,0.000000 0.000000,1.000000,0.000000 0,0,0
+xyz VRT_1 -1.000000,-0.000000,-0.000000 0.000000,-1.000000,-0.000000 0,0,0
+xyz VRT_1_base -1.000000,-0.000000,-0.000000 0.000000,-1.000000,-0.000000 0,0,0
+xyz VRT_2 1.000000,-0.000000,-0.000000 0.000000,-1.000000,-0.000000 0,0,0
+xyz VRT_2_base 1.000000,-0.000000,-0.000000 0.000000,-1.000000,-0.000000 0,0,0
+xyz VRT_3 -1.000000,0.000000,0.000000 0.000000,1.000000,0.000000 0,0,0
+xyz VRT_3_base -1.000000,0.000000,0.000000 0.000000,1.000000,0.000000 0,0,0
+xyz VRT_4 0.000000,1.000000,-0.000000 0.000000,0.000000,1.000000 0,0,0
+xyz VRT_4_base 0.000000,1.000000,-0.000000 0.000000,0.000000,1.000000 0,0,0
+xyz VRT_5 -0.000000,-1.000000,-0.000000 -0.000000,-0.000000,1.000000 0,0,0
+xyz VRT_5_base -0.000000,-1.000000,-0.000000 -0.000000,-0.000000,1.000000 0,0,0
+xyz VRT_6 0.000000,-1.000000,0.000000 0.000000,-0.000000,-1.000000 0,0,0
+xyz VRT_6_base 0.000000,-1.000000,0.000000 0.000000,-0.000000,-1.000000 0,0,0
+xyz VRT_7 -0.000000,1.000000,0.000000 -0.000000,0.000000,-1.000000 0,0,0
+xyz VRT_7_base -0.000000,1.000000,0.000000 -0.000000,0.000000,-1.000000 0,0,0
+xyz VRT_8 0.000000,0.000000,1.000000 1.000000,-0.000000,-0.000000 0,0,0
+xyz VRT_8_base 0.000000,0.000000,1.000000 1.000000,-0.000000,-0.000000 0,0,0
+xyz VRT_9 -0.000000,-0.000000,1.000000 -1.000000,0.000000,-0.000000 0,0,0
+xyz VRT_9_base -0.000000,-0.000000,1.000000 -1.000000,0.000000,-0.000000 0,0,0
+xyz VRT_10 0.000000,-0.000000,-1.000000 1.000000,0.000000,0.000000 0,0,0
+xyz VRT_10_base 0.000000,-0.000000,-1.000000 1.000000,0.000000,0.000000 0,0,0
+xyz VRT_11 0.000000,0.000000,-1.000000 -1.000000,0.000000,-0.000000 0,0,0
+xyz VRT_11_base 0.000000,0.000000,-1.000000 -1.000000,0.000000,-0.000000 0,0,0
+xyz VRT_12 -0.000000,1.000000,-0.000000 1.000000,0.000000,-0.000000 0,0,0
+xyz VRT_12_base -0.000000,1.000000,-0.000000 1.000000,0.000000,-0.000000 0,0,0
+xyz VRT_13 -0.000000,-1.000000,0.000000 -1.000000,0.000000,0.000000 0,0,0
+xyz VRT_13_base -0.000000,-1.000000,0.000000 -1.000000,0.000000,0.000000 0,0,0
+xyz VRT_14 0.000000,1.000000,0.000000 -1.000000,0.000000,0.000000 0,0,0
+xyz VRT_14_base 0.000000,1.000000,0.000000 -1.000000,0.000000,0.000000 0,0,0
+xyz VRT_15 0.000000,-1.000000,-0.000000 1.000000,0.000000,-0.000000 0,0,0
+xyz VRT_15_base 0.000000,-1.000000,-0.000000 1.000000,0.000000,-0.000000 0,0,0
+xyz VRT_16 1.000000,0.000000,0.000000 0.000000,0.000000,-1.000000 0,0,0
+xyz VRT_16_base 1.000000,0.000000,0.000000 0.000000,0.000000,-1.000000 0,0,0
+xyz VRT_17 -1.000000,0.000000,-0.000000 0.000000,0.000000,-1.000000 0,0,0
+xyz VRT_17_base -1.000000,0.000000,-0.000000 0.000000,0.000000,-1.000000 0,0,0
+xyz VRT_18 -1.000000,0.000000,-0.000000 -0.000000,0.000000,1.000000 0,0,0
+xyz VRT_18_base -1.000000,0.000000,-0.000000 -0.000000,0.000000,1.000000 0,0,0
+xyz VRT_19 1.000000,-0.000000,-0.000000 0.000000,-0.000000,1.000000 0,0,0
+xyz VRT_19_base 1.000000,-0.000000,-0.000000 0.000000,-0.000000,1.000000 0,0,0
+xyz VRT_20 0.000000,0.000000,-1.000000 -0.000000,1.000000,-0.000000 0,0,0
+xyz VRT_20_base 0.000000,0.000000,-1.000000 -0.000000,1.000000,-0.000000 0,0,0
+xyz VRT_21 0.000000,-0.000000,-1.000000 0.000000,-1.000000,0.000000 0,0,0
+xyz VRT_21_base 0.000000,-0.000000,-1.000000 0.000000,-1.000000,0.000000 0,0,0
+xyz VRT_22 -0.000000,-0.000000,1.000000 -0.000000,1.000000,0.000000 0,0,0
+xyz VRT_22_base -0.000000,-0.000000,1.000000 -0.000000,1.000000,0.000000 0,0,0
+xyz VRT_23 0.000000,-0.000000,1.000000 -0.000000,-1.000000,0.000000 0,0,0
+xyz VRT_23_base 0.000000,-0.000000,1.000000 -0.000000,-1.000000,0.000000 0,0,0
+virtual_coordinates_stop
+connect_virtual JUMP_0_to_subunit VRT_0_base SUBUNIT #COM A
+connect_virtual JUMP_1_to_subunit VRT_1_base SUBUNIT #COM A
+connect_virtual JUMP_2_to_subunit VRT_2_base SUBUNIT #COM A
+connect_virtual JUMP_3_to_subunit VRT_3_base SUBUNIT #COM A
+connect_virtual JUMP_4_to_subunit VRT_4_base SUBUNIT #COM A
+connect_virtual JUMP_5_to_subunit VRT_5_base SUBUNIT #COM A
+connect_virtual JUMP_6_to_subunit VRT_6_base SUBUNIT #COM A
+connect_virtual JUMP_7_to_subunit VRT_7_base SUBUNIT #COM A
+connect_virtual JUMP_8_to_subunit VRT_8_base SUBUNIT #COM A
+connect_virtual JUMP_9_to_subunit VRT_9_base SUBUNIT #COM A
+connect_virtual JUMP_10_to_subunit VRT_10_base SUBUNIT #COM A
+connect_virtual JUMP_11_to_subunit VRT_11_base SUBUNIT #COM A
+connect_virtual JUMP_12_to_subunit VRT_12_base SUBUNIT #COM A
+connect_virtual JUMP_13_to_subunit VRT_13_base SUBUNIT #COM A
+connect_virtual JUMP_14_to_subunit VRT_14_base SUBUNIT #COM A
+connect_virtual JUMP_15_to_subunit VRT_15_base SUBUNIT #COM A
+connect_virtual JUMP_16_to_subunit VRT_16_base SUBUNIT #COM A
+connect_virtual JUMP_17_to_subunit VRT_17_base SUBUNIT #COM A
+connect_virtual JUMP_18_to_subunit VRT_18_base SUBUNIT #COM A
+connect_virtual JUMP_19_to_subunit VRT_19_base SUBUNIT #COM A
+connect_virtual JUMP_20_to_subunit VRT_20_base SUBUNIT #COM A
+connect_virtual JUMP_21_to_subunit VRT_21_base SUBUNIT #COM A
+connect_virtual JUMP_22_to_subunit VRT_22_base SUBUNIT #COM A
+connect_virtual JUMP_23_to_subunit VRT_23_base SUBUNIT #COM A
+connect_virtual JUMP_0_to_com VRT_0 VRT_0_base
+connect_virtual JUMP_1_to_com VRT_1 VRT_1_base
+connect_virtual JUMP_2_to_com VRT_2 VRT_2_base
+connect_virtual JUMP_3_to_com VRT_3 VRT_3_base
+connect_virtual JUMP_4_to_com VRT_4 VRT_4_base
+connect_virtual JUMP_5_to_com VRT_5 VRT_5_base
+connect_virtual JUMP_6_to_com VRT_6 VRT_6_base
+connect_virtual JUMP_7_to_com VRT_7 VRT_7_base
+connect_virtual JUMP_8_to_com VRT_8 VRT_8_base
+connect_virtual JUMP_9_to_com VRT_9 VRT_9_base
+connect_virtual JUMP_10_to_com VRT_10 VRT_10_base
+connect_virtual JUMP_11_to_com VRT_11 VRT_11_base
+connect_virtual JUMP_12_to_com VRT_12 VRT_12_base
+connect_virtual JUMP_13_to_com VRT_13 VRT_13_base
+connect_virtual JUMP_14_to_com VRT_14 VRT_14_base
+connect_virtual JUMP_15_to_com VRT_15 VRT_15_base
+connect_virtual JUMP_16_to_com VRT_16 VRT_16_base
+connect_virtual JUMP_17_to_com VRT_17 VRT_17_base
+connect_virtual JUMP_18_to_com VRT_18 VRT_18_base
+connect_virtual JUMP_19_to_com VRT_19 VRT_19_base
+connect_virtual JUMP_20_to_com VRT_20 VRT_20_base
+connect_virtual JUMP_21_to_com VRT_21 VRT_21_base
+connect_virtual JUMP_22_to_com VRT_22 VRT_22_base
+connect_virtual JUMP_23_to_com VRT_23 VRT_23_base
+connect_virtual JUMP_1 VRT_0 VRT_1
+connect_virtual JUMP_2 VRT_0 VRT_2
+connect_virtual JUMP_3 VRT_0 VRT_3
+connect_virtual JUMP_4 VRT_0 VRT_4
+connect_virtual JUMP_5 VRT_0 VRT_5
+connect_virtual JUMP_6 VRT_0 VRT_6
+connect_virtual JUMP_7 VRT_0 VRT_7
+connect_virtual JUMP_8 VRT_0 VRT_8
+connect_virtual JUMP_9 VRT_0 VRT_9
+connect_virtual JUMP_10 VRT_0 VRT_10
+connect_virtual JUMP_11 VRT_0 VRT_11
+connect_virtual JUMP_12 VRT_0 VRT_12
+connect_virtual JUMP_13 VRT_0 VRT_13
+connect_virtual JUMP_14 VRT_0 VRT_14
+connect_virtual JUMP_15 VRT_0 VRT_15
+connect_virtual JUMP_16 VRT_0 VRT_16
+connect_virtual JUMP_17 VRT_0 VRT_17
+connect_virtual JUMP_18 VRT_0 VRT_18
+connect_virtual JUMP_19 VRT_0 VRT_19
+connect_virtual JUMP_20 VRT_0 VRT_20
+connect_virtual JUMP_21 VRT_0 VRT_21
+connect_virtual JUMP_22 VRT_0 VRT_22
+connect_virtual JUMP_23 VRT_0 VRT_23
+set_dof JUMP_0_to_subunit angle_x angle_y angle_z
+set_dof JUMP_0_to_com x y z
+set_jump_group JUMPGROUP1  JUMP_0_to_subunit JUMP_1_to_subunit JUMP_2_to_subunit JUMP_3_to_subunit JUMP_4_to_subunit JUMP_5_to_subunit JUMP_6_to_subunit JUMP_7_to_subunit JUMP_8_to_subunit JUMP_9_to_subunit JUMP_10_to_subunit JUMP_11_to_subunit JUMP_12_to_subunit JUMP_13_to_subunit JUMP_14_to_subunit JUMP_15_to_subunit JUMP_16_to_subunit JUMP_17_to_subunit JUMP_18_to_subunit JUMP_19_to_subunit JUMP_20_to_subunit JUMP_21_to_subunit JUMP_22_to_subunit JUMP_23_to_subunit
+set_jump_group JUMPGROUP2  JUMP_0_to_com JUMP_1_to_com JUMP_2_to_com JUMP_3_to_com JUMP_4_to_com JUMP_5_to_com JUMP_6_to_com JUMP_7_to_com JUMP_8_to_com JUMP_9_to_com JUMP_10_to_com JUMP_11_to_com JUMP_12_to_com JUMP_13_to_com JUMP_14_to_com JUMP_15_to_com JUMP_16_to_com JUMP_17_to_com JUMP_18_to_com JUMP_19_to_com JUMP_20_to_com JUMP_21_to_com JUMP_22_to_com JUMP_23_to_com

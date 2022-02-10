@@ -3,7 +3,7 @@
 	<SCOREFXNS>
 		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
 		<ScoreFunction name="2015_nano_hbnet_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%">
-			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>
+<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
 			<Reweight scoretype="hbnet" weight="0.5" />
 			<Reweight scoretype="buried_unsatisfied_penalty" weight="0.5" />
 		</ScoreFunction>
@@ -66,6 +66,7 @@
 	</MOVE_MAP_FACTORIES>
 	
 	<MOVERS>
+		<AddJobPairData name="job_info" key="protocol" value="design_profile_hbnet_weights" value_type="string"/>
 		# generates symmetry for the system in question using %%sdf%% or %%dist%%
 		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
 		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
@@ -74,7 +75,6 @@
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen" native="true" residue_selector="full_pose" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false"/> # bounded_width="0". sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
-
 
 		# set all interface residues to GLY, leave everything else untouched
 		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_hbnet_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
@@ -108,6 +108,7 @@
 <!--		<Add mover_name="measure_interface_bound"/>-->
 		<Add mover_name="design_start"/>
 		<Add mover_name="design_loop"/>
+		<Add mover_name="job_info"/>
 		<Add filter_name="time"/>
 	</PROTOCOLS>
 

@@ -1,0 +1,187 @@
+<ROSETTASCRIPTS>
+
+	<SCOREFXNS>
+<!--		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>-->
+<!--		<ScoreFunction name="2015" weights="ref2015"/>-->
+<!--		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>-->
+<!--		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>-->
+	    <ScoreFunction name="2015_cst" weights="ref2015_cst"/>
+    </SCOREFXNS>
+
+	<RESIDUE_SELECTORS>
+<!--		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable-->
+<!--		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<SymmetricalResidue name="interface1_sym" selector="interface1"/>-->
+<!--		# same, but for residues from chain "B"-->
+<!--		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<SymmetricalResidue name="interface2_sym" selector="interface2"/>-->
+<!--		# combined group of all identified interface residues-->
+<!--		<Or name="tot_interface" selectors="interface1,interface2"/>-->
+<!--		<Chain name="entity" chains="%%entity%%"/>-->
+<!--		<Not name="not_entity" selector="entity"/>-->
+<!--		<And name="entity_interface_residues" selectors="entity,tot_interface"/>-->
+<!--		<SymmetricalResidue name="entity_interface_residues_sym" selector="entity_interface_residues"/>-->
+<!--		<Neighborhood name="entity_residue_neighbors" selector="entity_interface_residues" include_focus_in_subset="false" distance="8.0"/> # Cb neighbors-->
+<!--		<Or name="entity_interface_and_neighbors" selectors="entity_interface_residues,entity_residue_neighbors"/>-->
+<!--		<SymmetricalResidue name="entity_interface_and_neighbors_sym" selector="entity_interface_and_neighbors"/>-->
+<!--		<Not name="not_entity_interface_and_neighbors" selector="entity_interface_and_neighbors"/>-->
+<!--		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding-->
+<!--		<HBond name="interface_hbond_residues" residue_selector="entity_interface_residues" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>-->
+<!--		# all residues-->
+		<Index name="n_term" resnums="1" error_on_out_of_bounds_index="0" reverse="0"/>
+        <True name="full_pose"/>
+	</RESIDUE_SELECTORS>
+
+    <SIMPLE_METRICS>
+        <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scoretype="chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
+        <ResidueSummaryMetric name="M_chain_break_energy" custom_type="" metric="M_chain_break_energy_per_residue" action="sum"/>
+<!--        <TotalEnergyMetric name="M_chain_break_energy" residue_selector="full_pose" scorefxn="2015_cst" custom_type="" force_rescore="false"/>-->
+    </SIMPLE_METRICS>
+
+    <FILTERS>
+        <Time name="time"/>
+        <ReadPoseExtraScoreFilter name="read_pose_designed_energy" term_name="pose_designed_energy" threshold="100000"/> # if value is greater than threshold, then filter applied
+        <ReadPoseExtraScoreFilter name="read_chain_break_energy" term_name="chain_break_energy" threshold="10"/> # if value is greater than threshold, then filter applied
+        <ReadPoseExtraScoreFilter name="read_chain_breaks" term_name="chain_breaks" threshold="10"/> # if value is greater than threshold, then filter applied
+        <SimpleMetricFilter name="F_chain_break_energy" metric="M_chain_break_energy" comparison_type="lt" cutoff="10" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+    </FILTERS>
+
+    <MOVERS>
+<!--        <ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>-->
+        # Generates symmetry for the system in question using %%sdf%% or %%dist%%
+<!--        <SetupForSymmetry name="make_point_group" definition="%%sdf%%"/>-->
+<!--        <MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>-->
+<!--        <MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>-->
+<!--        <LoopModeler name="modeler" loops_file="%%loops%%"/>-->
+        # Pull subroutines in from other files
+        # Symmetry selector
+<!--        <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice" selected="%%symmetry%%"/>-->
+<!--        <MultiplePoseMover name="multi_loop_remodel" max_input_poses="250"> # scale to 250-500 after testing-->
+<!--			<SCOREFXNS>-->
+<!--				<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>-->
+<!--				<ScoreFunction name="2015" weights="ref2015"/>-->
+<!--				<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>-->
+<!--				<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>-->
+<!--			</SCOREFXNS>-->
+<!--			-->
+<!--			<MOVERS>-->
+<!--				<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%"/>-->
+<!--			</MOVERS>-->
+
+<!--			<PROTOCOLS>-->
+<!--       			<Add mover_name="remodel_missing_loops"/>-->
+<!--    		</PROTOCOLS>-->
+<!--		</MultiplePoseMover>-->
+        <PeptideStubMover name="insert_fake_n_term"> # reset="0"
+        	<Prepend resname="GLY" anchor_rsd="1"/> # repeat="1" jump="false" connecting_atom=”atom type”
+        </PeptideStubMover>
+        <ConvertRealToVirtualMover name="remove_temporary_n_termini" residue_selector="n_term"/>
+		<MultipleOutputWrapper name="multi_loop_remodel" max_output_poses="250"> # todo replace 20 with %%trajectories%%
+			<RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>
+		</MultipleOutputWrapper>
+
+		<MultiplePoseMover name="filter_design_pool"> # max_input_poses="500"
+            <ROSETTASCRIPTS>
+                <SCOREFXNS>
+	                <ScoreFunction name="2015_cst" weights="ref2015_cst"/>
+                </SCOREFXNS>
+
+                <RESIDUE_SELECTORS>
+		            <True name="full_pose"/>
+	            </RESIDUE_SELECTORS>
+
+                <SIMPLE_METRICS>
+                    # not reporting anything for chainbreak with 2015_cst...
+                    <PerResidueEnergyMetric name="M_chain_break_energy_per_residue" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scoretype="chainbreak" scorefxn="2015_cst"/> # reference_name="" use_native="false"
+                    <ResidueSummaryMetric name="M_chain_break_energy" custom_type="" metric="M_chain_break_energy_per_residue" action="sum"/>
+<!--                    <PerResidueEnergyMetric name="M_fa_atr_energy_per_residue" scoretype="fa_atr" custom_type="" output_as_pdb_nums="true" residue_selector="full_pose" scorefxn="2015_cst"/> # reference_name="" use_native="false"-->
+<!--                    <ResidueSummaryMetric name="M_pose_designed_energy" custom_type="" metric="M_fa_atr_energy_per_residue" action="sum"/>-->
+<!--                    <TotalEnergyMetric name="M_pose_designed_energy" scoretype="fa_atr" residue_selector="full_pose" scorefxn="2015_cst"/> # custom_type="" reference_name="" use_native=""-->
+                    <TotalEnergyMetric name="M_pose_designed_energy" residue_selector="full_pose" scorefxn="2015_cst"/> # scoretype="total" custom_type="" reference_name="" use_native=""
+                </SIMPLE_METRICS>
+
+                <FILTERS>
+<!--                    <ReadPoseExtraScoreFilter name="read_pose_designed_energy" term_name="chain_break_energy" threshold="-1"/>-->
+                    <SimpleMetricFilter name="F_pose_designed_energy" metric="M_pose_designed_energy" comparison_type="lt" cutoff="100000" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+                    <SimpleMetricFilter name="F_chain_break_energy" metric="M_chain_break_energy" comparison_type="lt" cutoff="1" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+                    <ChainBreak name="filter_chainbreaks" chain_num="1" tolerance="0.13" threshold="0"/>
+                </FILTERS>
+
+                <MOVERS>
+                    <FilterReportAsPoseExtraScoresMover name="RP_pose_designed_energy" report_as="pose_designed_energy" filter_name="F_pose_designed_energy"/>
+                    <FilterReportAsPoseExtraScoresMover name="RP_chain_break_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
+                    <FilterReportAsPoseExtraScoresMover name="RP_chain_breaks" report_as="chain_breaks" filter_name="filter_chainbreaks"/>
+                </MOVERS>
+
+                <PROTOCOLS>
+                    <Add mover_name="RP_pose_designed_energy"/>
+<!--                    <Add mover_name="RP_chain_breaks"/>-->
+                    <Add filter_name="filter_chainbreaks" report_at_end="false"/>
+<!--                    <Add mover_name="RP_chain_break_energy"/>-->
+                </PROTOCOLS>
+            </ROSETTASCRIPTS>
+		</MultiplePoseMover>
+		<MultiplePoseMover name="trim_design_pool"> # max_input_poses="500" max_output_poses="3" Can't use this to actually select the top poses as the sorting doesn't change the pose order. Must limit by TopNByProperty
+			<SELECT>
+<!--				<AndSelector>-->
+                <TopNByProperty n="20" order="ascending"> # todo replace 20 with %%ensemble_size%%
+<!--                    <EnergyReporter scorefunction="ref2015_cst" term="total_score"/>-->
+<!--					    <EnergyReporter scorefunction="ref2015_cst"/>  # SCOREFUNCTION is not from named functions above! term="total_score"-->
+                    <FilterReporter filter="read_pose_designed_energy"/>  # Not good at reporting chain breaks
+<!--                        <FilterReporter filter="read_chain_break_energy"/>-->
+                </TopNByProperty>
+<!--				    <TopNByProperty n="6" order="ascending">-->
+<!--                        <FilterReporter filter="read_chain_breaks"/>-->
+<!--		    		</TopNByProperty>-->
+<!--					<TopNByProperty n="100" order="ascending">-->
+<!--&lt;!&ndash;						<FilterReporter filter="read_interaction_energy_density_filter"/>&ndash;&gt;-->
+<!--					</TopNByProperty>-->
+<!--				</AndSelector>-->
+			</SELECT>
+            # TODO implement a more accurate loop modelling protocol...
+            <ROSETTASCRIPTS>
+                <MOVERS>
+                    <LoopModeler name="kic_modeller" loops_file="%%loop_file%%"/>
+                </MOVERS>
+                <PROTOCOLS>
+                    <Add mover_name="null"/>
+                </PROTOCOLS>
+            </ROSETTASCRIPTS>
+		</MultiplePoseMover>
+        <FilterReportAsPoseExtraScoresMover name="RP_chain_break_energy" report_as="chain_break_energy" filter_name="F_chain_break_energy"/>
+
+<!--        <RemodelMover name="remodel_missing_loops" blueprint="%%blueprint%%" quick_and_dirty="1"/>-->
+        <LoopMoverFromCommandLine name="remodel_missing_loops" loop_file="%%loop_file%%" protocol="kinematic" perturb_score="score4L" refine_score="2015_cst" perturb="0" refine="no" remodel="0" relax="no" intermedrelax="no"/> # protocol="automatic" doesn't work because it expects a frag file on the command line...
+        <LoopModeler name="kic_modeller" loops_file="%%loop_file%%">
+            <Build skip="yes"/>
+            <Fullatom skip="yes"/>
+        </LoopModeler>
+    </MOVERS>
+
+<!--	# Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%-->
+<!--	<FILTERS>-->
+<!--		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>-->
+<!--	</FILTERS>-->
+<!--	<MOVERS>-->
+<!--		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>-->
+<!--&lt;!&ndash;		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>&ndash;&gt;-->
+<!--	</MOVERS>-->
+
+    <PROTOCOLS>
+<!--        <Add mover_name="measure_entity"/> # removes non-entity positions-->
+<!--		<Add mover_name="symmetry"/> # symmetrize entity-->
+<!--        <Add mover_name="modeler"/>-->
+<!--        <Add mover_name="remodel_missing_loops"/>-->
+        # N-terminal missing loop attempt fix
+<!--        <Add mover_name="insert_fake_n_term"/>-->
+<!--        <Add mover_name="remove_temporary_n_termini"/>-->
+        # for MultipleOutputWrapper = number of ensemble
+        <Add mover_name="multi_loop_remodel"/>
+        <Add mover_name="filter_design_pool"/>
+        <Add mover_name="trim_design_pool"/>
+        # for nstruct = number of ensemble
+<!--        <Add mover_name="remodel_missing_loops"/>-->
+<!--        <Add mover_name="kic_modeller"/>-->
+    </PROTOCOLS>
+
+</ROSETTASCRIPTS>

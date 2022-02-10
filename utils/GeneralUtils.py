@@ -1,12 +1,45 @@
 import os
 
 import numpy as np
+# from numba import njit
 
 from PathUtils import frag_text_file, docked_pose_file
 
 
+# @njit
+def transform_coordinates(coords, rotation=None, translation=None, rotation2=None, translation2=None):
+    """Take a set of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the order of
+    operations as: rotation, translation, rotation2, translation2
+
+    Args:
+        coords (union[numpy.ndarray,list]): The coordinates to transform, can be shape (number of coordinates, 3)
+    Keyword Args:
+        rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
+        translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
+        rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
+        translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
+    Returns:
+        (numpy.ndarray): The transformed coordinate set with the same shape as the original
+    """
+    if rotation is not None:
+        coords = np.matmul(coords, np.transpose(rotation))
+
+    if translation is not None:
+        coords += translation
+
+    if rotation2 is not None:
+        coords = np.matmul(coords, np.transpose(rotation2))
+
+    if translation2 is not None:
+        coords += translation2
+
+    return coords
+
+
+# @njit
 def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotation2=None, translation2=None):
-    """Take a set of x,y,z coordinates and transform according to rotation, translation, rotation2, then translation2
+    """Take a set of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the order of
+    operations as: rotation, translation, rotation2, translation2
 
     Args:
         coord_sets (union[numpy.ndarray,list]): The coordinates to transform, can be shape (number of coordinates, 3, 3)
@@ -30,14 +63,14 @@ def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotat
         coord_sets = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
 
     if translation is not None:
-        coord_sets = coord_sets + translation
+        coord_sets += translation
 
     if rotation2 is not None:
         # coord_sets = np.tensordot(coord_sets, np.transpose(set_mat), axes=1)
         coord_sets = np.matmul(coord_sets, rotation2.swapaxes(-2, -1))
 
     if translation2 is not None:
-        coord_sets = coord_sets + translation2
+        coord_sets += translation2
 
     return coord_sets
 
@@ -108,26 +141,26 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
         out_info_file.write("Unique Mono Fragments at Interface: %d\n" % unique_total_interface_monofrags_count)
         out_info_file.write("Interface Matched (%s): %f\n\n" % ("%", percent_of_interface_covered * 100))
 
-        out_info_file.write("ROT/DEGEN MATRIX PDB1: %s\n" % str(rot_mat1))
+        out_info_file.write("ROT/DEGEN MATRIX PDB1: %s\n" % str(rot_mat1.tolist()))
         if representative_int_dof_tx_param_1 is not None:
             int_dof_tx_vec_1 = representative_int_dof_tx_param_1
         else:
             int_dof_tx_vec_1 = None
         out_info_file.write("INTERNAL Tx PDB1: %s\n" % str(int_dof_tx_vec_1))
-        out_info_file.write("SETTING MATRIX PDB1: %s\n" % str(set_mat1))
+        out_info_file.write("SETTING MATRIX PDB1: %s\n" % str(set_mat1.tolist()))
         if representative_ext_dof_tx_params_1 == [0, 0, 0]:
             ref_frame_tx_vec_1 = None
         else:
             ref_frame_tx_vec_1 = representative_ext_dof_tx_params_1
         out_info_file.write("REFERENCE FRAME Tx PDB1: %s\n\n" % str(ref_frame_tx_vec_1))
 
-        out_info_file.write("ROT/DEGEN MATRIX PDB2: %s\n" % str(rot_mat2))
+        out_info_file.write("ROT/DEGEN MATRIX PDB2: %s\n" % str(rot_mat2.tolist()))
         if representative_int_dof_tx_param_2 is not None:
             int_dof_tx_vec_2 = representative_int_dof_tx_param_2
         else:
             int_dof_tx_vec_2 = None
         out_info_file.write("INTERNAL Tx PDB2: %s\n" % str(int_dof_tx_vec_2))
-        out_info_file.write("SETTING MATRIX PDB2: %s\n" % str(set_mat2))
+        out_info_file.write("SETTING MATRIX PDB2: %s\n" % str(set_mat2.tolist()))
         if representative_ext_dof_tx_params_2 == [0, 0, 0]:
             ref_frame_tx_vec_2 = None
         else:
@@ -178,25 +211,25 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
 
         master_log_file.write("SYMMETRY COMBINATION MATERIAL INFORMATION\n")
         master_log_file.write("Nanohedra Entry Number: %d\n" % sym_entry.entry_number)
-        master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % sym_entry.get_group1_sym())
-        master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % sym_entry.get_group2_sym())
-        master_log_file.write("SCM Point Group Symmetry: %s\n" % sym_entry.get_pt_grp_sym())
+        master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % sym_entry.group1)
+        master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % sym_entry.group2)
+        master_log_file.write("SCM Point Group Symmetry: %s\n" % sym_entry.point_group_sym)
 
-        master_log_file.write("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))
-        master_log_file.write("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
-        master_log_file.write("Oligomer 1 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx1()))
-        master_log_file.write("Oligomer 2 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx2()))
-        master_log_file.write("Oligomer 1 Setting Matrix: %s\n" % sym_entry.get_rot_set_mat_group1())
-        master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % sym_entry.get_rot_set_mat_group2())
+        # master_log_file.write("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))
+        # master_log_file.write("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
+        # master_log_file.write("Oligomer 1 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx1()))
+        # master_log_file.write("Oligomer 2 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx2()))
+        master_log_file.write("Oligomer 1 Setting Matrix: %s\n" % sym_entry.setting_matrix1.tolist())
+        master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % sym_entry.setting_matrix2.tolist())
         master_log_file.write("Oligomer 1 Reference Frame Tx DOF: %s\n"
-                              % (sym_entry.get_ref_frame_tx_dof_group1()
+                              % (sym_entry.ref_frame_tx_dof1
                                  if sym_entry.is_ref_frame_tx_dof1() else str(None)))
         master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n"
-                              % (sym_entry.get_ref_frame_tx_dof_group2()
+                              % (sym_entry.ref_frame_tx_dof2
                                  if sym_entry.is_ref_frame_tx_dof2() else str(None)))
-        master_log_file.write("Resulting SCM Symmetry: %s\n" % sym_entry.get_result_design_sym())
-        master_log_file.write("SCM Dimension: %d\n" % sym_entry.get_design_dim())
-        master_log_file.write("SCM Unit Cell Specification: %s\n\n" % sym_entry.get_uc_spec_string())
+        master_log_file.write("Resulting SCM Symmetry: %s\n" % sym_entry.resulting_symmetry)
+        master_log_file.write("SCM Dimension: %d\n" % sym_entry.dimension)
+        master_log_file.write("SCM Unit Cell Specification: %s\n\n" % sym_entry.uc_specification)
 
         rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2, initial=True,
                                                          log=master_log_file)
@@ -220,10 +253,10 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
 
         master_log_file.write("ROTATIONAL SAMPLING INFORMATION\n")
         master_log_file.write(
-            "Oligomer 1 ROT Sampling Range: %s\n" % (str(sym_entry.get_rot_range_deg_1())
+            "Oligomer 1 ROT Sampling Range: %s\n" % (str(sym_entry.rotation_range1)
                                                      if sym_entry.is_internal_rot1() else str(None)))
         master_log_file.write(
-            "Oligomer 2 ROT Sampling Range: %s\n" % (str(sym_entry.get_rot_range_deg_2())
+            "Oligomer 2 ROT Sampling Range: %s\n" % (str(sym_entry.rotation_range2)
                                                      if sym_entry.is_internal_rot2() else str(None)))
         master_log_file.write(
             "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg1) if sym_entry.is_internal_rot1()

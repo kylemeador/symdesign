@@ -1,14 +1,20 @@
 import numpy as np
+# from numba import njit
+# from numba.experimental import jitclass
 
+from SymDesignUtils import start_log
 from PathUtils import binary_lookup_table_path
+logger = start_log(name=__name__, format_log=False)
 
 
+# @jitclass
 class EulerLookup:
     def __init__(self, scale=3.0):
         self.eul_lookup_40 = np.load(binary_lookup_table_path)['a']  # 6-d bool array [[[[[[True, False, ...], ...]]]]]
         self.scale = scale
 
     @staticmethod
+    # @njit
     def get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a):
         """Convert rotation matrix to euler angles in the form of an integer triplet (integer values are degrees
         divided by 10; these become indices for a lookup table)
@@ -34,27 +40,31 @@ class EulerLookup:
 
         return eulint1, eulint2, eulint3
 
+    # @njit
     def get_eulint_from_guides(self, guide_ats):
         """Take a set of guide atoms (3 xyz positions) and return integer indices for the euler angles describing the
         orientations of the axes they form. Note that the positions are in a 3D array. Each guide_ats[i,:,:] is a 3x3
         array with the vectors stored *in columns*, i.e. one vector is in [i,:,j]. Use known scale value to normalize,
         to save repeated sqrt calculations
         """
-        # ensure the atoms are passed as an array of 3x3 matrices
-        if guide_ats.ndim != 3 or guide_ats.shape[1] != 3 or guide_ats.shape[2] != 3:
-            print('ERROR: Guide atom array with wrong dimensions. Calculation failed!!!')  # Todo logger
-
         # for fast array multiplication
         normalization = 1. / self.scale
         v1_a = (guide_ats[:, 1, :] - guide_ats[:, 0, :]) * normalization
         v2_a = (guide_ats[:, 2, :] - guide_ats[:, 0, :]) * normalization
         v3_a = np.cross(v1_a, v2_a)
+
         return self.get_eulerint10_from_rot_vector(v1_a, v2_a, v3_a)
 
+    # @njit
     def check_lookup_table(self, guide_coords1, guide_coords2):
-        """Returns a tuple with the index of the first fragment, second fragment, and a bool whether their guide coords
-        overlap
+        """Returns a tuple with the index of the first fragment and second fragment where they overlap
         """
+        # ensure the atoms are passed as an array of 3x3 matrices
+        for guide_coords in [guide_coords1, guide_coords2]:
+            if guide_coords.ndim != 3 or guide_coords.shape[1] != 3 or guide_coords.shape[2] != 3:
+                logger.error('ERROR: Guide atom array with wrong dimensions. Calculation failed!!!')
+                return np.array([]), np.array([])
+
         eulintarray1_1, eulintarray1_2, eulintarray1_3 = self.get_eulint_from_guides(guide_coords1)
         eulintarray2_1, eulintarray2_2, eulintarray2_3 = self.get_eulint_from_guides(guide_coords2)
 

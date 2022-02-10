@@ -4,7 +4,9 @@ import numpy as np
 
 
 class OptimalTx:
-    def __init__(self, dof_ext=None, zshift1=None, zshift2=None):
+    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1., number_of_coordinates=3):
+        self.max_z_value = max_z_value
+        self.number_of_coordinates = number_of_coordinates
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
         self.zshift1 = zshift1  # internal translational DOF1
@@ -26,27 +28,28 @@ class OptimalTx:
         if self.n_dof > 0:
             self.dof_convert9()
         else:
-            raise ValueError('n_dof is not set! Can\'t get the OptimalTx without passing DOF')
+            raise ValueError('n_dof is not set! Can\'t get the OptimalTx without passing dof_ext, zshift1, or zshift2')
 
     @classmethod
-    def from_dof(cls, dof_ext=None, zshift1=None, zshift2=None):  # setting1, setting2,
-        return cls(dof_ext=dof_ext, zshift1=zshift1, zshift2=zshift2)  # setting1=setting1 setting2=setting2
+    def from_dof(cls, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1.):  # setting1, setting2,
+        return cls(dof_ext=dof_ext, zshift1=zshift1, zshift2=zshift2, max_z_value=max_z_value)
+        # setting1=setting1 setting2=setting2
 
-    @classmethod
-    def from_tx_params(cls, optimal_tx_params, error_zvalue):
-        return cls(tx_params=optimal_tx_params, error=error_zvalue)
+    # @classmethod
+    # def from_tx_params(cls, optimal_tx_params, error_zvalue):
+    #     return cls(tx_params=optimal_tx_params, error=error_zvalue)
 
-    def dof_convert9(self, number_of_coordinates=3):
-        """convert input degrees of freedom to 9-dim arrays, repeat DOF ext for each set of 3 coordinates (3 sets)"""
-        self.dof9 = np.zeros((self.n_dof, 9))
+    def dof_convert9(self):
+        """Convert input degrees of freedom to 9-dim arrays. Repeat DOF ext for each set of 3 coordinates (3 sets)"""
+        self.dof9_t = np.zeros((self.n_dof, 9))
         for i in range(self.n_dof):
-            self.dof9[i] = (np.array(number_of_coordinates * [self.dof[i]])).flatten()
+            self.dof9_t[i] = np.array(self.number_of_coordinates * [self.dof[i]]).flatten()
             # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
-        self.dof9_t = self.dof9
-        self.dof9 = np.transpose(self.dof9)
+        self.dof9 = np.transpose(self.dof9_t)
 
-    def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference, max_z_value=1.0):
-        """This routine does the work to solve the optimal shift problem
+    def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
+        """This routine solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
+        reference RMSD to compute an error
 
         Args:
             coords1 (np.ndarray): A 3 x 3 array with cartesian coordinates
@@ -55,7 +58,8 @@ class OptimalTx:
         Keyword Args:
             max_z_value=1 (float): The maximum initial error tolerated
         Returns:
-            (list(list)), (float): Returns the optimal translation for the set of coordinates
+            (Union[numpy.ndarray, None]): Returns the optimal translation or None if error is too large.
+                Optimal translation has external dof first, followed by internal tx dof
         """
 
         # form the guide coords into a matrix (column vectors)
@@ -70,7 +74,7 @@ class OptimalTx:
         var_tot_inv = np.zeros([9, 9])
         for i in range(9):
             # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
-            var_tot_inv[i, i] = 1. / (3. * coords_rmsd_reference ** 2)
+            var_tot_inv[i, i] = 1. / (float(self.number_of_coordinates) * coords_rmsd_reference ** 2)
 
         # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
@@ -88,21 +92,11 @@ class OptimalTx:
         resid = np.matmul(self.dof9, shift) - guide_delta
         resid_t = np.transpose(resid)
 
-        error = sqrt(np.matmul(resid_t, resid) / float(3.0)) / coords_rmsd_reference  # NEW. Is float(3.0) a scale?
-        # sqrt(variance / 3) / cluster_rmsd # old error
+        error = np.sqrt(np.matmul(resid_t, resid) / float(self.number_of_coordinates)) / coords_rmsd_reference
+        # NEW. Is float(3.0) a scale?
+        # OLD. sqrt(variance / 3) / cluster_rmsd
 
-        if error <= max_z_value:
-            # print('Found match (shift, rmsd ref)', shift, coords_rmsd_reference)
-            return shift[:, 0].tolist()  # , error
+        if error <= self.max_z_value:
+            return shift[:, 0]  # .tolist()  # , error
         else:
-            return None
-
-    def apply(self, coords1=None, coords2=None, coords_rmsd_reference=None):  # UNUSED
-        """Apply Setting Matrix to provided Coords and solve for the translational shifts to overlap them"""
-        # coords1_set = self.set_coords(self.setting1, coords1)
-        # coords2_set = self.set_coords(self.setting2, coords2)
-        coords1_set = np.matmul(coords1, np.transpose(self.setting1))
-        coords2_set = np.matmul(coords2, np.transpose(self.setting2))
-
-        # solve for shifts and resulting error
-        return self.solve_optimal_shift(coords1_set, coords2_set, coords_rmsd_reference)
+            return

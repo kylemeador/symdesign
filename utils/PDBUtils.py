@@ -6,10 +6,14 @@ from sklearn.neighbors import BallTree
 import Bio.PDB
 from Bio.PDB.Atom import Atom as BioPDBAtom, PDBConstructionWarning
 from PDB import PDB
+from SymDesignUtils import start_log
 
+
+# Globals
+from utils.SymmetryUtils import valid_subunit_number
 
 warnings.simplefilter('ignore', PDBConstructionWarning)
-
+logger = start_log(name=__name__)
 # def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):
 #     # pdb_coords = np.array(pdb.extract_coords())
 #     pdb_coords = np.array(pdb.extract_all_coords())
@@ -50,8 +54,8 @@ warnings.simplefilter('ignore', PDBConstructionWarning)
 #             atom_index += 1
 #
 #         transformed_pdb.set_all_atoms(transformed_atoms)
-#         transformed_pdb.set_chain_id_list(pdb.get_chain_id_list())
-#         transformed_pdb.set_filepath(pdb.get_filepath())
+#         transformed_pdb.chain_id_list = pdb.chain_id_list
+#         transformed_pdb.filepath = pdb.filepath
 #
 #         return transformed_pdb
 #
@@ -59,26 +63,38 @@ warnings.simplefilter('ignore', PDBConstructionWarning)
 #         return []
 
 
-def orient_pdb_file(pdb_path, log_path, sym=None, out_dir=None):
+def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
+    """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
+    resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
+    of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
+    will be transformed so the center of mass resides at the origin
+
+    Args:
+        pdb_path (str): The location of the .pdb file to be oriented
+    Keyword Args:
+        log=logger (logging.logger): A log handler to report on operation success
+        sym=None (str): The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
+    Returns:
+        (Union[str, None]): Filepath of oriented PDB
+    """
     pdb_filename = os.path.basename(pdb_path)
     oriented_file_path = os.path.join(out_dir, pdb_filename)
-    if not os.path.exists(oriented_file_path):
-        pdb = PDB.from_file(pdb_path)
-        with open(log_path, 'a+') as f:
-            try:
-                pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True)
-                f.write('oriented: %s\n' % pdb_filename)
-                return oriented_file_path
-            except ValueError as val_err:
-                f.write(str(val_err))
-            except RuntimeError as rt_err:
-                f.write(str(rt_err))
-            return None
-    else:
+    if os.path.exists(oriented_file_path):
         return oriented_file_path
+    # elif sym in valid_subunit_number:
+    else:
+        pdb = PDB.from_file(pdb_path, log=None, pose_format=False, entities=False)
+        try:
+            oriented_file_path = pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True, log=log)
+            log.info('Oriented: %s' % pdb_filename)
+            return oriented_file_path
+        except (ValueError, RuntimeError) as err:
+            log.error(str(err))
+    # else:
+    #     log.error('The specified symmetry is not a valid orient input!')
 
 
-def get_contacting_asu(pdb1, pdb2, contact_dist=8):
+def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
     max_contact_count = 0
     max_contact_chain1, max_contact_chain2 = None, None
     for chain1 in pdb1.chains:
@@ -91,9 +107,10 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8):
                 max_contact_chain1, max_contact_chain2 = chain1, chain2
 
     if max_contact_count > 0:  # and max_contact_chain1 is not None and max_contact_chain2 is not None:
-        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', log=None, lazy=True)  # add logger when set up
+        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', log=None, pose_format=False,
+                               entities=True, **kwargs)  # add logger when set up
     else:
-        return None
+        return
 
 
 def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
@@ -103,12 +120,12 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
     return copies of these translated fragments
 
     Returns:
-        (tuple): transformed ghost fragments, transformed surface fragments, transformed ghost guide corrdinates,
-        transformed surface guide coordinates, number of interface residues on pdb1 where fragments are possible, number
-        on pdb2 where fragments are possible
+        (tuple[list[tuple], list[tuple]]): interface chain/residues on pdb1, interface chain/residues on pdb2
     """
-    pdb1_cb_indices = pdb1.get_cb_indices()
-    pdb2_cb_indices = pdb2.get_cb_indices()
+    pdb1_cb_indices = pdb1.cb_indices
+    pdb2_cb_indices = pdb2.cb_indices
+    pdb1_coords_indexed_residues = pdb1.coords_indexed_residues
+    pdb2_coords_indexed_residues = pdb2.coords_indexed_residues
 
     pdb1_cb_kdtree = BallTree(pdb1.get_cb_coords())
 
@@ -116,17 +133,21 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
     query = pdb1_cb_kdtree.query_radius(pdb2.get_cb_coords(), cb_distance)
 
     # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
+    # interacting_pairs = [(pdb1_residue.number, pdb1_residue.chain, pdb2_residue.number, pdb2_residue.chain)
+    #                      for pdb2_query_index, pdb1_query in enumerate(query) for pdb1_query_index in pdb1_query]
     interacting_pairs = []
     for pdb2_query_index in range(len(query)):
         if query[pdb2_query_index].size > 0:
-            pdb2_atom = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]]
+            # pdb2_atom = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]]
+            pdb2_residue = pdb2_coords_indexed_residues[pdb2_cb_indices[pdb2_query_index]]
             # pdb2_cb_chain_id = pdb2.atoms[pdb2_cb_indices[pdb2_query_index]].chain
             for pdb1_query_index in query[pdb2_query_index]:
-                pdb1_atom = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]]
+                # pdb1_atom = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]]
+                pdb1_residue = pdb1_coords_indexed_residues[pdb1_cb_indices[pdb1_query_index]]
                 # pdb1_cb_res_num = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].residue_number
                 # pdb1_cb_chain_id = pdb1.atoms[pdb1_cb_indices[pdb1_query_index]].chain
-                interacting_pairs.append((pdb1_atom.residue_number, pdb1_atom.chain, pdb2_atom.residue_number,
-                                          pdb2_atom.chain))
+                interacting_pairs.append((pdb1_residue.number, pdb1_residue.chain, pdb2_residue.number,
+                                          pdb2_residue.chain))
 
     pdb1_unique_chain_central_resnums, pdb2_unique_chain_central_resnums = [], []
     for pdb1_central_res_num, pdb1_central_chain_id, pdb2_central_res_num, pdb2_central_chain_id in interacting_pairs:
@@ -147,13 +168,13 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
 
 
 def biopdb_aligned_chain(pdb_fixed, pdb_moving, chain_id_moving):
-    # for atom in pdb_fixed.chain(chain_id_fixed).get_ca_atoms():
+    # for atom in pdb_fixed.chain(chain_id_fixed).ca_atoms:
     biopdb_atom_fixed = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                                     " %s " % atom.type, atom.number, element=atom.element_symbol)
-                         for atom in pdb_fixed.get_ca_atoms()]
+                         for atom in pdb_fixed.ca_atoms]
     biopdb_atom_moving = [BioPDBAtom(atom.type, (atom.x, atom.y, atom.z), atom.temp_fact, atom.occ, atom.alt_location,
                                      " %s " % atom.type, atom.number, element=atom.element_symbol)
-                          for atom in pdb_moving.chain(chain_id_moving).get_ca_atoms()]
+                          for atom in pdb_moving.chain(chain_id_moving).ca_atoms]
     sup = Bio.PDB.Superimposer()
     sup.set_atoms(biopdb_atom_fixed, biopdb_atom_moving)  # Todo remove Bio.PDB
     rot, tr = sup.rotran

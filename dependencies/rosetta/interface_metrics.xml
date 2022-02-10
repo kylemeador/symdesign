@@ -12,8 +12,7 @@
 		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
 		# specify coordinate constraint for the pose
 		<AddConstraints name="add_csts">
-			<CoordinateConstraintGenerator name="coord_cst_gen" native="true" residue_selector="full_pose" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false"/> # bounded_width="0". sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
-<!--TODO TEST version	<CoordinateConstraintGenerator name="coord_cst_gen" native="true"/> # DEFAULTS -> residue_selector="full_pose" sd="0.5" bounded="false" bounded_width="0" sidechain="false" ca_only="false" ambiguous_hnq="false" native="false" align_reference="false". not using a native pose as the native isn't refined, sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic-->
+			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
 		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
 		<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>

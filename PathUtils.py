@@ -18,14 +18,28 @@ generate_fragments = 'generate_fragments'
 analysis = 'analysis'
 cluster_poses = 'cluster_poses'
 select_designs = 'select_designs'
+select_sequences = 'select_sequences'
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
-rosetta = os.environ.get('ROSETTA')
+rosetta_str = 'ROSETTA'
+string_ops = [str.upper, str.lower, str.title]
+rosetta = None
+idx = 0
+search_strings = []
+while idx < 3 and not rosetta:
+    search_strings.append(string_ops[idx](rosetta_str))
+    rosetta = os.environ.get(search_strings[idx])
+    idx += 1
+
+if not rosetta:
+    print('No environmental variable specifying Rosetta software location found at %s. Rosetta inaccessible'
+          % ', '.join(search_strings))
+
 nstruct = 20  # Todo back to 50?
 stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
-         11: 'all_to_cluster'}
+         11: 'all_to_cluster', 12: 'scout', 13: 'hbnet_design_profile', 14: 'structure_background'}
 stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
            stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
            stage[5]: {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
@@ -33,9 +47,6 @@ stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_d
            stage[8]: {'path': '', 'len': None}, stage[9]: {'path': '', 'len': None},
            stage[10]: {'path': '', 'len': None}, stage[11]: {'path': '', 'len': None}}
 rosetta_extras = 'mpi'  # 'cxx11threadmpi' TODO make dynamic at config
-sbatch = 'sbatch'
-sb_flag = '#SBATCH --'
-# sbatch = '_sbatch.sh'
 temp = 'temp.hold'
 pose_prefix = 'tx_'
 # master_log = 'master_log.txt'  # v0
@@ -55,6 +66,7 @@ pose_file = 'docked_pose_info_file.txt'
 frag_profile = '_fragment_profile'
 protein_data = 'ProteinData'
 sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
+# profiles = 'profiles'
 design_directory = 'Designs'
 
 data = 'data'
@@ -72,7 +84,7 @@ directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx
                       % (pdbs_outdir, scores_outdir, scores_outdir)
 variance = 0.8
 clustered_poses = '%sClusteredPoses-%s.pkl'
-pdb_source = 'db'  # 'download_pdb'  # TODO set up
+pdb_source = 'db'  # 'fetch_pdb'  # TODO set up
 
 # Project paths
 source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
@@ -94,26 +106,36 @@ binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_l
 # Stop Inheritance ####
 orient_dir = os.path.join(dependency_dir, 'orient')
 orient_exe_path = os.path.join(orient_dir, orient_exe)
+errat_exe_path = os.path.join(dependency_dir, 'errat', 'errat')
 orient_log_file = 'orient_oligomer_log.txt'
 stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
+bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
+ialign_exe_path = os.path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
 binaries = os.path.join(dependency_dir, 'bin')
+models_to_multimodel_exe = os.path.join(binaries, 'models_to_multimodel.py')
 list_pdb_files = os.path.join(binaries, 'list_files_in_directory.py')
+hbnet_sort = os.path.join(binaries, 'sort_hbnet_silent_file_results.sh')
 sbatch_template_dir = os.path.join(binaries, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
+reformat_msa_exe_path = os.path.join(dependency_dir, 'hh-suite', 'scripts', 'reformat.pl')
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 data_dir = os.path.join(source, data)
 reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')
+# reference_aa_pickle = os.path.join(data_dir, 'AAreference.pkl')
+reference_residues_pkl = os.path.join(data_dir, 'AAreferenceResidues.pkl')
 uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
 # filter_and_sort = os.path.join(data_dir, 'filter_and_sort_df.csv')
 pdb_uniprot_map = os.path.join(data_dir, 'pdb_uniprot_map')  # TODO
 # uniprot_pdb_map = os.path.join(data_dir, 'uniprot_pdb_map')  # TODO
 affinity_tags = os.path.join(data_dir, 'modified-affinity-tags.csv')
-qsbio = os.path.join(data_dir, 'QSbio_Assemblies')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
 database = os.path.join(data_dir, 'databases')
 pdb_db = os.path.join(database, 'pdbDB')  # pointer to pdb database
 pisa_db = os.path.join(database, 'pisaDB')  # pointer to pisa database
-qs_bio = os.path.join(data, 'QSbio_GreaterThanHigh_Assemblies.pkl')
-qs_bio_monomers_file = os.path.join(data, 'QSbio_Monomers.csv')
+# Todo
+#  qsbio = os.path.join(data_dir, 'QSbioAssemblies.pkl')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
+# qs_bio = os.path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
+qs_bio = os.path.join(data_dir, 'QSbioHighConfidenceAssemblies.pkl')
+qs_bio_monomers_file = os.path.join(data_dir, 'QSbio_Monomers.csv')
 
 # TODO script this file creation ?
 #  qsbio_data_url = 'https://www.weizmann.ac.il/sb/faculty_pages/ELevy/downloads/QSbio.xlsx'
@@ -125,7 +147,7 @@ qs_bio_monomers_file = os.path.join(data, 'QSbio_Monomers.csv')
 #  qsbio_df = pd.DataFrame(response.content)
 #  qsbio_df.groupby('QSBio Confidence', inplace=True)
 #  greater_than_high_df = qsbio_df[qsbio_df['QSBio Confidence'] in ['Very high', 'High']
-#
+#  oligomeric_assemblies = greater_than_high_df.drop(qsbio_monomers, errors='ignore')
 #  for pdb_code in qs_bio:
 #      qs_bio[pdb_code] = set(int(ass_id) for ass_id in qs_bio[pdb_code])
 
@@ -133,6 +155,7 @@ qs_bio_monomers_file = os.path.join(data, 'QSbio_Monomers.csv')
 fragment_db = os.path.join(database, 'fragment_db')
 # fragment_db = os.path.join(database, 'fragment_DB')  # TODO when full MySQL DB is operational
 biological_fragmentDB = os.path.join(fragment_db, 'biological_interfaces')  # TODO change this directory style
+biological_fragment_db_pickle = os.path.join(fragment_db, 'biological_interfaces.pkl')
 bio_fragmentDB = os.path.join(fragment_db, 'bio')
 # bio_frag_db = os.path.join(fragment_db, 'bio')  # TODO
 xtal_fragmentDB = os.path.join(fragment_db, 'xtal')
@@ -164,24 +187,14 @@ rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
 symmetry_def_file_dir = 'rosetta_symmetry_definition_files'
 symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
 sym_weights = 'ref2015_sym.wts_patch'
-solvent_weights = 'ref2015_sym_solvent.wts_patch'
+solvent_weights = 'ref2015_solvent.wts_patch'
+solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
-protocol = {-1: 'null', 0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}
+protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
-# Cluster Dependencies and Multiprocessing
-sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
-                    stage[2]: os.path.join(sbatch_template_dir, stage[2]),
-                    stage[3]: os.path.join(sbatch_template_dir, stage[2]),
-                    stage[4]: os.path.join(sbatch_template_dir, stage[1]),
-                    stage[5]: os.path.join(sbatch_template_dir, stage[1]),
-                    nano: os.path.join(sbatch_template_dir, nano),
-                    stage[6]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[7]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[8]: os.path.join(sbatch_template_dir, stage[6]),
-                    stage[9]: os.path.join(sbatch_template_dir, stage[6]),
-                    'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
-                    'interface_metrics': os.path.join(sbatch_template_dir, stage[2])
-                    }
+
+# help and warnings
+warn_missing_symmetry = 'Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\' or \'--sym_entry\''
 
 
 def help(module):  # command is SymDesign.py

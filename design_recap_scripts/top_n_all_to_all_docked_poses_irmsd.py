@@ -54,7 +54,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
             oligomer1_pdb_standardized_chid_list.append(atom1.get_chain())
     oligomer1_pdb_standardized_chid_list = list(set(oligomer1_pdb_standardized_chid_list))
     oligomer1_pdb_standardized.set_all_atoms(oligomer1_pdb_standardized_atom_list)
-    oligomer1_pdb_standardized.set_chain_id_list(oligomer1_pdb_standardized_chid_list)
+    oligomer1_pdb_standardized.chain_id_list = oligomer1_pdb_standardized_chid_list
 
     oligomer2_pdb_standardized = PDB()
     oligomer2_pdb_standardized_atom_list = []
@@ -65,7 +65,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
             oligomer2_pdb_standardized_chid_list.append(atom2.get_chain())
     oligomer2_pdb_standardized_chid_list = list(set(oligomer2_pdb_standardized_chid_list))
     oligomer2_pdb_standardized.set_all_atoms(oligomer2_pdb_standardized_atom_list)
-    oligomer2_pdb_standardized.set_chain_id_list(oligomer2_pdb_standardized_chid_list)
+    oligomer2_pdb_standardized.chain_id_list = oligomer2_pdb_standardized_chid_list
 
     return oligomer1_pdb_standardized, oligomer2_pdb_standardized
 
@@ -98,7 +98,7 @@ def standardize_intra_oligomer_chain_lengths(oligomer1_pdb):
             oligomer1_pdb_standardized_chid_list.append(atom1.get_chain())
     oligomer1_pdb_standardized_chid_list = list(set(oligomer1_pdb_standardized_chid_list))
     oligomer1_pdb_standardized.set_all_atoms(oligomer1_pdb_standardized_atom_list)
-    oligomer1_pdb_standardized.set_chain_id_list(oligomer1_pdb_standardized_chid_list)
+    oligomer1_pdb_standardized.chain_id_list = oligomer1_pdb_standardized_chid_list
 
     return oligomer1_pdb_standardized
 ########################################################################################################################
@@ -146,9 +146,10 @@ def rotated_translated_pdb(pdb, rot, tx):
 
 ######################### FUNCTION TO RETRIEVE INTERFACE CHAIN IDS AND RESIDUE NUMBERS #################################
 def interface_chains_and_resnums(pdb1, pdb2, cb_distance=9.0):
-
-    pdb1_cb_coords, pdb1_cb_indices = pdb1.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
-    pdb2_cb_coords, pdb2_cb_indices = pdb2.get_CB_coords(ReturnWithCBIndices=True, InclGlyCA=True)
+    pdb1_cb_coords = pdb1.get_cb_coords()
+    pdb1_cb_indices = pdb1.cb_indices
+    pdb2_cb_coords = pdb2.get_cb_coords()
+    pdb2_cb_indices = pdb2.cb_indices
 
     pdb1_cb_kdtree = sklearn.neighbors.BallTree(np.array(pdb1_cb_coords))
 
@@ -209,7 +210,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     # An error message can also be printed out in the event that tot_tested_perms > tot_bio_perms.
     # This could mean that the 'e' threshold is set too high and that interface RMSD values could have been calculated
     # for biologically implausible chain mappings.
-    tot_bio_perms = len(ref_pdb1.get_chain_id_list()) * len(ref_pdb2.get_chain_id_list())
+    tot_bio_perms = len(ref_pdb1.chain_id_list) * len(ref_pdb2.chain_id_list)
     tot_tested_perms = 0
 
     # Min Interface RMSD
@@ -231,7 +232,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     ref_pdb1_ca_int_ch_atoms = []
     ref_pdb1_int_chids_ordered = []
     ref_pdb1_int_ca_atoms = []
-    for ref_pdb1_atom in ref_pdb1.get_chain_atoms(ref_pdb1_int_chids):
+    for ref_pdb1_atom in ref_pdb1.chain(ref_pdb1_int_chids).atoms:
         if ref_pdb1_atom.get_chain() not in ref_pdb1_int_chids_ordered:
             ref_pdb1_int_chids_ordered.append(ref_pdb1_atom.get_chain())
         if ref_pdb1_atom.is_CA():
@@ -243,7 +244,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     ref_pdb2_ca_int_ch_atoms = []
     ref_pdb2_int_chids_ordered = []
     ref_pdb2_int_ca_atoms = []
-    for ref_pdb2_atom in ref_pdb2.get_chain_atoms(ref_pdb2_int_chids):
+    for ref_pdb2_atom in ref_pdb2.chain(ref_pdb2_int_chids).atoms:
         if ref_pdb2_atom.get_chain() not in ref_pdb2_int_chids_ordered:
             ref_pdb2_int_chids_ordered.append(ref_pdb2_atom.get_chain())
         if ref_pdb2_atom.is_CA():
@@ -255,16 +256,16 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     ref_int_ca_atoms = ref_pdb1_int_ca_atoms + ref_pdb2_int_ca_atoms
 
     # get pdb1 and pdb2 full chain id lists
-    pdb1_chids = list(set(pdb1.get_chain_id_list()))
-    pdb2_chids = list(set(pdb2.get_chain_id_list()))
+    pdb1_chids = list(set(pdb1.chain_id_list))
+    pdb2_chids = list(set(pdb2.chain_id_list))
 
     # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
     pdb1_chid_ca_atom_dict = {}
     for pdb1_chid in pdb1_chids:
-        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.get_chain_atoms(pdb1_chid) if a.is_CA()]
+        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid).atoms if a.is_CA()]
     pdb2_chid_ca_atom_dict = {}
     for pdb2_chid in pdb2_chids:
-        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.get_chain_atoms(pdb2_chid) if a.is_CA()]
+        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid).atoms if a.is_CA()]
 
     # construct lists of all possible chain id permutations for pdb1 and for pdb2
     # that could map onto reference pdb1 and reference pdb2 interface chains respectively
@@ -391,7 +392,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     # This could mean that the 'e' threshold is set too high and that interface RMSD values could have been calculated
     # for biologically implausible chain mappings.
 
-    # tot_bio_perms = len(ref_pdb1.get_chain_id_list()) * len(ref_pdb2.get_chain_id_list())
+    # tot_bio_perms = len(ref_pdb1.chain_id_list) * len(ref_pdb2.chain_id_list)
     # tot_tested_perms = 0
 
     # get chain id's for all reference pdb1 and reference pdb2 chains that participate in the 'reference interface'
@@ -408,7 +409,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     ref_pdb1_ca_int_ch_atoms = []
     # ref_pdb1_int_chids_ordered = []  # unnecessary in python 3.6+
     ref_pdb1_ca_int_atoms = []
-    for ref_pdb1_atom in ref_pdb1.get_chain_atoms(ref_pdb1_int_chids):
+    for ref_pdb1_atom in ref_pdb1.chain(ref_pdb1_int_chids).atoms:
         # if ref_pdb1_atom.get_chain() not in ref_pdb1_int_chids_ordered:
         #     ref_pdb1_int_chids_ordered.append(ref_pdb1_atom.get_chain())
         if ref_pdb1_atom.is_CA():
@@ -420,7 +421,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     ref_pdb2_ca_int_ch_atoms = []
     # ref_pdb2_int_chids_ordered = []  # unnecessary in python 3.6+
     ref_pdb2_ca_int_atoms = []
-    for ref_pdb2_atom in ref_pdb2.get_chain_atoms(ref_pdb2_int_chids):
+    for ref_pdb2_atom in ref_pdb2.chain(ref_pdb2_int_chids).atoms:
         # if ref_pdb2_atom.get_chain() not in ref_pdb2_int_chids_ordered:
         #     ref_pdb2_int_chids_ordered.append(ref_pdb2_atom.get_chain())
         if ref_pdb2_atom.is_CA():
@@ -432,16 +433,16 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     ref_ca_int_atoms = ref_pdb1_ca_int_atoms + ref_pdb2_ca_int_atoms
 
     # get pdb1 and pdb2 full chain id lists
-    pdb1_chids = list(set(pdb1.get_chain_id_list()))
-    pdb2_chids = list(set(pdb2.get_chain_id_list()))
+    pdb1_chids = list(set(pdb1.chain_id_list))
+    pdb2_chids = list(set(pdb2.chain_id_list))
 
     # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
     pdb1_chid_ca_atom_dict = {}
     for pdb1_chid in pdb1_chids:
-        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.get_chain_atoms(pdb1_chid) if a.is_CA()]
+        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid).atoms if a.is_CA()]
     pdb2_chid_ca_atom_dict = {}
     for pdb2_chid in pdb2_chids:
-        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.get_chain_atoms(pdb2_chid) if a.is_CA()]
+        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid).atoms if a.is_CA()]
 
     # construct lists of all possible chain id permutations for pdb1 and for pdb2
     # that could map onto reference pdb1 and reference pdb2 interface chains respectively
@@ -701,9 +702,9 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     reference_chains_and_residues_d = {}
     for i, des_dir in enumerate(design_directories):
         des_dir.get_oligomers()
-        # docked_pdb1 = des_dir.oligomers[des_dir.oligomer_names[0]]
+        # docked_pdb1 = des_dir.oligomers[des_dir.entity_names[0]]
         docked_pdb1 = des_dir.oligomers[0]
-        # docked_pdb2 = des_dir.oligomers[des_dir.oligomer_names[1]]
+        # docked_pdb2 = des_dir.oligomers[des_dir.entity_names[1]]
         docked_pdb2 = des_dir.oligomers[1]
         reference_chains_and_residues_d[str(des_dir)] = interface_chains_and_resnums(docked_pdb1, docked_pdb2,
                                                                                      cb_distance=9.0)
@@ -714,8 +715,8 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
 
     # For debuggin multiprocessing hang
     # for des_dir in design_directories:
-        des_dir.oligomers[des_dir.oligomer_names[0]] = standardize_intra_oligomer_chain_lengths(docked_pdb1)
-        des_dir.oligomers[des_dir.oligomer_names[1]] = standardize_intra_oligomer_chain_lengths(docked_pdb2)
+        des_dir.oligomers[des_dir.entity_names[0]] = standardize_intra_oligomer_chain_lengths(docked_pdb1)
+        des_dir.oligomers[des_dir.entity_names[1]] = standardize_intra_oligomer_chain_lengths(docked_pdb2)
     # standardized_pdbs1, standardized_pdbs2 = {}, {}
     # for i in range(n):
     #     ref_pose_id, ref_pose_pdb1_filepath, ref_pose_pdb2_filepath = docked_pdb1_pdb2_filepaths[i]
@@ -735,10 +736,10 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     # irmsds = []  # , directory_pairs = [], []
     # for pair in combinations(design_directories, 2):
     #     try:
-    #         irmsds.append(map_align_interface_chains_km(pair[1].oligomers[pair[1].oligomer_names[0]],
-    #                                                     pair[1].oligomers[pair[1].oligomer_names[1]],
-    #                                                     pair[0].oligomers[pair[0].oligomer_names[0]],
-    #                                                     pair[0].oligomers[pair[0].oligomer_names[1]], str(pair[0]),
+    #         irmsds.append(map_align_interface_chains_km(pair[1].oligomers[pair[1].entity_names[0]],
+    #                                                     pair[1].oligomers[pair[1].entity_names[1]],
+    #                                                     pair[0].oligomers[pair[0].entity_names[0]],
+    #                                                     pair[0].oligomers[pair[0].entity_names[1]], str(pair[0]),
     #                                                     str(pair[1]),
     #                                                     *reference_chains_and_residues_d[str(pair[0])]))
     #     except (Bio.PDB.PDBExceptions.PDBException, Exception):
@@ -753,8 +754,8 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
     # MULTIPROCESSING
     zipped_args = []  # , directory_pairs = [], []
     for i, pair in enumerate(combinations(design_directories, 2)):
-        zipped_args.append((pair[1].oligomers[pair[1].oligomer_names[0]], pair[1].oligomers[pair[1].oligomer_names[1]],
-                            pair[0].oligomers[pair[0].oligomer_names[0]], pair[0].oligomers[pair[0].oligomer_names[1]],
+        zipped_args.append((pair[1].oligomers[pair[1].entity_names[0]], pair[1].oligomers[pair[1].entity_names[1]],
+                            pair[0].oligomers[pair[0].entity_names[0]], pair[0].oligomers[pair[0].entity_names[1]],
                             str(pair[0]), str(pair[1]), i, *reference_chains_and_residues_d[str(pair[0])]))
         # directory_pairs.append((str(pair[0]), str(pair[1])))
 

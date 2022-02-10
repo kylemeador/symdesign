@@ -32,10 +32,10 @@ class FetchPDBBA:
         self.pdblist = lf.list_file
 
     def fetch(self):
-        print("FETCHING PDB FILES")
+        print('FETCHING PDB FILES')
         for pdb in self.pdblist:
-                os.system("wget https://files.rcsb.org/download/%s.pdb1 >> fetch_pdb.out 2>&1" % pdb.rstrip())
-        print("DONE FETCHING PDB FILES")
+            os.system('wget https://files.rcsb.org/download/%s.pdb1 >> fetch_pdb.out 2>&1' % pdb.rstrip())
+        print('DONE FETCHING PDB FILES')
 
 
 # class Atom:
@@ -255,13 +255,13 @@ class AtomPair:
 #         if check.residue_number != 1:
 #             # if not, first, grab the first 4 residues of the atom record
 #             start = check.residue_number
-#             residue_string.append(IUPACData.protein_letters_3to1[check.residue_type.title()])
+#             residue_string.append(protein_letters_3to1[check.residue_type.title()])
 #             i = start + 1
 #             for atom in self.all_atoms:
 #                 if i == start + 4:
 #                     break
 #                 elif atom.type == 'N' and atom.residue_number == i:
-#                     residue_string.append(IUPACData.protein_letters_3to1[atom.residue_type.title()])
+#                     residue_string.append(protein_letters_3to1[atom.residue_type.title()])
 #                     i += 1
 #                     continue
 #
@@ -1412,8 +1412,7 @@ class HelixFusion:
             if os.path.isfile(oriented_oligomer_filepath):
                 for i in range(6):
                     # Read in Moving PDB
-                    pdb_oligomer = PDB()
-                    pdb_oligomer.readfile(oriented_oligomer_filepath)
+                    pdb_oligomer = PDB.from_file(oriented_oligomer_filepath)
 
                     # Run Stride On Oligomer
                     if self.oligomer_term == "N" or self.oligomer_term == "C":
@@ -1600,18 +1599,15 @@ class HelixFusion:
 
                                 if distance_check_1.distance() <= 3:
                                     pdb_oligomer.apply(rot, tx)
-                                    pdb_oligomer.rename_chains(target_protein.chain_id_list)
+                                    pdb_oligomer.reorder_chains(exclude_chains=target_protein.chain_id_list)
 
-                                    PDB_OUT = PDB()
-                                    PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
+                                    out_pdb = PDB.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
 
-                                    out_path = design_directory + "/" + os.path.basename(self.target_protein_path)[0:4] + "_" + oligomer_id + "_" + str(i) + ".pdb"
-                                    outfile = open(out_path, "w")
-                                    for atom in PDB_OUT.all_atoms:
-                                        outfile.write(str(atom))
-                                    outfile.close()
+                                    out_path = os.path.join(design_directory,
+                                                            "%s_%s_%d.pdb" % (os.path.basename(self.target_protein_path)[0:4], oligomer_id, i))
+                                    out_pdb.write(out_path=out_path)
 
-        print("Done")
+        print('Done')
 
 
 def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
@@ -1619,7 +1615,7 @@ def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2
         pdb2 = PDB(file=pdb2_path)
 
         if extend_helix:
-            n_terminus = pdb1.chain(chain_1).get_terminal_residue('n').number
+            n_terminus = pdb1.chain(chain_1).n_terminal_residue.number
             if n_terminus in range(start_1, end_1) or n_terminus < start_1:
                 term = 'N'
             else:

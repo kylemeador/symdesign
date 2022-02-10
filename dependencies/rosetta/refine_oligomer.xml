@@ -1,0 +1,34 @@
+<ROSETTASCRIPTS>
+
+	<SCOREFXNS>
+		# patched version of 2015, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
+		<ScoreFunction name="2015_cst" weights="ref2015_cst"> # patch="%%scripts%%/%%sym_score_patch%%">
+<!--			<Reweight scoretype="coordinate_constraint" weight="1"/> # %%cst_value_sym%%"/>-->
+		</ScoreFunction>
+	</SCOREFXNS>
+
+	<MOVERS>
+		# Generates symmetry for the system in question using %%sdf%% or %%dist%%
+		<SetupForSymmetry name="make_point_group" definition="%%sdf%%"/>
+		<FastRelax name="relax" disable_design="true" scorefxn="2015_cst" relaxscript="InterfaceRelax2019" repeats="5" ramp_down_constraints="false"/>
+		# Pull subroutines in from other files
+<!--		<Subroutine name="metrics_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>-->
+		# Symmetry selector and switch reporting
+<!--		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>-->
+<!--		<SwitchMover name="relax_switch" movers="refine,consensus" selected="%%switch%%" />-->
+	</MOVERS>
+
+<!--	<FILTERS>-->
+<!--		<Time name="time"/>-->
+<!--	</FILTERS>-->
+
+	<PROTOCOLS>
+<!--		<Add filter_name="time" report_at_end="false"/>-->
+<!--		<Add mover_name="symmetry_switch"/>-->
+		<Add mover_name="make_point_group"/>
+		<Add mover_name="relax"/>
+<!--		<Add mover_name="metrics_interface_bound"/>-->
+<!--		<Add filter_name="time"/>-->
+	</PROTOCOLS>
+
+</ROSETTASCRIPTS>

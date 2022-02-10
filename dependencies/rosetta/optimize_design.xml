@@ -1,0 +1,286 @@
+<ROSETTASCRIPTS>
+	<SCOREFXNS>
+		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015" weights="ref2015"/>
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+	</SCOREFXNS>
+
+	<RESIDUE_SELECTORS>
+		<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="core_residues_sym" selector="core_residues" />
+		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
+		<Neighborhood name="interface1_neighbors" selector="interface1" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<Not name="full_pose_without_interface1" selector="interface1"/>
+		<And name="interface1_sym_only" selectors="interface1_sym,full_pose_without_interface1"/>
+		<And name="interface1_sym_only_interface1_neighbors" selectors="interface1_sym_only,interface1_neighbors"/>
+		<Neighborhood name="interface1_sym_neighbors" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/>
+		<Or name="interface_or_neighbors1" selectors="interface1,interface1_neighbors"/>
+		<SymmetricalResidue name="interface_or_neighbors1_sym" selector="interface_or_neighbors1"/>
+		# same, but for residues from interface 2
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
+		<Neighborhood name="interface2_neighbors" selector="interface2" distance="8.0" include_focus_in_subset="false"/>
+		<Not name="full_pose_without_interface2" selector="interface2"/>
+		<And name="interface2_sym_only" selectors="interface2_sym,full_pose_without_interface2"/>
+		<And name="interface2_sym_only_interface2_neighbors" selectors="interface2_sym_only,interface2_neighbors"/>
+		<Neighborhood name="interface2_sym_neighbors" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
+		<Or name="interface_or_neighbors2" selectors="interface2,interface2_neighbors"/>
+		<SymmetricalResidue name="interface_or_neighbors2_sym" selector="interface_or_neighbors2"/>
+		# odd overlaps of the two interfaces with symmetry specifically for generating shape_complementarity surfaces
+		# includes all symmetric interface1 residues and entity2 interactions between extra-symmetric (non-oligomeric) self residues
+		<Or name="interface1_sym_and_interface2_sym_neighbors" selectors="interface1_sym,interface2_sym_only_interface2_neighbors"/>
+		# includes all symmetric interface2 residues and entity1 interactions between extra-symmetric (non-oligomeric) self residues
+		<Or name="interface2_sym_and_interface1_sym_neighbors" selectors="interface2_sym,interface1_sym_only_interface1_neighbors"/>
+		# combined groups of all identified interface residues
+		<Or name="tot_interface" selectors="interface1,interface2"/>
+<!--		<And name="symmetric_self_interface_residues" selectors="interface1,interface2"/>-->
+<!--		<Not name="not_symmetric_self_interface_residues" selector="symmetric_self_interface_residues"/>-->
+<!--		<SymmetricalResidue name="symmetric_self_interface_residues_sym" selector="symmetric_self_interface_residues"/>-->
+		<SymmetricalResidue name="tot_interface_sym" selector="tot_interface"/>
+		# the negation of all interface residues
+
+		# the negation of all interface residues
+		<Not name="not_interface" selector="tot_interface"/>
+		<Not name="not_interface_sym" selector="tot_interface_sym"/>
+
+		<And name="interface1_sc" selectors="interface2_neighbors,tot_interface_sym"/>
+		<Neighborhood name="interface1_sc_neighbors" selector="interface1_sc" distance="8.0" include_focus_in_subset="false"/>
+		<SymmetricalResidue name="interface1_sc_sym" selector="interface1_sc"/>
+		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>
+		<SymmetricalResidue name="interface2_sc_sym" selector="interface2_sc"/>
+<!--		<And name="interface2_sc_correct_sym" selectors="interface1_sc_neighbors,interface2_sc_sym"/>-->
+		<Or name="asymmetric_interface" selectors="interface1,interface2_sc"/>
+		<Or name="tot_interface_and_neighbor" selectors="interface_or_neighbors1,interface_or_neighbors2"/>
+		<SymmetricalResidue name="tot_interface_and_neighbor_sym" selector="tot_interface_and_neighbor"/>
+		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
+
+		# other residues that may be designable
+		# TODO REINSTATE
+<!--		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>-->
+		# all designable residues
+		<Or name="all_designable" selectors="tot_interface"/>
+		<And name="core_interface1_sym" selectors="core_residues_sym,interface1_sym"/>
+		<And name="core_interface2_sym" selectors="core_residues_sym,interface2_sym"/>
+		# the negation of all designable residues
+		<Not name="not_designable" selector="all_designable"/>
+		<Not name="not_core_residues" selector="core_residues"/>
+		# all residues
+		<True name="full_pose"/>
+		<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
+<!--		<Task name="select_res_file_residues" fixed="0" packable="0" designable="1" task_operations="read_resfile"/>-->
+<!--		<ResidueName name="special_residues" residue_name3="CYS,GLY,PRO"/>-->
+<!--		<ResidueName name="polar_residues" residue_name3="ASP,GLU,HIS,LYS,ASN,GLN,ARG,SER,THR"/>-->
+<!--		<ResidueName name="hydrophobic_residues" residue_name3="ALA,PHE,ILE,LEU,MET,VAL,TRP,TYR"/>-->
+<!--&lt;!&ndash;		<ResiduePropertySelector name="polar_residues" properties="POLAR"/>&ndash;&gt;-->
+<!--&lt;!&ndash;		<ResiduePropertySelector name="hydrophobic_residues" properties="HYDROPHOBIC"/> # logic="and_logic" default is or_logic&ndash;&gt;-->
+<!--		<Index name="special" resnums="%%special%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<Index name="same" resnums="%%same%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<Index name="different" resnums="%%different%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--		<And name="keep_polar" selectors="same,polar_residues"/>-->
+<!--		<And name="keep_hydrophobic" selectors="same,hydrophobic_residues"/>-->
+<!--&lt;!&ndash;		<And name="make_special" selectors="special"/>&ndash;&gt;-->
+<!--		<And name="make_hydrophobic" selectors="different,polar_residues"/>-->
+<!--		<And name="make_polar" selectors="different,hydrophobic_residues"/>-->
+<!--&lt;!&ndash;		<And name="all_special" selectors="keep_special,make_special"/>&ndash;&gt;-->
+<!--		<And name="all_polar" selectors="keep_polar,make_polar"/>-->
+<!--		<And name="all_hydrophobic" selectors="keep_hydrophobic,make_hydrophobic"/>-->
+	</RESIDUE_SELECTORS>
+
+	<TASKOPERATIONS>
+		# standard task operation to pull in commandline options
+		<InitializeFromCommandline name="init"/>
+		# initialize a pose with the input residues
+		<IncludeCurrent name="include_current"/>
+		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
+		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
+		<SetIGType name="set_ig" lin_mem_ig="false" lazy_ig="false" double_lazy_ig="false"/> # precompute_ig="false" IN NEW VERSION 2021.16.61629. Won't explicitly set any one false if already configured
+		# standard operation to restrict all residues to repacking
+		<RestrictToRepacking name="rtr"/>
+		# restrict all non-interface residues to no repacking and no design
+		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="not_core_no_repack" selector="not_core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+		<OperateOnResidueSubset name="hbnet_rtr" selector="hbnet_residues"> <RestrictToRepackingRLT/> </OperateOnResidueSubset>
+<!--		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="0" resnums_allow_design="1" repack_shell="8.0"/>-->
+		#TODO REINSTATE ^
+		<DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%" design_shell="0.1" allow_design="0" resnums_allow_design="1" repack_shell="8.0"/>
+		# only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
+		<SeqprofConsensus chain_num="1" name="evolution_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="evolution_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # filename="%%evolution_profile%%"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="1" name="fssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="fssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="1" name="pssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="1" name="wt_residues1" min_aa_probability="20" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="2" name="wt_residues2" min_aa_probability="20" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<ReadResfile name="read_resfile" selector="tot_interface"/> # filename=""
+<!--		<DesignRestrictions name="limit_to_residue_types">-->
+<!--			<Action residue_selector="special" aas="CGP"/>-->
+<!--			<Action residue_selector="all_polar" aas="DEHKNQRST"/>-->
+<!--			<Action residue_selector="all_hydrophobic" aas="AFILMVWY"/>-->
+<!--		</DesignRestrictions>-->
+<!--&lt;!&ndash;		<RestrictToResidueProperties name="" properties="HYDROPHOBIC,POLAR" selector=""/>&ndash;&gt;-->
+<!--&lt;!&ndash;		<ResfileCommandOperation name="" command="POLAR PIKAA ACDEFGH <- I wish I could overlap with PSSM" residue_selector=""/>&ndash;&gt;-->
+<!--		<RetrieveStoredTask name="retrieve_designable_test" 		task_name="designable_test"/>-->
+<!--		<RetrieveStoredTask name="optimize_designable_polar" 		task_name="designable_polar"/>-->
+<!--		<RetrieveStoredTask name="optimize_designable_hydrophobic" 	task_name="designable_hydrophobic"/>-->
+<!--&lt;!&ndash;		<RetrieveStoredTask name="optimize_task_operations" 		task_name="optimize_interface_packer_palette"/>&ndash;&gt;-->
+	</TASKOPERATIONS>
+
+	<SIMPLE_METRICS>
+		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
+		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano"/>
+        <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
+<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>-->
+<!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="1" cache_suffix="_hydrophobic"/> # cache_prefix=""-->
+<!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="1" cache_suffix="_total"/> # cache_prefix="" #-->
+	</SIMPLE_METRICS>
+
+	<MOVE_MAP_FACTORIES>
+		<MoveMapFactory name="design_map" bb="0" chi="1">
+			<Backbone residue_selector="all_designable" enable="true"/> # Packer controlled so inherently symmetric
+		</MoveMapFactory>
+	</MOVE_MAP_FACTORIES>
+
+	<FILTERS>
+		<Time name="time"/>
+		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2_sc" write_median_dist="1" max_median_dist="0"/> # Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+<!--		<Delta name="D_shape_complementarity" upper="0" lower="1" range="0.02" filter="shape_complementarity" reference_name="input_pose"/> # reference_pdb="" reference_name="" unbound="0" jump="" relax_mover=""-->
+<!--		<Delta name="D_shape_complementarity_higher" upper="1" lower="0" range="0.0" filter="shape_complementarity" reference_name="input_pose"/> # reference_pdb="" reference_name="" unbound="0" jump="" relax_mover=""-->
+<!--		<CompoundStatement name="shape_complementarity_greater_than" invert="0">-->
+<!--    		<AND filter_name="D_shape_complementarity"/>-->
+<!--    		<OR filter_name="D_shape_complementarity_higher"/>-->
+<!--		</CompoundStatement>-->
+		<ReadPoseExtraScoreFilter name="read_initial_shape_complementarity" term_name="initial_shape_complementarity" threshold="-1"/> # if filter value is greater, report true
+		<CalculatorFilter name="shape_complementarity_delta" equation="Current - (Initial - Deviation)" threshold="0"> # evaluates to true if less than threshold
+			<Var name="Current" filter="shape_complementarity"/>
+			<Var name="Initial" filter="read_initial_shape_complementarity"/>
+			<Var name="Deviation" value="0.02"/> # filter="sasa_total"/>
+		</CalculatorFilter>
+<!--		<SimpleMetricFilter name="hbone_sr_bb_filter" metric="M_hbond_sr_bb_energy" comparison_type="lt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<SimpleMetricFilter name="hbone_lr_bb_filter" metric="M_hbond_lr_bb_energy" comparison_type="lt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<SimpleMetricFilter name="hbone_bb_sc_filter" metric="M_hbond_bb_sc_energy" comparison_type="lt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<SimpleMetricFilter name="hbone_sc_filter" metric="M_hbond_sc_energy" comparison_type="lt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+		<ScoreType name="hbond_sr_bb_energy" scorefxn="2015_nano" score_type="hbond_sr_bb" threshold="10" confidence="1.0"/>
+		<ScoreType name="hbond_lr_bb_energy" scorefxn="2015_nano" score_type="hbond_lr_bb" threshold="10" confidence="1.0"/>
+		<ScoreType name="hbond_bb_sc_energy" scorefxn="2015_nano" score_type="hbond_bb_sc" threshold="10" confidence="1.0"/>
+		<ScoreType name="hbond_sc_energy" scorefxn="2015_nano" score_type="hbond_sc" threshold="10" confidence="1.0"/>
+		<CalculatorFilter name="hbond_calculator" equation="sr_bb + lr_bb + bb_sc +sc" threshold="0"> # evaluates to true if less than threshold
+			<Var name="sr_bb" filter="hbond_sr_bb_energy"/>
+			<Var name="lr_bb" filter="hbond_lr_bb_energy"/>
+			<Var name="bb_sc" filter="hbond_bb_sc_energy"/>
+			<Var name="sc" filter="hbond_sc_energy"/>
+		</CalculatorFilter>
+		<IfThenFilter name="shape_complementarity_if_then" threshold="0" lower_threshold="1">
+			# Invert as the delta will be lower than 0 if the current shape complementarity is worse than original - deviation
+			<IF testfilter="shape_complementarity_delta" inverttest="1" valuefilter="shape_complementarity" weight="1"/> # value=""
+			<ELSE value="-1" weight="1"/> # valuefilter=""
+		</IfThenFilter>
+<!--		<SimpleMetricFilter name="sasa_hydrophobic" metric="M_sasa_hydrophobic" use_cached_data="1" cache_suffix="_hydrophobic" comparison_type="gt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<SimpleMetricFilter name="sasa_total" metric="M_sasa_total" use_cached_data="1" cache_suffix="_total" comparison_type="gt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<CalculatorFilter name="percent_interface_area_hydrophobic" equation="Hydro / Total" threshold="0.65"> # evaluates to true if less than threshold-->
+<!--			<Var name="Hydro" filter="sasa_hydrophobic"/>-->
+<!--			<Var name="Total" filter="sasa_total"/>-->
+<!--		</CalculatorFilter>-->
+		# v This gets all buried area, not just at the interface
+<!--		<BuriedSurfaceArea name="interface_area_total" atom_mode="all_atoms" residue_selector="asymmetric_interface" filter_out_low="1" cutoff_buried_surface_area="0" confidence="1"/> # select_only_FAMILYVW="0"-->
+<!--		<BuriedSurfaceArea name="interface_area_hydrophobic" atom_mode="hydrophobic_atoms" residue_selector="asymmetric_interface" filter_out_low="1" cutoff_buried_surface_area="0" confidence="1"/> # select_only_FAMILYVW="0"-->
+<!--		<CalculatorFilter name="percent_interface_area_hydrophobic" equation="Hydro / Total" threshold="0.65"> # evaluates to true if less than threshold-->
+<!--			<Var name="Hydro" filter="interface_area_hydrophobic"/>-->
+<!--			<Var name="Total" filter="interface_area_total"/>-->
+<!--		</CalculatorFilter>-->
+<!--		<Delta name="D_percent_interface_area_hydrophobic" upper="1" lower="0" range="0.02" filter="percent_interface_area_hydrophobic"/> # reference_pdb="" reference_name="" unbound="" jump="" relax_mover=""-->
+		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+        <SimpleMetricFilter name="interface_residue_count" metric="M_interface_residue_count" comparison_type="gt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+		<ReadPoseExtraScoreFilter name="read_interface_residue_count" term_name="interface_residue_count" threshold="-1"/> # if filter value is greater, report true
+        <CalculatorFilter name="interaction_energy_per_residue" equation="E / Number"> # threshold="(real 0)"
+            <Var name="E" filter="interaction_energy_filter"/>
+            <Var name="Number" filter="read_interface_residue_count"/>
+        </CalculatorFilter>
+	</FILTERS>
+
+	<MOVERS>
+		<AddJobPairData name="job_info" key="protocol" value="optimize_design" value_type="string"/>
+		<SavePoseMover name="save_input_pose" reference_name="input_pose" restore_pose="0"/>
+		<FilterReportAsPoseExtraScoresMover name="RP_interface_residue_count" report_as="interface_residue_count" filter_name="interface_residue_count"/>
+		<FilterReportAsPoseExtraScoresMover name="RP_initial_shape_complementarity" report_as="initial_shape_complementarity" filter_name="shape_complementarity"/>
+<!--		<StoreCompoundTaskMover name="test" task_name="designable_test" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
+<!--			<AND task_operations="limit_to_residue_types"/>-->
+<!--&lt;!&ndash;			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>&ndash;&gt;-->
+<!--		</StoreCompoundTaskMover>-->
+<!--		<StoreCompoundTaskMover name="polar_ssm_residues" task_name="designable_polar" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
+<!--			<AND task_operations="limit_to_residue_types"/>-->
+<!--			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>-->
+<!--		</StoreCompoundTaskMover>-->
+<!--		<StoreCompoundTaskMover name="hydrophobic_ssm_residues" task_name="designable_hydrophobic" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
+<!--			<AND task_operations="limit_to_residue_types"/>-->
+<!--			<AND task_operations="pssm_cutoff1,pssm_cutoff2"/>-->
+<!--		</StoreCompoundTaskMover>-->
+<!--		<StoreCompoundTaskMover name="wt_plus_residue_types" task_name="optimize_interface_packer_palette" mode="designable" true_behavior="" false_behavior="prevent_repacking" invert="0" verbose="1" overwrite="0">-->
+<!--&lt;!&ndash;			<OR task_operations="polar_ssm_residues"/>&ndash;&gt;-->
+<!--			<OR task_operations="optimize_designable_polar"/>-->
+<!--&lt;!&ndash;			<OR task_operations="hydrophobic_ssm_residues"/>&ndash;&gt;-->
+<!--			<OR task_operations="optimize_designable_hydrophobic"/>-->
+<!--			<OR task_operations="wt_residues1,wt_residues2,include_current"/>-->
+<!--		</StoreCompoundTaskMover>-->
+		<SymMinMover name="min" scorefxn="2015_nano" movemap_factory="design_map"/> # bb="0" chi="1"
+		# add CoordinateConstraints to restrict design movement during trajectory
+		<AddConstraints name="add_csts">
+			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
+		</AddConstraints>
+		# Pull subroutines in from other files
+		<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
+<!--		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,set_ig,optimize_task_operations,des_around_total" relax_mover="min" scorefxn="2015_nano">-->
+<!--		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,set_ig,include_current,read_resfile,des_around_total" relax_mover="min" scorefxn="2015_nano">-->
+		<GreedyOptMutationMover name="optimize" task_operations="init,vrt,hbnet_rtr,read_resfile,des_around_total" scorefxn="2015_nano" relax_mover="min"> # repacks an 8A mutation shell then calls "relax_mover". reset_delta_filters="1"-NOT ALLOWED IN 2021 06.16 VERSIONS...
+			<Filters> # filter values actually don't matter for filtering, just for final optimization
+				<AND filter_name="buns_complex" sample_type="low"/>
+<!--				<AND filter_name="shape_complementarity" sample_type="high"/>-->
+<!--				<AND filter_name="D_shape_complementarity" sample_type="low"/> # lower is better because of the delta-->
+<!--				<AND filter_name="D_shape_complementarity" sample_type="high"/>-->
+<!--				<AND filter_name="D_shape_complementarity_higher" sample_type="low"/>-->
+<!--				<AND filter_name="D_shape_complementarity_higher" sample_type="high"/>-->
+				<AND filter_name="shape_complementarity_if_then" sample_type="high"/>
+				# really annoying that I can't get the burial area without multiple protocols
+				<AND filter_name="hbond_calculator" sample_type="low"/>
+<!--				<AND filter_name="percent_interface_area_hydrophobic" sample_type="low"/>-->
+<!--				<AND filter_name="shape_complementarity" sample_type="high"/>-->
+			</Filters>
+		</GreedyOptMutationMover>
+<!--		<FastDesign name="int_design_test" task_operations="init,vrt,set_ig,read_resfile,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--		<FastDesign name="int_design_test" task_operations="init,vrt,set_ig,include_current,read_resfile,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--		<FastDesign name="int_design" task_operations="init,vrt,set_ig,optimize_task_operations,des_around_total" movemap_factory="design_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+	</MOVERS>
+
+	# Symmetry set up section
+	<FILTERS>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+	</FILTERS>
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+<!--		<If name="" filter_name="read_sym" true_mover_name="sym_" false_mover_name="asymmetric_"/>-->
+	</MOVERS>
+
+	<PROTOCOLS>
+		<Add mover_name="symmetry"/>
+		<Add mover_name="add_csts"/>
+		<Add mover_name="job_info"/>
+		<Add mover_name="min"/>
+		<Add mover_name="RP_initial_shape_complementarity"/>
+<!--		<Add mover_name="save_input_pose"/>-->
+<!--		<Add mover_name="test"/>-->
+<!--		<Add mover_name="polar_ssm_residues"/>-->
+<!--		<Add mover_name="hydrophobic_ssm_residues"/>-->
+<!--		<Add mover_name="wt_plus_residue_types"/>-->
+<!--		<Add mover_name="int_design_test"/>-->
+<!--		<Add mover_name="int_design"/>-->
+		<Add mover_name="optimize"/>
+		<Add mover_name="measure_interface_bound"/>
+	</PROTOCOLS>
+
+</ROSETTASCRIPTS>

@@ -1,7 +1,8 @@
 import os
 import sys
 
-from PathUtils import master_log
+# from PathUtils import master_log
+from classes.SymEntry import all_entries, query_combination, query_result, query_counterpart, dimension
 from classes.SymEntry import sym_comb_dict
 from utils import PostProcessUtils, SymQueryUtils
 from SymDesignUtils import start_log
@@ -18,47 +19,42 @@ def query_mode(arg_list):
         print('\033[1m' + '\033[95m' + "MODE: QUERY" + '\033[95m' + '\033[0m' + '\n')
         if arg_list[2] == "-all_entries":
             if len(arg_list) == 3:
-                SymQueryUtils.all_entries()
+                all_entries()
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID QUERY" + '\033[0m')
-
         elif arg_list[2] == "-combination":
             if len(arg_list) == 5:
                 query = [arg_list[3], arg_list[4]]
-                SymQueryUtils.query_combination(query)
+                query_combination(query)
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID COMBINATION QUERY" + '\033[0m')
-
         elif arg_list[2] == "-result":
             if len(arg_list) == 4:
                 query = arg_list[3]
-                SymQueryUtils.query_result(query)
+                query_result(query)
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID RESULT QUERY" + '\033[0m')
-
         elif arg_list[2] == "-counterpart":
             if len(arg_list) == 4:
                 query = arg_list[3]
-                SymQueryUtils.query_counterpart(query)
+                query_counterpart(query)
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID COUNTERPART QUERY" + '\033[0m')
-
         elif arg_list[2] == "-dimension":
             if len(arg_list) == 4 and arg_list[3].isdigit():
                 query = int(arg_list[3])
-                SymQueryUtils.dimension(query)
+                dimension(query)
             else:
                 sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID QUERY" + '\033[0m')
-
     else:
         sys.exit('\033[91m' + '\033[1m' + "ERROR: INVALID QUERY, CHOOSE ONE OF THE FOLLOWING QUERY FLAGS: -all_entries,"
                                           " -combination, -result, -counterpart, -dimension" + '\033[0m')
 
 
 def get_docking_parameters(arg_list):
-    valid_flags = ["-dock", "-entry", "-pdb_dir1_path", "-pdb_dir2_path", "-rot_step1", "-rot_step2", "-outdir",
+    valid_flags = ["-dock", "-entry", "-oligomer1", "-oligomer2", "-rot_step1", "-rot_step2", "-outdir",
                    "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-output_assembly",
-                   '-no_time', '-initial']
+                   '-no_time', '-initial', '-debug']
     if "-outdir" in arg_list:
         outdir_index = arg_list.index('-outdir') + 1
         if outdir_index < len(arg_list):
@@ -76,12 +72,12 @@ def get_docking_parameters(arg_list):
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
         if sys_input.startswith('-') and sys_input not in valid_flags:
-            logger.error("%s IS AN INVALID FLAG\nVALID FLAGS FOR DOCKING ARE:\n%s"
+            logger.error('%s IS AN INVALID FLAG\nVALID FLAGS FOR DOCKING ARE:\n%s'
                          % (sys_input, '\n'.join(valid_flags)))
             exit(1)
 
     # SymEntry PARAMETER
-    if "-entry" in arg_list:
+    if '-entry' in arg_list:
         entry_index = arg_list.index('-entry') + 1
         if entry_index < len(arg_list):
             if arg_list[entry_index].isdigit() and (int(arg_list[entry_index]) in range(1, len(sym_comb_dict))):
@@ -97,13 +93,13 @@ def get_docking_parameters(arg_list):
         exit(1)
 
     # General INPUT PARAMETERS
-    if ("-pdb_dir1_path" in arg_list) and ("-pdb_dir2_path" in arg_list):
-        path1_index = arg_list.index('-pdb_dir1_path') + 1
-        path2_index = arg_list.index('-pdb_dir2_path') + 1
+    if ("-oligomer1" in arg_list) and ("-oligomer2" in arg_list):
+        path1_index = arg_list.index('-oligomer1') + 1
+        path2_index = arg_list.index('-oligomer2') + 1
 
         if (path1_index < len(arg_list)) and (path2_index < len(arg_list)):
-            path1 = arg_list[arg_list.index('-pdb_dir1_path') + 1]
-            path2 = arg_list[arg_list.index('-pdb_dir2_path') + 1]
+            path1 = arg_list[arg_list.index('-oligomer1') + 1]
+            path2 = arg_list[arg_list.index('-oligomer2') + 1]
             if os.path.exists(path1) and os.path.exists(path2):
                 pdb_dir1_path = path1
                 pdb_dir2_path = path2
@@ -179,8 +175,13 @@ def get_docking_parameters(arg_list):
     else:
         initial = False
 
+    if '-debug' in arg_list:
+        debug = True
+    else:
+        debug = False
+
     return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_assembly, \
-        output_surrounding_uc, min_matched, keep_time, initial
+        output_surrounding_uc, min_matched, keep_time, initial, debug
 
 
 def postprocess_mode(arg_list):

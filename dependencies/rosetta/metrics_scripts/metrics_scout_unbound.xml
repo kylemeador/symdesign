@@ -1,0 +1,120 @@
+<ROSETTASCRIPTS>
+
+	<SCOREFXNS>
+		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+<!--			<Reweight scoretype="coordinate_constraint" weight="%%cst_value_sym%%"/>-->
+<!--		</ScoreFunction>-->
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+	</SCOREFXNS>
+
+	<RESIDUE_SELECTORS>
+		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc...
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
+		# same, but for residues from chain "B"
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
+		# combined group of all identified interface residues
+<!--		<Or name="tot_interface" selectors="interface1,interface2"/>-->
+<!--		<Or name="tot_interface_sym" selectors="interface1_sym,interface2_sym"/>-->
+		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
+		<HBond name="hbond_residues_sym" residue_selector="interface%%interface%%" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano_cst"/>
+<!--		<SymmetricalResidue name="hbond_residues" selector="hbond_residues_asu" />-->
+		# all residues
+		<True name="full_pose"/>
+	</RESIDUE_SELECTORS>
+
+	<TASKOPERATIONS>
+		# standard task operation to pull in commandline options
+		<InitializeFromCommandline name="init"/>
+		# standard operation to restrict all residues to repacking
+		<RestrictToRepacking name="rtr"/>
+		<DesignAround name="design_around1" design_shell="0.1" resnums="%%interface1%%" repack_shell="8.0"/>
+		<DesignAround name="design_around2" design_shell="0.1" resnums="%%interface2%%" repack_shell="8.0"/>
+	</TASKOPERATIONS>
+
+	<SIMPLE_METRICS>
+		# gather the residues involved in a residue selector
+		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues_sym"/>
+		# find the per residue energy of residues in a residue_selector
+		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		# gather the per residue SASA of a residue selection
+		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="hydrophobic_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="polar_sasa"/>
+		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="interface%%interface%%" mode="all_sasa"/>
+		# summarize the energy metrics from above
+		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
+		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum"/>
+		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix
+		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum"/>
+		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano_solvation"/>
+	</SIMPLE_METRICS>
+
+	<MOVE_MAP_FACTORIES>
+		<MoveMapFactory name="design_map" bb="0" chi="1">
+			<Backbone residue_selector="interface%%interface%%" enable="true"/> # believe this is Packer controlled so inherently symmetric
+		</MoveMapFactory>
+	</MOVE_MAP_FACTORIES>
+
+	<MOVERS>
+		# generates symmetry for the system in question using %%sdf%% or %%dist%%
+		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
+		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
+		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
+		# specify coordinate constraint for the pose
+		<AddConstraints name="add_csts">
+			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
+		</AddConstraints>
+		# process metrics that are defined in the SimpleMetrics header above
+		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_bound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%interface%%_unbound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_polar_sasa_bound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%interface%%_unbound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_sasa_bound" metrics="M_sasa_total_per_res" prefix="" suffix="_total_%%interface%%_unbound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%interface%%_bound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_%%interface%%_bound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_%%interface%%_bound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_%%interface%%_bound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%interface%%_unbound" override="false"/>
+		# remove selected regions from the pose
+		<DeleteRegionMover name="measure_interface_1" residue_selector="interface2"/> # symmetrized in protocol
+		<DeleteRegionMover name="measure_interface_2" residue_selector="interface1"/> # symmetrized in protocol
+		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
+		# sample all rotamers
+		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/> # Unused in P432
+		# minimize all residues in design_map (move map)
+		<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="1" chi="1"
+		<ParsedProtocol name="rotamer_trials_min_mover">
+			<Add mover_name="RT"/> # Unused in P432 for minimization of the unbound state
+			<Add mover_name="min"/>
+		</ParsedProtocol>
+		<LoopOver name="repack_loop" iterations="4" mover_name="rotamer_trials_min_mover"/>
+	</MOVERS>
+
+	<FILTERS>
+		# find the average degree of connectivity to residues surrounding specified residues
+		<AverageDegree name="interface_connectivity_%%interface%%" threshold="0" distance_threshold="10.0" task_operations="design_around%%interface%%"/>
+<!--		<ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_%%interface%%_unbound" in_context="1" residue_selector="interface%%interface%%_sym" scorefxn="2015_nano" confidence="1.0"/>-->
+		<BuriedUnsatHbonds name="buns_%%interface%%_unbound" residue_selector="interface%%interface%%" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+<!--		<BuriedUnsatHbonds name="buns_hpol_unbound" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
+		<Report name="R_interface_connectivity_%%interface%%" 				filter="interface_connectivity_%%interface%%"/>
+		<Report name="R_buns_%%interface%%_unbound" 						filter="buns_%%interface%%_unbound"/>
+	</FILTERS>
+
+	<PROTOCOLS>
+		<Add mover_name="measure_interface_%%interface%%"/>
+		<Add mover_name="symmetry_switch"/>
+<!--		<Add mover_name="add_csts"/>-->
+		<Add mover_name="run_metrics_bound"/>
+		<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>
+		<Add mover_name="run_metrics_polar_sasa_bound"/>
+		<Add mover_name="run_metrics_sasa_bound"/>
+		<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>
+		<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
+		<Add mover_name="run_metrics_bound_sum_sasa_total"/>
+		<Add filter_name="R_buns_%%interface%%_unbound"/>
+<!--		<Add mover_name="repack_loop"/>-->
+		<Add filter_name="R_interface_connectivity_%%interface%%"/>
+		<Add mover_name="run_metrics_unbound"/>
+	</PROTOCOLS>
+
+</ROSETTASCRIPTS>

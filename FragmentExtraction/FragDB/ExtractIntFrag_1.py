@@ -19,26 +19,22 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
     # nonlocal lower_bound, upper_bound, index_offset, paired
     # Reading In PDB Structure
     pdb_id = os.path.splitext(os.path.basename(pdb_path))[0]
-    pdb = PDB()
-    pdb.read_atom_list()
+    pdb = PDB.from_file(pdb_path)
     # Ensure two chains are present
     if len(pdb.chain_id_list) != 2:
         print('%s %s is missing two chains... It will be skipped!' % (module, pdb_id))
         return pdb_id
-    pdb_ch1_id = pdb.chain_id_list[0]
-    pdb_ch2_id = pdb.chain_id_list[-1]
+    pdb_ch1_id, pdb_ch2_id = pdb.chain_id_list
 
-    # Create PDB instance for Ch1 and Ch2
-    pdb_ch1 = PDB()
-    pdb_ch2 = PDB()
-    pdb_ch1.read_atom_list(pdb.chain(pdb_ch1_id).atoms)
-    pdb_ch2.read_atom_list(pdb.chain(pdb_ch2_id).atoms)
+    # # Create PDB instance for Ch1 and Ch2
+    # pdb_ch1 = PDB.from_atoms(pdb.chain(pdb_ch1_id).atoms)
+    # pdb_ch2 = PDB.from_atoms(pdb.chain(pdb_ch2_id).atoms)
 
     # Find Pairs of Interacting Residues
-    if not pdb_ch1.atoms or not pdb_ch2.atoms:
-        print('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb_id))
-        return pdb_id
-    interacting_pairs = Frag.find_interface_pairs(pdb_ch1, pdb_ch2, interface_dist)
+    # if not pdb_ch1.atoms or not pdb_ch2.atoms:
+    #     print('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb_id))
+    #     return pdb_id
+    interacting_pairs = Frag.find_interface_pairs(pdb.chain(pdb_ch1_id), pdb.chain(pdb_ch2_id), interface_dist)
 
     ch1_central_res_num_used = []
     ch2_central_res_num_used = []
@@ -63,7 +59,7 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
 
         frag1_ca_count = 0
         int_frag_out_atom_list_ch1 = []
-        for atom in pdb_ch1.atoms:
+        for atom in pdb.chain(pdb_ch1_id).atoms:
             if atom.residue_number in ch1_res_num_list:
                 int_frag_out_atom_list_ch1.append(atom)
                 if atom.is_CA():
@@ -71,33 +67,29 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
 
         frag2_ca_count = 0
         int_frag_out_atom_list_ch2 = []
-        for atom in pdb_ch2.atoms:
+        for atom in pdb.chain(pdb_ch2_id).atoms:
             if atom.residue_number in ch2_res_num_list:
                 int_frag_out_atom_list_ch2.append(atom)
                 if atom.is_CA():
                     frag2_ca_count += 1
 
-        int_frag_out = PDB()
-        int_frag_out_ch1 = PDB()
-        int_frag_out_ch2 = PDB()
-
         if frag1_ca_count == frag_length and frag2_ca_count == frag_length:
             if not paired:
                 if center_pair[0] not in ch1_central_res_num_used:
-                    int_frag_out_ch1.read_atom_list(int_frag_out_atom_list_ch1)
+                    int_frag_out_ch1 = PDB.from_atoms(int_frag_out_atom_list_ch1)
                     int_frag_out_ch1.write(os.path.join(single_outdir, pdb_id + '_' + pdb_ch1_id + pdb_ch2_id +
                                                         '_res_' + str(center_pair[0]) + '_ch_' + pdb_ch1_id +
                                                         '.pdb'))
                     ch1_central_res_num_used.append(center_pair[0])
 
                 if center_pair[1] not in ch2_central_res_num_used:
-                    int_frag_out_ch2.read_atom_list(int_frag_out_atom_list_ch2)
+                    int_frag_out_ch2 = PDB.from_atoms(int_frag_out_atom_list_ch2)
                     int_frag_out_ch2.write(os.path.join(single_outdir, pdb_id + '_' + pdb_ch1_id + pdb_ch2_id +
                                                         '_res_' + str(center_pair[1]) + '_ch_' + pdb_ch2_id +
                                                         '.pdb'))
                     ch2_central_res_num_used.append(center_pair[1])
 
-            int_frag_out.read_atom_list(int_frag_out_atom_list_ch1 + int_frag_out_atom_list_ch2)
+            int_frag_out = PDB.from_atoms(int_frag_out_atom_list_ch1 + int_frag_out_atom_list_ch2)
             int_frag_out.write(os.path.join(paired_outdir, pdb_id + '_ch_' + pdb_ch1_id + pdb_ch2_id + '_res_'
                                             + str(center_pair[0]) + '_' + str(center_pair[1]) + '.pdb'))
 
@@ -121,26 +113,19 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
         for pdb_path in int_db_filepaths:
             # Reading In PDB Structure
             pdb_id = os.path.splitext(os.path.basename(pdb_path))[0]
-            pdb = PDB()
-            pdb.readfile(pdb_path)
+            pdb = PDB.from_file(pdb_path)
             # Ensure two chains are present
             if len(pdb.chain_id_list) != 2:
                 print('%s %s is missing two chains... It will be skipped!' % (module, pdb_id))
                 continue
             pdb_ch1_id = pdb.chain_id_list[0]
             pdb_ch2_id = pdb.chain_id_list[-1]
-
-            # Create PDB instance for Ch1 and Ch2
-            pdb_ch1 = PDB()
-            pdb_ch2 = PDB()
-            pdb_ch1.read_atom_list(pdb.chain(pdb_ch1_id).atoms)
-            pdb_ch2.read_atom_list(pdb.chain(pdb_ch1_id).atoms)
-
-            # Find Pairs of Interacting Residues
-            if pdb_ch1.atoms is not None or pdb_ch2.atoms is not None:
-                print('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb_id))
-                continue
-            interacting_pairs = Frag.find_interface_pairs(pdb_ch1, pdb_ch2, interface_dist)
+            #
+            # # Find Pairs of Interacting Residues
+            # if pdb_ch1.atoms is not None or pdb_ch2.atoms is not None:
+            #     print('%s %s is missing atoms in one of two chains... It will be skipped!' % (module, pdb_id))
+            #     continue
+            interacting_pairs = Frag.find_interface_pairs(pdb.chain(pdb_ch1_id), pdb.chain(pdb_ch2_id), interface_dist)
 
             ch1_central_res_num_used = []
             ch2_central_res_num_used = []
@@ -165,7 +150,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
 
                 frag1_ca_count = 0
                 int_frag_out_atom_list_ch1 = []
-                for atom in pdb_ch1.atoms:
+                for atom in pdb.chain(pdb_ch1_id).atoms:
                     if atom.residue_number in ch1_res_num_list:
                         int_frag_out_atom_list_ch1.append(atom)
                         if atom.is_CA():
@@ -173,33 +158,29 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
 
                 frag2_ca_count = 0
                 int_frag_out_atom_list_ch2 = []
-                for atom in pdb_ch2.atoms:
+                for atom in pdb.chain(pdb_ch2_id).atoms:
                     if atom.residue_number in ch2_res_num_list:
                         int_frag_out_atom_list_ch2.append(atom)
                         if atom.is_CA():
                             frag2_ca_count += 1
 
-                int_frag_out = PDB()
-                int_frag_out_ch1 = PDB()
-                int_frag_out_ch2 = PDB()
-
                 if frag1_ca_count == frag_length and frag2_ca_count == frag_length:
                     if not paired:
                         if center_pair[0] not in ch1_central_res_num_used:
-                            int_frag_out_ch1.read_atom_list(int_frag_out_atom_list_ch1)
+                            int_frag_out_ch1 = PDB.from_atoms(int_frag_out_atom_list_ch1)
                             int_frag_out_ch1.write(os.path.join(single_outdir, pdb_id + '_' + pdb_ch1_id + pdb_ch2_id +
                                                                 '_res_' + str(center_pair[0]) + '_ch_' + pdb_ch1_id +
                                                                 '.pdb'))
                             ch1_central_res_num_used.append(center_pair[0])
 
                         if center_pair[1] not in ch2_central_res_num_used:
-                            int_frag_out_ch2.read_atom_list(int_frag_out_atom_list_ch2)
+                            int_frag_out_ch2 = PDB.from_atoms(int_frag_out_atom_list_ch2)
                             int_frag_out_ch2.write(os.path.join(single_outdir, pdb_id + '_' + pdb_ch1_id + pdb_ch2_id +
                                                                 '_res_' + str(center_pair[1]) + '_ch_' + pdb_ch2_id +
                                                                 '.pdb'))
                             ch2_central_res_num_used.append(center_pair[1])
 
-                    int_frag_out.read_atom_list(int_frag_out_atom_list_ch1 + int_frag_out_atom_list_ch2)
+                    int_frag_out = PDB.from_atoms(int_frag_out_atom_list_ch1 + int_frag_out_atom_list_ch2)
                     int_frag_out.write(os.path.join(paired_outdir, pdb_id + '_ch_' + pdb_ch1_id + pdb_ch2_id +
                                                     '_res_' + str(center_pair[0]) + '_' + str(center_pair[1]) + '.pdb'))
     if paired:

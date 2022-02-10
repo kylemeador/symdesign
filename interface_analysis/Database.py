@@ -1,11 +1,17 @@
 import os
 import math
+from glob import glob
+
+import numpy as np
 
 from PDB import PDB
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
-from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log
+from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
+from Structure import parse_stride
+from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
 from utils.MysqlPython import Mysql
+# import dependencies.bmdca as bmdca
 
 
 # Globals
@@ -15,40 +21,196 @@ logger = start_log(name=__name__)
 index_offset = 1
 
 
+class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
+    def __init__(self, oriented, oriented_asu, refined, full_models, stride, sequences, hhblits_profiles, sql=None,
+                 log=logger):
+        if sql:
+            raise DesignError('SQL set up has not been completed!')
+
+        self.log = log
+        self.oriented = DataStore(location=oriented, extension='.pdb*', sql=sql, log=log)
+        self.oriented_asu = DataStore(location=oriented_asu, extension='.pdb', sql=sql, log=log)
+        self.refined = DataStore(location=refined, extension='.pdb', sql=sql, log=log)
+        self.full_models = DataStore(location=full_models, extension='_ensemble.pdb', sql=sql, log=log)
+        self.stride = DataStore(location=stride, extension='.stride', sql=sql, log=log)
+        self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
+        self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=sql, log=log)
+        self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
+        # self.bmdca_fields = \
+        #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep, sql=sql, log=log)
+        # self.bmdca_couplings = \
+        #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_J_final.bin' % os.sep, sql=sql, log=log)
+
+    def load_all_data(self):
+        """For every resource, acquire all existing data in memory"""
+        #              self.oriented_asu, self.sequences,
+        for source in [self.stride, self.alignments, self.hhblits_profiles, self.oriented, self.refined]:  # self.full_models
+            try:
+                source.get_all_data()
+            except ValueError:
+                raise ValueError('Issue from source %s' % source)
+        # self.log.debug('The data in the Database is: %s'
+        #                % '\n'.join(str(store.__dict__) for store in self.__dict__.values()))
+
+    def source(self, name):
+        """Return on of the various DataStores supported by the Database"""
+        try:
+            return getattr(self, name)
+        except AttributeError:
+            raise AttributeError('There is no Database source named \'%s\' found. Possible sources are: %s'
+                                 % (name, ', '.join(self.__dict__)))
+
+    def retrieve_data(self, source=None, name=None):
+        """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
+        file. Raise an error if source or file/SQL doesn't exist
+
+        Keyword Args:
+
+        Returns:
+            (object): The object requested will depend on the source
+        """
+        object_db = self.source(source)
+        data = getattr(object_db, name, None)
+        if not data:
+            object_db.name = object_db.load_data(name, log=None)
+            data = object_db.name  # store the new data as an attribute
+
+        return data
+
+    def retrieve_file(self, from_source=None, name=None):
+        """Retrieve the specified file on disk for subsequent parsing"""
+        object_db = getattr(self, from_source, None)
+        if not object_db:
+            raise DesignError('There is no source named %s found in the Design Database' % from_source)
+
+        return object_db.retrieve_file(name)
+
+
+class DataStore:
+    def __init__(self, location=None, extension='.txt', sql=None, log=logger):
+        self.location = location
+        self.extension = extension
+        self.sql = sql
+        self.log = log
+
+        if '.pdb' in extension:
+            self.load_file = PDB.from_file
+        elif extension == '.fasta':
+            self.load_file = read_fasta_file
+        elif extension == '.stride':
+            self.load_file = parse_stride
+        elif extension == '.hmm':  # in ['.hmm', '.pssm']:
+            self.load_file = parse_hhblits_pssm  # parse_pssm
+        # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
+        elif extension == '.sto':
+            self.load_file = MultipleSequenceAlignment.from_stockholm  # parse_stockholm_to_msa
+        elif extension == '_bmDCA%sparameters_h_final.bin' % os.sep:
+            self.load_file = bmdca.load_fields
+        elif extension == '_bmDCA%sparameters_J_final.bin' % os.sep:
+            self.load_file = bmdca.load_couplings
+        else:  # '.txt' read the file and return the lines
+            self.load_file = self.read_file
+
+    def store(self, name):
+        """Return the path of the storage location given an entity name"""
+        return os.path.join(self.location, '%s%s' % (name, self.extension))
+
+    def retrieve_file(self, name):
+        """Returns the actual location by combining the requested name with the stored .location"""
+        path = os.path.join(self.location, '%s%s' % (name, self.extension))
+        file_location = glob(path)
+        if file_location:
+            if len(file_location) > 1:
+                self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, file_location[0]))
+
+            return file_location[0]
+        else:
+            self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
+
+    def retrieve_data(self, name=None):
+        """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
+        file. Raise an error if source or file/SQL doesn't exist
+
+        Keyword Args:
+            name=None (str): The name of the data to be retrieved. Will be found with location and extension attributes
+        Returns:
+            (any[object, None]): If the data is available, the object requested will be returned, else None
+        """
+        data = getattr(self, name, None)
+        if data:
+            self.log.debug('Info %s%s was retrieved from DataStore' % (name, self.extension))
+        else:
+            setattr(self, name, self.load_data(name, log=None))  # attempt to store the new data as an attribute
+            data = getattr(self, name)
+            if data:
+                self.log.debug('Database file %s%s was loaded fresh' % (name, self.extension))
+
+        return data
+
+    def load_data(self, name, **kwargs):
+        """Return the data located in a particular entry specified by name
+
+        Returns:
+            (Union[None, Any])
+        """
+        if self.sql:
+            dummy = True
+        else:
+            file = self.retrieve_file(name)
+            if file:
+                return self.load_file(file, **kwargs)
+        return
+
+    def get_all_data(self, **kwargs):
+        """Return all data located in the particular DataStore storage location"""
+        if self.sql:
+            dummy = True
+        else:
+            for file in glob(os.path.join(self.location, '*%s' % self.extension)):
+                # self.log.debug('Fetching %s' % file)
+                data = self.load_file(file)
+                setattr(self, os.path.splitext(os.path.basename(file))[0], data)
+
+    @staticmethod
+    def read_file(file, **kwargs):
+        with open(file, 'r') as f:
+            lines = f.readlines()
+
+        return lines
+
+
 class ClusterInfoFile:
     def __init__(self, infofile_path):
-        self.infofile_path = infofile_path
-        self.name = None
+        # self.infofile_path = infofile_path
+        self.name = os.path.splitext(os.path.basename(infofile_path))[0]
         self.size = None
         self.rmsd = None
         self.representative_filename = None
         self.central_residue_pair_freqs = []
-        self.central_residue_pair_counts = []
-        self.load_info()
+        # self.central_residue_pair_counts = []
+        # self.load_info()
 
-    def load_info(self):
-        infofile = open(self.infofile_path, "r")
-        info_lines = infofile.readlines()
-        infofile.close()
+    # def load_info(self):
+        with open(infofile_path, 'r') as f:
+            info_lines = f.readlines()
+
         is_res_freq_line = False
         for line in info_lines:
-
-            if line.startswith("CLUSTER NAME:"):
-                self.name = line.split()[2]
+            # if line.startswith("CLUSTER NAME:"):
+            #     self.name = line.split()[2]
             if line.startswith("CLUSTER SIZE:"):
                 self.size = int(line.split()[2])
-            if line.startswith("CLUSTER RMSD:"):
+            elif line.startswith("CLUSTER RMSD:"):
                 self.rmsd = float(line.split()[2])
-            if line.startswith("CLUSTER REPRESENTATIVE NAME:"):
+            elif line.startswith("CLUSTER REPRESENTATIVE NAME:"):
                 self.representative_filename = line.split()[3]
-
-            if line.startswith("CENTRAL RESIDUE PAIR COUNT:"):
+            elif line.startswith("CENTRAL RESIDUE PAIR COUNT:"):
                 is_res_freq_line = False
-            if is_res_freq_line:
+            elif is_res_freq_line:
                 res_pair_type = (line.split()[0][0], line.split()[0][1])
                 res_pair_freq = float(line.split()[1])
                 self.central_residue_pair_freqs.append((res_pair_type, res_pair_freq))
-            if line.startswith("CENTRAL RESIDUE PAIR FREQUENCY:"):
+            elif line.startswith("CENTRAL RESIDUE PAIR FREQUENCY:"):
                 is_res_freq_line = True
 
     def get_name(self):
@@ -68,17 +230,20 @@ class ClusterInfoFile:
 
 
 class FragmentDB:
-    def __init__(self):
+    def __init__(self, fragment_length=5):
         self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
         self.cluster_representatives_path = intfrag_cluster_rep_dirpath
         self.cluster_info_path = intfrag_cluster_info_dirpath
+        self.fragment_length = fragment_length
         self.reps = None
         self.paired_frags = None
+        self.indexed_ghosts = {}
         self.info = None
 
     def get_monofrag_cluster_rep_dict(self):
         self.reps = {int(os.path.splitext(file)[0]):
-                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, lazy=True, log=None)
+                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, pose_format=False,
+                                   entities=False, log=None)
                      for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
@@ -94,13 +259,15 @@ class FragmentDB:
 
                 for file in files:
                     ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), solve_discrepancy=False,
-                                                             lazy=True, log=None)
-                    ijk_cluster_rep_mapped_chain = file[file.find('mappedchain') + 12:file.find('mappedchain') + 13]
+                                                             pose_format=False, entities=False, log=None)
+                    # ijk_cluster_rep_mapped_chain = file[file.find('mappedchain') + 12:file.find('mappedchain') + 13]
                     ijk_cluster_rep_partner_chain = file[file.find('partnerchain') + 13:file.find('partnerchain') + 14]
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type][k_cluster_type] = \
-                        (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_mapped_chain, ijk_cluster_rep_partner_chain)
+                        (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
 
         self.paired_frags = ijk_cluster_representatives
+        if self.info:
+            self.index_ghosts()
 
     def get_intfrag_cluster_info_dict(self):
         intfrag_cluster_info_dict = {}
@@ -118,10 +285,27 @@ class FragmentDB:
                         ClusterInfoFile(os.path.join(root, file))
 
         self.info = intfrag_cluster_info_dict
+        if self.paired_frags:
+            self.index_ghosts()
+
+    def index_ghosts(self):
+        """From the fragment database, precompute all required data into arrays to populate Ghost Fragments"""
+        for i_type in self.paired_frags:
+            stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).get_backbone_coords()
+                                          for j_dict in self.paired_frags[i_type].values()
+                                          for frag_pdb, frag_paired_chain in j_dict.values()])
+            stacked_guide_coords = np.array([frag_pdb.chain('9').coords for j_dict in self.paired_frags[i_type].values()
+                                             for frag_pdb, _, in j_dict.values()])
+            ijk_types = \
+                np.array([(i_type, j_type, k_type) for j_type, j_dict in self.paired_frags[i_type].items()
+                          for k_type in j_dict])
+            # rmsd_array = np.array([self.info.cluster(type_set).rmsd for type_set in ijk_types])  # Todo
+            rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
+            self.indexed_ghosts[i_type] = (stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array)
 
 
 class FragmentDatabase(FragmentDB):
-    def __init__(self, source='directory', location=None, length=5, init_db=False):
+    def __init__(self, source='biological_interfaces', fragment_length=5, init_db=False, sql=False):
         super().__init__()  # FragmentDB
         # self.monofrag_representatives_path = monofrag_representatives_path
         # self.cluster_representatives_path
@@ -130,10 +314,8 @@ class FragmentDatabase(FragmentDB):
         # self.paired_frags = None
         # self.info = None
         self.source = source
-        if location:
-            self.location = frag_directory[location]  # location
-        else:
-            self.location = None
+        # Todo make dynamic upon unpickle and not loaded. OR load all statistics files into the pickle!
+        self.location = frag_directory.get(source, None)
         self.statistics = {}
         # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
@@ -141,22 +323,21 @@ class FragmentDatabase(FragmentDB):
         self.cluster_info = {}
         self.fragdb = None
 
-        if self.source == 'DB':
+        if sql:
             self.start_mysql_connection()
             self.db = True
-        elif self.source == 'directory':
+        else:  # self.source == 'directory':
             # Todo initialize as local directory
             self.db = False
             if init_db:
-                logger.info('Initializing FragmentDatabase from disk. This may take awhile...')
+                logger.info('Initializing %s FragmentDatabase from disk. This may take awhile...' % source)
                 self.get_monofrag_cluster_rep_dict()
                 self.get_intfrag_cluster_rep_dict()
                 self.get_intfrag_cluster_info_dict()
-        else:
-            self.db = False
+                # self.get_cluster_info()
 
         self.get_db_statistics()
-        self.parameterize_frag_length(length)
+        self.parameterize_frag_length(fragment_length)
 
     def get_db_statistics(self):
         """Retrieve summary statistics for a specific fragment database located on directory
@@ -172,9 +353,15 @@ class FragmentDatabase(FragmentDB):
             logger.warning('No SQL DB connected yet!')  # Todo
             raise DesignError('Can\'t connect to MySQL database yet')
         else:
-            for file in os.listdir(self.location):
-                if 'statistics.pkl' in file:
-                    self.statistics = unpickle(os.path.join(self.location, file))
+            stats_file = glob(os.path.join(self.location, 'statistics.pkl'))
+            if len(stats_file) == 1:
+                self.statistics = unpickle(stats_file[0])
+            else:
+                raise DesignError('There were too many statistics.pkl files found from the fragment database source!')
+            # for file in os.listdir(self.location):
+            #     if 'statistics.pkl' in file:
+            #         self.statistics = unpickle(os.path.join(self.location, file))
+            #         return
 
     def get_db_aa_frequencies(self):
         """Retrieve database specific interface background AA frequencies
@@ -182,9 +369,9 @@ class FragmentDatabase(FragmentDB):
         Returns:
             (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
         """
-        return self.statistics['frequencies']
+        return self.statistics.get('frequencies', {})
 
-    def retrieve_cluster_info(self, cluster=None, source=None, index=None):
+    def retrieve_cluster_info(self, cluster=None, source=None, index=None):  # Todo rework this, below func for Database
         """Return information from the fragment information database by cluster_id, information source, and source index
          cluster_info takes the form:
             {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ...,

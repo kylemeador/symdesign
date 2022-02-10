@@ -1,4 +1,5 @@
 import os
+import subprocess
 from itertools import combinations
 from warnings import catch_warnings, simplefilter
 
@@ -12,12 +13,17 @@ from sklearn.metrics import median_absolute_error  # r2_score,
 from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 import pandas as pd
-from Bio.PDB import PDBParser
-from Bio.PDB.Selection import unfold_entities
 
-import SymDesignUtils as SDUtils
-from DesignMetrics import filter_pose, query_user_for_metrics, nanohedra_metrics
+from PathUtils import ialign_exe_path
+from SymDesignUtils import handle_design_errors, DesignError, index_intersection, mp_map, sym, rmsd_threshold, \
+    digit_translate_table, start_log
+from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
+from Structure import superposition3d
 from utils.GeneralUtils import transform_coordinate_sets
+
+
+# globals
+logger = start_log(name=__name__)
 
 
 def pose_rmsd_mp(all_des_dirs, threads=1):
@@ -41,7 +47,7 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
             # add all individual poses to a singles pool. pair2 is included in pair1, no need to add additional
             singlets[pair1.composition] = pair1
     # find the rmsd between a pair of poses.  multiprocessing to increase throughput
-    _results = SDUtils.mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
+    _results = mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
 
     # Make dictionary with all pairs
     for pair, pair_rmsd in zip(pairs_to_process, _results):
@@ -76,32 +82,30 @@ def pose_pair_rmsd(pair):
     """Calculate the rmsd between Nanohedra pose pairs using the intersecting residues at the interface of each pose
 
     Args:
-        pair (tuple[DesignDirectory, DesignDirectory]): Two DesignDirectory objects from pose processing directories
+        pair (tuple[DesignDirectory.DesignDirectory, DesignDirectory.DesignDirectory]):
+            Paired DesignDirectory objects from pose processing directories
     Returns:
         (float): RMSD value
     """
     # protein_pair_path = pair[0].composition
     # Grab designed resides from the design_directory
-    des_residue_list = [pose.info['design_residues'] for pose in pair]
+    design_residues = [set(pose.design_residues) for pose in pair]
 
     # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
     # could use the union as well...?
-    des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
-                                                  for n, pose_residues in enumerate(des_residue_list)})
-    if not des_residue_set:  # when the two structures are not significantly overlapped
+    des_residue_set = index_intersection(design_residues)
+    if not des_residue_set:  # when the two structures are not overlapped
         return np.nan
     else:
-        pdb_parser = PDBParser(QUIET=True)
-        pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-        rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-                              if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-        pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-                          for entity_list in rmsd_residue_list]
-
-        return SDUtils.superimpose(pair_atom_list)
-
-    # return pair_rmsd
-    # return {protein_pair_path: {str(pair[0]): {str(pair[0]): pair_rmsd}}}
+        # pdb_parser = PDBParser(QUIET=True)
+        # pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+        # rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
+        #                       if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
+        # pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
+        #                   for entity_list in rmsd_residue_list]
+        #
+        # return superimpose(pair_atom_list)
+        return superposition3d(*[pose.pose.coords for pose in pair])[0]
 
 
 def pose_rmsd_s(all_des_dirs):
@@ -110,40 +114,41 @@ def pose_rmsd_s(all_des_dirs):
         if pair[0].composition == pair[1].composition:
             protein_pair_path = pair[0].composition
             # Grab designed resides from the design_directory
-            des_residue_list = [pose.info['des_residues'] for pose in pair]
-            # could use the union as well...
-            des_residue_set = SDUtils.index_intersection({pair[n]: set(pose_residues)
-                                                          for n, pose_residues in enumerate(des_residue_list)})
-            if des_residue_set == list():  # when the two structures are not significantly overlapped
-                pair_rmsd = np.nan
-            else:
-                pdb_parser = PDBParser(QUIET=True)
-                # pdb = parser.get_structure(pdb_name, filepath)
-                pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-                # returns a list with all ca atoms from a structure
-                # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
-                # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
-
-                # pair should be a structure...
-                # for structure in pair_structures:
-                #     for residue in structure.residues:
-                #         print(residue)
-                #         print(residue[0])
-                rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-                                      if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-
-                # rmsd_residue_list = [[residue for residue in structure.residues
-                #                       if residue.get_id()[1] in des_residue_list[n]]
-                #                      for n, structure in enumerate(pair_structures)]
-
-                # print(rmsd_residue_list)
-                pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-                                  for entity_list in rmsd_residue_list]
-                # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
-                # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
-                # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
-
-                pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
+            pair_rmsd = pose_pair_rmsd(pair)
+            # des_residue_list = [pose.info['des_residues'] for pose in pair]
+            # # could use the union as well...
+            # des_residue_set = index_intersection({pair[n]: set(pose_residues)
+            #                                               for n, pose_residues in enumerate(des_residue_list)})
+            # if des_residue_set == list():  # when the two structures are not significantly overlapped
+            #     pair_rmsd = np.nan
+            # else:
+            #     pdb_parser = PDBParser(QUIET=True)
+            #     # pdb = parser.get_structure(pdb_name, filepath)
+            #     pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+            #     # returns a list with all ca atoms from a structure
+            #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
+            #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
+            #
+            #     # pair should be a structure...
+            #     # for structure in pair_structures:
+            #     #     for residue in structure.residues:
+            #     #         print(residue)
+            #     #         print(residue[0])
+            #     rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
+            #                           if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
+            #
+            #     # rmsd_residue_list = [[residue for residue in structure.residues
+            #     #                       if residue.get_id()[1] in des_residue_list[n]]
+            #     #                      for n, structure in enumerate(pair_structures)]
+            #
+            #     # print(rmsd_residue_list)
+            #     pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
+            #                       for entity_list in rmsd_residue_list]
+            #     # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
+            #     # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
+            #     # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
+            #
+            #     pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
             # if not pair_rmsd:
             #     continue
             if protein_pair_path in pose_map:
@@ -169,6 +174,55 @@ def pose_rmsd_s(all_des_dirs):
     return pose_map
 
 
+def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join(os.getcwd(), 'ialign')):
+    """Run non-sequential iAlign on two .pdb files
+
+    Returns:
+        (float): The IS score from Mu & Skolnic 2010
+    """
+    # example command
+    # perl ../bin/ialign.pl -w output -s -a 0 1lyl.pdb AC 12as.pdb AB | grep "IS-score = "
+    # output
+    # IS-score = 0.38840, P-value = 0.3808E-003, Z-score =  7.873
+    # chains = []
+    # if chain1:
+    #     chains += ['-c1', chain1]
+    # if chain2:
+    #     chains += ['-c2', chain2]
+
+    if not chain1:
+        chain1 = 'AB'
+    if not chain2:
+        chain2 = 'AB'
+    chains = ['-c1', chain1, '-c2', chain2]
+
+    temp_pdb_file1 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file1.translate(digit_translate_table)))
+    temp_pdb_file2 = os.path.join(os.getcwd(), 'temp', os.path.basename(pdb_file2.translate(digit_translate_table)))
+    os.system('scp %s %s' % (pdb_file1, temp_pdb_file1))
+    os.system('scp %s %s' % (pdb_file2, temp_pdb_file2))
+    # cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', pdb_file1, '-p2', pdb_file2] + chains
+    cmd = ['perl', ialign_exe_path, '-s', '-w', out_path, '-p1', temp_pdb_file1, '-p2', temp_pdb_file2] + chains
+    logger.debug('iAlign command: %s' % subprocess.list2cmdline(cmd))
+    ialign_p = subprocess.Popen(cmd, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    ialign_out, ialign_err = ialign_p.communicate()
+    grep_p = subprocess.Popen(['grep', 'IS-score = '], stdin=subprocess.PIPE, stdout=subprocess.PIPE)
+    ialign_is_score, err = grep_p.communicate(input=ialign_out)
+
+    ialign_is_score = ialign_is_score.decode()
+    try:
+        is_score, pvalue, z_score = [score.split('=')[-1].strip() for score in ialign_is_score.split(',')]
+        logger.info('iAlign interface alignment: %s' % ialign_is_score.strip())
+        return float(is_score)
+        # return float(is_score), \
+        #     os.path.splitext(os.path.basename(pdb_file1))[0], os.path.splitext(os.path.basename(pdb_file2))[0]
+    except ValueError:
+        logger.info('No significiant interface found')
+        pass
+    return 0.0
+    # return 0.0, \
+    #     os.path.splitext(os.path.basename(pdb_file1))[0], os.path.splitext(os.path.basename(pdb_file2))[0]
+
+
 def cluster_poses(pose_map):
     """Take a pose map calculated by pose_rmsd (_mp or _s) and cluster using DBSCAN algorithm
 
@@ -186,7 +240,7 @@ def cluster_poses(pose_map):
         # for k, dist in enumerate(pairwise_sequence_diff_np):
         #     i, j = SDUtils.condensed_to_square(k, len(designs))
         #     pairwise_sequence_diff_mat[i, j] = dist
-        building_block_rmsd_matrix = SDUtils.sym(building_block_rmsd_df.values)
+        building_block_rmsd_matrix = sym(building_block_rmsd_df.values)
         # print(building_block_rmsd_df.values)
         # print(building_block_rmsd_matrix)
         # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
@@ -196,8 +250,8 @@ def cluster_poses(pose_map):
         # epsilon = pca_distance_vector.mean() * 0.5
 
         # Compute pose clusters using DBSCAN algorithm
-        # logger.info('Finding pose clusters within RMSD of %f' % SDUtils.rmsd_threshold) # TODO
-        dbscan = DBSCAN(eps=SDUtils.rmsd_threshold, min_samples=2, metric='precomputed')
+        # logger.info('Finding pose clusters within RMSD of %f' % rmsd_threshold) # TODO
+        dbscan = DBSCAN(eps=rmsd_threshold, min_samples=2, metric='precomputed')
         dbscan.fit(building_block_rmsd_matrix)
 
         # find the cluster representative by minimizing the cluster mean
@@ -284,7 +338,7 @@ def predict_best_pose_from_transformation_cluster(train_trajectories_file, train
     # assign each metric a weight proportional to it's share of the total weight
     rosetta_select_metrics = {item: 1 / len(rosetta_metrics) for item in rosetta_metrics}
     # weighting scheme inherently standardizes the weights between [0, 1] by taking a linear combination of the metrics
-    targets = filter_pose(train_trajectories_file, weight=rosetta_select_metrics)  # weight=True)
+    targets = prioritize_design_indices(train_trajectories_file, weight=rosetta_select_metrics)  # weight=True)
 
     # for proper MultiTask model training, must scale the selected metrics. This is performed on trajectory_df above
     # targets2d = train_traj_df.loc[:, rosetta_select_metrics.keys()]
@@ -324,13 +378,22 @@ def chose_top_pose_from_model(test_trajectories_file, clustered_poses, model):
     """
     test_docking_df = pd.read_csv(test_trajectories_file, index_col=0, header=[0, 1, 2])
 
-    for cluster_representative, cluster_designs in clustered_poses.items():
-        trajectory_df = test_docking_df.loc[cluster_designs, nanohedra_metrics]
+    for cluster_representative, designs in clustered_poses.items():
+        trajectory_df = test_docking_df.loc[designs, nanohedra_metrics]
         trajectory_df['model_predict'] = model.predict(trajectory_df)
         trajectory_df.sort_values('model_predict')
 
 
-def cluster_transformations(transform1, transform2, distance=1.0):
+def return_transform_pair_as_guide_coordinate_pair(transform1, transform2):
+    # make a blank set of guide coordinates for each incoming transformation
+    guide_coords = np.tile(np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]]), (len(transform1['rotation']), 1, 1))
+    transformed_guide_coords1 = transform_coordinate_sets(guide_coords, **transform1)
+    transformed_guide_coords2 = transform_coordinate_sets(guide_coords, **transform2)
+
+    return np.concatenate([transformed_guide_coords1.reshape(-1, 9), transformed_guide_coords2.reshape(-1, 9)], axis=1)
+
+
+def cluster_transformation_pairs(transform1, transform2, distance=1.0, minimum_members=2):  # , return_representatives=True):
     """Cluster Pose conformations according to their specific transformation parameters to find Poses which occupy
     essentially the same space
 
@@ -341,35 +404,41 @@ def cluster_transformations(transform1, transform2, distance=1.0):
             {'rotation': rot_array, 'translation': tx_array, 'rotation2': rot2_array, 'translation2': tx2_array}
     Keyword Args:
         distance=1.0 (float): The distance to query neighbors in transformational space
+        minimum_members (int): The minimum number of members in each cluster
     Returns:
-        (tuple[numpy.ndarray(int), numpy.ndarray(int)]): Representative indices, cluster membership indices
+        (tuple[sklearn.neighbors.NearestNeighbors, sklearn.dbscan_cluster.DBSCAN]): Representative indices DBSCAN cluster membership indices
     """
     # Todo tune DBSCAN distance (epsilon) to be reflective of the data, should be related to radius in NearestNeighbors
     #  but smaller by some amount. Ideal amount would be the distance between two transformed guide coordinate sets of
     #  a similar tx and a 3 degree step of rotation.
-    # make a blank set of guide coordinates for each incoming transformation
-    guide_coords = np.tile(np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]]), (len(transform1['rotation']), 1, 1))
-    # transform1 =
-
-    transformed_guide_coords1 = transform_coordinate_sets(guide_coords, **transform1)
-
-    transformed_guide_coords2 = transform_coordinate_sets(guide_coords, **transform2)
-
-    transformed_guide_coords = np.concatenate([transformed_guide_coords1.reshape(-1, 9),
-                                               transformed_guide_coords2.reshape(-1, 9)], axis=1)
+    transformed_guide_coords = return_transform_pair_as_guide_coordinate_pair(transform1, transform2)
 
     # create a tree structure describing the distances of all transformed points relative to one another
-    transform_tree = NearestNeighbors(algorithm='ball_tree', radius=distance)
-    transform_tree.fit(transformed_guide_coords)
+    nearest_neightbors_ball_tree = NearestNeighbors(algorithm='ball_tree', radius=distance)
+    nearest_neightbors_ball_tree.fit(transformed_guide_coords)
     #                                sort_results returns only non-zero entries and provides the smallest distance first
-    distance_graph = transform_tree.radius_neighbors_graph(mode='distance', sort_results=True)  # <- sort doesn't work?
+    distance_graph = nearest_neightbors_ball_tree.radius_neighbors_graph(mode='distance', sort_results=True)  # <- sort doesn't work?
     #                                                      X=transformed_guide_coords is implied
     # because this doesn't work to sort_results and pull out indices, I have to do another step 'radius_neighbors'
-    cluster = DBSCAN(eps=distance, min_samples=2, metric='precomputed').fit(distance_graph)  # , sample_weight=SOME WEIGHTS?
-    outlier = -1  # -1 are outliers in DBSCAN
-    labels = set(cluster.labels_) - {outlier}  # labels live here
-    tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
+    dbscan_cluster = DBSCAN(eps=distance, min_samples=minimum_members, metric='precomputed').fit(distance_graph)  # , sample_weight=A WEIGHT?
 
+    # if return_representatives:
+    #     return find_cluster_representatives(nearest_neightbors_ball_tree, dbscan_cluster)
+    # else:  # return data structure
+    return nearest_neightbors_ball_tree, dbscan_cluster  # .labels_
+
+
+def find_cluster_representatives(transform_tree, cluster):
+    """Return the cluster representative indices and the cluster membership identity for all member data
+
+    Args:
+        transform_tree (sklearn.neighbors.NearestNeighbors):
+        cluster (sklearn.cluster.DBSCAN):
+    Returns:
+        (tuple[list, numpy.ndarray]) The list of representative indices and the array of all indices membership
+    """
+    outlier = -1  # -1 are outliers in DBSCAN
+    tree_distances, tree_indices = transform_tree.radius_neighbors(sort_results=True)
     # find cluster mean for each index
     with catch_warnings():
         # empty slices can't have mean, so catch warning if cluster is an outlier
@@ -380,7 +449,7 @@ def cluster_transformations(transform1, transform2, distance=1.0):
 
     # for each label (cluster), add the minimal mean (representative) the representative transformation indices
     representative_transformation_indices = []
-    for label in labels:
+    for label in set(cluster.labels_) - {outlier}:  # labels live here
         cluster_indices = np.flatnonzero(cluster.labels_ == label)
         representative_transformation_indices.append(cluster_indices[mean_cluster_dist[cluster_indices].argmin()])
     # add all outliers to representatives
@@ -389,7 +458,7 @@ def cluster_transformations(transform1, transform2, distance=1.0):
     return representative_transformation_indices, cluster.labels_
 
 
-@SDUtils.handle_design_errors(errors=(SDUtils.DesignError, AssertionError))
+@handle_design_errors(errors=(DesignError, AssertionError))
 def cluster_designs(composition_designs, return_pose_id=True):
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
@@ -401,7 +470,7 @@ def cluster_designs(composition_designs, return_pose_id=True):
         matching poses as the values
     """
     # format all transforms for the selected compositions
-    stacked_transforms = [design_directory.pose_transformation() for design_directory in composition_designs]
+    stacked_transforms = [design_directory.pose_transformation for design_directory in composition_designs]
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[1].values()
                                                              for transform in stacked_transforms])
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[2].values()
@@ -414,37 +483,39 @@ def cluster_designs(composition_designs, return_pose_id=True):
                        'rotation2': np.array(trans2_rot2), 'translation2': np.array(trans2_tx2)[:, np.newaxis, :]}
 
     # This section could be added to the Nanohedra docking routine
-    cluster_representative_indices, cluster_labels = cluster_transformations(transformation1, transformation2)
-    representative_labels = cluster_labels[cluster_representative_indices]
+    cluster_representative_indices, cluster_labels = \
+        find_cluster_representatives(*cluster_transformation_pairs(transformation1, transformation2))
 
-    # pull out the pose-id from the input composition_designs groups (DesignDirectory)
+    representative_labels = cluster_labels[cluster_representative_indices]
+    # pull out pose's from the input composition_designs groups (DesignDirectory)
     if return_pose_id:  # convert all DesignDirectories to pose-id's
-        composition_map = {str(composition_designs[rep_idx]): [str(composition_designs[idx])
-                                                               for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-                           for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
-                           if rep_label != -1}  # don't add outliers (-1 labels) now
+        # don't add the outliers now (-1 labels)
+        composition_map = \
+            {str(composition_designs[rep_idx]):
+                 [str(composition_designs[idx]) for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+             for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
         # add the outliers as separate occurrences
         composition_map.update({str(composition_designs[idx]): []
                                 for idx in np.flatnonzero(cluster_labels == -1).tolist()})
-    else:
-        composition_map = {composition_designs[rep_idx]: [composition_designs[idx]
-                                                          for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-                           for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels)
-                           if rep_label != -1}  # don't add outliers (-1 labels) now
-        # add the outliers as separate occurrences
+    else:  # return the DesignDirectory object
+        composition_map = \
+            {composition_designs[rep_idx]: [composition_designs[idx]
+                                            for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+             for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
         composition_map.update({composition_designs[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
 
     return composition_map
 
 
 def group_compositions(design_directories):
+    """From a set of DesignDirectories, find all the compositions and group together"""
     compositions = {}
     for design in design_directories:
-        design.gather_pose_metrics()
-        if compositions.get(design.composition, None):
-            compositions[design.composition].append(design)
+        entity_names = tuple(design.entity_names)
+        if compositions.get(entity_names, None):
+            compositions[entity_names].append(design)
         else:
-            compositions[design.composition] = [design]
+            compositions[entity_names] = [design]
 
     return compositions
 

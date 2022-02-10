@@ -115,7 +115,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 
 
 @handle_design_errors(errors=(DesignError, AssertionError))
-def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None, default=True, initial=False):
+def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=False):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
     Return:
@@ -153,15 +153,16 @@ def nanohedra_command(entry, path1, path2, out_dir=None, flags=None, suffix=None
     if not os.path.exists(script_out_dir):
         os.makedirs(script_out_dir)
 
-    if default:
-        step_1, step_2 = '3', '3'
-    else:
-        step_1, step_2 = '2', '2'
+    # if default:
+    #     step_1, step_2 = '3', '3'
+    # else:
+    #     step_1, step_2 = '2', '2'
 
     _cmd = ['python', program, '-dock', '-entry', str(entry), '-pdb_dir1_path', path1, '-pdb_dir2_path', path2,
-            '-rot_step1', step_1, '-rot_step2', step_2, '-outdir', nano_out_dir]
-    if flags:
-        _cmd.extend(flags)
+            # '-rot_step1', step_1, '-rot_step2', step_2,
+            '-outdir', nano_out_dir]
+    # if flags:
+    #     _cmd.extend(flags)
 
     if initial:
         _cmd.extend(['-initial'])

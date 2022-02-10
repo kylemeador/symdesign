@@ -9,7 +9,7 @@ from glob import glob, iglob
 from itertools import repeat
 
 import numpy as np
-from Bio.SeqUtils import IUPACData
+from Bio.Data.IUPACData import protein_letters_1to3, protein_letters_3to1
 # from sklearn.preprocessing import StandardScaler
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
@@ -74,7 +74,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Extract information from SymDock Output
     des_dir.gather_docking_metrics()
-    des_dir.gather_pose_metrics()
+    des_dir.retrieve_pose_metrics_from_file()
     pdb_codes = str(os.path.basename(des_dir.composition)).split('_')
     # cluster_residue_d, transformation_dict = SDUtils.gather_fragment_metrics(des_dir)
 
@@ -163,7 +163,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # sym = SDUtils.handle_symmetry(sym_entry_number)  # This makes the process dependent on the PUtils.master_log file
     protocol = PUtils.protocol[des_dir.design_dimension]
     if des_dir.design_dimension > 0:  # layer or space
-        sym_def_file = SDUtils.sdf_lookup(None, dummy=True)  # currently grabbing dummy.sym
+        sym_def_file = SDUtils.sdf_lookup(None)  # grabs dummy.sym
         main_cmd += ['-symmetry_definition', 'CRYST1']
     else:  # point
         sym_def_file = SDUtils.sdf_lookup(des_dir.sym_entry_number)
@@ -236,7 +236,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             template_pdb.insert_residue(chain, residue, gapped_residues_d[chain][residue]['from'])
 
     template_pdb.renumber_residues()
-    jump = template_pdb.chain(template_pdb.chain_id_list[0]).get_terminal_residue('c').number
+    jump = template_pdb.chain(template_pdb.chain_id_list[0]).c_terminal_residue.number
     template_residues = template_pdb.residues
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))
@@ -264,7 +264,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # total_int_residue_objects = [res_obj for chain in names for res_obj in int_residue_objects[chain]] Now above
     interface = PDB.from_atoms([atom for residue in total_int_residue_objects for atom in residue.atoms])
     interface_tree = SDUtils.residue_interaction_graph(interface)
-    interface_cb_indices = interface.get_cb_indices()  # InclGlyCA=True)
+    interface_cb_indices = interface.cb_indices
 
     interface_residue_edges = {}
     for idx, residue_contacts in enumerate(interface_tree):
@@ -330,7 +330,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
                 if errors[name]:
                     logger.warning('%s: Sequence generation ran into the following residue errors: %s'
                                    % (des_dir.path, ', '.join(errors[name])))
-                pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, outpath=des_dir.sequences)
+                pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name, out_path=des_dir.sequences)
                 if not pdb_seq_file[name]:
                     logger.critical('%s: Unable to parse sequence. Check if PDB \'%s\' is valid' % (des_dir.path, name))
                     raise SDUtils.DesignError('Unable to parse sequence')
@@ -391,7 +391,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
             pssm_res, pose_res = {}, {}
             for res in range(len(template_residues)):
                 pssm_res[res] = full_pssm[res]['type']
-                pose_res[res] = IUPACData.protein_letters_3to1[template_residues[res].type.title()]
+                pose_res[res] = protein_letters_3to1[template_residues[res].type.title()]
                 if pssm_res[res] != pose_res[res]:
                     logger.warning('%s: Profile and Pose sequences are different!\nResidue %d: Profile=%s, Pose=%s. '
                                    'Generating new profile' % (des_dir.path, res + SDUtils.index_offset, pssm_res[res],
@@ -517,8 +517,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Consensus:\n%s' % consensus)
     for n, name in enumerate(names):
         for residue in int_res_numbers[name]:  # one-indexed
-            mutated_pdb.mutate_residue(number=residue, to=IUPACData.protein_letters_1to3[consensus[residue]].upper())
-            # mutated_pdb.mutate_to(names[name](n), residue, res_id=IUPACData.protein_letters_1to3[consensus[residue]].upper())
+            mutated_pdb.mutate_residue(number=residue, to=protein_letters_1to3[consensus[residue]].upper())
+            # mutated_pdb.mutate_to(names[name](n), residue, res_id=protein_letters_1to3[consensus[residue]].upper())
     mutated_pdb.write(out_path=des_dir.consensus_pdb)
     # mutated_pdb.write(consensus_pdb)
     # mutated_pdb.write(consensus_pdb, cryst1=cryst)
@@ -650,7 +650,7 @@ def gather_profile_info(pdb, des_dir, names):
         if errors[name]:
             logger.warning('Sequence generation ran into the following residue errors: %s' % ', '.join(errors[name]))
         pdb_seq_file[name] = write_fasta_file(pdb_seq[name], name + '_' + os.path.basename(des_dir.path),
-                                              outpath=des_dir.sequences)
+                                              out_path=des_dir.sequences)
         if not pdb_seq_file[name]:
             logger.error('Unable to parse sequence. Check if PDB \'%s\' is valid.' % name)
             raise SDUtils.DesignError('Unable to parse sequence in %s' % des_dir.path)

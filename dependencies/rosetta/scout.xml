@@ -1,0 +1,178 @@
+<ROSETTASCRIPTS>
+    <SCOREFXNS>
+        # patched version, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
+        <ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+        <ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+    </SCOREFXNS>
+
+    <RESIDUE_SELECTORS>
+        <Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+        <SymmetricalResidue name="core_residues_sym" selector="core_residues"/>
+        <Neighborhood name="core_neighbors_sym" selector="core_residues_sym" include_focus_in_subset="false" distance="8"/> # Cb neighbors
+        # used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+        <Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+        <SymmetricalResidue name="interface1_sym" selector="interface1" />
+        # same, but for residues from chain "B"
+        <Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+        <SymmetricalResidue name="interface2_sym" selector="interface2" />
+        # combined group of all identified interface residues
+        <Or name="tot_interface" selectors="interface1,interface2"/>
+        <SymmetricalResidue name="tot_interface_sym" selector="tot_interface" />
+        # the negation of all interface residues
+        <Not name="not_interface" selector="tot_interface"/>
+        # other residues that may be designable
+        <Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+        # all designable residues
+        <Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
+        # the negation of all designable residues
+        <Not name="not_designable" selector="all_designable"/>
+        # all residues
+        <True name="full_pose"/>
+        # Automatically detect all HBNet residues. CRITICAL for HBNet operation
+<!--        <ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>-->
+<!--        <SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues" />-->
+<!--        <Neighborhood name="hbnet_neighbors" selector="hbnet_residues" include_focus_in_subset="false" distance="8"/> # Cb neighbors-->
+<!--        <SymmetricalResidue name="hbnet_neighbors_sym" selector="hbnet_neighbors" />-->
+<!--        <Or name="hbnet_neighbors_or_core" selectors="hbnet_neighbors,core_residues"/>-->
+<!--        <Or name="hbnet_neighbors_or_core_sym" selectors="hbnet_neighbors_sym,core_residues_sym"/>-->
+<!--        <Not name="not_hbnet_or_core_neighbors" selector="hbnet_neighbors_or_core"/>-->
+<!--        <And name="hbnet_interface_neighbors" selectors="hbnet_neighbors,tot_interface"/>-->
+<!--        <And name="hbnet_interface_neighbors_sym" selectors="hbnet_neighbors_sym,tot_interface_sym"/>-->
+<!--        <Or name="hbnet_interface_neighbors_or_core" selectors="hbnet_interface_neighbors,core_residues"/>-->
+<!--        <Or name="hbnet_interface_neighbors_or_core_sym" selectors="hbnet_interface_neighbors_sym,core_residues_sym"/>-->
+<!--					<SymmetricalResidue name="hbnet_interface_neighbors_or_core_sym" selector="hbnet_interface_neighbors_or_core"/>-->
+<!--        <Or name="hbnet_or_interface_neighbors_or_core" selectors="hbnet_residues,hbnet_interface_neighbors_or_core"/>-->
+<!--        <Or name="hbnet_or_interface_neighbors_or_core_sym" selectors="hbnet_residues_sym,hbnet_interface_neighbors_or_core_sym"/>-->
+<!--        <Not name="not_hbnet_interface_neighbors_or_core_sym" selector="hbnet_interface_neighbors_or_core_sym"/>-->
+        <And name="core_interface1" selectors="core_residues,interface1"/>
+        <SymmetricalResidue name="core_interface1_sym" selector="core_interface1"/>
+        <And name="core_interface2" selectors="core_residues,interface2"/>
+        <SymmetricalResidue name="core_interface2_sym" selector="core_interface2"/>
+        <Not name="not_core_interface1" selector="core_interface1"/>
+        <Not name="not_core_interface2" selector="core_interface2"/>
+        <And name="rim_interface1" selectors="not_core_interface1,interface1"/>
+        <And name="rim_interface2" selectors="not_core_interface2,interface2"/>
+        <Or name="rim_residues" selectors="rim_interface1,rim_interface2"/>
+    </RESIDUE_SELECTORS>
+
+    <TASKOPERATIONS>
+        # standard task operation to pull in commandline options importantly -ex1, -ex2
+        <InitializeFromCommandline name="init"/>
+        <ExtraRotamersGeneric name="ex1" ex1="1" extrachi_cutoff="0"/> # ex2="0" ex3="0" ex4="0" ex1aro="0" ex2aro="0" ex1aro_exposed="0" ex2aro_exposed="0" ex1_sample_level="7" ex2_sample_level="7" ex3_sample_level="7" ex4_sample_level="7" ex1aro_sample_level="7" ex2aro_sample_level="7" ex1aro_exposed_sample_level="7" ex2aro_exposed_sample_level="7" exdna_sample_level="7"
+        # restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
+        <RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
+        # standard operation to restrict all residues to repacking
+        <RestrictToRepacking name="rtr"/>
+        <DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
+        <OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="core_no_pack" selector="core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+        <OperateOnResidueSubset name="rim_no_pack" selector="rim_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+        # only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
+        <DesignAround name="des_around_total" resnums="%%interface1%%,%%interface2%%,%%required_residues%%" design_shell="0.1" allow_design="true" resnums_allow_design="true" repack_shell="8.0"/>
+        # only use residues included in a %%design_profile%%. options specify how to treat the profile and which rotamers to include for design
+        <SeqprofConsensus chain_num="1" name="evolution_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+        <SeqprofConsensus chain_num="2" name="evolution_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1"/> # pulls from -in:file:pssm. TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+        <SeqprofConsensus chain_num="1" name="fssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+        <SeqprofConsensus chain_num="2" name="fssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%fragment_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+		<SeqprofConsensus chain_num="1" name="design_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+        <SeqprofConsensus chain_num="2" name="design_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
+    </TASKOPERATIONS>
+
+    <MOVE_MAP_FACTORIES>
+        <MoveMapFactory name="scout_map" bb="0" chi="1">
+<!--            <Backbone residue_selector="core" enable="true"/>-->
+        </MoveMapFactory>
+    </MOVE_MAP_FACTORIES>
+
+    <SIMPLE_METRICS>
+        <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
+        # calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
+        <InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano" custom_type="" force_rescore="false"/>
+<!--					<CalculatorMetric name="M_interaction_energy_density_metric" equation="E / Number" custom_type="filter_core_pack">-->
+<!--						<Var name="E" reported="M_interaction_energy"/> #  metric="M_interaction_energy"-->
+<!--						<Var name="Number" reported="M_core_design_residue_count"/>-->
+<!--					</CalculatorMetric>--> # Todo not supported in my release
+    </SIMPLE_METRICS>
+
+<!--				<IMPORT filters="time"/> # movers="design_block" shape_complementarity-->
+
+    <FILTERS>
+        <ShapeComplementarity name="shape_complementarity_core" min_sc="0.1" min_interface="0" residue_selector1="core_interface1_sym" residue_selector2="core_interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
+<!--					<SimpleMetricFilter name="interaction_energy_density_filter" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+        <SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+        <SimpleMetricFilter name="interface_residue_count" metric="M_interface_residue_count" comparison_type="gt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+        <CalculatorFilter name="interaction_energy_per_residue" equation="E / Number"> # threshold="(real 0)"
+            <Var name="E" filter="interaction_energy_filter"/>
+            <Var name="Number" filter="interface_residue_count"/>
+        </CalculatorFilter>
+        <Report name="R_shape_complementarity_core"  filter="shape_complementarity_core"/>
+    </FILTERS>
+
+    <MOVERS>
+        <AddJobPairData name="job_info" key="protocol" value="scout" value_type="string"/>
+        # generates symmetry for the system in question using %%sdf%% or %%dist%%
+		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
+		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
+		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
+        <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
+		# set all interface residues to GLY, leave everything else untouched
+		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
+        # the main routine to perform metropolis criteria monte carlo. init specifies -ex1,-ex2 should be used
+        <FastDesign name="core_design" task_operations="init,vrt,fssm_cutoff1,fssm_cutoff2,des_around_total,rim_no_pack" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+        <FastDesign name="rim_design" task_operations="ex1,vrt,evolution_cutoff1,evolution_cutoff2,des_around_total,core_no_pack" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+<!--        <FastDesign name="int_design" task_operations="vrt,design_cutoff1,design_cutoff2,des_around_total" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+        # sample all rotamers to find minimum
+        <SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/>
+        # minimize all residues in design_map (move map)
+        <SymMinMover name="min" scorefxn="2015_nano" movemap_factory="scout_map"/> # bb="0" chi="1"
+        # the main protocol to loop over for interface design
+        <ParsedProtocol name="rotamer_trials_min_mover">
+            <Add mover_name="RT"/>
+            <Add mover_name="min"/> # Min unused in P432
+        </ParsedProtocol>
+<!--        <ParsedProtocol name="design_block">-->
+<!--		    <Add mover_name="core_design"/>-->
+<!--            <Add mover_name="RP_shape_complementarity_core"/> # save info to pose-->
+<!--		    <Add mover_name="rim_design"/>-->
+<!--&lt;!&ndash;            <Add mover_name="int_design"/>&ndash;&gt;-->
+<!--		    <Add mover_name="rotamer_trials_min_mover"/>-->
+<!--        </ParsedProtocol>-->
+<!--        <LoopOver name="design_loop" iterations="4" mover_name="design_block"/>-->
+        <RunSimpleMetrics name="run_core_design_metrics" metrics="M_interaction_energy" prefix="" suffix="" override="false"/> # M_core_design_residue_count
+<!--        <RunSimpleMetrics name="run_core_design_average_residue_energy" metrics="M_interaction_energy_density_metric" prefix="" suffix="" override="false"/>-->
+        <FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_core" report_as="sc_hbnet_core" filter_name="shape_complementarity_core"/>
+        <FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density_filter" report_as="ie_density_hbnet_core" filter_name="interaction_energy_per_residue"/>
+<!--        <FilterReportAsPoseExtraScoresMover name="RP_core_design_residue_count" report_as="residue_count_hbnet_core" filter_name="core_design_residue_count"/>-->
+<!--        <DumpPdb name="dump_pdb" fname="hbnet_interface_neighbors_and_core_packing.pdb" scorefxn="2015_nano_cst" tag_time="1"/>-->
+        <Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
+    </MOVERS>
+
+	# Symmetry set up section
+	<FILTERS>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+	</FILTERS>
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+<!--		<If name="" filter_name="read_sym" true_mover_name="sym_" false_mover_name="asymmetric_"/>-->
+	</MOVERS>
+
+	<PROTOCOLS>
+		<Add mover_name="symmetry"/>
+        <!--        <Add mover_name="symmetry_switch"/>-->
+        <Add mover_name="job_info"/>
+        <!--        <Add mover_name="scout_switch"/>-->
+        <Add mover_name="design_start"/>
+        <Add mover_name="core_design"/>
+        <!--        <Add mover_name="RP_shape_complementarity_core"/> # save info to pose-->
+        <Add filter_name="R_shape_complementarity_core"/>
+        <Add mover_name="rim_design"/>
+        <Add mover_name="rotamer_trials_min_mover"/>
+        <Add mover_name="measure_interface_bound"/>
+<!--        <Add mover_name="design_block"/>-->
+<!--					<Add mover_name="run_core_design_metrics"/>-->
+<!--        <Add mover_name="RP_core_design_residue_count"/>-->
+<!--					<Add filter_name="interaction_energy_filter"/>-->
+<!--					<Add mover_name="run_core_design_average_residue_energy"/>-->
+<!--        <Add mover_name="RP_interaction_energy_density_filter"/>-->
+    </PROTOCOLS>
+</ROSETTASCRIPTS>

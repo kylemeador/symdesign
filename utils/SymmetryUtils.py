@@ -25,67 +25,22 @@ sg_zvalues = {'P23': 12, 'P4222': 8, 'P321': 6, 'P6322': 12, 'P312': 12, 'P622':
               'I422': 16, 'I213': 24, 'R32': 6, 'P4212': 8, 'I432': 48, 'P4132': 24, 'I4132': 48, 'P3': 3, 'P6': 6,
               'I4122': 16, 'P4': 4, 'C222': 8, 'P222': 4, 'P213': 12, 'F4132': 96, 'P422': 8, 'P432': 24, 'F432': 96,
               'P4232': 24}
-valid_subunit_number = {'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10, 'D6': 12,
-                        'T': 12, 'O': 24, 'I': 60}
+valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
+                        'D6': 12, 'T': 12, 'O': 24, 'I': 60}
 
 
-def parse_uc_str_to_tuples(uc_string):
-    """Acquire unit cell parameters from specified external degrees of freedom string"""
-    def s_to_l(string):
-        s1 = string.replace('(', '')
-        s2 = s1.replace(')', '')
-        l1 = s2.split(',')
-        l2 = [x.replace(' ', '') for x in l1]
-        return l2
-
-    if '),' in uc_string:
-        l = uc_string.split('),')
-    else:
-        l = [uc_string]
-
-    return [s_to_l(s) for s in l]
+def multicomponent_by_number(number):
+    return [multiplier * number for multiplier in range(1, 10)]
 
 
-def get_uc_var_vec(string_vec, var):
-    """From the length specification return the unit vector"""
-    return_vec = [0.0, 0.0, 0.0]
-    for i in range(len(string_vec)):
-        if var in string_vec[i] and '*' in string_vec[i]:
-            return_vec[i] = (float(string_vec[i].split('*')[0]))
-        elif var == string_vec[i]:
-            return_vec.append(1.0)
-    return return_vec
-
-
-def get_uc_dimensions(uc_string, e=1, f=0, g=0):
-    """Return an array with the three unit cell lengths and three angles [20, 20, 20, 90, 90, 90] by combining UC
-    basis vectors with component translation degrees of freedom"""
-    uc_string_vec = parse_uc_str_to_tuples(uc_string)
-
-    lengths = [0.0, 0.0, 0.0]
-    string_vec_lens = uc_string_vec[0]
-    e_vec = get_uc_var_vec(string_vec_lens, 'e')
-    f_vec = get_uc_var_vec(string_vec_lens, 'f')
-    g_vec = get_uc_var_vec(string_vec_lens, 'g')
-    e1 = [e_vec_val * e for e_vec_val in e_vec]
-    f1 = [f_vec_val * f for f_vec_val in f_vec]
-    g1 = [g_vec_val * g for g_vec_val in g_vec]
-    for i in range(len(string_vec_lens)):
-        lengths[i] = abs((e1[i] + f1[i] + g1[i]))
-    if len(string_vec_lens) == 2:
-        lengths[2] = 1.0
-
-    string_vec_angles = uc_string_vec[1]
-    if len(string_vec_angles) == 1:
-        angles = [90.0, 90.0, float(string_vec_angles[0])]
-    else:
-        angles = [0.0, 0.0, 0.0]
-        for i in range(len(string_vec_angles)):
-            angles[i] = float(string_vec_angles[i])
-
-    uc_dimensions = lengths + angles
-
-    return uc_dimensions
+multicomponent_valid_subunit_number = \
+    {sym: multicomponent_by_number(copy_number) for sym, copy_number in valid_subunit_number.items()}
+# multicomponent_valid_subunit_number = \
+#     {'C2': multicomponent_by_number(2), 'C3': multicomponent_by_number(3), 'C4': multicomponent_by_number(4),
+#      'C5': multicomponent_by_number(5), 'C6': multicomponent_by_number(6), 'D2': multicomponent_by_number(4),
+#      'D3': multicomponent_by_number(6), 'D4': multicomponent_by_number(8), 'D5': multicomponent_by_number(10),
+#      'D6': multicomponent_by_number(12), 'T': multicomponent_by_number(12), 'O': multicomponent_by_number(24),
+#      'I': multicomponent_by_number(60)}
 
 
 def generate_cryst1_record(dimensions, space_group):
@@ -215,24 +170,28 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):
         # return xyz_min_shifted_asu_pdb
 
 
-def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, "POINT_GROUP_SYMM_OPERATORS")):
-    expand_matrix_filepath = expand_matrix_dir + "/" + sym_type + ".txt"
-    expand_matrix_file = open(expand_matrix_filepath, "r")
-    expand_matrix_lines = expand_matrix_file.readlines()
-    expand_matrix_file.close()
-    line_count = 0
-    expand_matrices = []
-    mat = []
-    for line in expand_matrix_lines:
-        line = line.split()
-        if len(line) == 3:
-            line_float = [float(s) for s in line]
-            mat.append(line_float)
-            line_count += 1
-            if line_count % 3 == 0:
-                expand_matrices.append(mat)
-                mat = []
-    return expand_matrices
+def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
+    """Get the symmetry operations for a specified point group oriented in the canonical orientation
+    Returns:
+        (list[list])
+    """
+    expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
+    with open(expand_matrix_filepath, 'r') as expand_matrix_f:
+        # Todo pickle these to match SDUtils
+        line_count = 0
+        expand_matrices = []
+        mat = []
+        for line in expand_matrix_f.readlines():
+            line = line.split()
+            if len(line) == 3:
+                line_float = [float(s) for s in line]
+                mat.append(line_float)
+                line_count += 1
+                if line_count % 3 == 0:
+                    expand_matrices.append(mat)
+                    mat = []
+
+        return expand_matrices
 
 
 def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
@@ -328,14 +287,14 @@ def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
 #         return None
 #
 #     if return_side_chains:  # get different function calls depending on the return type
-#         extract_pdb_atoms = getattr(PDB, 'get_atoms')
-#         extract_pdb_coords = getattr(PDB, 'get_coords')
+#         extract_pdb_atoms = getattr(PDB, 'atoms')
+#         extract_pdb_coords = getattr(PDB, 'coords')
 #     else:
-#         extract_pdb_atoms = getattr(PDB, 'get_backbone_atoms')
-#         extract_pdb_coords = getattr(PDB, 'get_backbone_coords')
+#         extract_pdb_atoms = getattr(PDB, 'backbone_atoms')
+#         extract_pdb_coords = getattr(PDB, 'backbone_coords')
 #
 #     asu_atom_template = extract_pdb_atoms(unit_cell_sym_mates[0])
-#     # asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()
+#     # asu_bb_atom_template = unit_cell_sym_mates[0].backbone_atoms
 #
 #     central_uc_cart_coords = []
 #     for unit_cell_sym_mate_pdb in unit_cell_sym_mates:

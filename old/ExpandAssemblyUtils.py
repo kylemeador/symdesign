@@ -162,7 +162,7 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
 #     """Returns a 3x3 grid of unit cells for a layer group"""
 #     all_surrounding_unit_cells = []
 #
-#     asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()
+#     asu_bb_atom_template = unit_cell_sym_mates[0].backbone_atoms
 #     unit_cell_sym_mates_len = len(unit_cell_sym_mates)
 #
 #     central_uc_bb_cart_coords = []
@@ -212,7 +212,7 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
 # def get_surrounding_unit_cells_3d(unit_cell_sym_mates, uc_dimensions):  # DEPRECIATE
 #     """Returns a 3x3x3 grid of unit cells for a space group. Each unit cell is a list in list,
 #     each ASU an item in the unit cell list"""
-#     asu_bb_atom_template = unit_cell_sym_mates[0].get_backbone_atoms()
+#     asu_bb_atom_template = unit_cell_sym_mates[0].backbone_atoms
 #
 #     central_uc_bb_cart_coords = []
 #     for unit_cell_sym_mate_pdb in unit_cell_sym_mates:

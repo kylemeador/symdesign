@@ -1,0 +1,38 @@
+<ROSETTASCRIPTS>
+    <FILTERS>
+		<IfThenFilter name="report_true"> # This is to report a value that is lower than ReadPoseExtraScoreFilter threshold causing that filter to return true
+    		<IF testfilter="true_filter" value="-1"/>
+		</IfThenFilter>
+		<IfThenFilter name="report_false"> # This is to report a value that is higher than ReadPoseExtraScoreFilter threshold causing that filter to return false
+    		<IF testfilter="true_filter" value="0"/>
+		</IfThenFilter>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is 1, asymmetric is 0
+    </FILTERS>
+
+    <MOVERS>
+        # generates symmetry for the system in question using %%sdf%% or %%dist%%
+		<SetupForSymmetry name="point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
+		<MakeLayerMover name="layer" contact_dist="%%dist%%"/>
+		<MakeLatticeMover name="lattice" contact_dist="%%dist%%"/>
+		# Symmetry selector and switch reporting
+		<FilterReportAsPoseExtraScoresMover name="symmetric" report_as="sym_status" filter_name="report_true"/>
+		<FilterReportAsPoseExtraScoresMover name="asymmetric" report_as="sym_status" filter_name="report_false"/>
+		<ParsedProtocol name="make_point_group">
+			<Add mover_name="point_group"/>
+			<Add mover_name="symmetric"/>
+		</ParsedProtocol>
+		<ParsedProtocol name="make_layer">
+			<Add mover_name="layer"/>
+			<Add mover_name="symmetric"/>
+		</ParsedProtocol>
+		<ParsedProtocol name="make_lattice">
+			<Add mover_name="lattice"/>
+			<Add mover_name="symmetric"/>
+		</ParsedProtocol>
+		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,asymmetric" selected="%%symmetry%%"/>
+	</MOVERS>
+
+    <PROTOCOLS>
+        <Add mover_name="symmetry_switch"/>
+    </PROTOCOLS>
+</ROSETTASCRIPTS>

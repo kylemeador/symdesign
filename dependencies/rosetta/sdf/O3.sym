@@ -47,67 +47,67 @@ xyz B8_3 0.000000000000000,0.000000000000000,-1.000000000000000 0.86602540378443
 virtual_coordinates_stop
 connect_virtual JP1 C1 P1
 connect_virtual JP1_1 P1 B1_1
-connect_virtual JB1_1 B1_1 SUBUNIT
+connect_virtual JB1_1 B1_1 SUBUNIT A COM
 connect_virtual JP1_2 P1 B1_2
-connect_virtual JB1_2 B1_2 SUBUNIT
+connect_virtual JB1_2 B1_2 SUBUNIT A COM
 connect_virtual JP1_3 P1 B1_3
-connect_virtual JB1_3 B1_3 SUBUNIT
+connect_virtual JB1_3 B1_3 SUBUNIT A COM
 connect_virtual JC2 C1 C2
 connect_virtual JP2 C2 P2
 connect_virtual JP2_1 P2 B2_1
-connect_virtual JB2_1 B2_1 SUBUNIT
+connect_virtual JB2_1 B2_1 SUBUNIT A COM
 connect_virtual JP2_2 P2 B2_2
-connect_virtual JB2_2 B2_2 SUBUNIT
+connect_virtual JB2_2 B2_2 SUBUNIT A COM
 connect_virtual JP2_3 P2 B2_3
-connect_virtual JB2_3 B2_3 SUBUNIT
+connect_virtual JB2_3 B2_3 SUBUNIT A COM
 connect_virtual JC3 C1 C3
 connect_virtual JP3 C3 P3
 connect_virtual JP3_1 P3 B3_1
-connect_virtual JB3_1 B3_1 SUBUNIT
+connect_virtual JB3_1 B3_1 SUBUNIT A COM
 connect_virtual JP3_2 P3 B3_2
-connect_virtual JB3_2 B3_2 SUBUNIT
+connect_virtual JB3_2 B3_2 SUBUNIT A COM
 connect_virtual JP3_3 P3 B3_3
-connect_virtual JB3_3 B3_3 SUBUNIT
+connect_virtual JB3_3 B3_3 SUBUNIT A COM
 connect_virtual JC4 C1 C4
 connect_virtual JP4 C4 P4
 connect_virtual JP4_1 P4 B4_1
-connect_virtual JB4_1 B4_1 SUBUNIT
+connect_virtual JB4_1 B4_1 SUBUNIT A COM
 connect_virtual JP4_2 P4 B4_2
-connect_virtual JB4_2 B4_2 SUBUNIT
+connect_virtual JB4_2 B4_2 SUBUNIT A COM
 connect_virtual JP4_3 P4 B4_3
-connect_virtual JB4_3 B4_3 SUBUNIT
+connect_virtual JB4_3 B4_3 SUBUNIT A COM
 connect_virtual JC5 C1 C5
 connect_virtual JP5 C5 P5
 connect_virtual JP5_1 P5 B5_1
-connect_virtual JB5_1 B5_1 SUBUNIT
+connect_virtual JB5_1 B5_1 SUBUNIT A COM
 connect_virtual JP5_2 P5 B5_2
-connect_virtual JB5_2 B5_2 SUBUNIT
+connect_virtual JB5_2 B5_2 SUBUNIT A COM
 connect_virtual JP5_3 P5 B5_3
-connect_virtual JB5_3 B5_3 SUBUNIT
+connect_virtual JB5_3 B5_3 SUBUNIT A COM
 connect_virtual JC6 C1 C6
 connect_virtual JP6 C6 P6
 connect_virtual JP6_1 P6 B6_1
-connect_virtual JB6_1 B6_1 SUBUNIT
+connect_virtual JB6_1 B6_1 SUBUNIT A COM
 connect_virtual JP6_2 P6 B6_2
-connect_virtual JB6_2 B6_2 SUBUNIT
+connect_virtual JB6_2 B6_2 SUBUNIT A COM
 connect_virtual JP6_3 P6 B6_3
-connect_virtual JB6_3 B6_3 SUBUNIT
+connect_virtual JB6_3 B6_3 SUBUNIT A COM
 connect_virtual JC7 C1 C7
 connect_virtual JP7 C7 P7
 connect_virtual JP7_1 P7 B7_1
-connect_virtual JB7_1 B7_1 SUBUNIT
+connect_virtual JB7_1 B7_1 SUBUNIT A COM
 connect_virtual JP7_2 P7 B7_2
-connect_virtual JB7_2 B7_2 SUBUNIT
+connect_virtual JB7_2 B7_2 SUBUNIT A COM
 connect_virtual JP7_3 P7 B7_3
-connect_virtual JB7_3 B7_3 SUBUNIT
+connect_virtual JB7_3 B7_3 SUBUNIT A COM
 connect_virtual JC8 C1 C8
 connect_virtual JP8 C8 P8
 connect_virtual JP8_1 P8 B8_1
-connect_virtual JB8_1 B8_1 SUBUNIT
+connect_virtual JB8_1 B8_1 SUBUNIT A COM
 connect_virtual JP8_2 P8 B8_2
-connect_virtual JB8_2 B8_2 SUBUNIT
+connect_virtual JB8_2 B8_2 SUBUNIT A COM
 connect_virtual JP8_3 P8 B8_3
-connect_virtual JB8_3 B8_3 SUBUNIT
+connect_virtual JB8_3 B8_3 SUBUNIT A COM
 set_dof JP1 x angle_x
 set_jump_group JGP JP1 JP2 JP3 JP4 JP5 JP6 JP7 JP8
 set_jump_group JGB JB1_1 JB1_2 JB1_3 JB2_1 JB2_2 JB2_3 JB3_1 JB3_2 JB3_3 JB4_1 JB4_2 JB4_3 JB5_1 JB5_2 JB5_3 JB6_1 JB6_2 JB6_3 JB7_1 JB7_2 JB7_3 JB8_1 JB8_2 JB8_3
