@@ -1361,7 +1361,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
             if self.design_with_fragments:
                 consensus_cmd = main_cmd + relax_flags + \
-                    ['@%s' % self.flags, '-in:file:s', self.consensus_pdb, '-in:file:native', self.refined_pdb,
+                    ['@%s' % self.flags, '-in:file:s', self.consensus_pdb,
+                     # '-in:file:native', self.refined_pdb,
                      '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[5]),
                      '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
                 self.log.info('Consensus Command: %s' % list2cmdline(consensus_cmd))
@@ -1620,6 +1621,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             # self.pose.pdb.write(out_path=self.asu, header=self.cryst_record)
             self.info['pre_refine'] = self.pre_refine
             self.log.info('Cleaned PDB: \'%s\'' % self.asu)
+        else:
+            print('FOUND THE ASU!', self.asu)
 
     @handle_design_errors(errors=(DesignError,))
     def check_clashes(self, clashing_threshold=0.75):
@@ -1723,6 +1726,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         relax_cmd += relax_flags + additional_flags + \
             ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [] + \
             ['@%s' % flags, '-in:file:s', refine_pdb,
+             '-in:file:native', refine_pdb,  # native is here to block flags, not actually useful for refine
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
              '-parser:script_vars', 'switch=%s' % stage]
         self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
