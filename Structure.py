@@ -1611,8 +1611,8 @@ class Structure(StructureBase):
                 for idx, residue in enumerate(self.residues):
                     residue.secondary_structure = secondary_structure[idx]
             else:
-                self.log.error('The length of the passed secondary_structure (%d) is not equal to the number of '
-                               'residues (%d)' % (len(self.secondary_structure), self.number_of_residues))
+                self.log.warning('The passed secondary_structure length (%d) is not equal to the number of residues '
+                                 '(%d). Recalculating...' % (len(self.secondary_structure), self.number_of_residues))
                 self.stride()  # we tried for efficiency, but its inaccurate, recalculate
         else:
             if self.residues[0].secondary_structure:
