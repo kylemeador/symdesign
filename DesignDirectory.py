@@ -1884,7 +1884,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.info['fragment_profile'] = self.pose.fragment_pssm_file
             self.info['fragment_database'] = self.pose.frag_db.source
 
-        if not self.pre_refine:
+        if not self.pre_refine and not os.path.exists(self.refined_pdb):
             self.refine(to_design_directory=True)
 
         self.rosetta_interface_design()
