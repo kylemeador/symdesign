@@ -36,8 +36,8 @@ class PDB(Structure):
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.assembly = False
         self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
-        self.biomt = []
-        self.biomt_header = ''
+        # self.biomt = []
+        # self.biomt_header = ''
         self.chain_id_list = []  # unique chain IDs in PDB Todo refactor
         self.chains = []
         self.cryst = kwargs.get('cryst', None)  # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
@@ -517,8 +517,8 @@ class PDB(Structure):
         #     dihedral = True
         # the highest order symmetry operation chain in a pdb plus any dihedral related chains
 
-    def format_header(self):
-        return self.format_biomt() + self.format_seqres()
+    # def format_header(self):
+    #     return self.format_biomt() + self.format_seqres()
 
     def format_biomt(self):
         """Return the BIOMT record for the PDB if there was one parsed

@@ -4,20 +4,23 @@ from collections import UserList
 from copy import copy  # , deepcopy
 from collections.abc import Iterable
 from itertools import repeat
-from random import random, randint
+from math import ceil
+from random import random  # , randint
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 from scipy.spatial.transform import Rotation
-from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended
+from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended, \
+    protein_letters_1to3_extended
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl
 # from ProteinExpression import find_expression_tags, remove_expression_tags
 # from Pose import Pose
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
-from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity  # get_pdb_info_by_entry, query_entity_id
+from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
+    retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
     possible_symmetries
@@ -27,6 +30,7 @@ from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import get_ptgrp_sym_op
 
 logger = start_log(name=__name__)
+seq_res_len = 52
 # from table 1, theoretical values of Tien et al. 2013
 gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225, 'G': 104, 'H': 224, 'I': 197,
             'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174,
@@ -93,12 +97,14 @@ class Structure(StructureBase):
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, atoms=None, residues=None, residue_indices=None, name=None, coords=None, log=None, **kwargs):
-        self._coords = None
         self._atoms = None
         self._atom_indices = None
+        self._coords = None
+        self._coords_residue_index = None
         self._residues = None
         self._residue_indices = None
-        self._coords_residue_index = None
+        self.biomt = []
+        self.biomt_header = ''
         self.name = name
         self.secondary_structure = None
         self.sasa = None
@@ -176,6 +182,19 @@ class Structure(StructureBase):
     @name.setter
     def name(self, name):
         self._name = name
+
+    @property
+    def sequence(self):  # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
+        """Holds the Structure amino acid sequence"""
+        try:
+            return self._sequence
+        except AttributeError:
+            self._sequence = self.get_structure_sequence()
+            return self._sequence
+
+    @sequence.setter
+    def sequence(self, sequence):
+        self._sequence = sequence
 
     @property
     def coords(self):
@@ -1700,8 +1719,27 @@ class Structure(StructureBase):
         #                  for atom, coord in zip(self.atoms, self.coords.tolist()))
 
     def format_header(self):
-        # return self.format_biomt() + self.format_seqres()
-        return ''
+        if type(self).__name__ in ['Entity', 'PDB']:
+            return self.format_biomt() + self.format_seqres()
+        # elif type(self).__name__ in ['Entity', 'Chain']:
+        #     return self.format_biomt() + self.format_seqres()
+        else:
+            return ''
+
+    def format_biomt(self):
+        """Return the BIOMT record for the PDB if there was one parsed
+
+        Returns:
+            (str)
+        """
+        if self.biomt_header != '':
+            return self.biomt_header
+        elif self.biomt:
+            return '%s\n' \
+                % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}'.format(v_idx, m_idx, *vec)
+                            for m_idx, matrix in enumerate(self.biomt, 1) for v_idx, vec in enumerate(matrix, 1))
+        else:
+            return ''
 
     def write_header(self, file_handle, header):
         if header and isinstance(header, Iterable):
@@ -2268,17 +2306,17 @@ class Chain(Structure):
         self.set_residues_attributes(chain=chain_id)
         # self.set_atoms_attributes(chain=chain_id)
 
-    @property
-    def sequence(self):  # Todo if the chain is mutated, this mechanism will cause errors, must clear the sequence if so
-        try:
-            return self._sequence
-        except AttributeError:
-            self._sequence = self.get_structure_sequence()
-            return self._sequence
-
-    @sequence.setter
-    def sequence(self, sequence):
-        self._sequence = sequence
+    # @property
+    # def sequence(self):  # Todo if the chain is mutated, this mechanism will cause errors, must clear the sequence if so
+    #     try:
+    #         return self._sequence
+    #     except AttributeError:
+    #         self._sequence = self.get_structure_sequence()
+    #         return self._sequence
+    #
+    # @sequence.setter
+    # def sequence(self, sequence):
+    #     self._sequence = sequence
 
     # @property
     # def reference_sequence(self):
@@ -2455,8 +2493,12 @@ class Entity(Chain, SequenceProfile):
             return self._chains
 
     @property
-    def reference_sequence(self):
-        """With the default init, all Entity instances will have the structure sequence as reference_sequence"""
+    def reference_sequence(self) -> str:
+        """Return the reference sequence constituting the entire open reading frame for an Entity instance
+
+        Returns:
+            (str)
+        """
         try:
             return self._reference_sequence
         except AttributeError:
@@ -2498,9 +2540,11 @@ class Entity(Chain, SequenceProfile):
         if not entity_id:
             if len(self.name.split('_')) != 2:
                 self.log.warning('For Entity method .%s, if an entity_id isn\'t passed and the Entity name %s is not '
-                                 'the correct format (1abc_1), the query will surely fail. Ensure this is the desired '
-                                 'behavior!' % (self.retrieve_sequence_from_api.__name__, self.name))
-            entity_id = self.name
+                                 'the correct format (1abc_1), the query will fail. Retrieving closest entity_id by PDB'
+                                 ' API structure sequence' % (self.retrieve_sequence_from_api.__name__, self.name))
+                entity_id = retrieve_entity_id_by_sequence(self.sequence)
+            else:
+                entity_id = self.name
         self.reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
 
     # def retrieve_info_from_api(self):
@@ -2637,6 +2681,21 @@ class Entity(Chain, SequenceProfile):
                              'instead' % self.name)
             # return self
             return [self]
+
+    def format_seqres(self) -> str:
+        """Format the reference sequence present in the SEQRES remark for writing to the output header
+
+        Returns:
+            (str)
+        """
+        formated_reference_sequence = ' '.join(map(str.upper, (protein_letters_1to3_extended[aa]
+                                                               for aa in self.reference_sequence)))
+        chain_length = len(self.reference_sequence)
+        return '%s\n' \
+            % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain.chain_id, chain_length)
+                        % formated_reference_sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
+                        for chain in self.chains
+                        for line_number in range(1, 1 + ceil(len(formated_reference_sequence)/seq_res_len)))
 
     # Todo overwrite Structure.write() method...
     def write_oligomer(self, out_path=None, file_handle=None, header=None, **kwargs):
