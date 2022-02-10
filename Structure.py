@@ -1011,7 +1011,7 @@ class Structure(StructureBase):
                 residue = self.residue(number, **kwargs)
         # for idx, atom in zip(residue.backbone_indices, residue.backbone_atoms):
         # for atom in residue.backbone_atoms:
-        # residue.type = to.upper()
+        residue.type = to
         for atom in residue.atoms:
             atom.residue_type = to
 
