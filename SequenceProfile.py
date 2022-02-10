@@ -329,29 +329,28 @@ class SequenceProfile:
                           ''.join(res['type'] for res in structure_evolutionary_profile.values())))
         self.evolutionary_profile = structure_evolutionary_profile
 
-    def fit_secondary_structure_profile_to_structure(self):
-        """From an evolutionary profile input according to a protein reference sequence, align the profile to the
-        structure sequence, removing all information for residues not present in the structure
-
-        Sets:
-            (dict) self.evolutionary_profile
-        """
-        # self.retrieve_info_from_api()
-        # grab the reference sequence used for translation (expression)
-        # if not self.reference_sequence:
-        #     self.retrieve_sequence_from_api(entity_id=self.name)
-        # generate the disordered indices which are positions in reference that are missing in structure
-        # disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
-        disorder = self.disorder
-        # removal of these positions from .evolutionary_profile will produce a properly indexed profile
-        secondary_structure = ''
-        for index, ss_data in enumerate(self.secondary_structure, 1):
-            if index not in disorder:
-                secondary_structure += ss_data
-        self.log.debug('Different profile lengths requires %s to be performed:\nOld ss:\n\t%s\nNew ss:\n\t%s'
-                       % (self.fit_secondary_structure_profile_to_structure.__name__,
-                          self.secondary_structure, secondary_structure))
-        self.secondary_structure = secondary_structure
+    # def fit_secondary_structure_profile_to_structure(self):
+    #     """
+    #
+    #     Sets:
+    #         (dict) self.secondary_structure
+    #     """
+    #     # self.retrieve_info_from_api()
+    #     # grab the reference sequence used for translation (expression)
+    #     # if not self.reference_sequence:
+    #     #     self.retrieve_sequence_from_api(entity_id=self.name)
+    #     # generate the disordered indices which are positions in reference that are missing in structure
+    #     # disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
+    #     disorder = self.disorder
+    #     # removal of these positions from .evolutionary_profile will produce a properly indexed profile
+    #     secondary_structure = ''
+    #     for index, ss_data in enumerate(self.secondary_structure, 1):
+    #         if index not in disorder:
+    #             secondary_structure += ss_data
+    #     self.log.debug('Different profile lengths requires %s to be performed:\nOld ss:\n\t%s\nNew ss:\n\t%s'
+    #                    % (self.fit_secondary_structure_profile_to_structure.__name__,
+    #                       self.secondary_structure, secondary_structure))
+    #     self.secondary_structure = secondary_structure
 
     def psiblast(self, out_path=None, remote=False):
         """Generate an position specific scoring matrix using PSI-BLAST subprocess
