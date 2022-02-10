@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from copy import copy, deepcopy
 from itertools import chain as iter_chain  # repeat,
 from shutil import move
+from typing import Union
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -473,8 +474,9 @@ class PDB(Structure):
 
         if seqres:
             self.parse_seqres(seqres)
-        else:  # elif reference_sequence:
-            self.reference_sequence = {chain_id: None for chain_id in self.chain_id_list}
+        else:
+            # Todo get the reference sequence from Entities?
+            # self.reference_sequence = {chain_id: None for chain_id in self.chain_id_list}
             self.design = True
 
         if entities:
@@ -520,9 +522,11 @@ class PDB(Structure):
     # def format_header(self):
     #     return self.format_biomt() + self.format_seqres()
 
-    def format_biomt(self):
+    def format_biomt(self, **kwargs) -> str:
         """Return the BIOMT record for the PDB if there was one parsed
 
+        Keyword Args:
+            **kwargs
         Returns:
             (str)
         """
@@ -535,21 +539,26 @@ class PDB(Structure):
         else:
             return ''
 
-    def format_seqres(self):
+    def format_seqres(self, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
+        Keyword Args:
+            **kwargs
         Returns:
             (str)
         """
-        formated_reference_sequence = \
-            {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended[aa] for aa in sequence)))
-             for chain, sequence in self.reference_sequence.items()}
-        chain_lengths = {chain: len(sequence) for chain, sequence in self.reference_sequence.items()}
-        return '%s\n' \
-            % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
-                        % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
-                        for chain, sequence in formated_reference_sequence.items()
-                        for line_number in range(1, 1 + math.ceil(len(sequence)/seq_res_len)))
+        if self.reference_sequence:
+            formated_reference_sequence = \
+                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended[aa] for aa in sequence)))
+                 for chain, sequence in self.reference_sequence.items()}
+            chain_lengths = {chain: len(sequence) for chain, sequence in self.reference_sequence.items()}
+            return '%s\n' \
+                % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
+                            % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
+                            for chain, sequence in formated_reference_sequence.items()
+                            for line_number in range(1, 1 + math.ceil(len(sequence)/seq_res_len)))
+        else:
+            return ''
 
     def parse_seqres(self, seqres_lines):
         """Convert SEQRES information to single amino acid dictionary format
