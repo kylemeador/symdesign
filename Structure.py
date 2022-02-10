@@ -1699,6 +1699,18 @@ class Structure(StructureBase):
         # return '\n'.join(atom.__str__(**kwargs) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
         #                  for atom, coord in zip(self.atoms, self.coords.tolist()))
 
+    def format_header(self):
+        # return self.format_biomt() + self.format_seqres()
+        return ''
+
+    def write_header(self, file_handle, header):
+        if header and isinstance(header, Iterable):
+            if isinstance(header, str):
+                header = self.format_header() + header
+                file_handle.write('%s\n' % header)
+            # else:  # TODO
+            #     location.write('\n'.join(header))
+
     def write(self, out_path=None, file_handle=None, header=None, increment_chains=False, **kwargs):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle
 
@@ -1709,20 +1721,12 @@ class Structure(StructureBase):
         Returns:
             (str): The name of the written file if out_path is used
         """
-        def write_header(location):
-            if header and isinstance(header, Iterable):
-                if isinstance(header, str):
-                    location.write('%s\n' % header)
-                # else:  # TODO
-                #     location.write('\n'.join(header))
-
         if file_handle:
-            # write_header(file_handle)
             file_handle.write('%s\n' % self.return_atom_string(**kwargs))
 
         if out_path:
             with open(out_path, 'w') as outfile:
-                write_header(outfile)
+                self.write_header(outfile, header)
                 outfile.write('%s\n' % self.return_atom_string(**kwargs))
 
             return out_path
@@ -2645,15 +2649,8 @@ class Entity(Chain, SequenceProfile):
         Returns:
             (str): The name of the written file if out_path is used
         """
-        def write_header(location):
-            if header and isinstance(header, Iterable):
-                if isinstance(header, str):
-                    location.write(header)
-                # else:  # TODO
-                #     location.write('\n'.join(header))
         offset = 0
         if file_handle:
-            # write_header(file_handle)
             if self.chains:
                 for chain in self.chains:
                     file_handle.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
@@ -2664,7 +2661,7 @@ class Entity(Chain, SequenceProfile):
         if out_path:
             if self.chains:
                 with open(out_path, 'w') as outfile:
-                    write_header(outfile)
+                    self.write_header(outfile, header)
                     for idx, chain in enumerate(self.chains, 1):
                         outfile.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
                         offset += chain.number_of_atoms

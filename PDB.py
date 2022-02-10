@@ -10,7 +10,7 @@ from shutil import move
 import numpy as np
 from sklearn.neighbors import BallTree
 from Bio import pairwise2
-from Bio.Data.IUPACData import protein_letters_3to1_extended
+from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 
 from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
@@ -19,6 +19,7 @@ from SymDesignUtils import remove_duplicates, start_log, DesignError, split_inte
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number
 
 logger = start_log(name=__name__)
+seq_res_len = 52
 
 
 class PDB(Structure):
@@ -35,6 +36,8 @@ class PDB(Structure):
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.assembly = False
         self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
+        self.biomt = []
+        self.biomt_header = ''
         self.chain_id_list = []  # unique chain IDs in PDB Todo refactor
         self.chains = []
         self.cryst = kwargs.get('cryst', None)  # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
@@ -297,7 +300,6 @@ class PDB(Structure):
         entity = None
         coords, atom_info = [], []
         atom_idx = 0
-        matrices = []
         current_operation = -1
         for line in pdb_lines:
             if line[:4] == 'ATOM' or line[17:20] == 'MSE' and line[:6] == 'HETATM':
@@ -349,7 +351,9 @@ class PDB(Structure):
             #     continue
             elif line[:6] == 'SEQRES':
                 seq_res_lines.append(line[11:])
-            elif line[:18] == 'REMARK 350   BIOMT':
+            elif line[:18] == 'REMARK 350':
+            # elif line[:18] == 'REMARK 350   BIOMT':
+                self.biomt_header += line
                 # integration of the REMARK 350 BIOMT
                 # REMARK 350
                 # REMARK 350 BIOMOLECULE: 1
@@ -363,13 +367,13 @@ class PDB(Structure):
                 # REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000
                 # REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000
                 # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
-                # tokens = line.split()
-                rem, tag, biomt, operation_number, x, y, z, tx = line.split()
-                if operation_number != current_operation:  # we reached a new transformation matrix
-                    current_operation = operation_number
-                    matrices.append([])
-                # add the transformation to the current matrix
-                matrices[-1].append(list(map(float, [x, y, z, tx])))
+                _, _, biomt, operation_number, x, y, z, tx = line.split()
+                if biomt == 'BIOMT':
+                    if operation_number != current_operation:  # we reached a new transformation matrix
+                        current_operation = operation_number
+                        self.biomt.append([])
+                    # add the transformation to the current matrix
+                    self.biomt[-1].append(list(map(float, [x, y, z, tx])))
             elif line[:5] == 'DBREF':
                 chain = line[12:14].strip().upper()
                 if line[5:6] == '2':
@@ -513,6 +517,40 @@ class PDB(Structure):
         #     dihedral = True
         # the highest order symmetry operation chain in a pdb plus any dihedral related chains
 
+    def format_header(self):
+        return self.format_biomt() + self.format_seqres()
+
+    def format_biomt(self):
+        """Return the BIOMT record for the PDB if there was one parsed
+
+        Returns:
+            (str)
+        """
+        if self.biomt_header != '':
+            return self.biomt_header
+        elif self.biomt:
+            return '%s\n' \
+                % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}'.format(v_idx, m_idx, *vec)
+                            for m_idx, matrix in enumerate(self.biomt, 1) for v_idx, vec in enumerate(matrix, 1))
+        else:
+            return ''
+
+    def format_seqres(self):
+        """Format the reference sequence present in the SEQRES remark for writing to the output header
+
+        Returns:
+            (str)
+        """
+        formated_reference_sequence = \
+            {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended[aa] for aa in sequence)))
+             for chain, sequence in self.reference_sequence.items()}
+        chain_lengths = {chain: len(sequence) for chain, sequence in self.reference_sequence.items()}
+        return '%s\n' \
+            % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
+                        % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
+                        for chain, sequence in formated_reference_sequence.items()
+                        for line_number in range(1, 1 + math.ceil(len(sequence)/seq_res_len)))
+
     def parse_seqres(self, seqres_lines):
         """Convert SEQRES information to single amino acid dictionary format
 
@@ -521,25 +559,29 @@ class PDB(Structure):
         Sets:
             self.reference_sequence
         """
+        # SEQRES   1 A  182  THR THR ALA SER THR SER GLN VAL ARG GLN ASN TYR HIS
+        # SEQRES   2 A  182  GLN ASP SER GLU ALA ALA ILE ASN ARG GLN ILE ASN LEU
+        # SEQRES   3 A  182  GLU LEU TYR ALA SER TYR VAL TYR LEU SER MET SER TYR
+        # SEQRES ...
+        # SEQRES  16 C  201  SER TYR ILE ALA GLN GLU
         for line in seqres_lines:
-            chain = line.split()[0]
-            sequence = line[19:71].strip().split()
+            chain, length, *sequence = line.split()  # [0]
             if chain in self.reference_sequence:
                 self.reference_sequence[chain].extend(sequence)
             else:
                 self.reference_sequence[chain] = sequence
 
-        for chain in self.reference_sequence:
-            for i, residue in enumerate(self.reference_sequence[chain]):
+        for chain, sequence in self.reference_sequence.items():
+            for idx, aa in enumerate(sequence):
                 # try:
-                if residue.title() in protein_letters_3to1_extended:
-                    self.reference_sequence[chain][i] = protein_letters_3to1_extended[residue.title()]
+                if aa.title() in protein_letters_3to1_extended:
+                    self.reference_sequence[chain][idx] = protein_letters_3to1_extended[aa.title()]
                 # except KeyError:
                 else:
-                    if residue.title() == 'Mse':
-                        self.reference_sequence[chain][i] = 'M'
+                    if aa.title() == 'Mse':
+                        self.reference_sequence[chain][idx] = 'M'
                     else:
-                        self.reference_sequence[chain][i] = '-'
+                        self.reference_sequence[chain][idx] = '-'
             self.reference_sequence[chain] = ''.join(self.reference_sequence[chain])
 
     # def read_atom_list(self, atom_list, store_cb_and_bb_coords=False):
