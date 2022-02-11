@@ -1618,11 +1618,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not self.asu or not os.path.exists(self.asu):
             if self.nano and not self.construct_pose:
                 return
-            # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily most contacting
-            # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() making new entities...
-            new_asu = self.pose.get_contacting_asu()  # returns a new Structure from multiple Chain or Entity objects
-            new_asu.write(out_path=self.asu, header=self.cryst_record)
-            # self.pose.pdb.write(out_path=self.asu, header=self.cryst_record)
+            # returns a new Structure from multiple Chain or Entity objects including the Pose symmetry
+            new_asu = self.pose.get_contacting_asu()
+            new_asu.write(out_path=self.asu)  # , header=self.cryst_record)
             self.info['pre_refine'] = self.pre_refine
             self.log.info('Cleaned PDB: \'%s\'' % self.asu)
 
@@ -1707,7 +1705,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                             if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
                                 self.pose.pdb.mutate_residue(residue=residue, to='A')
 
-            self.pose.pdb.write(out_path=self.refine_pdb)
+            # self.pose.pdb.write(out_path=self.refine_pdb)
+            self.pose.write(out_path=self.refine_pdb)
             refine_pdb = self.refine_pdb
             self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
         else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
@@ -1776,10 +1775,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.load_pose()
         if self.pose.symmetry:
             self.symmetric_assembly_is_clash()
-            # if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
-            self.pose.get_assembly_symmetry_mates()
-            self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
-            self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+            self.pose.write(out_path=self.assembly, assembly=True, increment_chains=self.increment_chains)
+            self.log.info('Symmetrically expanded assembly file written to: \'%s\'' % self.assembly)
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.expand_asu.__name__)
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -1815,10 +1812,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.load_pose()
         if self.pose.symmetry:
             self.symmetric_assembly_is_clash()
-            if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
-                self.pose.get_assembly_symmetry_mates()
-                self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
-                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+            if self.output_assembly:
+                self.pose.write(out_path=self.assembly, assembly=True, increment_chains=self.increment_chains)
+                self.log.info('Symmetrically expanded assembly file written to: \'%s\'' % self.assembly)
         self.pose.find_and_split_interface()
 
         self.design_residues = set()  # update False to set() or replace set() and attempt addition of new residues
