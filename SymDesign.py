@@ -1065,7 +1065,7 @@ if __name__ == '__main__':
         formatted_queried_flags = queried_flags.copy()
         formatted_queried_flags.pop('sym_entry', None)
         formatted_queried_flags.pop('design_selector', None)
-        logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(formatted_queried_flags)))
+        logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(formatted_queried_flags.items())))
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------

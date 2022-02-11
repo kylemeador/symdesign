@@ -171,7 +171,7 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3, propagate=False)
 
 
-def pretty_format_table(data, justification=None, header=None, header_justification=None):
+def pretty_format_table(data, justification=None, header=None, header_justification=None) -> list[str]:
     """Present a table in readable format by sizing and justifying columns in a nested data structure
     i.e. [row1[column1, column2, ...], row2[], ...]
 
@@ -189,6 +189,9 @@ def pretty_format_table(data, justification=None, header=None, header_justificat
     """
     justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center,
                        'left': str.ljust, 'right': str.rjust, 'center': str.center}
+    if isinstance(data, dict):  # incase data is pased as a dictionary, we should turn into an iterator of key, value
+        data = data.items()
+
     widths = get_table_column_widths(data)
     row_length = len(widths)
     if not justification:
@@ -213,11 +216,8 @@ def pretty_format_table(data, justification=None, header=None, header_justificat
             raise RuntimeError('The header length (%d) doesn\'t match the number of columns (%d)'
                                % (len(header), row_length))
 
-    formatted_data = [' '.join(header_justification[idx](str(col), width) if not idx and header else justifications[idx](str(col), width)
-                               for idx, (col, width) in enumerate(zip(row, widths)))
-                      for row in data]
-
-    return formatted_data
+    return [' '.join(header_justification[idx](str(col), width) if not idx and header else justifications[idx](str(col), width)
+                     for idx, (col, width) in enumerate(zip(row, widths))) for row in data]
 
 
 def get_table_column_widths(data):
