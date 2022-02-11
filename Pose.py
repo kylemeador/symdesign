@@ -1076,7 +1076,7 @@ class SymmetricModel(Model):
 
             elif self.uc_dimensions:
                 raise DesignError('Symmetry %s is not available yet! If you didn\'t provide it, the symmetry was likely'
-                                  'set from a PDB file. Get the symmetry operations from the international'
+                                  ' set from a PDB file. Get the symmetry operations from the international'
                                   ' tables and add to the pickled operators if this displeases you!' % symmetry)
             else:  # when a point group besides T, O, or I is provided
                 raise DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s and add '
