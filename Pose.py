@@ -939,10 +939,11 @@ class SymmetricModel(Model):
             (str)
         """
         try:
-            return self._cryst1_record
+            return self._cryst_record
         except AttributeError:
-            self._cryst1_record = generate_cryst1_record(self.uc_dimensions, self.symmetry)
-            return self._cryst1_record
+            self._cryst_record = None if self.dimension == 0 \
+                else generate_cryst1_record(self.uc_dimensions, self.symmetry)
+            return self._cryst_record
 
     @property
     def number_of_symmetry_mates(self) -> int:
@@ -3162,7 +3163,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             (str)
         """
         # if self.reference_sequence:
-        formated_reference_sequence = {entity.chain: entity.reference_sequence for entity in self.entities}
+        formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
         chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
         formated_reference_sequence = \
             {chain: ' '.join(map(str.upper, map(protein_letters_1to3_extended.get, sequence)))
