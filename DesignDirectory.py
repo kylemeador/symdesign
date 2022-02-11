@@ -603,10 +603,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self._pose_transformation = \
                     {idx: {'rotation': identity, 'translation': origin, 'rotation2': identity, 'translation2': origin}
                      for idx, entity in enumerate(self.pose.entities)}
-                self.info['pose_transformation'] = self._pose_transformation
                 self.log.error('There was no pose transformation file specified at %s' % self.pose_file)
                 # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
-            # self.info['pose_transformation'] = self._pose_transformation
+            self.info['pose_transformation'] = self._pose_transformation
             # self.log.debug('Using transformation parameters:\n\t%s'
             #                % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
             return self._pose_transformation
@@ -769,9 +768,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['sym_entry'] = self.sym_entry
                 self.info['oligomer_names'] = self.oligomer_names
                 # self.retrieve_pose_metrics_from_file()  # inherent in call to self.pose_transformation
-                self.info['pose_transformation'] = self.pose_transformation
-                self.log.debug('Using transformation parameters:\n\t%s'
-                               % '\n\t'.join(pretty_format_table(self.pose_transformation.items())))
+                # self.info['pose_transformation'] = self.pose_transformation
+                # self.log.debug('Using transformation parameters:\n\t%s'
+                #                % '\n\t'.join(pretty_format_table(self.pose_transformation.items())))
                 # self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
                 self.info['entity_names'] = self.entity_names  # Todo remove after T33
                 # self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
@@ -819,7 +818,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                         set(int(res.translate(digit_translate_table)) for res in self.design_residues.split(','))
             else:  # we are constructing for the first time. Save all relevant information
                 self.info['sym_entry'] = self.sym_entry
-                self.pickle_info()  # save this info on the first copy so that we don't have to construct again
+                self.info['entity_names'] = self.entity_names
+                # self.pickle_info()  # save this info on the first copy so that we don't have to construct again
 
         if pre_refine is not None:
             self.pre_refine = pre_refine
@@ -1651,7 +1651,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_design_errors(errors=(DesignError,))
     def rename_chains(self):
         """Standardize the chain names in incremental order found in the design source file"""
-        pdb = PDB.from_file(self.source, log=self.log)
+        pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
         pdb.reorder_chains()
         pdb.write(out_path=self.asu)
 
@@ -1668,6 +1668,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             else:
                 path = self.orient_dir
                 self.make_path(self.orient_dir)
+            oriented_pdb.update_attributes_from_pdb(pdb)
 
             return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
         else:
@@ -1749,6 +1750,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         pdb = PDB.from_file(self.assembly, log=self.log)
         asu = pdb.return_asu()
         # ensure format matches clean_asu standard
+        asu.update_attributes_from_pdb(pdb)
         asu.write(out_path=self.asu)
 
     def symmetric_assembly_is_clash(self):
