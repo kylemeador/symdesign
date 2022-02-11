@@ -3,12 +3,13 @@ from copy import copy
 from pickle import load
 from glob import glob
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
-from math import sqrt, cos, sin, prod
-from typing import Set, List
+from math import sqrt, cos, sin, prod, ceil
+from typing import Set, List, Iterable
 # from operator import itemgetter
 
 import numpy as np
 # from numba import njit, jit
+from Bio.Data.IUPACData import protein_letters_1to3_extended
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 # import requests
@@ -21,7 +22,7 @@ from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatr
     possible_symmetries
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues, \
-    get_ptgrp_sym_op
+    get_ptgrp_sym_op, generate_cryst1_record
 from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
@@ -31,6 +32,7 @@ from interface_analysis.Database import FragmentDB, FragmentDatabase
 
 # Globals
 logger = start_log(name=__name__)
+seq_res_len = 52
 config_directory = PUtils.pdb_db
 sym_op_location = PUtils.sym_op_location
 
@@ -745,7 +747,73 @@ class Model:  # Todo (Structure)
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    def write(self, out_path=os.getcwd(), file_handle=None, header=None, increment_chains=False, **kwargs):
+    def format_seqres(self, **kwargs) -> str:
+        """Format the reference sequence present in the SEQRES remark for writing to the output header
+
+        Keyword Args:
+            **kwargs
+        Returns:
+            (str)
+        """
+        if self.pdb.reference_sequence:  # TODO DISCONNECT HERE
+            formated_reference_sequence = \
+                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended[aa] for aa in sequence)))
+                 for chain, sequence in self.pdb.reference_sequence.items()}
+            chain_lengths = {chain: len(sequence) for chain, sequence in self.pdb.reference_sequence.items()}
+            return '%s\n' \
+                   % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
+                               % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
+                               for chain, sequence in formated_reference_sequence.items()
+                               for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
+        else:
+            return ''
+
+    def format_header(self, **kwargs):
+        if type(self).__name__ in ['Model']:
+            return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
+        elif type(self).__name__ in ['Pose', 'SymmetricModel']:
+            return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
+        else:
+            return ''
+
+    def format_biomt(self, **kwargs):
+        """Return the BIOMT record for the PDB if there was one parsed
+
+        Returns:
+            (str)
+        """
+        # Todo test
+        if self.pdb.biomt_header != '':  # TODO DISCONNECT HERE
+            return self.pdb.biomt_header
+        elif self.pdb.biomt:
+            return '%s\n' \
+                   % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}'.format(v_idx, m_idx, *vec)
+                               for m_idx, matrix in enumerate(self.pdb.biomt, 1) for v_idx, vec in enumerate(matrix, 1))
+        else:
+            return ''
+
+    def write_header(self, file_handle, header=None, **kwargs) -> None:
+        """Handle writing of Structure header information to the file
+
+        Args:
+            file_handle (FileObject): An open file object where the header should be written
+        Keyword Args
+            header (Union[None, str]): A string that is desired at the top of the .pdb file
+            **kwargs:
+        Returns:
+            (None)
+        """
+        _header = self.format_header(**kwargs)  # biomt and seqres
+        if header and isinstance(header, Iterable):
+            if isinstance(header, str):  # used for cryst_record now...
+                _header += (header if header[-2:] == '\n' else '%s\n' % header)
+            # else:  # TODO
+            #     location.write('\n'.join(header))
+        if _header != '':
+            file_handle.write('%s' % _header)
+
+    def write(self, out_path=os.getcwd(), file_handle=None, assembly=False, increment_chains=False, **kwargs) -> str:
+        # header=None,
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written
 
@@ -841,7 +909,20 @@ class SymmetricModel(Model):
         self.pdb = asu  # TODO COMMENT OUT
 
     @property
-    def number_of_symmetry_mates(self):
+    def cryst_record(self) -> str:
+        """Return the symmetry parameters as a CRYST1 entry
+
+        Returns:
+            (str)
+        """
+        try:
+            return self._cryst1_record
+        except AttributeError:
+            self._cryst1_record = generate_cryst1_record(self.uc_dimensions, self.symmetry)
+            return self._cryst1_record
+
+    @property
+    def number_of_symmetry_mates(self) -> int:
         """Describes the number of symmetry mates present in the Model
 
         Returns:
@@ -918,8 +999,12 @@ class SymmetricModel(Model):
             self._assembly = \
                 PDB.from_chains(list(iter_chain.from_iterable(model.chains for idx, model in enumerate(self.models)
                                                               if idx in selected_models)),
-                                name='assembly', log=self.log)
+                                name='assembly', log=self.log, biomt_record=self.format_biomt(),
+                                cryst_record=self.cryst_record)
             return self._assembly
+
+    # def write_assembly(self, out_path=os.getcwd(), file_handle=None, increment_chains=False, **kwargs):
+    #     self.assembly.write()
 
     def set_symmetry(self, sym_entry=None, expand_matrices=None, symmetry=None, cryst1=None, uc_dimensions=None,
                      generate_assembly=True, generate_symmetry_mates=False, **kwargs):
@@ -1731,6 +1816,20 @@ class SymmetricModel(Model):
         # return BallTree(self.model_coords[model_indices_without_asu])
         self.assembly_tree = BallTree(self.model_coords[model_indices_without_asu])
 
+    def format_biomt(self, **kwargs):
+        """Return the expand_matrices as a BIOMT record
+
+        Returns:
+            (str)
+        """
+        if self.dimension == 0:
+            return '%s\n' \
+                   % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}'.format(v_idx, m_idx, *vec, 0.)
+                               for m_idx, rot in enumerate(self.expand_matrices, 1) for v_idx, vec in enumerate(rot, 1))
+        # for np expand_matrices for m_idx, matrix in enumerate(self.expand_matrices.tolist(), 1) for v_idx, vec in enumerate(matrix, 1))
+        else:  # TODO change this so that the oligomeric units are populated?
+            return ''
+
     # def write(self, out_path=os.getcwd(), header=None, increment_chains=False):  # , cryst1=None):  # Todo write symmetry, name, location
     #     """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
     #     one was written"""
@@ -1946,7 +2045,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         # self.debug_pdb(tag='get_contacting')
         if len(self.active_entities) == 1:
-            return PDB.from_entities(self.active_entities, name='asu', log=self.log, pose_format=False)
+            return PDB.from_entities(self.active_entities, name='asu', log=self.log, pose_format=False,
+                                     biomt_header=self.format_biomt(), cryst_record=self.cryst_record)
         idx = 0
         chain_combinations, entity_combinations = [], []
         contact_count = \
@@ -1983,8 +2083,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     if entity == entity_in_combo:
                         additional_chains.append(chain_combinations[viable_remaining_indices[max_index]][entity_idx])
 
-        # return PDB.from_chains(max_chains + additional_chains, name='asu', log=self.log)
-        return PDB.from_entities(max_chains + additional_chains, name='asu', log=self.log, pose_format=False)
+        return PDB.from_entities(max_chains + additional_chains, name='asu', log=self.log, pose_format=False,
+                                 biomt_header=self.format_biomt(), cryst_record=self.cryst_record)
 
     # def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
     #     self.ignore_clashes = ignore_clashes
@@ -3029,6 +3129,28 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 'uc_dimensions': self.__dict__['uc_dimensions'],
                 'expand_matrices': self.__dict__['expand_matrices'],
                 'dimension': self.__dict__['dimension']}
+
+    def format_seqres(self, **kwargs) -> str:
+        """Format the reference sequence present in the SEQRES remark for writing to the output header
+
+        Keyword Args:
+            **kwargs
+        Returns:
+            (str)
+        """
+        # if self.reference_sequence:
+        formated_reference_sequence = {entity.chain: entity.reference_sequence for entity in self.entities}
+        chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
+        formated_reference_sequence = \
+            {chain: ' '.join(map(str.upper, map(protein_letters_1to3_extended.get, sequence)))
+             for chain, sequence in formated_reference_sequence.items()}
+        return '%s\n' \
+               % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
+                           % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
+                           for chain, sequence in formated_reference_sequence.items()
+                           for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
+        # else:
+        #     return ''
 
     def debug_pdb(self, tag=None):
         """Write out all Structure objects for the Pose PDB"""
