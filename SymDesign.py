@@ -1644,7 +1644,7 @@ if __name__ == '__main__':
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing %s FragmentDatabase\n' % interface_type)
         fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
-        fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)
+        # fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)  # has since been depreciated
         # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.frag_db
         euler_lookup = EulerLookup()
         for design in design_directories:
