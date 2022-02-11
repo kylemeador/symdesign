@@ -623,6 +623,8 @@ class Model:  # Todo (Structure)
         super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
+        # self.biomt_header = ''
+        # self.biomt = []
         if log:
             self.log = log
         elif log is None:
@@ -745,7 +747,11 @@ class Model:  # Todo (Structure)
 
     def write(self, out_path=os.getcwd(), file_handle=None, header=None, increment_chains=False, **kwargs):
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-        one was written"""
+        one was written
+
+        Returns:
+            (str)
+        """
         if file_handle:  # Todo handle with multiple Structure containers
             file_handle.write('%s\n' % self.return_atom_string(**kwargs))
             return
@@ -793,15 +799,16 @@ class SymmetricModel(Model):
         # self.coords = []
         # self.model_coords = []
         self.assembly_tree = None  # stores a sklearn tree for coordinate searching
+        self.asu_equivalent_model_idx = None
         self.coords_type = None  # coords_type
+        self.dimension = None  # dimension
+        self.expand_matrices = None  # expand_matrices  # Todo make expand_matrices numpy
         self.sym_entry = None
         self.symmetry = None  # symmetry  # also defined in PDB as self.space_group
         self.symmetry_point_group = None
-        self.dimension = None  # dimension
-        self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
-        self.expand_matrices = None  # expand_matrices  # Todo make expand_matrices numpy
-        self.asu_equivalent_model_idx = None
         self.oligomeric_equivalent_model_idxs = {}
+        # self.output_asu = True
+        self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
 
         if self.asu.space_group:
             kwargs.update(self.asu.symmetry.copy())
@@ -891,7 +898,7 @@ class SymmetricModel(Model):
                              np.split(self.model_coords, self.number_of_symmetry_mates))
 
     @property
-    def assembly(self):
+    def assembly(self) -> Structure:
         """Provides the Structure object containing all symmetric chains in the assembly unless the design is 2- or 3-D
         then the assembly only contains the contacting models
 
@@ -1127,13 +1134,13 @@ class SymmetricModel(Model):
 
         self.model_coords = Coords(coords)
 
-    def return_assembly_symmetry_mates(self, **kwargs):
+    def return_assembly_symmetry_mates(self, **kwargs) -> List[Structure]:
         """Return symmetry mates as a collection of Structures with symmetric coordinates
 
         Keyword Args:
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Returns:
-            self.models (list[Structure]): All symmetry mates where Chain names match the ASU
+            (list[Structure]): All symmetry mates where Chain names match the ASU
         """
         if len(self.number_of_symmetry_mates) != self.number_of_models:
             self.get_assembly_symmetry_mates(**kwargs)
@@ -1143,13 +1150,14 @@ class SymmetricModel(Model):
 
         return self.models
 
-    def get_assembly_symmetry_mates(self, surrounding_uc=True, **kwargs):  # , return_side_chains=True):
+    def get_assembly_symmetry_mates(self, surrounding_uc=True, **kwargs) -> List[Structure]:
+        # , return_side_chains=True):
         """Generate symmetry mates as a collection of Structures with symmetric coordinates
 
         Keyword Args:
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Sets:
-            self.models (list[Structure]): All symmetry mates where Chain names match the ASU
+            (list[Structure]): All symmetry mates where Chain names match the ASU
         """
         if not self.symmetry:
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
@@ -1892,8 +1900,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         return self.pdb.residues
 
     @property
-    def reference_sequence(self):
-        return ''.join(self.pdb.reference_sequence.values())
+    def reference_sequence(self) -> str:
+        # return ''.join(self.pdb.reference_sequence.values())
+        return ''.join(entity.reference_sequence for entity in self.entities)
 
     def entity(self, entity):  # TODO COMMENT OUT .pdb
         return self.pdb.entity(entity)
