@@ -45,6 +45,7 @@ rosetta_flags = extras_flags[rosetta_extras] + \
      '-write_seqres_records true', '-output_pose_energies_table false', '-output_pose_cache_data false',
      '-holes:dalphaball %s' % dalphaball if os.path.exists(dalphaball) else '',
      '-use_occurrence_data',  # Todo integrate into xml with Rosetta Source update
+     # '-preserve_header true', '-write_pdb_title_section_records true'
      '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB VirtualNTerm '
      'VirtualDNAPhosphate CTermConnect sc_orbitals pro_hydroxylated_case1 N_acetylated C_methylamidated cys_acetylated'
      'pro_hydroxylated_case2 ser_phosphorylated thr_phosphorylated tyr_phosphorylated tyr_diiodinated tyr_sulfated'
