@@ -12,6 +12,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
+from typing import List
 
 import numpy as np
 # from numba import njit
@@ -171,7 +172,7 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3, propagate=False)
 
 
-def pretty_format_table(data, justification=None, header=None, header_justification=None) -> list[str]:
+def pretty_format_table(data, justification=None, header=None, header_justification=None) -> List[str]:
     """Present a table in readable format by sizing and justifying columns in a nested data structure
     i.e. [row1[column1, column2, ...], row2[], ...]
 
