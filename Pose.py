@@ -824,34 +824,57 @@ class Model:  # Todo (Structure)
             file_handle.write('%s\n' % self.return_atom_string(**kwargs))
             return
 
-        with open(out_path, 'w') as f:
-            if header:
-                if isinstance(header, str):
-                    f.write(header)
-                # if isinstance(header, Iterable):
+        with open(out_path, 'w') as outfile:
+            self.write_header(outfile, **kwargs)
+            # if header:
+            #     if isinstance(header, str):
+            #         f.write(header)
+            #     # if isinstance(header, Iterable):
 
-            if increment_chains:
-                available_chain_ids = Structure.return_chain_generator()
-                for structure in self.models:
-                    for entity in structure.entities:  # Todo handle with multiple Structure containers
-                        chain = next(available_chain_ids)
-                        entity.write(file_handle=f, chain=chain)
-                        c_term_residue = entity.c_terminal_residue
-                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
-                                                                              c_term_residue.atoms[-1].number + 1,
-                                                                              c_term_residue.type, chain,
-                                                                              c_term_residue.number))
-            else:
+            if type(self).__name__ in ['SymmetricModel', 'Pose']:
+                if not self.symmetry:  # When Pose isn't symmetric, we don't have to consider symmetric issues
+                    pass
+                elif assembly:  # will make models and use next logic steps to write them out
+                    self.get_assembly_symmetry_mates()
+                # elif self.output_asu or
+                # elif not self.models:
+                else:  # when assembly not explicitly requested, skip models, using biomt_record/cryst_record for sym
+                    for entity in self.pdb.entities:
+                        entity.write(file_handle=outfile, **kwargs)
+                    # Todo with Structure subclass
+                    #  super().write(out_path=out_path, **kwargs)
+                    return out_path
+
+                if increment_chains:  # assembly requested, check on the mechanism of symmetric writing
+                    # we won't allow incremental chains when the Model is plain as the models are all the same and
+                    # therefore belong with the models label
+                    available_chain_ids = Structure.return_chain_generator()
+                    for structure in self.models:
+                        for entity in structure.entities:  # Todo handle with multiple Structure containers
+                            chain = next(available_chain_ids)
+                            entity.write(file_handle=outfile, chain=chain)
+                            c_term_residue = entity.c_terminal_residue
+                            outfile.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
+                                                                                        c_term_residue.atoms[-1].number + 1,
+                                                                                        c_term_residue.type, chain,
+                                                                                        c_term_residue.number))
+                    return out_path
+            # else:
+            if self.models:  # these were generated if assembly=True, therefore user doesn't want to increment chains
                 for model_number, structure in enumerate(self.models, 1):
-                    f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
+                    outfile.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
                     for entity in structure.entities:  # Todo handle with multiple Structure containers
-                        entity.write(file_handle=f)
+                        entity.write(file_handle=outfile)
                         c_term_residue = entity.c_terminal_residue
-                        f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
-                                                                              c_term_residue.atoms[-1].number + 1,
-                                                                              c_term_residue.type, entity.chain_id,
-                                                                              c_term_residue.number))
-                    f.write('ENDMDL\n')
+                        outfile.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER',
+                                                                                    c_term_residue.atoms[-1].number + 1,
+                                                                                    c_term_residue.type, entity.chain_id,
+                                                                                    c_term_residue.number))
+                    outfile.write('ENDMDL\n')
+            else:
+                self.pdb.write(file_handle=outfile, **kwargs)
+
+        return out_path
 
     def __getitem__(self, idx):
         return self.models[idx]
