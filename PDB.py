@@ -401,7 +401,7 @@ class PDB(Structure):
                 self.header.append(line.strip())
             elif line[:6] == 'CRYST1':
                 self.header.append(line.strip())
-                self.cryst_record = line.strip()
+                self.cryst_record = line  # .strip()
                 self.uc_dimensions, self.space_group = self.parse_cryst_record(self.cryst_record)
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
