@@ -1670,7 +1670,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.make_path(self.orient_dir)
             oriented_pdb.update_attributes_from_pdb(pdb)
 
-            return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
+            orient_file = oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
+            self.log.critical('The oriented file was saved to %s' % orient_file)
+            # return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
