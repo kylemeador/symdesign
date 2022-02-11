@@ -86,7 +86,8 @@ class StructureBase:
     """
     def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, solve_discrepancy=None,
                  sequence=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
-                 query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
+                 query_by_sequence=True, entity_names=None, rename_chains=None, biomt=None, biomt_header=None,
+                 **kwargs):
         super().__init__(**kwargs)
 
 
@@ -104,8 +105,8 @@ class Structure(StructureBase):
         self._coords_residue_index = None
         self._residues = None
         self._residue_indices = None
-        self.biomt = []
-        self.biomt_header = ''
+        self.biomt = kwargs.get('biomt', [])
+        self.biomt_header = kwargs.get('biomt_header', '')
         self.name = name
         self.secondary_structure = None
         self.sasa = None
@@ -2879,9 +2880,9 @@ class Entity(Chain, SequenceProfile):
         # with open(out_file, 'w') as file:
         p = subprocess.Popen(sdf_cmd, stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
-        assert p.returncode == 0, 'Symmetry definition file creation failed for %s' % self.name
         if os.path.exists(struct_file):
             os.system('rm %s' % struct_file)
+        assert p.returncode == 0, 'Symmetry definition file creation failed for %s' % self.name
 
         self.format_sdf(out.decode('utf-8').split('\n'), to_file=out_file, dihedral=dihedral, **kwargs)
         #               modify_sym_energy=False, energy=2)
