@@ -208,7 +208,7 @@ class SequenceProfile:
                         if self.evolutionary_profile[idx][pose_res_type] > 0:  # The residue choice isn't horrible...
                             self.log.critical('The evolutionary profile must have been generated from a different file,'
                                               ' however the evolutionary information contained is still viable. The '
-                                              'correct residue form the Pose will be substituted for the missing '
+                                              'correct residue from the Pose will be substituted for the missing '
                                               'residue in the profile')
                             incorrect_count += 1
                             if incorrect_count > 2:
