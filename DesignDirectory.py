@@ -817,6 +817,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # 'design_residues' coming in as 234B (residue_number|chain), remove chain, change type to int
                     self.design_residues = \
                         set(int(res.translate(digit_translate_table)) for res in self.design_residues.split(','))
+            else:  # we are constructing for the first time. Save all relevant information
+                self.info['sym_entry'] = self.sym_entry
+                self.pickle_info()  # save this info on the first copy so that we don't have to construct again
 
         if pre_refine is not None:
             self.pre_refine = pre_refine
