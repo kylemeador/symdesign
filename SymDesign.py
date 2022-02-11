@@ -1062,8 +1062,10 @@ if __name__ == '__main__':
 
     if not args.guide and args.module not in ['distribute', 'nanohedra_query', 'guide', 'flags', 'residue_selector',
                                               'multicistronic']:
-        options_table = SDUtils.pretty_format_table(queried_flags.items())
-        logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
+        formatted_queried_flags = queried_flags.copy()
+        formatted_queried_flags.pop('sym_entry')
+        formatted_queried_flags.pop('design_selector')
+        logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(formatted_queried_flags)))
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
@@ -1193,7 +1195,7 @@ if __name__ == '__main__':
             # todo logic to include similarity between any supplied symmetry operations
             if master_directory.sym_entry.group1 == master_directory.sym_entry.group2:
                 required_entities1, required_entities2 = all_entity_names, set()
-            # for idx, entities in enumerate([required_entities1, required_entities2], 1):
+            # Select entities for orienting
             for idx, entities in enumerate(required_entities, 1):
                 if not entities:
                     continue
@@ -1296,7 +1298,7 @@ if __name__ == '__main__':
                         all_entities[oriented_asu.name] = oriented_asu.entities[0]
 
             load_resources_info_messages = []
-            # set up the hhblits profile for each input entity
+            # set up the hhblits and profile bmdca for each input entity
             profile_dir = master_directory.profiles
             sequences_dir = master_directory.sequences
             master_directory.make_path(profile_dir)
@@ -1378,8 +1380,8 @@ if __name__ == '__main__':
             master_directory.make_path(full_model_dir)
             refine_files = os.listdir(refine_dir)
             full_model_files = os.listdir(full_model_dir)
-            oligomers_to_refine, olgomers_to_loop_model, sym_def_files = {}, {}, {}
-            # for idx, entities in enumerate([required_entities1, required_entities2], 1):
+            entities_to_refine, entities_to_loop_model, sym_def_files = {}, {}, {}
+            # Identify thDe entities to refine and to model loops before proceeding
             for idx, entities in enumerate(required_entities, 1):
                 # for entry_entity in entities:  # ex: 1ABC_1
                 symmetry = master_directory.sym_entry.sym_map[idx]
@@ -1394,17 +1396,18 @@ if __name__ == '__main__':
                     base_pdb_code = os.path.splitext(orient_asu_file)[0]
                     if base_pdb_code in all_entities:
                         if orient_asu_file not in refine_files:
-                            oligomers_to_refine[os.path.join(orient_asu_dir, orient_asu_file)] = symmetry
+                            entities_to_refine[os.path.join(orient_asu_dir, orient_asu_file)] = symmetry
                         if orient_asu_file not in full_model_files:
-                            # olgomers_to_loop_model.add((os.path.join(refine_dir, orient_asu_file), symmetry))
-                            olgomers_to_loop_model[base_pdb_code] = symmetry
+                            # entities_to_loop_model.add((os.path.join(refine_dir, orient_asu_file), symmetry))
+                            entities_to_loop_model[base_pdb_code] = symmetry
 
+            # query user and set up commands to perform refinement on missing entities
             pre_refine = True
-            while oligomers_to_refine:  # if no files found unrefined, we should proceed
+            while entities_to_refine:  # if no files found unrefined, we should proceed
                 logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
                             ' into the Rosetta ScoreFunction for optimized sequence design: %s'
                             % ', '.join(set(os.path.splitext(os.path.basename(orient_asu_file))[0]
-                                            for orient_asu_file in oligomers_to_refine)))
+                                            for orient_asu_file in entities_to_refine)))
                 print('Would you like to refine them now? If you plan on performing sequence design with models '
                       'containing them, it is highly recommended you perform refinement')
                 if not boolean_choice():
@@ -1433,7 +1436,7 @@ if __name__ == '__main__':
                 refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', orient_asu_file, '-parser:script_vars'] +
                                ['sdf=%s' % sym_def_files[sym],
                                 'symmetry=%s' % 'make_point_group' if sym != 'C1' else 'asymmetric']
-                               for orient_asu_file, sym in oligomers_to_refine.items()]
+                               for orient_asu_file, sym in entities_to_refine.items()]
                 commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds],
                                                        name='refine_oligomers_%s' % timestamp, out_path=refine_dir)
                 refine_sbatch = distribute(file=commands_file, out_path=master_directory.sbatch_scripts, scale='refine',
@@ -1451,10 +1454,11 @@ if __name__ == '__main__':
                 load_resources = True
                 break
 
+            # query user and set up commands to perform loop modelling on missing entities
             pre_loop_model = True
-            while olgomers_to_loop_model:
+            while entities_to_loop_model:
                 logger.info('The following structures have not been modelled for disorder. Missing loops will '
-                            'be built for optimized sequence design: %s' % ', '.join(olgomers_to_loop_model))
+                            'be built for optimized sequence design: %s' % ', '.join(entities_to_loop_model))
                 print('Would you like to model loops for these structures now? If you plan on performing sequence '
                       'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
                 if not boolean_choice():
@@ -1481,7 +1485,7 @@ if __name__ == '__main__':
                 # Make all output paths and files for each loop ensemble
                 logger.info('Preparing blueprint and loop files for entity:')
                 out_paths, blueprints, loop_files = [], [], []
-                for entity in olgomers_to_loop_model:
+                for entity in entities_to_loop_model:
                     entity_out_path = os.path.join(full_model_dir, entity)
                     master_directory.make_path(entity_out_path)
                     out_paths.append(entity_out_path)
@@ -1489,7 +1493,7 @@ if __name__ == '__main__':
                     loop_files.append(all_entities[entity].make_loop_file(out_path=full_model_dir))
 
                 loop_model_cmds = []
-                for idx, (entity, sym) in enumerate(olgomers_to_loop_model.items()):
+                for idx, (entity, sym) in enumerate(entities_to_loop_model.items()):
                     entity_cmd = script_cmd + loop_model_cmd + \
                         ['blueprint=%s' % blueprints[idx], 'loop_file=%s' % loop_files[idx],
                          '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity), '-out:path:pdb', out_paths[idx]] + \
