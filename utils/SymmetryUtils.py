@@ -43,7 +43,7 @@ multicomponent_valid_subunit_number = \
 #      'I': multicomponent_by_number(60)}
 
 
-def generate_cryst1_record(dimensions, space_group):
+def generate_cryst1_record(dimensions, space_group) -> str:
     """Format the CRYST1 record from specified unit cell dimensions and space group for a .pdb file
 
     Args:
