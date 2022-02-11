@@ -339,6 +339,7 @@ class FragmentDatabase(FragmentDB):
         self.get_db_statistics()
         self.parameterize_frag_length(fragment_length)
 
+    @property
     def location(self):
         """Provide the location where fragments are stored"""
         return frag_directory.get(self.source, None)
