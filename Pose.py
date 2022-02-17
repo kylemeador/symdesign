@@ -2547,8 +2547,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         entity1_residues, entity2_residues = self.interface_residues.get((entity1, entity2))
         if not entity1_residues or not entity2_residues:
-            self.log.debug('At Entity %s | Entity %s interface, No residues found. Fragments not available'
-                           % (entity1.name, entity2.name))
+            self.log.info('No residues found at the %s | %s interface. Fragments not available'
+                          % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
             return
         if entity1 == entity2 and entity1.is_oligomeric:
@@ -2570,7 +2570,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         surface_frags2 = entity2.get_fragments(residue_numbers=entity2_res_numbers, representatives=self.frag_db.reps)
 
         if not surface_frags1 or not surface_frags2:
-            self.log.debug('At interface Entity %s | Entity %s\tNo fragments found' % (entity1.name, entity2.name))
+            self.log.info('No fragments found at the %s | %s interface' % (entity1.name, entity2.name))
             self.fragment_queries[(entity1, entity2)] = []
             return
         else:
@@ -2911,7 +2911,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
             # this dictionary is removed of all entries that are not fragment populated.
             clean_fragment_profile = dict((residue, data) for residue, data in self.fragment_profile.items()
-                                          if data.get('stats', (None,))[0])  # must be a fragment observation
+                                          if data.get('stats', (None,))[0])  # [0] must contain a fragment observation
             self.interface_data_file = \
                 pickle_object(clean_fragment_profile, '%s_fragment_profile' % self.frag_db.source,
                               out_path=des_dir.data)
@@ -3450,6 +3450,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
 def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
     """From a ghost fragment/surface fragment pair and corresponding match score, return the pertinent interface
     information
+
     Args:
         ghostfrag_surffrag_pairs (list[tuple]): Observed ghost and surface fragment overlaps and their match score
     Returns:
