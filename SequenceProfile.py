@@ -878,10 +878,13 @@ class SequenceProfile:
                 no_design.append(residue)
 
         if keep_extras:
-            if self.evolutionary_profile:  # if not an empty dictionary, add the corresponding value from evolution
+            if self.evolutionary_profile:
+                # Todo currently, if not an empty dictionary, add the corresponding value from evolution because the
+                #  calculation of packer pallette is subtractive so the use of an overlapping evolution and
+                #  null fragment would result in nothing allowed to design...
                 for residue in no_design:
                     self.fragment_profile[residue] = self.evolutionary_profile.get(residue)  # TODO, aa_weighted_counts)
-            else:  # add a blank enty
+            else:  # Todo add a blank enty. This needs direction if not evolutionary profile
                 for residue in no_design:
                     self.fragment_profile[residue] = aa_weighted_counts
         else:  # remove missing residues from dictionary
