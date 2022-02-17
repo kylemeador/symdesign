@@ -705,7 +705,7 @@ class SequenceProfile:
         # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
         if self.fragment_map is not None:
             self.generate_fragment_profile()
-            self.simplify_fragment_profile(keep_extras=True)
+            self.simplify_fragment_profile()
         else:  # try to separate any fragment queries to this entity
             if self.fragment_queries:  # Todo refactor this to Pose
                 for query_pair, fragments in self.fragment_queries.items():
@@ -732,14 +732,14 @@ class SequenceProfile:
         """
         if alignment_type not in ['mapped', 'paired']:
             return
-        if not fragments:
-            self.fragment_map = {}
-            return
 
         if not self.fragment_map:
             self.fragment_map = self.populate_design_dictionary(self.profile_length,
                                                                 [j for j in range(*self.frag_db.fragment_range)],
                                                                 dtype=list)
+        if not fragments:
+            # self.fragment_map = {}
+            return
         #     print('New fragment_map')
         # print(fragments)
         # print(self.name)
@@ -775,7 +775,7 @@ class SequenceProfile:
         """
         self.log.debug('Generating Fragment Profile from Map')
         for residue_number, fragment_indices in self.fragment_map.items():
-            self.fragment_profile[residue_number] = {}
+            self.fragment_profile[residue_number] = {}  # this may be unnecessary due to populate_design_dictionary()
             # if residue_number == 12:
             #     print('At 12, fragment_map: %s' % self.fragment_map)
             # if residue_number == 13:
@@ -799,7 +799,7 @@ class SequenceProfile:
                     # observation_d[obs_idx]['match'] = fragment['match']
                 # self.fragment_map[residue_number][frag_index] = observation_d
 
-    def simplify_fragment_profile(self, keep_extras=False):
+    def simplify_fragment_profile(self, keep_extras=True):
         """Take a multi-indexed, a multi-observation fragment frequency dictionary and flatten to single frequency for
         each amino acid. Weight the frequency of each observation by the fragment indexed, observation weight and the
         match between the fragment library and the observed fragment overlap
@@ -843,21 +843,20 @@ class SequenceProfile:
                         total_fragment_weight += total_obs_weight
                         obs_aa_dict = deepcopy(aa_weighted_counts)  # {'A': 0, 'C': 0, ..., 'stats': [0, 1]}
                         obs_aa_dict['stats'][1] = total_obs_weight
-                        for obs in self.fragment_profile[residue][index]:
+                        for obs, obs_freq_data in self.fragment_profile[residue][index].items():
                             total_fragment_observations += 1
-                            obs_x_match_weight = self.fragment_profile[residue][index][obs]['stats'][1] * \
-                                self.fragment_profile[residue][index][obs]['match']
+                            obs_x_match_weight = obs_freq_data['stats'][1] * obs_freq_data['match']
                             # match_weight = self.fragment_profile[residue][index][obs]['match']
                             # obs_weight = self.fragment_profile[residue][index][obs]['stats'][1]
-                            for aa in self.fragment_profile[residue][index][obs]:
-                                if aa not in ['stats', 'match']:
+                            for aa, frequency in obs_freq_data.items():
+                                if aa not in ['stats', 'match']:  # Todo remove to reduce time. zip the aas with freqs?
                                     # Multiply OBS and MATCH
-                                    modification_weight = (obs_x_match_weight / total_obs_x_match_weight)
+                                    modification_weight = obs_x_match_weight / total_obs_x_match_weight
                                     # modification_weight = ((obs_weight + match_weight) /  # WHEN SUMMING OBS and MATCH
                                     #                        (total_obs_weight + total_match_weight))
                                     # modification_weight = (obs_weight / total_obs_weight)
                                     # Add all occurrences to summed frequencies list
-                                    obs_aa_dict[aa] += self.fragment_profile[residue][index][obs][aa] * modification_weight
+                                    obs_aa_dict[aa] += frequency * modification_weight
                         self.fragment_profile[residue][index] = obs_aa_dict
                     else:
                         self.fragment_profile[residue][index] = {}
@@ -879,10 +878,10 @@ class SequenceProfile:
                 no_design.append(residue)
 
         if keep_extras:
-            if self.evolutionary_profile:  # if not an empty dictionary
+            if self.evolutionary_profile:  # if not an empty dictionary, add the corresponding value from evolution
                 for residue in no_design:
                     self.fragment_profile[residue] = self.evolutionary_profile.get(residue)  # TODO, aa_weighted_counts)
-            else:
+            else:  # add a blank enty
                 for residue in no_design:
                     self.fragment_profile[residue] = aa_weighted_counts
         else:  # remove missing residues from dictionary
@@ -891,7 +890,7 @@ class SequenceProfile:
 
     def find_alpha(self, alpha=0.5):
         """Find fragment contribution to design with a maximum contribution of alpha. Used subsequently to integrate
-         fragment profile during combination with evolutionary profile in calculate_design_profile
+        fragment profile during combination with evolutionary profile in calculate_design_profile
 
         Takes self.fragment_map
             (dict) {1: {-2: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.6}, ...], -1: [], ...},
@@ -1248,7 +1247,7 @@ class SequenceProfile:
         else:
             offset = index_offset
 
-        return {residue + offset: {i: dtype() for i in alphabet} for residue in range(n)}
+        return {residue + offset: {character: dtype() for character in alphabet} for residue in range(n)}
 
     @staticmethod
     def get_lod(aa_freq, background, round_lod=True):
