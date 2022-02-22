@@ -101,14 +101,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # DesignDirectory path attributes
         # self.scores = None  # /program_root/Projects/project_Designs/design/scores
         self.scores_file = None  # /program_root/Projects/project_Designs/design/data/name.sc
+        self.data = None  # /program_root/Projects/project_Designs/design/data
         self.designs = None  # /program_root/Projects/project_Designs/design/designs
-        self.scripts = None  # /program_root/Projects/project_Designs/design/scripts
         # self.sdf_dir = None  # path/to/directory/sdf/
         self.frags = None  # /program_root/Projects/project_Designs/design/matching_fragments
         self.flags = None  # /program_root/Projects/project_Designs/design/scripts/flags
         self.frag_file = None  # /program_root/Projects/project_Designs/design/
+        self.output_directory = kwargs.get('output_directory', None)
         self.pose_file = None  # /program_root/Projects/project_Designs/design/
-        self.data = None  # /program_root/Projects/project_Designs/design/data
+        self.scripts = None  # /program_root/Projects/project_Designs/design/scripts
         self.serialized_info = None  # /program_root/Projects/project_Designs/design/data/info.pkl
         self.asu = None  # /program_root/Projects/project_Designs/design/design_name_clean_asu.pdb
         self.assembly = None  # /program_root/Projects/project_Designs/design/design_name_assembly.pdb
@@ -297,7 +298,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.make_path(self.path)
 
                 # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
-                # self.start_log()  # need to start here... ugh
+                # need to start here if want to load pose through normal mechanism... ugh
                 self.set_up_design_directory()
                 self.load_pose()  # load the source pdb to find the entity_names
                 self.entity_names = [entity.name for entity in self.pose.entities]
@@ -3154,7 +3155,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         Keyword Args:
             condition=True (bool): A condition to check before the path production is executed
         """
-        if not os.path.exists(path) and condition:
+        if condition:
             os.makedirs(path)
 
     def __key(self):
