@@ -233,6 +233,16 @@ def get_table_column_widths(data):
     return tuple(max(map(len, map(str, column))) for column in zip(*data))
 
 
+def make_path(path, condition=True):
+    """Make all required directories in specified path if it doesn't exist, and optional condition is True
+
+    Keyword Args:
+        condition=True (bool): A condition to check before the path production is executed
+    """
+    if condition:
+        os.makedirs(path)
+
+
 # @handle_errors(errors=(FileNotFoundError,))
 def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
