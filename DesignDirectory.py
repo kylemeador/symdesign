@@ -157,7 +157,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
 
         # Analysis flags
-        self.analysis = kwargs.get('analysis', False)
         self.skip_logging = kwargs.get('skip_logging', False)
         self.copy_nanohedra = kwargs.get('copy_nanohedra', False)  # no construction specific flags
         self.nanohedra_root = None
