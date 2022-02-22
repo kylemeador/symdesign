@@ -240,7 +240,7 @@ def make_path(path, condition=True):
         condition=True (bool): A condition to check before the path production is executed
     """
     if condition:
-        os.makedirs(path)
+        os.makedirs(path, exist_ok=True)
 
 
 # @handle_errors(errors=(FileNotFoundError,))

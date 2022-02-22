@@ -578,10 +578,6 @@ if __name__ == '__main__':
                         help='Number of cores to use with --multiprocessing. If -mp is run in a cluster environment, '
                              'the number of cores will reflect the allocation provided by the cluster, otherwise, '
                              'specify the number of cores\nDefault=#ofCores - 1')
-    parser.add_argument('-d', '--design_range', type=float,
-                        help='The range of designs to consider from a larger chunk of work to complete. The argument '
-                             'should specify a percentage of work from 0-100 and should separate two numbers by a '
-                             'single "-". Ex: 25-50', default=None)
     parser.add_argument('-d', '--directory', type=os.path.abspath, metavar=ex_path('your_pdb_files'),
                         help='Master directory where poses to be designed with %s are located. This may be the output '
                              'directory from %s.py, a random directory with poses requiring interface design, or the '
@@ -589,6 +585,10 @@ if __name__ == '__main__':
                              'directory will be selected. For finer control over which poses to manipulate, use --file,'
                              ' --project, or --single flags.'
                              % (PUtils.program_name, PUtils.nano, PUtils.program_name, PUtils.program_name))
+    parser.add_argument('-dr', '--design_range', type=float,
+                        help='The range of designs to consider from a larger chunk of work to complete. The argument '
+                             'should specify a percentage of work from 0-100 and should separate two numbers by a '
+                             'single "-". Ex: 25-50', default=None)
     parser.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                         help='A DataFrame created by %s analysis containing pose info. File is .csv, named such as '
                              'Metrics.csv' % PUtils.program_name)
@@ -1157,7 +1157,7 @@ if __name__ == '__main__':
                 designs_directory = '%s_%s_%s_poses' % default_output_tuple
             else:
                 designs_directory = args.output_directory
-            os.mkdir(designs_directory)
+            os.makedirs(designs_directory, exist_ok=True)
         logger.info('Loading design resources from Database \'%s\'' % master_directory.protein_data)
         master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
                              master_directory.full_model_dir, master_directory.stride_dir, master_directory.sequences,
