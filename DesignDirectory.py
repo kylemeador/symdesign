@@ -220,8 +220,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.percent_residues_fragment_total = None
         self.percent_residues_fragment_center = None
 
-        self.set_flags(**kwargs)  # Todo Depreciate - has to be set before set_up_design_directory
-
         if self.nano:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
             if not os.path.exists(self.source_path):
@@ -295,6 +293,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     raise FileNotFoundError('The file \'%s\' couldn\'t be located! Ensure this location is correct.')
                 self.source = self.source_path
                 if self.output_directory:
+                    self.make_path(self.output_directory)
+                    self.program_root = os.getcwd()
+                    self.projects = ''
+                    self.project_designs = ''
                     self.path = self.output_directory
                     # ^ /output_directory<- self.path /design.pdb
                 else:
@@ -3137,7 +3139,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             condition=True (bool): A condition to check before the path production is executed
         """
         if condition:
-            os.makedirs(path)
+            os.makedirs(path, exist_ok=True)
 
     def __key(self):
         return self.name
