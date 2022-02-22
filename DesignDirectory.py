@@ -551,7 +551,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         """
         # self.pose.get_assembly_symmetry_mates()
         if not self.pose.assembly.sasa:
-            self.pose.assembly.write(os.path.join(self.data, 'ASSEMBLY_DEBUG.pdb'))
+            # self.pose.assembly.write(os.path.join(self.data, 'ASSEMBLY_DEBUG.pdb'))
             self.pose.assembly.get_sasa()
 
         # self.pose.assembly.write(out_path=os.path.join(self.path, 'POSE_ASSEMBLY.pdb'))
@@ -603,10 +603,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self._pose_transformation = \
                     {idx: {'rotation': identity, 'translation': origin, 'rotation2': identity, 'translation2': origin}
                      for idx, entity in enumerate(self.pose.entities)}
-                self.info['pose_transformation'] = self._pose_transformation
                 self.log.error('There was no pose transformation file specified at %s' % self.pose_file)
                 # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
-            # self.info['pose_transformation'] = self._pose_transformation
+            self.info['pose_transformation'] = self._pose_transformation
             # self.log.debug('Using transformation parameters:\n\t%s'
             #                % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
             return self._pose_transformation
@@ -769,9 +768,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.info['sym_entry'] = self.sym_entry
                 self.info['oligomer_names'] = self.oligomer_names
                 # self.retrieve_pose_metrics_from_file()  # inherent in call to self.pose_transformation
-                self.info['pose_transformation'] = self.pose_transformation
-                self.log.debug('Using transformation parameters:\n\t%s'
-                               % '\n\t'.join(pretty_format_table(self.pose_transformation.items())))
+                # self.info['pose_transformation'] = self.pose_transformation
+                # self.log.debug('Using transformation parameters:\n\t%s'
+                #                % '\n\t'.join(pretty_format_table(self.pose_transformation.items())))
                 # self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
                 self.info['entity_names'] = self.entity_names  # Todo remove after T33
                 # self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
@@ -817,6 +816,10 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     # 'design_residues' coming in as 234B (residue_number|chain), remove chain, change type to int
                     self.design_residues = \
                         set(int(res.translate(digit_translate_table)) for res in self.design_residues.split(','))
+            else:  # we are constructing for the first time. Save all relevant information
+                self.info['sym_entry'] = self.sym_entry
+                self.info['entity_names'] = self.entity_names
+                # self.pickle_info()  # save this info on the first copy so that we don't have to construct again
 
         if pre_refine is not None:
             self.pre_refine = pre_refine
@@ -1058,14 +1061,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.info != self._info:  # if the state has changed from the original version
             pickle_object(self.info, self.serialized_info, out_path='')
 
-    def prepare_rosetta_flags(self, symmetry_protocol=None, sym_def_file=None, pdb_path=None, out_path=os.getcwd()):
+    def prepare_rosetta_flags(self, symmetry_protocol=None, sym_def_file=None, pdb_out_path=None,
+                              out_path=os.getcwd()) -> str:
         """Prepare a protocol specific Rosetta flags file with program specific variables
 
-        Args:
-            symmetry_protocol (str): The type of symmetric protocol to use for Rosetta jobs the flags are valid for
-            sym_def_file (str): The file specifying the symmetry system for Rosetta
         Keyword Args:
-            out_path=cwd (str): Disk location to write the flags file
+            symmetry_protocol=None (Union[None, str]): The type of symmetric protocol to use for Rosetta jobs the flags are valid for
+            sym_def_file=None (Union[None, str]): The file specifying the symmetry system for Rosetta
+            pdb_out_path=None (Union[None, str]): Disk location to write the resulting design files
+            out_path=os.getcwd() (str): Disk location to write the flags file
         Returns:
             (str): Disk location of the written flags file
         """
@@ -1132,8 +1136,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             variables.extend([('core_residues', out_of_bounds_residue)])
 
         flags = copy.copy(rosetta_flags)
-        if pdb_path:
-            flags.extend(['-out:path:pdb %s' % pdb_path, '-scorefile %s' % self.scores_file])
+        if pdb_out_path:
+            flags.extend(['-out:path:pdb %s' % pdb_out_path, '-scorefile %s' % self.scores_file])
         else:
             flags.extend(['-out:path:pdb %s' % self.designs, '-scorefile %s' % self.scores_file])
         flags.append('-in:file:native %s' % self.refined_pdb)
@@ -1614,11 +1618,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if not self.asu or not os.path.exists(self.asu):
             if self.nano and not self.construct_pose:
                 return
-            # self.pose.pdb.write(out_path=os.path.join(self.path, 'pose_pdb.pdb'))  # not necessarily most contacting
-            # self.pose.asu = self.pose.get_contacting_asu() # Todo test out PDB.from_chains() making new entities...
-            new_asu = self.pose.get_contacting_asu()  # returns a new Structure from multiple Chain or Entity objects
-            new_asu.write(out_path=self.asu, header=self.cryst_record)
-            # self.pose.pdb.write(out_path=self.asu, header=self.cryst_record)
+            # returns a new Structure from multiple Chain or Entity objects including the Pose symmetry
+            new_asu = self.pose.get_contacting_asu()
+            new_asu.write(out_path=self.asu)  # , header=self.cryst_record)
             self.info['pre_refine'] = self.pre_refine
             self.log.info('Cleaned PDB: \'%s\'' % self.asu)
 
@@ -1649,7 +1651,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     @handle_design_errors(errors=(DesignError,))
     def rename_chains(self):
         """Standardize the chain names in incremental order found in the design source file"""
-        pdb = PDB.from_file(self.source, log=self.log)
+        pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
         pdb.reorder_chains()
         pdb.write(out_path=self.asu)
 
@@ -1666,8 +1668,11 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             else:
                 path = self.orient_dir
                 self.make_path(self.orient_dir)
+            oriented_pdb.update_attributes_from_pdb(pdb)
 
-            return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
+            orient_file = oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
+            self.log.critical('The oriented file was saved to %s' % orient_file)
+            # return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
@@ -1681,7 +1686,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             #  not the most accurate (I THINK)
             flags = os.path.join(self.scripts, 'flags')
             flag_dir = self.scripts
-            pdb_path = self.refined_pdb
+            pdb_out_path = self.designs
             additional_flags = []
             # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
             # Todo unnecessary? call self.load_pose with a flag for the type of file? how to reconcile with interface
@@ -1703,13 +1708,14 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                             if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
                                 self.pose.pdb.mutate_residue(residue=residue, to='A')
 
-            self.pose.pdb.write(out_path=self.refine_pdb)
+            # self.pose.pdb.write(out_path=self.refine_pdb)
+            self.pose.write(out_path=self.refine_pdb)
             refine_pdb = self.refine_pdb
             self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
         else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
             flags = os.path.join(self.refine_dir, 'refine_flags')
             flag_dir = self.refine_dir
-            pdb_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
+            pdb_out_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
             # out_put_pdb_path = os.path.join(self.refine_dir, '%s.pdb' % self.pose.name)
             refine_pdb = self.source
             additional_flags = ['-no_scorefile', 'true']
@@ -1718,7 +1724,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()
             self.make_path(flag_dir)
-            flags = self.prepare_rosetta_flags(pdb_path=pdb_path, out_path=flag_dir)
+            flags = self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_path=flag_dir)
 
         # RELAX: Prepare command
         relax_cmd += relax_flags + additional_flags + \
@@ -1746,6 +1752,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         pdb = PDB.from_file(self.assembly, log=self.log)
         asu = pdb.return_asu()
         # ensure format matches clean_asu standard
+        asu.update_attributes_from_pdb(pdb)
         asu.write(out_path=self.asu)
 
     def symmetric_assembly_is_clash(self):
@@ -1772,10 +1779,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
             self.load_pose()
         if self.pose.symmetry:
             self.symmetric_assembly_is_clash()
-            # if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
-            self.pose.get_assembly_symmetry_mates()
-            self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
-            self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+            self.pose.write(out_path=self.assembly, assembly=True, increment_chains=self.increment_chains)
+            self.log.info('Symmetrically expanded assembly file written to: \'%s\'' % self.assembly)
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.expand_asu.__name__)
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
@@ -1811,10 +1816,9 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.load_pose()
         if self.pose.symmetry:
             self.symmetric_assembly_is_clash()
-            if self.output_assembly:  # True by default when expand_asu module is used, otherwise False
-                self.pose.get_assembly_symmetry_mates()
-                self.pose.write(out_path=self.assembly, increment_chains=self.increment_chains)
-                self.log.info('Expanded Assembly PDB: \'%s\'' % self.assembly)
+            if self.output_assembly:
+                self.pose.write(out_path=self.assembly, assembly=True, increment_chains=self.increment_chains)
+                self.log.info('Symmetrically expanded assembly file written to: \'%s\'' % self.assembly)
         self.pose.find_and_split_interface()
 
         self.design_residues = set()  # update False to set() or replace set() and attempt addition of new residues

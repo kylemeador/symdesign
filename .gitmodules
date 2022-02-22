@@ -1,0 +1,3 @@
+[submodule "DnaChisel"]
+    path = dependencies/DnaChisel
+    url = https://github.com/Edinburgh-Genome-Foundry/DnaChisel.git
