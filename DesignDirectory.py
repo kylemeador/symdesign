@@ -286,16 +286,21 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 if not os.path.exists(self.source_path):
                     raise FileNotFoundError('The file \'%s\' couldn\'t be located! Ensure this location is correct.')
                 self.source = self.source_path
-                self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
-                self.projects = os.path.join(self.program_root, PUtils.projects)
-                self.project_designs = os.path.join(self.projects, '%s_%s' % (self.source_path.split(os.sep)[-2],
-                                                                              PUtils.design_directory))
-                self.path = os.path.join(self.project_designs, self.name)
-                # ^ /program_root/projects/project/design<- self.path /design.pdb
-                self.make_path(self.program_root)
-                self.make_path(self.projects)
-                self.make_path(self.project_designs)
-                self.make_path(self.path)
+                if self.output_directory:
+                    self.path = self.output_directory
+                    # ^ /output_directory<- self.path /design.pdb
+                else:
+                    self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
+                    self.projects = os.path.join(self.program_root, PUtils.projects)
+                    self.project_designs = os.path.join(self.projects, '%s_%s' % (self.source_path.split(os.sep)[-2],
+                                                                                  PUtils.design_directory))
+                    self.path = os.path.join(self.project_designs, self.name)
+                    # ^ /program_root/projects/project/design<- self.path /design.pdb
+                    self.make_path(self.program_root)
+                    self.make_path(self.projects)
+                    self.make_path(self.project_designs)
+                    self.make_path(self.path)
+                    shutil.copy(self.source_path, self.path)
 
                 # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
                 # need to start here if want to load pose through normal mechanism... ugh
@@ -303,8 +308,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.load_pose()  # load the source pdb to find the entity_names
                 self.entity_names = [entity.name for entity in self.pose.entities]
                 # TODO need to extract the _pose_transformation...
-
-                shutil.copy(self.source_path, self.path)
             else:  # initialize DesignDirectory with existing /program_root/projects/project/design
                 self.initialized = True
                 self.path = self.source_path
@@ -741,13 +744,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
         self.start_log()
         # self.scores = os.path.join(self.path, PUtils.scores_outdir)
+        # Todo if I use this for design, it opens up a can of worms. Maybe it is better to include only this identifier
+        #  for specific modules
+        self.output_identifier = '%s_' % self.name if self.output_directory else ''
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
-        self.scripts = os.path.join(self.path, PUtils.scripts)
-        self.frags = os.path.join(self.path, PUtils.frag_dir)
-        self.flags = os.path.join(self.scripts, 'flags')
-        self.data = os.path.join(self.path, PUtils.data)
+        self.scripts = os.path.join(self.path, '%s%s' % (self.output_identifier, PUtils.scripts))
+        self.frags = os.path.join(self.path, '%s%s' % (self.output_identifier, PUtils.frag_dir))
+        self.flags = os.path.join(self.scripts, 'flags')  # '%sflags' % self.output_identifier)
+        self.data = os.path.join(self.path, '%s%s' % (self.output_identifier, PUtils.data))
         self.scores_file = os.path.join(self.data, '%s.sc' % self.name)
-        self.serialized_info = os.path.join(self.data, 'info.pkl')
+        self.serialized_info = os.path.join(self.data, 'info.pkl')  # '%sinfo.pkl' % self.output_identifier)
         self.asu = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
         self.assembly = os.path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
         self.refine_pdb = '%s_for_refine.pdb' % os.path.splitext(self.asu)[0]
