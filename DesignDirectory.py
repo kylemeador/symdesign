@@ -87,7 +87,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # DesignDirectory flags
         self.construct_pose = kwargs.get('construct_pose', False)
-        self.debug = False
+        self.debug = kwargs.get('debug', False)
         self.dock = kwargs.get('dock', False)
         self.initialized = None
         self.log = None
@@ -130,35 +130,35 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Design flags
         self.command_only = kwargs.get('command_only', False)
-        self.consensus = None  # Whether to run consensus or not
+        self.consensus = kwargs.get('consensus', None)  # Whether to run consensus or not
         self.design_residues = False  # (set[int])
-        self.design_with_fragments = False
+        self.design_with_fragments = kwargs.get('design_with_fragments', True)
         self.development = kwargs.get('development', False)
         self.directives = kwargs.get('directives', {})
-        self.evolution = False
+        self.evolution = kwargs.get('design_with_evolution', True)
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
         self.force_flags = kwargs.get('force_flags', False)
         self.interface_residues = False
         self.legacy = kwargs.get('legacy', False)
-        self.number_of_trajectories = kwargs.get('number_of_trajectories', False)
+        self.number_of_trajectories = kwargs.get('number_of_trajectories', PUtils.nstruct)  # was False, notapparent why
         self.pre_refine = False  # True
-        self.query_fragments = False
+        self.query_fragments = kwargs.get('generate_fragments', False)
         self.scout = kwargs.get('scout', False)
         self.sequence_background = kwargs.get('sequence_background', False)
         self.specific_design = kwargs.get('specific_design', None)
         self.specific_protocol = kwargs.get('specific_protocol', False)
         self.structure_background = kwargs.get('structure_background', False)
-        self.write_frags = True
-        self.script = True
-        self.mpi = False
+        self.write_frags = kwargs.get('write_fragments', True)
+        self.script = kwargs.get('script', True)  # Todo to reflect the run_in_shell flag
+        self.mpi = kwargs.get('mpi', False)
         self.output_assembly = kwargs.get('output_assembly', False)
         self.increment_chains = kwargs.get('increment_chains', False)
-        self.ignore_clashes = False
+        self.ignore_clashes = kwargs.get('ignore_clashes', False)
 
         # Analysis flags
-        self.analysis = False
-        self.skip_logging = False
+        self.analysis = kwargs.get('analysis', False)
+        self.skip_logging = kwargs.get('skip_logging', False)
         self.copy_nanohedra = kwargs.get('copy_nanohedra', False)  # no construction specific flags
         self.nanohedra_root = None
 
@@ -166,7 +166,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.composition = None  # building_blocks (4ftd_5tch)
         self.design_background = kwargs.get('design_background', 'design_profile')  # by default, grab design profile
         self.design_db = None
-        self.design_selector = None
+        self.design_selector = kwargs.get('design_selector', None)
         self.entity_names = []
         self.euler_lookup = None
         self.fragment_observations = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
@@ -188,6 +188,15 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.sdfs = {}
         self.sym_def_file = None
         self.sym_entry = kwargs.get('sym_entry', None)
+        if not self.sym_entry and kwargs.get('sym_entry_number', None):
+            self.sym_entry = SymEntry(kwargs.get('sym_entry_number'))
+        # if symmetry:
+        #     if symmetry == 'cryst':
+        #         raise DesignError('This functionality is not possible yet. Please pass --symmetry by Symmetry Entry'
+        #                           ' Number instead (See Laniado & Yeates, 2020).')
+        #         cryst_record_d = PDB.get_cryst_record(
+        #             self.source)  # Todo must get self.source before attempt this call
+        #         self.sym_entry = space_group_to_sym_entry[cryst_record_d['space_group']]
         self.symmetry_protocol = None
         self.uc_dimensions = None
 
@@ -628,39 +637,6 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         number_steps2 = self.rot_range_deg_pdb2 / self.rot_step_deg1
 
         return int(number_steps1), int(number_steps2)
-
-    def set_flags(self, symmetry=None, design_with_evolution=True, sym_entry_number=None, debug=False,
-                  design_with_fragments=True, generate_fragments=False, write_fragments=True,
-                  design_selector=None, ignore_clashes=False, script=True, mpi=False,
-                  number_of_trajectories=PUtils.nstruct, skip_logging=False, analysis=False,
-                  **kwargs):  # TODO Depreciate
-        # copy_nanohedra=False, output_assembly=False, sym_entry=None,
-
-        # self.sym_entry = sym_entry
-        if not self.sym_entry and sym_entry_number:
-            # self.sym_entry_number = sym_entry_number
-            self.sym_entry = SymEntry(sym_entry_number)
-        if symmetry:
-            if symmetry == 'cryst':
-                raise DesignError('This functionality is not possible yet. Please pass --symmetry by Symmetry Entry'
-                                  ' Number instead (See Laniado & Yeates, 2020).')
-                cryst_record_d = PDB.get_cryst_record(self.source)  # Todo must get self.source before attempt this call
-                self.sym_entry = space_group_to_sym_entry[cryst_record_d['space_group']]
-        self.design_selector = design_selector
-        self.evolution = design_with_evolution
-        self.design_with_fragments = design_with_fragments
-        # self.fragment_file = fragments_exist
-        self.query_fragments = generate_fragments
-        self.write_frags = write_fragments
-        # self.output_assembly = output_assembly
-        self.ignore_clashes = ignore_clashes
-        self.number_of_trajectories = number_of_trajectories
-        self.script = script  # Todo to reflect the run_in_shell flag
-        self.mpi = mpi
-        self.analysis = analysis
-        self.skip_logging = skip_logging
-        self.debug = debug
-        # self.copy_nanohedra = copy_nanohedra
 
     def return_symmetry_parameters(self):
         return dict(symmetry=self.design_symmetry, design_dimension=self.design_dimension,
@@ -1931,7 +1907,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         protocol = 'optimize_design'
         protocol_xml1 = protocol
         # nstruct_instruct = ['-no_nstruct_label', 'true']
-        nstruct_instruct = ['-nstruct', str(10)]  # str(self.number_of_trajectories)]
+        nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
         design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
         generate_files_cmd = \
             ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
