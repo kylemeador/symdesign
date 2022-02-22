@@ -411,11 +411,10 @@ sbatch_warning = 'Ensure the below created SBATCH scripts are correct. Specifica
                  ' understand the variables or ask for help if you are still unsure.'
 
 
-def terminate(location=None, results=None, output=True):
+def terminate(results=None, output=True):
     """Format designs passing output parameters and report program exceptions
 
     Keyword Args:
-        location=None (str): Where the designs were retrieved from
         results=None (list): The returned results from the module run. By convention contains results and exceptions
         output=False (bool): Whether the module used requires a file to be output
     Returns:
@@ -446,19 +445,16 @@ def terminate(location=None, results=None, output=True):
     if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
         master_directory = next(iter(design_directories))
         job_paths = master_directory.job_paths
-        if not location:
-            design_source = os.path.basename(master_directory.project_designs)
-        else:
-            design_source = os.path.splitext(os.path.basename(location))[0]
         if low and high:
             timestamp = '%s-%.2f-%.2f' % (timestamp, low, high)
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
         # program_root = design_directories[0].program_root
+        default_output_tuple = (timestamp, args.module, design_source)
         if args.output_design_file:
             designs_file = args.output_design_file
         else:
-            designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % (args.module, design_source, timestamp))
+            designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % default_output_tuple)
 
         with open(designs_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design.path for design in success))
@@ -472,9 +468,9 @@ def terminate(location=None, results=None, output=True):
             # Save Design DataFrame
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
             if args.output == PUtils.analysis_file:
-                out_path = os.path.join(all_scores, args.output % (os.path.splitext(location)[0], timestamp))
-            else:  # user provided the output path
-                local_dummy = True  # the global out_path should be used
+                out_path = os.path.join(all_scores, args.output % (design_source, timestamp))
+            else:  # user provided the output path, the global out_path should be used
+                pass
                 # out_path = os.path.join(all_scores, args.output)
             out_path = out_path if out_path.endswith('.csv') else '%s.csv' % out_path
             design_df.to_csv(out_path)
@@ -612,6 +608,9 @@ if __name__ == '__main__':
                              'database')
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
+    parser.add_argument('-od', '--output_directory', type=str,
+                        help='If provided, the name of the directory to output all created files. If blank, one will be'
+                             ' automatically generated based off input_location, module, and the time.', default=None)
     parser.add_argument('-of', '--output_design_file', type=str,
                         help='If provided, the name of the output designs file. If blank, one will be automatically '
                              'generated based off input_location, module, and the time.')
@@ -636,6 +635,8 @@ if __name__ == '__main__':
                         help='Skip loading of the entire master database, instead opting to load on the fly')
     parser.add_argument('-F', '--force_flags', action='store_true',
                         help='Force generation of a new flags file to update script parameters')
+    # ---------------------------------------------------
+    # Set Up SubModule Parsers
     # ---------------------------------------------------
     parser_query = subparsers.add_parser('nanohedra_query', help='Query %s.py docking entries' % PUtils.nano.title())
     # ---------------------------------------------------
@@ -934,8 +935,7 @@ if __name__ == '__main__':
     # parser_modify.add_argument('-m', '--mod', type=str,
     #                            help='Which type of modification?\nChoose from consolidate_degen or pose_map')
     # ---------------------------------------------------
-    parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
-
+    # parser_rename_scores = subparsers.add_parser('rename_scores', help='Rename Protocol names according to dictionary')
     # -----------------------------------------------------------------------------------------------------------------
     # Process flags
     # -----------------------------------------------------------------------------------------------------------------
@@ -1055,7 +1055,7 @@ if __name__ == '__main__':
                 queried_flags['skip_logging'] = True  # automatically skip logging if opening a large number of files
             if not args.global_sequences and args.number_sequences == sys.maxsize:
                 args.number_sequences = 1
-    else:  # ['distribute', 'query', 'guide', 'flags', 'residue_selector']
+    else:  # ['query', 'guide', 'flags', 'residue_selector']
         initialize, construct_pose = False, False
         if args.module == 'nanohedra_query':
             args.directory = True
@@ -1072,8 +1072,6 @@ if __name__ == '__main__':
     all_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
     master_directory, initial_iter = None, None
     low, high, low_range, high_range = None, None, None, None
-    # nanohedra_initialization = False
-    # Todo initialization True only. move from requirement if not needed
     if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
         raise SDUtils.DesignError('No designs were specified! Please specify --directory, --file, --specification_file,'
                                   '--project, or --single to locate designs of interest and run your command again')
@@ -1086,7 +1084,8 @@ if __name__ == '__main__':
         threads = 1
         logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
 
-    if initialize:  # Set up DesignDirectories
+    # Set up DesignDirectories input and outputs
+    if initialize:
         nano = queried_flags.get('nanohedra_output', None)
         if nano:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
@@ -1108,8 +1107,6 @@ if __name__ == '__main__':
                     [DesignDirectory.from_pose_id(pose, root=program_root, specific_design=design,
                                                   directives=directives, **queried_flags)
                      for pose, design, directives in design_specification.return_directives()]
-                master_directory = next(iter(design_directories))
-                program_root = master_directory.program_root
             else:
                 all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                               project=args.project, single=args.single)
@@ -1147,6 +1144,19 @@ if __name__ == '__main__':
         # Todo could make after collect_designs? Pass to all design_directories
         #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
         master_directory = next(iter(design_directories))
+        if not location:
+            design_source = os.path.basename(master_directory.project_designs)
+        else:
+            design_source = os.path.splitext(os.path.basename(location))[0]
+        default_output_tuple = (timestamp, args.module, design_source)
+
+        # must make the output_directory before set_up_design_directory is called
+        if args.output_directory is not None:
+            if args.output_directory == '':
+                designs_directory = '%s_%s_%s_poses' % default_output_tuple
+            else:
+                designs_directory = args.output_directory
+            os.mkdir(designs_directory)
         logger.info('Loading design resources from Database \'%s\'' % master_directory.protein_data)
         master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
                              master_directory.full_model_dir, master_directory.stride_dir, master_directory.sequences,
@@ -1160,7 +1170,7 @@ if __name__ == '__main__':
         master_directory.make_path(master_directory.job_paths)
         master_directory.make_path(master_directory.sbatch_scripts)
         if nano or not master_directory.initialized or args.load_database:
-            if args.load_database:
+            if args.load_database:  # Todo why is this set_up_design_directory here?
                 for design in design_directories:
                     # design.link_master_database(master_db)
                     design.set_up_design_directory()
@@ -1192,7 +1202,7 @@ if __name__ == '__main__':
             qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
             orient_log = SDUtils.start_log(name='orient', handler=1)
             SDUtils.start_log(name='orient', handler=2, location=os.path.join(orient_dir, PUtils.orient_log_file))
-            # todo logic to include similarity between any supplied symmetry operations
+            # Todo logic to include similarity between any supplied symmetry operations
             if master_directory.sym_entry.group1 == master_directory.sym_entry.group2:
                 required_entities1, required_entities2 = all_entity_names, set()
             # Select entities for orienting
@@ -1697,7 +1707,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.orient())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
     # ---------------------------------------------------
     elif args.module == 'find_asu':
         if args.multi_processing:
@@ -1706,7 +1716,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.find_asu())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
@@ -1715,7 +1725,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.expand_asu())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
     # ---------------------------------------------------
     elif args.module == 'rename_chains':
         if args.multi_processing:
@@ -1724,7 +1734,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.rename_chains())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
     # ---------------------------------------------------
     elif args.module == 'check_clashes':
         if args.multi_processing:
@@ -1733,7 +1743,7 @@ if __name__ == '__main__':
             for design_dir in design_directories:
                 results.append(design_dir.check_clashes())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
     # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
         # Initialize docking procedure
@@ -1766,8 +1776,8 @@ if __name__ == '__main__':
                     for dock_directory in design_directories:
                         result = nanohedra_design_recap(dock_directory, args.project)
                         results.append(result)
-
-        terminate(location=args.directory, results=results, output=False)
+        design_source = args.directory  # for terminate()
+        terminate(results=results, output=False)
         #                                          location=location,
         # # Make single file with names of each directory. Specific for docking due to no established directory
         # args.file = os.path.join(args.directory, 'all_docked_directories.paths')
@@ -1795,7 +1805,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.generate_interface_fragments())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
 
     # ---------------------------------------------------
     elif args.module == 'interface_metrics':
@@ -1809,7 +1819,7 @@ if __name__ == '__main__':
                     continue
                 results.append(design.rosetta_interface_metrics())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
 
     # ---------------------------------------------------
     elif args.module == 'optimize_designs':
@@ -1821,7 +1831,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.optimize_designs())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
 
     # ---------------------------------------------------
     elif args.module == 'custom_script':
@@ -1838,7 +1848,7 @@ if __name__ == '__main__':
                                                             suffix=args.suffix, score_only=args.score_only,
                                                             variables=args.variables))
 
-        terminate(location=location, results=results)
+        terminate(results=results)
 
     # ---------------------------------------------------
     elif args.module == PUtils.interface_design:  # -i fragment_library, -s scout
@@ -1863,7 +1873,7 @@ if __name__ == '__main__':
             for design in design_directories:
                 results.append(design.interface_design())
 
-        terminate(location=location, results=results)
+        terminate(results=results)
 
     # ---------------------------------------------------
     elif args.module == PUtils.analysis:  # -o output, -f figures, -n no_save, -j join
@@ -1893,7 +1903,7 @@ if __name__ == '__main__':
                 results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
                                                       figures=args.figures))
 
-        terminate(location=location, results=results)
+        terminate(results=results)
     # ---------------------------------------------------
     # elif args.module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
     #     directory_pairs, failures = None, None
@@ -2057,9 +2067,9 @@ if __name__ == '__main__':
 
             for design in design_directories:
                 design.set_up_design_directory()
-            location = program_root
+            design_source = program_root  # for terminate()
             # write out the chosen poses to a pose.paths file
-            terminate(location=location, results=design_directories)
+            terminate(results=design_directories)
         else:
             logger.debug('Collecting designs to sort')
             if args.metric == 'score':
@@ -2174,7 +2184,7 @@ if __name__ == '__main__':
         else:
             logger.info('No significant clusters were located! Clustering ended')
 
-        terminate(location=location, results=pose_cluster_map)
+        terminate(results=pose_cluster_map)
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = master_directory.program_root
@@ -2296,7 +2306,7 @@ if __name__ == '__main__':
         args.output_design_file = os.path.join(outdir, '%sSelectedDesigns.paths' % args.selection_string)
         design_directories = [des_dir for des_dir, design in results]
         if args.skip_sequence_generation:
-            terminate(location=location, output=False)
+            terminate(output=False)
         else:
             with open(args.output_design_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(des_dir.path for des_dir in design_directories))
@@ -2693,10 +2703,10 @@ if __name__ == '__main__':
                                                             % args.selection_string, out_path=os.getcwd(), csv=args.csv)
         logger.info('Final Design nucleotide sequences written to %s' % nucleotide_sequence_file)
     # ---------------------------------------------------
-    elif args.module == 'rename_scores':
-        rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
-        for des_directory in design_directories:
-            SDUtils.rename_decoy_protocols(des_directory, rename)
+    # elif args.module == 'rename_scores':
+    #     rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
+    #     for des_directory in design_directories:
+    #         SDUtils.rename_decoy_protocols(des_directory, rename)
     # ---------------------------------------------------
     # elif args.module == 'modify':  # -m mod
     #     if args.multi_processing:
