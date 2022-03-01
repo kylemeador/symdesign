@@ -64,7 +64,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     frag_db: Union[FragmentDatabase, None]
 
     def __init__(self, design_path, pose_id=None, root=None, **kwargs):
-        #        project=None, specific_design=None, nano=False, dock=False, construct_pose=False,
+        #        project=None, specific_design=None, dock=False, construct_pose=False,
         # MasterDirectory path attributes
         self.all_scores = None  # program_root/AllScores
         self.resources = None
@@ -91,7 +91,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.dock = kwargs.get('dock', False)
         self.initialized = None
         self.log = None
-        self.nano = kwargs.get('nano', False)
+        self.nanohedra_output = kwargs.get('nanohedra_output', False)
         if pose_id:
             self.directory_string_to_path(root, design_path)  # sets self.path
             self.source_path = self.path
@@ -220,7 +220,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.percent_residues_fragment_total = None
         self.percent_residues_fragment_center = None
 
-        if self.nano:
+        if self.nanohedra_output:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
             if not os.path.exists(self.source_path):
                 raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
@@ -294,7 +294,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 self.source = self.source_path
                 if self.output_directory:
                     self.make_path(self.output_directory)
-                    self.program_root = os.getcwd()
+                    self.program_root = self.output_directory  # os.getcwd()
                     self.projects = ''
                     self.project_designs = ''
                     self.path = self.output_directory
@@ -335,7 +335,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     @classmethod
     def from_nanohedra(cls, design_path, project=None, **kwargs):
-        return cls(design_path, nano=True, project=project, **kwargs)
+        return cls(design_path, nanohedra_output=True, project=project, **kwargs)
 
     @classmethod
     def from_file(cls, design_path, project=None, **kwargs):
@@ -657,7 +657,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         else:
             propagate, no_log_name = True, True
             handler = 2
-        if self.nano and not self.construct_pose:
+        if self.nanohedra_output and not self.construct_pose:
             # self.log = start_log(name=str(self), handler=handler, level=level, propagate=propagate)
             self.log = start_log(name=str(self), handler=3, propagate=True, no_log_name=no_log_name)
         else:
@@ -671,7 +671,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                      ' Pass both -f with the pose_id\'s and -d with the specified directory'
         # assert self.program_root, 'No program_root attribute set! Cannot create a path from a pose_id without a ' \
         #                           'program_root!'
-        if self.nano:
+        if self.nanohedra_output:
             self.path = os.path.join(root, pose_id.replace('-', os.sep))
         else:
             self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
@@ -737,7 +737,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         self.consensus_pdb = '%s_for_consensus.pdb' % os.path.splitext(self.asu)[0]
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
         self.pdb_list = os.path.join(self.scripts, 'design_files.txt')
-        if self.nano:
+        if self.nanohedra_output:
             self.pose_file = os.path.join(self.source_path, PUtils.pose_file)
             self.frag_file = os.path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
             if self.copy_nanohedra:  # copy nanohedra output directory to the design directory
@@ -1039,7 +1039,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""
-        if self.nano and not self.construct_pose:  # don't write anything as we are just querying Nanohedra
+        if self.nanohedra_output and not self.construct_pose:  # don't write anything as we are just querying Nanohedra
             return
         self.make_path(self.data)
         if self.info != self._info:  # if the state has changed from the original version
@@ -1600,7 +1600,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu or not os.path.exists(self.asu):
-            if self.nano and not self.construct_pose:
+            if self.nanohedra_output and not self.construct_pose:
                 return
             # returns a new Structure from multiple Chain or Entity objects including the Pose symmetry
             new_asu = self.pose.get_contacting_asu()
@@ -3153,7 +3153,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         return hash(self.__key())
 
     def __str__(self):
-        if self.nano:
+        if self.nanohedra_output:
             return self.source_path.replace(self.nanohedra_root + os.sep, '').replace(os.sep, '-')
         else:
             # TODO integrate with designDB?
@@ -3175,12 +3175,12 @@ def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
 
 def set_up_directory_objects(design_list, mode=PUtils.interface_design, project=None):
     """Create DesignDirectory objects from a directory iterable. Add program_root if using DesignDirectory strings"""
-    return [DesignDirectory.from_nanohedra(design_path, nano=True, mode=mode, project=project)
+    return [DesignDirectory.from_nanohedra(design_path, nanohedra_output=True, mode=mode, project=project)
             for design_path in design_list]
 
 
 def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
-    pseudo_dir = DesignDirectory(path, nano=False)
+    pseudo_dir = DesignDirectory(path, nanohedra_output=False)
     # pseudo_dir.path = os.path.dirname(wildtype)
     pseudo_dir.composition = os.path.dirname(path)
     pseudo_dir.designs = directory
