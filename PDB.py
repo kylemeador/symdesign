@@ -1386,16 +1386,19 @@ class PDB(Structure):
                 if self.assembly:  # When PDB API is returning information on the asu and assembly is different
                     if self.multimodel:  # ensure the renaming of chains is handled correctly
                         for ent_idx, chains in self.api_entry.get('entity').items():
-                            chain_set = set(chains)
+                            # chain_set = set(chains)
+                            success = False
                             for cluster_idx, cluster_chains in self.api_entry.get('assembly').items():
                                 # if set(cluster_chains) == chain_set:  # we found the right cluster
-                                if set(cluster_chains).symmetric_difference(chain_set):  # we found the right cluster
+                                if not set(cluster_chains).difference(chains):  # we found the right cluster
                                     self.entity_d[ent_idx] = \
                                         {'chains': [new_chain for new_chain, old_chain in self.multimodel_chain_map.items()
                                                     if old_chain in chains]}
+                                    success = True
                                     break  # this should be fine since entities will cluster together, unless they don't
-                            self.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)' %
-                                       (self.api_entry.get('entity'), self.api_entry.get('assembly')))
+                            if not success:
+                                self.log.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)'
+                                               % (self.api_entry.get('entity'), self.api_entry.get('assembly')))
                     else:  # chain names should be the same as the assembly API if the file is source from PDB
                         self.entity_d = \
                             {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('assembly').items()}
