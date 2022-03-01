@@ -1388,11 +1388,14 @@ class PDB(Structure):
                         for ent_idx, chains in self.api_entry.get('entity').items():
                             chain_set = set(chains)
                             for cluster_idx, cluster_chains in self.api_entry.get('assembly').items():
-                                if set(cluster_chains) == chain_set:  # we found the right cluster
+                                # if set(cluster_chains) == chain_set:  # we found the right cluster
+                                if set(cluster_chains).symmetric_difference(chain_set):  # we found the right cluster
                                     self.entity_d[ent_idx] = \
                                         {'chains': [new_chain for new_chain, old_chain in self.multimodel_chain_map.items()
                                                     if old_chain in chains]}
                                     break  # this should be fine since entities will cluster together, unless they don't
+                            self.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)' %
+                                       (self.api_entry.get('entity'), self.api_entry.get('assembly')))
                     else:  # chain names should be the same as the assembly API if the file is source from PDB
                         self.entity_d = \
                             {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('assembly').items()}
