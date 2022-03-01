@@ -631,7 +631,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
     if return_results:
         return retrieved_ids
     else:
-        return None
+        return
 
 
 def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval to POST

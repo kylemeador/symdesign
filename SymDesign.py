@@ -1033,8 +1033,10 @@ if __name__ == '__main__':
         #                               '\n\t%s\nCorrect your flags and try again'
         #                               % (queried_flags['symmetry'], ', '.join(possible_symmetries)))
     # TODO consolidate this check
+    initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,
+                          'optimize_designs', 'custom_script']  # PUtils.analysis,
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
-                       'interface_metrics', 'optimize_designs', 'custom_script', 'rename_chains', 'status',
+                       PUtils.interface_metrics, 'optimize_designs', 'custom_script', 'rename_chains', 'status',
                        'check_clashes', 'visualize']:
         initialize, construct_pose = True, True  # set up design directories
         # if args.module in ['orient', 'expand_asu']:
@@ -1087,8 +1089,8 @@ if __name__ == '__main__':
 
     # Set up DesignDirectories input and outputs
     if initialize:
-        nano = queried_flags.get('nanohedra_output', None)
-        if nano:
+        nanohedra_output = queried_flags.get('nanohedra_output', None)
+        if nanohedra_output:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
         else:
             if args.specification_file:  # Todo, combine this with collect_designs
@@ -1124,13 +1126,13 @@ if __name__ == '__main__':
             if all_poses[0].count(os.sep) == 0:
                 # assume that we have received pose-IDs and process accordingly
                 # TODO another case, the list of files could be in the current directory that SymDesign was run in...
-                if nano:
+                if nanohedra_output:
                     queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(args.directory)
-                design_directories = [DesignDirectory.from_pose_id(pose, nano=nano, root=args.directory,
+                design_directories = [DesignDirectory.from_pose_id(pose, root=args.directory,
                                                                    construct_pose=construct_pose, **queried_flags)
                                       for pose in all_poses[low_range:high_range]]
-            elif nano:
-                base_directory = '/%s' % os.path.join(*all_poses[0].split(os.sep)[:-4])
+            elif nanohedra_output:
+                base_directory = '%s%s' % (os.sep, os.path.join(*all_poses[0].split(os.sep)[:-4]))
                 queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
                 design_directories = [DesignDirectory.from_nanohedra(pose, construct_pose=construct_pose,
                                                                      **queried_flags)
@@ -1141,7 +1143,7 @@ if __name__ == '__main__':
         if not design_directories:
             raise SDUtils.DesignError('No %s directories found within \'%s\'! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s?'
-                                      % (PUtils.program_name, location, 'nanohedra_output', nano))
+                                      % (PUtils.program_name, location, 'nanohedra_output', nanohedra_output))
         # Todo could make after collect_designs? Pass to all design_directories
         #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
         master_directory = next(iter(design_directories))
@@ -1170,7 +1172,10 @@ if __name__ == '__main__':
         master_directory.make_path(master_directory.profiles)
         master_directory.make_path(master_directory.job_paths)
         master_directory.make_path(master_directory.sbatch_scripts)
-        if nano or not master_directory.initialized or args.load_database:
+        # check to see that proper files have been created if doing design
+        # including oriented (for refinement), loop modeling, hhblits, bmdca?
+        if not master_directory.initialized and args.module in initialize_modules \
+                or nanohedra_output or args.load_database:
             if args.load_database:  # Todo why is this set_up_design_directory here?
                 for design in design_directories:
                     # design.link_master_database(master_db)

@@ -14,6 +14,7 @@ submodule_help = '%s MODULE --help' % program_command
 guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
 nano = 'nanohedra'
 interface_design = 'interface_design'
+interface_metrics = 'interface_metrics'
 generate_fragments = 'generate_fragments'
 analysis = 'analysis'
 cluster_poses = 'cluster_poses'

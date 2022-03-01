@@ -1979,7 +1979,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.coords = pdb._coords
         if not self.ignore_clashes:  # TODO add this check to SymmetricModel initialization
             if pdb.is_clash():
-                raise DesignError('%s contains Backbone clashes as is not being considered further!' % self.name)
+                raise DesignError('%s contains Backbone clashes and is not being considered further!' % self.name)
         # self.pdbs_d[pdb.name] = pdb
         self.create_design_selector()  # **self.design_selector) TODO rework this whole mechanism
 
