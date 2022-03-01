@@ -2517,6 +2517,10 @@ class Entity(Chain, SequenceProfile):
             return self._reference_sequence
         except AttributeError:
             self.retrieve_sequence_from_api()
+            if not self._reference_sequence:
+                self.log.warning('The reference sequence could not be found. Using the observed Residue sequence '
+                                 'instead')
+                self._reference_sequence = self.structure_sequence
             return self._reference_sequence
 
     @reference_sequence.setter
@@ -2557,6 +2561,8 @@ class Entity(Chain, SequenceProfile):
                                  'the correct format (1abc_1), the query will fail. Retrieving closest entity_id by PDB'
                                  ' API structure sequence' % (self.retrieve_sequence_from_api.__name__, self.name))
                 entity_id = retrieve_entity_id_by_sequence(self.sequence)
+                if not entity_id:
+                    self.reference_sequence = None
             else:
                 entity_id = self.name
         self.reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
