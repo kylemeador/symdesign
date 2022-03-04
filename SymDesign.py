@@ -592,7 +592,7 @@ if __name__ == '__main__':
     parser.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                         help='A DataFrame created by %s analysis containing pose info. File is .csv, named such as '
                              'Metrics.csv' % PUtils.program_name)
-    parser.add_argument('-fc', '--fuse_chains', type=str, nargs='*',
+    parser.add_argument('-fc', '--fuse_chains', type=str, nargs='*', default=[],
                         help='The name of a pair of chains to fuse during design. Pairs should be separated by a colon,'
                              ' new instances by a space. Ex --fuse_chains A:B C:D')
     parser.add_argument('-f', '--file', type=os.path.abspath, metavar=ex_path('file_with_directory_names.txt'),
