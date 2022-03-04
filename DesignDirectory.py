@@ -138,7 +138,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
         self.force_flags = kwargs.get('force_flags', False)
-        self.fuse_chains = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', '')]
+        self.fuse_chains = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.interface_residues = False
         self.legacy = kwargs.get('legacy', False)
         self.number_of_trajectories = kwargs.get('number_of_trajectories', False)
