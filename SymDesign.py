@@ -592,6 +592,9 @@ if __name__ == '__main__':
     parser.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                         help='A DataFrame created by %s analysis containing pose info. File is .csv, named such as '
                              'Metrics.csv' % PUtils.program_name)
+    parser.add_argument('-fc', '--fuse_chains', type=str, nargs='*',
+                        help='The name of a pair of chains to fuse during design. Pairs should be separated by a colon,'
+                             ' new instances by a space. Ex --fuse_chains A:B C:D')
     parser.add_argument('-f', '--file', type=os.path.abspath, metavar=ex_path('file_with_directory_names.txt'),
                         help='File with location(s) of %s designs. For each run of %s, a file will be created '
                              'specifying the specific directories to use in subsequent %s commands of the same designs.'
@@ -636,6 +639,8 @@ if __name__ == '__main__':
                         help='Skip loading of the entire master database, instead opting to load on the fly')
     parser.add_argument('-F', '--force_flags', action='store_true',
                         help='Force generation of a new flags file to update script parameters')
+    # ---------------------------------------------------
+    # Set Up SubModule Parsers
     # ---------------------------------------------------
     parser_query = subparsers.add_parser('nanohedra_query', help='Query %s.py docking entries' % PUtils.nano.title())
     # ---------------------------------------------------

@@ -138,6 +138,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
         self.force_flags = kwargs.get('force_flags', False)
+        self.fuse_chains = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', '')]
         self.interface_residues = False
         self.legacy = kwargs.get('legacy', False)
         self.number_of_trajectories = kwargs.get('number_of_trajectories', False)
@@ -1620,6 +1621,31 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 return
             # returns a new Structure from multiple Chain or Entity objects including the Pose symmetry
             new_asu = self.pose.get_contacting_asu()
+            if self.fuse_chains:
+                # try:
+                for fusion_nterm, fusion_cterm in self.fuse_chains:
+                    # rename_success = False
+                    new_success, same_success = False, False
+                    for idx, entity in enumerate(new_asu.entities):
+                        if entity.chain_id == fusion_cterm:
+                            entity_new_chain_idx = idx
+                            new_success = True
+                        if entity.chain_id == fusion_nterm:
+                            # entity_same_chain_idx = idx
+                            same_success = True
+                            # rename_success = True
+                            # break
+                    # if not rename_success:
+                    if not new_success and not same_success:
+                        raise DesignError('Your requested fusion of chain %s with chain %s didn\'t work!' %
+                                          (fusion_nterm, fusion_cterm))
+                        # self.log.critical('Your requested fusion of chain %s with chain %s didn\'t work!' %
+                        #                   (fusion_nterm, fusion_cterm))
+                    else:  # won't be accessed unless entity_new_chain_idx is set
+                        new_asu.entities[entity_new_chain_idx].chain_id = fusion_nterm
+                # except AttributeError:
+                #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
+                #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_id_list)))
             new_asu.write(out_path=self.asu)  # , header=self.cryst_record)
             self.info['pre_refine'] = self.pre_refine
             self.log.info('Cleaned PDB: \'%s\'' % self.asu)
