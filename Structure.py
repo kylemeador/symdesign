@@ -2316,6 +2316,7 @@ class Chain(Structure):
 
     @chain_id.setter
     def chain_id(self, chain_id):
+        # Todo change this to update if name is also updated...
         self.name = chain_id
         self.set_residues_attributes(chain=chain_id)
         # self.set_atoms_attributes(chain=chain_id)

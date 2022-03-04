@@ -1080,7 +1080,7 @@ if __name__ == '__main__':
     low, high, low_range, high_range = None, None, None, None
     if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
         raise SDUtils.DesignError('No designs were specified! Please specify --directory, --file, --specification_file,'
-                                  '--project, or --single to locate designs of interest and run your command again')
+                                  ' --project, or --single to locate designs of interest and run your command again')
 
     if args.multi_processing:
         # Calculate the number of threads to use depending on computer resources
