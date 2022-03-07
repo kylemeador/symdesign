@@ -1,7 +1,6 @@
 import os
 from copy import copy
 from pickle import load
-from glob import glob
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil
 from typing import Set, List, Iterable
@@ -15,7 +14,7 @@ from sklearn.neighbors import BallTree
 # import requests
 
 import PathUtils as PUtils
-from SymDesignUtils import to_iterable, pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
+from SymDesignUtils import pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
     start_log, null_log, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
     split_interface_numbers
 from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatrices, SymEntry, flip_x_matrix, \
@@ -3199,57 +3198,6 @@ def subdirectory(name):
     return name[1:2]
 
 
-def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
-    """Download .pdb files from pdb_codes provided in a file, a supplied list, or a single entry
-    Can download a specific biological assembly if asu=False.
-    fetch_pdb(1bkh, assembly=2) fetches 1bkh biological assembly 2
-    Args:
-        pdb_codes (Union[str, list]): PDB's of interest.
-    Keyword Args:
-        assembly=1 (int): The integer of the assembly to fetch
-        asu=False (bool): Whether to download the asymmetric unit file
-        out_dir=os.getcwd() (str): The location to save downloaded files to
-    Returns:
-        (list[str]): Filename(s) of the retrieved files
-    """
-    file_names = []
-    for pdb_code in to_iterable(pdb_codes):
-        clean_pdb = pdb_code[:4].lower()
-        if asu:
-            assembly = ''
-            clean_pdb = '%s.pdb' % clean_pdb
-        else:
-            # assembly = pdb[-3:]
-            # try:
-            #     assembly = assembly.split('_')[1]
-            # except IndexError:
-            #     assembly = '1'
-            clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
-
-        # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
-        file_name = os.path.join(out_dir, clean_pdb)
-        current_file = glob(file_name)
-        # print('Found the files %s' % current_file)
-        # current_files = os.listdir(location)
-        # if clean_pdb not in current_files:
-        if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
-            # Always returns files in lowercase
-            status = os.system('wget -q -O %s https://files.rcsb.org/download/%s' % (file_name, clean_pdb))
-            # TODO subprocess.POPEN()
-            if status != 0:
-                logger.error('PDB download failed for: %s' % clean_pdb)
-
-            # file_request = requests.get('https://files.rcsb.org/download/%s' % clean_pdb)
-            # if file_request.status_code == 200:
-            #     with open(file_name, 'wb') as f:
-            #         f.write(file_request.content)
-            # else:
-            #     logger.error('PDB download failed for: %s' % pdb)
-        file_names.append(file_name)
-
-    return file_names
-
-
 # def fetch_pdbs(codes, location=PUtils.pdb_db):  # UNUSED
 #     """Fetch PDB object of each chain from PDBdb or PDB server
 #
@@ -3276,39 +3224,6 @@ def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
 #         oligomers[code].reorder_chains()
 #
 #     return oligomers
-
-
-def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # assembly=None, out_dir=os.getcwd(),
-    """Fetch PDB object of each chain from PDBdb or PDB server
-
-    Args:
-        pdb_code (iter): The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
-    Keyword Args:
-        assembly=None (Union[None, int]): Location of a local PDB mirror if one is linked on disk
-        asu=True (bool): Whether to fetch the ASU
-        location=PathUtils.pdb_db (str): Location of a local PDB mirror if one is linked on disk
-        out_dir=os.getcwd() (str): The location to save retrieved files if fetched from PDB
-    Returns:
-        (Union[None, str]): path/to/your.pdb if located/downloaded successfully (alphabetical characters in lowercase)
-    """
-    # if location == PUtils.pdb_db and asu:
-    if os.path.exists(location) and asu:
-        get_pdb = (lambda pdb_code, location=None, **kwargs:  # asu=None, assembly=None, out_dir=None
-                   glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
-        logger.debug('Searching for PDB file at \'%s\'' % os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))
-        # Cassini format is above, KM local pdb and the escher PDB mirror is below
-        # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
-        #            glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
-        # print(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
-    else:
-        get_pdb = fetch_pdb
-
-    # return a list where the matching file is the first (should only be one anyway)
-    pdb_file = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
-    if not pdb_file:
-        logger.warning('No matching file found for PDB: %s' % pdb_code)
-    else:
-        return pdb_file[0]  # we should only find one file, therefore, return the first
 
 
 # def construct_cb_atom_tree(pdb1, pdb2, distance=8):  # UNUSED

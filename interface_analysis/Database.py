@@ -10,7 +10,7 @@ import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from CommandDistributer import rosetta_flags, script_cmd, distribute
 from DesignDirectory import relax_flags
-from PDB import PDB
+from PDB import PDB, orient_pdb_file, fetch_pdb_file
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
 from Query.PDB import boolean_choice
