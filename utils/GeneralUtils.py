@@ -4,6 +4,10 @@ import numpy as np
 # from numba import njit
 
 from PathUtils import frag_text_file, docked_pose_file
+from SymDesignUtils import start_log
+
+# Globals
+logger = start_log(name=__name__)
 
 
 # @njit
@@ -179,106 +183,90 @@ def get_rotation_step(sym_entry, rot_step_deg1=None, rot_step_deg2=None, initial
     Returns:
         (tuple[int, int]): The rotational sampling steps for oligomer1 and oligomer2
     """
-    if sym_entry.is_internal_rot1():  # if rotation step required
+    if sym_entry.is_internal_rot1:  # if rotation step required
         if not rot_step_deg1:
             rot_step_deg1 = 3  # set rotation step to default
     else:
         if rot_step_deg1 and initial:
-            log.write("Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have Internal Rotational "
-                      "DOF\n\n")
+            log.write('Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have Internal Rotational '
+                      'DOF\n\n')
         rot_step_deg1 = 1
 
-    if sym_entry.is_internal_rot2():  # if rotation step required
+    if sym_entry.is_internal_rot2:  # if rotation step required
         if not rot_step_deg2:
             rot_step_deg2 = 3  # set rotation step to default
     else:
         if rot_step_deg2 and initial:
-            log.write("Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have Internal Rotational "
-                      "DOF\n\n")
+            log.write('Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have Internal Rotational '
+                      'DOF\n\n')
         rot_step_deg2 = 1
 
     return rot_step_deg1, rot_step_deg2
 
 
-def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
-                             master_log_filepath):
-    # Todo logger
-    with open(master_log_filepath, "a+") as master_log_file:
-        master_log_file.write("NANOHEDRA PROJECT INFORMATION\n")
-        master_log_file.write("Oligomer 1 Input Directory: %s\n" % pdb1_path)
-        master_log_file.write("Oligomer 2 Input Directory: %s\n" % pdb2_path)
-        master_log_file.write("Master Output Directory: %s\n\n" % master_outdir)
-
-        master_log_file.write("SYMMETRY COMBINATION MATERIAL INFORMATION\n")
-        master_log_file.write("Nanohedra Entry Number: %d\n" % sym_entry.entry_number)
-        master_log_file.write("Oligomer 1 Point Group Symmetry: %s\n" % sym_entry.group1)
-        master_log_file.write("Oligomer 2 Point Group Symmetry: %s\n" % sym_entry.group2)
-        master_log_file.write("SCM Point Group Symmetry: %s\n" % sym_entry.point_group_sym)
-
-        # master_log_file.write("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))
-        # master_log_file.write("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
-        # master_log_file.write("Oligomer 1 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx1()))
-        # master_log_file.write("Oligomer 2 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx2()))
-        master_log_file.write("Oligomer 1 Setting Matrix: %s\n" % sym_entry.setting_matrix1.tolist())
-        master_log_file.write("Oligomer 2 Setting Matrix: %s\n" % sym_entry.setting_matrix2.tolist())
-        master_log_file.write("Oligomer 1 Reference Frame Tx DOF: %s\n"
-                              % (sym_entry.ref_frame_tx_dof1
-                                 if sym_entry.is_ref_frame_tx_dof1() else str(None)))
-        master_log_file.write("Oligomer 2 Reference Frame Tx DOF: %s\n"
-                              % (sym_entry.ref_frame_tx_dof2
-                                 if sym_entry.is_ref_frame_tx_dof2() else str(None)))
-        master_log_file.write("Resulting SCM Symmetry: %s\n" % sym_entry.resulting_symmetry)
-        master_log_file.write("SCM Dimension: %d\n" % sym_entry.dimension)
-        master_log_file.write("SCM Unit Cell Specification: %s\n\n" % sym_entry.uc_specification)
-
-        rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2, initial=True,
-                                                         log=master_log_file)
-        # # Default Rotation Step
-        # if sym_entry.is_internal_rot1():  # if rotation step required
-        #     if not rot_step_deg1:
-        #         rot_step_deg_pdb1 = 3  # set rotation step to default
-        # else:
-        #     rot_step_deg_pdb1 = 1
-        #     if rot_step_deg_pdb1:
-        #         master_log_file.write("Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have"
-        #                               " Internal Rotational DOF\n\n")
-        # if sym_entry.is_internal_rot2():  # if rotation step required
-        #     if not rot_step_deg2:
-        #         rot_step_deg_pdb2 = 3  # set rotation step to default
-        # else:
-        #     rot_step_deg_pdb2 = 1
-        #     if rot_step_deg_pdb2:
-        #         master_log_file.write("Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have"
-        #                               " Internal Rotational DOF\n\n")
-
-        master_log_file.write("ROTATIONAL SAMPLING INFORMATION\n")
-        master_log_file.write(
-            "Oligomer 1 ROT Sampling Range: %s\n" % (str(sym_entry.rotation_range1)
-                                                     if sym_entry.is_internal_rot1() else str(None)))
-        master_log_file.write(
-            "Oligomer 2 ROT Sampling Range: %s\n" % (str(sym_entry.rotation_range2)
-                                                     if sym_entry.is_internal_rot2() else str(None)))
-        master_log_file.write(
-            "Oligomer 1 ROT Sampling Step: %s\n" % (str(rot_step_deg1) if sym_entry.is_internal_rot1()
-                                                    else str(None)))
-        master_log_file.write(
-            "Oligomer 2 ROT Sampling Step: %s\n\n" % (str(rot_step_deg2) if sym_entry.is_internal_rot2()
-                                                      else str(None)))
-        # Get Degeneracy Matrices
-        master_log_file.write("Searching For Possible Degeneracies" + "\n")
-        if sym_entry.degeneracy_matrices_1 is None:
-            master_log_file.write("No Degeneracies Found for Oligomer 1\n")
-        elif len(sym_entry.degeneracy_matrices_1) == 1:
-            master_log_file.write("1 Degeneracy Found for Oligomer 1\n")
-        else:
-            master_log_file.write("%d Degeneracies Found for Oligomer 1\n"
-                                  % len(sym_entry.degeneracy_matrices_1))
-
-        if sym_entry.degeneracy_matrices_2 is None:
-            master_log_file.write("No Degeneracies Found for Oligomer 2\n\n")
-        elif len(sym_entry.degeneracy_matrices_2) == 1:
-            master_log_file.write("1 Degeneracy Found for Oligomer 2\n\n")
-        else:
-            master_log_file.write("%d Degeneracies Found for Oligomer 2\n\n"
-                                  % len(sym_entry.degeneracy_matrices_2))
-        master_log_file.write("Retrieving Database of Complete Interface Fragment Cluster Representatives\n")
+def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir, log=logger):
+    log.info('NANOHEDRA PROJECT INFORMATION\n')
+    log.info('Oligomer 1 Input Directory: %s\n' % pdb1_path)
+    log.info('Oligomer 2 Input Directory: %s\n' % pdb2_path)
+    log.info('Master Output Directory: %s\n\n' % master_outdir)
+    log.info('SYMMETRY COMBINATION MATERIAL INFORMATION\n')
+    log.info('Nanohedra Entry Number: %d\n' % sym_entry.entry_number)
+    log.info('Oligomer 1 Point Group Symmetry: %s\n' % sym_entry.group1)
+    log.info('Oligomer 2 Point Group Symmetry: %s\n' % sym_entry.group2)
+    log.info('SCM Point Group Symmetry: %s\n' % sym_entry.point_group_sym)
+    # log.info("Oligomer 1 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot1()))
+    # log.info("Oligomer 2 Internal ROT DOF: %s\n" % str(sym_entry.get_internal_rot2()))
+    # log.info("Oligomer 1 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx1()))
+    # log.info("Oligomer 2 Internal Tx DOF: %s\n" % str(sym_entry.get_internal_tx2()))
+    log.info('Oligomer 1 Setting Matrix: %s\n' % sym_entry.setting_matrix1.tolist())
+    log.info('Oligomer 2 Setting Matrix: %s\n' % sym_entry.setting_matrix2.tolist())
+    log.info('Oligomer 1 Reference Frame Tx DOF: %s\n' % (sym_entry.ref_frame_tx_dof1
+                                                          if sym_entry.is_ref_frame_tx_dof1 else str(None)))
+    log.info('Oligomer 2 Reference Frame Tx DOF: %s\n' % (sym_entry.ref_frame_tx_dof2
+                                                          if sym_entry.is_ref_frame_tx_dof2 else str(None)))
+    log.info('Resulting SCM Symmetry: %s\n' % sym_entry.resulting_symmetry)
+    log.info('SCM Dimension: %d\n' % sym_entry.dimension)
+    log.info('SCM Unit Cell Specification: %s\n\n' % sym_entry.uc_specification)
+    rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2, initial=True,
+                                                     log=master_log_file)
+    # # Default Rotation Step
+    # if sym_entry.is_internal_rot1:  # if rotation step required
+    #     if not rot_step_deg1:
+    #         rot_step_deg_pdb1 = 3  # set rotation step to default
+    # else:
+    #     rot_step_deg_pdb1 = 1
+    #     if rot_step_deg_pdb1:
+    #         log.info("Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have"
+    #                               " Internal Rotational DOF\n\n")
+    # if sym_entry.is_internal_rot2:  # if rotation step required
+    #     if not rot_step_deg2:
+    #         rot_step_deg_pdb2 = 3  # set rotation step to default
+    # else:
+    #     rot_step_deg_pdb2 = 1
+    #     if rot_step_deg_pdb2:
+    #         log.info("Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have"
+    #                               " Internal Rotational DOF\n\n")
+    log.info('ROTATIONAL SAMPLING INFORMATION\n')
+    log.info('Oligomer 1 ROT Sampling Range: %s\n' % (str(sym_entry.rotation_range1)
+                                                       if sym_entry.is_internal_rot1 else str(None)))
+    log.info('Oligomer 2 ROT Sampling Range: %s\n' % (str(sym_entry.rotation_range2)
+                                                      if sym_entry.is_internal_rot2 else str(None)))
+    log.info('Oligomer 1 ROT Sampling Step: %s\n' % (str(rot_step_deg1) if sym_entry.is_internal_rot1
+                                                     else str(None)))
+    log.info('Oligomer 2 ROT Sampling Step: %s\n\n' % (str(rot_step_deg2) if sym_entry.is_internal_rot2
+                                                       else str(None)))
+    # Get Degeneracy Matrices
+    log.info('Searching For Possible Degeneracies\n')
+    if sym_entry.degeneracy_matrices_1 is None:
+        log.info('No Degeneracies Found for Oligomer 1\n')
+    elif len(sym_entry.degeneracy_matrices_1) == 1:
+        log.info('1 Degeneracy Found for Oligomer 1\n')
+    else:
+        log.info('%d Degeneracies Found for Oligomer 1\n' % len(sym_entry.degeneracy_matrices_1))
+    if sym_entry.degeneracy_matrices_2 is None:
+        log.info('No Degeneracies Found for Oligomer 2\n\n')
+    elif len(sym_entry.degeneracy_matrices_2) == 1:
+        log.info('1 Degeneracy Found for Oligomer 2\n\n')
+    else:
+        log.info('%d Degeneracies Found for Oligomer 2\n\n' % len(sym_entry.degeneracy_matrices_2))
+    log.info('Retrieving Database of Complete Interface Fragment Cluster Representatives\n')

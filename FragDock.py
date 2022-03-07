@@ -8,7 +8,7 @@ from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
 from PathUtils import frag_text_file, master_log, biological_fragment_db_pickle
-from Structure import superposition3d
+from Structure import superposition3d, Structure
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
     split_interface_numbers, calculate_match, z_value_from_match_score, unpickle
 from utils.CmdLineArgParseUtils import get_docking_parameters
@@ -29,7 +29,7 @@ logger = start_log(name=__name__)
 
 
 def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frags, complete_surf_frags,
-                      degen_subdir_out_path, rot_subdir_out_path, pdb1_path, pdb2_path, eul_lookup,
+                      degen_subdir_out_path, rot_subdir_out_path, eul_lookup,
                       rot_mat1=None, rot_mat2=None, max_z_val=2.0, output_assembly=False, output_surrounding_uc=False,
                       clash_dist=2.2, min_matched=3, high_quality_match_value=1, log=null_log):
     """
@@ -195,8 +195,6 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             continue
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
-        # pdb1_name = os.path.basename(os.path.splitext(pdb1_path)[0])
-        # pdb2_name = os.path.basename(os.path.splitext(pdb2_path)[0])
         asu = get_contacting_asu(pdb1_copy, pdb2_copy, entity_names=[pdb1_copy.name, pdb2_copy.name])
         # log.debug('Grabbing asu')
         if not asu:  # _pdb_1 and not asu_pdb_2:
@@ -365,14 +363,13 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
                                unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
                                sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
-                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1_path,
-                               pdb2_path, pose_id)
+                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1.filepath,
+                               pdb2.filepath, pose_id)
 
 
-def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
-                   subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_assembly=False,
-                   output_surrounding_uc=False, min_matched=3, log=null_log, keep_time=True, resume=False,
-                   clash_dist=2.2, high_quality_match_value=0.5):
+def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pdb2, rot_step_deg1=3, rot_step_deg2=3,
+                   min_matched=3, high_quality_match_value=0.5, output_assembly=False, output_surrounding_uc=False,
+                   clash_dist=2.2, init_max_z_val=1., subseq_max_z_val=2., log=None, keep_time=True):  # resume=False,
     """
 
     Keyword Args:
@@ -382,6 +379,39 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2
     """
     def slice_variable_for_log(var, length=5):
         return var[:length]
+
+    # Get Building Blocks
+    if not isinstance(pdb1, Structure):
+        # pdb1_name = os.path.basename(os.path.splitext(pdb1)[0])  # inherent in load
+        pdb1 = PDB.from_file(pdb1)
+    if not isinstance(pdb2, Structure):
+        # pdb2_name = os.path.basename(os.path.splitext(pdb2)[0])  # inherent in load
+        pdb2 = PDB.from_file(pdb2)
+
+    if log is None:
+        # Output Directory  # Todo DesignDirectory
+        pdb1_name = os.path.basename(os.path.splitext(pdb1)[0])  # inherent in load
+        pdb2_name = os.path.basename(os.path.splitext(pdb2)[0])  # inherent in load
+        building_blocks = '%s_%s' % (pdb1_name, pdb2_name)
+        # building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
+        outdir = os.path.join(master_outdir, building_blocks)
+        os.makedirs(outdir, exist_ok=True)
+
+        log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
+        if os.path.exists(log_file_path):
+            resume = True
+        else:
+            resume = False
+        log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+
+        # Write to Logfile
+        if resume:
+            log.info('Found a prior incomplete run! Resuming from last sampled transformation.\n')
+        else:
+            log.info('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\n\n'
+                     % (pdb1.name, pdb2.name, pdb1.filepath, pdb2.filepath))
+    pdb1.log = log
+    pdb2.log = log
     #################################
     # # surface ghost frag overlap from the same oligomer scratch code
     # surffrags1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
@@ -439,10 +469,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2
     #                       max_z_value=max_z_val)
     #################################
 
-    # Get Building Block2
-    pdb1_name = os.path.basename(os.path.splitext(pdb1_path)[0])
-    pdb2_name = os.path.basename(os.path.splitext(pdb2_path)[0])
-    pdb2 = PDB.from_file(pdb2_path, log=log)
+    # Set up Building Block2
     pdb2_bb_cb_coords = pdb2.get_backbone_and_cb_coords()
     oligomer2_backbone_cb_tree = BallTree(pdb2_bb_cb_coords)
 
@@ -471,8 +498,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2
     log.debug('init_surf_frag_indices2: %s' % slice_variable_for_log(init_surf_frag_indices2))
     log.debug('init_surf_frags2_guide_coords: %s' % slice_variable_for_log(init_surf_frags2_guide_coords))
     log.debug('init_surf_frag2_residues: %s' % slice_variable_for_log(init_surf_frag2_residues))
-    # Get Building Block1
-    pdb1 = PDB.from_file(pdb1_path, log=log)
+
+    # Set up Building Block1
     oligomer1_backbone_cb_tree = BallTree(pdb1.get_backbone_and_cb_coords())
 
     get_complete_surf_frags1_time_start = time.time()
@@ -570,9 +597,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2
         get_complete_ghost_frags1_time = get_complete_ghost_frags1_time_stop - get_complete_ghost_frags1_time_start
         get_complete_ghost_frags2_time = get_complete_ghost_frags2_time_stop - get_complete_ghost_frags2_time_start
         log.info('Getting %s Oligomer 1 Ghost Fragments and Guides Using COMPLETE Fragment Database (took %f s)\n'
-                 % (pdb1_name, get_complete_ghost_frags1_time))
+                 % (pdb1.name, get_complete_ghost_frags1_time))
         log.info('Getting %s Oligomer 2 Ghost Fragments and Guides Using COMPLETE Fragment Database (took %f s)\n'
-                 % (pdb2_name, get_complete_ghost_frags2_time))
+                 % (pdb2.name, get_complete_ghost_frags2_time))
 
     # Check if the job was running but stopped. Resume where last left off
     degen1_count, degen2_count, rot1_count, rot2_count = 0, 0, 0, 0
@@ -583,14 +610,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2
         log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 1')
 
     # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
-    rotation_matrices_1 = get_rot_matrices(rot_step_deg_pdb1, 'z', sym_entry.rotation_range1)
+    rotation_matrices_1 = get_rot_matrices(rot_step_deg1, 'z', sym_entry.rotation_range1)
     degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
 
     if not resume:
         log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n')
 
     # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
-    rotation_matrices_2 = get_rot_matrices(rot_step_deg_pdb2, 'z', sym_entry.rotation_range2)
+    rotation_matrices_2 = get_rot_matrices(rot_step_deg2, 'z', sym_entry.rotation_range2)
     degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
 
     # Initialize Euler Lookup Class
@@ -653,10 +680,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2
                     # first returned variable has indices increasing 1,1,1,1,1,2,2,2,2,3,4,4,4,...
                     overlapping_surf_frags, overlapping_ghost_frags = \
                         euler_lookup.check_lookup_table(surf_frags2_guide_coords_rot_and_set,
-                                                      ghost_frag1_guide_coords_rot_and_set)
+                                                        ghost_frag1_guide_coords_rot_and_set)
                     overlapping_ghost_frags_rev, overlapping_surf_frags_rev = \
                         euler_lookup.check_lookup_table(ghost_frag2_guide_coords_rot_and_set,
-                                                      surf_frags1_guide_coords_rot_and_set)
+                                                        surf_frags1_guide_coords_rot_and_set)
                     euler_time = time.time() - euler_start
                     number_overlapping_pairs = len(overlapping_ghost_frags)
                     log.debug('Number of matching euler angle pairs FORWARD: %d' % number_overlapping_pairs)
@@ -1342,9 +1369,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.get_ijk())
             trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_fragment.transformation)
             trnsfmd_ghost_fragment.transform(**specific_transformation1)
-            trnsfmd_ghost_fragment.write(out_path=os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
-                                                               % (
-                                                               'i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
+            trnsfmd_ghost_fragment.write(
+                out_path=os.path.join(matched_fragment_dir,
+                                      'int_frag_%s_%d.pdb' % ('i%d_j%d_k%d' % int_ghost_frag.get_ijk(), frag_idx + 1)))
             # transformed_ghost_fragment = int_ghost_frag.structure.return_transformed_copy(
             #     rotation=rot_mat1, translation=internal_tx_param1,
             #     rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
@@ -1393,8 +1420,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2
         write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
                                unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
                                sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
-                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1_path,
-                               pdb2_path, pose_id)
+                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1.filepath,
+                               pdb2.filepath, pose_id)
 
 
 if __name__ == '__main__':
@@ -1417,13 +1444,12 @@ if __name__ == '__main__':
 
         if initial:
             # make master output directory
-            if not os.path.exists(master_outdir):
-                os.makedirs(master_outdir)
+            os.makedirs(master_outdir, exist_ok=True)
             # with open(master_log_filepath, 'w') as master_logfile:
             #     master_logfile.write('Nanohedra\nMODE: DOCK\n\n')
             master_logger.info('Nanohedra\nMODE: DOCK\n\n')
             write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
-                                     master_log_filepath)
+                                     log=master_logger)
         else:
             # for parallel runs, ensure that the first file was able to write before adding below log
             time.sleep(1)
@@ -1449,33 +1475,33 @@ if __name__ == '__main__':
         try:
             # Output Directory  # Todo DesignDirectory
             building_blocks = '%s_%s' % (pdb1_name, pdb2_name)
-            outdir = os.path.join(master_outdir, building_blocks)
-            if not os.path.exists(outdir):
-                os.makedirs(outdir)
+            # outdir = os.path.join(master_outdir, building_blocks)
+            # if not os.path.exists(outdir):
+            #     os.makedirs(outdir)
 
-            log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-            if os.path.exists(log_file_path):
-                resume = True
-            else:
-                resume = False
-            bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
-            bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
-                if resume else None
+            # log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
+            # if os.path.exists(log_file_path):
+            #     resume = True
+            # else:
+            #     resume = False
+            # bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+            # bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
+            #     if resume else None
 
             # Write to Logfile
-            if not resume:
-                bb_logger.info('DOCKING %s TO %s' % (pdb1_name, pdb2_name))
-                bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (pdb1_path, pdb2_path))
+            # if not resume:
+            #     bb_logger.info('DOCKING %s TO %s' % (pdb1_name, pdb2_name))
+            #     bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (pdb1_path, pdb2_path))
 
-            nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2_path,
-                           rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
-                           output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                           min_matched=min_matched, log=bb_logger, resume=resume, keep_time=timer)
+            nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1_path, pdb2_path,
+                           rot_step_deg1=rot_step_deg1, rot_step_deg2=rot_step_deg2, output_assembly=output_assembly,
+                           output_surrounding_uc=output_surrounding_uc, min_matched=min_matched,
+                           keep_time=timer)  # log=bb_logger,
 
             # with open(master_log_filepath, 'a+') as master_log_file:
             #     master_log_file.write('COMPLETE ==> %s\n\n'
             #                           % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
-            master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name)))
+            master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
 
         except KeyboardInterrupt:
             # with open(master_log_filepath, 'a+') as master_log:
