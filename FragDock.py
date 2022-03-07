@@ -369,7 +369,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
                                pdb2_path, pose_id)
 
 
-def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
+def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2_path, init_max_z_val=1.0,
                    subseq_max_z_val=2.0, rot_step_deg_pdb1=1, rot_step_deg_pdb2=1, output_assembly=False,
                    output_surrounding_uc=False, min_matched=3, log=null_log, keep_time=True, resume=False,
                    clash_dist=2.2, high_quality_match_value=0.5):
@@ -594,7 +594,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
     degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
 
     # Initialize Euler Lookup Class
-    eul_lookup = EulerLookup()
+    # euler_lookup = EulerLookup()
 
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
     # find superposition matrices to rotate setting matrix1 to setting matrix2 and vise versa
@@ -652,10 +652,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
                     euler_start = time.time()
                     # first returned variable has indices increasing 1,1,1,1,1,2,2,2,2,3,4,4,4,...
                     overlapping_surf_frags, overlapping_ghost_frags = \
-                        eul_lookup.check_lookup_table(surf_frags2_guide_coords_rot_and_set,
+                        euler_lookup.check_lookup_table(surf_frags2_guide_coords_rot_and_set,
                                                       ghost_frag1_guide_coords_rot_and_set)
                     overlapping_ghost_frags_rev, overlapping_surf_frags_rev = \
-                        eul_lookup.check_lookup_table(ghost_frag2_guide_coords_rot_and_set,
+                        euler_lookup.check_lookup_table(ghost_frag2_guide_coords_rot_and_set,
                                                       surf_frags1_guide_coords_rot_and_set)
                     euler_time = time.time() - euler_start
                     number_overlapping_pairs = len(overlapping_ghost_frags)
@@ -1041,9 +1041,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         # DON'T think this is crucial! ###
         eul_lookup_start_time = time.time()
         # overlapping_ghost_indices, overlapping_surf_indices = \
-        #     eul_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf2_guide_coords)
+        #     euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf2_guide_coords)
         overlapping_ghost_indices, overlapping_surf_indices = \
-            eul_lookup.check_lookup_table(int_ghost_frag_guide_coords, int_trans_surf2_guide_coords)  # ,
+            euler_lookup.check_lookup_table(int_ghost_frag_guide_coords, int_trans_surf2_guide_coords)  # ,
         #                                   secondary_structure_match=ij_type_match)
         ij_type_match = ij_type_match_lookup_table[overlapping_ghost_indices, overlapping_surf_indices]
         # log.debug('Euler lookup')
@@ -1159,7 +1159,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path, init_ma
         #     # in the same Euler rotational space bucket
         #     eul_lookup_start_time = time.time()
         #     overlapping_ghost_indices, overlapping_surf_indices = \
-        #         eul_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf2_guide_coords)
+        #         euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf2_guide_coords)
         #     # log.debug('Euler lookup')
         #     eul_lookup_end_time = time.time()
         #     eul_lookup_time = eul_lookup_end_time - eul_lookup_start_time
@@ -1437,6 +1437,8 @@ if __name__ == '__main__':
 
         # Create fragment database for all ijk cluster representatives
         ijk_frag_db = unpickle(biological_fragment_db_pickle)
+        # Load Euler Lookup table for each instance
+        euler_lookup = EulerLookup()
         # ijk_frag_db = FragmentDB()
         #
         # # Get complete IJK fragment representatives database dictionaries
@@ -1465,7 +1467,7 @@ if __name__ == '__main__':
                 bb_logger.info('DOCKING %s TO %s' % (pdb1_name, pdb2_name))
                 bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (pdb1_path, pdb2_path))
 
-            nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path,
+            nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2_path,
                            rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
                            output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
                            min_matched=min_matched, log=bb_logger, resume=resume, keep_time=timer)

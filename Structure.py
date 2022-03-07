@@ -2564,6 +2564,7 @@ class Entity(Chain, SequenceProfile):
                 entity_id = retrieve_entity_id_by_sequence(self.sequence)
                 if not entity_id:
                     self.reference_sequence = None
+                    return
             else:
                 entity_id = self.name
         self.reference_sequence = get_entity_reference_sequence(entity_id=entity_id)

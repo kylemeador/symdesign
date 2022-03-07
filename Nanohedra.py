@@ -6,6 +6,7 @@ from itertools import product, combinations
 import PathUtils as PUtils
 from FragDock import nanohedra_dock
 # from interface_analysis.Database import FragmentDB
+from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry
 from SymDesignUtils import get_all_pdb_file_paths, start_log, unpickle
 from utils.GeneralUtils import write_docking_parameters, get_rotation_step
@@ -134,6 +135,8 @@ if __name__ == '__main__':
 
             # Create fragment database for all ijk cluster representatives
             ijk_frag_db = unpickle(PUtils.biological_fragment_db_pickle)
+            # Load Euler Lookup table for each instance
+            euler_lookup = EulerLookup()
             # ijk_frag_db = FragmentDB()
             #
             # # Get complete IJK fragment representatives database dictionaries
@@ -168,7 +171,7 @@ if __name__ == '__main__':
                     bb_logger.info('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\n\n'
                                    % (pdb1_name, pdb2_name, pdb1_path, pdb2_path))
 
-                nanohedra_dock(sym_entry, ijk_frag_db, outdir, pdb1_path, pdb2_path,
+                nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2_path,
                                rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
                                output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
                                min_matched=min_matched, log=bb_logger, resume=resume, keep_time=timer)
