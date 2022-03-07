@@ -61,7 +61,7 @@ if __name__ == '__main__':
 
             # initialize the main Nanohedra log
             write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
-                                     master_log_filepath)
+                                     log=master_logger)
             rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2)
 
             # Get PDB1 and PDB2 File paths
@@ -151,30 +151,30 @@ if __name__ == '__main__':
                 master_logger.info('Docking %s / %s \n' % (pdb1_name, pdb2_name))
 
                 # Output Directory  # Todo DesignDirectory
-                outdir = os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name))
-                if not os.path.exists(outdir):
-                    os.makedirs(outdir)
+                # outdir = os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name))
+                # if not os.path.exists(outdir):
+                #     os.makedirs(outdir)
 
                 building_blocks = '%s_%s' % (pdb1_name, pdb2_name)
-                log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-                if os.path.exists(log_file_path):
-                    resume = True
-                else:
-                    resume = False
-                bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
-                bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
-                    if resume else None
+                # log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
+                # if os.path.exists(log_file_path):
+                #     resume = True
+                # else:
+                #     resume = False
+                # bb_logger = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+                # bb_logger.info('Found a prior incomplete run! Resuming from last sampled transformation.\n') \
+                #     if resume else None
 
                 # Write to Logfile
-                if not resume:
-                    # with open(log_file_path, 'w') as log_file:
-                    bb_logger.info('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\n\n'
-                                   % (pdb1_name, pdb2_name, pdb1_path, pdb2_path))
+                # if not resume:
+                #     # with open(log_file_path, 'w') as log_file:
+                #     bb_logger.info('DOCKING %s TO %s\nOligomer 1 Path: %s\nOligomer 2 Path: %s\n\n'
+                #                    % (pdb1_name, pdb2_name, pdb1_path, pdb2_path))
 
-                nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, outdir, pdb1_path, pdb2_path,
-                               rot_step_deg_pdb1=rot_step_deg1, rot_step_deg_pdb2=rot_step_deg2,
+                nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1_path, pdb2_path,
+                               rot_step_deg1=rot_step_deg1, rot_step_deg2=rot_step_deg2,
                                output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                               min_matched=min_matched, log=bb_logger, resume=resume, keep_time=timer)
+                               min_matched=min_matched, keep_time=timer)  # log=bb_logger,
 
                 # with open(master_log_filepath, 'a+') as master_log_file:
                 master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
