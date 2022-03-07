@@ -30,7 +30,7 @@ from Structure import Structure  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, \
     all_vs_all, condensed_to_square, digit_translate_table, sym, pretty_format_table, \
-    index_intersection, z_score, large_color_array
+    index_intersection, z_score, large_color_array, timestamp
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
 from PDB import PDB
@@ -1425,7 +1425,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.script:
             pose_s = self.design_analysis()
-            out_path = os.path.join(self.all_scores, PUtils.analysis_file % ('All', ''))
+            out_path = os.path.join(self.all_scores, PUtils.analysis_file % (timestamp(), 'All'))
             if not os.path.exists(out_path):
                 header = True
             else:
