@@ -4,6 +4,7 @@ import os
 import subprocess
 from collections.abc import Iterable
 from copy import copy, deepcopy
+from glob import glob
 from itertools import chain as iter_chain  # repeat,
 from shutil import move
 from typing import Union
@@ -13,10 +14,11 @@ from sklearn.neighbors import BallTree
 from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 
+import PathUtils as PUtils
 from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
-from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues
+from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number
 
 logger = start_log(name=__name__)
@@ -1955,6 +1957,122 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
             # Todo edit this mechanism! ^
 
     return interface_pdb
+
+
+def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
+    """Download .pdb files from pdb_codes provided in a file, a supplied list, or a single entry
+    Can download a specific biological assembly if asu=False.
+    fetch_pdb(1bkh, assembly=2) fetches 1bkh biological assembly 2
+    Args:
+        pdb_codes (Union[str, list]): PDB's of interest.
+    Keyword Args:
+        assembly=1 (int): The integer of the assembly to fetch
+        asu=False (bool): Whether to download the asymmetric unit file
+        out_dir=os.getcwd() (str): The location to save downloaded files to
+    Returns:
+        (list[str]): Filename(s) of the retrieved files
+    """
+    file_names = []
+    for pdb_code in to_iterable(pdb_codes):
+        clean_pdb = pdb_code[:4].lower()
+        if asu:
+            assembly = ''
+            clean_pdb = '%s.pdb' % clean_pdb
+        else:
+            # assembly = pdb[-3:]
+            # try:
+            #     assembly = assembly.split('_')[1]
+            # except IndexError:
+            #     assembly = '1'
+            clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
+
+        # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
+        file_name = os.path.join(out_dir, clean_pdb)
+        current_file = glob(file_name)
+        # print('Found the files %s' % current_file)
+        # current_files = os.listdir(location)
+        # if clean_pdb not in current_files:
+        if not current_file:  # glob will return an empty list if the file is missing and therefore should be downloaded
+            # Always returns files in lowercase
+            status = os.system('wget -q -O %s https://files.rcsb.org/download/%s' % (file_name, clean_pdb))
+            # TODO subprocess.POPEN()
+            if status != 0:
+                logger.error('PDB download failed for: %s' % clean_pdb)
+
+            # file_request = requests.get('https://files.rcsb.org/download/%s' % clean_pdb)
+            # if file_request.status_code == 200:
+            #     with open(file_name, 'wb') as f:
+            #         f.write(file_request.content)
+            # else:
+            #     logger.error('PDB download failed for: %s' % pdb)
+        file_names.append(file_name)
+
+    return file_names
+
+
+def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # assembly=None, out_dir=os.getcwd(),
+    """Fetch PDB object of each chain from PDBdb or PDB server
+
+    Args:
+        pdb_code (iter): The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
+    Keyword Args:
+        assembly=None (Union[None, int]): Location of a local PDB mirror if one is linked on disk
+        asu=True (bool): Whether to fetch the ASU
+        location=PathUtils.pdb_db (str): Location of a local PDB mirror if one is linked on disk
+        out_dir=os.getcwd() (str): The location to save retrieved files if fetched from PDB
+    Returns:
+        (Union[None, str]): path/to/your.pdb if located/downloaded successfully (alphabetical characters in lowercase)
+    """
+    # if location == PUtils.pdb_db and asu:
+    if os.path.exists(location) and asu:
+        get_pdb = (lambda pdb_code, location=None, **kwargs:  # asu=None, assembly=None, out_dir=None
+                   glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
+        logger.debug('Searching for PDB file at \'%s\'' % os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))
+        # Cassini format is above, KM local pdb and the escher PDB mirror is below
+        # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
+        #            glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
+        # print(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
+    else:
+        get_pdb = fetch_pdb
+
+    # return a list where the matching file is the first (should only be one anyway)
+    pdb_file = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
+    if not pdb_file:
+        logger.warning('No matching file found for PDB: %s' % pdb_code)
+    else:
+        return pdb_file[0]  # we should only find one file, therefore, return the first
+
+
+def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
+    """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
+        resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
+        of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
+        will be transformed so the center of mass resides at the origin
+
+        Args:
+            pdb_path (str): The location of the .pdb file to be oriented
+        Keyword Args:
+            log=logger (logging.logger): A log handler to report on operation success
+            sym=None (str): The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
+        Returns:
+            (Union[str, None]): Filepath of oriented PDB
+        """
+    pdb_filename = os.path.basename(pdb_path)
+    oriented_file_path = os.path.join(out_dir, pdb_filename)
+    if os.path.exists(oriented_file_path):
+        return oriented_file_path
+    # elif sym in valid_subunit_number:
+    else:
+        pdb = PDB.from_file(pdb_path, log=None, pose_format=False, entities=False)
+        try:
+            oriented_file_path = pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True, log=log)
+            log.info('Oriented: %s' % pdb_filename)
+            return oriented_file_path
+        except (ValueError, RuntimeError) as err:
+            log.error(str(err))
+    # else:
+    #     log.error('The specified symmetry is not a valid orient input!')
+
 
 # ref_aa = PDB.from_file('/home/kylemeador/symdesign/data/AAreference.pdb', log=None, pose_format=False, entities=False)
 # pickle_object(ref_aa.residues, name='/home/kylemeador/symdesign/data/AAreferenceResidues.pkl', out_path='')

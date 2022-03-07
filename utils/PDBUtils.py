@@ -1,4 +1,3 @@
-import os
 import warnings
 
 import numpy as np
@@ -10,8 +9,6 @@ from SymDesignUtils import start_log
 
 
 # Globals
-from utils.SymmetryUtils import valid_subunit_number
-
 warnings.simplefilter('ignore', PDBConstructionWarning)
 logger = start_log(name=__name__)
 # def rot_txint_set_txext_pdb(pdb, rot_mat=None, internal_tx_vec=None, set_mat=None, ext_tx_vec=None):
@@ -61,37 +58,6 @@ logger = start_log(name=__name__)
 #
 #     else:
 #         return []
-
-
-def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
-    """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
-    resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
-    of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
-    will be transformed so the center of mass resides at the origin
-
-    Args:
-        pdb_path (str): The location of the .pdb file to be oriented
-    Keyword Args:
-        log=logger (logging.logger): A log handler to report on operation success
-        sym=None (str): The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
-    Returns:
-        (Union[str, None]): Filepath of oriented PDB
-    """
-    pdb_filename = os.path.basename(pdb_path)
-    oriented_file_path = os.path.join(out_dir, pdb_filename)
-    if os.path.exists(oriented_file_path):
-        return oriented_file_path
-    # elif sym in valid_subunit_number:
-    else:
-        pdb = PDB.from_file(pdb_path, log=None, pose_format=False, entities=False)
-        try:
-            oriented_file_path = pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True, log=log)
-            log.info('Oriented: %s' % pdb_filename)
-            return oriented_file_path
-        except (ValueError, RuntimeError) as err:
-            log.error(str(err))
-    # else:
-    #     log.error('The specified symmetry is not a valid orient input!')
 
 
 def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):

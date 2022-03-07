@@ -8,9 +8,9 @@ from FragDock import nanohedra_dock
 # from interface_analysis.Database import FragmentDB
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry
+from PDB import orient_pdb_file
 from SymDesignUtils import get_all_pdb_file_paths, start_log, unpickle
 from utils.GeneralUtils import write_docking_parameters, get_rotation_step
-from utils.PDBUtils import orient_pdb_file
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
 from utils.NanohedraManualUtils import print_usage
 

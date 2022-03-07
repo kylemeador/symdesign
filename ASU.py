@@ -14,8 +14,7 @@ import SymDesignUtils as SDUtils
 # print(sys.path)
 # from utils.BioPDBUtils import biopdb_aligned_chain
 from utils.PDBUtils import biopdb_aligned_chain
-from PDB import PDB
-from Pose import fetch_pdb
+from PDB import PDB, fetch_pdb
 
 # if sys.version[0] < 3:
 pickle_prot = 2
