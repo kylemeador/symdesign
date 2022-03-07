@@ -314,7 +314,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                     shutil.copy(self.source_path, self.path)
 
                 # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
-                # need to start here if want to load pose through normal mechanism... ugh
+                # need to start here if I want to load pose through normal mechanism... ugh
                 self.set_up_design_directory()
                 self.load_pose()  # load the source pdb to find the entity_names
                 self.entity_names = [entity.name for entity in self.pose.entities]
@@ -648,17 +648,16 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         if self.log:
             return
 
-        if self.skip_logging:  # set up null_logger
-            self.log = null_log
-            return
-
         if self.debug:
-            handler, level = 1, 1
+            handler, level = 1, 1  # defaults to stdout, debug is level 1
             propagate, no_log_name = False, False
         else:
+            handler = 2  # to a file
             propagate, no_log_name = True, True
-            handler = 2
-        if self.nanohedra_output and not self.construct_pose:
+
+        if self.skip_logging:  # set up null_logger
+            self.log = null_log
+        elif self.nanohedra_output and not self.construct_pose:
             # self.log = start_log(name=str(self), handler=handler, level=level, propagate=propagate)
             self.log = start_log(name=str(self), handler=3, propagate=True, no_log_name=no_log_name)
         else:
@@ -1601,7 +1600,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu or not os.path.exists(self.asu):
-            if self.nanohedra_output and not self.construct_pose:
+            if self.nanohedra_output and not self.construct_pose or self.output_directory:
                 return
             # returns a new Structure from multiple Chain or Entity objects including the Pose symmetry
             new_asu = self.pose.get_contacting_asu()
@@ -2013,7 +2012,7 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
 
         other_pose_metrics = self.pose_metrics()
         if not other_pose_metrics:
-            raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this to the developers')
+            raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this')
 
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose
         design_structures = []
@@ -3181,6 +3180,8 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
     def __str__(self):
         if self.nanohedra_output:
             return self.source_path.replace(self.nanohedra_root + os.sep, '').replace(os.sep, '-')
+        elif self.output_directory:
+            return self.name
         else:
             # TODO integrate with designDB?
             return self.path.replace(self.projects + os.sep, '').replace(os.sep, '-')

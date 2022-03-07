@@ -52,10 +52,10 @@ def query_mode(arg_list):
 
 
 def get_docking_parameters(arg_list):
-    valid_flags = ["-dock", "-entry", "-oligomer1", "-oligomer2", "-rot_step1", "-rot_step2", "-outdir",
-                   "-output_uc", "-output_surrounding_uc", "-min_matched", "-output_exp_assembly", "-output_assembly",
+    valid_flags = ['-dock', '-entry', '-oligomer1', '-oligomer2', '-rot_step1', '-rot_step2', '-outdir',
+                   '-output_uc', '-output_surrounding_uc', '-min_matched', '-output_exp_assembly', '-output_assembly',
                    '-no_time', '-initial', '-debug']
-    if "-outdir" in arg_list:
+    if '-outdir' in arg_list:
         outdir_index = arg_list.index('-outdir') + 1
         if outdir_index < len(arg_list):
             outdir = arg_list[outdir_index]

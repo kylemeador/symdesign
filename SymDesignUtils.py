@@ -1198,5 +1198,5 @@ def condensed_to_square(k, n):
     return i, j
 
 
-def ex_path(string):
-    return os.path.join('path', 'to', string)
+def ex_path(*string):
+    return os.path.join('path', 'to', *string)
