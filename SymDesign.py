@@ -467,7 +467,7 @@ def terminate(results=None, output=True):
             # Save Design DataFrame
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
             if args.output == PUtils.analysis_file:
-                out_path = os.path.join(all_scores, args.output % (design_source, timestamp))
+                out_path = os.path.join(all_scores, args.output % (timestamp, design_source))
             else:  # user provided the output path, the global out_path should be used
                 pass
                 # out_path = os.path.join(all_scores, args.output)
@@ -505,15 +505,14 @@ def terminate(results=None, output=True):
                 exit(exit_code)
             # sbatch_scripts = master_directory.sbatch_scripts
             command_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % stage) for design in success],
-                                                  out_path=job_paths,
-                                                  name='_'.join((args.module, design_source, timestamp)))
+                                                  out_path=job_paths, name='_'.join(default_output_tuple))
             sbatch_file = distribute(file=command_file, out_path=master_directory.sbatch_scripts, scale=args.module)
             #                                                                    ^ for sbatch template
             logger.critical(sbatch_warning)
             if args.module == PUtils.interface_design and not master_directory.pre_refine:  # must refine before design
                 refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % 'refine')
                                                       for design in success], out_path=job_paths,
-                                                     name='_'.join(('refine', design_source, timestamp)))
+                                                     name='_'.join((timestamp, 'refine', design_source)))
                 sbatch_refine_file = \
                     distribute(file=refine_file, out_path=master_directory.sbatch_scripts, scale='refine')
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s\nTHEN:\n\tsbatch '
@@ -780,7 +779,7 @@ if __name__ == '__main__':
     parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
                                  help='Name of the output .csv file containing design metrics. Will be saved to the %s/'
                                       ' folder of the output.\nDefault=%s'
-                                      % (PUtils.all_scores, PUtils.analysis_file % ('LOCATION', 'TIMESTAMP')))
+                                      % (PUtils.all_scores, PUtils.analysis_file % ('TIMESTAMP', 'LOCATION')))
     parser_analysis.add_argument('-N', '--no_save', action='store_true',
                                  help='Don\'t save trajectory information.\nDefault=False')
     parser_analysis.add_argument('-f', '--figures', action='store_true',
@@ -968,7 +967,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
-    timestamp = time.strftime('%y-%m-%d-%H%M%S')
+    timestamp = SDUtils.timestamp()
     if args.debug:
         # Root logs to stream with level debug
         logger = SDUtils.start_log(level=1, set_logger_level=True)
@@ -1348,7 +1347,6 @@ if __name__ == '__main__':
             if hhblits_cmds:
                 # prepare files for running hhblits commands
                 instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
-                # logger.info(instructions)
                 info_messages.append(instructions)
                 # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
                 # hhblits_cmds, _ = zip(*hhblits_cmds)
@@ -1357,7 +1355,7 @@ if __name__ == '__main__':
                 reformat_msa_cmd2 = [PUtils.reformat_msa_exe_path, 'a3m', 'fas',
                                      '\'%s\'' % os.path.join(profile_dir, '*.a3m'), '.fasta', '-M', 'first', '-r']
                 hhblits_cmd_file = \
-                    SDUtils.write_commands(hhblits_cmds, name='hhblits_%s' % timestamp, out_path=profile_dir)
+                    SDUtils.write_commands(hhblits_cmds, name='%s-hhblits' % timestamp, out_path=profile_dir)
                 hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.sbatch_scripts,
                                             scale='hhblits', max_jobs=len(hhblits_cmds),
                                             log_file=os.path.join(profile_dir, 'generate_profiles.log'),
@@ -1367,8 +1365,6 @@ if __name__ == '__main__':
                 hhblits_sbatch_message = \
                     'Once you are satisfied, enter the following to distribute hhblits jobs:\n\tsbatch %s' \
                     % hhblits_sbatch
-                # logger.critical(sbatch_warning)
-                # logger.info(hhblits_sbatch_message)
                 info_messages.append(hhblits_sbatch_message)
                 load_resources = True
             else:
@@ -1380,12 +1376,12 @@ if __name__ == '__main__':
                 #                   '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
                 #      for entity in all_entities.values()]
                 bmdca_cmd_file = \
-                    SDUtils.write_commands(bmdca_cmds, name='bmDCA_%s' % timestamp, out_path=profile_dir)
+                    SDUtils.write_commands(bmdca_cmds, name='%s-bmDCA' % timestamp, out_path=profile_dir)
                 bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=master_directory.sbatch_scripts,
                                           scale='bmdca', max_jobs=len(bmdca_cmds),
                                           log_file=os.path.join(profile_dir, 'generate_couplings.log'),
                                           number_of_commands=len(bmdca_cmds))
-                # reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='reformat_msa_%s' % timestamp,
+                # reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % timestamp,
                 #                                                out_path=profile_dir)
                 # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
                 #                              scale='script', max_jobs=len(reformat_msa_cmds),
@@ -1394,17 +1390,18 @@ if __name__ == '__main__':
                 print('\n' * 2)
                 # Todo add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
                 bmdca_sbatch_message = \
-                    'Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s' % bmdca_sbatch if not load_resources else 'ONCE this job is finished, to calculate evolutionary couplings i,j for each amino acid in the multiple sequence alignment, enter:\n\tsbatch %s' % bmdca_sbatch
-                # logger.critical(sbatch_warning)
-                # logger.info(bmdca_sbatch_message)
+                    'Once you are satisfied, enter the following to distribute jobs:\n\tsbatch %s' \
+                    % bmdca_sbatch if not load_resources else 'ONCE this job is finished, to calculate evolutionary ' \
+                                                              'couplings i,j for each amino acid in the multiple ' \
+                                                              'sequence alignment, enter:\n\tsbatch %s' % bmdca_sbatch
                 info_messages.append(bmdca_sbatch_message)
                 load_resources = True
+            else:
+                bmdca_sbatch, reformat_sbatch = None, None
 
             refine_loop_model_instructions, pre_refine, pre_loop_model = \
-                master_db.preprocess_entities_for_design(master_directory.sym_entry,
-                                                         script_outpath=master_directory.sbatch_scripts,
+                master_db.preprocess_entities_for_design(all_entities, script_outpath=master_directory.sbatch_scripts,
                                                          load_resources=load_resources)
-
             if load_resources:
                 logger.critical(sbatch_warning)
                 for message in info_messages + refine_loop_model_instructions:
@@ -1849,9 +1846,9 @@ if __name__ == '__main__':
             selected_poses = selected_poses_df.index.to_list()
             logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
             if args.filter or args.weight:
-                new_dataframe = os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
-                                             % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '',
-                                                timestamp))
+                new_dataframe = os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
+                                             % (timestamp, 'Filtered' if args.filter else '',
+                                                'Weighted' if args.weight else '',))
                 selected_poses_df.to_csv(new_dataframe)
                 logger.info('New DataFrame was written to %s' % new_dataframe)
 
@@ -2094,10 +2091,10 @@ if __name__ == '__main__':
 
             if args.filter or args.weight:
                 new_dataframe = \
-                    os.path.join(program_root, '%s%sDesignPoseMetrics-%s.csv'
-                                 % ('Filtered' if args.weight else '', 'Weighted' if args.weight else '', timestamp))
+                    os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
+                                 % (timestamp, 'Filtered' if args.filter else '', 'Weighted' if args.weight else ''))
             else:
-                new_dataframe = os.path.join(program_root, 'DesignPoseMetrics-%s.csv' % (timestamp))
+                new_dataframe = os.path.join(program_root, '%s-DesignPoseMetrics.csv' % timestamp)
             # include only the found index names to the saved dataframe
             save_poses_df = selected_poses_df.loc[results, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:
