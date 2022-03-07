@@ -261,76 +261,82 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
                 path_components = self.source_path.split(os.sep)
                 self.nanohedra_root = os.sep.join(path_components[:-4])  # path_components[-5]
                 # design_symmetry (P432)
-                # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
-                #     .replace(os.sep, '-')
-                self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
-                self.projects = os.path.join(self.program_root, PUtils.projects)
-                self.project_designs = os.path.join(self.projects, '%s_%s' % (path_components[-5],
-                                                                              PUtils.design_directory))
-                # make the newly required files
-                self.make_path(self.program_root)
-                self.make_path(self.projects)
-                self.make_path(self.project_designs)
-                # copy the master log
-                if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
-                    shutil.copy(os.path.join(self.nanohedra_root, PUtils.master_log), self.project_designs)
                 # path_components[-3] are the oligomeric names
                 self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
                 # design_symmetry/building_blocks (P432/4ftd_5tch)
-                # self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+                self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
                 self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # assumes the entity is the first
-
+                # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
+                #     .replace(os.sep, '-')
                 self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
                 self.name = self.pose_id
-                self.path = os.path.join(self.project_designs, self.name)
-                self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
-
-                if not self.construct_pose:  # no construction specific flags
-                    self.write_frags = False
-        else:
-            if '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
-                self.initialized = False
-                if not os.path.exists(self.source_path):
-                    raise FileNotFoundError('The file \'%s\' couldn\'t be located! Ensure this location is correct.')
-                self.source = self.source_path
                 if self.output_directory:
-                    self.make_path(self.output_directory)
+                    # self.make_path(self.output_directory)
                     self.program_root = self.output_directory  # os.getcwd()
                     self.projects = ''
-                    self.project_designs = ''
+                    self.project_designs = self.output_directory  # ''
                     self.path = self.output_directory
                     # ^ /output_directory<- self.path /design.pdb
                 else:
-                    self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
+                    self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
                     self.projects = os.path.join(self.program_root, PUtils.projects)
-                    self.project_designs = os.path.join(self.projects, '%s_%s' % (self.source_path.split(os.sep)[-2],
+                    self.project_designs = os.path.join(self.projects, '%s_%s' % (path_components[-5],
                                                                                   PUtils.design_directory))
                     self.path = os.path.join(self.project_designs, self.name)
-                    # ^ /program_root/projects/project/design<- self.path /design.pdb
                     self.make_path(self.program_root)
                     self.make_path(self.projects)
                     self.make_path(self.project_designs)
-                    self.make_path(self.path)
-                    shutil.copy(self.source_path, self.path)
+                # copy the master log
+                if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
+                    shutil.copy(os.path.join(self.nanohedra_root, PUtils.master_log), self.project_designs)
 
-                # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
-                # need to start here if I want to load pose through normal mechanism... ugh
-                self.set_up_design_directory()
-                self.load_pose()  # load the source pdb to find the entity_names
-                self.entity_names = [entity.name for entity in self.pose.entities]
-                # TODO need to extract the _pose_transformation...
-            else:  # initialize DesignDirectory with existing /program_root/projects/project/design
-                self.initialized = True
-                self.path = self.source_path
-                if not os.path.exists(self.path):
-                    raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
-                self.project_designs = os.path.dirname(self.path)
-                self.projects = os.path.dirname(self.project_designs)
-                self.program_root = os.path.dirname(self.projects)
-                # path_components = self.path.split(os.sep)
-                # self.program_root = '/%s' % os.path.join(*path_components[:-3])
-                # self.projects = '/%s' % os.path.join(*path_components[:-2])
-                # self.project_designs = '/%s' % os.path.join(*path_components[:-1])
+                self.make_path(self.path, condition=(self.copy_nanohedra or self.construct_pose))
+
+                if not self.construct_pose:  # no construction specific flags
+                    self.write_frags = False
+        elif '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
+            self.initialized = False
+            if not os.path.exists(self.source_path):
+                raise FileNotFoundError('The file \'%s\' couldn\'t be located! Ensure this location is correct.')
+            self.source = self.source_path
+            if self.output_directory:
+                self.make_path(self.output_directory)
+                self.program_root = self.output_directory  # os.getcwd()
+                self.projects = ''
+                self.project_designs = ''
+                self.path = self.output_directory
+                # ^ /output_directory<- self.path /design.pdb
+            else:
+                self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
+                self.projects = os.path.join(self.program_root, PUtils.projects)
+                self.project_designs = os.path.join(self.projects, '%s_%s' % (self.source_path.split(os.sep)[-2],
+                                                                              PUtils.design_directory))
+                self.path = os.path.join(self.project_designs, self.name)
+                # ^ /program_root/projects/project/design<- self.path /design.pdb
+                self.make_path(self.program_root)
+                self.make_path(self.projects)
+                self.make_path(self.project_designs)
+                self.make_path(self.path)
+                shutil.copy(self.source_path, self.path)
+            # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
+            # need to start here if I want to load pose through normal mechanism... ugh
+            self.set_up_design_directory()
+            self.load_pose()  # load the source pdb to find the entity_names
+            self.entity_names = [entity.name for entity in self.pose.entities]
+            # self.set_up_design_directory()
+            # TODO need to extract the _pose_transformation...
+        else:  # initialize DesignDirectory with existing /program_root/projects/project/design
+            self.initialized = True
+            self.path = self.source_path
+            if not os.path.exists(self.path):
+                raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
+            self.project_designs = os.path.dirname(self.path)
+            self.projects = os.path.dirname(self.project_designs)
+            self.program_root = os.path.dirname(self.projects)
+            # path_components = self.path.split(os.sep)
+            # self.program_root = '/%s' % os.path.join(*path_components[:-3])
+            # self.projects = '/%s' % os.path.join(*path_components[:-2])
+            # self.project_designs = '/%s' % os.path.join(*path_components[:-1])
             # self.set_up_design_directory()
         self.link_master_directory()
 
@@ -716,8 +722,13 @@ class DesignDirectory:  # Todo move PDB coordinate information to Pose. Only use
         #     self.score_db = score_db
 
     @handle_design_errors(errors=(DesignError, ))
-    def set_up_design_directory(self, pre_refine=None):
-        """Prepare output Directory and File locations. Each DesignDirectory always includes this format"""
+    def set_up_design_directory(self, pre_refine=None, pre_loop_model=None):
+        """Prepare output Directory and File locations. Each DesignDirectory always includes this format
+
+        Keyword Args:
+            pre_refine=None (Union[None, bool]): Whether the Pose has been refined previously (before loading)
+            pre_loop_model=None (Union[None, bool]): Whether the Pose had loops modeled previously (before loading)
+        """
         # self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
         self.start_log()
         # self.scores = os.path.join(self.path, PUtils.scores_outdir)
