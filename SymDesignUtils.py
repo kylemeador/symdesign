@@ -2,6 +2,7 @@ import os
 import logging
 import math
 import multiprocessing as mp
+import time
 from csv import reader, Dialect, QUOTE_MINIMAL
 from operator import getitem
 from string import digits
@@ -119,6 +120,10 @@ def handle_errors(errors=(Exception,)):
 #####################
 # Runtime Utilities
 #####################
+
+
+def timestamp():
+    return time.strftime('%y-%m-%d-%H%M%S')
 
 
 def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True, format_log=True, no_log_name=False,

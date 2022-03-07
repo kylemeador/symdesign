@@ -1,15 +1,23 @@
 import os
 import math
 from glob import glob
+from copy import copy
+from subprocess import list2cmdline
 
 import numpy as np
 
+import PathUtils as PUtils
+import SymDesignUtils as SDUtils
+from CommandDistributer import rosetta_flags, script_cmd, distribute
+from DesignDirectory import relax_flags
 from PDB import PDB
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
+from Query.PDB import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
 from Structure import parse_stride
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
+from classes.SymEntry import sdf_lookup
 from utils.MysqlPython import Mysql
 # import dependencies.bmdca as bmdca
 
@@ -85,6 +93,175 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
         return object_db.retrieve_file(name)
 
+    def preprocess_entities_for_design(self, all_entities, script_outpath=os.getcwd(), load_resources=False):
+        """Assess whether the design files of interest require any processing prior to design calculations.
+        Processing includes relaxation into the energy function and/or modelling of missing loops and segments
+
+        Args:
+            all_entities (list[Entity]):
+        Keyword Args:
+            script_outpath=os.getcwd() (str): Where should entity processing commands be written?
+            load_resources=False (bool): Whether resources have already been specified to be loaded
+        Returns:
+            (Tuple[list, bool, bool]): Any instructions, then two booleans on whether designs are pre_refined, and whether
+            they are pre_loop_modeled
+        """
+        global timestamp
+        # oriented_asu_files = self.oriented_asu.retrieve_files()
+        # oriented_asu_files = os.listdir(orient_asu_dir)
+        self.refined.make_path()
+        refine_names = self.refined.retrieve_names()
+        refine_dir = self.refined.location
+        # refine_dir = master_directory.refine_dir
+        # refine_files = os.listdir(refine_dir)
+        self.full_models.make_path()
+        full_model_names = self.full_models.retrieve_names()
+        full_model_dir = self.full_models.location
+        # full_model_dir = master_directory.full_model_dir
+        # full_model_files = os.listdir(full_model_dir)
+        entities_to_refine, entities_to_loop_model, sym_def_files = [], [], {}
+        # Identify thDe entities to refine and to model loops before proceeding
+        for entity in all_entities:  # if entity is here, the file should've been oriented...
+            # for entry_entity in entities:  # ex: 1ABC_1
+            # symmetry = master_directory.sym_entry.sym_map[idx]
+            if entity.symmetry == 'C1':
+                sym_def_files[entity.symmetry] = sdf_lookup(None)
+            else:
+                sym_def_files[entity.symmetry] = sdf_lookup(entity.symmetry)
+            # for entry_entity in entities:
+            #     entry = entry_entity.split('_')
+            # for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
+            #     base_pdb_code = os.path.splitext(orient_asu_file)[0]
+            #     if base_pdb_code in all_entities:
+            if entity.name not in refine_names:  # assumes oriented_asu entity name is the same
+                entities_to_refine.append(entity)
+            if entity.name not in full_model_names:  # assumes oriented_asu entity name is the same
+                entities_to_loop_model.append(entity)
+
+        info_messages = []
+        # query user and set up commands to perform refinement on missing entities
+        pre_refine = True
+        if entities_to_refine:  # if files found unrefined, we should proceed
+            logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
+                        ' into the Rosetta ScoreFunction for optimized sequence design: %s'
+                        % ', '.join(set(os.path.splitext(os.path.basename(orient_asu_file))[0]
+                                        for orient_asu_file in entities_to_refine)))
+            print('Would you like to refine them now? If you plan on performing sequence design with models '
+                  'containing them, it is highly recommended you perform refinement')
+            if not boolean_choice():
+                print('To confirm, asymmetric units are going to be generated with unrefined coordinates. Confirm '
+                      'with \'y\' to ensure this is what you want')
+                if boolean_choice():
+                    pre_refine = False
+            # Generate sbatch refine command
+            flags_file = os.path.join(refine_dir, 'refine_flags')
+            if not os.path.exists(flags_file):
+                flags = copy(rosetta_flags) + relax_flags
+                flags.extend(['-out:path:pdb %s' % refine_dir, '-no_scorefile true'])
+                flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
+                flags.extend(['dist=0'])  # Todo modify if not point groups used
+                with open(flags_file, 'w') as f:
+                    f.write('%s\n' % '\n'.join(flags))
+
+            # if sym != 'C1':
+            refine_cmd = ['@%s' % flags_file, '-parser:protocol',
+                          os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
+            # else:
+            #     refine_cmd = ['@%s' % flags_file, '-parser:protocol',
+            #                   os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
+            #                   '-parser:script_vars']
+            refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
+                           ['sdf=%s' % sym_def_files[entity.symmetry],
+                            'symmetry=%s' % 'make_point_group' if entity.symmetry != 'C1' else 'asymmetric']
+                           for entity in entities_to_refine]
+            commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds],
+                                                   name='%s-refine_oligomers' % timestamp, out_path=refine_dir)
+            refine_sbatch = distribute(file=commands_file, out_path=script_outpath, scale='refine',
+                                       log_file=os.path.join(refine_dir, 'refine.log'),
+                                       max_jobs=int(len(refine_cmds) / 2 + 0.5),
+                                       number_of_commands=len(refine_cmds))
+            print('\n' * 2)
+            refine_sbatch_message = \
+                'Once you are satisfied%snter the following to distribute refine jobs:\n\tsbatch %s' \
+                % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
+            # logger.info('Please follow the instructions below to refine your input files')
+            # logger.critical(sbatch_warning)
+            # logger.info(refine_sbatch_message)
+            info_messages.append(refine_sbatch_message)
+            load_resources = True
+
+        # query user and set up commands to perform loop modelling on missing entities
+        pre_loop_model = True
+        if entities_to_loop_model:
+            logger.info('The following structures have not been modelled for disorder. Missing loops will '
+                        'be built for optimized sequence design: %s' % ', '.join(entities_to_loop_model))
+            print('Would you like to model loops for these structures now? If you plan on performing sequence '
+                  'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
+            if not boolean_choice():
+                print('To confirm, asymmetric units are going to be generated without disordered loops. Confirm '
+                      'with \'y\' to ensure this is what you want')
+                if boolean_choice():
+                    pre_loop_model = False
+            # Generate sbatch refine command
+            flags_file = os.path.join(full_model_dir, 'loop_model_flags')
+            if not os.path.exists(flags_file):
+                loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
+                #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
+                flags = copy(rosetta_flags) + loop_model_flags
+                # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
+                flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
+                # flags.remove('-output_only_asymmetric_unit true')  # NOT necessary -> want full oligomers
+                with open(flags_file, 'w') as f:
+                    f.write('%s\n' % '\n'.join(flags))
+
+            loop_model_cmd = ['@%s' % flags_file, '-parser:protocol',
+                              os.path.join(PUtils.rosetta_scripts, 'loop_model_ensemble.xml'),
+                              '-parser:script_vars']
+            # Make all output paths and files for each loop ensemble
+            logger.info('Preparing blueprint and loop files for entity:')
+            out_paths, blueprints, loop_files = [], [], []
+            for entity in entities_to_loop_model:
+                entity_out_path = os.path.join(full_model_dir, entity)
+                SDUtils.make_path(entity_out_path)
+                out_paths.append(entity_out_path)
+                blueprints.append(all_entities[entity].make_blueprint_file(out_path=full_model_dir))
+                loop_files.append(all_entities[entity].make_loop_file(out_path=full_model_dir))
+
+            loop_model_cmds = []
+            for idx, (entity, sym) in enumerate(entities_to_loop_model.items()):
+                entity_cmd = script_cmd + loop_model_cmd + \
+                             ['blueprint=%s' % blueprints[idx], 'loop_file=%s' % loop_files[idx],
+                              '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity), '-out:path:pdb',
+                              out_paths[idx]] + \
+                             (['-symmetry:symmetry_definition', sym_def_files[sym]] if sym != 'C1' else [])
+
+                multimodel_cmd = ['python', PUtils.models_to_multimodel_exe, '-d', out_paths[idx],
+                                  '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity)]
+                copy_cmd = ['scp', os.path.join(out_paths[idx], '%s_0001.pdb' % entity),
+                            os.path.join(full_model_dir, '%s.pdb' % entity)]
+                loop_model_cmds.append(
+                    SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity, out_path=full_model_dir,
+                                               additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
+
+            loop_cmds_file = SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % timestamp,
+                                                    out_path=full_model_dir)
+            loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_outpath,
+                                           scale='refine', log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                           max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
+                                           number_of_commands=len(loop_model_cmds))
+            print('\n' * 2)
+            loop_model_sbatch_message = \
+                'Once you are satisfied%snter the following to distribute loop_modelling jobs:\n\tsbatch %s' \
+                % (', run this script AFTER completion of the Entity refinement script. E' if load_resources else ', e',
+                   loop_model_sbatch)
+            # logger.info('Please follow the instructions below to model loops on your input files')
+            # logger.critical(sbatch_warning)
+            # logger.info(refine_sbatch_message)
+            info_messages.append(loop_model_sbatch_message)
+            # load_resources = True
+
+        return info_messages, pre_refine, pre_loop_model
+
 
 class DataStore:
     def __init__(self, location=None, extension='.txt', sql=None, log=logger):
@@ -111,6 +288,15 @@ class DataStore:
         else:  # '.txt' read the file and return the lines
             self.load_file = self.read_file
 
+    def make_path(self, condition=True):
+        """Make all required directories in specified path if it doesn't exist, and optional condition is True
+
+        Keyword Args:
+            condition=True (bool): A condition to check before the path production is executed
+        """
+        if condition:
+            os.makedirs(self.location, exist_ok=True)
+
     def store(self, name):
         """Return the path of the storage location given an entity name"""
         return os.path.join(self.location, '%s%s' % (name, self.extension))
@@ -118,12 +304,30 @@ class DataStore:
     def retrieve_file(self, name):
         """Returns the actual location by combining the requested name with the stored .location"""
         path = os.path.join(self.location, '%s%s' % (name, self.extension))
-        file_location = glob(path)
-        if file_location:
-            if len(file_location) > 1:
-                self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, file_location[0]))
+        files = glob(path)
+        if files:
+            if len(files) > 1:
+                self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, files[0]))
 
-            return file_location[0]
+            return files[0]
+        else:
+            self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
+
+    def retrieve_files(self):
+        """Returns the actual location of all files in the stored .location"""
+        path = os.path.join(self.location, '*%s' % self.extension)
+        files = glob(path)
+        if files:
+            return files
+        else:
+            self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
+
+    def retrieve_names(self):
+        """Returns the names of all objects in the stored .location"""
+        path = os.path.join(self.location, '*%s' % self.extension)
+        names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in glob(path)]))
+        if names:
+            return names
         else:
             self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
 
