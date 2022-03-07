@@ -442,13 +442,12 @@ def terminate(results=None, output=True):
         # exit_code = 1
 
     if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
-        master_directory = next(iter(design_directories))
+        # master_directory = next(iter(design_directories))
         job_paths = master_directory.job_paths
         if low and high:
             timestamp = '%s-%.2f-%.2f' % (timestamp, low, high)
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
-        # program_root = design_directories[0].program_root
         default_output_tuple = (timestamp, args.module, design_source)
         if args.output_design_file:
             designs_file = args.output_design_file
@@ -625,9 +624,9 @@ if __name__ == '__main__':
                         metavar=ex_path('SymDesignOutput', 'Projects', 'your_project'),
                         help='If pose names are specified by project instead of directories, which project to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
-                        help='Should commands be executed through %s command? Doesn\'t maximize cassini\'s '
-                             'computational resources and can cause long trajectories to fail on a single mistake.'
-                             '\nDefault=False' % PUtils.program_name)
+                        help='Should commands be executed at %s runtime? In most cases, it won\'t maximize cassini\'s '
+                             'computational resources. Additionally, all computation may fail on a single trajectory '
+                             'mistake.\nDefault=False' % PUtils.program_name)
     parser.add_argument('-s', '--single', type=os.path.abspath,
                         metavar=ex_path('SymDesignOutput', 'Projects', 'your_project', 'single_design[.pdb]'),
                         help='If design name is specified by a single path instead')
@@ -640,6 +639,8 @@ if __name__ == '__main__':
                                             % (PUtils.submodule_guide, PUtils.submodule_help))
     parser.add_argument('-sdb', '--skip_master_db', action='store_true',
                         help='Skip loading of the entire master database, instead opting to load on the fly')
+    parser.add_argument('-se', '--sym_entry', type=int, default=None,
+                        help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
     parser.add_argument('-F', '--force_flags', action='store_true',
                         help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
@@ -1025,12 +1026,14 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags.get('sym_entry'):
-        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))  # sym_map inclusion?
+        sym_entry = SymEntry(int(queried_flags['sym_entry']))
+        queried_flags['sym_entry'] = sym_entry
     if queried_flags['symmetry']:
         if queried_flags['symmetry'].lower()[:5] == 'cryst':
             # the symmetry information is in the pdb header
             queried_flags['symmetry'] = 'cryst'
         else:  # queried_flags['symmetry'] in possible_symmetries:
+            # Todo integrate with SymEntry search
             queried_flags['sym_entry'] = parse_symmetry_to_sym_entry(queried_flags['symmetry'])
         # else:
         #     raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
@@ -1050,7 +1053,7 @@ if __name__ == '__main__':
         #         logger.critical('Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\''
         #                         % args.module)
         #         exit(1)
-    elif args.module in [PUtils.nano, PUtils.analysis, PUtils.cluster_poses]:
+    elif args.module in [PUtils.analysis, PUtils.cluster_poses]:
         # analysis could be run from Nanohedra docking, so we ensure that we don't construct new
         initialize, queried_flags['construct_pose'] = True, False
     elif args.module in [PUtils.select_designs, PUtils.select_sequences]:
@@ -1064,7 +1067,7 @@ if __name__ == '__main__':
         elif args.module == PUtils.select_sequences:
             if not args.global_sequences and args.number_sequences == sys.maxsize:
                 args.number_sequences = 1
-    else:  # ['nanohedra_query', 'guide', 'flags', 'residue_selector']
+    else:  # [PUtils.nano, 'nanohedra_query', 'guide', 'flags', 'residue_selector', 'multicistronic']
         initialize = False
         if args.module == 'nanohedra_query':
             args.directory = True
@@ -1077,8 +1080,8 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
-    all_poses, all_dock_directories, pdb_pairs, design_directories, location = None, None, None, None, None
-    master_directory, initial_iter = None, None
+    all_poses, design_directories, location = None, [], None
+    all_dock_directories, pdb_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
     if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
         raise SDUtils.DesignError('No designs were specified! Please specify --directory, --file, --specification_file,'
@@ -1096,26 +1099,24 @@ if __name__ == '__main__':
     if initialize:
         if args.nanohedra_output:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
+        elif args.specification_file:  # Todo, combine this with collect_designs
+            # # Grab all poses (directories) to be processed from either directory name or file
+            # with open(args.specification_file) as csv_file:
+            #     design_specification_dialect = Dialect()
+            #     # csv_lines = [line for line in reader(csv_file)]
+            #     all_poses, pose_design_numbers = zip(*reader(csv_file, dialect=))
+            # # all_poses, pose_design_numbers = zip(*csv_lines)
+            if not args.directory:
+                raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
+            design_specification = SDUtils.DesignSpecification(args.specification_file)
+            # Todo this works for file locations as well! should I have a separate mechanism for each?
+            design_directories = [DesignDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
+                                                               directives=directives, **queried_flags)
+                                  for pose, design, directives in design_specification.return_directives()]
+            location = args.specification_file
         else:
-            if args.specification_file:  # Todo, combine this with collect_designs
-                # # Grab all poses (directories) to be processed from either directory name or file
-                # with open(args.specification_file) as csv_file:
-                #     design_specification_dialect = Dialect()
-                #     # csv_lines = [line for line in reader(csv_file)]
-                #     all_poses, pose_design_numbers = zip(*reader(csv_file, dialect=))
-                # # all_poses, pose_design_numbers = zip(*csv_lines)
-                location = args.specification_file
-                if not args.directory:
-                    raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
-                program_root = args.directory  # Todo clean this mechanism everywhere
-                design_specification = SDUtils.DesignSpecification(args.specification_file)
-                # Todo this works for file locations as well! should I have a separate mechanism for each?
-                design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, specific_design=design,
-                                                                   directives=directives, **queried_flags)
-                                      for pose, design, directives in design_specification.return_directives()]
-            else:
-                all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
-                                                              project=args.project, single=args.single)
+            all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
+                                                          project=args.project, single=args.single)
         if args.design_range:
             low, high = map(float, args.design_range.split('-'))
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
@@ -1147,6 +1148,7 @@ if __name__ == '__main__':
         # Todo could make after collect_designs? Pass to all design_directories
         #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
         master_directory = next(iter(design_directories))
+        # master_directory = MasterDirectory(design_directories[0].program_root)
         if not location:
             design_source = os.path.basename(master_directory.project_designs)
         else:
@@ -1160,10 +1162,10 @@ if __name__ == '__main__':
             else:
                 designs_directory = args.output_directory
             os.makedirs(designs_directory, exist_ok=True)
-        logger.info('Using design resources from Database located at \'%s\'' % master_directory.protein_data)
         master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
                              master_directory.full_model_dir, master_directory.stride_dir, master_directory.sequences,
                              master_directory.profiles, sql=None, log=logger)
+        logger.info('Using design resources from Database located at \'%s\'' % master_directory.protein_data)
 
         # check to see that proper files have been created if doing design
         # including orientation, refinement, loop modeling, hhblits, bmdca?
@@ -1178,7 +1180,6 @@ if __name__ == '__main__':
             master_directory.make_path(master_directory.sbatch_scripts)
             if args.load_database:  # Todo why is this set_up_design_directory here?
                 for design in design_directories:
-                    # design.link_master_database(master_db)
                     design.set_up_design_directory()
             # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
             # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
@@ -1305,7 +1306,7 @@ if __name__ == '__main__':
             refine_loop_model_instructions, pre_refine, pre_loop_model = \
                 master_db.preprocess_entities_for_design(all_entities, script_outpath=master_directory.sbatch_scripts,
                                                          load_resources=load_resources)
-            if load_resources:
+            if load_resources or pre_refine or pre_loop_model:
                 logger.critical(sbatch_warning)
                 for message in info_messages + refine_loop_model_instructions:
                     logger.info(message)
@@ -1325,12 +1326,12 @@ if __name__ == '__main__':
             # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, threads=threads)
         # else:  # for now just do in series
         for design in design_directories:
-            design.link_database(resource_db=master_db)
-            design.set_up_design_directory(pre_refine=pre_refine)
+            # design.link_database(resource_db=master_db)
+            design.set_up_design_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
         if not args.debug and not queried_flags['skip_logging']:
-            example_log = getattr(design_directories[0].log.handlers[0], 'baseFilename', None)
+            example_log = getattr(master_directory.log.handlers[0], 'baseFilename', None)
             if example_log:
                 logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
                             % example_log)
@@ -1412,30 +1413,32 @@ if __name__ == '__main__':
         logger.info('%d unique building block docking combinations found in \'%s\''
                     % (len(design_directories), location))
     else:
+        master_db = None
+        master_directory = MasterDirectory(queried_flags['output_directory'])
         # raise SDUtils.DesignError('This logic is impossible?!')
         # this logic is possible with select_designs without --metric
         pass
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
-            logger.info('Modelling will occur in this process, ensure you don\'t lose connection to the shell!')
+            logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
         else:
-            logger.info('Writing modelling commands out to file, no modelling will occur until commands are executed.')
+            logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
 
-    if queried_flags.get(Flags.generate_frags, None) or args.module in [PUtils.nano, PUtils.generate_fragments] \
-            or queried_flags.get('design_with_fragments', None):
+    if queried_flags.get(Flags.generate_frags, None) or queried_flags.get('design_with_fragments', None) \
+            or args.module in [PUtils.nano, PUtils.generate_fragments]:
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing %s FragmentDatabase\n' % interface_type)
         fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
         # fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)  # has since been depreciated
         # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.frag_db
         euler_lookup = EulerLookup()
-        for design in design_directories:
-            design.link_database(frag_db=fragment_db)
-            design.euler_lookup = euler_lookup
     else:
         fragment_db, euler_lookup = None, None
 
+    for design in design_directories:
+        design.link_database(frag_db=fragment_db, resource_db=master_db)
+        design.euler_lookup = euler_lookup
     # -----------------------------------------------------------------------------------------------------------------
     # Ensure all Nanohedra Directories are set up by performing required transformation, then saving the pose
     # if nanohedra_initialization:
@@ -1520,7 +1523,7 @@ if __name__ == '__main__':
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == PUtils.nano:  # -d1 pdb_path1, -d2 pdb_path2, -e entry, -o outdir
+    elif args.module == PUtils.nano:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
         # Initialize docking procedure
         if args.multi_processing:
             if args.run_in_shell:
@@ -2009,7 +2012,7 @@ if __name__ == '__main__':
             # results = selected_poses_df.index.to_list()  TODO reinstate
             save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         else:  # select designed sequences from each pose provided (DesignDirectory)
-            trajectory_df = None
+            trajectory_df = None  # currently used to get the column headers
             if args.filter:
                 trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
                 sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
@@ -2087,6 +2090,7 @@ if __name__ == '__main__':
             with open(args.output_design_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(des_dir.path for des_dir in design_directories))
 
+        # use one directory as indication of entity specification for them all. Todo modify for different length inputs
         master_directory.load_pose()
         if args.entity_specification:
             if args.entity_specification == 'all':

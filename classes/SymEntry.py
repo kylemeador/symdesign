@@ -1,5 +1,6 @@
 import math
 import os
+from typing import List
 
 import numpy as np
 
@@ -306,6 +307,11 @@ class SymEntry:
     #     return self.group2
 
     @property
+    def groups(self) -> List:
+        """Returns the various symmetries which constitute the SymEntry"""
+        return list(self.sym_map.values())
+
+    @property
     def point_group_sym(self):
         return self.pt_grp
 
@@ -384,21 +390,25 @@ class SymEntry:
                 self._internal_tx2 = False
         return self._internal_tx2
 
+    @property
     def is_internal_rot1(self):
         if 'r:<0,0,1,a>' in self.int_dof_group1:
             return True
         else:
             return False
 
+    @property
     def is_internal_rot2(self):
         if 'r:<0,0,1,c>' in self.int_dof_group2:
             return True
         else:
             return False
 
+    @property
     def is_ref_frame_tx_dof1(self):
         return self._is_ref_frame_tx_dof1
 
+    @property
     def is_ref_frame_tx_dof2(self):
         return self._is_ref_frame_tx_dof2
 
