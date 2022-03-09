@@ -4,14 +4,15 @@ import time
 from copy import deepcopy
 from json import dumps, load
 import sys
+from typing import Union, List
+
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
 sys.path.append(parent_dir)
 
 import requests
 
-from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError
-
+from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError, ex_path
 
 # Globals
 logger = start_log(name=__name__)
@@ -104,6 +105,14 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                                                                       "norm_score": 1.0}]
                                    }]}]
                           }
+
+
+def validate_input(prompt, response=None):
+    _input = input(prompt)
+    while _input not in response:
+        _input = input('Invalid input... \'%s\' not a valid response. Try again%s' % (_input, input_string))
+
+    return _input
 
 
 def validate_type(value, dtype=str):
@@ -424,12 +433,12 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                                    'for?%s%s' % (user_input_format % '\n'.join(format_string % item
                                                                                for item in return_types.items()),
                                                  input_string)
-        while True:
-            return_type = input(return_identifier_string)
-            if return_type in return_types:
-                break
-            else:
-                print(invalid_string)
+        return_type = validate_input(return_identifier_string, return_types)
+        # while return_type not in return_types:
+        #     if return_type in return_types:
+        #         break
+        #     else:
+        #         print(invalid_string)
 
         terminal_group_queries = []
         # terminal_group_queries = {}
@@ -441,14 +450,14 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
             #                                                               for item in services.items()), input_string)
             query_builder_attribute_string = '\nWhat type of attribute would you like to use? Examples include:%s' \
                                              '\n\nFor a more thorough list indicate \'s\' for search.\n' \
-                                             'Alternatively, you can browse %s\nEnsure that your spelling'\
+                                             'Alternatively, you can browse %s\nEnsure that your spelling' \
                                              ' is exact if you want your query to succeed!%s' % \
                                              (user_input_format % '\n'.join(format_string % (value, key)
                                                                             for key, value in attributes.items()),
                                               attribute_url, input_string)
             query_builder_operator_string = '\nWhat operator would you like to use?\n' \
                                             'Possible operators include:\n\t%s\nIf you would like to negate the ' \
-                                            'operator, on input type \'not\' after your selection. Ex: equals not%s' %\
+                                            'operator, on input type \'not\' after your selection. Ex: equals not%s' % \
                                             ('%s', input_string)
             query_builder_value_string = '\nWhat value should be %s? Required type is: %s.%s%s'
             query_display_string = 'Query #%d: Search the PDB by \'%s\' for \'%s\' attributes \'%s%s\' \'%s\'.'
@@ -617,7 +626,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                 recursive_query_tree[i] = {j: generate_group(operation, [recursive_query_tree[i - 1][k]
                                                                          for k in child_group_nums])
                                            for j, (child_group_nums, operation) in enumerate(node, 1)}
-                                           # for k in child_group_nums}
+                # for k in child_group_nums}
         final_query = recursive_query_tree[-1][1]  #
 
     search_query = generate_query(final_query, return_id=return_type)
