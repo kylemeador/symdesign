@@ -21,6 +21,7 @@ import numpy as np
 
 # import CommandDistributer
 import PathUtils as PUtils
+from Query.PDB import validate_input
 
 # Globals
 input_string = '\nInput: '
@@ -431,6 +432,15 @@ def split_interface_numbers(interface_pairs):
 #################
 
 
+def write_file(data, file_name=None):
+    if not file_name:
+        file_name = os.path.join(os.getcwd(), input('What is your desired filename? (appended to current working '
+                                                    'directory)%s' % input_string))
+    with open(file_name, 'w') as f:
+        f.write('%s\n' % '\n'.join(data))
+    logger.info('The file \'%s\' was written' % file_name)
+
+
 def io_save(data, file_name=None):
     """Take an iterable and either output to user, write to a file, or both. User defined choice
 
@@ -441,28 +451,17 @@ def io_save(data, file_name=None):
     Returns:
         (None)
     """
-    def write_file(file_name):
-        if not file_name:
-            file_name = os.path.join(os.getcwd(), input('What is your desired filename? (appended to current working '
-                                                        'directory)%s' % input_string))
-        with open(file_name, 'w') as f:
-            f.write('%s\n' % '\n'.join(data))
-        print('File \'%s\' was written' % file_name)
+    io_prompt = 'Enter "P" to print Data, "W" to write Data to file, or "B" for both%s' % input_string
+    response = ['w', 'p', 'b']
+    _input = validate_input(io_prompt, response=response).lower()
 
-    while True:
-        _input = input('Enter P to print Data, W to write Data to file, or B for both%s' % input_string).upper()
-        if _input == 'W':
-            write_file(file_name)
-            break
-        elif _input == 'P':
-            print(data)
-            break
-        elif _input == 'B':
-            print(data)
-            write_file(file_name)
-            break
-        else:
-            print('Invalid input... Try again.')
+    if _input in ['w', 'b']:
+        write_file(file_name)
+
+    if _input in ['b', 'p']:
+        logger.info('\n%s' % data)
+
+    return file_name
 
 
 def to_iterable(_obj, skip_comma=False):
