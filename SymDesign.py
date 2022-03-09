@@ -28,7 +28,8 @@ from dependencies.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError imp
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from Query.PDB import input_string, bool_d, invalid_string, boolean_choice
+from Query.PDB import input_string, bool_d, invalid_string, boolean_choice, validate_input, \
+    retrieve_pdb_entries_by_advanced_query
 from utils.CmdLineArgParseUtils import query_mode
 from Query import Flags
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
@@ -1335,8 +1336,8 @@ if __name__ == '__main__':
                 logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
                             % (PUtils.program_name, ' '.join(sys.argv)))
                 terminate(output=False)
-                # The next time this directory is initialized, there will be no refine files left and the while
-                # loop won't be entered allowing DesignDirectory initialization to proceed
+                # After completion of sbatch, the next time initialized, there will be no refine files left allowing
+                # initialization to proceed
         else:
             pre_refine = None  # False
             pre_loop_model = None  # False
@@ -1392,57 +1393,58 @@ if __name__ == '__main__':
             load_resources = False
             orient_log = SDUtils.start_log(name='orient', handler=2, location=os.path.join(os.path.dirname(args.oligomer1),
                                                                                            PUtils.orient_log_file))
-            if args.oligomer1:
-                # Orient Input Oligomers to Canonical Orientation
-                logger.info('Orienting PDB\'s for Nanohedra Docking')
-                oriented_pdb1_out_dir = os.path.join(os.path.dirname(args.oligomer1), '%s_oriented_with_%s_symmetry'
-                                                     % (os.path.basename(args.oligomer1), oligomer_symmetry_1))
-                if not os.path.exists(oriented_pdb1_out_dir):
-                    os.makedirs(oriented_pdb1_out_dir)
-
-                if '.pdb' in args.oligomer1:
-                    pdb1_filepaths = [args.oligomer1]
+            if args.query_codes:
+                # raise SDUtils.DesignError('This functionality is not yet available. Just connect Query.PDB.__main__')
+                if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
+                    args.save_query = True
                 else:
-                    pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.oligomer1)
-                pdb1_oriented_filepaths = [orient_pdb_file(pdb_path, log=orient_log, sym=symmetry_map[0],
-                                                           out_dir=master_directory.orient_dir)
-                                           for pdb_path in pdb1_filepaths]
-                # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
-                # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
-            elif args.pdb_codes1:
-                entities1 = set(SDUtils.to_iterable(args.pdb_codes1))
-                all_entities.extend(master_db.orient_entities(entities1, symmetry=symmetry_map[0]))
-            else:  # args.query_codes
-                raise SDUtils.DesignError('This functionality is not yet available. Just connect Query.PDB.__main__')
+                    args.save_query = False
+                entities1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+                entities2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            else:
+                if args.pdb_codes1:
+                    entities1 = set(SDUtils.to_iterable(args.pdb_codes1))
+                    # all_entities.extend(master_db.orient_entities(entities1, symmetry=symmetry_map[0]))
+                else:
+                    # args.oligomer1:
+                    # Orient Input Oligomers to Canonical Orientation
+                    # oriented_pdb1_out_dir = os.path.join(os.path.dirname(args.oligomer1), '%s_oriented_with_%s_symmetry'
+                    #                                      % (os.path.basename(args.oligomer1), oligomer_symmetry_1))
+                    # os.makedirs(oriented_pdb1_out_dir, exist_ok=True)
 
+                    if '.pdb' in args.oligomer1:
+                        pdb1_filepaths = [args.oligomer1]
+                    else:
+                        pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.oligomer1)
+                    pdb1_oriented_filepaths = \
+                        [orient_pdb_file(file, log=orient_log, sym=symmetry_map[0], out_dir=master_db.oriented.location)
+                         for file in pdb1_filepaths]
+                    entities1 = list(map(os.path.basename,
+                                         [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
+                    # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
+                    # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
+            # logger.info('Orienting PDB\'s for Nanohedra Docking')
+            all_entities.extend(master_db.orient_entities(entities1, symmetry=symmetry_map[0]))
+
+            single_component_design = False
             if args.oligomer2:
                 if args.oligomer1 != args.oligomer2:  # see if they are the same input
-                    oriented_pdb2_out_dir = os.path.join(os.path.dirname(args.oligomer2),
-                                                         '%s_oriented_with_%s_symmetry'
-                                                         % (os.path.basename(args.oligomer2), oligomer_symmetry_2))
-                    if not os.path.exists(oriented_pdb2_out_dir):
-                        os.makedirs(oriented_pdb2_out_dir)
-
+                    # oriented_pdb2_out_dir = os.path.join(os.path.dirname(args.oligomer2),
+                    #                                      '%s_oriented_with_%s_symmetry'
+                    #                                      % (os.path.basename(args.oligomer2), oligomer_symmetry_2))
+                    # if not os.path.exists(oriented_pdb2_out_dir):
+                    #     os.makedirs(oriented_pdb2_out_dir)
                     if '.pdb' in args.oligomer2:
                         pdb2_filepaths = [args.oligomer2]
                     else:
                         pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.oligomer2)
-                    pdb2_oriented_filepaths = [orient_pdb_file(pdb_path, log=orient_log, sym=symmetry_map[1],
-                                                               out_dir=master_directory.orient_dir)
-                                               for pdb_path in pdb2_filepaths]
-                    # Todo implement in the next section by combining .pdb_codes and .oligomer
-                    # pdb_pairs = list(product(filter(None, pdb1_oriented_filepaths),
-                    #                          filter(None, pdb2_oriented_filepaths)))
-                    # # pdb_pairs = list(product(pdb1_oriented_filepaths, pdb2_oriented_filepaths))
-                    # # pdb_pairs = list(product(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir),
-                    # #                          SDUtils.get_all_pdb_file_paths(oriented_pdb2_out_dir)))
-                    # location = '%s & %s' % (args.oligomer1, args.oligomer2)
-                else:
-                    pass
-                    # pdb_pairs = list(combinations(filter(None, pdb1_oriented_filepaths), 2))
-                    # # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
-                    # # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
-                    # location = args.oligomer1
+                    pdb2_oriented_filepaths = \
+                        [orient_pdb_file(file, log=orient_log, sym=symmetry_map[1], out_dir=master_db.oriented.location)
+                         for file in pdb2_filepaths]
+                    entities2 = list(map(os.path.basename,
+                                         [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
+                else:  # the entities are the same symmetry or we have single component and bad input
+                    entities2 = []
             elif args.pdb_codes2:
                 # Collect all entities required for processing the given commands
                 entities2 = set(SDUtils.to_iterable(args.pdb_codes2))
@@ -1459,21 +1461,41 @@ if __name__ == '__main__':
                 #     else:
                 #         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
                 #                     % (symmetry, master_directory.orient_dir, ', '.join(entities)))
-                all_entities.extend(master_db.orient_entities(entities2, symmetry=symmetry_map[1]))
+            else:
+                entities2 = []
+                # if not entities2:
+                logger.info('No additional entities requested for docking, treating as single component')
+                single_component_design = True
+            all_entities.extend(master_db.orient_entities(entities2, symmetry=symmetry_map[1]))
 
             info_messages = []
             refine_loop_model_instructions, pre_refine, pre_loop_model = \
                 master_db.preprocess_entities_for_design(all_entities, script_outpath=master_directory.sbatch_scripts,
                                                          load_resources=load_resources)
+            if load_resources or pre_refine or pre_loop_model:
+                logger.critical(sbatch_warning)
+                for message in info_messages + refine_loop_model_instructions:
+                    logger.info(message)
+                logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
+                            % (PUtils.program_name, ' '.join(sys.argv)))
+                terminate(output=False)
+                # After completion of sbatch, the next time initialized, there will be no refine files left allowing
+                # initialization to proceed
 
+            # make all possible pdb_pairs given input entities
+            entities1 = [entity for entity in all_entities if entity.name in entities1]
+            entities2 = [entity for entity in all_entities if entity.name in entities2]
+            pdb_pairs = list(product(entities1, entities2))
+            # pdb_pairs = list(combinations(entities1, 2))
+            # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
+            # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
+            location = args.oligomer1
             initial_iter = [False for _ in range(len(pdb_pairs))]
             initial_iter[0] = True
             design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
-    else:
+    else:  # this logic is possible with select_designs without --metric
         master_db = None
         master_directory = MasterDirectory(queried_flags['output_directory'])
-        # raise SDUtils.DesignError('This logic is impossible?!')
-        # this logic is possible with select_designs without --metric
         pass
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
