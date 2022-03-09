@@ -295,7 +295,19 @@ def generate_query(search, return_id='entry', all_matching=True):
     return query_d
 
 
-def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force_schema_update=False):
+def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force_schema_update=False, entity=False,
+                                           assembly=False, chain=False, entry=False, **kwargs) \
+        -> Union[str, List, None]:
+    """
+
+    Keyword Args:
+        save=True (bool):
+        return_results=True (bool):
+        force_schema_update=False (bool):
+
+    Returns:
+        (Union[str, List, None])
+    """
     # {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals',}, 'choices': []}, ...}
 
     def search_schema(term):
@@ -428,6 +440,17 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
     #         else:
     #             print('The specified path \'%s\' doesn\'t exist! Please try again.' % prior_query)
     else:
+        if entity:
+            return_type = 'polymer_entity'
+        elif assembly:
+            return_type = 'assembly'
+        elif chain:
+            return_type = 'polymer_instance'
+        elif entry:
+            return_type = 'entry'
+        else:
+            return_type = None
+
         return_identifier_string = '\nFor each set of options, choose the option from the first column for the ' \
                                    'description in the second.\nWhat type of identifier do you want to search the PDB '\
                                    'for?%s%s' % (user_input_format % '\n'.join(format_string % item
@@ -636,7 +659,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
     retrieved_ids = parse_pdb_response_for_ids(response_d)
 
     if save:
-        io_save(retrieved_ids)
+        return io_save(retrieved_ids)
     if return_results:
         return retrieved_ids
     else:
@@ -1063,9 +1086,10 @@ def confirm_input_action(input_message):
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description='Query the PDB for entries\n')
-    parser.add_argument('-f', '--file_list', type=str, help='path/to/pdblist.file. Can be newline or comma separated.')
-    parser.add_argument('-d', '--download', type=bool, help='Whether files should be downloaded. Default=False',
-                        default=False)
+    parser.add_argument('-f', '--file_list', type=str,
+                        help='%s. Can be newline or comma separated.' % ex_path('pdblist.file'))
+    parser.add_argument('-d', '--download', type=bool, default=False,
+                        help='Whether files should be downloaded. Default=False')
     parser.add_argument('-p', '--input_pdb_directory', type=str, help='Where should reference PDB files be found? '
                                                                       'Default=CWD', default=os.getcwd())
     parser.add_argument('-i', '--input_pisa_directory', type=str, help='Where should reference PISA files be found? '
