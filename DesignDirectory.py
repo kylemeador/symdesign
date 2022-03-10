@@ -27,9 +27,8 @@ from sklearn.neighbors import BallTree
 import PathUtils as PUtils
 from Structure import Structure  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
-    match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, \
-    all_vs_all, condensed_to_square, digit_translate_table, sym, pretty_format_table, \
-    index_intersection, z_score, large_color_array, timestamp
+    match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, all_vs_all, \
+    condensed_to_square, digit_translate_table, sym, index_intersection, z_score, large_color_array, starttime
 from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, relax_flags
 from PDB import PDB
@@ -76,8 +75,12 @@ class MasterDirectory:
         self.sequence_info = os.path.join(self.protein_data, PUtils.sequence_info)
         self.sequences = os.path.join(self.sequence_info, 'sequences')
         self.profiles = os.path.join(self.sequence_info, 'profiles')
-        if not self.projects:  # used for subclasses
+        # try:
+        # if not self.projects:  # used for subclasses
+        if not getattr(self, 'projects', None):  # used for subclasses
             self.projects = os.path.join(self.program_root, PUtils.projects)
+        # except AttributeError:
+        #     self.projects = os.path.join(self.program_root, PUtils.projects)
         self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
@@ -1492,7 +1495,7 @@ class DesignDirectory(MasterDirectory):
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if not self.script:
             pose_s = self.design_analysis()
-            out_path = os.path.join(self.all_scores, PUtils.analysis_file % (timestamp(), 'All'))
+            out_path = os.path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if not os.path.exists(out_path):
                 header = True
             else:

@@ -407,7 +407,7 @@ def catch_and_clean_exceptions():
         raise ex
 
 
-sbatch_warning = 'Ensure the below created SBATCH scripts are correct. Specifically, check that the job array and any '\
+sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, check that the job array and any '\
                  'node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help) to'\
                  ' understand the variables or ask for help if you are still unsure.'
 
@@ -421,7 +421,7 @@ def terminate(results=None, output=True):
     Returns:
         (None)
     """
-    global out_path, timestamp
+    global out_path
     # save any information found during the design command to it's serialized state
     for design in design_directories:
         design.pickle_info()
@@ -447,10 +447,10 @@ def terminate(results=None, output=True):
         # master_directory = next(iter(design_directories))
         job_paths = master_directory.job_paths
         if low and high:
-            timestamp = '%s-%.2f-%.2f' % (timestamp, low, high)
+            timestamp = '%s-%.2f-%.2f' % (SDUtils.starttime, low, high)
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
-        default_output_tuple = (timestamp, args.module, design_source)
+        default_output_tuple = (SDUtils.starttime, args.module, design_source)
         if args.output_design_file:
             designs_file = args.output_design_file
         else:
@@ -468,7 +468,7 @@ def terminate(results=None, output=True):
             # Save Design DataFrame
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
             if args.output == PUtils.analysis_file:
-                out_path = os.path.join(all_scores, args.output % (timestamp, design_source))
+                out_path = os.path.join(all_scores, args.output % (SDUtils.starttime, design_source))
             else:  # user provided the output path, the global out_path should be used
                 pass
                 # out_path = os.path.join(all_scores, args.output)
@@ -513,7 +513,7 @@ def terminate(results=None, output=True):
             if args.module == PUtils.interface_design and not master_directory.pre_refine:  # must refine before design
                 refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % 'refine')
                                                       for design in success], out_path=job_paths,
-                                                     name='_'.join((timestamp, 'refine', design_source)))
+                                                     name='_'.join((SDUtils.starttime, 'refine', design_source)))
                 sbatch_refine_file = \
                     distribute(file=refine_file, out_path=master_directory.sbatch_scripts, scale='refine')
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s\nTHEN:\n\tsbatch '
@@ -616,9 +616,9 @@ if __name__ == '__main__':
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-no', '--nanohedra_output', action='store_true',
                         help='Whether the directory in question is a Nanohedra Docking output')
-    parser.add_argument('-od', '--output_directory', type=os.path.abspath,
+    parser.add_argument('-od', '--output_directory', type=os.path.abspath, default=None,
                         help='If provided, the name of the directory to output all created files. If blank, one will be'
-                             ' automatically generated based off input_location, module, and the time.', default=None)
+                             ' automatically generated based off input_location, module, and the time.')
     parser.add_argument('-of', '--output_design_file', type=str,
                         help='If provided, the name of the output designs file. If blank, one will be automatically '
                              'generated based off input_location, module, and the time.')
@@ -679,15 +679,14 @@ if __name__ == '__main__':
                                    'missing, whether their modelled density is compatible with the pose')
     # ---------------------------------------------------
     parser_dock = subparsers.add_parser(PUtils.nano,
-                                        help='Submit jobs to %s.py\nIf a docking directory structure is set up, provide'
-                                             ' the overall directory location with program argument -d/-f, otherwise, '
-                                             'use the Module arguments -d1/-d2 to specify directories with lists of '
-                                             'oligomers to dock' % PUtils.nano.title())
+                                        help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, '
+                                             'or -q to specify PDB Entity codes, building block directories, or query '
+                                             'the PDB for building blocks to dock' % PUtils.nano.title())
     parser_dock.add_argument('-a', '--output_assembly', action='store_true',
                              help='Should the assembly be output for docked poses?')
     parser_dock.add_argument('-e', '--entry', type=int, default=None, dest='sym_entry', required=True,
                              help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
-    parser_dock.add_argument('-h', '--high_quality_match_value', type=float, default=0.5,
+    parser_dock.add_argument('-mv', '--match_value', type=float, default=0.5, dest='high_quality_match_value',
                              help='What is the minimum match score required for a high quality fragment?')
     parser_dock.add_argument('-m', '--min_matched', type=int, default=3,
                              help='How many high quality fragment pairs should be present before a pose is identified?')
@@ -708,10 +707,10 @@ if __name__ == '__main__':
                              help='Disk location where the second oligomer(s) are located\n', default=None)
     dock1_group.add_argument('-q', '--query_codes', action='store_true',
                              help='Search the PDB API for corresponding codes\n')
-    parser_dock.add_argument('-r1', '--rot_step1', type=os.path.abspath,
-                             help='Disk location where the first oligomers are located\nREQUIRED', default=None)
-    parser_dock.add_argument('-r2', '--rot_step2', type=os.path.abspath,
-                             help='Disk location where the second oligomers are located\nDefault=None', default=None)
+    parser_dock.add_argument('-r1', '--rot_step1', type=os.path.abspath, default=3,
+                             help='Disk location where the first oligomers are located\nREQUIRED')
+    parser_dock.add_argument('-r2', '--rot_step2', type=os.path.abspath, default=3,
+                             help='Disk location where the second oligomers are located\nDefault=None')
     parser_dock.add_argument('-suc', '--output_surrounding_uc', action='store_true',
                              help='Should the surrounding unit cells be output for docked poses? Only viable for 2D and'
                                   ' 3D materials')
@@ -990,7 +989,6 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
-    timestamp = SDUtils.timestamp()
     if args.debug:
         # Root logs to stream with level debug
         logger = SDUtils.start_log(level=1, set_logger_level=True)
@@ -1096,7 +1094,8 @@ if __name__ == '__main__':
 
     if not args.guide and args.module not in ['nanohedra_query', 'guide', 'flags', 'residue_selector', 'multicistronic']:
         formatted_queried_flags = queried_flags.copy()
-        formatted_queried_flags.pop('sym_entry', None)
+        formatted_queried_flags['sym_entry'] = formatted_queried_flags['sym_entry'].entry_number
+        # formatted_queried_flags.pop('sym_entry', None)
         formatted_queried_flags.pop('design_selector', None)
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(formatted_queried_flags.items())))
     # -----------------------------------------------------------------------------------------------------------------
@@ -1105,9 +1104,6 @@ if __name__ == '__main__':
     all_poses, design_directories, location = None, [], None
     all_dock_directories, pdb_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
-    if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
-        raise SDUtils.DesignError('No designs were specified! Please specify --directory, --file, --specification_file,'
-                                  ' --project, or --single to locate designs of interest and run your command again')
 
     if args.multi_processing:
         # Calculate the number of threads to use depending on computer resources
@@ -1120,6 +1116,10 @@ if __name__ == '__main__':
     # Set up MasterDirectory, DesignDirectories input and outputs or Nanohedra inputs
     master_directory, initial_iter = None, None
     if initialize:
+        if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
+            raise SDUtils.DesignError(
+                'No designs were specified! Please specify --directory, --file, --specification_file,'
+                ' --project, or --single to locate designs of interest and run your command again')
         if args.nanohedra_output:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
         elif args.specification_file:  # Todo, combine this with collect_designs
@@ -1176,7 +1176,7 @@ if __name__ == '__main__':
             design_source = os.path.basename(master_directory.project_designs)
         else:
             design_source = os.path.splitext(os.path.basename(location))[0]
-        default_output_tuple = (timestamp, args.module, design_source)
+        default_output_tuple = (SDUtils.starttime, args.module, design_source)
 
         # must make the output_directory before set_up_design_directory is called
         if args.output_directory is not None:
@@ -1282,7 +1282,7 @@ if __name__ == '__main__':
                 reformat_msa_cmd2 = [PUtils.reformat_msa_exe_path, 'a3m', 'fas',
                                      '\'%s\'' % os.path.join(profile_dir, '*.a3m'), '.fasta', '-M', 'first', '-r']
                 hhblits_cmd_file = \
-                    SDUtils.write_commands(hhblits_cmds, name='%s-hhblits' % timestamp, out_path=profile_dir)
+                    SDUtils.write_commands(hhblits_cmds, name='%s-hhblits' % SDUtils.starttime, out_path=profile_dir)
                 hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.sbatch_scripts,
                                             scale='hhblits', max_jobs=len(hhblits_cmds),
                                             log_file=os.path.join(profile_dir, 'generate_profiles.log'),
@@ -1303,13 +1303,14 @@ if __name__ == '__main__':
                 #                   '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
                 #      for entity in all_entities.values()]
                 bmdca_cmd_file = \
-                    SDUtils.write_commands(bmdca_cmds, name='%s-bmDCA' % timestamp, out_path=profile_dir)
+                    SDUtils.write_commands(bmdca_cmds, name='%s-bmDCA' % SDUtils.starttime, out_path=profile_dir)
                 bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=master_directory.sbatch_scripts,
                                           scale='bmdca', max_jobs=len(bmdca_cmds),
                                           log_file=os.path.join(profile_dir, 'generate_couplings.log'),
                                           number_of_commands=len(bmdca_cmds))
-                # reformat_msa_cmd_file = SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % timestamp,
-                #                                                out_path=profile_dir)
+                # reformat_msa_cmd_file = \
+                #     SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % SDUtils.starttime,
+                #                            out_path=profile_dir)
                 # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
                 #                              scale='script', max_jobs=len(reformat_msa_cmds),
                 #                              log_file=os.path.join(profile_dir, 'generate_profiles.log'),
@@ -1333,6 +1334,7 @@ if __name__ == '__main__':
                 logger.critical(sbatch_warning)
                 for message in info_messages + refine_loop_model_instructions:
                     logger.info(message)
+                print('\n')
                 logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
                             % (PUtils.program_name, ' '.join(sys.argv)))
                 terminate(output=False)
@@ -1476,11 +1478,11 @@ if __name__ == '__main__':
                 logger.critical(sbatch_warning)
                 for message in info_messages + refine_loop_model_instructions:
                     logger.info(message)
+                print('\n')
                 logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
                             % (PUtils.program_name, ' '.join(sys.argv)))
                 terminate(output=False)
-                # After completion of sbatch, the next time initialized, there will be no refine files left allowing
-                # initialization to proceed
+                # After completion of sbatch, the next time command is entered docking will proceed
 
             # make all possible pdb_pairs given input entities
             entities1 = [entity for entity in all_entities if entity.name in entities1]
@@ -1495,7 +1497,7 @@ if __name__ == '__main__':
             design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
     else:  # this logic is possible with select_designs without --metric
         master_db = None
-        master_directory = MasterDirectory(queried_flags['output_directory'])
+        # master_directory = MasterDirectory(queried_flags['output_directory'])
         pass
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
@@ -1852,7 +1854,7 @@ if __name__ == '__main__':
             logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
             if args.filter or args.weight:
                 new_dataframe = os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
-                                             % (timestamp, 'Filtered' if args.filter else '',
+                                             % (SDUtils.starttime, 'Filtered' if args.filter else '',
                                                 'Weighted' if args.weight else '',))
                 selected_poses_df.to_csv(new_dataframe)
                 logger.info('New DataFrame was written to %s' % new_dataframe)
@@ -1896,7 +1898,7 @@ if __name__ == '__main__':
                     #      for representative, members in pose_cluster_map.items()
                     #      for member in members}
                     pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
-                                                              PUtils.clustered_poses % (location, timestamp),
+                                                              PUtils.clustered_poses % (location, SDUtils.starttime),
                                                               out_path=next(iter(design_directories)).protein_data)
                     logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
                                 % (len(pose_cluster_map), len(design_directories),
@@ -2054,7 +2056,7 @@ if __name__ == '__main__':
                 pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, args.output, out_path='')
             else:
                 pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
-                                                          PUtils.clustered_poses % (location, timestamp),
+                                                          PUtils.clustered_poses % (location, SDUtils.starttime),
                                                           out_path=master_directory.clustered_poses)
             logger.info('Cluster map written to %s' % pose_cluster_file)
         else:
@@ -2097,9 +2099,9 @@ if __name__ == '__main__':
             if args.filter or args.weight:
                 new_dataframe = \
                     os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
-                                 % (timestamp, 'Filtered' if args.filter else '', 'Weighted' if args.weight else ''))
+                                 % (SDUtils.starttime, 'Filtered' if args.filter else '', 'Weighted' if args.weight else ''))
             else:
-                new_dataframe = os.path.join(program_root, '%s-DesignPoseMetrics.csv' % timestamp)
+                new_dataframe = os.path.join(program_root, '%s-DesignPoseMetrics.csv' % SDUtils.starttime)
             # include only the found index names to the saved dataframe
             save_poses_df = selected_poses_df.loc[results, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:
