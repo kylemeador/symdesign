@@ -488,6 +488,16 @@ class Structure(StructureBase):
         # return self._coords.coords[index_mask]
         return self._coords.coords[self.cb_indices]
 
+    def get_coords_subset(self, res_start, res_end, ca=True):
+        selected_atoms, out_coords = [], []
+        if ca:
+            for residue in self.get_residues(range(res_start, res_end + 1)):
+                out_coords.extend(residue.ca_coords)
+        else:
+            for residue in self.get_residues(range(res_start, res_end + 1)):
+                out_coords.extend(residue.coords)
+
+        return out_coords
     # def atoms(self):
     #     """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned
     #     Returns:
@@ -2291,8 +2301,8 @@ class Structures(Structure):
     def __repr__(self):
         return '<Structure.Structures object at %s>' % id(self)
 
-    def __str__(self):
-        return self.name
+    # def __str__(self):
+    #     return self.name
 
     def __len__(self):
         return len(self.structures)

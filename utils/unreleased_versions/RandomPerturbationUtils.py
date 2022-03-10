@@ -262,18 +262,148 @@ def rand_perturb(pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matri
         logfile.close()
 
 
-def main():
-    # infofile_path = "/Users/jlaniado/Desktop/MP_TEST_I/5IM5_TRI_orient_rot180y_5IM5_PENT_orient_rot180x/DEGEN_1_1/ROT_1_1/tx_9/matching_fragment_representatives/frag_match_info_file.txt"
-    infofile_path = "/Users/jlaniado/Desktop/MP_TEST_P432/4f47_4grd/DEGEN_1_1/ROT_3_1/tx_5/matching_fragment_representatives/frag_match_info_file.txt"
+def sample_rot_tx_dof_coords(pdb, rot_step_deg=1, rot_range_deg=0, tx_step=1, start_tx_range=0, end_tx_range=0, axis="z", rotational_setting_matrix=None, degeneracy=None):
+
+    def get_rot_matrices(step_deg, axis, rot_range_deg):
+        rot_matrices = []
+        if axis == 'x':
+            for angle_deg in range(0, rot_range_deg, step_deg):
+                rad = math.radians(float(angle_deg))
+                rotmatrix = [[1, 0, 0], [0, math.cos(rad), -1 * math.sin(rad)], [0, math.sin(rad), math.cos(rad)]]
+                rot_matrices.append(rotmatrix)
+            return rot_matrices
+
+        elif axis == 'y':
+            for angle_deg in range(0, rot_range_deg, step_deg):
+                rad = math.radians(float(angle_deg))
+                rotmatrix = [[math.cos(rad), 0, math.sin(rad)], [0, 1, 0], [-1 * math.sin(rad), 0, math.cos(rad)]]
+                rot_matrices.append(rotmatrix)
+            return rot_matrices
+
+        elif axis == 'z':
+            for angle_deg in range(0, rot_range_deg, step_deg):
+                rad = math.radians(float(angle_deg))
+                rotmatrix = [[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]]
+                rot_matrices.append(rotmatrix)
+            return rot_matrices
+
+        else:
+            pdb.log.error('Axis selected for sampling is not supported!')
+            return
+
+    def get_tx_matrices(step, axis, start_range, end_range):
+        if axis == "x":
+            tx_matrices = []
+            for dist in range(start_range, end_range, step):
+                tx_matrices.append([dist, 0, 0])
+            return tx_matrices
+
+        elif axis == "y":
+            tx_matrices = []
+            for dist in range(start_range, end_range, step):
+                tx_matrices.append([0, dist, 0])
+            return tx_matrices
+
+        elif axis == "z":
+            tx_matrices = []
+            for dist in range(start_range, end_range, step):
+                tx_matrices.append([0, 0, dist])
+            return tx_matrices
+
+        else:
+            pdb.log.error('Invalid sampling axis!')
+            return
+
+    def generate_sampled_coordinates_np(pdb_coordinates, rotation_matrices, translation_matrices, degeneracy_matrices):
+        pdb_coords_np = np.array(pdb_coordinates)
+        rot_matrices_np = np.array(rotation_matrices)
+        degeneracy_matrices_rot_mat_np = np.array(degeneracy_matrices)
+
+        if rotation_matrices is not None and translation_matrices is not None:
+            if rotation_matrices == [] and translation_matrices == []:
+                if degeneracy_matrices is not None:
+                    degen_coords_np = np.matmul(pdb_coords_np, degeneracy_matrices_rot_mat_np)
+                    pdb_coords_degen_np = np.concatenate((degen_coords_np, np.expand_dims(pdb_coords_np, axis=0)))
+                    return pdb_coords_degen_np
+                else:
+                    return np.expand_dims(pdb_coords_np, axis=0)
+
+            elif rotation_matrices == [] and translation_matrices != []:
+                if degeneracy_matrices is not None:
+                    degen_coords_np = np.matmul(pdb_coords_np, degeneracy_matrices_rot_mat_np)
+                    pdb_coords_degen_np = np.concatenate((degen_coords_np, np.expand_dims(pdb_coords_np, axis=0)))
+                    tx_sampled_coords = []
+                    for tx_mat in translation_matrices:
+                        tx_coords_np = pdb_coords_degen_np + tx_mat
+                        tx_sampled_coords.extend(tx_coords_np)
+                    return np.array(tx_sampled_coords)
+                else:
+                    tx_sampled_coords = []
+                    for tx_mat in translation_matrices:
+                        tx_coords_np = pdb_coords_np + tx_mat
+                        tx_sampled_coords.append(tx_coords_np)
+                    return np.array(tx_sampled_coords)
+
+            elif rotation_matrices != [] and translation_matrices == []:
+                if degeneracy_matrices is not None:
+                    degen_coords_np = np.matmul(pdb_coords_np, degeneracy_matrices_rot_mat_np)
+                    pdb_coords_degen_np = np.concatenate((degen_coords_np, np.expand_dims(pdb_coords_np, axis=0)))
+                    degen_rot_pdb_coords = []
+                    for degen_coord_set in pdb_coords_degen_np:
+                        degen_rot_np = np.matmul(degen_coord_set, rot_matrices_np)
+                        degen_rot_pdb_coords.extend(degen_rot_np)
+                    return np.array(degen_rot_pdb_coords)
+                else:
+                    rot_coords_np = np.matmul(pdb_coords_np, rot_matrices_np)
+                    return rot_coords_np
+            else:
+                if degeneracy_matrices is not None:
+                    degen_coords_np = np.matmul(pdb_coords_np, degeneracy_matrices_rot_mat_np)
+                    pdb_coords_degen_np = np.concatenate((degen_coords_np, np.expand_dims(pdb_coords_np, axis=0)))
+                    degen_rot_pdb_coords = []
+                    for degen_coord_set in pdb_coords_degen_np:
+                        degen_rot_np = np.matmul(degen_coord_set, rot_matrices_np)
+                        degen_rot_pdb_coords.extend(degen_rot_np)
+                    degen_rot_pdb_coords_np = np.array(degen_rot_pdb_coords)
+                    tx_sampled_coords = []
+                    for tx_mat in translation_matrices:
+                        tx_coords_np = degen_rot_pdb_coords_np + tx_mat
+                        tx_sampled_coords.extend(tx_coords_np)
+                    return np.array(tx_sampled_coords)
+                else:
+                    rot_coords_np = np.matmul(pdb_coords_np, rot_matrices_np)
+                    tx_sampled_coords = []
+                    for tx_mat in translation_matrices:
+                        tx_coords_np = rot_coords_np + tx_mat
+                        tx_sampled_coords.extend(tx_coords_np)
+                    return np.array(tx_sampled_coords)
+        else:
+            return
+
+    rot_matrices = get_rot_matrices(rot_step_deg, axis, rot_range_deg)
+    tx_matrices = get_tx_matrices(tx_step, axis, start_tx_range, end_tx_range)
+    sampled_coords_np = generate_sampled_coordinates_np(pdb.coords, rot_matrices, tx_matrices, degeneracy)
+
+    if sampled_coords_np is not None:
+        if rotational_setting_matrix is not None:
+            rotational_setting_matrix_np = np.array(rotational_setting_matrix)
+            rotational_setting_matrix_np_t = np.transpose(rotational_setting_matrix_np)
+            sampled_coords_orient_canon_np = np.matmul(sampled_coords_np, rotational_setting_matrix_np_t)
+            return sampled_coords_orient_canon_np.tolist()
+        else:
+            return sampled_coords_np.tolist()
+    else:
+        return
+
+
+if __name__ == '__main__':
+    infofile_path = '/Users/jlaniado/Desktop/MP_TEST_P432/4f47_4grd/DEGEN_1_1/ROT_3_1/tx_5/matching_fragment_representatives/frag_match_info_file.txt'
     number_of_perturbations = 50
-    outdir = "/Users/jlaniado/Desktop/RAND_PERTURB"
-    pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matrix1, rot_degen_matrix2, internal_tx1, internal_tx2, ref_frame_tx_dof1, ref_frame_tx_dof2, ref_frame_tx_param_e, ref_frame_tx_param_f, ref_frame_tx_param_g, result_design_sym, uc_spec_string, has_int_rot_dof_1, has_int_rot_dof_2 = get_docked_pose_info(
-        infofile_path)
+    outdir = '/Users/jlaniado/Desktop/RAND_PERTURB'
+    pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matrix1, rot_degen_matrix2, internal_tx1, internal_tx2, \
+        ref_frame_tx_dof1, ref_frame_tx_dof2, ref_frame_tx_param_e, ref_frame_tx_param_f, ref_frame_tx_param_g, \
+        result_design_sym, uc_spec_string, has_int_rot_dof_1, has_int_rot_dof_2 = get_docked_pose_info(infofile_path)
     rand_perturb(pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matrix1, rot_degen_matrix2, internal_tx1,
                  internal_tx2, ref_frame_tx_dof1, ref_frame_tx_dof2, ref_frame_tx_param_e, ref_frame_tx_param_f,
                  ref_frame_tx_param_g, result_design_sym, uc_spec_string, has_int_rot_dof_1, has_int_rot_dof_2,
                  number_of_perturbations, outdir)
-
-
-if __name__ == "__main__":
-    main()
