@@ -127,6 +127,9 @@ def timestamp():
     return time.strftime('%y-%m-%d-%H%M%S')
 
 
+starttime = timestamp()
+
+
 def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True, format_log=True, no_log_name=False,
               set_logger_level=False):
     """Create a logger to handle program messages
@@ -493,7 +496,8 @@ def remove_duplicates(_iter):
     return [x for x in _iter if not (x in seen or seen_add(x))]
 
 
-def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash', status_wrap=None):
+def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash', status_wrap=None) \
+        -> str:
     """Take a command and write to a name.sh script. By default bash is used as the shell interpreter
 
     Args:

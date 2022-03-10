@@ -118,9 +118,12 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             return entity
 
         orient_dir = self.oriented.location
+        os.makedirs(orient_dir, exist_ok=True)
         pdbs_dir = os.path.dirname(orient_dir)  # this is the case because it was specified this way, but not required
         orient_asu_dir = self.oriented_asu.location
+        os.makedirs(orient_asu_dir, exist_ok=True)
         stride_dir = self.stride.location
+        os.makedirs(stride_dir, exist_ok=True)
         orient_log = SDUtils.start_log(name='orient', handler=1)
         SDUtils.start_log(name='orient', handler=2, location=os.path.join(orient_dir, PUtils.orient_log_file))
         orient_names = self.oriented.retrieve_names()
@@ -197,8 +200,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
             else:  # orient_asu file exists, load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=entry_entity)
-                all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
-
+                # all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
                 oriented_asu = PDB.from_file(orient_asu_file, log=None, entity_names=[entry_entity])
                 # all_entities[oriented_asu.name] = oriented_asu.entities[0]
                 entity = oriented_asu.entities[0]
@@ -222,7 +224,6 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             (Tuple[list, bool, bool]): Any instructions, then two booleans on whether designs are pre_refined, and whether
             they are pre_loop_modeled
         """
-        global timestamp
         # oriented_asu_files = self.oriented_asu.retrieve_files()
         # oriented_asu_files = os.listdir(orient_asu_dir)
         self.refined.make_path()
@@ -260,8 +261,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         if entities_to_refine:  # if files found unrefined, we should proceed
             logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
                         ' into the Rosetta ScoreFunction for optimized sequence design: %s'
-                        % ', '.join(set(os.path.splitext(os.path.basename(orient_asu_file))[0]
-                                        for orient_asu_file in entities_to_refine)))
+                        % ', '.join(set(entity.name for entity in entities_to_refine)))
             print('Would you like to refine them now? If you plan on performing sequence design with models '
                   'containing them, it is highly recommended you perform refinement')
             if not boolean_choice():
@@ -291,7 +291,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                             'symmetry=%s' % 'make_point_group' if entity.symmetry != 'C1' else 'asymmetric']
                            for entity in entities_to_refine]
             commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds],
-                                                   name='%s-refine_oligomers' % timestamp, out_path=refine_dir)
+                                                   name='%s-refine_oligomers' % SDUtils.starttime, out_path=refine_dir)
             refine_sbatch = distribute(file=commands_file, out_path=script_outpath, scale='refine',
                                        log_file=os.path.join(refine_dir, 'refine.log'),
                                        max_jobs=int(len(refine_cmds) / 2 + 0.5),
@@ -310,7 +310,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         pre_loop_model = True
         if entities_to_loop_model:
             logger.info('The following structures have not been modelled for disorder. Missing loops will '
-                        'be built for optimized sequence design: %s' % ', '.join(entities_to_loop_model))
+                        'be built for optimized sequence design: %s'
+                        % ', '.join(set(entity.name for entity in entities_to_loop_model)))
             print('Would you like to model loops for these structures now? If you plan on performing sequence '
                   'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
             if not boolean_choice():
@@ -335,31 +336,31 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                               '-parser:script_vars']
             # Make all output paths and files for each loop ensemble
             logger.info('Preparing blueprint and loop files for entity:')
-            out_paths, blueprints, loop_files = [], [], []
-            for entity in entities_to_loop_model:
-                entity_out_path = os.path.join(full_model_dir, entity)
-                SDUtils.make_path(entity_out_path)
-                out_paths.append(entity_out_path)
-                blueprints.append(all_entities[entity].make_blueprint_file(out_path=full_model_dir))
-                loop_files.append(all_entities[entity].make_loop_file(out_path=full_model_dir))
-
+            # out_paths, blueprints, loop_files = [], [], []
+            # for entity in entities_to_loop_model:
             loop_model_cmds = []
-            for idx, (entity, sym) in enumerate(entities_to_loop_model.items()):
-                entity_cmd = script_cmd + loop_model_cmd + \
-                             ['blueprint=%s' % blueprints[idx], 'loop_file=%s' % loop_files[idx],
-                              '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity), '-out:path:pdb',
-                              out_paths[idx]] + \
-                             (['-symmetry:symmetry_definition', sym_def_files[sym]] if sym != 'C1' else [])
+            for idx, entity in enumerate(entities_to_loop_model):
+                entity_out_path = os.path.join(full_model_dir, entity.name)
+                SDUtils.make_path(entity_out_path)  # make a new directory for each entity
+                # out_paths.append(entity_out_path)
+                entity_blueprint = entity.make_blueprint_file(out_path=full_model_dir)
+                entity_loop_file = entity.make_loop_file(out_path=full_model_dir)
 
-                multimodel_cmd = ['python', PUtils.models_to_multimodel_exe, '-d', out_paths[idx],
+                entity_cmd = script_cmd + loop_model_cmd + \
+                             ['blueprint=%s' % entity_blueprint, 'loop_file=%s' % entity_loop_file,
+                              '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity.name), '-out:path:pdb',
+                              entity_out_path] + (['-symmetry:symmetry_definition',
+                                                  sym_def_files[entity.symmetry]] if entity.symmetry != 'C1' else [])
+
+                multimodel_cmd = ['python', PUtils.models_to_multimodel_exe, '-d', entity_loop_file,
                                   '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity)]
-                copy_cmd = ['scp', os.path.join(out_paths[idx], '%s_0001.pdb' % entity),
+                copy_cmd = ['scp', os.path.join(entity_out_path, '%s_0001.pdb' % entity),
                             os.path.join(full_model_dir, '%s.pdb' % entity)]
                 loop_model_cmds.append(
-                    SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity, out_path=full_model_dir,
+                    SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity.name, out_path=full_model_dir,
                                                additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
 
-            loop_cmds_file = SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % timestamp,
+            loop_cmds_file = SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % SDUtils.starttime,
                                                     out_path=full_model_dir)
             loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_outpath,
                                            scale='refine', log_file=os.path.join(full_model_dir, 'loop_model.log'),
@@ -429,23 +430,21 @@ class DataStore:
         else:
             self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
 
-    def retrieve_files(self):
+    def retrieve_files(self) -> List:
         """Returns the actual location of all files in the stored .location"""
         path = os.path.join(self.location, '*%s' % self.extension)
         files = glob(path)
-        if files:
-            return files
-        else:
+        if not files:
             self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
+        return files
 
-    def retrieve_names(self):
+    def retrieve_names(self) -> List:
         """Returns the names of all objects in the stored .location"""
         path = os.path.join(self.location, '*%s' % self.extension)
         names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in glob(path)]))
-        if names:
-            return names
-        else:
+        if not names:
             self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
+        return names
 
     def retrieve_data(self, name=None):
         """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
