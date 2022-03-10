@@ -6,6 +6,7 @@ from PDB import PDB
 
 
 # from Stride import Stride
+from Structure import superposition3d
 
 
 class ListFile:
@@ -1297,7 +1298,7 @@ class HelixFusion:
         self.targetprotein_term = targetprotein_term
         self.targetprotein_symm = targetprotein_symm
         self.orient_target = orient_target
-        self.add_target_helix = add_target_helix
+        self.add_target_helix = add_target_helix  # bool?, termini, chain id
         self.oligomer_list_path = oligomer_list_path
         self.oligomer_term = oligomer_term
         self.oligomer_symm = oligomer_symm
@@ -1305,43 +1306,42 @@ class HelixFusion:
 
     def run(self):
         # Make Directory for Design Candidates if it Doesn't Exist Already
-        design_directory = self.work_dir + "/DESIGN_CANDIDATES"
-        if not os.path.exists(design_directory):
-            os.makedirs(design_directory)
-
+        design_directory = os.path.join(self.work_dir, 'DESIGN_CANDIDATES')
+        # if not os.path.exists(design_directory):
+        os.makedirs(design_directory, exist_ok=True)
         # Orient Target Protein if desired
         if self.orient_target:
             if os.path.exists(self.target_protein_path):
-                print("Orienting Target Molecule")
+                print('Orienting Target Molecule')
                 orient_target = Orient([self.target_protein_path])
                 orient_target.run(self.targetprotein_symm)
             else:
-                print("Could Not Find Target PDB File")
+                print('Could Not Find Target PDB File')
                 return -1
 
         # Read in Fixed PDB file or Oriented PDB File
         target_protein = PDB()
         if self.orient_target:
-            orient_target_path = os.path.splitext(self.target_protein_path)[0] + "_orient.pdb"
+            orient_target_path = os.path.splitext(self.target_protein_path)[0] + '_orient.pdb'
             if os.path.exists(orient_target_path):
-                print("Done Orienting Target Molecule")
+                print('Done Orienting Target Molecule')
                 target_protein.readfile(orient_target_path)
             else:
-                print("Could Not Orient Target Molecule")
+                print('Could Not Orient Target Molecule')
                 return -1
         else:
             target_protein.readfile(self.target_protein_path)
 
         # Add Ideal 10 Ala Helix to Target if desired
         if self.add_target_helix[0]:
-            print("Adding Ideal Ala Helix to Target Molecule")
+            print('Adding Ideal Ala Helix to Target Molecule')
             target_protein.add_ideal_helix(self.add_target_helix[1], self.add_target_helix[2])
-            if self.add_target_helix[1] == "N":
+            if self.add_target_helix[1] == 'N':
                 target_term_resi = target_protein.chain(target_protein.chain_id_list[self.add_target_helix[2]])[0].residue_number
-            elif self.add_target_helix[1] == "C":
+            elif self.add_target_helix[1] == 'C':
                 target_term_resi = target_protein.chain(target_protein.chain_id_list[self.add_target_helix[2]])[-1].residue_number - 9
             else:
-                print("Select N or C Terminus for Target Molecule")
+                print('Select N or C Terminus for Target Molecule')
                 return -1
             print("Done Adding Ideal Ala Helix to Target Molecule")
 
@@ -1367,14 +1367,13 @@ class HelixFusion:
         else:
             target_term_resi = self.add_target_helix[1]
 
-
         # Add Axis / Axes to Target Molecule
-        if self.targetprotein_symm[0:1] == "C":
+        if self.targetprotein_symm[0:1] == 'C':
             target_protein.AddCyclicAxisZ()
-        elif self.targetprotein_symm == "D2":
+        elif self.targetprotein_symm == 'D2':
             target_protein.AddD2Axes()
         else:
-            print("Target Protein Symmetry Not Supported")
+            print('Target Protein Symmetry Not Supported')
             return -1
 
         # Fetch Oligomer PDB files
@@ -1382,16 +1381,16 @@ class HelixFusion:
         fetch_oligomers.fetch()
 
         # Try To Correct State issues
-        print("Trying To Correct State Issues")
+        print('Trying To Correct State Issues')
         oligomer_id_listfile = ListFile()
         oligomer_id_listfile.read(self.oligomer_list_path)
         oligomer_id_list = oligomer_id_listfile.list_file
         for oligomer_id in oligomer_id_list:
-            oligomer_filepath = self.work_dir + "/" + oligomer_id + ".pdb1"
+            oligomer_filepath = os.path.join(self.work_dir, '%s.pdb1' % oligomer_id)
             correct_oligomer_state = PDB()
             correct_oligomer_state.readfile(oligomer_filepath)
-            correct_sate_out_path = os.path.splitext(oligomer_filepath)[0] + ".pdb"
-            correct_sate_out = open(correct_sate_out_path, "w")
+            correct_sate_out_path = os.path.splitext(oligomer_filepath)[0] + '.pdb'
+            correct_sate_out = open(correct_sate_out_path, 'w')
             for atom in correct_oligomer_state.all_atoms:
                 correct_sate_out.write(str(atom))
             correct_sate_out.close()
@@ -1399,220 +1398,221 @@ class HelixFusion:
         # Orient Oligomers
         correct_state_oligomer_filepath_list = []
         for oligomer_id in oligomer_id_list:
-            correct_state_oligomer_filepath = self.work_dir + "/" + oligomer_id + ".pdb"
+            correct_state_oligomer_filepath = os.path.join(self.work_dir, '%s.pdb' % oligomer_id)
             correct_state_oligomer_filepath_list.append(correct_state_oligomer_filepath)
-        print("Orienting Oligomers")
+        print('Orienting Oligomers')
         orient_oligomers = Orient(correct_state_oligomer_filepath_list)
         orient_oligomers.run(self.oligomer_symm)
-        print("Done Orienting Oligomers")
+        print('Done Orienting Oligomers')
 
-        print("Fusing Target To Oligomers")
+        print('Fusing Target To Oligomers')
         for oligomer_id in oligomer_id_list:
-            oriented_oligomer_filepath = self.work_dir + "/" + oligomer_id + "_orient.pdb"
+            oriented_oligomer_filepath = os.path.join(self.work_dir, '%s_orient.pdb' % oligomer_id)
             if os.path.isfile(oriented_oligomer_filepath):
                 for i in range(6):
                     # Read in Moving PDB
                     pdb_oligomer = PDB.from_file(oriented_oligomer_filepath)
 
                     # Run Stride On Oligomer
-                    if self.oligomer_term == "N" or self.oligomer_term == "C":
+                    if self.oligomer_term in ['N', 'C']:
                         raise RuntimeError('Need to rework Stride execution here')
                         # stride_oligomer = Stride(oriented_oligomer_filepath)
                         # stride_oligomer.run()
-                        if self.oligomer_term == "N":
+                        if self.oligomer_term == 'N':
                             oligomer_term_resi = stride_oligomer.is_n_term_helical()[1]
-                        elif self.oligomer_term == "C":
+                        elif self.oligomer_term == 'C':
                             oligomer_term_resi = stride_oligomer.is_c_term_helical()[1]
                     else:
-                        print("Select N or C Terminus For Oligomer")
+                        print('Select N or C Terminus For Oligomer')
                         return -1
 
                     if type(oligomer_term_resi) is int:
                         # Add Axis / Axes to Oligomers
-                        if self.oligomer_symm[0:1] == "C":
+                        if self.oligomer_symm[:1] == 'C':
                             pdb_oligomer.AddCyclicAxisZ()
-                        elif self.targetprotein_symm == "D2":
+                        elif self.targetprotein_symm == 'D2':
                             pdb_oligomer.AddD2Axes()
                         else:
-                            print("Oligomer Symmetry Not Supported")
+                            print('Oligomer Symmetry Not Supported')
                             return -1
 
                         # Extract coordinates of segment to be overlapped from PDB Fixed
-                        pdb_f_overlap = target_protein.extract_coords_subset(target_term_resi + i, target_term_resi + 4 + i, self.add_target_helix[2], True)
+                        pdb_fixed_coords = target_protein.chain(self.add_target_helix[2]).get_coords_subset(target_term_resi + i, target_term_resi + 4 + i)
                         # Extract coordinates of segment to be overlapped from PDB Moving
-                        pdb_m_overlap = pdb_oligomer.extract_coords_subset(oligomer_term_resi, oligomer_term_resi + 4, 0, True)
+                        pdb_moble_coords = pdb_oligomer.chains[0].get_coords_subset(oligomer_term_resi, oligomer_term_resi + 4)
 
                         # Create PDBOverlap instance
-                        pdb_overlap = PDBOverlap(pdb_f_overlap, pdb_m_overlap)
+                        # pdb_overlap = PDBOverlap(pdb_fixed_coords, pdb_moble_coords)
+                        rmsd, rot, tx, _ = superposition3d(pdb_fixed_coords, pdb_moble_coords)
 
-                        if pdb_overlap.overlap() != "lengths mismatch":
-                            # Calculate Optimal (rot, tx, rmsd, coords_moved)
-                            rot, tx, rmsd, coords_moved = pdb_overlap.overlap()
+                        # if pdb_overlap.overlap() != 'lengths mismatch':
+                        #     # Calculate Optimal (rot, tx, rmsd, coords_moved)
+                        #     rot, tx, rmsd, coords_moved = pdb_overlap.overlap()
 
-                            # Apply optimal rot and tx to PDB moving axis (does NOT change axis coordinates in instance)
-                            pdb_moving_axes = PDB()
+                        # Apply optimal rot and tx to PDB moving axis (does NOT change axis coordinates in instance)
+                        pdb_moving_axes = PDB()
 
-                            if self.oligomer_symm == "D2":
-                                pdb_moving_axes.AddD2Axes()
-                                pdb_moving_axes.apply(rot, tx)
-                                moving_axis_x = pdb_moving_axes.axisX()
-                                moving_axis_y = pdb_moving_axes.axisY()
-                                moving_axis_z = pdb_moving_axes.axisZ()
-                            elif self.oligomer_symm[0:1] == "C":
-                                pdb_moving_axes.AddCyclicAxisZ()
-                                pdb_moving_axes.apply(rot, tx)
-                                moving_axis_z = pdb_moving_axes.axisZ()
+                        if self.oligomer_symm == 'D2':
+                            pdb_moving_axes.AddD2Axes()
+                            pdb_moving_axes.transform(rot, tx)
+                            moving_axis_x = pdb_moving_axes.axisX()
+                            moving_axis_y = pdb_moving_axes.axisY()
+                            moving_axis_z = pdb_moving_axes.axisZ()
+                        elif self.oligomer_symm[0:1] == 'C':
+                            pdb_moving_axes.AddCyclicAxisZ()
+                            pdb_moving_axes.transform(rot, tx)
+                            moving_axis_z = pdb_moving_axes.axisZ()
+                        else:
+                            print('Oligomer Symmetry Not Supported')
+                            return -1
+
+                        # # Check Angle Between Fixed and Moved Axes
+
+                        # D2_D2 3D Crystal Check
+                        #angle_check_1 = AngleDistance(target_protein.axisZ(), moving_axis_z)
+                        # is_parallel_1 = angle_check_1.is_parallel()
+                        #
+                        # if is_parallel_1:
+                        #     pdb_oligomer.apply(rot, tx)
+                        #     pdb_oligomer.rename_chains(target_protein.chain_id_list)
+                        #
+                        #     PDB_OUT = PDB()
+                        #     PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
+                        #
+                        #     out_path = design_directory + "/" + os.path.basename(self.target_protein_path)[0:4] + "_" + oligomer_id + "_" + str(i) + ".pdb"
+                        #     outfile = open(out_path, "w")
+                        #     for atom in PDB_OUT.all_atoms:
+                        #         outfile.write(str(atom))
+                        #     outfile.close()
+
+
+
+                        # D2_C3 3D Crystal I4132 Check
+                        # angle_check_1 = AngleDistance(target_protein.axisX(), moving_axis_z)
+                        # is_90_1 = angle_check_1.is_90()
+                        # angle_check_2 = AngleDistance(target_protein.axisY(), moving_axis_z)
+                        # is_90_2 = angle_check_2.is_90()
+                        # angle_check_3 = AngleDistance(target_protein.axisZ(), moving_axis_z)
+                        # is_90_3 = angle_check_3.is_90()
+                        #
+                        # angle_check_4 = AngleDistance(target_protein.axisX(), moving_axis_z)
+                        # is_35_1 = angle_check_4.is_35()
+                        # angle_check_5 = AngleDistance(target_protein.axisY(), moving_axis_z)
+                        # is_35_2 = angle_check_5.is_35()
+                        # angle_check_6 = AngleDistance(target_protein.axisZ(), moving_axis_z)
+                        # is_35_3 = angle_check_6.is_35()
+                        #
+                        # angle_check_7 = AngleDistance(target_protein.axisX(), moving_axis_z)
+                        # is_55_1 = angle_check_7.is_55()
+                        # angle_check_8 = AngleDistance(target_protein.axisY(), moving_axis_z)
+                        # is_55_2 = angle_check_8.is_55()
+                        # angle_check_9 = AngleDistance(target_protein.axisZ(), moving_axis_z)
+                        # is_55_3 = angle_check_9.is_55()
+                        #
+                        # check_90 = [is_90_1, is_90_2, is_90_3]
+                        # check_35 = [is_35_1, is_35_2, is_35_3]
+                        # check_55= [is_55_1, is_55_2, is_55_3]
+                        #
+                        # count_90 = 0
+                        # for test in check_90:
+                        #     if test is True:
+                        #         count_90 = count_90 + 1
+                        #
+                        # count_35 = 0
+                        # for test in check_35:
+                        #     if test is True:
+                        #         count_35 = count_35 + 1
+                        #
+                        # count_55 = 0
+                        # for test in check_55:
+                        #     if test is True:
+                        #         count_55 = count_55 + 1
+                        #
+                        # if count_90 > 0 and count_35 > 0 and count_55 > 0:
+                        #     for k in [0, 1, 2]:
+                        #         if check_90[k] is True:
+                        #             check_90_index = k
+                        #
+                        #     if check_90_index == 0:
+                        #         axis_90 = target_protein.axisX()
+                        #     elif check_90_index == 1:
+                        #         axis_90 = target_protein.axisY()
+                        #     else:
+                        #         axis_90 = target_protein.axisZ()
+                        #
+                        #     distance_check_1 = AngleDistance(axis_90, moving_axis_z)
+                        #
+                        #     if distance_check_1.distance() <= 5:
+                        #
+                        #             pdb_oligomer.apply(rot, tx)
+                        #             pdb_oligomer.rename_chains(target_protein.chain_id_list)
+                        #
+                        #             PDB_OUT = PDB()
+                        #             PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
+                        #
+                        #             out_path = design_directory + "/" + os.path.basename(self.target_protein_path)[0:4] + "_" + oligomer_id + "_" + str(i) + ".pdb"
+                        #             outfile = open(out_path, "w")
+                        #             for atom in PDB_OUT.all_atoms:
+                        #                 outfile.write(str(atom))
+                        #             outfile.close()
+
+                        # D2_C3 2D Layer Check p622 Check
+                        angle_check_1 = AngleDistance(target_protein.axisX(), moving_axis_z)
+                        is_parallel_1 = angle_check_1.is_parallel()
+                        angle_check_2 = AngleDistance(target_protein.axisY(), moving_axis_z)
+                        is_parallel_2 = angle_check_2.is_parallel()
+                        angle_check_3 = AngleDistance(target_protein.axisZ(), moving_axis_z)
+                        is_parallel_3 = angle_check_3.is_parallel()
+
+                        check_parallel = [is_parallel_1, is_parallel_2, is_parallel_3]
+                        count_parallel = 0
+                        for test in check_parallel:
+                            if test is True:
+                                count_parallel = count_parallel + 1
+
+                        angle_check_4 = AngleDistance(target_protein.axisX(), moving_axis_z)
+                        is_90_1 = angle_check_4.is_90()
+                        angle_check_5 = AngleDistance(target_protein.axisY(), moving_axis_z)
+                        is_90_2 = angle_check_5.is_90()
+                        angle_check_6 = AngleDistance(target_protein.axisZ(), moving_axis_z)
+                        is_90_3 = angle_check_6.is_90()
+
+                        check_90 = [is_90_1, is_90_2, is_90_3]
+                        count_90 = 0
+                        for test in check_90:
+                            if test is True:
+                                count_90 = count_90 + 1
+
+                        if count_parallel > 0 and count_90 > 0:
+                            for k in [0, 1, 2]:
+                                if check_90[k] is True:
+                                    check_90_index = k
+
+                            if check_90_index == 0:
+                                axis_90 = target_protein.axisX()
+                            elif check_90_index == 1:
+                                axis_90 = target_protein.axisY()
                             else:
-                                print("Oligomer Symmetry Not Supported")
-                                return -1
+                                axis_90 = target_protein.axisZ()
 
-                            # # Check Angle Between Fixed and Moved Axes
+                            distance_check_1 = AngleDistance(axis_90, moving_axis_z)
 
-                            # D2_D2 3D Crystal Check
-                            #angle_check_1 = AngleDistance(target_protein.axisZ(), moving_axis_z)
-                            # is_parallel_1 = angle_check_1.is_parallel()
-                            #
-                            # if is_parallel_1:
-                            #     pdb_oligomer.apply(rot, tx)
-                            #     pdb_oligomer.rename_chains(target_protein.chain_id_list)
-                            #
-                            #     PDB_OUT = PDB()
-                            #     PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
-                            #
-                            #     out_path = design_directory + "/" + os.path.basename(self.target_protein_path)[0:4] + "_" + oligomer_id + "_" + str(i) + ".pdb"
-                            #     outfile = open(out_path, "w")
-                            #     for atom in PDB_OUT.all_atoms:
-                            #         outfile.write(str(atom))
-                            #     outfile.close()
+                            if distance_check_1.distance() <= 3:
+                                pdb_oligomer.apply(rot, tx)
+                                pdb_oligomer.reorder_chains(exclude_chains=target_protein.chain_id_list)
 
+                                out_pdb = PDB.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
 
-
-                            # D2_C3 3D Crystal I4132 Check
-                            # angle_check_1 = AngleDistance(target_protein.axisX(), moving_axis_z)
-                            # is_90_1 = angle_check_1.is_90()
-                            # angle_check_2 = AngleDistance(target_protein.axisY(), moving_axis_z)
-                            # is_90_2 = angle_check_2.is_90()
-                            # angle_check_3 = AngleDistance(target_protein.axisZ(), moving_axis_z)
-                            # is_90_3 = angle_check_3.is_90()
-                            #
-                            # angle_check_4 = AngleDistance(target_protein.axisX(), moving_axis_z)
-                            # is_35_1 = angle_check_4.is_35()
-                            # angle_check_5 = AngleDistance(target_protein.axisY(), moving_axis_z)
-                            # is_35_2 = angle_check_5.is_35()
-                            # angle_check_6 = AngleDistance(target_protein.axisZ(), moving_axis_z)
-                            # is_35_3 = angle_check_6.is_35()
-                            #
-                            # angle_check_7 = AngleDistance(target_protein.axisX(), moving_axis_z)
-                            # is_55_1 = angle_check_7.is_55()
-                            # angle_check_8 = AngleDistance(target_protein.axisY(), moving_axis_z)
-                            # is_55_2 = angle_check_8.is_55()
-                            # angle_check_9 = AngleDistance(target_protein.axisZ(), moving_axis_z)
-                            # is_55_3 = angle_check_9.is_55()
-                            #
-                            # check_90 = [is_90_1, is_90_2, is_90_3]
-                            # check_35 = [is_35_1, is_35_2, is_35_3]
-                            # check_55= [is_55_1, is_55_2, is_55_3]
-                            #
-                            # count_90 = 0
-                            # for test in check_90:
-                            #     if test is True:
-                            #         count_90 = count_90 + 1
-                            #
-                            # count_35 = 0
-                            # for test in check_35:
-                            #     if test is True:
-                            #         count_35 = count_35 + 1
-                            #
-                            # count_55 = 0
-                            # for test in check_55:
-                            #     if test is True:
-                            #         count_55 = count_55 + 1
-                            #
-                            # if count_90 > 0 and count_35 > 0 and count_55 > 0:
-                            #     for k in [0, 1, 2]:
-                            #         if check_90[k] is True:
-                            #             check_90_index = k
-                            #
-                            #     if check_90_index == 0:
-                            #         axis_90 = target_protein.axisX()
-                            #     elif check_90_index == 1:
-                            #         axis_90 = target_protein.axisY()
-                            #     else:
-                            #         axis_90 = target_protein.axisZ()
-                            #
-                            #     distance_check_1 = AngleDistance(axis_90, moving_axis_z)
-                            #
-                            #     if distance_check_1.distance() <= 5:
-                            #
-                            #             pdb_oligomer.apply(rot, tx)
-                            #             pdb_oligomer.rename_chains(target_protein.chain_id_list)
-                            #
-                            #             PDB_OUT = PDB()
-                            #             PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
-                            #
-                            #             out_path = design_directory + "/" + os.path.basename(self.target_protein_path)[0:4] + "_" + oligomer_id + "_" + str(i) + ".pdb"
-                            #             outfile = open(out_path, "w")
-                            #             for atom in PDB_OUT.all_atoms:
-                            #                 outfile.write(str(atom))
-                            #             outfile.close()
-
-                            # D2_C3 2D Layer Check p622 Check
-                            angle_check_1 = AngleDistance(target_protein.axisX(), moving_axis_z)
-                            is_parallel_1 = angle_check_1.is_parallel()
-                            angle_check_2 = AngleDistance(target_protein.axisY(), moving_axis_z)
-                            is_parallel_2 = angle_check_2.is_parallel()
-                            angle_check_3 = AngleDistance(target_protein.axisZ(), moving_axis_z)
-                            is_parallel_3 = angle_check_3.is_parallel()
-
-                            check_parallel = [is_parallel_1, is_parallel_2, is_parallel_3]
-                            count_parallel = 0
-                            for test in check_parallel:
-                                if test is True:
-                                    count_parallel = count_parallel + 1
-
-                            angle_check_4 = AngleDistance(target_protein.axisX(), moving_axis_z)
-                            is_90_1 = angle_check_4.is_90()
-                            angle_check_5 = AngleDistance(target_protein.axisY(), moving_axis_z)
-                            is_90_2 = angle_check_5.is_90()
-                            angle_check_6 = AngleDistance(target_protein.axisZ(), moving_axis_z)
-                            is_90_3 = angle_check_6.is_90()
-
-                            check_90 = [is_90_1, is_90_2, is_90_3]
-                            count_90 = 0
-                            for test in check_90:
-                                if test is True:
-                                    count_90 = count_90 + 1
-
-                            if count_parallel > 0 and count_90 > 0:
-                                for k in [0, 1, 2]:
-                                    if check_90[k] is True:
-                                        check_90_index = k
-
-                                if check_90_index == 0:
-                                    axis_90 = target_protein.axisX()
-                                elif check_90_index == 1:
-                                    axis_90 = target_protein.axisY()
-                                else:
-                                    axis_90 = target_protein.axisZ()
-
-                                distance_check_1 = AngleDistance(axis_90, moving_axis_z)
-
-                                if distance_check_1.distance() <= 3:
-                                    pdb_oligomer.apply(rot, tx)
-                                    pdb_oligomer.reorder_chains(exclude_chains=target_protein.chain_id_list)
-
-                                    out_pdb = PDB.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
-
-                                    out_path = os.path.join(design_directory,
-                                                            "%s_%s_%d.pdb" % (os.path.basename(self.target_protein_path)[0:4], oligomer_id, i))
-                                    out_pdb.write(out_path=out_path)
+                                out_path = os.path.join(design_directory,
+                                                        '%s_%s_%d.pdb' % (os.path.basename(self.target_protein_path)[0:4], oligomer_id, i))
+                                out_pdb.write(out_path=out_path)
 
         print('Done')
 
 
 def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
-        pdb1 = PDB(file=pdb1_path)
-        pdb2 = PDB(file=pdb2_path)
+        pdb1 = PDB.from_file(pdb1_path, pose_format=False)
+        pdb2 = PDB.from_file(pdb2_path, pose_format=False)
 
         if extend_helix:
             n_terminus = pdb1.chain(chain_1).n_terminal_residue.number
@@ -1620,27 +1620,20 @@ def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2
                 term = 'N'
             else:
                 term = 'C'
-            print("Adding ideal helix to %s-terminus of reference molecule" % term)
+            print('Adding ideal helix to %s-terminus of reference molecule' % term)
             pdb1.add_ideal_helix(term, chain_1)  # terminus, chain number
-        coords1 = pdb1.extract_coords_subset(start_1, end_1, pdb1.chain_id_to_chain_index(chain_1), CA=True)
-        coords2 = pdb2.extract_coords_subset(start_2, end_2, pdb2.chain_id_to_chain_index(chain_2), CA=True)
+        coords1 = pdb1.chain(chain_1).get_coords_subset(start_1, end_1)
+        coords2 = pdb2.chain(chain_2).get_coords_subset(start_2, end_2)
 
-        o = PDBOverlap(coords1, coords2)
-        rot, tx, rmsd, coords_moved = o.overlap()
+        rmsd, rot, tx, _ = superposition3d(coords1, coords2)
+        pdb2.transform(rot, tx)
 
-        pdb2.apply(rot, tx)
-
-        pdb_out = PDB(atoms=pdb2.atoms)
-
-        # pdb_out.write(out_path)
-        # print ("ALIGNED!")
-
-        return pdb_out
+        return pdb2
 
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser(description=os.path.basename(__file__) +
-                                                 '\nTool for aligning terminal helices of two proteins')
+                                     '\nTool for aligning terminal helices of two proteins')
     parser.add_argument('-r', '--reference_pdb', type=str, help='The disk location of pdb file to serve as reference')
     parser.add_argument('-s', '--ref_start_res', type=int, help='First residue in a range to serve as reference for '
                                                                 'alignment')
