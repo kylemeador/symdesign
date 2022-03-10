@@ -1,10 +1,9 @@
-import datetime
 import time
 from shutil import copy
 
 from PathUtils import biological_fragment_db_pickle
-from SymDesignUtils import unpickle, pickle_object
-from interface_analysis.Database import FragmentDatabase
+from SymDesignUtils import pickle_object
+from Database import FragmentDatabase
 
 # Create fragment database for all ijk cluster representatives
 # ijk_frag_db = unpickle(biological_fragment_db_pickle)

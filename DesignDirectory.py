@@ -43,7 +43,7 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_d
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
     hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
 from classes.SymEntry import SymEntry, sdf_lookup
-from interface_analysis.Database import FragmentDatabase
+from Database import FragmentDatabase
 from utils.SymmetryUtils import valid_subunit_number
 
 
