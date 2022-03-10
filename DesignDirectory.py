@@ -1,7 +1,6 @@
 import os
 import copy
 import re
-import time
 from math import ceil, sqrt
 import shutil
 from subprocess import Popen, list2cmdline
@@ -32,7 +31,7 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_s
     all_vs_all, condensed_to_square, digit_translate_table, sym, pretty_format_table, \
     index_intersection, z_score, large_color_array, timestamp
 from Query import Flags
-from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags
+from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, relax_flags
 from PDB import PDB
 from Pose import Pose, MultiModel, Models, SymmetricModel  # , Model
 from DesignMetrics import read_scores, groups, necessary_metrics, division_pairs, delta_pairs, \
@@ -54,10 +53,6 @@ logger = start_log(name=__name__)
 idx_offset = 1
 design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
-relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints false',
-               '-no_optH false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev 0.5',
-               '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate true', '-no_nstruct_label true',
-               '-relax:bb_move false']
 
 
 class MasterDirectory:

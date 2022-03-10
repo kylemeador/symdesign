@@ -21,7 +21,7 @@ import numpy as np
 
 # import CommandDistributer
 import PathUtils as PUtils
-from Query.PDB import validate_input
+from Query.utils import validate_input
 
 # Globals
 input_string = '\nInput: '

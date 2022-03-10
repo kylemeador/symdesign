@@ -3,17 +3,17 @@ import math
 from glob import glob
 from copy import copy
 from subprocess import list2cmdline
+from typing import List
 
 import numpy as np
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from CommandDistributer import rosetta_flags, script_cmd, distribute
-from DesignDirectory import relax_flags
+from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags
 from PDB import PDB, orient_pdb_file, fetch_pdb_file
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
-from Query.PDB import boolean_choice
+from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
 from Structure import parse_stride
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup

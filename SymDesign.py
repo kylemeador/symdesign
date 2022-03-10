@@ -28,8 +28,8 @@ from dependencies.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError imp
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from Query.PDB import input_string, bool_d, invalid_string, boolean_choice, validate_input, \
-    retrieve_pdb_entries_by_advanced_query
+from Query.PDB import retrieve_pdb_entries_by_advanced_query
+from Query.utils import input_string, bool_d, validate_input, boolean_choice, invalid_string
 from utils.CmdLineArgParseUtils import query_mode
 from Query import Flags
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
