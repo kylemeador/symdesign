@@ -10,7 +10,8 @@ import pandas as pd
 from Structure import gxg_sasa
 from SymDesignUtils import start_log, DesignError, index_intersection, handle_errors, \
     pretty_format_table, digit_translate_table
-from Query.PDB import header_string, input_string, verify_choice, validate_type
+from Query.PDB import header_string
+from Query.utils import input_string, validate_type, verify_choice
 
 # Globals
 logger = start_log(name=__name__)

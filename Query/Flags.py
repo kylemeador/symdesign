@@ -1,7 +1,8 @@
 from copy import copy
 
 from PathUtils import program_command, nano, program_name, nstruct, interface_design
-from Query.PDB import input_string, format_string, confirmation_string, bool_d, invalid_string, header_string
+from Query.PDB import format_string, header_string
+from Query.utils import input_string, confirmation_string, bool_d, invalid_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
     format_index_string
 from SequenceProfile import read_fasta_file

@@ -13,6 +13,7 @@ sys.path.append(parent_dir)
 import requests
 
 from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError, ex_path
+from Query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string
 
 # Globals
 logger = start_log(name=__name__)
@@ -20,13 +21,8 @@ logger = start_log(name=__name__)
 header_string = '%s %s %s\n' % ('-' * 20, '%s', '-' * 20)
 format_string = '\t%s\t\t%s'
 numbered_format_string = format_string % ('%d - %s', '%s')
-input_string = '\nInput: '
-invalid_string = 'Invalid choice, please try again.'
-confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you can re-input.%s' % input_string
-bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
 user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
 additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
-boolean_input_string = '\nPlease specify [y/n]%s' % input_string
 instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}
 
 # Websites
@@ -105,63 +101,6 @@ example_uniprot_return = {"query_id": "057be33f-e4a1-4912-8d30-673dd0326984", "r
                                                                       "norm_score": 1.0}]
                                    }]}]
                           }
-
-
-def validate_input(prompt, response=None):
-    _input = input(prompt)
-    while _input not in response:
-        _input = input('Invalid input... \'%s\' not a valid response. Try again%s' % (_input, input_string))
-
-    return _input
-
-
-def validate_type(value, dtype=str):
-    """Provide a user prompt to ensure the user input is what is desired
-
-    Returns:
-        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
-    """
-    try:
-        dtype(value)
-        return True
-    except ValueError:
-        print('The value \'%s\' cannot be converted to the type %s. Try again...' % (value, float))
-        return False
-
-
-def boolean_choice():
-    """Retrieve user input from a requested prompt to control desired program flow. Ex prompt: Please specify [y/n]
-
-    Returns:
-        (bool): A True value indicates the user wants to proceed. False indicates we do not want to proceed, possibly
-            gathering user input again or declining an option
-    """
-    while True:
-        confirm = input(boolean_input_string).lower()
-        if confirm in bool_d:  # we can find the answer
-            break
-        else:
-            print('\'%s\' is not a valid choice! Chose either [y/n]' % confirm)
-
-    return bool_d[confirm]
-
-
-def verify_choice():
-    """Provide a user prompt to ensure the user input is what is desired
-
-    Returns:
-        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
-    """
-    while True:
-        confirm = input(confirmation_string).lower()
-        if confirm in bool_d:  # we can find the answer
-            break
-        else:
-            print('\'%s\' is not a valid choice! Chose either [y/n]' % confirm)
-
-    return bool_d[confirm]
-    # else:
-    #     return False
 
 
 def retrieve_entity_id_by_sequence(sequence):
@@ -1071,17 +1010,6 @@ def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), 
         return unpickle(file)
 
     return schema_d
-
-
-def confirm_input_action(input_message):
-    while True:
-        confirm = input('%s\n%s' % (input_message, confirmation_string))
-        if confirm.lower() in bool_d:
-            break
-        else:
-            print('%s %s is not a valid choice!' % (invalid_string, confirm))
-
-    return confirm
 
 
 if __name__ == '__main__':
