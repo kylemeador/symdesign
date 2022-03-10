@@ -4,11 +4,11 @@ from itertools import repeat
 
 import pandas as pd
 
-from Pose import Pose, calculate_interface_score
+from Pose import Pose
 from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, to_iterable, mp_starmap
 # from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
 from classes.EulerLookup import EulerLookup
-from interface_analysis.Database import FragmentDB
+from Database import FragmentDB
 
 # Globals
 # Nanohedra.py Path

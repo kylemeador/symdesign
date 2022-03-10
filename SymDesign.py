@@ -34,7 +34,7 @@ from utils.CmdLineArgParseUtils import query_mode
 from Query import Flags
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from classes.EulerLookup import EulerLookup
-from interface_analysis.Database import Database  # FragmentDatabase,
+from Database import Database  # FragmentDatabase,
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
 from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, MasterDirectory
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap

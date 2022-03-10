@@ -27,7 +27,7 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from Structure import Coords, Structure, Structures  # Atoms, Residues,
-from interface_analysis.Database import FragmentDB, FragmentDatabase
+from Database import FragmentDB, FragmentDatabase
 
 # Globals
 logger = start_log(name=__name__)
