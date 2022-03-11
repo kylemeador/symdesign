@@ -706,8 +706,10 @@ if __name__ == '__main__':
                              help='Disk location where the first oligomer(s) are located\n', default=None)
     dock2_group.add_argument('-o2', '--oligomer2', type=os.path.abspath,
                              help='Disk location where the second oligomer(s) are located\n', default=None)
-    dock1_group.add_argument('-q', '--query_codes', action='store_true',
+    dock1_group.add_argument('-qc', '--query_codes', action='store_true',
                              help='Search the PDB API for corresponding codes\n')
+    parser_dock.add_argument('-q', '--query', action='store_true',
+                             help='Run %s in query mode\n' % PUtils.nano)
     parser_dock.add_argument('-r1', '--rot_step1', type=os.path.abspath, default=3,
                              help='Disk location where the first oligomers are located\nREQUIRED')
     parser_dock.add_argument('-r2', '--rot_step2', type=os.path.abspath, default=3,
@@ -1077,12 +1079,16 @@ if __name__ == '__main__':
         elif args.module == PUtils.select_sequences:
             if not args.global_sequences and args.number_sequences == sys.maxsize:
                 args.number_sequences = 1
-    else:  # [PUtils.nano, 'nanohedra_query', 'guide', 'flags', 'residue_selector', 'multicistronic']
+    else:  # [PUtils.nano, 'guide', 'flags', 'residue_selector', 'multicistronic']
         initialize = False
-        if args.module == 'nanohedra_query':
-            args.directory = True
+        if getattr(args, 'query', None):  # run nanohedra query mode
+            # if args.module == 'nanohedra_query':
+            query_flags = [__file__, '-query'] + additional_args
+            logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
+            query_mode(query_flags)
+            terminate(output=False)
 
-    if not args.guide and args.module not in ['nanohedra_query', 'guide', 'flags', 'residue_selector', 'multicistronic']:
+    if not args.guide and args.module not in ['guide', 'flags', 'residue_selector', 'multicistronic']:
         formatted_queried_flags = queried_flags.copy()
         formatted_queried_flags['sym_entry'] = formatted_queried_flags['sym_entry'].entry_number
         # formatted_queried_flags.pop('sym_entry', None)
@@ -1523,12 +1529,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     results, success, exceptions = [], [], []
     # ---------------------------------------------------
-    if args.module == 'nanohedra_query':
-        query_flags = [__file__, '-query'] + additional_args
-        logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
-        query_mode(query_flags)
-    # ---------------------------------------------------
-    elif args.module == 'flags':
+    if args.module == 'flags':
         if args.template:
             Flags.query_user_for_flags(template=True)
         else:
