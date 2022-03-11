@@ -16,19 +16,19 @@ To run SymDesign, prepare your design target either with seamless integration of
 All of these modules come with a number of parameters that can modify the outcome. You can access the available options (flags) through `python SymDesign.py flags`. Using this module, a CLI can help you generate design flags to guide each step in the process above. As an example, for design, you can specify whether you'd like evolutionary information or fragment information applied to the sampling as well as any specific entities, chains, or residues you would like to focus on (select) or exclude (mask) from design. Further you can specify if any residues or chains are required in design beyond the interface design (say you want to correct a helical fusion that your uncertain of the best overlapping sequence). All of these can be provided to any module by using the notation *@*my_favorite_flags.file in the specified command. Alternatively, these values will take their defaults if none are provided or if you only have one flag that your really interested in you can simply add this to the command.  
 Some examples of viable commands:
 
-    python SymDesign.py --directory docking_output design --symmetry T33 --nanohedra_output False --generate_fragments True --design_with_evolution True --design_with_fragments True --select_designable_chains A,B --mask_designable_residues_by_pose_number 243-287
+    python SymDesign.py --directory DOCKING/OUTPUT design --symmetry T33 --nanohedra_output --no_term_constraint --select_designable_chains A,B --mask_designable_residues_by_pose_number 243-287
 
 To measure the fragment propensities at the interface of the entities in the structure, run
 
-    python SymDesign.py -d docking_output generate_fragments
+    python SymDesign.py -d path/to/DOCKING/OUTPUT generate_fragments
 
 Additionally, the fragment propensities can be measured at the interface of symmetric entities by specifying a symmetry (or providing a CRYST1 record in the .pdb file) in the case of 2D and 3D symmetries
 
-    python SymDesign.py -d docking_output generate_fragments -symmetry T:{C2}:{C3}
+    python SymDesign.py -d path/to/DOCKING/OUTPUT generate_fragments -symmetry T:{C2}:{C3}
 
 To turn an ASU into a full assembly, simply run
     
-    python SymDesign.py -d docking_output expand_asu -symmetry I:{C2}:{C5}
+    python SymDesign.py -d path/to/DOCKING/OUTPUT expand_asu -symmetry I:{C2}:{C5}
 
 #### In order to use this set of tools, first you will need to set up your environment on cassini.  
 I have done this using the SymDesignEnvironment.yaml provided to initialize the SymDesign environment in conda. If you are using anaconda/conda (which I recommend), `conda env create --file SymDesignEnvironment.yaml` will handle this for you. If you are using something else, there is probably an easy way to ensure your virtual environment is up to speed with SymDesign's dependencies.  
@@ -44,41 +44,3 @@ Next, you must add the following variable to your .bashrc (or .tschrc) so that t
     setenv PYTHONPATH /yeates1/kmeador/symdesign:$PYTHONPATH
 
 If you want to contribute, please feel free to reach out kylemeador@g.ucla.edu and I will invite you as a collaborator on github.
-
----
-
-Align.py - Align terminal helices
-
-AnalyzeMutatedSequences.py - Look at mutations to a pdb file compared to a wildtype
-
-ASU.py - Design recap specific scripts for creating ASU's
-
-CommandDistributer.py - Used to submit job arrays to cassini
-
-DesignDirectory.py - Holds the DesignDirectory Class which is the interface between program flags, file input and output, and overall control of Pose state. Use this Class to create new design scripts from the underlying attributes and data which it has access to. 
-
-ExpandASU.py - Expand origin centered cubic point group symmetries
-
-NanohedraWrap.py - Used to generate commands to run Nanohedra.py on cassini
-
-OrientOligomer.py - Orient a desired oligomer on the z-axis in a canonical setting
-
-PDB.py - The main PDB object manipulation class
-
-Pose.py - Class for encompassing PDB and related Structure objects, as well as the SymmetricModel and Model Classes for handling symmetry and multiple states of the same (or slightly mutated Structure objects) 
-
-ProteinExpression.py - Investigate a PDB's sequence tags to see if there should be one appended at a certain termini
-
-QueryUniProtByPDBCode.py - find a uniprot ID for a PDB code
-
-SequenceProfile.py - Holds the SequenceProfile class with handles all sequence related data including fragment and evolutionary sequence profiles. Integrates the FragmentDatabase and calls and formats output from hhblits
-
-Structure.py - Houses Atom Class and all container Classes of Atom objects including Residue, Chain, Entity, and Structure
-
-SlurmControl.py - Random SLURM job handling stuff
-
-SymDesign.py - The master execution of the Nanohedra to Rosetta interface design to sequence selection pipeline for all SCM's. This is really what all the scripts above are set up to work for.
-
-SymDesignUtils.py - Tons of random functions used in above. Manipulating lists of PDB files, handling random files, generating position specific scoring matrices, multiple sequence alignments, handling fragment data, running multiprocessing, retrieving files from a directory, etc.
-
-WriteSBATCH.py - Useful to write a SBATCH template script using your specific parameters
