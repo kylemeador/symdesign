@@ -13,14 +13,12 @@ sys.path.append(parent_dir)
 import requests
 
 from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError, ex_path
-from Query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string
+from Query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, header_string, \
+    format_string
 
 # Globals
 logger = start_log(name=__name__)
 # General Formatting
-header_string = '%s %s %s\n' % ('-' * 20, '%s', '-' * 20)
-format_string = '\t%s\t\t%s'
-numbered_format_string = format_string % ('%d - %s', '%s')
 user_input_format = '\n%s\n%s' % (format_string % ('Option', 'Description'), '%s')
 additional_input_string = '\nWould you like to add another%s? [y/n]%s' % ('%s', input_string)
 instance_d = {'string': str, 'integer': int, 'number': float, 'date': str}

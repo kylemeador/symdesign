@@ -46,6 +46,7 @@ from ProteinExpression import find_expression_tags, find_matching_expression_tag
 from DesignMetrics import prioritize_design_indices, master_metrics, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 from utils.GeneralUtils import write_docking_parameters
+from utils.guide import interface_design_guide, analysis_guide
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -491,9 +492,9 @@ def terminate(results=None, output=True):
                         'clustering to poses to select a cluster representative based on the most favorable cluster '
                         'member' % PUtils.select_designs)
 
-        design_stage = PUtils.stage[12] if getattr(args, 'scout', None) \
-            else (PUtils.stage[2] if getattr(args, 'legacy', None)
-                  else (PUtils.stage[14] if getattr(args, 'structure_background', None)
+        design_stage = PUtils.stage[12] if getattr(args, PUtils.scout, None) \
+            else (PUtils.stage[2] if getattr(args, PUtils.no_hbnet, None)
+                  else (PUtils.stage[14] if getattr(args, PUtils.structure_background, None)
                         else PUtils.stage[13]))  # hbnet_design_profile
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano,
                         'interface_metrics': 'interface_metrics',
@@ -643,7 +644,7 @@ if __name__ == '__main__':
                         help='Skip loading of the entire master database, instead opting to load on the fly')
     parser.add_argument('-se', '--sym_entry', type=int, default=None,
                         help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
-    parser.add_argument('-F', '--force_flags', action='store_true',
+    parser.add_argument('-F', '--%s' % PUtils.force_flags, action='store_true',
                         help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
     # Set Up SubModule Parsers
@@ -739,8 +740,18 @@ if __name__ == '__main__':
                                                'constraints in Rosetta. Constrain using evolutionary profiles of '
                                                'homologous sequences and/or fragment profiles extracted from the PDB or'
                                                ' neither.')
-    parser_design.add_argument('-s', '--scout', action='store_true',
-                               help='Whether to set up a low resolution scouting protocol to survey designability.')
+    parser_design.add_argument('-nec', '--%s' % PUtils.no_evolution_constraint, action='store_true',
+                               help='Whether to skip evolutionary constraints during design')
+    parser_design.add_argument('-nhb', '--%s' % PUtils.no_hbnet, action='store_true',
+                               help='Whether to skip hydrogen bond networks in the design')
+    parser_design.add_argument('-ntc', '--%s' % PUtils.no_term_constraint, action='store_true',
+                               help='Whether to skip tertiary motif constraints during design')
+    parser_design.add_argument('-n', '--%s' % PUtils.number_of_trajectories, type=int, default=PUtils.nstruct,
+                               help='How many unique sequences should be generated for each input?')
+    parser_design.add_argument('-s', '--%s' % PUtils.scout, action='store_true',
+                               help='Whether to set up a low resolution scouting protocol to survey designability')
+    parser_design.add_argument('-s', '--%s' % PUtils.structure_background, action='store_true',
+                               help='Whether to set up a low resolution scouting protocol to survey designability')
     # parser_design.add_argument('-i', '--fragment_database', type=str,
     #                            help='Database to match fragments for interface specific scoring matrices. One of %s'
     #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
@@ -749,12 +760,9 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     parser_interface_metrics = \
         subparsers.add_parser('interface_metrics',
-                              help='Set up RosettaScript to analyze interface metrics from an interface design job. '
-                                   'If the specific flags should be generated fresh use --force_flags')
+                              help='Set up RosettaScript to analyze interface metrics from an interface design job')
     parser_interface_metrics.add_argument('-sp', '--specific_protocol', type=str,
                                           help='The specific protocol to perform interface_metrics on')
-    # parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
-    #                                       help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
     parser_optimize_designs = \
         subparsers.add_parser('optimize_designs',
@@ -766,11 +774,7 @@ if __name__ == '__main__':
         subparsers.add_parser('custom_script',
                               help='Set up a custom RosettaScripts.xml for designs. The custom_script will be provided '
                                    'to every directory specified and can be run with a number of options specified '
-                                   'below. Additionally, If the script should be run multiple times, include the flag '
-                                   '--number_of_trajectories INT. If the specific flags should be generated fresh use '
-                                   '--force_flags')
-    # parser_interface_metrics.add_argument('-F', '--force_flags', action='store_true',
-    #                                       help='Force generation of a new flags file to update script parameters')
+                                   'below')
     parser_custom_script.add_argument('-l', '--file_list', action='store_true',
                                       help='Whether to use already produced designs in the designs/ directory')
     parser_custom_script.add_argument('-n', '--native', type=str,
@@ -1011,23 +1015,9 @@ if __name__ == '__main__':
             with open(PUtils.readme, 'r') as f:
                 print(f.read(), end='')
         elif args.module == PUtils.analysis:
-            metrics_description = [(metric, attributes['description'])
-                                   for metric, attributes in sorted(master_metrics.items())]
-            formatted_metrics = SDUtils.pretty_format_table(metrics_description)
-            logger.info('After running \'%s analysis\', the following metrics will be available for each pose '
-                        '(unique design configuration) selected for analysis:\n\t%s\n\nAdditionally, you can view the '
-                        'pose specific files [pose-id]_Trajectory.csv for comparison of different design trials for an '
-                        'individual pose, and [pose-id]_Residues.csv for residue specific information over the various '
-                        'trajectories. Usage of overall pose metrics '
-                        'across all poses should facilitate selection of the best configurations to move forward'
-                        ' with, while Trajectory and Residue information can inform your choice of sequence selection '
-                        'parameters. Selection of the resulting poses'
-                        ' can be accomplished through the %s module \'%s\'.\n\t'
-                        '\'%s %s -h\' will get you started.'
-                        % (PUtils.program_command, '\n\t'.join(formatted_metrics), PUtils.program_name,
-                           PUtils.select_sequences, PUtils.program_command, PUtils.select_sequences))
+            logger.info(analysis_guide)
         elif args.module == PUtils.interface_design:
-            logger.info()
+            logger.info(interface_design_guide)
         elif args.module == PUtils.nano:
             logger.info()
         elif args.module == 'expand_asu':
@@ -1506,7 +1496,7 @@ if __name__ == '__main__':
         else:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
 
-    if queried_flags.get(Flags.generate_frags, None) or queried_flags.get('design_with_fragments', None) \
+    if queried_flags.get(Flags.generate_frags, None) or not queried_flags.get('no_term_constraint', None) \
             or args.module in [PUtils.nano, PUtils.generate_fragments]:
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing %s FragmentDatabase\n' % interface_type)
@@ -1685,7 +1675,6 @@ if __name__ == '__main__':
                 results.append(design.generate_interface_fragments())
 
         terminate(results=results)
-
     # ---------------------------------------------------
     elif args.module == 'interface_metrics':
         # Start pose processing and preparation for Rosetta
@@ -1699,7 +1688,6 @@ if __name__ == '__main__':
                 results.append(design.rosetta_interface_metrics())
 
         terminate(results=results)
-
     # ---------------------------------------------------
     elif args.module == 'optimize_designs':
         # Start pose processing and preparation for Rosetta
@@ -1711,7 +1699,6 @@ if __name__ == '__main__':
                 results.append(design.optimize_designs())
 
         terminate(results=results)
-
     # ---------------------------------------------------
     elif args.module == 'custom_script':
         # Start pose processing and preparation for Rosetta
@@ -1728,7 +1715,6 @@ if __name__ == '__main__':
                                                             variables=args.variables))
 
         terminate(results=results)
-
     # ---------------------------------------------------
     elif args.module == PUtils.interface_design:  # -i fragment_library, -s scout
         # if args.mpi:  # Todo implement
@@ -1753,7 +1739,6 @@ if __name__ == '__main__':
                 results.append(design.interface_design())
 
         terminate(results=results)
-
     # ---------------------------------------------------
     elif args.module == PUtils.analysis:  # -o output, -f figures, -n no_save, -j join
         if args.no_save:

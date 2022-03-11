@@ -33,11 +33,12 @@ from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, relax_flags
 from PDB import PDB
 from Pose import Pose, MultiModel, Models  # , Model
-from DesignMetrics import read_scores, groups, necessary_metrics, division_pairs, delta_pairs, \
+from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_pairs, \
     columns_to_new_column, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
     stats_metrics, significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value
+from PathUtils import groups
 #   columns_to_rename, calc_relative_sa, join_columns,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
@@ -171,33 +172,34 @@ class DesignDirectory(MasterDirectory):
         self.fragment_data_pkl = None  # /program_root/Projects/project_Designs/design/data/%s_fragment_profile.pkl
 
         # Design flags
-        self.command_only = kwargs.get('command_only', False)
         self.consensus = kwargs.get('consensus', None)  # Whether to run consensus or not
         self.design_residues = False  # (set[int])
-        self.design_with_fragments = kwargs.get('design_with_fragments', True)
-        self.development = kwargs.get('development', False)
+        self.no_term_constraint = kwargs.get(PUtils.no_term_constraint, True)
         self.directives = kwargs.get('directives', {})
-        self.evolution = kwargs.get('design_with_evolution', True)
+        self.no_evolution_constraint = kwargs.get(PUtils.no_evolution_constraint, True)
         # self.fragment_file = None
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
-        self.force_flags = kwargs.get('force_flags', False)
+        self.force_flags = kwargs.get(PUtils.force_flags, False)
         self.fuse_chains = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.interface_residues = False
-        self.legacy = kwargs.get('legacy', False)
-        self.number_of_trajectories = kwargs.get('number_of_trajectories', PUtils.nstruct)  # was False, notapparent why
+        self.no_hbnet = kwargs.get(PUtils.no_hbnet, False)
+        self.number_of_trajectories = kwargs.get(PUtils.number_of_trajectories, PUtils.nstruct)  # was False, notapparent why
         self.pre_refine = False  # True
-        self.query_fragments = kwargs.get('generate_fragments', False)
-        self.scout = kwargs.get('scout', False)
+        self.query_fragments = kwargs.get(PUtils.generate_fragments, False)
+        self.scout = kwargs.get(PUtils.scout, False)
         self.sequence_background = kwargs.get('sequence_background', False)
         self.specific_design = kwargs.get('specific_design', None)
         self.specific_protocol = kwargs.get('specific_protocol', False)
-        self.structure_background = kwargs.get('structure_background', False)
+        self.structure_background = kwargs.get(PUtils.structure_background, False)
         self.write_frags = kwargs.get('write_fragments', True)
-        self.script = kwargs.get('script', True)  # Todo to reflect the run_in_shell flag
+        self.run_in_shell = kwargs.get('run_in_shell', False)
         self.mpi = kwargs.get('mpi', False)
         self.output_assembly = kwargs.get('output_assembly', False)
         self.increment_chains = kwargs.get('increment_chains', False)
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
+        # Development Flags
+        self.command_only = kwargs.get('command_only', False)  # Whether to reissue the commands, only works with run_in_shell = False
+        self.development = kwargs.get('development', False)
 
         # Analysis flags
         self.skip_logging = kwargs.get('skip_logging', False)
@@ -984,7 +986,9 @@ class DesignDirectory(MasterDirectory):
                 frag_metrics = fragment_metric_template
             elif self.fragment_observations is None:
                 self.log.warning('There are no fragment observations for this Design! Returning null values... '
-                                 'Have you run %s on it yet?' % PUtils.generate_fragments)
+                                 'If this isn\'t what you expected, ensure that you haven\'t disabled it with "--%s"'
+                                 % PUtils.no_term_constraint)
+                                 # 'Have you run %s on it yet?' % PUtils.generate_fragments)
                 frag_metrics = fragment_metric_template
                 # self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet?
                 #                  ' Trying %s now...' % (self.path, PUtils.generate_fragments, generate_fragments))
@@ -1150,11 +1154,11 @@ class DesignDirectory(MasterDirectory):
         else:
             dist = 0
 
-        if self.evolution:
+        if self.no_evolution_constraint:
+            constraint_percent, free_percent = 0, 1
+        else:
             constraint_percent = 0.5
             free_percent = 1 - constraint_percent
-        else:
-            constraint_percent, free_percent = 0, 1
 
         variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
                      ('solvent_sym_score_patch', PUtils.solvent_weights_sym),
@@ -1231,7 +1235,7 @@ class DesignDirectory(MasterDirectory):
         #              '-in:file:native', self.refined_pdb,
         if self.mpi:
             main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
-            self.script = True
+            self.run_in_shell = False
 
         metric_cmd_bound = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
                                                     % (PUtils.stage[3], '_DEV' if self.development else ''))]
@@ -1254,7 +1258,7 @@ class DesignDirectory(MasterDirectory):
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable to gather interface Metrics on all Designs
-        if self.script:
+        if not self.run_in_shell:
             write_shell_script(list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
                                out_path=self.scripts, additional=[list2cmdline(command) for command in metric_cmds])
         else:
@@ -1324,7 +1328,7 @@ class DesignDirectory(MasterDirectory):
             ['-parser:protocol', script] + variables
         if self.mpi:
             cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + cmd
-            self.script = True
+            self.run_in_shell = False
 
         write_shell_script(list2cmdline(generate_files_cmd),
                            name=script_name, out_path=self.scripts, additional=[list2cmdline(cmd)])
@@ -1379,7 +1383,7 @@ class DesignDirectory(MasterDirectory):
             metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
             metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
-        elif self.legacy:
+        elif self.no_hbnet:  # run the legacy protocol
             protocol, protocol_xml1 = PUtils.stage[2], PUtils.stage[2]
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
@@ -1417,14 +1421,14 @@ class DesignDirectory(MasterDirectory):
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
-            if self.design_with_fragments:
+            if not self.no_term_constraint:  # design_with_fragments
                 consensus_cmd = main_cmd + relax_flags + \
                     ['@%s' % self.flags, '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
                      '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[5]),
                      '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
                 self.log.info('Consensus Command: %s' % list2cmdline(consensus_cmd))
-                if self.script:
+                if not self.run_in_shell:
                     write_shell_script(list2cmdline(consensus_cmd), name=PUtils.stage[5], out_path=self.scripts)
                 else:
                     consensus_process = Popen(consensus_cmd)
@@ -1460,7 +1464,7 @@ class DesignDirectory(MasterDirectory):
         if self.mpi and not self.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
             metric_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + metric_cmd
-            self.script = True
+            self.run_in_shell = False
 
         self.log.info('Design Command: %s' % list2cmdline(design_cmd))
         metric_cmds = []
@@ -1478,7 +1482,7 @@ class DesignDirectory(MasterDirectory):
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
-        if self.script:
+        if not self.run_in_shell:
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                [list2cmdline(generate_files_cmd)] +
@@ -1493,7 +1497,7 @@ class DesignDirectory(MasterDirectory):
                 metrics_process.communicate()
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
-        if not self.script:
+        if self.run_in_shell:
             pose_s = self.design_analysis()
             out_path = os.path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if not os.path.exists(out_path):
@@ -1815,7 +1819,7 @@ class DesignDirectory(MasterDirectory):
         self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
-        if self.script:
+        if not self.run_in_shell:
             write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir)  # ,
                                # status_wrap=self.serialized_info)
         else:
@@ -1939,23 +1943,21 @@ class DesignDirectory(MasterDirectory):
         evolutionary information in interface design
         """
         self.identify_interface()
-        if self.command_only:
-            pass
-        else:
+        if not self.command_only and not self.run_in_shell:  # just reissue the commands
             if self.query_fragments:
                 self.make_path(self.frags)
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
-            elif self.design_with_fragments and not self.fragment_observations and os.path.exists(self.frag_file):
+            elif not self.no_term_constraint and not self.fragment_observations and os.path.exists(self.frag_file):
                 self.retrieve_fragment_info_from_file()
-            elif not self.design_with_fragments:
+            elif self.no_term_constraint:
                 pass
             else:
                 raise DesignError('Fragments were specified during design, but observations have not been yet been '
                                   'generated for this Design! Try with the flag --generate_fragments or run %s'
                                   % PUtils.generate_fragments)
             self.make_path(self.data)
-            self.pose.interface_design(evolution=self.evolution, fragments=self.design_with_fragments,
+            self.pose.interface_design(evolution=not self.no_evolution_constraint, fragments=not self.no_term_constraint,
                                        query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
                                        write_fragments=self.write_frags, des_dir=self)
             self.make_path(self.designs)
@@ -2035,7 +2037,7 @@ class DesignDirectory(MasterDirectory):
         if self.mpi:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
             metric_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + metric_cmd
-            self.script = True
+            self.run_in_shell = False
 
         self.log.info('Design Command: %s' % list2cmdline(design_cmd))
         metric_cmds = []
@@ -2053,7 +2055,7 @@ class DesignDirectory(MasterDirectory):
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
-        if self.script:
+        if not self.run_in_shell:
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds])

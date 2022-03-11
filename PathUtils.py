@@ -20,6 +20,15 @@ analysis = 'analysis'
 cluster_poses = 'cluster_poses'
 select_designs = 'select_designs'
 select_sequences = 'select_sequences'
+no_evolution_constraint = 'no_evolution_constraint'
+no_term_constraint = 'no_term_constraint'
+structure_background = 'structure_background'
+number_of_trajectories = 'number_of_trajectories'
+force_flags = 'force_flags'
+current_energy_function = 'REF2015'
+no_hbnet = 'no_hbnet'
+scout = 'scout'
+groups = 'protocol'
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
@@ -40,7 +49,7 @@ if not rosetta:
 nstruct = 20  # Todo back to 50?
 stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
-         11: 'all_to_cluster', 12: 'scout', 13: 'hbnet_design_profile', 14: 'structure_background'}
+         11: 'all_to_cluster', 12: scout, 13: 'hbnet_design_profile', 14: structure_background}
 stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
            stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
            stage[5]: {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
