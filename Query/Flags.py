@@ -1,14 +1,12 @@
 from copy import copy
 
-from PathUtils import program_command, nano, program_name, nstruct, interface_design
-from Query.PDB import format_string, header_string
-from Query.utils import input_string, confirmation_string, bool_d, invalid_string
+from PathUtils import program_command, nano, program_name, nstruct, interface_design, generate_fragments
+from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
     format_index_string
 from SequenceProfile import read_fasta_file
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
-generate_frags = 'generate_fragments'
 # Todo separate into types of options, aka fragments, residue selection, symmetry
 global_flags = {'symmetry': {'type': str, 'default': None,
                 'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
@@ -30,26 +28,26 @@ global_flags = {'symmetry': {'type': str, 'default': None,
                                        'be invoked for each job?'},
                 }
 design_flags = {
-    'design_with_evolution': {'type': bool, 'default': True,
-                              'description': 'Whether to design with evolutionary amino acid frequency info'},
-    'design_with_fragments': {'type': bool, 'default': True,
-                              'description': 'Whether to design with fragment amino acid frequency info'},
+    # 'design_with_evolution': {'type': bool, 'default': True,
+    #                           'description': 'Whether to design with evolutionary amino acid frequency info'},
+    # 'no_term_constraint': {'type': bool, 'default': True,
+    #                           'description': 'Whether to design with fragment amino acid frequency info'},
     # 'fragments_exist': {'type': bool, 'default': True,
     #                     'description': 'If fragment data has been generated for the design,%s'
     #                                    'If nanohedra_output is True, this is also True'
     #                                    % terminal_formatter},
-    'generate_fragments': {'type': bool, 'default': False,
-                           'description': 'Whether fragments should be generated fresh for each Pose'},
+    # generate_fragments: {'type': bool, 'default': False,
+    #                        'description': 'Whether fragments should be generated fresh for each Pose'},
     'write_fragments': {'type': bool, 'default': True,
                         'description': 'Whether fragments should be written to file for each Pose'},
     'output_assembly': {'type': bool, 'default': False,
                         'description': 'If symmetric, whether the expanded assembly should be output.%s'
                                        '2- and 3-D materials will be output with a single unit cell.'
                                        % terminal_formatter},
-    'number_of_trajectories': {'type': int, 'default': nstruct,
-                               'description': 'The number of individual design trajectories to be run for each design'
-                                              '%sThis determines how many sequence sampling runs are used.'
-                                              % terminal_formatter},
+    # 'number_of_trajectories': {'type': int, 'default': nstruct,
+    #                            'description': 'The number of individual design trajectories to be run for each design'
+    #                                           '%sThis determines how many sequence sampling runs are used.'
+    #                                           % terminal_formatter},
     'require_design_at_residues':
         {'type': str, 'default': None,
          'description': 'Regardless of participation in an interface,%sif certain residues should be included in'

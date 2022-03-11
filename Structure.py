@@ -1,6 +1,5 @@
 import os
 import subprocess
-from collections import UserList
 from copy import copy  # , deepcopy
 from collections.abc import Iterable
 from itertools import repeat
@@ -15,10 +14,10 @@ from scipy.spatial.transform import Rotation
 from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended, \
     protein_letters_1to3_extended
 
+from DesignMetrics import gxg_sasa
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl
 # from ProteinExpression import find_expression_tags, remove_expression_tags
-# from Pose import Pose
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
     retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
@@ -26,18 +25,11 @@ from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
     possible_symmetries
 from utils.GeneralUtils import transform_coordinate_sets
-
-# globals
 from utils.SymmetryUtils import get_ptgrp_sym_op
 
+# globals
 logger = start_log(name=__name__)
 seq_res_len = 52
-# from table 1, theoretical values of Tien et al. 2013
-gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225, 'G': 104, 'H': 224, 'I': 197,
-            'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174,
-            'ALA': 129, 'ARG': 274, 'ASN': 195, 'ASP': 193, 'CYS': 167, 'GLU': 223, 'GLN': 225, 'GLY': 104, 'HIS': 224,
-            'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
-            'TYR': 263, 'VAL': 174}  # from table 1, theoretical values of Tien et al. 2013
 mutation_directives = ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
 residue_properties = {'ALA': {'hydrophobic', 'apolar'},
                       'CYS': {'special', 'hydrophobic', 'apolar', 'polar', 'hbonding'},

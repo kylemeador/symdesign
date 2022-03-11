@@ -3,6 +3,9 @@ confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
 boolean_input_string = '\nPlease specify [y/n]%s' % input_string
 invalid_string = 'Invalid choice, please try again.'
+header_string = '%s %s %s\n' % ('-' * 20, '%s', '-' * 20)
+format_string = '\t%s\t\t%s'
+numbered_format_string = format_string % ('%d - %s', '%s')
 
 
 def validate_input(prompt, response=None):
