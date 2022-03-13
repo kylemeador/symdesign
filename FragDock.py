@@ -789,20 +789,20 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     transform_passing_shift_indices = np.array(
                         [idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
 
-                    if rot2_count % 2 == 0:
-                        # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
-                        log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts[possible_overlaps][
-                            transform_passing_shift_indices])
-                        log.debug('Passing shift surf residue pairs: %s' % forward_surface[possible_overlaps][
-                            transform_passing_shift_indices])
-                    else:
-                        # print('Passing shift indices:', transform_passing_shift_indices.tolist())
-                        # print('Passing shift ghost indices:', overlapping_ghost_frags[transform_passing_shift_indices].tolist())
-                        log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts[
-                            transform_passing_shift_indices].tolist())
-                        # print('Passing shift surf indices:', overlapping_surf_frags[transform_passing_shift_indices].tolist())
-                        log.debug('Passing shift surf residue pairs: %s' % forward_surface[
-                            transform_passing_shift_indices].tolist())
+                    # if rot2_count % 2 == 0:
+                    #     # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
+                    #     log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts[possible_overlaps][
+                    #         transform_passing_shift_indices])
+                    #     log.debug('Passing shift surf residue pairs: %s' % forward_surface[possible_overlaps][
+                    #         transform_passing_shift_indices])
+                    # else:
+                    #     # print('Passing shift indices:', transform_passing_shift_indices.tolist())
+                    #     # print('Passing shift ghost indices:', overlapping_ghost_frags[transform_passing_shift_indices].tolist())
+                    #     log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts[
+                    #         transform_passing_shift_indices].tolist())
+                    #     # print('Passing shift surf indices:', overlapping_surf_frags[transform_passing_shift_indices].tolist())
+                    #     log.debug('Passing shift surf residue pairs: %s' % forward_surface[
+                    #         transform_passing_shift_indices].tolist())
 
                     blank_vector = np.zeros((number_passing_shifts, 1), dtype=float)  # length is by column
                     if sym_entry.unit_cell:
@@ -840,7 +840,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external + 1] \
                         if sym_entry.is_internal_tx2 else blank_vector
                     stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1[:, None]))
-                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
+                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2[:, None]))
                     # stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2[:, None]))
                     stacked_rot_mat1 = np.tile(rot_mat1, (number_passing_shifts, 1, 1))
                     stacked_rot_mat2 = np.tile(rot_mat2, (number_passing_shifts, 1, 1))
