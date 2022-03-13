@@ -390,9 +390,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
     if log is None:
         # Output Directory  # Todo DesignDirectory
-        pdb1_name = os.path.basename(os.path.splitext(pdb1)[0])  # inherent in load
-        pdb2_name = os.path.basename(os.path.splitext(pdb2)[0])  # inherent in load
-        building_blocks = '%s_%s' % (pdb1_name, pdb2_name)
+        # pdb1_name = os.path.basename(os.path.splitext(pdb1)[0])  # inherent in load
+        # pdb2_name = os.path.basename(os.path.splitext(pdb2)[0])  # inherent in load
+        building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
         # building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
         outdir = os.path.join(master_outdir, building_blocks)
         os.makedirs(outdir, exist_ok=True)
