@@ -1,5 +1,6 @@
 import os
 
+import numpy
 import numpy as np
 # from numba import njit
 
@@ -41,7 +42,8 @@ def transform_coordinates(coords, rotation=None, translation=None, rotation2=Non
 
 
 # @njit
-def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotation2=None, translation2=None):
+def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotation2=None, translation2=None) \
+        -> numpy.ndarray:
     """Take a set of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the order of
     operations as: rotation, translation, rotation2, translation2
 

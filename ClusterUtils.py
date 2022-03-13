@@ -1,8 +1,10 @@
 import os
 import subprocess
 from itertools import combinations
+from typing import List, Tuple
 from warnings import catch_warnings, simplefilter
 
+import numpy
 import numpy as np
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
@@ -428,7 +430,7 @@ def cluster_transformation_pairs(transform1, transform2, distance=1.0, minimum_m
     return nearest_neightbors_ball_tree, dbscan_cluster  # .labels_
 
 
-def find_cluster_representatives(transform_tree, cluster):
+def find_cluster_representatives(transform_tree, cluster) -> Tuple[List, numpy.ndarray]:
     """Return the cluster representative indices and the cluster membership identity for all member data
 
     Args:
@@ -442,7 +444,7 @@ def find_cluster_representatives(transform_tree, cluster):
     # find cluster mean for each index
     with catch_warnings():
         # empty slices can't have mean, so catch warning if cluster is an outlier
-        simplefilter("ignore", category=RuntimeWarning)
+        simplefilter('ignore', category=RuntimeWarning)
         mean_cluster_dist = np.empty(tree_distances.shape[0])
         for idx, array in enumerate(tree_distances.tolist()):
             mean_cluster_dist[idx] = array.mean()
