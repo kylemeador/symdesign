@@ -752,12 +752,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
                     log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
                              'coordinate pairs')
-                    if rot2_count % 2 == 0:
-                        possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # bool index the indices
-                        possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
-                    else:
-                        possible_ghost_frag_indices = overlapping_ghost_frags
-                        possible_surf_frag_indices = overlapping_surf_frags
+                    # if rot2_count % 2 == 0:
+                    possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # bool index the indices
+                    possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
+                    # else:
+                    #     possible_ghost_frag_indices = overlapping_ghost_frags
+                    #     possible_surf_frag_indices = overlapping_surf_frags
                         # passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[overlapping_ghost_frags]
                         # passing_surf_coords = surf_frags2_guide_coords_rot_and_set[overlapping_surf_frags]
                         # reference_rmsds = init_ghost_frag1_rmsds[overlapping_ghost_frags]
@@ -786,8 +786,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                  % optimal_shifts_time)
                         continue
 
-                    transform_passing_shift_indices = np.array(
-                        [idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
+                    # transform_passing_shift_indices = np.array(
+                    #     [idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
 
                     # if rot2_count % 2 == 0:
                     #     # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
