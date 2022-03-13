@@ -4,7 +4,7 @@ import numpy as np
 
 
 class OptimalTx:
-    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1., number_of_coordinates=3):
+    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1., number_of_coordinates=3.):
         self.max_z_value = max_z_value
         self.number_of_coordinates = number_of_coordinates
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
@@ -13,6 +13,7 @@ class OptimalTx:
         self.zshift2 = zshift2  # internal translational DOF2
         self.dof9 = None
         self.dof9_t = None
+        self.dof9t_dof9 = None
 
         # add internal z-shift degrees of freedom to 9-dim arrays if they exist
         self.n_dof_internal = 0
@@ -43,9 +44,11 @@ class OptimalTx:
         """Convert input degrees of freedom to 9-dim arrays. Repeat DOF ext for each set of 3 coordinates (3 sets)"""
         self.dof9_t = np.zeros((self.n_dof, 9))
         for i in range(self.n_dof):
-            self.dof9_t[i] = np.array(self.number_of_coordinates * [self.dof[i]]).flatten()
+            # self.dof9_t[i] = np.array(self.number_of_coordinates * [self.dof[i]]).flatten()
+            self.dof9_t[i] = np.array(self.number_of_coordinates * self.dof[i])
             # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
         self.dof9 = np.transpose(self.dof9_t)
+        self.dof9t_dof9 = np.matmul(self.dof9_t, self.dof9)
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
         """This routine solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
@@ -55,44 +58,55 @@ class OptimalTx:
             coords1 (np.ndarray): A 3 x 3 array with cartesian coordinates
             coords2 (np.ndarray): A 3 x 3 array with cartesian coordinates
             coords_rmsd_reference (float): The reference deviation to compare to the coords1 and coords2 error
-        Keyword Args:
-            max_z_value=1 (float): The maximum initial error tolerated
         Returns:
             (Union[numpy.ndarray, None]): Returns the optimal translation or None if error is too large.
                 Optimal translation has external dof first, followed by internal tx dof
         """
-
         # form the guide coords into a matrix (column vectors)
-        guide_target_10 = np.transpose(coords1)
-        guide_query_10 = np.transpose(coords2)
+        # guide_target_10 = np.transpose(coords1)
+        # guide_query_10 = np.transpose(coords2)
 
         # calculate the initial difference between query and target (9 dim vector)
-        guide_delta = np.transpose([guide_target_10.flatten('F') - guide_query_10.flatten('F')])
-        # flatten column vector matrix above [[x, x, x], [y, y, y], [z, z, z]] -> [x, y, z, x, y, z, x, y, z], then T
+        # With the transpose and the flatten, it could be accomplished by normal flatten!
+        guide_delta = np.transpose([coords1.flatten() - coords2.flatten()])
+        # flatten column vector matrix above [[x, y, z], [x, y, z], [x, y, z]] -> [x, y, z, x, y, z, x, y, z], then T
 
-        # isotropic case based on simple rmsd
-        var_tot_inv = np.zeros([9, 9])
-        for i in range(9):
-            # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
-            var_tot_inv[i, i] = 1. / (float(self.number_of_coordinates) * coords_rmsd_reference ** 2)
+        # # isotropic case based on simple rmsd
+        # | var_tot_inv = np.zeros([9, 9])
+        # | for i in range(9):
+        # |     # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
+        # |     var_tot_inv[i, i] = 1. / (float(self.number_of_coordinates) * coords_rmsd_reference ** 2)
+        # can be simplified to just use the scalar
+        var_tot = self.number_of_coordinates * coords_rmsd_reference ** 2
 
         # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
         # self.dof9_t transpose (row major: n_dof_ext x 9)
-        dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance x degree of freedom = (9 x n_dof)
-        vtdinvv = np.matmul(self.dof9_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
-        vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
+        # below is degrees_of_freedom / variance
+        # | dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance (9 x 9) x degree of freedom (9 x n_dof) = (9 x n_dof)
+        # dinvv = self.dof9 / var_tot
+        # below, each i, i is the (individual_dof^2) * 3 / variance. i, j is the (covariance of i and jdof * 3) / variance
+        # | vtdinvv = np.matmul(self.dof9_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
+        # above could be simplifed to vtdinvv = np.matmul(self.dof9_t, self.dof9) / var_tot_inv  # first part same for each guide coord
+        # now done below
+        # vtdinvv = np.matmul(self.dof9_t, self.dof9) / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
+        vtdinvv = self.dof9t_dof9 / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
+        # | vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)  # because isotropic, this has no effect?
+        # below is guide atom difference / variance
+        # | dinvdelta = np.matmul(var_tot_inv, guide_delta)  # 1/variance (9 x 9) x guide atom diff (9 x 1) = (9 x 1)
+        # dinvdelta = guide_delta / var_tot
+        # below is essentially (SUM(dof basis * guide atom basis difference) for each guide atom) /variance by each DOF
+        # | vtdinvdelta = np.matmul(self.dof9_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
+        vtdinvdelta = np.matmul(self.dof9_t, guide_delta) / var_tot # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
 
-        dinvdelta = np.matmul(var_tot_inv, guide_delta)  # 1/variance (9 x 9) x guide atom diff (9 x 1) = (9 x 1)
-        vtdinvdelta = np.matmul(self.dof9_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
+        # below is inverse dof covariance matrix/variance * dof guide_atom_delta sum / variance
+        # | shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
+        shift = np.matmul(vtdinvv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
 
-        shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
-
-        # get error value
-        resid = np.matmul(self.dof9, shift) - guide_delta
-        resid_t = np.transpose(resid)
-
-        error = np.sqrt(np.matmul(resid_t, resid) / float(self.number_of_coordinates)) / coords_rmsd_reference
+        # get error value from the ideal translation and the delta
+        resid = np.matmul(self.dof9, shift) - guide_delta  # (9 x n_dof) x (n_dof x 1) - (9 x 1) = (9 x 1)
+        error = \
+            np.sqrt(np.matmul(np.transpose(resid), resid) / float(self.number_of_coordinates)) / coords_rmsd_reference
         # NEW. Is float(3.0) a scale?
         # OLD. sqrt(variance / 3) / cluster_rmsd
 
@@ -100,3 +114,67 @@ class OptimalTx:
             return shift[:, 0]  # .tolist()  # , error
         else:
             return
+
+    def solve_optimal_shifts(self, coords1, coords2, coords_rmsd_reference):
+        """This routine solves the optimal shift problem for overlapping a pair of coordinates and comparing to a
+        reference RMSD to compute an error
+
+        Args:
+            coords1 (np.ndarray): A N x 3 x 3 array with cartesian coordinates
+            coords2 (np.ndarray): A N x 3 x 3 array with cartesian coordinates
+            coords_rmsd_reference (np.ndarray): Array with length N with reference deviation to compare to the coords1
+                and coords2 error
+        Returns:
+            (numpy.ndarray): Returns the optimal translation or None if error is too large.
+                Optimal translation has external dof first, followed by internal tx dof
+        """
+        # TODO
+        #  vectorize like the following
+        #  coord_sets = np.matmul(coord_sets, rotation2.swapaxes(-2, -1))
+        # form the guide coords into a matrix (column vectors)
+        # guide_target_10 = np.transpose(coords1)
+        # guide_query_10 = np.transpose(coords2)
+
+        # calculate the initial difference between each query and target (9 dim vector by coords.shape[0])
+        guide_delta = np.transpose((coords1 - coords2).reshape(-1, 9))
+        # flatten column vector matrix above [[x, x, x], [y, y, y], [z, z, z]] -> [x, y, z, x, y, z, x, y, z], then T
+
+        # # isotropic case based on simple rmsd
+        # | var_tot_inv = np.zeros([9, 9])
+        # | for i in range(9):
+        # |     # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
+        # |     var_tot_inv[i, i] = 1. / (float(self.number_of_coordinates) * coords_rmsd_reference ** 2)
+        # can be simplified to just use the scalar
+        var_tot = self.number_of_coordinates * coords_rmsd_reference ** 2
+
+        # solve the problem using 9-dim degrees of freedom arrays
+        # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
+        # self.dof9_t transpose (row major: n_dof_ext x 9)
+        # below is degrees_of_freedom / variance
+        # | dinvv = np.matmul(var_tot_inv, self.dof9)  # 1/variance (9 x 9) x degree of freedom (9 x n_dof) = (9 x n_dof)
+        # dinvv = self.dof9 / var_tot
+        # below, each i, i is the (individual_dof^2) * 3 / variance. i, j is the (covariance of i and jdof * 3) / variance
+        # | vtdinvv = np.matmul(self.dof9_t, dinvv)  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
+        # above could be simplifed to vtdinvv = np.matmul(self.dof9_t, self.dof9) / var_tot_inv  # first part same for each guide coord
+        # now done below
+        # vtdinvv = np.matmul(self.dof9_t, self.dof9) / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
+        vtdinvv = np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)) / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
+        # | vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)  # because isotropic, this has no effect?
+        # below is guide atom difference / variance
+        # | dinvdelta = np.matmul(var_tot_inv, guide_delta)  # 1/variance (9 x 9) x guide atom diff (9 x 1) = (9 x 1)
+        # dinvdelta = guide_delta / var_tot
+        # below is essentially (SUM(dof basis * guide atom basis difference) for each guide atom) /variance by each DOF
+        # | vtdinvdelta = np.matmul(self.dof9_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
+        vtdinvdelta = np.matmul(np.tile(self.dof9_t, (coords1.shape[0], 1, 1)), guide_delta) / var_tot # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
+
+        # below is inverse dof covariance matrix/variance * dof guide_atom_delta sum / variance
+        # | shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
+        shift = np.matmul(vtdinvv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
+
+        # get error value from the ideal translation and the delta
+        resid = np.matmul(np.tile(self.dof9, (coords1.shape[0], 1, 1)), shift) - guide_delta  # (9 x n_dof) x (n_dof x 1) - (9 x 1) = (9 x 1)
+        error = np.sqrt(np.matmul(np.transpose(resid), resid) / float(self.number_of_coordinates)) / coords_rmsd_reference
+        # NEW. Is float(3.0) a scale?
+        # OLD. sqrt(variance / 3) / cluster_rmsd
+
+        return error[np.nonzero(error <= self.max_z_value)]  # , error, None)
