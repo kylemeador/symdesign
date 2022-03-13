@@ -767,16 +767,20 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     reference_rmsds = init_ghost_frag1_rmsds[possible_ghost_frag_indices]
 
                     optimal_shifts_start = time.time()
-                    optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
-                                                                     reference_rmsds[idx])
-                                      for idx, ghost_coords in enumerate(passing_ghost_coords)]
+                    if rot2_count % 2 == 0:
+                        optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
+                                                                         reference_rmsds[idx])
+                                          for idx, ghost_coords in enumerate(passing_ghost_coords)]
+                        transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
+                    else:
+                        transform_passing_shifts = \
+                            optimal_tx.solve_optimal_shift(passing_ghost_coords, passing_surf_coords, reference_rmsds)
                     optimal_shifts_time = time.time() - optimal_shifts_start
                     # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
                     # passing_optimal_shifts.extend(transform_passing_shifts)
                     # degen_rot_counts.extend(repeat((degen1_count, degen2_count, rot1_count, rot2_count),
                     #                                number_passing_shifts))
                     # for idx, tx_parameters in enumerate(transform_passing_shifts, 1):
-                    transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
 
                     number_passing_shifts = len(transform_passing_shifts)
                     if number_passing_shifts == 0:
