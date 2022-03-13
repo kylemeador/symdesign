@@ -188,8 +188,7 @@ def get_rotation_step(sym_entry, rot_step_deg1=None, rot_step_deg2=None, initial
             rot_step_deg1 = 3  # set rotation step to default
     else:
         if rot_step_deg1 and initial:
-            log.write('Warning: Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have Internal Rotational '
-                      'DOF\n\n')
+            log.warning('Specified Rotation Step 1 Was Ignored. Oligomer 1 Doesn\'t Have Internal Rotational DOF\n\n')
         rot_step_deg1 = 1
 
     if sym_entry.is_internal_rot2:  # if rotation step required
@@ -197,8 +196,7 @@ def get_rotation_step(sym_entry, rot_step_deg1=None, rot_step_deg2=None, initial
             rot_step_deg2 = 3  # set rotation step to default
     else:
         if rot_step_deg2 and initial:
-            log.write('Warning: Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have Internal Rotational '
-                      'DOF\n\n')
+            log.warning('Specified Rotation Step 2 Was Ignored. Oligomer 2 Doesn\'t Have Internal Rotational DOF\n\n')
         rot_step_deg2 = 1
 
     return rot_step_deg1, rot_step_deg2
@@ -228,7 +226,7 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
     log.info('SCM Dimension: %d\n' % sym_entry.dimension)
     log.info('SCM Unit Cell Specification: %s\n\n' % sym_entry.uc_specification)
     rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2, initial=True,
-                                                     log=master_log_file)
+                                                     log=log)
     # # Default Rotation Step
     # if sym_entry.is_internal_rot1:  # if rotation step required
     #     if not rot_step_deg1:
