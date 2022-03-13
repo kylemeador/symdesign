@@ -269,7 +269,7 @@ class SymEntry:
 
         ext_dof_indices = []
         if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
-            self.ext_dof = np.array([0., 0., 0.])
+            self.ext_dof = np.empty((0, 3), float)  # np.array([0., 0., 0.])
         else:
             difference_matrix = self.group_external_dof2 - self.group_external_dof1
             difference_sum = difference_matrix.sum(axis=1)
