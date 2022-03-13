@@ -829,7 +829,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     else:
                         # optimal_ext_dof_shifts = list(repeat(None, number_passing_shifts))
                         positive_indices = np.arange(number_passing_shifts)
-                        stacked_external_tx1, stacked_external_tx2 = None, None
+                        # stacked_external_tx1, stacked_external_tx2 = None, None
                         full_ext_tx1, full_ext_tx2 = None, None
                         # stacked_external_tx1 = list(repeat(None, number_passing_shifts))
                         # stacked_external_tx2 = list(repeat(None, number_passing_shifts))
@@ -888,9 +888,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
     # must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
     transformation1 = {'rotation': full_rotation1, 'translation': full_int_tx1[:, np.newaxis, :],
-                       'rotation2': full_setting1, 'translation2': full_ext_tx1[:, np.newaxis, :]}
+                       'rotation2': full_setting1,
+                       'translation2': full_ext_tx1[:, np.newaxis, :] if full_ext_tx1 else None}
     transformation2 = {'rotation': full_rotation2, 'translation': full_int_tx2[:, np.newaxis, :],
-                       'rotation2': full_setting2, 'translation2': full_ext_tx2[:, np.newaxis, :]}
+                       'rotation2': full_setting2,
+                       'translation2': full_ext_tx2[:, np.newaxis, :] if full_ext_tx2 else None}
 
     # find the clustered transformations to expedite search of ASU clashing
     # Todo
@@ -959,7 +961,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
                        'rotation2': full_setting2,
-                       'translation2': full_ext_tx_sum[:, np.newaxis, :] * -1}  # invert translation
+                       'translation2': full_ext_tx_sum[:, np.newaxis, :] * -1 if full_ext_tx_sum else None}  # invert translation
     tile_transform2 = {'rotation': full_inv_setting1,
                        'translation': full_int_tx1[:, np.newaxis, :] * -1,
                        'rotation2': full_inv_rotation2,
@@ -977,27 +979,31 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         np.array([oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx])
                   for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
     check_clash_coords_time = time.time() - check_clash_coords_start
-    log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s)' % check_clash_coords_time)
 
     asu_is_viable = np.where(asu_clash_counts == 0)  # , True, False)
+    number_of_non_clashing_transforms = len(asu_is_viable)
+    log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
+             % (check_clash_coords_time, number_of_non_clashing_transforms))
+
     full_rotation1 = full_rotation1[asu_is_viable]
     full_rotation2 = full_rotation2[asu_is_viable]
     full_int_tx1 = full_int_tx1[asu_is_viable]
     full_int_tx2 = full_int_tx2[asu_is_viable]
     superposition_setting1_stack = superposition_setting1_stack[asu_is_viable]
     # full_setting1 = full_setting1[asu_is_viable]
-    # full_setting2 = full_setting2[asu_is_viable]
+    full_setting2 = full_setting2[asu_is_viable]
     if sym_entry.unit_cell:
         full_uc_dimensions = full_uc_dimensions[asu_is_viable]
         # viable_uc_dimensions = full_uc_dimensions[asu_is_viable]
         # multiply by -1 to invert the translation
         full_ext_tx1 = full_ext_tx1[asu_is_viable]
         full_ext_tx2 = full_ext_tx2[asu_is_viable]
+        full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     else:
         full_uc_dimensions = None
     full_inv_rotation2 = full_inv_rotation2[asu_is_viable]
+    full_inv_setting1 = full_inv_setting1[asu_is_viable]
     viable_cluster_labels = cluster_labels[asu_is_viable]
-    number_of_non_clashing_transforms = len(asu_is_viable)
 
     #################
     pdb1_cb_balltree = BallTree(pdb1.get_cb_coords())
@@ -1006,21 +1012,30 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # stack the superposition_rotation_matrix
     # superposition_setting1_stack = np.tile(superposition_setting_1to2, (number_of_non_clashing_transforms, 1, 1))
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with pdb1 ORIGINAL
-    tile_transform1 = \
-        {'rotation': full_rotation2, 'translation': full_int_tx2[:, np.newaxis, :],
-         'rotation2': superposition_setting1_stack,
-         'translation2': full_int_tx1[:, np.newaxis, :] * -1}  # invert translation
-    tile_transform2 = \
-        {'rotation': full_inv_rotation2, 'translation': full_ext_tx2,
-         'rotation2': None, 'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
+    # tile_transform1 = \
+    #     {'rotation': full_rotation2, 'translation': full_int_tx2[:, np.newaxis, :],
+    #      'rotation2': superposition_setting1_stack,
+    #      'translation2': full_int_tx1[:, np.newaxis, :] * -1}  # invert translation
+    # tile_transform2 = \
+    #     {'rotation': full_inv_rotation2, 'translation': full_ext_tx2,
+    #      'rotation2': None, 'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
+    tile_transform1 = {'rotation': full_rotation2,
+                       'translation': full_int_tx2[:, np.newaxis, :],
+                       'rotation2': full_setting2,
+                       'translation2': full_ext_tx_sum[:, np.newaxis, :] * -1 if full_ext_tx_sum else None}  # invert translation
+    tile_transform2 = {'rotation': full_inv_setting1,
+                       'translation': full_int_tx1[:, np.newaxis, :] * -1,
+                       'rotation2': full_inv_rotation2,
+                       'translation2': None}
     int_cb_and_frags_start = time.time()
     pdb2_tiled_cb_coords = np.tile(pdb2.get_cb_coords(), (number_of_non_clashing_transforms, 1, 1))
     transformed_pdb2_tiled_cb_coords = transform_coordinate_sets(pdb2_tiled_cb_coords, **tile_transform1)
     inverse_transformed_pdb2_tiled_cb_coords = \
         transform_coordinate_sets(transformed_pdb2_tiled_cb_coords, **tile_transform2)
     surf_frags2_tiled_guide_coords = np.tile(surf_frags2_guide_coords, (number_of_non_clashing_transforms, 1, 1))
+    transformed_surf_frags2_guide_coords = transform_coordinate_sets(surf_frags2_tiled_guide_coords, **tile_transform1)
     inverse_transformed_surf_frags2_guide_coords = \
-        transform_coordinate_sets(surf_frags2_tiled_guide_coords, **tile_transform2)
+        transform_coordinate_sets(transformed_surf_frags2_guide_coords, **tile_transform2)
 
     pdb1_cb_indices = pdb1.cb_indices
     pdb2_cb_indices = pdb2.cb_indices
