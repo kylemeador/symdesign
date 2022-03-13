@@ -4,7 +4,7 @@ import numpy as np
 
 
 class OptimalTx:
-    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1., number_of_coordinates=3.):
+    def __init__(self, dof_ext=None, zshift1=None, zshift2=None, max_z_value=1., number_of_coordinates=3):
         self.max_z_value = max_z_value
         self.number_of_coordinates = number_of_coordinates
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
@@ -77,7 +77,7 @@ class OptimalTx:
         # |     # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
         # |     var_tot_inv[i, i] = 1. / (float(self.number_of_coordinates) * coords_rmsd_reference ** 2)
         # can be simplified to just use the scalar
-        var_tot = self.number_of_coordinates * coords_rmsd_reference ** 2
+        var_tot = float(self.number_of_coordinates) * coords_rmsd_reference ** 2
 
         # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
@@ -145,7 +145,7 @@ class OptimalTx:
         # |     # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
         # |     var_tot_inv[i, i] = 1. / (float(self.number_of_coordinates) * coords_rmsd_reference ** 2)
         # can be simplified to just use the scalar
-        var_tot = self.number_of_coordinates * coords_rmsd_reference ** 2
+        var_tot = float(self.number_of_coordinates) * coords_rmsd_reference ** 2
 
         # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
