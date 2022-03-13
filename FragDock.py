@@ -645,7 +645,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # degen_rot_counts = []
     # stacked_transforms1 = [None for _ in passing_optimal_shifts]
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, \
-    full_setting2, full_ext_tx1, full_ext_tx2, full_optimal_ext_dof_shifts = \
+        full_setting2, full_ext_tx1, full_ext_tx2, full_optimal_ext_dof_shifts = \
         [], [], [], [], [], [], [], [], []
     # stacked_transforms1, stacked_transforms2 = [], []
     for degen1 in degen_rot_mat_1[degen1_count:]:
@@ -752,7 +752,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
                     log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
                              'coordinate pairs')
-                    if rot2_count % 1 == 0:
+                    if rot2_count % 2 == 0:
                         possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # bool index the indices
                         possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
                     else:
@@ -789,7 +789,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     transform_passing_shift_indices = np.array(
                         [idx for idx, shift in enumerate(optimal_shifts) if shift is not None])
 
-                    if rot2_count % 1 == 0:
+                    if rot2_count % 2 == 0:
                         # print('***** possible overlap indices:', np.where(possible_overlaps == True)[0].tolist())
                         log.debug('Passing shift ghost residue pairs: %s' % forward_ghosts[possible_overlaps][
                             transform_passing_shift_indices])
@@ -932,26 +932,38 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     full_rotation2 = full_rotation2[sufficiently_dense_indices]
     full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
     full_int_tx2 = full_int_tx2[sufficiently_dense_indices]
-    # full_setting1 = full_setting1[sufficiently_dense_indices]
-    # full_setting2 = full_setting2[sufficiently_dense_indices]
+    full_setting1 = full_setting1[sufficiently_dense_indices]
+    full_setting2 = full_setting2[sufficiently_dense_indices]
     if sym_entry.unit_cell:
         full_uc_dimensions = full_uc_dimensions[sufficiently_dense_indices]
         full_ext_tx1 = full_ext_tx1[sufficiently_dense_indices]
         full_ext_tx2 = full_ext_tx2[sufficiently_dense_indices]
+        full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+    else:
+        full_ext_tx_sum = None
     full_inv_rotation2 = np.linalg.inv(full_rotation2)
+    full_inv_setting1 = np.linalg.inv(full_setting1)
     number_of_dense_transforms = len(sufficiently_dense_indices)
     superposition_setting1_stack = np.tile(superposition_setting_1to2, (number_of_dense_transforms, 1, 1))
 
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with pdb1 ORIGINAL
     # multiply by -1 to invert the translation
+    # tile_transform1 = {'rotation': full_rotation2,
+    #                    'translation': full_int_tx2[:, np.newaxis, :],
+    #                    'rotation2': superposition_setting1_stack,
+    #                    'translation2': full_int_tx1[:, np.newaxis, :] * -1}  # invert translation
+    # tile_transform2 = {'rotation': full_inv_rotation2,
+    #                    'translation': full_ext_tx2[:, np.newaxis, :],
+    #                    'rotation2': None,
+    #                    'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
-                       'rotation2': superposition_setting1_stack,
-                       'translation2': full_int_tx1[:, np.newaxis, :] * -1}  # invert translation
-    tile_transform2 = {'rotation': full_inv_rotation2,
-                       'translation': full_ext_tx2[:, np.newaxis, :],
-                       'rotation2': None,
-                       'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
+                       'rotation2': full_setting2,
+                       'translation2': full_ext_tx_sum[:, np.newaxis, :] * -1}  # invert translation
+    tile_transform2 = {'rotation': full_inv_setting1,
+                       'translation': full_int_tx1[:, np.newaxis, :] * -1,
+                       'rotation2': full_inv_rotation2,
+                       'translation2': None}
     pdb2_tiled_coords = np.tile(pdb2_bb_cb_coords, (number_of_dense_transforms, 1, 1))
     transformed_pdb2_tiled_coords = transform_coordinate_sets(pdb2_tiled_coords, **tile_transform1)
     inverse_transformed_pdb2_tiled_coords = transform_coordinate_sets(transformed_pdb2_tiled_coords, **tile_transform2)
