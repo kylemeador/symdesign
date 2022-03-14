@@ -1177,6 +1177,7 @@ class Structure(StructureBase):
         if rotation is not None:  # required for np.ndarray or None checks
             # new_coords = np.matmul(self.coords, np.transpose(rotation))
             rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
+            print(rotation.shape)
             rotation_array[self.atom_indices] = np.array(rotation)  # rotation
             new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially transpose
         else:
@@ -1185,12 +1186,14 @@ class Structure(StructureBase):
         if translation is not None:  # required for np.ndarray or None checks
             # new_coords += np.array(translation)
             translation_array = np.zeros(self._coords.coords.shape)
+            print(translation.shape)
             translation_array[self.atom_indices] = np.array(translation)  # translation
             new_coords += translation_array
 
         if rotation2 is not None:  # required for np.ndarray or None checks
             # new_coords = np.matmul(new_coords, np.transpose(rotation2))
             rotation_array2 = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
+            print(rotation2.shape)
             rotation_array2[self.atom_indices] = np.array(rotation2)  # rotation2
             new_coords = np.matmul(new_coords, rotation_array2.swapaxes(-2, -1))  # essentially transpose
 
