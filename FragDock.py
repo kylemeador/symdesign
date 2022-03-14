@@ -998,6 +998,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # check of transformation with forward of 2 and reverse of 1
     pdb1.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_pdb1.pdb'))
     for idx in range(5):
+        print(full_rotation2[idx].shape)
+        print(full_int_tx2[idx].shape)
+        print(set_mat2.shape)
+        print(full_ext_tx_sum[idx].shape if full_ext_tx_sum else None)
         pdb2_copy = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
                                                     'translation': full_int_tx2[idx],
                                                     'rotation2': set_mat2,
