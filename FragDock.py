@@ -924,12 +924,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         cluster_transformation_pairs(transformation1, transformation2, minimum_members=min_matched)
     cluster_representative_indices, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
     sufficiently_dense_indices = np.where(cluster_labels != -1)
-    number_viable_indices = len(sufficiently_dense_indices[0])
+    number_of_dense_transforms = len(sufficiently_dense_indices[0])
     clustering_time = time.time() - clustering_start
 
     log.info('Found %d total transforms, %d of which are missing the minimum number of close transforms to be viable. '
-             '%d remain (took %f s)' % (starting_transforms, starting_transforms - number_viable_indices,
-                                        number_viable_indices, clustering_time))
+             '%d remain (took %f s)' % (starting_transforms, starting_transforms - number_of_dense_transforms,
+                                        number_of_dense_transforms, clustering_time))
     # representative_labels = cluster_labels[cluster_representative_indices]
 
     # Transform the oligomeric coords to query for clashes
@@ -951,7 +951,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     full_inv_rotation2 = np.linalg.inv(full_rotation2)
     # full_inv_setting1 = np.linalg.inv(full_setting1)
     inv_setting1 = np.linalg.inv(set_mat1)
-    number_of_dense_transforms = len(sufficiently_dense_indices)
     # superposition_setting1_stack = np.tile(superposition_setting_1to2, (number_of_dense_transforms, 1, 1))
 
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with pdb1 ORIGINAL
@@ -982,12 +981,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
     check_clash_coords_start = time.time()
     asu_clash_counts = \
-        np.array([oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx])
+        np.array([oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx],
+                                                                   [clash_dist])
                   for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
     check_clash_coords_time = time.time() - check_clash_coords_start
 
     asu_is_viable = np.where(asu_clash_counts == 0)  # , True, False)
-    number_of_non_clashing_transforms = len(asu_is_viable)
+    number_of_non_clashing_transforms = len(asu_is_viable[0])
     log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
              % (check_clash_coords_time, number_of_non_clashing_transforms))
 
