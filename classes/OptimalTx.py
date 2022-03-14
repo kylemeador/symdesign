@@ -145,7 +145,7 @@ class OptimalTx:
         # |     # fill in var_tot_inv with 1/ 3x the mean squared deviation (deviation sum)
         # |     var_tot_inv[i, i] = 1. / (float(self.number_of_coordinates) * coords_rmsd_reference ** 2)
         # can be simplified to just use the scalar
-        var_tot = float(self.number_of_coordinates) * coords_rmsd_reference ** 2
+        var_tot = (float(self.number_of_coordinates) * coords_rmsd_reference ** 2).reshape(-1, 1, 1)
 
         # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
