@@ -775,7 +775,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     else:
                         transform_passing_shifts = \
                             optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
-                    log.info('transform_passing_shifts %s' % transform_passing_shifts[:5])
                     optimal_shifts_time = time.time() - optimal_shifts_start
                     # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
                     # passing_optimal_shifts.extend(transform_passing_shifts)
@@ -925,11 +924,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         cluster_transformation_pairs(transformation1, transformation2, minimum_members=min_matched)
     cluster_representative_indices, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
     sufficiently_dense_indices = np.where(cluster_labels != -1)
+    number_viable_indices = len(sufficiently_dense_indices[0])
     clustering_time = time.time() - clustering_start
 
     log.info('Found %d total transforms, %d of which are missing the minimum number of close transforms to be viable. '
-             '%d remain (took %f s)' % (starting_transforms, starting_transforms - sufficiently_dense_indices[0],
-                                        sufficiently_dense_indices[0], clustering_time))
+             '%d remain (took %f s)' % (starting_transforms, starting_transforms - number_viable_indices,
+                                        number_viable_indices, clustering_time))
     # representative_labels = cluster_labels[cluster_representative_indices]
 
     # Transform the oligomeric coords to query for clashes
