@@ -774,7 +774,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                         transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
                     else:
                         transform_passing_shifts = \
-                            optimal_tx.solve_optimal_shift(passing_ghost_coords, passing_surf_coords, reference_rmsds)
+                            optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
                     optimal_shifts_time = time.time() - optimal_shifts_start
                     # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
                     # passing_optimal_shifts.extend(transform_passing_shifts)
