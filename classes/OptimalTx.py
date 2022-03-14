@@ -131,7 +131,7 @@ class OptimalTx:
                 Optimal translation has external dof first, followed by internal tx dof
         """
         # calculate the initial difference between each query and target (9 dim vector by coords.shape[0])
-        guide_delta = np.transpose((coords1 - coords2).reshape(-1, 9)).swapaxes(-1, -2)
+        guide_delta = np.transpose((coords1 - coords2).reshape(-1, 1, 9)).swapaxes(-1, -2)
         # flatten column vector matrix above [[x, y, z], [x, y, z], [x, y, z]] -> [x, y, z, x, y, z, x, y, z], then T
         logger.info('Guide Delta %s' % guide_delta[:5])
         # # isotropic case based on simple rmsd
