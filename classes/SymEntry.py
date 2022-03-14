@@ -673,7 +673,7 @@ def get_degen_rotmatrices(degeneracy_matrices=None, rotation_matrices=None):
         rotation_matrices (np.ndarray): row major with shape (rotations, 3, 3)
             # [[[x, y, z], [x, y, z], [x, y, z]], ...]
     Returns:
-        (list[np.ndarray])  # (list[list[list[list]]])
+        (list[list[np.ndarray]])  # (list[list[list[list]]])
     """
     if rotation_matrices is not None and degeneracy_matrices is not None:
         degen_rot_matrices = [np.matmul(rotation_matrices, degen_mat) for degen_mat in degeneracy_matrices]
