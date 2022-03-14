@@ -1026,7 +1026,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                      'translation2': full_ext_tx2[idx] if full_ext_tx2 else None})
         pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
 
-    asu_is_viable = np.where(asu_clash_counts == 0)  # , True, False)
+    # print('asu_clash_counts %s' % asu_clash_counts[:5])
+    asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
+    # print('asu_is_viable %s' % asu_is_viable)
+    # print('asu_is_viable %s' % asu_is_viable[0][:5])
     number_of_non_clashing_transforms = len(asu_is_viable[0])
     log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
              % (check_clash_coords_time, number_of_non_clashing_transforms))
