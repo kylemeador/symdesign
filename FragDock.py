@@ -1018,7 +1018,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                      'translation': full_int_tx1[:, np.newaxis, :][idx],
                                                      'rotation2': set_mat1,
                                                      'translation2': full_ext_tx1[:, np.newaxis, :][idx] if full_ext_tx1 else None})
-        pdb1_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
+        pdb1_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform1_%d.pdb' % idx))
         pdb2_copye = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
                                                      'translation': full_int_tx2[:, np.newaxis, :][idx],
                                                      'rotation2': set_mat2,
@@ -1048,7 +1048,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         full_uc_dimensions = None
     full_inv_rotation2 = full_inv_rotation2[asu_is_viable]
     # full_inv_setting1 = full_inv_setting1[asu_is_viable]
-    viable_cluster_labels = cluster_labels[asu_is_viable]
+    # viable_cluster_labels = cluster_labels[asu_is_viable[0]]
 
     #################
     pdb1_cb_balltree = BallTree(pdb1.get_cb_coords())
