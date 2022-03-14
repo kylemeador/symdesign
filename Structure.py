@@ -1177,8 +1177,8 @@ class Structure(StructureBase):
         if rotation is not None:  # required for np.ndarray or None checks
             # new_coords = np.matmul(self.coords, np.transpose(rotation))
             rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-            print(rotation.shape)
             rotation_array[self.atom_indices] = np.array(rotation)  # rotation
+            # Todo ensure the elementwise multiplication of rotation_array with each coordinate
             new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially transpose
         else:
             new_coords = self._coords.coords  # self.coords
@@ -1186,14 +1186,12 @@ class Structure(StructureBase):
         if translation is not None:  # required for np.ndarray or None checks
             # new_coords += np.array(translation)
             translation_array = np.zeros(self._coords.coords.shape)
-            print(translation.shape)
             translation_array[self.atom_indices] = np.array(translation)  # translation
             new_coords += translation_array
 
         if rotation2 is not None:  # required for np.ndarray or None checks
             # new_coords = np.matmul(new_coords, np.transpose(rotation2))
             rotation_array2 = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-            print(rotation2.shape)
             rotation_array2[self.atom_indices] = np.array(rotation2)  # rotation2
             new_coords = np.matmul(new_coords, rotation_array2.swapaxes(-2, -1))  # essentially transpose
 
@@ -3790,16 +3788,16 @@ class Residue:
     def __str__(self, pdb=False, chain=None, atom_offset=0, **kwargs):  # type=None, number=None, **kwargs
         """Format the Residue into the contained Atoms. The Atom number is truncated at 5 digits for PDB compliant
         formatting"""
-        try:
-            res_str = format(self.type, '3s'), (chain or self.chain), \
-                format(getattr(self, 'number%s' % ('_pdb' if pdb else '')), '4d')
-            offset = 1 + atom_offset
-            return '\n'.join(self._atoms.atoms[idx].__str__(**kwargs)
-                             % (format(idx + offset, '5d')[-5:], *res_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
-                             for idx, coord in zip(self._atom_indices, self.coords.tolist()))
-        except TypeError:
-            raise TypeError('Found an error with formatting residue %d, chain %s, coords are likely the culprit: %s'
-                            % (self.number, self.chain, self.coords))
+        # try:
+        res_str = format(self.type, '3s'), (chain or self.chain), \
+            format(getattr(self, 'number%s' % ('_pdb' if pdb else '')), '4d')
+        offset = 1 + atom_offset
+        return '\n'.join(self._atoms.atoms[idx].__str__(**kwargs)
+                         % (format(idx + offset, '5d')[-5:], *res_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
+                         for idx, coord in zip(self._atom_indices, self.coords.tolist()))
+        # except TypeError:
+        #     raise TypeError('Found an error with formatting residue %d, chain %s, coords are likely the culprit: %s'
+        #                     % (self.number, self.chain, self.coords))
 
     def __hash__(self):
         return hash(self.__key())
