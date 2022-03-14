@@ -91,7 +91,7 @@ class OptimalTx:
         # now done below
         # vtdinvv = np.matmul(self.dof9_t, self.dof9) / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
         vtdinvv = self.dof9t_dof9 / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
-        # | vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)  # because isotropic, this has no effect?
+        | vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
         # below is guide atom difference / variance
         # | dinvdelta = np.matmul(var_tot_inv, guide_delta)  # 1/variance (9 x 9) x guide atom diff (9 x 1) = (9 x 1)
         # dinvdelta = guide_delta / var_tot
@@ -101,7 +101,7 @@ class OptimalTx:
 
         # below is inverse dof covariance matrix/variance * dof guide_atom_delta sum / variance
         # | shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
-        shift = np.matmul(vtdinvv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
+        shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
 
         # get error value from the ideal translation and the delta
         resid = np.matmul(self.dof9, shift) - guide_delta  # (9 x n_dof) x (n_dof x 1) - (9 x 1) = (9 x 1)
