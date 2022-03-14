@@ -45,7 +45,7 @@ class OptimalTx:
         self.dof9_t = np.zeros((self.n_dof, 9))
         for i in range(self.n_dof):
             # self.dof9_t[i] = np.array(self.number_of_coordinates * [self.dof[i]]).flatten()
-            self.dof9_t[i] = np.array(self.number_of_coordinates * self.dof[i])
+            self.dof9_t[i] = np.tile(self.dof[i], self.number_of_coordinates)
             # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
         self.dof9 = np.transpose(self.dof9_t)
         self.dof9t_dof9 = np.matmul(self.dof9_t, self.dof9)
