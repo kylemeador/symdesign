@@ -133,7 +133,6 @@ class OptimalTx:
         # calculate the initial difference between each query and target (9 dim vector by coords.shape[0])
         guide_delta = (coords1 - coords2).reshape(-1, 1, 9).swapaxes(-1, -2)
         # flatten column vector matrix above [[x, y, z], [x, y, z], [x, y, z]] -> [x, y, z, x, y, z, x, y, z], then T
-        logger.info('Guide Delta %s' % guide_delta[:5])
         # # isotropic case based on simple rmsd
         # | var_tot_inv = np.zeros([9, 9])
         # | for i in range(9):
@@ -141,7 +140,6 @@ class OptimalTx:
         # |     var_tot_inv[i, i] = 1. / (float(self.number_of_coordinates) * coords_rmsd_reference ** 2)
         # can be simplified to just use the scalar
         var_tot = (float(self.number_of_coordinates) * coords_rmsd_reference ** 2).reshape(-1, 1, 1)
-        logger.info('var_tot %s' % var_tot[:5])
 
         # solve the problem using 9-dim degrees of freedom arrays
         # self.dof9 is column major (9 x n_dof_ext) degree of freedom matrix
@@ -155,27 +153,24 @@ class OptimalTx:
         # now done below
         # vtdinvv = np.matmul(self.dof9_t, self.dof9) / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
         vtdinvv = np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)) / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x n_dof) = (n_dof x n_dof)
-        logger.info('vtdinvv %s' % vtdinvv[:5])
 
         vtdinvvinv = np.linalg.inv(vtdinvv)  # Inverse of above - (n_dof x n_dof)
-        logger.info('vtdinvvinv %s' % vtdinvvinv[:5])
         # below is guide atom difference / variance
         # | dinvdelta = np.matmul(var_tot_inv, guide_delta)  # 1/variance (9 x 9) x guide atom diff (9 x 1) = (9 x 1)
         # dinvdelta = guide_delta / var_tot
         # below is essentially (SUM(dof basis * guide atom basis difference) for each guide atom) /variance by each DOF
         # | vtdinvdelta = np.matmul(self.dof9_t, dinvdelta)  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
         vtdinvdelta = np.matmul(np.tile(self.dof9_t, (coords1.shape[0], 1, 1)), guide_delta) / var_tot  # transpose of degrees of freedom (n_dof x 9) x (9 x 1) = (n_dof x 1)
-        logger.info('vtdinvdelta %s' % vtdinvdelta[:5])
 
         # below is inverse dof covariance matrix/variance * dof guide_atom_delta sum / variance
         shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
-        logger.info('shift %s' % shift[:5])
 
         # get error value from the ideal translation and the delta
         resid = np.matmul(np.tile(self.dof9, (coords1.shape[0], 1, 1)), shift) - guide_delta  # (9 x n_dof) x (n_dof x 1) - (9 x 1) = (9 x 1)
         logger.info('resid %s' % resid[:5])
         error = \
-            np.sqrt(np.matmul(np.transpose(resid), resid) / float(self.number_of_coordinates)) / coords_rmsd_reference
+            np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)) / coords_rmsd_reference
+        logger.info('error %s' % error[:5])
         # NEW. Is float(3.0) a scale?
         # OLD. sqrt(variance / 3) / cluster_rmsd
 
