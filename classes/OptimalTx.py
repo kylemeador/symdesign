@@ -172,4 +172,4 @@ class OptimalTx:
         error = \
             np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)).flatten() / coords_rmsd_reference
 
-        return shift[np.nonzero(error <= self.max_z_value)]
+        return shift[np.nonzero(error <= self.max_z_value)].squeeze()
