@@ -1179,26 +1179,30 @@ class Structure(StructureBase):
             rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
             rotation_array[self.atom_indices] = np.array(rotation)  # rotation
             # Todo ensure the elementwise multiplication of rotation_array with each coordinate
+            print(rotation_array[:5])
             new_coords = np.matmul(self._coords.coords.reshape(-1, 1, 3), rotation_array.swapaxes(-2, -1))  # essentially transpose
         else:
             new_coords = self._coords.coords.reshape(-1, 1, 3)  # self.coords
-
+        print(new_coords[:5])
         if translation is not None:  # required for np.ndarray or None checks
             # new_coords += np.array(translation)
             translation_array = np.zeros(new_coords.shape)  # np.zeros(self._coords.coords.shape)
             translation_array[self.atom_indices] = np.array(translation)  # translation
+            print(translation_array[:5])
             new_coords += translation_array
 
         if rotation2 is not None:  # required for np.ndarray or None checks
             # new_coords = np.matmul(new_coords, np.transpose(rotation2))
             rotation_array2 = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
             rotation_array2[self.atom_indices] = np.array(rotation2)  # rotation2
+            print(rotation_array2[:5])
             new_coords = np.matmul(new_coords, rotation_array2.swapaxes(-2, -1))  # essentially transpose
 
         if translation2 is not None:  # required for np.ndarray or None checks
             # new_coords += np.array(translation2)
             translation_array2 = np.zeros(new_coords.shape)  # np.zeros(self._coords.coords.shape)
             translation_array2[self.atom_indices] = np.array(translation2)  # translation2
+            print(translation_array2[:5])
             new_coords += translation_array2
         self.replace_coords(new_coords)
 
