@@ -171,7 +171,7 @@ class OptimalTx:
         resid = np.matmul(np.tile(self.dof9, (coords1.shape[0], 1, 1)), shift) - guide_delta  # (9 x n_dof) x (n_dof x 1) - (9 x 1) = (9 x 1)
         logger.info('resid %s' % resid[:5])
         error = \
-            np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)) / coords_rmsd_reference
+            np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)).flatten() / coords_rmsd_reference
         logger.info('error %s' % error[:5])
         # NEW. Is float(3.0) a scale?
         # OLD. sqrt(variance / 3) / cluster_rmsd
