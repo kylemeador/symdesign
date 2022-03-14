@@ -1,3 +1,4 @@
+import copy
 import os
 import sys
 import time
@@ -963,6 +964,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #                    'translation': full_ext_tx2[:, np.newaxis, :],
     #                    'rotation2': None,
     #                    'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
+    og_transform1 = {'rotation': full_rotation1,
+                     'translation': full_int_tx1[:, np.newaxis, :],
+                     'rotation2': set_mat1,
+                     'translation2': full_ext_tx1[:, np.newaxis, :] if full_ext_tx1 else None}  # invert translation
+    og_transform2 = {'rotation': full_rotation2,
+                     'translation': full_int_tx2[:, np.newaxis, :],
+                     'rotation2': set_mat2,
+                     'translation2': full_ext_tx2[:, np.newaxis, :] if full_ext_tx2 else None}  # invert translation
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
                        'rotation2': set_mat2,
@@ -985,6 +994,25 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                                    [clash_dist])
                   for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
     check_clash_coords_time = time.time() - check_clash_coords_start
+
+    # check of transformation with forward of 2 and reverse of 1
+    pdb2_copy = copy.copy(pdb2)
+    pdb1.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_pdb1.pdb'))
+    for idx in range(5):
+        pdb2_copy.replace_coords(inverse_transformed_pdb2_tiled_coords[idx])
+        pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform%d.pdb' % idx))
+
+    for idx in range(5):
+        pdb1_copye = pdb1.return_transformed_copy(**{'rotation': full_rotation1[idx],
+                                                     'translation': full_int_tx1[:, np.newaxis, :][idx],
+                                                     'rotation2': set_mat1,
+                                                     'translation2': full_ext_tx1[:, np.newaxis, :][idx] if full_ext_tx1 else None})
+        pdb1_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
+        pdb2_copye = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
+                                                     'translation': full_int_tx2[:, np.newaxis, :][idx],
+                                                     'rotation2': set_mat2,
+                                                     'translation2': full_ext_tx2[:, np.newaxis, :][idx] if full_ext_tx2 else None})
+        pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
 
     asu_is_viable = np.where(asu_clash_counts == 0)  # , True, False)
     number_of_non_clashing_transforms = len(asu_is_viable[0])
