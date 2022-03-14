@@ -3787,12 +3787,16 @@ class Residue:
     def __str__(self, pdb=False, chain=None, atom_offset=0, **kwargs):  # type=None, number=None, **kwargs
         """Format the Residue into the contained Atoms. The Atom number is truncated at 5 digits for PDB compliant
         formatting"""
-        res_str = format(self.type, '3s'), (chain or self.chain), \
-            format(getattr(self, 'number%s' % ('_pdb' if pdb else '')), '4d')
-        offset = 1 + atom_offset
-        return '\n'.join(self._atoms.atoms[idx].__str__(**kwargs)
-                         % (format(idx + offset, '5d')[-5:], *res_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
-                         for idx, coord in zip(self._atom_indices, self.coords.tolist()))
+        try:
+            res_str = format(self.type, '3s'), (chain or self.chain), \
+                format(getattr(self, 'number%s' % ('_pdb' if pdb else '')), '4d')
+            offset = 1 + atom_offset
+            return '\n'.join(self._atoms.atoms[idx].__str__(**kwargs)
+                             % (format(idx + offset, '5d')[-5:], *res_str, '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord)))
+                             for idx, coord in zip(self._atom_indices, self.coords.tolist()))
+        except TypeError:
+            raise TypeError('Found an error with formatting residue %d, chain %s, coords are likely the culprit: %s'
+                            % (self.number, self.chain, self.coords))
 
     def __hash__(self):
         return hash(self.__key())
