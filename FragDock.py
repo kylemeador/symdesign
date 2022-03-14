@@ -626,10 +626,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
     # find superposition matrices to rotate setting matrix1 to setting matrix2 and vise versa
     # guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])
-    asym_guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 2., 0.]])
-    transformed_guide_coords1 = transform_coordinates(asym_guide_coords, rotation=set_mat1)
-    transformed_guide_coords2 = transform_coordinates(asym_guide_coords, rotation=set_mat2)
-    sup_rmsd, superposition_setting_1to2, sup_tx, _ = superposition3d(transformed_guide_coords2, transformed_guide_coords1)
+    # asym_guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 2., 0.]])
+    # transformed_guide_coords1 = transform_coordinates(asym_guide_coords, rotation=set_mat1)
+    # transformed_guide_coords2 = transform_coordinates(asym_guide_coords, rotation=set_mat2)
+    # sup_rmsd, superposition_setting_1to2, sup_tx, _ = superposition3d(transformed_guide_coords2, transformed_guide_coords1)
     # superposition_setting_2to1 = np.linalg.inv(superposition_setting_1to2)
     # log.debug('sup_rmsd, superposition_setting_1to2, sup_tx: %s, %s, %s' % (sup_rmsd, superposition_setting_1to2, sup_tx))
 
@@ -775,6 +775,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     else:
                         transform_passing_shifts = \
                             optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
+                    log.info('transform_passing_shifts %s' % transform_passing_shifts[:5])
                     optimal_shifts_time = time.time() - optimal_shifts_start
                     # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
                     # passing_optimal_shifts.extend(transform_passing_shifts)
@@ -886,16 +887,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     full_int_tx1 = np.concatenate(full_int_tx1)
     full_int_tx2 = np.concatenate(full_int_tx2)
     starting_transforms = len(full_int_tx1)
-    full_setting1 = np.tile(set_mat1, (starting_transforms, 1, 1))  # Todo stop stacking these
-    full_setting2 = np.tile(set_mat2, (starting_transforms, 1, 1))  # Todo stop stacking these
+    # full_setting1 = np.tile(set_mat1, (starting_transforms, 1, 1))
+    # full_setting2 = np.tile(set_mat2, (starting_transforms, 1, 1))
     # full_setting2 = np.stack(full_setting2, startng_transforms)
 
     # must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
     transformation1 = {'rotation': full_rotation1, 'translation': full_int_tx1[:, np.newaxis, :],
-                       'rotation2': full_setting1,
+                       'rotation2': set_mat1,
                        'translation2': full_ext_tx1[:, np.newaxis, :] if full_ext_tx1 else None}
     transformation2 = {'rotation': full_rotation2, 'translation': full_int_tx2[:, np.newaxis, :],
-                       'rotation2': full_setting2,
+                       'rotation2': set_mat2,
                        'translation2': full_ext_tx2[:, np.newaxis, :] if full_ext_tx2 else None}
 
     # find the clustered transformations to expedite search of ASU clashing
@@ -938,8 +939,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     full_rotation2 = full_rotation2[sufficiently_dense_indices]
     full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
     full_int_tx2 = full_int_tx2[sufficiently_dense_indices]
-    full_setting1 = full_setting1[sufficiently_dense_indices]
-    full_setting2 = full_setting2[sufficiently_dense_indices]
+    # full_setting1 = full_setting1[sufficiently_dense_indices]
+    # full_setting2 = full_setting2[sufficiently_dense_indices]
     if sym_entry.unit_cell:
         full_uc_dimensions = full_uc_dimensions[sufficiently_dense_indices]
         full_ext_tx1 = full_ext_tx1[sufficiently_dense_indices]
@@ -948,9 +949,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     else:
         full_ext_tx_sum = None
     full_inv_rotation2 = np.linalg.inv(full_rotation2)
-    full_inv_setting1 = np.linalg.inv(full_setting1)
+    # full_inv_setting1 = np.linalg.inv(full_setting1)
+    inv_setting1 = np.linalg.inv(set_mat1)
     number_of_dense_transforms = len(sufficiently_dense_indices)
-    superposition_setting1_stack = np.tile(superposition_setting_1to2, (number_of_dense_transforms, 1, 1))
+    # superposition_setting1_stack = np.tile(superposition_setting_1to2, (number_of_dense_transforms, 1, 1))
 
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with pdb1 ORIGINAL
     # multiply by -1 to invert the translation
@@ -964,9 +966,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #                    'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
-                       'rotation2': full_setting2,
+                       'rotation2': set_mat2,
                        'translation2': full_ext_tx_sum[:, np.newaxis, :] * -1 if full_ext_tx_sum else None}  # invert translation
-    tile_transform2 = {'rotation': full_inv_setting1,
+    tile_transform2 = {'rotation': inv_setting1,
                        'translation': full_int_tx1[:, np.newaxis, :] * -1,
                        'rotation2': full_inv_rotation2,
                        'translation2': None}
@@ -993,9 +995,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     full_rotation2 = full_rotation2[asu_is_viable]
     full_int_tx1 = full_int_tx1[asu_is_viable]
     full_int_tx2 = full_int_tx2[asu_is_viable]
-    superposition_setting1_stack = superposition_setting1_stack[asu_is_viable]
+    # superposition_setting1_stack = superposition_setting1_stack[asu_is_viable]
     # full_setting1 = full_setting1[asu_is_viable]
-    full_setting2 = full_setting2[asu_is_viable]
+    # full_setting2 = full_setting2[asu_is_viable]
     if sym_entry.unit_cell:
         full_uc_dimensions = full_uc_dimensions[asu_is_viable]
         # viable_uc_dimensions = full_uc_dimensions[asu_is_viable]
@@ -1006,7 +1008,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     else:
         full_uc_dimensions = None
     full_inv_rotation2 = full_inv_rotation2[asu_is_viable]
-    full_inv_setting1 = full_inv_setting1[asu_is_viable]
+    # full_inv_setting1 = full_inv_setting1[asu_is_viable]
     viable_cluster_labels = cluster_labels[asu_is_viable]
 
     #################
@@ -1025,9 +1027,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #      'rotation2': None, 'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
-                       'rotation2': full_setting2,
+                       'rotation2': set_mat2,
                        'translation2': full_ext_tx_sum[:, np.newaxis, :] * -1 if full_ext_tx_sum else None}  # invert translation
-    tile_transform2 = {'rotation': full_inv_setting1,
+    tile_transform2 = {'rotation': inv_setting1,
                        'translation': full_int_tx1[:, np.newaxis, :] * -1,
                        'rotation2': full_inv_rotation2,
                        'translation2': None}
@@ -1266,9 +1268,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_pdb_start = time.time()
         specific_transformation1 = {'rotation': full_rotation1[idx], 'translation': full_int_tx1[idx],
-                                    'rotation2': full_setting1[idx], 'translation2': full_ext_tx1[idx]}
+                                    'rotation2': set_mat1, 'translation2': full_ext_tx1[idx]}
         specific_transformation2 = {'rotation': full_rotation2[idx], 'translation': full_int_tx2[idx],
-                                    'rotation2': full_setting2[idx], 'translation2': full_ext_tx2[idx]}
+                                    'rotation2': set_mat2, 'translation2': full_ext_tx2[idx]}
 
         pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
         pdb2_copy = pdb2.return_transformed_copy(**specific_transformation2)
