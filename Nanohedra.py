@@ -79,10 +79,10 @@ if __name__ == '__main__':
             # Orient Input Oligomers to Canonical Orientation
             if sym_entry.group1 == sym_entry.group2:
                 oligomer_input = 'Oligomer Input'
-                master_logger.info('ORIENTING INPUT OLIGOMER PDB FILES\n')
+                master_logger.info('ORIENTING INPUT OLIGOMER PDB FILES')
             else:
                 oligomer_input = 'Oligomer 1 Input'
-                master_logger.info('ORIENTING OLIGOMER 1 INPUT PDB FILE(S)\n')
+                master_logger.info('ORIENTING OLIGOMER 1 INPUT PDB FILE(S)')
 
             oriented_pdb1_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group1)
             if not os.path.exists(oriented_pdb1_outdir):
@@ -91,23 +91,23 @@ if __name__ == '__main__':
                                                        out_dir=oriented_pdb1_outdir) for pdb1_path in pdb1_filepaths]
 
             if len(pdb1_oriented_filepaths) == 0:
-                master_logger.info('\nCOULD NOT ORIENT %s PDB FILES\nCHECK %s/orient_oligomer_log.txt FOR '
+                master_logger.info('COULD NOT ORIENT %s PDB FILES. CHECK %s/orient_oligomer_log.txt FOR '
                                    'MORE INFORMATION\n' % (oligomer_input.upper(), oriented_pdb1_outdir))
                 master_logger.info('NANOHEDRA DOCKING RUN ENDED\n')
                 # master_log_file.close()
                 exit(1)
             elif len(pdb1_oriented_filepaths) == 1 and sym_entry.group1 == sym_entry.group2 \
                     and '.pdb' not in pdb2_path:
-                master_logger.info('\nAT LEAST 2 OLIGOMERS ARE REQUIRED WHEN THE 2 OLIGOMERIC COMPONENTS OF '
+                master_logger.info('AT LEAST 2 OLIGOMERS ARE REQUIRED WHEN THE 2 OLIGOMERIC COMPONENTS OF '
                                    'A SCM OBEY THE SAME POINT GROUP SYMMETRY (IN THIS CASE: %s)\nHOWEVER '
                                    'ONLY 1 INPUT OLIGOMER PDB FILE COULD BE ORIENTED\nCHECK '
-                                   '%s/orient_oligomer_log.txt FOR MORE INFORMATION\n'
-                                   % (sym_entry.group1, oriented_pdb1_outdir))
+                                   '%s%sorient_oligomer_log.txt FOR MORE INFORMATION\n'
+                                   % (sym_entry.group1, oriented_pdb1_outdir, os.sep))
                 master_logger.info('NANOHEDRA DOCKING RUN ENDED\n')
                 # master_log_file.close()
                 exit(1)
             else:
-                master_logger.info('Successfully Oriented %d out of the %d Oligomer Input PDB File(s)\n==> %s\n\n'
+                master_logger.info('Successfully Oriented %d out of the %d Oligomer Input PDB File(s)\n==> %s\n'
                                    % (len(pdb1_oriented_filepaths), len(pdb1_filepaths), oriented_pdb1_outdir))
 
             if sym_entry.group1 == sym_entry.group2 and '.pdb' not in pdb2_path:
@@ -129,7 +129,7 @@ if __name__ == '__main__':
                     # master_log_file.close()
                     exit(1)
 
-                master_logger.info('Successfully Oriented %d out of the %d Oligomer 2 Input PDB File(s)\n==> %s\n\n'
+                master_logger.info('Successfully Oriented %d out of the %d Oligomer 2 Input PDB File(s)\n==> %s\n'
                                    % (len(pdb2_oriented_filepaths), len(pdb2_filepaths), oriented_pdb2_outdir))
                 pdb_filepaths = product(pdb1_oriented_filepaths, pdb2_oriented_filepaths)
 
