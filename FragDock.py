@@ -1103,7 +1103,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # Get Residue Number for all Interacting PDB1 CB, PDB2 CB Pairs
     cb_distance = 9.  # change to 8.?
     # print('number of inverse_transformed_pdb2_tiled_cb_coords %d' % len(inverse_transformed_pdb2_tiled_cb_coords))
-    for idx, trans_surf_guide_coords in enumerate(inverse_transformed_surf_frags2_guide_coords.tolist()):
+    for idx, trans_surf_guide_coords in enumerate(list(inverse_transformed_surf_frags2_guide_coords)):
         int_frags_time_start = time.time()
         # print('number of pdb2 coords %d' % len(inverse_transformed_pdb2_tiled_cb_coords[idx]))
         pdb2_query = pdb1_cb_balltree.query_radius(inverse_transformed_pdb2_tiled_cb_coords[idx], cb_distance)
@@ -1120,10 +1120,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #     np.concatenate([np.where(surf_frag2_residues == residue) for residue in interface_residues2])
         interface_ghost1_bool = np.isin(ghost_frag1_residues, interface_residues1)
         interface_surf2_bool = np.isin(surf_frag2_residues, interface_residues2)
-        print('trans_surf_guide_coords %s' % trans_surf_guide_coords[:5])
-        print('interface_surf2_bool %s' % interface_surf2_bool[:5])
         all_fragment_match_time_start = time.time()
-        if idx % 2 == 1:
+        if idx % 2 == 0:
             # interface_ghost_frags = complete_ghost_frags1[interface_ghost1_indices]
             # interface_surf_frags = surf_frags2[interface_surf2_indices]
             # int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_indices]
