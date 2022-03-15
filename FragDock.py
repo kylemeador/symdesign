@@ -1085,10 +1085,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     pdb2_cb_indices = pdb2.cb_indices
     pdb1_residues = pdb1.residues
     pdb2_residues = pdb2.residues
-    print('number of pdb1_cb_indices %d' % len(pdb1_cb_indices))
-    print('number of pdb2_cb_indices %d' % len(pdb2_cb_indices))
-    print('number of pdb1_residues %d' % len(pdb1_residues))
-    print('number of pdb2_residues %d' % len(pdb2_residues))
+    # print('number of pdb1_cb_indices %d' % len(pdb1_cb_indices))
+    # print('number of pdb2_cb_indices %d' % len(pdb2_cb_indices))
+    # print('number of pdb1_residues %d' % len(pdb1_residues))
+    # print('number of pdb2_residues %d' % len(pdb2_residues))
     # log.debug('Transformed guide_coords')
     int_cb_and_frags_time = time.time() - int_cb_and_frags_start
     log.info('\tTransformation of all viable PDB2 CB atoms and surface fragments took %f s' % int_cb_and_frags_time)
@@ -1101,15 +1101,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # Full Interface Fragment Match
     # Get Residue Number for all Interacting PDB1 CB, PDB2 CB Pairs
     cb_distance = 9.  # change to 8.?
-    print('number of inverse_transformed_pdb2_tiled_cb_coords %d' % len(inverse_transformed_pdb2_tiled_cb_coords))
+    # print('number of inverse_transformed_pdb2_tiled_cb_coords %d' % len(inverse_transformed_pdb2_tiled_cb_coords))
     for idx, trans_surf_guide_coords in enumerate(inverse_transformed_surf_frags2_guide_coords.tolist()):
         int_frags_time_start = time.time()
-        print('number of pdb2 coords %d' % len(inverse_transformed_pdb2_tiled_cb_coords[idx]))
+        # print('number of pdb2 coords %d' % len(inverse_transformed_pdb2_tiled_cb_coords[idx]))
         pdb2_query = pdb1_cb_balltree.query_radius(inverse_transformed_pdb2_tiled_cb_coords[idx], cb_distance)
-        print('number of pdb2_query %d' % len(pdb2_query))
-
+        # print('number of pdb2_query %d' % len(pdb2_query))
         contacting_pairs = \
-            [(pdb2_residues[pdb2_cb_indices[pdb2_idx]].number, pdb1_residues[pdb1_cb_indices[pdb1_idx]].number)
+            [(pdb1.coords_indexed_residues[pdb1_cb_indices[pdb1_idx]].number,
+              pdb2.coords_indexed_residues[pdb2_cb_indices[pdb2_idx]].number)
              for pdb2_idx, pdb1_contacts in enumerate(pdb2_query) for pdb1_idx in pdb1_contacts]
         interface_residues1, interface_residues2 = split_interface_numbers(contacting_pairs)
         # These were interface_surf_frags and interface_ghost_frags
