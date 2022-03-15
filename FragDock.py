@@ -1120,8 +1120,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #     np.concatenate([np.where(surf_frag2_residues == residue) for residue in interface_residues2])
         interface_ghost1_bool = np.isin(ghost_frag1_residues, interface_residues1)
         interface_surf2_bool = np.isin(surf_frag2_residues, interface_residues2)
+        print('trans_surf_guide_coords %s' % trans_surf_guide_coords[:5])
+        print('interface_surf2_bool %s' % interface_surf2_bool[:5])
         all_fragment_match_time_start = time.time()
-        if idx % 2 == 0:
+        if idx % 2 == 1:
             # interface_ghost_frags = complete_ghost_frags1[interface_ghost1_indices]
             # interface_surf_frags = surf_frags2[interface_surf2_indices]
             # int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_indices]
@@ -1212,7 +1214,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
             reference_rmsds = ghost_frag1_rmsds[int_ij_matching_ghost1_indices]
 
             all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
-        all_fragment_match_time = all_fragment_match_time_start - time.time()
+        all_fragment_match_time = time.time() - all_fragment_match_time_start
 
         passing_overlaps_indices = np.where(all_fragment_match > 0.2)
 
