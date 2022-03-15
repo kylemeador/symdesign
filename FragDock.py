@@ -1077,15 +1077,25 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                        'translation': full_int_tx1[:, np.newaxis, :] * -1,
                        'rotation2': full_inv_rotation1,
                        'translation2': None}
+    tile_transform1_guides = {'rotation': full_rotation2[:, np.newaxis, :, :],
+                              'translation': full_int_tx2[:, np.newaxis, np.newaxis, :],
+                              'rotation2': set_mat2[:, np.newaxis, :, :],
+                              'translation2': full_ext_tx_sum[:, np.newaxis, np.newaxis, :] if full_ext_tx_sum else None}  # invert translation
+    tile_transform2_guides = {'rotation': inv_setting1[:, np.newaxis, :, :],
+                              'translation': full_int_tx1[:, np.newaxis, np.newaxis, :] * -1,
+                              'rotation2': full_inv_rotation1[:, np.newaxis, :, :],
+                              'translation2': None}
     int_cb_and_frags_start = time.time()
     pdb2_tiled_cb_coords = np.tile(pdb2.get_cb_coords(), (number_of_non_clashing_transforms, 1, 1))
     transformed_pdb2_tiled_cb_coords = transform_coordinate_sets(pdb2_tiled_cb_coords, **tile_transform1)
     inverse_transformed_pdb2_tiled_cb_coords = \
         transform_coordinate_sets(transformed_pdb2_tiled_cb_coords, **tile_transform2)
-    surf_frags2_tiled_guide_coords = np.tile(surf_frags2_guide_coords, (number_of_non_clashing_transforms, 1, 1))
-    transformed_surf_frags2_guide_coords = transform_coordinate_sets(surf_frags2_tiled_guide_coords, **tile_transform1)
+    surf_frags2_tiled_guide_coords = surf_frags2_guide_coords[np.newaxis, :, :, :]
+    # surf_frags2_tiled_guide_coords = np.tile(surf_frags2_guide_coords, (number_of_non_clashing_transforms, 1, 1, 1))
+    transformed_surf_frags2_guide_coords = \
+        transform_coordinate_sets(surf_frags2_tiled_guide_coords, **tile_transform1_guides)
     inverse_transformed_surf_frags2_guide_coords = \
-        transform_coordinate_sets(transformed_surf_frags2_guide_coords, **tile_transform2)
+        transform_coordinate_sets(transformed_surf_frags2_guide_coords, **tile_transform2_guides)
 
     pdb1_cb_indices = pdb1.cb_indices
     pdb2_cb_indices = pdb2.cb_indices
