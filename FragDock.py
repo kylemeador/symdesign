@@ -1079,9 +1079,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                        'translation2': None}
     tile_transform1_guides = {'rotation': full_rotation2[:, np.newaxis, :, :],
                               'translation': full_int_tx2[:, np.newaxis, np.newaxis, :],
-                              'rotation2': set_mat2[:, np.newaxis, :, :],
+                              'rotation2': set_mat2[np.newaxis, np.newaxis, :, :],
                               'translation2': full_ext_tx_sum[:, np.newaxis, np.newaxis, :] if full_ext_tx_sum else None}  # invert translation
-    tile_transform2_guides = {'rotation': inv_setting1[:, np.newaxis, :, :],
+    tile_transform2_guides = {'rotation': inv_setting1[np.newaxis, np.newaxis, :, :],
                               'translation': full_int_tx1[:, np.newaxis, np.newaxis, :] * -1,
                               'rotation2': full_inv_rotation1[:, np.newaxis, :, :],
                               'translation2': None}
