@@ -373,6 +373,27 @@ def slice_variable_for_log(var, length=5):
     return var[:length]
 
 
+# TODO decrease amount of work by saving each index array and reusing...
+#  such as stacking each j_index, guide_coords, rmsd, etc and pulling out by index
+def is_frag_type_same(frags1, frags2, dtype='ii'):
+    frag1_indices = np.array([getattr(frag, '%s_type' % dtype[0]) for frag in frags1])
+    frag2_indices = np.array([getattr(frag, '%s_type' % dtype[1]) for frag in frags2])
+    # np.where(frag1_indices_repeat == frag2_indices_tile)
+    frag1_indices_repeated = np.repeat(frag1_indices, len(frag2_indices))
+    frag2_indices_tiled = np.tile(frag2_indices, len(frag1_indices))
+    return np.where(frag1_indices_repeated == frag2_indices_tiled, True, False).reshape(
+        len(frag1_indices), -1)
+
+
+def compute_ij_type_lookup(frag1_indices, frag2_indices):
+    # TODO use broadcasting to compute true/false instead of tiling (memory saving)
+    frag1_indices_repeated = np.repeat(frag1_indices, len(frag2_indices))
+    frag2_indices_tiled = np.tile(frag2_indices, len(frag1_indices))
+    # TODO keep as table or flatten? Can use one or the other as memory and take a view of the other as needed...
+    return np.where(frag1_indices_repeated == frag2_indices_tiled, True, False).reshape(
+        len(frag1_indices), -1)
+
+
 def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pdb2, rot_step_deg1=3, rot_step_deg2=3,
                    min_matched=3, high_quality_match_value=0.5, output_assembly=False, output_surrounding_uc=False,
                    clash_dist=2.2, init_max_z_val=1., subseq_max_z_val=2., log=None, keep_time=True):  # resume=False,
@@ -383,6 +404,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     Returns:
         None
     """
+    cb_distance = 9.  # change to 8.?
     # Get Building Blocks
     if not isinstance(pdb1, Structure):
         pdb1 = PDB.from_file(pdb1)
@@ -578,13 +600,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # ghost2_residue_array = np.repeat(init_ghost_frag2_residues, len(init_surf_frag1_residues))
     # surface1_residue_array = np.tile(init_surf_frag1_residues, len(init_ghost_frag2_residues))
     # surface2_residue_array = np.tile(init_surf_frag2_residues, len(init_ghost_frag1_residues))
-    # TODO use broadcasting to compute true/false instead of tiling (memory saving)
-    ghost_frag1_j_indices_repeated = np.repeat(ghost_frag1_j_indices, len(surf_frags2_i_indices))
-    surf_frags2_i_indices_tiled = np.tile(surf_frags2_i_indices, len(ghost_frag1_j_indices))
-    # TODO keep as table or flatten? Can use one or the other as memory and take a view of the other as needed...
-    ij_type_match_lookup_table = \
-        np.where(ghost_frag1_j_indices_repeated == surf_frags2_i_indices_tiled, True, False).reshape(
-            len(ghost_frag1_j_indices), -1)
+    ij_type_match_lookup_table = compute_ij_type_lookup(ghost_frag1_j_indices, surf_frags2_i_indices)
     # axis 0 is ghost frag, 1 is surface frag
     # ij_matching_ghost1_indices = \
     #     (ij_type_match_lookup_table * np.arange(ij_type_match_lookup_table.shape[0]))[ij_type_match_lookup_table]
@@ -1045,7 +1061,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #                                                  'translation2': full_ext_tx2[idx] if full_ext_tx2 else None})
     #     pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
 
-    asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
+    # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
+    asu_is_viable = np.where(asu_clash_counts == 0)
     number_of_non_clashing_transforms = len(asu_is_viable[0])
     log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
              % (check_clash_coords_time, number_of_non_clashing_transforms))
@@ -1112,7 +1129,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
     # Full Interface Fragment Match
     # Get Residue Number for all Interacting PDB1 CB, PDB2 CB Pairs
-    cb_distance = 9.  # change to 8.?
     for idx, trans_surf_guide_coords in enumerate(list(inverse_transformed_surf_frags2_guide_coords)):
         int_frags_time_start = time.time()
         pdb2_query = pdb1_cb_balltree.query_radius(inverse_transformed_pdb2_tiled_cb_coords[idx], cb_distance)
