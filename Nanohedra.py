@@ -91,8 +91,8 @@ if __name__ == '__main__':
                                                        out_dir=oriented_pdb1_outdir) for pdb1_path in pdb1_filepaths]
 
             if len(pdb1_oriented_filepaths) == 0:
-                master_logger.info('COULD NOT ORIENT %s PDB FILES. CHECK %s/orient_oligomer_log.txt FOR '
-                                   'MORE INFORMATION\n' % (oligomer_input.upper(), oriented_pdb1_outdir))
+                master_logger.info('COULD NOT ORIENT %s PDB FILES. CHECK %s%sorient_oligomer_log.txt FOR '
+                                   'MORE INFORMATION' % (oligomer_input.upper(), oriented_pdb1_outdir, os.sep))
                 master_logger.info('NANOHEDRA DOCKING RUN ENDED\n')
                 # master_log_file.close()
                 exit(1)
@@ -114,7 +114,7 @@ if __name__ == '__main__':
                 # in case two paths have same sym, otherwise we need to orient pdb2_filepaths as well
                 pdb_filepaths = combinations(pdb1_oriented_filepaths, 2)
             else:
-                master_logger.info('\nORIENTING OLIGOMER 2 INPUT PDB FILE(S)\n')
+                master_logger.info('ORIENTING OLIGOMER 2 INPUT PDB FILE(S)')
                 oriented_pdb2_outdir = os.path.join(master_outdir, '%s_oriented' % sym_entry.group2)
                 if not os.path.exists(oriented_pdb2_outdir):
                     os.makedirs(oriented_pdb2_outdir)
@@ -123,8 +123,9 @@ if __name__ == '__main__':
                                            for pdb2_path in pdb2_filepaths]
 
                 if len(pdb2_oriented_filepaths) == 0:
-                    master_logger.info('\nCOULD NOT ORIENT OLIGOMER 2 INPUT PDB FILE(S)\nCHECK '
-                                       '%s/orient_oligomer_log.txt FOR MORE INFORMATION\n' % oriented_pdb2_outdir)
+                    master_logger.info('COULD NOT ORIENT OLIGOMER 2 INPUT PDB FILE(S) CHECK '
+                                       '%s%sorient_oligomer_log.txt FOR MORE INFORMATION'
+                                       % (oriented_pdb2_outdir, os.sep))
                     master_logger.info('NANOHEDRA DOCKING RUN ENDED\n')
                     # master_log_file.close()
                     exit(1)
@@ -177,12 +178,12 @@ if __name__ == '__main__':
                                min_matched=min_matched, keep_time=timer)  # log=bb_logger,
 
                 # with open(master_log_filepath, 'a+') as master_log_file:
-                master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
+                master_logger.info('COMPLETE ==> %s' % os.path.join(master_outdir, building_blocks))
 
             # with open(master_log_filepath, "a+") as master_log_file:
             total_time = time.time() - start_time
-            master_logger.info("\nTOTAL TIME: %s\n\n" % str(total_time))
-            master_logger.info('\nCOMPLETED FRAGMENT-BASED SYMMETRY DOCKING PROTOCOL\n\nDONE\n')
+            master_logger.info('TOTAL TIME: %s' % str(total_time))
+            master_logger.info('COMPLETED FRAGMENT-BASED SYMMETRY DOCKING PROTOCOL\n\nDONE\n')
             exit(0)
 
         except KeyboardInterrupt:
