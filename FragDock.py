@@ -383,18 +383,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
     # Get Building Blocks
     if not isinstance(pdb1, Structure):
-        # pdb1_name = os.path.basename(os.path.splitext(pdb1)[0])  # inherent in load
         pdb1 = PDB.from_file(pdb1)
     if not isinstance(pdb2, Structure):
-        # pdb2_name = os.path.basename(os.path.splitext(pdb2)[0])  # inherent in load
         pdb2 = PDB.from_file(pdb2)
 
     if log is None:
         # Output Directory  # Todo DesignDirectory
-        # pdb1_name = os.path.basename(os.path.splitext(pdb1)[0])  # inherent in load
-        # pdb2_name = os.path.basename(os.path.splitext(pdb2)[0])  # inherent in load
         building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
-        # building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
         outdir = os.path.join(master_outdir, building_blocks)
         os.makedirs(outdir, exist_ok=True)
 
@@ -646,7 +641,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # degen_rot_counts = []
     # stacked_transforms1 = [None for _ in passing_optimal_shifts]
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, \
-        full_setting2, full_ext_tx1, full_ext_tx2, full_optimal_ext_dof_shifts = \
+    full_setting2, full_ext_tx1, full_ext_tx2, full_optimal_ext_dof_shifts = \
         [], [], [], [], [], [], [], [], []
     # stacked_transforms1, stacked_transforms2 = [], []
     for degen1 in degen_rot_mat_1[degen1_count:]:
@@ -759,23 +754,23 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     # else:
                     #     possible_ghost_frag_indices = overlapping_ghost_frags
                     #     possible_surf_frag_indices = overlapping_surf_frags
-                        # passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[overlapping_ghost_frags]
-                        # passing_surf_coords = surf_frags2_guide_coords_rot_and_set[overlapping_surf_frags]
-                        # reference_rmsds = init_ghost_frag1_rmsds[overlapping_ghost_frags]
+                    # passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[overlapping_ghost_frags]
+                    # passing_surf_coords = surf_frags2_guide_coords_rot_and_set[overlapping_surf_frags]
+                    # reference_rmsds = init_ghost_frag1_rmsds[overlapping_ghost_frags]
 
                     passing_ghost_coords = ghost_frag1_guide_coords_rot_and_set[possible_ghost_frag_indices]
                     passing_surf_coords = surf_frags2_guide_coords_rot_and_set[possible_surf_frag_indices]
                     reference_rmsds = init_ghost_frag1_rmsds[possible_ghost_frag_indices]
 
                     optimal_shifts_start = time.time()
-                    if rot2_count % 2 == 0:
-                        optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
-                                                                         reference_rmsds[idx])
-                                          for idx, ghost_coords in enumerate(passing_ghost_coords)]
-                        transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
-                    else:
-                        transform_passing_shifts = \
-                            optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
+                    # if rot2_count % 2 == 0:
+                    #     optimal_shifts = [optimal_tx.solve_optimal_shift(ghost_coords, passing_surf_coords[idx],
+                    #                                                      reference_rmsds[idx])
+                    #                       for idx, ghost_coords in enumerate(passing_ghost_coords)]
+                    #     transform_passing_shifts = np.array([shift for shift in optimal_shifts if shift is not None])
+                    # else:
+                    transform_passing_shifts = \
+                        optimal_tx.solve_optimal_shifts(passing_ghost_coords, passing_surf_coords, reference_rmsds)
                     optimal_shifts_time = time.time() - optimal_shifts_start
                     # transform_passing_shifts = [shift for shift in optimal_shifts if shift is not None]
                     # passing_optimal_shifts.extend(transform_passing_shifts)
@@ -1026,10 +1021,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #                                                  'translation2': full_ext_tx2[idx] if full_ext_tx2 else None})
     #     pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
 
-    # print('asu_clash_counts %s' % asu_clash_counts[:5])
     asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
-    # print('asu_is_viable %s' % asu_is_viable)
-    # print('asu_is_viable %s' % asu_is_viable[0][:5])
     number_of_non_clashing_transforms = len(asu_is_viable[0])
     log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
              % (check_clash_coords_time, number_of_non_clashing_transforms))
@@ -1056,19 +1048,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # viable_cluster_labels = cluster_labels[asu_is_viable[0]]
 
     #################
-    pdb1_cb_balltree = BallTree(pdb1.get_cb_coords())
-
     # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
     # stack the superposition_rotation_matrix
     # superposition_setting1_stack = np.tile(superposition_setting_1to2, (number_of_non_clashing_transforms, 1, 1))
     # alternative route to measure clashes of each transform. Move copies of component2 to interact with pdb1 ORIGINAL
-    # tile_transform1 = \
-    #     {'rotation': full_rotation2, 'translation': full_int_tx2[:, np.newaxis, :],
-    #      'rotation2': superposition_setting1_stack,
-    #      'translation2': full_int_tx1[:, np.newaxis, :] * -1}  # invert translation
-    # tile_transform2 = \
-    #     {'rotation': full_inv_rotation2, 'translation': full_ext_tx2,
-    #      'rotation2': None, 'translation2': full_ext_tx1[:, np.newaxis, :] * -1}
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
                        'rotation2': set_mat2,
@@ -1086,6 +1069,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                               'rotation2': full_inv_rotation1[:, np.newaxis, :, :],
                               'translation2': None}
     int_cb_and_frags_start = time.time()
+    pdb1_cb_balltree = BallTree(pdb1.get_cb_coords())
     pdb2_tiled_cb_coords = np.tile(pdb2.get_cb_coords(), (number_of_non_clashing_transforms, 1, 1))
     transformed_pdb2_tiled_cb_coords = transform_coordinate_sets(pdb2_tiled_cb_coords, **tile_transform1)
     inverse_transformed_pdb2_tiled_cb_coords = \
@@ -1101,6 +1085,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     pdb2_cb_indices = pdb2.cb_indices
     pdb1_residues = pdb1.residues
     pdb2_residues = pdb2.residues
+    print('number of pdb1_cb_indices %d' % len(pdb1_cb_indices))
+    print('number of pdb2_cb_indices %d' % len(pdb2_cb_indices))
+    print('number of pdb1_residues %d' % len(pdb1_residues))
+    print('number of pdb2_residues %d' % len(pdb2_residues))
     # log.debug('Transformed guide_coords')
     int_cb_and_frags_time = time.time() - int_cb_and_frags_start
     log.info('\tTransformation of all viable PDB2 CB atoms and surface fragments took %f s' % int_cb_and_frags_time)
@@ -1113,12 +1101,16 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # Full Interface Fragment Match
     # Get Residue Number for all Interacting PDB1 CB, PDB2 CB Pairs
     cb_distance = 9.  # change to 8.?
+    print('number of inverse_transformed_pdb2_tiled_cb_coords %d' % len(inverse_transformed_pdb2_tiled_cb_coords))
     for idx, trans_surf_guide_coords in enumerate(inverse_transformed_surf_frags2_guide_coords.tolist()):
         int_frags_time_start = time.time()
+        print('number of pdb2 coords %d' % len(inverse_transformed_pdb2_tiled_cb_coords[idx]))
         pdb2_query = pdb1_cb_balltree.query_radius(inverse_transformed_pdb2_tiled_cb_coords[idx], cb_distance)
+        print('number of pdb2_query %d' % len(pdb2_query))
+
         contacting_pairs = \
-            [(pdb2_residues[pdb2_cb_indices[pdb2_idx]].number, pdb1_residues[pdb1_cb_indices[pdb1_index]].number)
-             for pdb2_idx, pdb1_contacts in enumerate(pdb2_query) for pdb1_index in pdb1_contacts]
+            [(pdb2_residues[pdb2_cb_indices[pdb2_idx]].number, pdb1_residues[pdb1_cb_indices[pdb1_idx]].number)
+             for pdb2_idx, pdb1_contacts in enumerate(pdb2_query) for pdb1_idx in pdb1_contacts]
         interface_residues1, interface_residues2 = split_interface_numbers(contacting_pairs)
         # These were interface_surf_frags and interface_ghost_frags
         interface_ghost1_indices = \
