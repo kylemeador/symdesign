@@ -3,6 +3,7 @@ import os
 import sys
 import time
 from itertools import repeat
+from math import ceil, floor
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -960,31 +961,58 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #                    'translation': full_int_tx1[:, np.newaxis, :] * -1,
     #                    'rotation2': full_inv_rotation1,
     #                    'translation2': None}
-    # pdb2_tiled_coords = np.tile(pdb2_bb_cb_coords, (number_of_dense_transforms, 1, 1))
-    # transformed_pdb2_tiled_coords = transform_coordinate_sets(pdb2_tiled_coords, **tile_transform1)
-    # inverse_transformed_pdb2_tiled_coords = transform_coordinate_sets(transformed_pdb2_tiled_coords, **tile_transform2)
-    inverse_transformed_pdb2_tiled_coords = \
-        transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2_bb_cb_coords,
-                                                                    (number_of_dense_transforms, 1, 1)),
-                                                            **{'rotation': full_rotation2,
-                                                               'translation': full_int_tx2[:, np.newaxis, :],
-                                                               'rotation2': set_mat2,
-                                                               'translation2': full_ext_tx_sum[:, np.newaxis, :]
-                                                               if full_ext_tx_sum else None}),
-                                  **{'rotation': inv_setting1,
-                                     'translation': full_int_tx1[:, np.newaxis, :] * -1,
-                                     'rotation2': full_inv_rotation1,
-                                     'translation2': None})
+    # # pdb2_tiled_coords = np.tile(pdb2_bb_cb_coords, (number_of_dense_transforms, 1, 1))
+    # # transformed_pdb2_tiled_coords = transform_coordinate_sets(pdb2_tiled_coords, **tile_transform1)
+    # # inverse_transformed_pdb2_tiled_coords = transform_coordinate_sets(transformed_pdb2_tiled_coords, **tile_transform2)
+    # inverse_transformed_pdb2_tiled_coords = \
+    #     transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2_bb_cb_coords,
+    #                                                                 (number_of_dense_transforms, 1, 1)),
+    #                                                         **{'rotation': full_rotation2,
+    #                                                            'translation': full_int_tx2[:, np.newaxis, :],
+    #                                                            'rotation2': set_mat2,
+    #                                                            'translation2': full_ext_tx_sum[:, np.newaxis, :]
+    #                                                            if full_ext_tx_sum else None}),
+    #                               **{'rotation': inv_setting1,
+    #                                  'translation': full_int_tx1[:, np.newaxis, :] * -1,
+    #                                  'rotation2': full_inv_rotation1,
+    #                                  'translation2': None})
+    #
+    # transfrom_clash_coords_time = time.time() - transfrom_clash_coords_start
+    # log.info('\tCopy and Transform All Oligomer1 and Oligomer2 coords for clash testing (took %f s)'
+    #          % transfrom_clash_coords_time)
 
-    transfrom_clash_coords_time = time.time() - transfrom_clash_coords_start
-    log.info('\tCopy and Transform All Oligomer1 and Oligomer2 coords for clash testing (took %f s)'
-             % transfrom_clash_coords_time)
+    memory_constraint = 30000000000  # 60 gB available, then half this for the space during calculation and storage
+    # assume each element has 8 bytes
+    element_memory = 8
+    number_of_elements_available = memory_constraint / element_memory
+    elements_required = len(pdb2_bb_cb_coords) * number_of_dense_transforms * 3
+    number_of_chunks = floor(elements_required / number_of_elements_available)
 
     check_clash_coords_start = time.time()
-    asu_clash_counts = \
-        np.array([oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx],
-                                                                   [clash_dist])
-                  for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
+    # asu_clash_counts = \
+    #     np.array([oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx],
+    #                                                                [clash_dist])
+    #               for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
+    asu_clash_counts = []
+    for chunk in range(number_of_chunks):
+        upper = (chunk + 1) * number_of_elements_available if chunk + 1 != number_of_chunks \
+            else number_of_dense_transforms
+        chunk_slice = slice(chunk * number_of_elements_available, upper)
+        inverse_transformed_pdb2_tiled_coords = \
+            transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2_bb_cb_coords,
+                                                                        (number_of_elements_available, 1, 1)),
+                                                                **{'rotation': full_rotation2[chunk_slice],
+                                                                   'translation': full_int_tx2[:, np.newaxis, :][chunk_slice],
+                                                                   'rotation2': set_mat2,
+                                                                   'translation2': full_ext_tx_sum[:, np.newaxis, :][chunk_slice]
+                                                                   if full_ext_tx_sum else None}),
+                                      **{'rotation': inv_setting1,
+                                         'translation': full_int_tx1[:, np.newaxis, :][chunk_slice] * -1,
+                                         'rotation2': full_inv_rotation1[chunk_slice],
+                                         'translation2': None})
+        asu_clash_counts.extend(
+            [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx], [clash_dist])
+             for idx in range(inverse_transformed_pdb2_tiled_coords)])
     check_clash_coords_time = time.time() - check_clash_coords_start
 
     # # check of transformation with forward of 2 and reverse of 1
