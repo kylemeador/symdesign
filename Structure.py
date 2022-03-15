@@ -3864,7 +3864,7 @@ class GhostFragment:
     # def structure(self, structure):
     #     self._structure = structure
 
-    def get_guide_coords(self):
+    def get_guide_coords(self):  # UNUSED
         return self.guide_coords
 
     # def get_center_of_mass(self):  # UNUSED
@@ -3920,7 +3920,7 @@ class MonoFragment:
     def get_central_res_tup(self):
         return self.central_residue.chain, self.central_residue.number
 
-    def get_guide_coords(self):
+    def get_guide_coords(self):  # UNUSED
         return self.guide_coords
 
     # def get_center_of_mass(self):  # UNUSED
@@ -4006,7 +4006,7 @@ class MonoFragment:
         # reshape to original size then query for existence of any neighbors for each fragment individually
         viable_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
         ghost_frag_info = \
-            zip(transformed_guide_coords[~viable_indices].tolist(), *zip(*ijk_types[~viable_indices].tolist()),
+            zip(list(transformed_guide_coords[~viable_indices]), *zip(*ijk_types[~viable_indices].tolist()),
                 rmsd_array[~viable_indices].tolist(), repeat(self))
 
         return [GhostFragment(*info) for info in ghost_frag_info]
