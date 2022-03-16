@@ -1296,15 +1296,19 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         rot_mat2 = full_rotation2[idx]
         internal_tx_param1 = full_int_tx1[idx]
         internal_tx_param2 = full_int_tx2[idx]
-        external_tx_params1 = full_ext_tx1[idx]
-        external_tx_params2 = full_ext_tx2[idx]
+        if sym_entry.unit_cell:
+            external_tx_params1 = full_ext_tx1[idx]
+            external_tx_params2 = full_ext_tx2[idx]
+        else:
+            external_tx_params1, external_tx_params2 = None, None
         specific_transformation1 = {'rotation': rot_mat1, 'translation': internal_tx_param1,
                                     'rotation2': set_mat1, 'translation2': external_tx_params1}
-        specific_transformation2 = {'rotation': rot_mat2, 'translation': internal_tx_param2,
-                                    'rotation2': set_mat2, 'translation2': external_tx_params2}
+        # specific_transformation2 = {'rotation': rot_mat2, 'translation': internal_tx_param2,
+        #                             'rotation2': set_mat2, 'translation2': external_tx_params2}
 
         pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
-        pdb2_copy = pdb2.return_transformed_copy(**specific_transformation2)
+        pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
+                                                    'rotation2': set_mat2, 'translation2': external_tx_params2})
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         # Todo ensure asu chain names are different
