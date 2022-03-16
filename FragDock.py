@@ -1019,10 +1019,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         print('chunk: %d' % chunk)
         chunk_slice = slice(chunk * chunk_size, upper)
         # print('chunk_slice attributes: %s, %s' % (chunk_slice.stop, chunk_slice.start))
-        print('chunk_slice_size: %d' % int(chunk_slice.stop) - chunk_slice.start)
+        print('chunk_slice_size: %d' % (int(chunk_slice.stop) - int(chunk_slice.start)))
         inverse_transformed_pdb2_tiled_coords = \
             transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2_bb_cb_coords,
-                                                                        (int(chunk_slice.stop) - chunk_slice.start, 1, 1)),
+                                                                        (int(chunk_slice.stop) - int(chunk_slice.start), 1, 1)),
                                                                 **{'rotation': full_rotation2[chunk_slice],
                                                                    'translation': full_int_tx2[:, np.newaxis, :][chunk_slice],
                                                                    'rotation2': set_mat2,
