@@ -1001,7 +1001,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # assume each element has 8 bytes
     element_memory = 8
     number_of_elements_available = memory_constraint / element_memory
-    elements_required = len(pdb2_bb_cb_coords) * number_of_dense_transforms * 3
+    pdb_elements = len(pdb2_bb_cb_coords) * 3
+    elements_required = pdb_elements * number_of_dense_transforms
+    chunk_size = number_of_elements_available / pdb_elements
     number_of_chunks = (floor(elements_required / number_of_elements_available) or 1)
     print('number_of_elements_available: %d' % number_of_elements_available)
     print('elements_required: %d' % elements_required)
@@ -1013,13 +1015,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #               for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
     asu_clash_counts = []
     for chunk in range(number_of_chunks):
-        upper = (chunk + 1) * number_of_elements_available if chunk + 1 != number_of_chunks \
+        upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks \
             else number_of_dense_transforms
         print('chunk: %d' % chunk)
-        chunk_slice = slice(chunk * number_of_elements_available, upper)
+        chunk_slice = slice(chunk * chunk_size, upper)
         inverse_transformed_pdb2_tiled_coords = \
             transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2_bb_cb_coords,
-                                                                        (number_of_elements_available, 1, 1)),
+                                                                        (chunk_size, 1, 1)),
                                                                 **{'rotation': full_rotation2[chunk_slice],
                                                                    'translation': full_int_tx2[:, np.newaxis, :][chunk_slice],
                                                                    'rotation2': set_mat2,
