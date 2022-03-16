@@ -1005,21 +1005,22 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     elements_required = pdb_elements * number_of_dense_transforms
     chunk_size = floor(number_of_elements_available / pdb_elements)
     number_of_chunks = (floor(elements_required / number_of_elements_available) or 1)
-    print('number_of_elements_available: %d' % number_of_elements_available)
-    print('elements_required: %d' % elements_required)
-    print('number_of_chunks: %d' % number_of_chunks)
+    # print('number_of_elements_available: %d' % number_of_elements_available)
+    # print('elements_required: %d' % elements_required)
+    # print('number_of_chunks: %d' % number_of_chunks)
     check_clash_coords_start = time.time()
     # asu_clash_counts = \
     #     np.array([oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx],
     #                                                                [clash_dist])
     #               for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
-    asu_clash_counts = []
+    # asu_clash_counts = []
+    asu_clash_counts = np.ones(number_of_dense_transforms)
     for chunk in range(number_of_chunks):
         upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
-        print('chunk: %d' % chunk)
+        # print('chunk: %d' % chunk)
         chunk_slice = slice(chunk * chunk_size, upper)
         # print('chunk_slice attributes: %s, %s' % (chunk_slice.stop, chunk_slice.start))
-        print('chunk_slice_size: %d' % (int(chunk_slice.stop) - int(chunk_slice.start)))
+        # print('chunk_slice_size: %d' % (int(chunk_slice.stop) - int(chunk_slice.start)))
         inverse_transformed_pdb2_tiled_coords = \
             transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2_bb_cb_coords,
                                                                         (int(chunk_slice.stop) - int(chunk_slice.start), 1, 1)),
@@ -1032,10 +1033,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                          'translation': full_int_tx1[:, np.newaxis, :][chunk_slice] * -1,
                                          'rotation2': full_inv_rotation1[chunk_slice],
                                          'translation2': None})
-        asu_clash_counts.extend(
+        # asu_clash_counts.extend(
+        asu_clash_counts[chunk_slice] = \
             [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx], [clash_dist])[0]
-             for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
-        print('asu_clash_counts: %s' % asu_clash_counts)
+             for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])]
+        # print('asu_clash_counts: %s' % asu_clash_counts)
     check_clash_coords_time = time.time() - check_clash_coords_start
 
     # # check of transformation with forward of 2 and reverse of 1
@@ -1069,6 +1071,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #     pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
 
     # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
+    # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
     asu_is_viable = np.where(asu_clash_counts == 0)
     number_of_non_clashing_transforms = len(asu_is_viable[0])
     log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
