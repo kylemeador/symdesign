@@ -44,9 +44,8 @@ if __name__ == '__main__':
         else:
             master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
         # Making Master Output Directory
-        if not os.path.exists(master_outdir):
-            os.makedirs(master_outdir)
-        master_logger.info('Nanohedra\nMODE: DOCK\n\n')
+        os.makedirs(master_outdir, exist_ok=True)
+        master_logger.info('Nanohedra\nMODE: DOCK\n')
 
         try:
             # Orient Oligomer Fortran Executable Path
@@ -149,7 +148,7 @@ if __name__ == '__main__':
                 pdb1_name = os.path.splitext(os.path.basename(pdb1_path))[0]
                 pdb2_name = os.path.splitext(os.path.basename(pdb2_path))[0]
                 # with open(master_log_filepath, 'a+') as master_log_file:
-                master_logger.info('Docking %s / %s \n' % (pdb1_name, pdb2_name))
+                master_logger.info('Docking %s / %s' % (pdb1_name, pdb2_name))
 
                 # Output Directory  # Todo DesignDirectory
                 # outdir = os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name))
