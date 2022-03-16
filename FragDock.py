@@ -1033,7 +1033,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                          'rotation2': full_inv_rotation1[chunk_slice],
                                          'translation2': None})
         asu_clash_counts.extend(
-            [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx], [clash_dist])
+            [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx], [clash_dist])[0]
              for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
         print('asu_clash_counts: %s' % asu_clash_counts)
     check_clash_coords_time = time.time() - check_clash_coords_start
