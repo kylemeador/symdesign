@@ -1003,7 +1003,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     number_of_elements_available = memory_constraint / element_memory
     pdb_elements = len(pdb2_bb_cb_coords) * 3
     elements_required = pdb_elements * number_of_dense_transforms
-    chunk_size = number_of_elements_available / pdb_elements
+    chunk_size = floor(number_of_elements_available / pdb_elements)
     number_of_chunks = (floor(elements_required / number_of_elements_available) or 1)
     print('number_of_elements_available: %d' % number_of_elements_available)
     print('elements_required: %d' % elements_required)
@@ -1018,6 +1018,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
         print('chunk: %d' % chunk)
         chunk_slice = slice(chunk * chunk_size, upper)
+        print('chunk_slice attributes: %s, %s' % (chunk_slice.stop, chunk_slice.start))
         print('chunk_slice_size: %d' % chunk_slice.stop - chunk_slice.start)
         inverse_transformed_pdb2_tiled_coords = \
             transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2_bb_cb_coords,
