@@ -1015,13 +1015,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #               for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
     asu_clash_counts = []
     for chunk in range(number_of_chunks):
-        upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks \
-            else number_of_dense_transforms
+        upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
         print('chunk: %d' % chunk)
         chunk_slice = slice(chunk * chunk_size, upper)
+        print('chunk_slice_size: %d' % chunk_slice.stop - chunk_slice.start)
         inverse_transformed_pdb2_tiled_coords = \
             transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2_bb_cb_coords,
-                                                                        (chunk_size, 1, 1)),
+                                                                        (chunk_slice.stop - chunk_slice.start, 1, 1)),
                                                                 **{'rotation': full_rotation2[chunk_slice],
                                                                    'translation': full_int_tx2[:, np.newaxis, :][chunk_slice],
                                                                    'rotation2': set_mat2,
