@@ -1002,7 +1002,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     element_memory = 8
     number_of_elements_available = memory_constraint / element_memory
     elements_required = len(pdb2_bb_cb_coords) * number_of_dense_transforms * 3
-    number_of_chunks = floor(elements_required / number_of_elements_available)
+    number_of_chunks = (floor(elements_required / number_of_elements_available) or 1)
     print('number_of_elements_available: %d' % number_of_elements_available)
     print('elements_required: %d' % elements_required)
     print('number_of_chunks: %d' % number_of_chunks)
