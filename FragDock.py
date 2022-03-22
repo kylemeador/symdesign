@@ -420,6 +420,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     if not isinstance(pdb2, Structure):
         pdb2 = PDB.from_file(pdb2)
 
+    # Get pdb reference sequences
+    for entity in pdb1.entities:
+        entity.retrieve_sequence_from_api()
+    for entity in pdb2.entities:
+        entity.retrieve_sequence_from_api()
+
     # Output Directory  # Todo DesignDirectory
     building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
     outdir = os.path.join(master_outdir, building_blocks)
