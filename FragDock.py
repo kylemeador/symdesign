@@ -1324,12 +1324,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
-        # Todo ensure asu chain names are different
         # asu = get_contacting_asu(pdb1_copy, pdb2_copy, contact_dist=cb_distance, log=log,
         #                          entity_names=[pdb1_copy.name, pdb2_copy.name])
         # Todo, above runs into problems from not deleting the indices on a structure when init PDB as chain/entities
-        asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log,
-                                entity_names=[pdb1_copy.name, pdb2_copy.name])
+        asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log, name='asu',
+                                entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
         # log.debug('Grabbing asu')
         # if not asu:  # _pdb_1 and not asu_pdb_2:
         #     log.info('\tNO Design ASU Found')
@@ -1342,13 +1341,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         #                      surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes during initialization
-        exp_des_clash_time = time.time() - exp_des_clash_time_start
         # log.debug('Checked expand clash')
         if symmetric_material.symmetric_assembly_is_clash():
+            exp_des_clash_time = time.time() - exp_des_clash_time_start
             log.info('\tBackbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
             continue
-
+        exp_des_clash_time = time.time() - exp_des_clash_time_start
         log.info('\tNO Backbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
+
         # Todo replace with DesignDirectory? Path object?
         # temp indexing on degen and rot counts
         tx_idx = tx_counts[idx]
@@ -1373,22 +1373,29 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         # Write ASU, PDB1, PDB2, and expanded assembly files
         cryst1_record = None
         if sym_entry.unit_cell:  # 2, 3 dimensions
+            # Todo ensure has same mechanism as non unit cell (asu) PDB object return
             asu = get_central_asu(asu, asu.uc_dimensions, sym_entry.dimension)
             cryst1_record = generate_cryst1_record(asu.uc_dimensions, sym_entry.resulting_symmetry)
+        else:
+            asu = symmetric_material.get_contacting_asu(distance=cb_distance)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
         if output_assembly:
-            symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
+            # symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
             if sym_entry.unit_cell:  # 2, 3 dimensions
                 if output_surrounding_uc:
-                    symmetric_material.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
-                                             header=cryst1_record)
+                    assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
+                    # symmetric_material.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
+                    #                          header=cryst1_record, assembly=True, surrounding_uc=output_surrounding_uc)
                 else:
-                    symmetric_material.write(out_path=os.path.join(tx_dir, 'central_uc.pdb'), header=cryst1_record)
+                    assembly_path = os.path.join(tx_dir, 'central_uc.pdb')
             else:  # 0 dimension
-                symmetric_material.write(out_path=os.path.join(tx_dir, 'expanded_assembly.pdb'))
+                assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
+                # symmetric_material.write(out_path=os.path.join(tx_dir, 'expanded_assembly.pdb'))
+            symmetric_material.write(assembly=True, out_path=assembly_path, header=cryst1_record,
+                                     surrounding_uc=output_surrounding_uc)
         log.info('\tSUCCESSFUL DOCKED POSE: %s' % tx_dir)
 
         # return the indices sorted by z_value then pull information accordingly
