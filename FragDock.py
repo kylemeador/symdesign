@@ -1289,11 +1289,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #     all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
 
-        passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
-
-        log.info('\t%d Fragment Match(es) Found in Complete Cluster Representative Fragment Library (took %f s)' %
-                 (len(passing_overlaps_indices), all_fragment_match_time))
-
         # check if the pose has enough high quality fragment matches
         high_qual_match_indices = np.where(all_fragment_match > high_quality_match_value)[0]
         high_qual_match_count = len(high_qual_match_indices)
@@ -1301,7 +1296,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
             log.info('\t%d < %d Which is Set as the Minimal Required Amount of High Quality Fragment Matches'
                      % (high_qual_match_count, min_matched))
             continue
-        log.info('\t%d High Quality Fragment Matches found' % high_qual_match_count)
+        # log.info('\t%d High Quality Fragment Matches found' % high_qual_match_count)
+
+        passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
+        number_passing_overlaps = len(passing_overlaps_indices)
+        log.info('\t%d High Quality Fragments Out of %d Matches Found in Complete Fragment Library (took %f s)' %
+                 (high_qual_match_count, number_passing_overlaps, all_fragment_match_time))
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_pdb_start = time.time()
@@ -1363,12 +1363,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, idx)
         sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, idx)
         os.makedirs(tx_dir, exist_ok=True)
-
         # Make directories to output matched fragment PDB files
         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
         matching_fragments_dir = os.path.join(tx_dir, frag_dir)
-        if not os.path.exists(matching_fragments_dir):
-            os.makedirs(matching_fragments_dir)
+        os.makedirs(matching_fragments_dir, exist_ok=True)
         high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
         low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
 
@@ -1395,18 +1393,22 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
         # return the indices sorted by z_value then pull information accordingly
         sorted_fragment_indices = np.argsort(all_fragment_match)
-        match_scores = all_fragment_match[sorted_fragment_indices]
-        # match_scores = match_score_from_z_value(sorted_z_values)
-        # log.debug('Overlapping Match Scores: %s' % match_scores)
-        sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
+        sorted_match_scores = all_fragment_match[sorted_fragment_indices]
+        # sorted_match_scores = match_score_from_z_value(sorted_z_values)
+        # log.debug('Overlapping Match Scores: %s' % sorted_match_scores)
+        # sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
         # int_ghostfrags = complete_ghost_frags1[interface_ghost1_bool][passing_ghost_indices[sorted_overlap_indices]]
         # int_surffrags2 = complete_surf_frags2[interface_surf2_bool][passing_surf_indices[sorted_overlap_indices]]
-        overlap_passing_ghosts = passing_ghost_indices[sorted_overlap_indices]
-        overlap_passing_surf = passing_surf_indices[sorted_overlap_indices]
-        int_ghostfrags = [complete_ghost_frags1[idx] for bool_idx, bool_result in enumerate(interface_ghost1_bool)
-                          if bool_result and bool_idx in overlap_passing_ghosts]
-        int_surffrags2 = [complete_surf_frags2[idx] for bool_idx, bool_result in enumerate(interface_ghost1_bool)
-                          if bool_result and bool_idx in overlap_passing_surf]
+        overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
+        # overlap_passing_ghosts = passing_ghost_indices[sorted_fragment_indices]
+        overlap_surf = passing_surf_indices[sorted_fragment_indices]
+        # overlap_passing_surf = passing_surf_indices[sorted_fragment_indices]
+        # int_ghostfrags = [complete_ghost_frags1[bool_idx] for bool_idx, bool_result in enumerate(interface_ghost1_bool)
+        #                   if bool_result and bool_idx in overlap_passing_ghosts]
+        # int_surffrags2 = [complete_surf_frags2[bool_idx] for bool_idx, bool_result in enumerate(interface_surf2_bool)
+        #                   if bool_result and bool_idx in overlap_passing_surf]
+        int_ghostfrags = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
+        int_surffrags2 = [complete_surf_frags2[idx] for idx in overlap_surf]
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
@@ -1414,13 +1416,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         # Number of unique interface mono fragments matched
         unique_frags_info1, unique_frags_info2 = set(), set()
         res_pair_freq_info_list = []
-        for frag_idx, (int_ghost_frag, int_surf_frag) in enumerate(zip(int_ghostfrags, int_surffrags2), 1):
+        for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
+                enumerate(zip(int_ghostfrags, int_surffrags2, sorted_match_scores), 1)[:number_passing_overlaps]:
             surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue()
             surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_central_res_tup()
 
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
-            match = match_scores[frag_idx - 1]
+            # match = sorted_match_scores[frag_idx - 1]
             for k in range(ijk_frag_db.fragment_length):
                 chain_resnum1 = covered_residues_pdb1[k]
                 chain_resnum2 = covered_residues_pdb2[k]
