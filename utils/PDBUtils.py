@@ -64,17 +64,17 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
     max_contact_count = 0
     max_contact_chain1, max_contact_chain2 = None, None
     for chain1 in pdb1.chains:
-        pdb1_ca_coords_kdtree = BallTree(chain1.get_cb_coords())
+        pdb1_cb_coords_kdtree = BallTree(chain1.get_cb_coords())
         for chain2 in pdb2.chains:
-            contact_count = pdb1_ca_coords_kdtree.two_point_correlation(chain2.get_cb_coords(), [contact_dist])[0]
+            contact_count = pdb1_cb_coords_kdtree.two_point_correlation(chain2.get_cb_coords(), [contact_dist])[0]
 
             if contact_count > max_contact_count:
                 max_contact_count = contact_count
                 max_contact_chain1, max_contact_chain2 = chain1, chain2
 
-    if max_contact_count > 0:  # and max_contact_chain1 is not None and max_contact_chain2 is not None:
-        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', log=None, pose_format=False,
-                               entities=True, **kwargs)  # add logger when set up
+    if max_contact_count > 0:
+        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', pose_format=False,
+                               entities=True, **kwargs)
     else:
         return
 
