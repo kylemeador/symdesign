@@ -197,7 +197,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             continue
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
-        asu = get_contacting_asu(pdb1_copy, pdb2_copy, entity_names=[pdb1_copy.name, pdb2_copy.name])
+        asu = get_contacting_asu(pdb1_copy, pdb2_copy, log=log, entity_names=[pdb1_copy.name, pdb2_copy.name])
         # log.debug('Grabbing asu')
         if not asu:  # _pdb_1 and not asu_pdb_2:
             log.info('\tNO Design ASU Found')
@@ -1278,17 +1278,19 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #     all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
 
-        passing_overlaps_indices = np.where(all_fragment_match > 0.2)
+        passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
 
         log.info('\t%d Fragment Match(es) Found in Complete Cluster Representative Fragment Library (took %f s)' %
                  (len(passing_overlaps_indices), all_fragment_match_time))
 
         # check if the pose has enough high quality fragment matches
-        high_qual_match_count = np.where(all_fragment_match > high_quality_match_value)[0].size
+        high_qual_match_indices = np.where(all_fragment_match > high_quality_match_value)[0]
+        high_qual_match_count = len(high_qual_match_indices)
         if high_qual_match_count < min_matched:
             log.info('\t%d < %d Which is Set as the Minimal Required Amount of High Quality Fragment Matches'
                      % (high_qual_match_count, min_matched))
             continue
+        log.info('\t%d High Quality Fragment Matches found' % high_qual_match_count)
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_pdb_start = time.time()
@@ -1312,11 +1314,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         # Todo ensure asu chain names are different
-        asu = get_contacting_asu(pdb1_copy, pdb2_copy, entity_names=[pdb1_copy.name, pdb2_copy.name])
+        # asu = get_contacting_asu(pdb1_copy, pdb2_copy, contact_dist=cb_distance, log=log,
+        #                          entity_names=[pdb1_copy.name, pdb2_copy.name])
+        # Todo, above runs into problems from not deleting the indices on a structure when init PDB as chain/entities
+        asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log,
+                                entity_names=[pdb1_copy.name, pdb2_copy.name])
         # log.debug('Grabbing asu')
-        if not asu:  # _pdb_1 and not asu_pdb_2:
-            log.info('\tNO Design ASU Found')
-            continue
+        # if not asu:  # _pdb_1 and not asu_pdb_2:
+        #     log.info('\tNO Design ASU Found')
+        #     continue
 
         # Check if design has any clashes when expanded
         exp_des_clash_time_start = time.time()
