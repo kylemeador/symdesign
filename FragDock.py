@@ -432,17 +432,17 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     os.makedirs(outdir, exist_ok=True)
     if log is None:
         log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-        log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
     else:
         log_file_path = getattr(log.handlers[0], 'baseFilename', None)
-    pdb1.log = log
-    pdb2.log = log
-
     if not log_file_path:
         # we are probably logging to stream and we need to check another method to see if output exists
         resume = False
     else:  # it has been set. Does it exist?
         resume = True if os.path.exists(log_file_path) else False
+
+    log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+    pdb1.log = log
+    pdb2.log = log
 
     # Write to Logfile
     if resume:
@@ -701,7 +701,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # degen_rot_counts = []
     # stacked_transforms1, stacked_transforms2 = [], []
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, full_setting2, full_ext_tx1, \
-        full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
+    full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
     for degen1 in degen_rot_mat_1[degen1_count:]:
         degen1_count += 1
         for rot_mat1 in degen1[rot1_count:]:
