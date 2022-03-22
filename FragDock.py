@@ -1420,8 +1420,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #                   if bool_result and bool_idx in overlap_passing_ghosts]
         # int_surffrags2 = [complete_surf_frags2[bool_idx] for bool_idx, bool_result in enumerate(interface_surf2_bool)
         #                   if bool_result and bool_idx in overlap_passing_surf]
-        int_ghostfrags = [complete_ghost_frags1[idx] for idx in overlap_ghosts]
-        int_surffrags2 = [complete_surf_frags2[idx] for idx in overlap_surf]
+        int_ghostfrags = [complete_ghost_frags1[idx] for idx in overlap_ghosts[:number_passing_overlaps]]
+        int_surffrags2 = [complete_surf_frags2[idx] for idx in overlap_surf[:number_passing_overlaps]]
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
@@ -1430,7 +1430,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         unique_frags_info1, unique_frags_info2 = set(), set()
         res_pair_freq_info_list = []
         for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
-                enumerate(zip(int_ghostfrags, int_surffrags2, sorted_match_scores), 1)[:number_passing_overlaps]:
+                enumerate(zip(int_ghostfrags, int_surffrags2, sorted_match_scores), 1):
             surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue()
             surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_central_res_tup()
 
