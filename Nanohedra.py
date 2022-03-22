@@ -34,7 +34,8 @@ if __name__ == '__main__':
             output_assembly, output_surrounding_uc, min_matched, timer, initial, debug = \
             get_docking_parameters(sys.argv)
 
-        # Master Log File
+        # Master Output Directory and Master Log File
+        os.makedirs(master_outdir, exist_ok=True)
         master_log_filepath = os.path.join(master_outdir, PUtils.master_log)
         if debug:
             # Root logs to stream with level debug
@@ -43,8 +44,6 @@ if __name__ == '__main__':
             logger.debug('Debug mode. Verbose output')
         else:
             master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
-        # Making Master Output Directory
-        os.makedirs(master_outdir, exist_ok=True)
         master_logger.info('Nanohedra\nMODE: DOCK\n')
 
         try:
