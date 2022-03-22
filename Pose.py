@@ -816,6 +816,11 @@ class Model:  # Todo (Structure)
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written
 
+        Keyword Args:
+            file_handle=None (FileObject): An open file object where the header should be written
+            assembly=False (bool): Whether to write the full assembly to a file
+            surrounding_uc=True (bool): Whether to write the surrounding unit cell if assembly is true and
+                self.dimension > 1
         Returns:
             (str)
         """
@@ -834,7 +839,7 @@ class Model:  # Todo (Structure)
                 if not self.symmetry:  # When Pose isn't symmetric, we don't have to consider symmetric issues
                     pass
                 elif assembly:  # will make models and use next logic steps to write them out
-                    self.get_assembly_symmetry_mates()
+                    self.get_assembly_symmetry_mates(**kwargs)
                 # elif self.output_asu or
                 # elif not self.models:
                 else:  # when assembly not explicitly requested, skip models, using biomt_record/cryst_record for sym
@@ -1258,14 +1263,14 @@ class SymmetricModel(Model):
 
         return self.models
 
-    def get_assembly_symmetry_mates(self, surrounding_uc=True, **kwargs) -> List[Structure]:
+    def get_assembly_symmetry_mates(self, surrounding_uc=True, **kwargs):  # -> List[Structure]:
         # , return_side_chains=True):
         """Generate symmetry mates as a collection of Structures with symmetric coordinates
 
         Keyword Args:
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Sets:
-            (list[Structure]): All symmetry mates where Chain names match the ASU
+            self.models (list[Structure]): All symmetry mates where each mate has Chain names matching the ASU
         """
         if not self.symmetry:
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
