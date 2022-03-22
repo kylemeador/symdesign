@@ -920,13 +920,12 @@ class PDB(Structure):
 
         # For each Entity, get the chain representative Todo choose most symmetrically average if Entity is symmetric
         for entity_name, info in self.entity_d.items():
-            chains = info.get('chains')  # v make Chain objects (if they are names)
-            info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in chains]
-            info['chains'] = [chain for chain in info['chains'] if chain]
+            # v make Chain objects (if they are names)
+            info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in info.get('chains')]
+            info['chains'] = [chain for chain in info['chains'] if chain]  # remove any missing chains
             info['representative'] = info['chains'][0]
             accession = self.dbref.get(info['representative'].chain_id, None)
             info['accession'] = accession['accession'] if accession else accession
-            # info['seq'] = info['representative'].sequence
 
         # self.update_entity_accession_id()  # only useful if retrieve_pdb_info_from_api() is called
         # for entity_name, info in self.entity_d.items():  # generated from a PDB API sequence search v
