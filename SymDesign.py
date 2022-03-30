@@ -1551,11 +1551,13 @@ if __name__ == '__main__':
                     % fasta_file)
     # ---------------------------------------------------
     elif args.module == 'orient':
+        args.to_design_directory = True  # default to True when using this module
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.orient, design_directories, threads=threads)
+            zipped_args = zip(design_directories, repeat(args.to_design_directory))
+            results = SDUtils.mp_starmap(DesignDirectory.orient, zipped_args, threads=threads)
         else:
             for design_dir in design_directories:
-                results.append(design_dir.orient())
+                results.append(design_dir.orient(to_design_directory=args.to_design_directory))
 
         terminate(results=results)
     # ---------------------------------------------------
