@@ -2574,6 +2574,7 @@ class Entity(Chain, SequenceProfile):
                     return
             else:
                 entity_id = self.name
+        self.log.debug('Retrieving Entity reference sequence from PDB')
         self.reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
 
     # def retrieve_info_from_api(self):

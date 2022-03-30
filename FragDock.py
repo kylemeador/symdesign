@@ -420,23 +420,29 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     if not isinstance(pdb2, Structure):
         pdb2 = PDB.from_file(pdb2)
 
+    # Get pdb reference sequences
+    for entity in pdb1.entities:
+        entity.retrieve_sequence_from_api()
+    for entity in pdb2.entities:
+        entity.retrieve_sequence_from_api()
+
     # Output Directory  # Todo DesignDirectory
     building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
     outdir = os.path.join(master_outdir, building_blocks)
     os.makedirs(outdir, exist_ok=True)
     if log is None:
         log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-        log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
     else:
         log_file_path = getattr(log.handlers[0], 'baseFilename', None)
-    pdb1.log = log
-    pdb2.log = log
-
     if not log_file_path:
         # we are probably logging to stream and we need to check another method to see if output exists
         resume = False
     else:  # it has been set. Does it exist?
         resume = True if os.path.exists(log_file_path) else False
+
+    log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+    pdb1.log = log
+    pdb2.log = log
 
     # Write to Logfile
     if resume:
@@ -696,7 +702,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # stacked_transforms1, stacked_transforms2 = [], []
     rot_counts, degen_counts, tx_counts = [], [], []
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, full_setting2, full_ext_tx1, \
-        full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
+    full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
     for degen1 in degen_rot_mat_1[degen1_count:]:
         degen1_count += 1
         for rot_mat1 in degen1[rot1_count:]:
@@ -1289,11 +1295,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #     all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
 
-        passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
-
-        log.info('\t%d Fragment Match(es) Found in Complete Cluster Representative Fragment Library (took %f s)' %
-                 (len(passing_overlaps_indices), all_fragment_match_time))
-
         # check if the pose has enough high quality fragment matches
         high_qual_match_indices = np.where(all_fragment_match > high_quality_match_value)[0]
         high_qual_match_count = len(high_qual_match_indices)
@@ -1301,7 +1302,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
             log.info('\t%d < %d Which is Set as the Minimal Required Amount of High Quality Fragment Matches'
                      % (high_qual_match_count, min_matched))
             continue
-        log.info('\t%d High Quality Fragment Matches found' % high_qual_match_count)
+        # log.info('\t%d High Quality Fragment Matches found' % high_qual_match_count)
+
+        passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
+        number_passing_overlaps = len(passing_overlaps_indices)
+        log.info('\t%d High Quality Fragments Out of %d Matches Found in Complete Fragment Library (took %f s)' %
+                 (high_qual_match_count, number_passing_overlaps, all_fragment_match_time))
 
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_pdb_start = time.time()
@@ -1324,12 +1330,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
-        # Todo ensure asu chain names are different
         # asu = get_contacting_asu(pdb1_copy, pdb2_copy, contact_dist=cb_distance, log=log,
         #                          entity_names=[pdb1_copy.name, pdb2_copy.name])
         # Todo, above runs into problems from not deleting the indices on a structure when init PDB as chain/entities
-        asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log,
-                                entity_names=[pdb1_copy.name, pdb2_copy.name])
+        asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log, name='asu',
+                                entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
         # log.debug('Grabbing asu')
         # if not asu:  # _pdb_1 and not asu_pdb_2:
         #     log.info('\tNO Design ASU Found')
@@ -1342,13 +1347,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         #                      surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes during initialization
-        exp_des_clash_time = time.time() - exp_des_clash_time_start
         # log.debug('Checked expand clash')
         if symmetric_material.symmetric_assembly_is_clash():
+            exp_des_clash_time = time.time() - exp_des_clash_time_start
             log.info('\tBackbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
             continue
-
+        exp_des_clash_time = time.time() - exp_des_clash_time_start
         log.info('\tNO Backbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
+
         # Todo replace with DesignDirectory? Path object?
         # temp indexing on degen and rot counts
         tx_idx = tx_counts[idx]
@@ -1363,50 +1369,59 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, idx)
         sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, idx)
         os.makedirs(tx_dir, exist_ok=True)
-
         # Make directories to output matched fragment PDB files
         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
         matching_fragments_dir = os.path.join(tx_dir, frag_dir)
-        if not os.path.exists(matching_fragments_dir):
-            os.makedirs(matching_fragments_dir)
+        os.makedirs(matching_fragments_dir, exist_ok=True)
         high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
         low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
 
         # Write ASU, PDB1, PDB2, and expanded assembly files
         cryst1_record = None
         if sym_entry.unit_cell:  # 2, 3 dimensions
+            # Todo ensure has same mechanism as non unit cell (asu) PDB object return
             asu = get_central_asu(asu, asu.uc_dimensions, sym_entry.dimension)
             cryst1_record = generate_cryst1_record(asu.uc_dimensions, sym_entry.resulting_symmetry)
+        else:
+            asu = symmetric_material.get_contacting_asu(distance=cb_distance)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
         if output_assembly:
-            symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
+            # symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
             if sym_entry.unit_cell:  # 2, 3 dimensions
                 if output_surrounding_uc:
-                    symmetric_material.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
-                                             header=cryst1_record)
+                    assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
+                    # symmetric_material.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
+                    #                          header=cryst1_record, assembly=True, surrounding_uc=output_surrounding_uc)
                 else:
-                    symmetric_material.write(out_path=os.path.join(tx_dir, 'central_uc.pdb'), header=cryst1_record)
+                    assembly_path = os.path.join(tx_dir, 'central_uc.pdb')
             else:  # 0 dimension
-                symmetric_material.write(out_path=os.path.join(tx_dir, 'expanded_assembly.pdb'))
+                assembly_path = os.path.join(tx_dir, 'expanded_assembly.pdb')
+                # symmetric_material.write(out_path=os.path.join(tx_dir, 'expanded_assembly.pdb'))
+            symmetric_material.write(assembly=True, out_path=assembly_path, header=cryst1_record,
+                                     surrounding_uc=output_surrounding_uc)
         log.info('\tSUCCESSFUL DOCKED POSE: %s' % tx_dir)
 
         # return the indices sorted by z_value then pull information accordingly
         sorted_fragment_indices = np.argsort(all_fragment_match)
-        match_scores = all_fragment_match[sorted_fragment_indices]
-        # match_scores = match_score_from_z_value(sorted_z_values)
-        # log.debug('Overlapping Match Scores: %s' % match_scores)
-        sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
+        sorted_match_scores = all_fragment_match[sorted_fragment_indices]
+        # sorted_match_scores = match_score_from_z_value(sorted_z_values)
+        # log.debug('Overlapping Match Scores: %s' % sorted_match_scores)
+        # sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
         # int_ghostfrags = complete_ghost_frags1[interface_ghost1_bool][passing_ghost_indices[sorted_overlap_indices]]
         # int_surffrags2 = complete_surf_frags2[interface_surf2_bool][passing_surf_indices[sorted_overlap_indices]]
-        overlap_passing_ghosts = passing_ghost_indices[sorted_overlap_indices]
-        overlap_passing_surf = passing_surf_indices[sorted_overlap_indices]
-        int_ghostfrags = [complete_ghost_frags1[idx] for bool_idx, bool_result in enumerate(interface_ghost1_bool)
-                          if bool_result and bool_idx in overlap_passing_ghosts]
-        int_surffrags2 = [complete_surf_frags2[idx] for bool_idx, bool_result in enumerate(interface_ghost1_bool)
-                          if bool_result and bool_idx in overlap_passing_surf]
+        overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
+        # overlap_passing_ghosts = passing_ghost_indices[sorted_fragment_indices]
+        overlap_surf = passing_surf_indices[sorted_fragment_indices]
+        # overlap_passing_surf = passing_surf_indices[sorted_fragment_indices]
+        # int_ghostfrags = [complete_ghost_frags1[bool_idx] for bool_idx, bool_result in enumerate(interface_ghost1_bool)
+        #                   if bool_result and bool_idx in overlap_passing_ghosts]
+        # int_surffrags2 = [complete_surf_frags2[bool_idx] for bool_idx, bool_result in enumerate(interface_surf2_bool)
+        #                   if bool_result and bool_idx in overlap_passing_surf]
+        int_ghostfrags = [complete_ghost_frags1[idx] for idx in overlap_ghosts[:number_passing_overlaps]]
+        int_surffrags2 = [complete_surf_frags2[idx] for idx in overlap_surf[:number_passing_overlaps]]
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
@@ -1414,13 +1429,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         # Number of unique interface mono fragments matched
         unique_frags_info1, unique_frags_info2 = set(), set()
         res_pair_freq_info_list = []
-        for frag_idx, (int_ghost_frag, int_surf_frag) in enumerate(zip(int_ghostfrags, int_surffrags2), 1):
+        for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
+                enumerate(zip(int_ghostfrags, int_surffrags2, sorted_match_scores), 1):
             surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue()
             surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_central_res_tup()
 
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
-            match = match_scores[frag_idx - 1]
+            # match = sorted_match_scores[frag_idx - 1]
             for k in range(ijk_frag_db.fragment_length):
                 chain_resnum1 = covered_residues_pdb1[k]
                 chain_resnum2 = covered_residues_pdb2[k]
