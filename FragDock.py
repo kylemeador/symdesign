@@ -694,6 +694,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # passing_optimal_shifts = []
     # degen_rot_counts = []
     # stacked_transforms1, stacked_transforms2 = [], []
+    rot_counts, degen_counts, tx_counts = [], [], []
     full_rotation1, full_rotation2, full_int_tx1, full_int_tx2, full_setting1, full_setting2, full_ext_tx1, \
         full_ext_tx2, full_optimal_ext_dof_shifts = [], [], [], [], [], [], [], [], []
     for degen1 in degen_rot_mat_1[degen1_count:]:
@@ -901,13 +902,17 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     full_int_tx2.append(stacked_internal_tx_vectors2[positive_indices])
                     full_rotation1.append(stacked_rot_mat1[positive_indices])
                     full_rotation2.append(stacked_rot_mat2[positive_indices])
-
                     final_passing_shifts = len(positive_indices)
+
+                    degen_counts.extend([(degen1_count, degen2_count) for _ in range(final_passing_shifts)])
+                    rot_counts.extend([(rot1_count, rot2_count) for _ in range(final_passing_shifts)])
+                    tx_counts.extend(list(range(1, final_passing_shifts + 1)))
                     log.info('Optimal Shift Search Took: %s s for %d guide coordinate pairs'
                              % (optimal_shifts_time, len(possible_ghost_frag_indices)))
                     log.info('%s Initial Interface Fragment Match%s Found'
                              % (final_passing_shifts if final_passing_shifts else 'No',
                                 'es' if final_passing_shifts != 1 else ''))
+                    print(rot_counts[-10:], degen_counts[-10:], tx_counts[-10:])
                 rot2_count = 0
             degen2_count = 0
         rot1_count = 0
@@ -974,6 +979,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # Transform the oligomeric coords to query for clashes
     transfrom_clash_coords_start = time.time()
     # stack the superposition_rotation_matrix
+    degen_counts = [degen_count for idx, degen_count in enumerate(degen_counts) if idx in sufficiently_dense_indices]
+    rot_counts = [rot_count for idx, rot_count in enumerate(rot_counts) if idx in sufficiently_dense_indices]
+    tx_counts = [tx_count for idx, tx_count in enumerate(tx_counts) if idx in sufficiently_dense_indices]
     full_rotation1 = full_rotation1[sufficiently_dense_indices]
     full_rotation2 = full_rotation2[sufficiently_dense_indices]
     full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
@@ -1107,6 +1115,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
              % (check_clash_coords_time, number_of_non_clashing_transforms))
 
+    degen_counts = [degen_count for idx, degen_count in enumerate(degen_counts) if idx in asu_is_viable]
+    rot_counts = [rot_count for idx, rot_count in enumerate(rot_counts) if idx in asu_is_viable]
+    tx_counts = [tx_count for idx, tx_count in enumerate(tx_counts) if idx in asu_is_viable]
     full_rotation1 = full_rotation1[asu_is_viable]
     full_rotation2 = full_rotation2[asu_is_viable]
     full_int_tx1 = full_int_tx1[asu_is_viable]
@@ -1339,9 +1350,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
         log.info('\tNO Backbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
         # Todo replace with DesignDirectory? Path object?
+        # temp indexing on degen and rot counts
+        tx_idx = tx_counts[idx]
+        degen1_count, degen2_count = degen_counts[idx]
+        rot1_count, rot2_count = rot_counts[idx]
         degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
         rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
-        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % idx)
+        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
         oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
         degen_dir = rot_subdir_out_path.split(os.sep)[-2]
         rot_dir = rot_subdir_out_path.split(os.sep)[-1]
