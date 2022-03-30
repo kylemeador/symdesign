@@ -918,7 +918,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     log.info('%s Initial Interface Fragment Match%s Found'
                              % (final_passing_shifts if final_passing_shifts else 'No',
                                 'es' if final_passing_shifts != 1 else ''))
-                    print(rot_counts[-10:], degen_counts[-10:], tx_counts[-10:])
+                    # print(rot_counts[-10:], degen_counts[-10:], tx_counts[-10:])
                 rot2_count = 0
             degen2_count = 0
         rot1_count = 0
