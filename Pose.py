@@ -1682,8 +1682,8 @@ class SymmetricModel(Model):
             # Maybe this route of generation is too flawed for layer/space? Nanohedra framework gives a comprehensive
             # handle on all these issues though
         # find the approximate scalar translation of the asu center of mass from the reference symmetry origin
-        approx_entity_com_reference = np.linalg.norm(all_entities_com - ext_tx)
-        approx_entity_z_tx = [0., 0., approx_entity_com_reference]
+        approx_entity_com_reference_tx = np.linalg.norm(all_entities_com - ext_tx)
+        approx_entity_z_tx = [0., 0., approx_entity_com_reference_tx]
         # apply the setting matrix for each group to the approximate translation
         set_mat1 = self.sym_entry.setting_matrix1
         set_mat2 = self.sym_entry.setting_matrix2
