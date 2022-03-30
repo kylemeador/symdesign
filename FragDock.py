@@ -985,9 +985,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # Transform the oligomeric coords to query for clashes
     transfrom_clash_coords_start = time.time()
     # stack the superposition_rotation_matrix
-    degen_counts = [degen_count for idx, degen_count in enumerate(degen_counts) if idx in sufficiently_dense_indices]
-    rot_counts = [rot_count for idx, rot_count in enumerate(rot_counts) if idx in sufficiently_dense_indices]
-    tx_counts = [tx_count for idx, tx_count in enumerate(tx_counts) if idx in sufficiently_dense_indices]
+    degen_counts = [degen_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
+    rot_counts = [rot_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
+    tx_counts = [tx_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
     full_rotation1 = full_rotation1[sufficiently_dense_indices]
     full_rotation2 = full_rotation2[sufficiently_dense_indices]
     full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
@@ -1121,9 +1121,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
              % (check_clash_coords_time, number_of_non_clashing_transforms))
 
-    degen_counts = [degen_count for idx, degen_count in enumerate(degen_counts) if idx in asu_is_viable]
-    rot_counts = [rot_count for idx, rot_count in enumerate(rot_counts) if idx in asu_is_viable]
-    tx_counts = [tx_count for idx, tx_count in enumerate(tx_counts) if idx in asu_is_viable]
+    # degen_counts = [degen_count for idx, degen_count in enumerate(degen_counts) if idx in asu_is_viable]
+    # rot_counts = [rot_count for idx, rot_count in enumerate(rot_counts) if idx in asu_is_viable]
+    # tx_counts = [tx_count for idx, tx_count in enumerate(tx_counts) if idx in asu_is_viable]
+    degen_counts = [degen_counts[idx] for idx in asu_is_viable[0].tolist()]
+    rot_counts = [rot_counts[idx] for idx in asu_is_viable[0].tolist()]
+    tx_counts = [tx_counts[idx] for idx in asu_is_viable[0].tolist()]
     full_rotation1 = full_rotation1[asu_is_viable]
     full_rotation2 = full_rotation2[asu_is_viable]
     full_int_tx1 = full_int_tx1[asu_is_viable]
