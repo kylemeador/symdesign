@@ -36,7 +36,7 @@ from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from classes.EulerLookup import EulerLookup
 from Database import Database  # FragmentDatabase,
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
-from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, MasterDirectory
+from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, JobResources
 from NanohedraWrap import nanohedra_command, nanohedra_design_recap
 from PDB import PDB, orient_pdb_file
 from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
@@ -400,14 +400,6 @@ def format_additional_flags(flags):
     return final_flags
 
 
-def catch_and_clean_exceptions():
-    try:
-        symdesign()
-    except Exception as ex:
-        master_directory = next(iter(designs))
-        raise ex
-
-
 sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, check that the job array and any '\
                  'node specifications are accurate. You can look at the SBATCH manual (man sbatch or sbatch --help) to'\
                  ' understand the variables or ask for help if you are still unsure.'
@@ -445,8 +437,8 @@ def terminate(results=None, output=True):
         # exit_code = 1
 
     if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
-        # master_directory = next(iter(design_directories))
-        job_paths = master_directory.job_paths
+        # job = next(iter(design_directories))
+        job_paths = job.job_paths
         if low and high:
             timestamp = '%s-%.2f-%.2f' % (SDUtils.starttime, low, high)
         # Make single file with names of each directory where all_docked_poses can be found
@@ -465,7 +457,7 @@ def terminate(results=None, output=True):
                         % (designs_file, PUtils.program_name, PUtils.program_command, designs_file))
 
         if args.module == PUtils.analysis:
-            all_scores = master_directory.all_scores
+            all_scores = job.all_scores
             # Save Design DataFrame
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
             if args.output == PUtils.analysis_file:
@@ -505,18 +497,18 @@ def terminate(results=None, output=True):
             if len(success) == 0:
                 exit_code = 1
                 exit(exit_code)
-            # sbatch_scripts = master_directory.sbatch_scripts
+            # sbatch_scripts = job.sbatch_scripts
             command_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % stage) for design in success],
                                                   out_path=job_paths, name='_'.join(default_output_tuple))
-            sbatch_file = distribute(file=command_file, out_path=master_directory.sbatch_scripts, scale=args.module)
+            sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module)
             #                                                                    ^ for sbatch template
             logger.critical(sbatch_warning)
-            if args.module == PUtils.interface_design and not master_directory.pre_refine:  # must refine before design
+            if args.module == PUtils.interface_design and not job.pre_refine:  # must refine before design
                 refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % 'refine')
                                                       for design in success], out_path=job_paths,
                                                      name='_'.join((SDUtils.starttime, 'refine', design_source)))
                 sbatch_refine_file = \
-                    distribute(file=refine_file, out_path=master_directory.sbatch_scripts, scale='refine')
+                    distribute(file=refine_file, out_path=job.sbatch_scripts, scale='refine')
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s\nTHEN:\n\tsbatch '
                             '%s' % (sbatch_refine_file, sbatch_file))
             else:
@@ -1109,8 +1101,17 @@ if __name__ == '__main__':
         threads = 1
         logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
 
-    # Set up MasterDirectory, DesignDirectories input and outputs or Nanohedra inputs
-    master_directory, initial_iter = None, None
+    # Set up JobResources, DesignDirectories input and outputs or Nanohedra inputs
+    symdesign_directory = SDUtils.get_base_symdesign_dir(args.directory)
+    if symdesign_directory:  # SymDesignOutput
+        job = JobResources(symdesign_directory)
+    elif args.output_directory:
+        job = JobResources(queried_flags['output_directory'])
+    else:
+        job = JobResources(os.path.join(os.getcwd(), PUtils.program_output))
+    queried_flags['job_resources'] = job
+
+    initial_iter = None
     if initialize:
         if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
             raise SDUtils.DesignError(
@@ -1166,10 +1167,10 @@ if __name__ == '__main__':
                                       % (PUtils.program_name, location, 'nanohedra_output', args.nanohedra_output))
         # Todo could make after collect_designs? Pass to all design_directories
         #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
-        master_directory = next(iter(design_directories))
-        # master_directory = MasterDirectory(design_directories[0].program_root)
+        example_directory = next(iter(design_directories))
+        # example_directory = JobResources(design_directories[0].program_root)
         if not location:
-            design_source = os.path.basename(master_directory.project_designs)
+            design_source = os.path.basename(example_directory.project_designs)
         else:
             design_source = os.path.splitext(os.path.basename(location))[0]
         default_output_tuple = (SDUtils.starttime, args.module, design_source)
@@ -1181,33 +1182,32 @@ if __name__ == '__main__':
             else:
                 designs_directory = args.output_directory
             os.makedirs(designs_directory, exist_ok=True)
-        master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
-                             master_directory.full_model_dir, master_directory.stride_dir, master_directory.sequences,
-                             master_directory.profiles, sql=None, log=logger)
-        logger.info('Using design resources from Database located at \'%s\'' % master_directory.protein_data)
+        master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
+                             job.sequences, job.profiles, sql=None, log=logger)
+        logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
 
         # check to see that proper files have been created if doing design
         # including orientation, refinement, loop modeling, hhblits, bmdca?
-        if not master_directory.initialized and args.module in initialize_modules \
+        if not job.initialized and args.module in initialize_modules \
                 or args.nanohedra_output or args.load_database:  # or args.module == PUtils.nano
-            master_directory.make_path(master_directory.protein_data)
-            master_directory.make_path(master_directory.pdbs)
-            master_directory.make_path(master_directory.sequence_info)
-            master_directory.make_path(master_directory.sequences)
-            master_directory.make_path(master_directory.profiles)
-            master_directory.make_path(master_directory.job_paths)
-            master_directory.make_path(master_directory.sbatch_scripts)
+            job.make_path(job.protein_data)
+            job.make_path(job.pdbs)
+            job.make_path(job.sequence_info)
+            job.make_path(job.sequences)
+            job.make_path(job.profiles)
+            job.make_path(job.job_paths)
+            job.make_path(job.sbatch_scripts)
             if args.load_database:  # Todo why is this set_up_design_directory here?
                 for design in design_directories:
                     design.set_up_design_directory()
             # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
             # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
-            orient_dir = master_directory.orient_dir
-            master_directory.make_path(orient_dir)
-            orient_asu_dir = master_directory.orient_asu_dir
-            master_directory.make_path(orient_asu_dir)
-            stride_dir = master_directory.stride_dir
-            master_directory.make_path(stride_dir)
+            orient_dir = job.orient_dir
+            job.make_path(orient_dir)
+            orient_asu_dir = job.orient_asu_dir
+            job.make_path(orient_asu_dir)
+            stride_dir = job.stride_dir
+            job.make_path(stride_dir)
             logger.critical('The requested poses require preprocessing before design modules should be used')
             # logger.info('The required files for %s designs are being collected and oriented if necessary' % PUtils.nano)
             # for design in design_directories:
@@ -1227,7 +1227,7 @@ if __name__ == '__main__':
             # orient_files = [os.path.splitext(file)[0] for file in os.listdir(orient_dir)]
             # qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
             # Select entities, orient them, then load each entity to all_entities for further database processing
-            symmetry_map = master_directory.sym_entry.sym_map.values() if master_directory.sym_entry else repeat(None)
+            symmetry_map = example_directory.sym_entry.sym_map.values() if example_directory.sym_entry else repeat(None)
             for symmetry, entities in zip(symmetry_map, required_entities):
                 if not entities:
                     continue
@@ -1235,8 +1235,8 @@ if __name__ == '__main__':
                     logger.info('PDB files are being processed without consideration for symmetry: %s'
                                 % ', '.join(entities))
                     continue
-                    # master_directory.transform_d[idx]['translation'] = -center_of_mass
-                    # master_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
+                    # example_directory.transform_d[idx]['translation'] = -center_of_mass
+                    # example_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
                 else:
                     logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
                                 % (symmetry, orient_dir, ', '.join(entities)))
@@ -1244,10 +1244,10 @@ if __name__ == '__main__':
 
             info_messages = []
             # set up the hhblits and profile bmdca for each input entity
-            profile_dir = master_directory.profiles
-            sequences_dir = master_directory.sequences
-            master_directory.make_path(profile_dir)
-            master_directory.make_path(sequences_dir)
+            profile_dir = job.profiles
+            job.make_path(profile_dir)
+            sequences_dir = job.sequences
+            job.make_path(sequences_dir)
             hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities:
                 entity.sequence_file = master_db.sequences.retrieve_file(name=entity.name)
@@ -1279,10 +1279,9 @@ if __name__ == '__main__':
                                      '\'%s\'' % os.path.join(profile_dir, '*.a3m'), '.fasta', '-M', 'first', '-r']
                 hhblits_cmd_file = \
                     SDUtils.write_commands(hhblits_cmds, name='%s-hhblits' % SDUtils.starttime, out_path=profile_dir)
-                hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=master_directory.sbatch_scripts,
-                                            scale='hhblits', max_jobs=len(hhblits_cmds),
+                hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=job.sbatch_scripts, scale='hhblits',
+                                            max_jobs=len(hhblits_cmds), number_of_commands=len(hhblits_cmds),
                                             log_file=os.path.join(profile_dir, 'generate_profiles.log'),
-                                            number_of_commands=len(hhblits_cmds),
                                             finishing_commands=[list2cmdline(reformat_msa_cmd1),
                                                                 list2cmdline(reformat_msa_cmd2)])
                 hhblits_sbatch_message = \
@@ -1300,14 +1299,13 @@ if __name__ == '__main__':
                 #      for entity in all_entities.values()]
                 bmdca_cmd_file = \
                     SDUtils.write_commands(bmdca_cmds, name='%s-bmDCA' % SDUtils.starttime, out_path=profile_dir)
-                bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=master_directory.sbatch_scripts,
-                                          scale='bmdca', max_jobs=len(bmdca_cmds),
-                                          log_file=os.path.join(profile_dir, 'generate_couplings.log'),
-                                          number_of_commands=len(bmdca_cmds))
+                bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=job.sbatch_scripts, scale='bmdca',
+                                          max_jobs=len(bmdca_cmds), number_of_commands=len(bmdca_cmds),
+                                          log_file=os.path.join(profile_dir, 'generate_couplings.log'))
                 # reformat_msa_cmd_file = \
                 #     SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % SDUtils.starttime,
                 #                            out_path=profile_dir)
-                # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=master_directory.program_root,
+                # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=job.program_root,
                 #                              scale='script', max_jobs=len(reformat_msa_cmds),
                 #                              log_file=os.path.join(profile_dir, 'generate_profiles.log'),
                 #                              number_of_commands=len(reformat_msa_cmds))
@@ -1324,7 +1322,7 @@ if __name__ == '__main__':
                 bmdca_sbatch, reformat_sbatch = None, None
 
             refine_loop_model_instructions, pre_refine, pre_loop_model = \
-                master_db.preprocess_entities_for_design(all_entities, script_outpath=master_directory.sbatch_scripts,
+                master_db.preprocess_entities_for_design(all_entities, script_outpath=job.sbatch_scripts,
                                                          load_resources=load_resources)
             if load_resources or pre_refine or pre_loop_model:
                 logger.critical(sbatch_warning)
@@ -1352,7 +1350,7 @@ if __name__ == '__main__':
 
         logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
         if not args.debug and not queried_flags['skip_logging']:
-            example_log = getattr(master_directory.log.handlers[0], 'baseFilename', None)
+            example_log = getattr(example_directory.log.handlers[0], 'baseFilename', None)
             if example_log:
                 logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
                             % example_log)
@@ -1368,22 +1366,20 @@ if __name__ == '__main__':
                 raise SDUtils.DesignError('No docking directories/files were found!\n'
                                           'Please specify --directory1, and/or --directory2 or --directory or '
                                           '--file. See %s' % PUtils.help(args.module))
-            master_directory = next(iter(design_directories))
+            # master_directory = next(iter(design_directories))
             logger.info('%d unique building block docking combinations found in \'%s\''
                         % (len(design_directories), location))
         else:
-            if args.output_directory:
-                master_directory = MasterDirectory(queried_flags['output_directory'])
-            else:
-                master_directory = MasterDirectory(os.path.join(os.getcwd(), PUtils.program_output))
+            # if args.output_directory:
+            #     master_directory = JobResources(queried_flags['output_directory'])
+            # else:
+            #     master_directory = JobResources(os.path.join(os.getcwd(), PUtils.program_output))
             # Todo make current with sql ambitions
-            master_directory.docking_master_dir = \
-                os.path.join(master_directory.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
+            job.docking_master_dir = os.path.join(job.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
             # sym_entry is required so this won't fail ^
-            master_db = Database(master_directory.orient_dir, master_directory.orient_asu_dir, master_directory.refine_dir,
-                                 master_directory.full_model_dir, master_directory.stride_dir, master_directory.sequences,
-                                 master_directory.profiles, sql=None, log=logger)
-            logger.info('Using design resources from Database located at \'%s\'' % master_directory.protein_data)
+            master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
+                                 job.sequences, job.profiles, sql=None, log=logger)
+            logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
 
             # Getting PDB1 and PDB2 File paths
             symmetry_map = sym_entry.groups
@@ -1454,11 +1450,11 @@ if __name__ == '__main__':
                 #         logger.info('PDB files are being processed without consideration for symmetry: %s'
                 #                     % ', '.join(entities))
                 #         continue
-                #         # master_directory.transform_d[idx]['translation'] = -center_of_mass
-                #         # master_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
+                #         # example_directory.transform_d[idx]['translation'] = -center_of_mass
+                #         # example_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
                 #     else:
                 #         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
-                #                     % (symmetry, master_directory.orient_dir, ', '.join(entities)))
+                #                     % (symmetry, job.orient_dir, ', '.join(entities)))
             else:
                 entities2 = []
                 # if not entities2:
@@ -1468,7 +1464,7 @@ if __name__ == '__main__':
 
             info_messages = []
             refine_loop_model_instructions, pre_refine, pre_loop_model = \
-                master_db.preprocess_entities_for_design(all_entities, script_outpath=master_directory.sbatch_scripts,
+                master_db.preprocess_entities_for_design(all_entities, script_outpath=job.sbatch_scripts,
                                                          load_resources=load_resources)
             if load_resources or pre_refine or pre_loop_model:
                 logger.critical(sbatch_warning)
@@ -1493,7 +1489,7 @@ if __name__ == '__main__':
             design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
     else:  # this logic is possible with select_designs without --metric
         master_db = None
-        # master_directory = MasterDirectory(queried_flags['output_directory'])
+        # job = JobResources(queried_flags['output_directory'])
         pass
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
@@ -1601,7 +1597,7 @@ if __name__ == '__main__':
         # Initialize docking procedure
         if args.run_in_shell:
             # make master output directory
-            os.makedirs(master_directory.docking_master_dir, exist_ok=True)
+            os.makedirs(job.docking_master_dir, exist_ok=True)
             if args.debug:
                 # Root logs to stream with level debug according to prior logging initialization
                 master_logger, bb_logger = logger, logger
@@ -1610,11 +1606,11 @@ if __name__ == '__main__':
                 master_logger = SDUtils.start_log(name=PUtils.nano.title(), handler=2, location=master_log_filepath)
             master_logger.info('Nanohedra\nMODE: DOCK\n\n')
             write_docking_parameters(args.oligomer1, args.oligomer2, args.rot_step_deg1, args.rot_step_deg2, sym_entry,
-                                     master_directory.docking_master_dir, log=master_logger)
+                                     job.docking_master_dir, log=master_logger)
         if args.multi_processing:
             if args.run_in_shell:
                 zipped_args = zip(repeat(sym_entry), repeat(fragment_db), repeat(euler_lookup),
-                                  repeat(master_directory.docking_master_dir), *zip(*pdb_pairs),
+                                  repeat(job.docking_master_dir), *zip(*pdb_pairs),
                                   repeat(args.rot_step_deg1), repeat(args.rot_step_deg2),
                                   repeat(args.min_matched), repeat(args.high_quality_match_value),
                                   repeat(args.output_assembly), repeat(args.output_surrounding_uc))
@@ -1632,7 +1628,7 @@ if __name__ == '__main__':
                 for pdb_pair in pdb_pairs:
                     pdb1, pdb2 = pdb_pair
                     master_logger.info('Docking %s / %s \n' % (pdb1.name, pdb2.name))
-                    nanohedra_dock(sym_entry, fragment_db, euler_lookup, master_directory.docking_master_dir,
+                    nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir,
                                    pdb1, pdb2, rot_step_deg1=args.rot_step_deg1, rot_step_deg2=args.rot_step_deg2,
                                    min_matched=args.min_matched, high_quality_match_value=args.high_quality_match_value,
                                    output_assembly=args.output_assembly,
@@ -1732,8 +1728,8 @@ if __name__ == '__main__':
                 logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
                                 '(the backbone of --design_with_evolution)! Please allocate the job to a computer with '
                                 'more memory or the process will fail. Otherwise, select --design_with_evolution False')
-            master_directory.make_path(master_directory.sequences)
-            master_directory.make_path(master_directory.profiles)
+            job.make_path(job.sequences)
+            job.make_path(job.profiles)
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads=threads)
@@ -1748,14 +1744,14 @@ if __name__ == '__main__':
             save = False
         else:
             save = True
-        # master_directory = next(iter(design_directories))
+        # job = next(iter(design_directories))
         # ensure analysis write directory exists
-        master_directory.make_path(master_directory.all_scores)
+        job.make_path(job.all_scores)
         # Start pose analysis of all designed files
         if len(args.output.split(os.sep)) > 1:  # the path is a full or relative path, we should use it
             out_path = args.output
         else:
-            out_path = os.path.join(master_directory.program_root, args.output)
+            out_path = os.path.join(job.program_root, args.output)
 
         if os.path.exists(out_path):
             logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
@@ -1829,10 +1825,10 @@ if __name__ == '__main__':
             program_root = None
             # Todo change this mechanism so not reliant on args.directory and outputs pose IDs/ Alternatives fix csv
             #  to output paths
-        elif not master_directory:
-            program_root = args.directory
+        # elif not job:
+        #     program_root = args.directory
         else:
-            program_root = master_directory.program_root
+            program_root = job.program_root
 
         if args.dataframe:
             # Figure out poses from a dataframe, filters, and weights
@@ -1966,7 +1962,7 @@ if __name__ == '__main__':
 
             # need to change directories to prevent issues with the path length being passed to ialign
             prior_directory = os.getcwd()
-            os.chdir(master_directory.protein_data)  # os.path.join(master_directory.protein_data, 'ialign_output'))
+            os.chdir(job.protein_data)  # os.path.join(job.protein_data, 'ialign_output'))
             temp_file_dir = os.path.join(os.getcwd(), 'temp')
             if not os.path.exists(temp_file_dir):
                 os.makedirs(temp_file_dir)
@@ -2000,7 +1996,7 @@ if __name__ == '__main__':
                 for idx, (interface_file1, interface_file2) in enumerate(combinations(design_interfaces, 2)):  # all_files
                     # is_score = ialign(design1.source, design2.source, out_path='ialign')
                     is_score = ialign(interface_file1, interface_file2)
-                    #                   out_path=os.path.join(master_directory.protein_data, 'ialign_output'))
+                    #                   out_path=os.path.join(job.protein_data, 'ialign_output'))
                     if is_score > is_threshold:
                         design_pairs.append(set(design_directory_pairs[idx]))
                         # design_pairs.append({design1, design2})
@@ -2045,7 +2041,7 @@ if __name__ == '__main__':
             else:
                 pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
                                                           PUtils.clustered_poses % (location, SDUtils.starttime),
-                                                          out_path=master_directory.clustered_poses)
+                                                          out_path=job.clustered_poses)
             logger.info('Cluster map written to %s' % pose_cluster_file)
         else:
             logger.info('No significant clusters were located! Clustering ended')
@@ -2053,7 +2049,7 @@ if __name__ == '__main__':
         terminate(results=pose_cluster_map)
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
-        program_root = master_directory.program_root
+        program_root = job.program_root
         if args.global_sequences:
             df = load_global_dataframe()
             if args.protocol:
@@ -2103,7 +2099,7 @@ if __name__ == '__main__':
         else:  # select designed sequences from each pose provided (DesignDirectory)
             trajectory_df = None  # currently used to get the column headers
             if args.filter:
-                trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
+                trajectory_df = pd.read_csv(job.trajectories, index_col=0, header=[0])
                 sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
                 sequence_filters = query_user_for_metrics(sequence_metrics, mode='filter', level='sequence')
             else:
@@ -2111,7 +2107,7 @@ if __name__ == '__main__':
 
             if args.weight:
                 if not trajectory_df:
-                    trajectory_df = pd.read_csv(master_directory.trajectories, index_col=0, header=[0])
+                    trajectory_df = pd.read_csv(job.trajectories, index_col=0, header=[0])
                     sequence_metrics = set(trajectory_df.columns.get_level_values(-1).to_list())
                 sequence_weights = query_user_for_metrics(sequence_metrics, mode='weight', level='sequence')
             else:
@@ -2180,16 +2176,16 @@ if __name__ == '__main__':
                 f.write('%s\n' % '\n'.join(des_dir.path for des_dir in design_directories))
 
         # use one directory as indication of entity specification for them all. Todo modify for different length inputs
-        master_directory.load_pose()
+        example_directory.load_pose()
         if args.entity_specification:
             if args.entity_specification == 'all':
-                tag_index = [True for _ in master_directory.pose.entities]
-                number_of_tags = len(master_directory.pose.entities)
+                tag_index = [True for _ in example_directory.pose.entities]
+                number_of_tags = len(example_directory.pose.entities)
             elif args.entity_specification == 'single':
-                tag_index = [True for _ in master_directory.pose.entities]
+                tag_index = [True for _ in example_directory.pose.entities]
                 number_of_tags = 1
             elif args.entity_specification == 'none':
-                tag_index = [False for _ in master_directory.pose.entities]
+                tag_index = [False for _ in example_directory.pose.entities]
                 number_of_tags = None
             else:
                 tag_specified_list = list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
@@ -2200,12 +2196,12 @@ if __name__ == '__main__':
                     except ValueError:
                         continue
 
-                for _ in range(len(master_directory.pose.entities) - len(tag_specified_list)):
+                for _ in range(len(example_directory.pose.entities) - len(tag_specified_list)):
                     tag_specified_list.append(0)
                 tag_index = [True if is_tag else False for is_tag in tag_specified_list]
                 number_of_tags = sum(tag_specified_list)
         else:
-            tag_index = [False for _ in master_directory.pose.entities]
+            tag_index = [False for _ in example_directory.pose.entities]
             number_of_tags = None
 
         if args.multicistronic or args.multicistronic_intergenic_sequence:
