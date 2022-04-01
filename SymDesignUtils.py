@@ -13,7 +13,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
-from typing import List
+from typing import List, Union
 
 import numpy as np
 # from numba import njit
@@ -951,16 +951,11 @@ def collect_designs(files=None, directory=None, project=None, single=None):
             location = _file  # assigned to the last file even if there are multiple...
     elif directory:
         location = directory
-        base_directories = get_base_symdesign_dirs(directory)
-        if not base_directories:
-            # This is probably an uninitialized project and we should grab all .pdb files then initialize
+        base_directory = get_base_symdesign_dir(directory)
+        if not base_directory:  # This is probably an uninitialized project. Grab all .pdb files
             all_paths = get_all_file_paths(directory, extension='.pdb')
-        else:
-            # return all design directories within the base directory ->/base/Projects/project/design
-            all_paths = []
-            for base in base_directories:
-                all_paths.extend(get_symdesign_dirs(base=base))
-            all_paths = map(os.path.dirname, all_paths)
+        else:  # return all design directories within the base directory ->/base/Projects/project/design
+            all_paths = map(os.path.dirname, get_symdesign_dirs(base=base_directory))
 
     elif project:
         all_paths = get_symdesign_dirs(project=project)
@@ -975,16 +970,22 @@ def collect_designs(files=None, directory=None, project=None, single=None):
     return sorted(set(all_paths)), location
 
 
-def get_base_symdesign_dirs(directory):
-    if PUtils.program_name in directory:   # directory1/SymDesignOutput/directory2/directory3
-        return ['/%s' % os.path.join(*directory.split(os.sep)[:idx])
-                for idx, dirname in enumerate(directory.split(os.sep), 1)
-                if dirname == PUtils.program_output]
-    elif PUtils.program_name in os.listdir(directory):  # directory_provided/SymDesignOutput
-        return [os.path.join(directory, sub_directory) for sub_directory in os.listdir(directory)
-                if sub_directory == PUtils.program_output]
+def get_base_symdesign_dir(directory) -> Union[None, str]:
+    base_dir = None
+    if PUtils.program_output in directory:   # directory1/SymDesignOutput/directory2/directory3
+        for idx, dirname in enumerate(directory.split(os.sep), 1):
+            if dirname == PUtils.program_output:
+                base_dir = '%s%s' % (os.sep, os.path.join(*directory.split(os.sep)[:idx]))
+                break
+    elif PUtils.program_output in os.listdir(directory):  # directory_provided/SymDesignOutput
+        for sub_directory in os.listdir(directory):
+            if sub_directory == PUtils.program_output:
+                base_dir = os.path.join(directory, sub_directory)
+                break
     else:
-        return []
+        return
+
+    return base_dir
 
 
 def get_symdesign_dirs(base=None, project=None, single=None):
