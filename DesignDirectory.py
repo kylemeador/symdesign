@@ -85,7 +85,7 @@ class JobResources:
         self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
-        self.frag_db = None
+        self.fragment_db = None
         self.resources = None
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO ScoreDatabase integration
 
@@ -385,7 +385,7 @@ class DesignDirectory:  # (JobResources):
 
     @property
     def frag_db(self):
-        return self.job_resources.frag_db
+        return self.job_resources.fragment_db
 
     @property
     def resources(self):
@@ -443,17 +443,17 @@ class DesignDirectory:  # (JobResources):
     def sbatch_scripts(self):
         return self.job_resources.sbatch_scripts  # program_root/Scripts
 
-    @property
-    def design_sequences(self):
-        return self.job_resources.design_sequences  # program_root/AllScores/str(self)_Sequences.pkl
-
-    @property
-    def residues(self):
-        return self.job_resources.residues  # program_root/AllScores/str(self)_Residues.csv
-
-    @property
-    def trajectories(self):
-        return self.job_resources.trajectories  # program_root/AllScores/str(self)_Trajectories.csv
+    # @property
+    # def design_sequences(self):
+    #     return self.job_resources.design_sequences  # program_root/AllScores/str(self)_Sequences.pkl
+    #
+    # @property
+    # def residues(self):
+    #     return self.job_resources.residues  # program_root/AllScores/str(self)_Residues.csv
+    #
+    # @property
+    # def trajectories(self):
+    #     return self.job_resources.trajectories  # program_root/AllScores/str(self)_Trajectories.csv
 
     @property
     def design_symmetry(self):
@@ -798,48 +798,48 @@ class DesignDirectory:  # (JobResources):
             self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
         # .replace('Projects-', 'Projects%s' % os.sep)  .replace('-', os.sep))
 
-    def link_master_directory(self, master_db=None):  # UNUSED. Could be useful in case where root is unknown
-        """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes
-
-        Keyword Args:
-            master_db=None (JobResources):
-        """
-        # if not os.path.exists(self.program_root):
-        #     raise DesignError('Path does not exist!\n\t%s' % self.program_root)
-        if master_db:
-            self.master_db = master_db
-
-        if self.master_db:
-            self.protein_data = self.master_db.protein_data
-            self.pdbs = self.master_db.pdbs
-            self.orient_dir = self.master_db.orient_dir
-            self.orient_asu_dir = self.master_db.orient_asu_dir
-            self.refine_dir = self.master_db.refine_dir
-            self.full_model_dir = self.master_db.full_model_dir
-            self.stride_dir = self.master_db.stride_dir
-            # self.sdf_dir = self.master_db.sdf_dir
-            self.sequence_info = self.master_db.sequence_info
-            self.sequences = self.master_db.sequences
-            self.profiles = self.master_db.profiles
-            self.clustered_poses = self.master_db.clustered_poses
-            self.job_paths = self.master_db.job_paths
-            self.sbatch_scripts = self.master_db.sbatch_scripts
-            self.all_scores = self.master_db.all_scores
-
-    def link_database(self, resource_db=None, frag_db=None, design_db=None, score_db=None):
-        """Connect the design to the master Database object to fetch shared resources"""
-        if resource_db:
-            self.resources = resource_db
-            if self.pose:
-                self.pose.source_db = resource_db
-        if frag_db:
-            self.frag_db = frag_db
-            if self.pose:
-                self.pose.frag_db = frag_db
-        # if design_db and isinstance(design_db, FragmentDatabase):  # Todo DesignDatabase
-        #     self.design_db = design_db
-        # if score_db and isinstance(score_db, FragmentDatabase):  # Todo ScoreDatabase
-        #     self.score_db = score_db
+    # def link_master_directory(self, master_db=None):  # UNUSED. Could be useful in case where root is unknown
+    #     """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes
+    #
+    #     Keyword Args:
+    #         master_db=None (JobResources):
+    #     """
+    #     # if not os.path.exists(self.program_root):
+    #     #     raise DesignError('Path does not exist!\n\t%s' % self.program_root)
+    #     if master_db:
+    #         self.master_db = master_db
+    #
+    #     if self.master_db:
+    #         self.protein_data = self.master_db.protein_data
+    #         self.pdbs = self.master_db.pdbs
+    #         self.orient_dir = self.master_db.orient_dir
+    #         self.orient_asu_dir = self.master_db.orient_asu_dir
+    #         self.refine_dir = self.master_db.refine_dir
+    #         self.full_model_dir = self.master_db.full_model_dir
+    #         self.stride_dir = self.master_db.stride_dir
+    #         # self.sdf_dir = self.master_db.sdf_dir
+    #         self.sequence_info = self.master_db.sequence_info
+    #         self.sequences = self.master_db.sequences
+    #         self.profiles = self.master_db.profiles
+    #         self.clustered_poses = self.master_db.clustered_poses
+    #         self.job_paths = self.master_db.job_paths
+    #         self.sbatch_scripts = self.master_db.sbatch_scripts
+    #         self.all_scores = self.master_db.all_scores
+    #
+    # def link_database(self, resource_db=None, frag_db=None, design_db=None, score_db=None):
+    #     """Connect the design to the master Database object to fetch shared resources"""
+    #     if resource_db:
+    #         self.resources = resource_db
+    #         if self.pose:
+    #             self.pose.source_db = resource_db
+    #     if frag_db:
+    #         self.frag_db = frag_db
+    #         if self.pose:
+    #             self.pose.frag_db = frag_db
+    #     # if design_db and isinstance(design_db, FragmentDatabase):  # Todo DesignDatabase
+    #     #     self.design_db = design_db
+    #     # if score_db and isinstance(score_db, FragmentDatabase):  # Todo ScoreDatabase
+    #     #     self.score_db = score_db
 
     @handle_design_errors(errors=(DesignError, ))
     def set_up_design_directory(self, pre_refine=None, pre_loop_model=None):

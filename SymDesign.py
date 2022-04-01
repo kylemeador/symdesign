@@ -1356,6 +1356,9 @@ if __name__ == '__main__':
                             % example_log)
 
     elif args.module == PUtils.nano:
+        master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
+                             job.sequences, job.profiles, sql=None, log=logger)
+        logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
         if args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
                                                                                directory=args.directory, dock=True)
@@ -1377,9 +1380,6 @@ if __name__ == '__main__':
             # Todo make current with sql ambitions
             job.docking_master_dir = os.path.join(job.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
             # sym_entry is required so this won't fail ^
-            master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
-                                 job.sequences, job.profiles, sql=None, log=logger)
-            logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
 
             # Getting PDB1 and PDB2 File paths
             symmetry_map = sym_entry.groups
@@ -1509,9 +1509,12 @@ if __name__ == '__main__':
     else:
         fragment_db, euler_lookup = None, None
 
-    for design in design_directories:
-        design.link_database(frag_db=fragment_db, resource_db=master_db)
-        design.euler_lookup = euler_lookup
+    # for design in design_directories:
+    #     design.link_database(frag_db=fragment_db, resource_db=master_db)
+    #     design.euler_lookup = euler_lookup
+    job.fragment_db = fragment_db
+    job.resources = master_db
+    job.euler_lookup = euler_lookup
     # -----------------------------------------------------------------------------------------------------------------
     # Ensure all Nanohedra Directories are set up by performing required transformation, then saving the pose
     # if nanohedra_initialization:
