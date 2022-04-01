@@ -1936,7 +1936,7 @@ class DesignDirectory:  # (JobResources):
         if not self.frag_db:
             self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
                              'requested. Each design is loading a separate FragmentDatabase instance. To maximize '
-                             'efficiency, pass --%s' % Flags.generate_frags)
+                             'efficiency, pass --%s' % PUtils.generate_fragments)
         self.identify_interface()
         self.make_path(self.frags, condition=self.write_frags)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)

@@ -1498,7 +1498,7 @@ if __name__ == '__main__':
         else:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
 
-    if queried_flags.get(Flags.generate_frags, None) or not queried_flags.get('no_term_constraint', None) \
+    if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
             or args.module in [PUtils.nano, PUtils.generate_fragments]:
         interface_type = 'biological_interfaces'  # Todo parameterize
         logger.info('Initializing %s FragmentDatabase\n' % interface_type)
