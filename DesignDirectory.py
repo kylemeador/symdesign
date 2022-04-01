@@ -55,8 +55,8 @@ design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
 
 
-class MasterDirectory:
-    """The intention of MasterDirectory is to serve as a singular source of design info which is common accross all
+class JobResources:
+    """The intention of JobResources is to serve as a singular source of design info which is common accross all
     designs. This includes common paths, databases, and design flags which should only be set once in program operation,
     then shared across all member designs"""
     def __init__(self, program_root, **kwargs):
@@ -101,31 +101,12 @@ class MasterDirectory:
 
 
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
-class DesignDirectory(MasterDirectory):
+class DesignDirectory:  # (JobResources):
     frag_db: Union[FragmentDatabase, None]
 
     def __init__(self, design_path, pose_id=None, root=None, **kwargs):
         #        project=None, specific_design=None, dock=False, construct_pose=False,
-        # MasterDirectory path attributes
-        # self.all_scores = None  # program_root/AllScores
-        # self.frag_db = None
-        # self.resources = None
-        # self.clustered_poses = None  # program_root/Data/ClusteredPoses
-        # self.full_model_dir = None  # program_root/Data/PDBs/full_models
-        # self.job_paths = None  # program_root/JobPaths
-        # self.orient_dir = None  # program_root/Data/PDBs/oriented
-        # self.orient_asu_dir = None  # program_root/Data/PDBs/oriented_asu
-        # self.pdbs = None  # program_root/Data/PDBs
-        # self.profiles = None  # program_root/SequenceInfo/profiles
-        # self.protein_data = None  # program_root/Data
-        # self.refine_dir = None  # program_root/Data/PDBs/refined
-        # self.stride_dir = None  # program_root/Data/PDBs/stride
-        # self.sequence_info = None  # program_root/SequenceInfo
-        # self.sequences = None  # program_root/SequenceInfo/sequences
-        # self.sbatch_scripts = None  # program_root/Scripts
-        # self.design_sequences = None  # program_root/AllScores/str(self)_Sequences.pkl
-        # self.residues = None  # program_root/AllScores/str(self)_Residues.csv
-        # self.trajectories = None  # program_root/AllScores/str(self)_Trajectories.csv
+        self.job_resources = kwargs.get('job_resources', None)
 
         # DesignDirectory flags
         self.construct_pose = kwargs.get('construct_pose', False)
@@ -382,7 +363,7 @@ class DesignDirectory(MasterDirectory):
             # self.project_designs = '/%s' % os.path.join(*path_components[:-1])
             # self.set_up_design_directory()
         # self.link_master_directory()
-        super().__init__(self.program_root, **kwargs)
+        # super().__init__(self.program_root, **kwargs)
 
     @classmethod
     def from_nanohedra(cls, design_path, project=None, **kwargs):
@@ -395,6 +376,83 @@ class DesignDirectory(MasterDirectory):
     @classmethod
     def from_pose_id(cls, design_path, root=None, **kwargs):
         return cls(design_path, pose_id=True, root=root, **kwargs)
+
+    # Master job resources path attributes
+    @property
+    def all_scores(self):
+        return self.job_resources.all_scores  # program_root/AllScores
+
+    @property
+    def frag_db(self):
+        return self.job_resources.frag_db
+
+    @property
+    def resources(self):
+        return self.job_resources.resources
+
+    @property
+    def clustered_poses(self):
+        return self.job_resources.clustered_poses  # program_root/Data/ClusteredPoses
+
+    @property
+    def full_model_dir(self):
+        return self.job_resources.full_model_dir  # program_root/Data/PDBs/full_models
+
+    @property
+    def job_paths(self):
+        return self.job_resources.job_paths  # program_root/JobPaths
+
+    @property
+    def orient_dir(self):
+        return self.job_resources.orient_dir  # program_root/Data/PDBs/oriented
+
+    @property
+    def orient_asu_dir(self):
+        return self.job_resources.orient_asu_dir  # program_root/Data/PDBs/oriented_asu
+
+    @property
+    def pdbs(self):
+        return self.job_resources.pdbs  # program_root/Data/PDBs
+
+    @property
+    def profiles(self):
+        return self.job_resources.profiles  # program_root/SequenceInfo/profiles
+
+    @property
+    def protein_data(self):
+        return self.job_resources.protein_data  # program_root/Data
+
+    @property
+    def refine_dir(self):
+        return self.job_resources.refine_dir  # program_root/Data/PDBs/refined
+
+    @property
+    def stride_dir(self):
+        return self.job_resources.stride_dir  # program_root/Data/PDBs/stride
+
+    @property
+    def sequence_info(self):
+        return self.job_resources.sequence_info  # program_root/SequenceInfo
+
+    @property
+    def sequences(self):
+        return self.job_resources.sequences  # program_root/SequenceInfo/sequences
+
+    @property
+    def sbatch_scripts(self):
+        return self.job_resources.sbatch_scripts  # program_root/Scripts
+
+    @property
+    def design_sequences(self):
+        return self.job_resources.design_sequences  # program_root/AllScores/str(self)_Sequences.pkl
+
+    @property
+    def residues(self):
+        return self.job_resources.residues  # program_root/AllScores/str(self)_Residues.csv
+
+    @property
+    def trajectories(self):
+        return self.job_resources.trajectories  # program_root/AllScores/str(self)_Trajectories.csv
 
     @property
     def design_symmetry(self):
@@ -743,7 +801,7 @@ class DesignDirectory(MasterDirectory):
         """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes
 
         Keyword Args:
-            master_db=None (MasterDirectory):
+            master_db=None (JobResources):
         """
         # if not os.path.exists(self.program_root):
         #     raise DesignError('Path does not exist!\n\t%s' % self.program_root)
@@ -3228,15 +3286,15 @@ class DesignDirectory(MasterDirectory):
 
             return list(final_seqs)
 
-    # @staticmethod
-    # def make_path(path, condition=True):
-    #     """Make all required directories in specified path if it doesn't exist, and optional condition is True
-    #
-    #     Keyword Args:
-    #         condition=True (bool): A condition to check before the path production is executed
-    #     """
-    #     if condition:
-    #         os.makedirs(path, exist_ok=True)
+    @staticmethod
+    def make_path(path, condition=True):
+        """Make all required directories in specified path if it doesn't exist, and optional condition is True
+
+        Keyword Args:
+            condition=True (bool): A condition to check before the path production is executed
+        """
+        if condition:
+            os.makedirs(path, exist_ok=True)
 
     def __key(self):
         return self.name
