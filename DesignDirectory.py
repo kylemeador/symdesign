@@ -345,8 +345,9 @@ class DesignDirectory:  # (JobResources):
             # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
             # need to start here if I want to load pose through normal mechanism... ugh
             self.set_up_design_directory()
-            self.load_pose()  # load the source pdb to find the entity_names
-            self.entity_names = [entity.name for entity in self.pose.entities]
+            if not self.entity_names:
+                self.load_pose()  # load the source pdb to find the entity_names
+                self.entity_names = [entity.name for entity in self.pose.entities]
             # self.set_up_design_directory()
             # TODO need to extract the _pose_transformation...
         else:  # initialize DesignDirectory with existing /program_root/projects/project/design
