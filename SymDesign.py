@@ -750,9 +750,9 @@ if __name__ == '__main__':
                                help='Whether to skip tertiary motif constraints during design')
     parser_design.add_argument('-n', '--%s' % PUtils.number_of_trajectories, type=int, default=PUtils.nstruct,
                                help='How many unique sequences should be generated for each input?')
-    parser_design.add_argument('-s', '--%s' % PUtils.scout, action='store_true',
+    parser_design.add_argument('-sb', '--%s' % PUtils.structure_background, action='store_true',
                                help='Whether to set up a low resolution scouting protocol to survey designability')
-    parser_design.add_argument('-s', '--%s' % PUtils.structure_background, action='store_true',
+    parser_design.add_argument('-sc', '--%s' % PUtils.scout, action='store_true',
                                help='Whether to set up a low resolution scouting protocol to survey designability')
     # parser_design.add_argument('-i', '--fragment_database', type=str,
     #                            help='Database to match fragments for interface specific scoring matrices. One of %s'
