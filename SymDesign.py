@@ -439,6 +439,7 @@ def terminate(results=None, output=True):
     if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
         # job = next(iter(design_directories))
         job_paths = job.job_paths
+        job.make_path(job_paths)
         if low and high:
             timestamp = '%s-%.2f-%.2f' % (SDUtils.starttime, low, high)
         # Make single file with names of each directory where all_docked_poses can be found
