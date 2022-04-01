@@ -1188,7 +1188,7 @@ if __name__ == '__main__':
 
         # check to see that proper files have been created if doing design
         # including orientation, refinement, loop modeling, hhblits, bmdca?
-        if not job.initialized and args.module in initialize_modules \
+        if not example_directory.initialized and args.module in initialize_modules \
                 or args.nanohedra_output or args.load_database:  # or args.module == PUtils.nano
             job.make_path(job.protein_data)
             job.make_path(job.pdbs)
