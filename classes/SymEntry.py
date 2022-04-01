@@ -752,7 +752,8 @@ def parse_symmetry_to_sym_entry(symmetry_string):
     if len(symmetry_string) > 3:
         clean_split = [split.strip('}:') for split in symmetry_string.split('{')]
     elif len(symmetry_string) == 3:  # Rosetta Formatting
-        clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
+        clean_split = [symmetry_string[0], '%s' % symmetry_string[1], '%s' % symmetry_string[2]]
+        # clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
     elif symmetry_string in ['T', 'O']:  # , 'I']:
         logger.warning('This functionality is not working properly yet!')
         clean_split = [symmetry_string, symmetry_string]  # , symmetry_string]
@@ -842,8 +843,9 @@ def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
         else:
             raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s".'
                              'Try to reformat your symmetry specification to include only symmetries that are group '
-                             'members of the resulting symmetry'
-                             % (', '.join(symmetry_operators), result))
+                             'members of the resulting symmetry such as %s'
+                             % (', '.join(symmetry_operators), result,
+                                ', '.join(all_sym_entry_dict.get(result, {}).keys())))
     else:
         raise ValueError('The arguments passed to %s are improperly formatted!'
                          % lookup_sym_entry_by_symmetry_combination.__name__)
