@@ -739,7 +739,8 @@ class DesignDirectory:  # (JobResources):
                 self._pose_transformation = \
                     {idx: {'rotation': identity, 'translation': origin, 'rotation2': identity, 'translation2': origin}
                      for idx, entity in enumerate(self.pose.entities)}
-                self.log.error('There was no pose transformation file specified at %s' % self.pose_file)
+                self.log.error('There was no pose transformation file specified at %s. '
+                               'Using null transformation instead' % self.pose_file)
                 # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
             self.info['pose_transformation'] = self._pose_transformation
             # self.log.debug('Using transformation parameters:\n\t%s'
@@ -1806,13 +1807,13 @@ class DesignDirectory:  # (JobResources):
         if self.design_symmetry:
             oriented_pdb = pdb.orient(sym=self.design_symmetry, out_dir=self.orient_dir, log=self.log)
             if to_design_directory:
-                path = self.assembly
+                out_path = self.assembly
             else:
-                path = self.orient_dir
+                out_path = os.path.join(self.orient_dir, '%s.pdb' % oriented_pdb.name)
                 self.make_path(self.orient_dir)
             oriented_pdb.update_attributes_from_pdb(pdb)
 
-            orient_file = oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
+            orient_file = oriented_pdb.write(out_path=out_path)
             self.log.critical('The oriented file was saved to %s' % orient_file)
             # return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
         else:
