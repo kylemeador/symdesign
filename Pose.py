@@ -1740,8 +1740,8 @@ class SymmetricModel(Model):
                 dummy_translation = False
                 # Todo need to reverse the expansion matrix first to get the entity coords to the "canonical" setting
                 #  matrix as expected by Nanohedra. I can then make_oligomers
-                entity.make_oligomer(sym=group, **dict(rotation=dummy_rotation, translation=dummy_translation,
-                                                       rotation2=set_mat[idx], translation2=ext_tx))
+                entity.make_oligomer(symmetry=group, **dict(rotation=dummy_rotation, translation=dummy_translation,
+                                                            rotation2=set_mat[idx], translation2=ext_tx))
                 # # Todo if this is a fractional rot/tx pair this won't work
                 # #  I converted the space group external tx and design_pg_symmetry to rot_matrices so I should
                 # #  test if the change to local point group symmetry in a layer or space group is sufficient

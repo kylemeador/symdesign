@@ -1729,7 +1729,7 @@ class DesignDirectory:  # (JobResources):
         # generate oligomers for each entity in the pose
         # if self.pose_transformation:
         for idx, entity in enumerate(self.pose.entities):
-            entity.make_oligomer(sym=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
+            entity.make_oligomer(symmetry=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
             # write out new oligomers to the DesignDirectory TODO add flag to include these
             # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
             # entity.write_oligomer(out_path=out_path)
@@ -2171,7 +2171,7 @@ class DesignDirectory:  # (JobResources):
             #                        pass names if available ^
             if self.pose_transformation:
                 for idx, entity in enumerate(design.entities):
-                    entity.make_oligomer(sym=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
+                    entity.make_oligomer(symmetry=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
             design_structures.append(design)
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
