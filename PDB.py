@@ -669,7 +669,7 @@ class PDB(Structure):
 
         if multicomponent:
             oriented_pdb = PDB.from_file(orient_output)
-            _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), chain1.get_cb_coords())
+            _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), self.entities[0].get_cb_coords())
             self.transform(rotation=rot, translation=tx)
             if generate_oriented_pdb:
                 oriented_pdb = self.write(out_path=os.path.join(out_dir, pdb_file_name))
