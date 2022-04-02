@@ -1699,7 +1699,7 @@ class DesignDirectory:  # (JobResources):
         if self.pose and not source and not entities:  # pose is already loaded and nothing new provided
             return
 
-        rename_chains = False
+        rename_chains = True  # because the result of entities, we should rename
         if not entities and not self.source or not os.path.exists(self.source):
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             self.log.info('No source file found. Fetching source from Database and transforming to Pose')
@@ -1708,7 +1708,7 @@ class DesignDirectory:  # (JobResources):
             for oligomer in self.oligomers:
                 entities.extend(oligomer.entities)
             # because the file wasn't specified on the way in, no chain names should be binding
-            rename_chains = True
+            # rename_chains = True
 
         if entities:
             asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log,
@@ -1824,7 +1824,6 @@ class DesignDirectory:  # (JobResources):
                 self.make_path(self.orient_dir)
 
             pdb.orient(symmetry=self.design_symmetry)
-            pdb.update_attributes_from_pdb(pdb)
 
             orient_file = pdb.write(out_path=out_path)
             self.log.critical('The oriented file was saved to %s' % orient_file)
