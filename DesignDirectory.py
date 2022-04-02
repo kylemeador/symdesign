@@ -1696,7 +1696,7 @@ class DesignDirectory:  # (JobResources):
             source=None (str): The file path to a source file
             entities=None (list[Structure]): The Entities desired in the Pose
         """
-        if self.pose and not source or not entities:  # pose is already loaded and nothing new provided
+        if self.pose and not source and not entities:  # pose is already loaded and nothing new provided
             return
 
         rename_chains = False
