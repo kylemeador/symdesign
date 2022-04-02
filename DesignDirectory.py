@@ -1828,7 +1828,7 @@ class DesignDirectory:  # (JobResources):
 
             orient_file = pdb.write(out_path=out_path)
             self.log.critical('The oriented file was saved to %s' % orient_file)
-            self.load_pose(orient_file)
+            self.load_pose(pdb.entities)
             self.save_asu()
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
