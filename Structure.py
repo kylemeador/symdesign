@@ -2509,9 +2509,10 @@ class Entity(Chain, SequenceProfile):
             return self._chains
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transformation) for transformation in self.chain_transforms]
+            chain_ids = self.chain_ids
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
-                chain.chain_id = self.chain_ids[idx]
+                chain.chain_id = chain_ids[idx]
             return self._chains
 
     @property
