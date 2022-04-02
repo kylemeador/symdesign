@@ -2601,7 +2601,7 @@ class Entity(Chain, SequenceProfile):
             # invert the translation of the center of mass to the origin
             # for all use of these chains in the future, ensure the found transformations are applied to each chain
 
-    def make_oligomer(self, sym=None, rotation=None, translation=None, rotation2=None, translation2=None):
+    def make_oligomer(self, symmetry=None, rotation=None, translation=None, rotation2=None, translation2=None):
         #                   transform=None):
         """Given a symmetry and an optional transformational mapping, generate oligomeric copies of the Entity as Chains
 
@@ -2619,7 +2619,7 @@ class Entity(Chain, SequenceProfile):
         # if transform:
         #     translation, rotation, ext_translation, setting_rotation
         # origin = np.array([0., 0., 0.])
-        if sym == 'C1':  # not symmetric
+        if symmetry == 'C1':  # not symmetric
             self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]
             # This resets the chain_ids which would fuck up the logical permanence of this object!
             # self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
@@ -2635,19 +2635,19 @@ class Entity(Chain, SequenceProfile):
         if translation2 is None:
             translation2 = origin
 
-        self.symmetry = sym
-        if sym in possible_symmetries:  # ['T', 'O', 'I']:
-            self.symmetry = possible_symmetries[sym]
+        self.symmetry = symmetry
+        if symmetry in possible_symmetries:  # ['T', 'O', 'I']:
+            self.symmetry = possible_symmetries.get(symmetry, None)
             rotation_matrices = get_ptgrp_sym_op(self.symmetry)
             degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
-        elif 'D' in sym:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
-            rotation_matrices = get_rot_matrices(rotation_range[sym.replace('D', 'C')], 'z', 360)
+        elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
+            rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
             # apparently passing the degeneracy matrix first without any specification towards the row/column major
             # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
             # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
             degeneracy_rotation_matrices = get_degen_rotmatrices(np.array([flip_x_matrix]), rotation_matrices)
         else:
-            rotation_matrices = get_rot_matrices(rotation_range[sym], 'z', 360)
+            rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
             degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
         inv_rotation = np.linalg.inv(rotation)
