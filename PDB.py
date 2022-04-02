@@ -580,17 +580,12 @@ class PDB(Structure):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
         # self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_id_list}
 
-    def orient(self, sym=None, out_dir=os.getcwd(), generate_oriented_pdb=False, log=logger):
+    def orient(self, symmetry=None):
         """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axes defined by symmetry
         file. Automatically produces files in PDB numbering for proper orient execution
 
         Keyword Args:
-            sym=None (str): What is the symmetry of the specified PDB?
-            out_dir=os.getcwd() (str): Where to save a file to disk
-            generate_oriented_pdb=False (bool): Whether to save an oriented file in the out_dir
-            log=logger (logging.Logger): Where to log results
-        Returns:
-            (Union[PDB, str]): Oriented PDB or the path if generate_oriented_pdb=True
+            symmetry=None (str): What is the symmetry of the specified PDB?
         """
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
@@ -600,9 +595,10 @@ class PDB(Structure):
         # C		of separate IDs; multiple conformations are written out for the same subunit structure
         # C		(as in an NMR ensemble), negative residue numbers, etc. etc.
         # must format the input.pdb in an acceptable manner
-        if sym not in valid_subunit_number:
+        subunit_number = valid_subunit_number.get(symmetry, None)
+        if not subunit_number:
             raise ValueError('Symmetry %s is not a valid symmetry. Please try one of: %s' %
-                             (sym, ', '.join(valid_subunit_number.keys())))
+                             (symmetry, ', '.join(valid_subunit_number.keys())))
 
         if self.filepath:
             pdb_file_name = os.path.basename(self.filepath)
@@ -613,20 +609,17 @@ class PDB(Structure):
         # with open(orient_log, 'a+') as log_f:
         number_of_subunits = len(self.chain_id_list)
         if number_of_subunits > 1:
-            if number_of_subunits != valid_subunit_number[sym]:
-                if number_of_subunits in multicomponent_valid_subunit_number[sym]:
+            if number_of_subunits != subunit_number:
+                if number_of_subunits in multicomponent_valid_subunit_number.get(symmetry):
                     multicomponent = True
                 else:
-                    error = '%s\n Oligomer could not be oriented: It has %d subunits while a multiple of %d are expected ' \
-                            'for %s symmetry\n\n' % (pdb_file_name, number_of_subunits, valid_subunit_number[sym], sym)
-                    raise ValueError(error)
+                    raise ValueError('%s\n Oligomer could not be oriented: It has %d subunits while a multiple of %d '
+                                     'are expected for %s symmetry\n\n'
+                                     % (pdb_file_name, number_of_subunits, subunit_number, symmetry))
             else:
                 multicomponent = False
         else:
             raise ValueError('Cannot orient a file with only a single chain. No symmetry present!')
-
-        if not os.path.exists(out_dir):
-            os.makedirs(out_dir)
 
         orient_input = os.path.join(orient_dir, 'input.pdb')
         orient_output = os.path.join(orient_dir, 'output.pdb')
@@ -653,37 +646,28 @@ class PDB(Structure):
 
         p = subprocess.Popen([orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
                              stderr=subprocess.PIPE, cwd=orient_dir)
-        in_symm_file = os.path.join(orient_dir, 'symm_files', sym)
+        in_symm_file = os.path.join(orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
         stderr = stderr.decode()  # turn from bytes to string 'utf-8' implied
         stdout = pdb_file_name + stdout.decode()[28:]
 
-        log.info(stdout)
-        log.info('%s\n' % stderr)
+        self.log.info(stdout)
+        self.log.info('%s\n' % stderr)
         if not os.path.exists(orient_output) or os.stat(orient_output).st_size == 0:
-            orient_log = os.path.join(out_dir, orient_log_file)
+            # orient_log = os.path.join(out_dir, orient_log_file)
             error_string = 'orient_oligomer could not orient %s. Check %s for more information\n' \
-                           % (pdb_file_name, orient_log)
+                           % (pdb_file_name, self.log)
             # Todo fix this to be more precise
             raise RuntimeError(error_string)
 
         if multicomponent:
             oriented_pdb = PDB.from_file(orient_output)
             _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), self.entities[0].get_cb_coords())
-            self.transform(rotation=rot, translation=tx)
-            if generate_oriented_pdb:
-                oriented_pdb = self.write(out_path=os.path.join(out_dir, pdb_file_name))
-            else:
-                oriented_pdb = self
         else:
-            if generate_oriented_pdb:
-                oriented_pdb = os.path.join(out_dir, pdb_file_name)
-                move(orient_output, oriented_pdb)
-            else:
-                oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
+            oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
+            _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), self.chains[0].get_cb_coords())
+        self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
-
-        return oriented_pdb
 
     def mutate_residue(self, residue=None, number=None, to='ALA', **kwargs):
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
@@ -1506,13 +1490,12 @@ def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
     else:
         pdb = PDB.from_file(pdb_path, log=None, pose_format=False, entities=False)
         try:
-            oriented_file_path = pdb.orient(sym=sym, out_dir=out_dir, generate_oriented_pdb=True, log=log)
+            pdb.orient(symmetry=sym)
+            pdb.write(out_path=oriented_file_path)
             log.info('Oriented: %s' % pdb_filename)
             return oriented_file_path
         except (ValueError, RuntimeError) as err:
             log.error(str(err))
-    # else:
-    #     log.error('The specified symmetry is not a valid orient input!')
 
 
 # ref_aa = PDB.from_file('/home/kylemeador/symdesign/data/AAreference.pdb', log=None, pose_format=False, entities=False)

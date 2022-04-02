@@ -1805,15 +1805,16 @@ class DesignDirectory:  # (JobResources):
         """
         pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
         if self.design_symmetry:
-            oriented_pdb = pdb.orient(sym=self.design_symmetry, out_dir=self.orient_dir, log=self.log)
             if to_design_directory:
                 out_path = self.assembly
             else:
-                out_path = os.path.join(self.orient_dir, '%s.pdb' % oriented_pdb.name)
+                out_path = os.path.join(self.orient_dir, '%s.pdb' % pdb.name)
                 self.make_path(self.orient_dir)
-            oriented_pdb.update_attributes_from_pdb(pdb)
 
-            orient_file = oriented_pdb.write(out_path=out_path)
+            pdb.orient(symmetry=self.design_symmetry)
+            pdb.update_attributes_from_pdb(pdb)
+
+            orient_file = pdb.write(out_path=out_path)
             self.log.critical('The oriented file was saved to %s' % orient_file)
             # return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
         else:
