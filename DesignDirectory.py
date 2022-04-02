@@ -1686,25 +1686,33 @@ class DesignDirectory:  # (JobResources):
         assert len(self.oligomers) == len(self.entity_names), \
             'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.entity_names))
 
-    def load_pose(self, source=None):
+    def load_pose(self, source=None, entities=None):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
 
         Handles clash testing and writing the assembly if those options are True
+
+        Keyword Args:
+            source=None (str): The file path to a source file
+            entities=None (list[Structure]): The Entities desired in the Pose
         """
-        if self.pose and not source:  # pose is already loaded and no source was provided
+        if self.pose and not source or not entities:  # pose is already loaded and nothing new provided
             return
-        if not self.source or not os.path.exists(self.source):
+
+        rename_chains = False
+        if not entities and not self.source or not os.path.exists(self.source):
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             self.log.info('No source file found. Fetching source from Database and transforming to Pose')
             self.transform_oligomers_to_pose()
             entities = []
             for oligomer in self.oligomers:
                 entities.extend(oligomer.entities)
-
-            asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log,
-                                    rename_chains=True)
             # because the file wasn't specified on the way in, no chain names should be binding
+            rename_chains = True
+
+        if entities:
+            asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log,
+                                    rename_chains=rename_chains)
         else:
             asu = PDB.from_file(source if source else self.source, name='%s-asu' % str(self),
                                 entity_names=self.entity_names, log=self.log)
@@ -1736,36 +1744,40 @@ class DesignDirectory:  # (JobResources):
         if not self.asu or not os.path.exists(self.asu):
             if self.nanohedra_output and not self.construct_pose or self.output_directory:
                 return
-            # returns a new Structure from multiple Chain or Entity objects including the Pose symmetry
-            new_asu = self.pose.get_contacting_asu()
-            if self.fuse_chains:
-                # try:
-                for fusion_nterm, fusion_cterm in self.fuse_chains:
-                    # rename_success = False
-                    new_success, same_success = False, False
-                    for idx, entity in enumerate(new_asu.entities):
-                        if entity.chain_id == fusion_cterm:
-                            entity_new_chain_idx = idx
-                            new_success = True
-                        if entity.chain_id == fusion_nterm:
-                            # entity_same_chain_idx = idx
-                            same_success = True
-                            # rename_success = True
-                            # break
-                    # if not rename_success:
-                    if not new_success and not same_success:
-                        raise DesignError('Your requested fusion of chain %s with chain %s didn\'t work!' %
-                                          (fusion_nterm, fusion_cterm))
-                        # self.log.critical('Your requested fusion of chain %s with chain %s didn\'t work!' %
-                        #                   (fusion_nterm, fusion_cterm))
-                    else:  # won't be accessed unless entity_new_chain_idx is set
-                        new_asu.entities[entity_new_chain_idx].chain_id = fusion_nterm
-                # except AttributeError:
-                #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
-                #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_id_list)))
-            new_asu.write(out_path=self.asu)  # , header=self.cryst_record)
-            self.info['pre_refine'] = self.pre_refine
-            self.log.info('Cleaned PDB: \'%s\'' % self.asu)
+
+            self.save_asu()
+
+    def save_asu(self):
+        """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
+        new_asu = self.pose.get_contacting_asu()
+        if self.fuse_chains:
+            # try:
+            for fusion_nterm, fusion_cterm in self.fuse_chains:
+                # rename_success = False
+                new_success, same_success = False, False
+                for idx, entity in enumerate(new_asu.entities):
+                    if entity.chain_id == fusion_cterm:
+                        entity_new_chain_idx = idx
+                        new_success = True
+                    if entity.chain_id == fusion_nterm:
+                        # entity_same_chain_idx = idx
+                        same_success = True
+                        # rename_success = True
+                        # break
+                # if not rename_success:
+                if not new_success and not same_success:
+                    raise DesignError('Your requested fusion of chain %s with chain %s didn\'t work!' %
+                                      (fusion_nterm, fusion_cterm))
+                    # self.log.critical('Your requested fusion of chain %s with chain %s didn\'t work!' %
+                    #                   (fusion_nterm, fusion_cterm))
+                else:  # won't be accessed unless entity_new_chain_idx is set
+                    new_asu.entities[entity_new_chain_idx].chain_id = fusion_nterm
+            # except AttributeError:
+            #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
+            #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_id_list)))
+        new_asu.write(out_path=self.asu)
+        self.info['pre_refine'] = self.pre_refine
+        self.log.info('Cleaned PDB: \'%s\'' % self.asu)
 
     @handle_design_errors(errors=(DesignError,))
     def check_clashes(self, clashing_threshold=0.75):
@@ -1816,7 +1828,8 @@ class DesignDirectory:  # (JobResources):
 
             orient_file = pdb.write(out_path=out_path)
             self.log.critical('The oriented file was saved to %s' % orient_file)
-            # return oriented_pdb.write(out_path=os.path.join(path, '%s.pdb' % oriented_pdb.name))
+            self.load_pose(orient_file)
+            self.save_asu()
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
