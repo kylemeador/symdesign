@@ -641,7 +641,7 @@ class PDB(Structure):
         # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps
         # have to change residue numbering to PDB numbering
         if multicomponent:
-            self.entities[0].write(orient_input, pdb_number=True)
+            self.entities[0].write_oligomer(orient_input, pdb_number=True)
             # entity1_chains = self.entities[0].chains
             # entity1_chains[0].write(orient_input, pdb_number=True)
             # with open(orient_input, 'w') as f:
