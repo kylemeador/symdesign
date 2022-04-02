@@ -993,11 +993,11 @@ def get_symdesign_dirs(base=None, project=None, single=None):
     /base(SymDesignOutput)/Projects/project/design
     """
     if single:
-        return map(os.path.dirname, glob('%s/' % single))  # sorted(set())
+        return map(os.path.dirname, glob('%s%s' % (single, os.sep)))  # sorted(set())
     elif project:
-        return map(os.path.dirname, glob('%s/*/' % project))  # sorted(set())
+        return map(os.path.dirname, glob('%s%s*%s' % (project, os.sep, os.sep)))  # sorted(set())
     else:
-        return map(os.path.dirname, glob('%s/*/*/*/' % base))  # sorted(set())
+        return map(os.path.dirname, glob('%s%s%s' % (base, 3 * ('%s*' % os.sep), os.sep)))  # sorted(set())
 
 
 class DesignSpecification(Dialect):
