@@ -612,15 +612,18 @@ class PDB(Structure):
 
         # with open(orient_log, 'a+') as log_f:
         number_of_subunits = len(self.chain_id_list)
-        if number_of_subunits != valid_subunit_number[sym]:
-            if number_of_subunits not in multicomponent_valid_subunit_number[sym]:
-                error = '%s\n Oligomer could not be oriented: It has %d subunits while a multiple of %d are expected ' \
-                        'for %s symmetry\n\n' % (pdb_file_name, number_of_subunits, valid_subunit_number[sym], sym)
-                raise ValueError(error)
+        if number_of_subunits > 1:
+            if number_of_subunits != valid_subunit_number[sym]:
+                if number_of_subunits in multicomponent_valid_subunit_number[sym]:
+                    multicomponent = True
+                else:
+                    error = '%s\n Oligomer could not be oriented: It has %d subunits while a multiple of %d are expected ' \
+                            'for %s symmetry\n\n' % (pdb_file_name, number_of_subunits, valid_subunit_number[sym], sym)
+                    raise ValueError(error)
             else:
-                multicomponent = True
+                multicomponent = False
         else:
-            multicomponent = False
+            raise ValueError('Cannot orient a file with only a single chain. No symmetry present!')
 
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
@@ -638,8 +641,11 @@ class PDB(Structure):
         # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps
         # have to change residue numbering to PDB numbering
         if multicomponent:
-            chain1 = self.chains[0]
-            chain1.write(orient_input, pdb_number=True)
+            entity1_chains = self.entities[0].chains
+            entity1_chains[0].write(orient_input, pdb_number=True)
+            with open(orient_input, 'w') as f:
+                for chain in entity1_chains[1:]:
+                    chain.write(file_handle=f, pdb_number=True)
         else:
             self.write(orient_input, pdb_number=True)
         # self.renumber_residues_by_chain()
