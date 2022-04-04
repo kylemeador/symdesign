@@ -1747,9 +1747,9 @@ class DesignDirectory:  # (JobResources):
 
             self.save_asu()
 
-    def save_asu(self):
+    def save_asu(self, rename_chains=False):
         """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
-        new_asu = self.pose.get_contacting_asu()
+        new_asu = self.pose.get_contacting_asu(rename_chains=rename_chains)
         if self.fuse_chains:
             # try:
             for fusion_nterm, fusion_cterm in self.fuse_chains:
@@ -1828,7 +1828,7 @@ class DesignDirectory:  # (JobResources):
             orient_file = pdb.write(out_path=out_path)
             self.log.critical('The oriented file was saved to %s' % orient_file)
             self.load_pose(entities=pdb.entities)
-            self.save_asu()
+            self.save_asu(rename_chains=True)
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
