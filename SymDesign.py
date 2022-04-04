@@ -972,11 +972,12 @@ if __name__ == '__main__':
     unknown_args = None
     args, additional_args = parser.parse_known_args()
     # TODO work this into the flags parsing to grab module if included first and program flags if included after
-    # while len(additional_args) and additional_args != unknown_args:
-    #     args, additional_args = parser.parse_known_args(additional_args, args)
-    #     unknown_args = additional_args
-    # args, additional_args = parser.parse_known_args(additional_args, args)
-
+    while len(additional_args) and additional_args != unknown_args:
+        args, additional_args = parser.parse_known_args(additional_args, args)
+        unknown_args = additional_args
+    args, additional_args = parser.parse_known_args(additional_args, args)
+    print(args)
+    print(additional_args)
     default_flags = Flags.return_default_flags(args.module)
     formatted_flags = format_additional_flags(additional_args)
     default_flags.update(formatted_flags)
@@ -1083,7 +1084,10 @@ if __name__ == '__main__':
 
     if not args.guide and args.module not in ['guide', 'flags', 'residue_selector', 'multicistronic']:
         formatted_queried_flags = queried_flags.copy()
-        formatted_queried_flags['sym_entry'] = formatted_queried_flags['sym_entry'].entry_number
+        sym_entry = formatted_queried_flags.get('sym_entry')
+        if sym_entry:
+            formatted_queried_flags['sym_entry'] = sym_entry.entry_number
+
         # formatted_queried_flags.pop('sym_entry', None)
         formatted_queried_flags.pop('design_selector', None)
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(formatted_queried_flags.items())))
