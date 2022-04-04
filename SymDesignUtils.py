@@ -969,7 +969,9 @@ def collect_designs(files=None, directory=None, project=None, single=None):
 
 def get_base_symdesign_dir(directory) -> Union[None, str]:
     base_dir = None
-    if PUtils.program_output in directory:   # directory1/SymDesignOutput/directory2/directory3
+    if not directory:
+        return
+    elif PUtils.program_output in directory:   # directory1/SymDesignOutput/directory2/directory3
         for idx, dirname in enumerate(directory.split(os.sep), 1):
             if dirname == PUtils.program_output:
                 base_dir = '%s%s' % (os.sep, os.path.join(*directory.split(os.sep)[:idx]))
