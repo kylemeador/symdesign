@@ -1,6 +1,6 @@
 from copy import copy
 
-from PathUtils import program_command, nano, program_name, nstruct, interface_design, generate_fragments
+from PathUtils import program_command, nano, program_name, interface_design
 from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
     format_index_string
@@ -12,7 +12,7 @@ global_flags = {'symmetry': {'type': str, 'default': None,
                 'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
                                'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
                 'nanohedra_output': {'type': bool, 'default': False,
-                                     'description': 'Whether the design targets are the result of a %s output.%sUse this'
+                                     'description': 'Whether the design targets are the result of %s output.%sUse this'
                                                     ' flag to set up a %s project from docked poses%sor to analyze the '
                                                     'output of %s.%sAfter a %s directory is initialized with '
                                                     '--nanohedra_output True,%syou may submit future jobs containing '
@@ -24,7 +24,7 @@ global_flags = {'symmetry': {'type': str, 'default': None,
                 'design_range': {'type': str, 'default': None,
                                  'description': 'Whether to subset selected designs by a range of percentage values'},
                 'mpi': {'type': int, 'default': None,
-                        'description': 'If commands should be run as MPI parralel processes, how many processes should '
+                        'description': 'If commands should be run as MPI parallel processes, how many processes should '
                                        'be invoked for each job?'},
                 }
 design_flags = {
