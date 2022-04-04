@@ -935,20 +935,17 @@ def collect_designs(files=None, directory=None, project=None, single=None):
     if files:
         all_paths = []
         for file in files:
-            _file = file
-            if not os.path.exists(_file):
-                _file = os.path.join(os.getcwd(), file)  # Todo this may not do anything useful
-                if not os.path.exists(_file):
-                    logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
-                    exit()
-            if '.pdb' in _file:  # single .pdb files were passed as input and should be loaded as such
-                all_paths.append(_file)
+            if not os.path.exists(file):
+                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
+                exit()
+            if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
+                all_paths.append(file)
             else:  # assume a file that specifies individual designs was passed and load all design names in that file
-                with open(_file, 'r') as f:
+                with open(file, 'r') as f:
                     paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
                                 repeat(os.sep))  # only strip the trailing 'os.sep' in case file names are passed
                 all_paths.extend(paths)
-            location = _file  # assigned to the last file even if there are multiple...
+        location = files[0]  # assigned to the first file even if there are multiple...
     elif directory:
         location = directory
         base_directory = get_base_symdesign_dir(directory)

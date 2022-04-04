@@ -595,7 +595,7 @@ if __name__ == '__main__':
                              'pose-ID file, provide your %s working directory to locate the pose-Ids of interest.'
                              % (PUtils.program_name, PUtils.program_name, PUtils.program_name, PUtils.analysis,
                                 PUtils.select_designs, PUtils.program_name),
-                        default=None, nargs=1)  # , nargs='*')  # TODO make list of unknown length
+                        default=None, nargs='*')
     parser.add_argument('-sf', '--specification_file', type=str, metavar=ex_path('pose_design_specifications.csv'),
                         help='Name of comma separated file with each line formatted:\n'
                              'poseID, [designID], [residue_number:design_directive '
