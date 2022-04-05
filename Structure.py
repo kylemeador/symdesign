@@ -2368,7 +2368,7 @@ class Entity(Chain, SequenceProfile):
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          coords=representative._coords, **kwargs)
         self._chains = []
-        self.chain_transforms = []  # Todo, make a property that is a list?
+        # self.chain_transforms = []
         if chains:
             if len(chains) > 1:
                 self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
@@ -2411,8 +2411,9 @@ class Entity(Chain, SequenceProfile):
             #                         and setter is not happening because of a copy (no new info, update unimportant)
             if self.is_oligomeric:  # and not (coords.coords == self._coords.coords).all():
                 # each mate chain coords are dependent on the representative (captain) coords, find the transform
+                chains = self.chains
                 self.chain_transforms.clear()
-                for chain in self.chains:
+                for chain in chains:
                     # rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], self.get_cb_coords())
                     rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], chain.get_cb_coords())
                     self.chain_transforms.append(dict(rotation=rot, translation=tx))
@@ -2477,6 +2478,25 @@ class Entity(Chain, SequenceProfile):
         self._chain_ids = chain_ids
 
     @property
+    def chain_transforms(self):
+        try:
+            return self._chain_transforms
+        except AttributeError:
+            try:  # this section is only useful if the current instance is an Entity copy
+                _, rot, tx, _ = superposition3d(self.get_ca_coords(), self.prior_ca_coords)
+                self._chain_transforms = [dict(rotation=np.matmul(rot, transform['rotation']),
+                                               translation=transform['translation'] + tx)
+                                          for transform in self.__chain_transforms]
+            except AttributeError:  # no prior_ca_coords
+                self._chain_transforms = []
+
+            return self._chain_transforms
+
+    @chain_transforms.setter
+    def chain_transforms(self, value):
+        self._chain_transforms = value
+
+    @property
     def chains(self):
         """Returns:
             (list[Entity]): Transformed copies of the Entity itself
@@ -2484,7 +2504,7 @@ class Entity(Chain, SequenceProfile):
         if self._chains:  # check if it exists in the case that coords have been changed and chains cleared
             return self._chains
         else:  # empty list, populate with entity copies
-            self._chains = [self.return_transformed_copy(**transformation) for transformation in self.chain_transforms]
+            self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
@@ -2597,7 +2617,7 @@ class Entity(Chain, SequenceProfile):
         #     translation, rotation, ext_translation, setting_rotation
         # origin = np.array([0., 0., 0.])
         if symmetry == 'C1':  # not symmetric
-            self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]
+            self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]  # Todo is this redundant?
             # This resets the chain_ids which would fuck up the logical permanence of this object!
             # self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
             return
@@ -2648,6 +2668,7 @@ class Entity(Chain, SequenceProfile):
         # self.chain_representative.start_indices(dtype='residue', at=self.residue_indices[0])
         # self.chains.append(self.chain_representative)
         self.chain_transforms.clear()
+        self.chain_ids.clear()
         # for idx, rot in enumerate(degeneracy_rotation_matrices[1:], 1):  # exclude the first rotation matrix as it is identity
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
@@ -2667,9 +2688,9 @@ class Entity(Chain, SequenceProfile):
                 # sub_symmetry_mate_pdb.write(out_path='make_oligomer_transformed_CHAIN-%d%s.pdb' % (idx, self.name))
                 # self.chains.append(sub_symmetry_mate_pdb)
                 # # self.chains[idx] = sub_symmetry_mate_pdb
-                rmsd, rot, tx, _ = superposition3d(new_coords, cb_coords)
+                _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
-        self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+        # self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
 
     @property
@@ -3121,6 +3142,9 @@ class Entity(Chain, SequenceProfile):
         # other.update_attributes(residues=other._residues, coords=other._coords)
         if self.is_oligomeric:
             other._chains.clear()
+            other.prior_ca_coords = self.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
+            other.__chain_transforms = other._chain_transforms
+            del other._chain_transforms
 
         return other
 
