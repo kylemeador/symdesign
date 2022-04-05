@@ -305,7 +305,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
 
             z_value = sorted_z_values[frag_idx]
-            if z_value <= 1:  # the overlap z-value has is greater than 1 std deviation
+            if z_value <= 1:  # the overlap z-value is less than 1 std deviation
                 matched_fragment_dir = high_quality_matches_dir
             else:
                 matched_fragment_dir = low_quality_matches_dir
@@ -387,13 +387,13 @@ def is_frag_type_same(frags1, frags2, dtype='ii'):
 
 def compute_ij_type_lookup(indices1, indices2):
     """Compute a lookup table where the array elements are indexed to boolean values if the indices match.
-    Axis 0 is frag_indices1, Axis 1 is frag_indices2
+    Axis 0 is indices1, Axis 1 is indices2
 
     Args:
         indices1 (numpy.ndarray):
         indices2 (numpy.ndarray):
     Returns:
-        (numpy.ndarray)
+        (numpy.ndarray): A 2D boolean array where the first index maps to the input 1, second index maps to index 2
     """
     # TODO use broadcasting to compute true/false instead of tiling (memory saving)
     indices1_repeated = np.repeat(indices1, len(indices2))
@@ -1202,14 +1202,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #     np.concatenate([np.where(ghost_frag1_residues == residue) for residue in interface_residues1])
         # interface_surf2_indices = \
         #     np.concatenate([np.where(surf_frag2_residues == residue) for residue in interface_residues2])
-        interface_ghost1_bool = np.isin(ghost_frag1_residues, interface_residues1)
-        interface_surf2_bool = np.isin(surf_frag2_residues, interface_residues2)
+        interface_ghost1_indices = np.isin(ghost_frag1_residues, interface_residues1).nonzero()[0]
+        interface_surf2_indices = np.isin(surf_frag2_residues, interface_residues2).nonzero()[0]
         all_fragment_match_time_start = time.time()
         # if idx % 2 == 0:
         # interface_ghost_frags = complete_ghost_frags1[interface_ghost1_indices]
         # interface_surf_frags = complete_surf_frags2[interface_surf2_indices]
         # int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_indices]
-        int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_bool]
+        int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_indices]
         # int_surf_frag_guide_coords = surf_frags2_guide_coords[interface_surf2_indices]
         # int_trans_ghost_guide_coords = \
         #     transform_coordinate_sets(int_ghost_frag_guide_coords, rotation=rot_mat1, translation=internal_tx_param1,
@@ -1220,7 +1220,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
         # transforming only surface frags will have large speed gains from not having to transform all ghosts
         # int_trans_surf2_guide_coords = trans_surf_guide_coords[interface_surf2_indices]
-        int_trans_surf2_guide_coords = trans_surf_guide_coords[interface_surf2_bool]
+        int_trans_surf2_guide_coords = trans_surf_guide_coords[interface_surf2_indices]
         # NOT crucial ###
         unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = \
             len(int_ghost_frag_guide_coords), len(int_trans_surf2_guide_coords)
@@ -1239,7 +1239,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         overlapping_ghost_indices, overlapping_surf_indices = \
             euler_lookup.check_lookup_table(int_ghost_frag_guide_coords, int_trans_surf2_guide_coords)  # ,
         #                                   secondary_structure_match=ij_type_match)
-        ij_type_match = ij_type_match_lookup_table[overlapping_ghost_indices, overlapping_surf_indices]
+        ij_type_match = ij_type_match_lookup_table[interface_ghost1_indices[overlapping_ghost_indices],
+                                                   interface_surf2_indices[overlapping_surf_indices]]
         # log.debug('Euler lookup')
         eul_lookup_time = time.time() - eul_lookup_start_time
         # DON'T think this is crucial! ###
@@ -1254,7 +1255,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         passing_surf_coords = int_trans_surf2_guide_coords[passing_surf_indices]
 
         # reference_rmsds = ghost_frag1_rmsds[interface_ghost1_indices][overlapping_ghost_indices][ij_type_match]
-        reference_rmsds = ghost_frag1_rmsds[interface_ghost1_bool][overlapping_ghost_indices][ij_type_match]
+        reference_rmsds = ghost_frag1_rmsds[interface_ghost1_indices][passing_ghost_indices]
         all_fragment_match = calculate_match(passing_ghost_coords, passing_surf_coords, reference_rmsds)
         overlap_score_time = time.time() - overlap_score_time_start
         log.info('\tEuler Lookup took %f s for %d fragment pairs and Overlap Score Calculation took %f s for %d '
@@ -1278,7 +1279,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #     # int_ij_lookup_table = \
         #     #     ij_type_match_lookup_table[interface_ghost1_indices[:, np.newaxis], interface_surf2_indices]
         #     int_ij_lookup_table = np.logical_and(ij_type_match_lookup_table,
-        #                                          (np.einsum('i, j -> ij', interface_ghost1_bool, interface_surf2_bool)))
+        #                                          (np.einsum('i, j -> ij', interface_ghost1_indices, interface_surf2_indices)))
         #     # axis 0 is ghost frag, 1 is surface frag
         #     # int_row_indices, int_column_indices = np.indices(int_ij_lookup_table.shape)  # row vary by ghost, column by surf
         #     # int_ij_matching_ghost1_indices = \
@@ -1408,23 +1409,27 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         log.info('\tSUCCESSFUL DOCKED POSE: %s' % tx_dir)
 
         # return the indices sorted by z_value then pull information accordingly
-        sorted_fragment_indices = np.argsort(all_fragment_match)
+        sorted_fragment_indices = np.argsort(all_fragment_match)[::-1]  # return the indices in descending order
         sorted_match_scores = all_fragment_match[sorted_fragment_indices]
         # sorted_match_scores = match_score_from_z_value(sorted_z_values)
         # log.debug('Overlapping Match Scores: %s' % sorted_match_scores)
         # sorted_overlap_indices = passing_overlaps_indices[sorted_fragment_indices]
-        # int_ghostfrags = complete_ghost_frags1[interface_ghost1_bool][passing_ghost_indices[sorted_overlap_indices]]
-        # int_surffrags2 = complete_surf_frags2[interface_surf2_bool][passing_surf_indices[sorted_overlap_indices]]
+        # interface_ghost_frags = complete_ghost_frags1[interface_ghost1_indices][passing_ghost_indices[sorted_overlap_indices]]
+        # interface_surf_frags = complete_surf_frags2[interface_surf2_indices][passing_surf_indices[sorted_overlap_indices]]
         overlap_ghosts = passing_ghost_indices[sorted_fragment_indices]
         # overlap_passing_ghosts = passing_ghost_indices[sorted_fragment_indices]
         overlap_surf = passing_surf_indices[sorted_fragment_indices]
         # overlap_passing_surf = passing_surf_indices[sorted_fragment_indices]
-        # int_ghostfrags = [complete_ghost_frags1[bool_idx] for bool_idx, bool_result in enumerate(interface_ghost1_bool)
+        # interface_ghost_frags = [complete_ghost_frags1[bool_idx] for bool_idx, bool_result in enumerate(interface_ghost1_indices)
         #                   if bool_result and bool_idx in overlap_passing_ghosts]
-        # int_surffrags2 = [complete_surf_frags2[bool_idx] for bool_idx, bool_result in enumerate(interface_surf2_bool)
+        # interface_surf_frags = [complete_surf_frags2[bool_idx] for bool_idx, bool_result in enumerate(interface_surf2_indices)
         #                   if bool_result and bool_idx in overlap_passing_surf]
-        int_ghostfrags = [complete_ghost_frags1[idx] for idx in overlap_ghosts[:number_passing_overlaps]]
-        int_surffrags2 = [complete_surf_frags2[idx] for idx in overlap_surf[:number_passing_overlaps]]
+        # interface_ghost_frags = complete_ghost_frags1[interface_ghost1_indices]
+        # interface_surf_frags = complete_surf_frags2[interface_surf2_indices]
+        sorted_int_ghostfrags = [complete_ghost_frags1[interface_ghost1_indices[idx]]
+                                 for idx in overlap_ghosts[:number_passing_overlaps]]
+        sorted_int_surffrags2 = [complete_surf_frags2[interface_surf2_indices[idx]]
+                                 for idx in overlap_surf[:number_passing_overlaps]]
         # For all matched interface fragments
         # Keys are (chain_id, res_num) for every residue that is covered by at least 1 fragment
         # Values are lists containing 1 / (1 + z^2) values for every (chain_id, res_num) residue fragment match
@@ -1433,7 +1438,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         unique_frags_info1, unique_frags_info2 = set(), set()
         res_pair_freq_info_list = []
         for frag_idx, (int_ghost_frag, int_surf_frag, match) in \
-                enumerate(zip(int_ghostfrags, int_surffrags2, sorted_match_scores), 1):
+                enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
             surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue()
             surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_central_res_tup()
 
@@ -1458,8 +1463,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
             # if (surf_frag_chain2, surf_frag_central_res_num2) not in unique_frags_info2:
             unique_frags_info2.add((surf_frag_chain2, surf_frag_central_res_num2))
 
-            # match = sorted_z_values[frag_idx - 1]
-            if match >= 0.5:  # the overlap z-value has is greater than 1 std deviation, therefore match >= 0.5
+            if match >= high_quality_match_value:
                 matched_fragment_dir = high_quality_matches_dir
             else:
                 matched_fragment_dir = low_quality_matches_dir
