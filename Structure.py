@@ -2374,8 +2374,9 @@ class Entity(Chain, SequenceProfile):
             if len(chains) > 1:
                 self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
 
-            chain_ids = []
-            for idx, chain in enumerate(chains):  # one of these is the representative, but we can treat it the same
+            chain_ids = [chains[0].name]
+            self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
+            for idx, chain in enumerate(chains[1:]):  # one of these is the representative, but we can treat it the same
                 if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
                 else:
