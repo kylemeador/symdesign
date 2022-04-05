@@ -2487,14 +2487,21 @@ class Entity(Chain, SequenceProfile):
         except AttributeError:
             try:  # this section is only useful if the current instance is an Entity copy
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
-                _, rot, tx, _ = superposition3d(self.get_ca_coords(), self.prior_ca_coords)
                 self._chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
-                self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
-                                                    translation=transform['translation'] + tx)
-                                               for transform in self.__chain_transforms[1:]])
+                current_ca_coords = self.get_ca_coords()
+                _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
+
+                # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
+                #                                     translation=transform['translation'] + tx)
+                #                                for transform in self.__chain_transforms[1:]])
                 # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
                 #                                     rotation2=rot, translation2=tx)
                 #                                for transform in self.__chain_transforms[1:]])
+                for transform in self.__chain_transforms[1:]:
+                    chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
+                                             + transform['translation'], np.transpose(new_rot)) + new_tx
+                    _, rot, tx, _ = superposition3d(current_ca_coords, chain_coords)
+                    self._chain_transforms.append(dict(rotation=rot, translation=tx))
             except AttributeError:  # no prior_ca_coords
                 self.log.info('%s chain_transform %s' % (self.name, 'LastAttributeError'))
                 self._chain_transforms = []
