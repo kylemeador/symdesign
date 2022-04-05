@@ -822,7 +822,7 @@ class Structure(StructureBase):
                        % (self.name, self.number_of_residues))
 
     def renumber_atoms(self):
-        """Renumber all atom entries one-indexed according to list order"""
+        """Renumber all Atom entries one-indexed according to list order"""
         for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
 
@@ -4049,7 +4049,7 @@ class Atom:
                  residue_number=None, code_for_insertion=None, occ=None, temp_fact=None, element_symbol=None,
                  atom_charge=None):  # coords=None
         self.index = index
-        self._number = number
+        self.number = number
         self.type = atom_type
         self.alt_location = alt_location
         self.residue_type = residue_type
@@ -4127,9 +4127,9 @@ class Atom:
     # def get_index(self):
     #     return self.index
 
-    @property
-    def number(self):
-        return self._number
+    # @property
+    # def number(self):
+    #     return self._number
 
     # def get_number(self):
     #     return self.number
@@ -4195,7 +4195,7 @@ class Atom:
     #     return self.atom_charge
 
     def __key(self):
-        return self.number, self.type  # self.index, self.type
+        return self.temp_fact, self.type  # self.index, self.type
 
     def __str__(self, **kwargs):  # type=None, number=None, pdb=False, chain=None,
         """Represent Atom in PDB format"""
