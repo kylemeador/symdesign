@@ -2373,7 +2373,7 @@ class Entity(Chain, SequenceProfile):
         chains=None (list): A list of all Chain objects that match the Entity
         uniprot_id=None (str): The unique UniProtID for the Entity
         sequence=None (str): The sequence for the Entity
-        name=None (str): The name for the Entity. Typically PDB.name is used to make a PDB compatible form
+        name=None (str): The name for the Entity. Typically, PDB.name is used to make a PDB compatible form
         PDB EntryID_EntityID
     """
     def __init__(self, representative=None, uniprot_id=None, **kwargs):
