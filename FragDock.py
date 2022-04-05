@@ -1332,9 +1332,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
         pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
+        entity1 = pdb1_copy.entities[0]
+        entity1.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity1.name))
+        entity2 = pdb2_copy.entities[0]
+        entity2.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity2.name))
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
-        asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log, name='asu',
+        asu = PDB.from_entities([entity1, entity2], log=log, name='asu',
                                 entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
         # log.debug('Grabbing asu')
         # if not asu:  # _pdb_1 and not asu_pdb_2:
@@ -1386,8 +1390,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         else:
             asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
-        pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
-        pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
+        symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
+        symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer+asu.pdb' % entity2.name))
+        pdb1_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
+        pdb2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
         if output_assembly:
             # symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
