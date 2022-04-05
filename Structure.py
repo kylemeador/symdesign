@@ -3143,7 +3143,7 @@ class Entity(Chain, SequenceProfile):
         if self.is_oligomeric:
             other._chains.clear()
             other.prior_ca_coords = self.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
-            other.__chain_transforms = self.chain_transforms
+            other.__chain_transforms = other.chain_transforms
             del other._chain_transforms
 
         return other
