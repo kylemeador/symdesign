@@ -1334,9 +1334,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
-        # asu = get_contacting_asu(pdb1_copy, pdb2_copy, contact_dist=cb_distance, log=log,
-        #                          entity_names=[pdb1_copy.name, pdb2_copy.name])
-        # Todo, above runs into problems from not deleting the indices on a structure when init PDB as chain/entities
         asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log, name='asu',
                                 entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
         # log.debug('Grabbing asu')

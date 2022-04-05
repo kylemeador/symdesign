@@ -168,14 +168,14 @@ class Structure(StructureBase):
         # new_structure.set_coords(coords)
         # return new_structure
 
-    @property  # Todo these do nothing and could be removed
-    def name(self):
-        """Returns: (str)"""
-        return self._name
-
-    @name.setter
-    def name(self, name):
-        self._name = name
+    # @property
+    # def name(self):
+    #     """Returns: (str)"""
+    #     return self._name
+    #
+    # @name.setter
+    # def name(self, name):
+    #     self._name = name
 
     @property
     def sequence(self):  # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
@@ -264,8 +264,8 @@ class Structure(StructureBase):
         try:
             indices = getattr(self, '%s_indices' % dtype)
         except AttributeError:
-            raise AttributeError('The dtype %s_indices was not found the Structure object. Possible values of dtype are'
-                                 ' atom or residue' % dtype)
+            raise AttributeError('The dtype "%s"_indices was not found the Structure object. Possible dtype values '
+                                 'are atom or residue' % dtype)
         first_index = indices[0]
         setattr(self, '%s_indices' % dtype, [at + prior_idx - first_index for prior_idx in indices])
 
@@ -1162,47 +1162,44 @@ class Structure(StructureBase):
         return ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
 
     def translate(self, translation):
+        """Perform a translation to the Structure ensuring only the Structure container of interest is translated
+        ensuring the underlying coords are not modified"""
         translation_array = np.zeros(self._coords.coords.shape)
         translation_array[self.atom_indices] = np.array(translation)
         new_coords = self._coords.coords + translation_array
         self.replace_coords(new_coords)
 
     def rotate(self, rotation):
+        """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
+        underlying coords are not modified"""
         rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
         rotation_array[self.atom_indices] = np.array(rotation)
-        new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially transpose for 3D array
+        new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially a transpose
         self.replace_coords(new_coords)
 
     def transform(self, rotation=None, translation=None, rotation2=None, translation2=None):
+        """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
+        transformed ensuring the underlying coords are not modified"""
         if rotation is not None:  # required for np.ndarray or None checks
-            # new_coords = np.matmul(self.coords, np.transpose(rotation))
             rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-            rotation_array[self.atom_indices] = np.array(rotation)  # rotation
-            # Todo ensure the elementwise multiplication of rotation_array with each coordinate
-            # print(rotation_array[:5])
-            new_coords = np.matmul(self._coords.coords.reshape(-1, 1, 3), rotation_array.swapaxes(-2, -1))  # essentially transpose
+            rotation_array[self.atom_indices] = np.array(rotation)
+            new_coords = np.matmul(self._coords.coords.reshape(-1, 1, 3), rotation_array.swapaxes(-2, -1))
         else:
-            new_coords = self._coords.coords.reshape(-1, 1, 3)  # self.coords
-        # print(new_coords[:5])
+            new_coords = self._coords.coords.reshape(-1, 1, 3)
+
         if translation is not None:  # required for np.ndarray or None checks
-            # new_coords += np.array(translation)
-            translation_array = np.zeros(new_coords.shape)  # np.zeros(self._coords.coords.shape)
-            translation_array[self.atom_indices] = np.array(translation)  # translation
-            # print(translation_array[:5])
+            translation_array = np.zeros(new_coords.shape)
+            translation_array[self.atom_indices] = np.array(translation)
             new_coords += translation_array
 
         if rotation2 is not None:  # required for np.ndarray or None checks
-            # new_coords = np.matmul(new_coords, np.transpose(rotation2))
             rotation_array2 = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-            rotation_array2[self.atom_indices] = np.array(rotation2)  # rotation2
-            # print(rotation_array2[:5])
+            rotation_array2[self.atom_indices] = np.array(rotation2)
             new_coords = np.matmul(new_coords, rotation_array2.swapaxes(-2, -1))  # essentially transpose
 
         if translation2 is not None:  # required for np.ndarray or None checks
-            # new_coords += np.array(translation2)
-            translation_array2 = np.zeros(new_coords.shape)  # np.zeros(self._coords.coords.shape)
-            translation_array2[self.atom_indices] = np.array(translation2)  # translation2
-            # print(translation_array2[:5])
+            translation_array2 = np.zeros(new_coords.shape)
+            translation_array2[self.atom_indices] = np.array(translation2)
             new_coords += translation_array2
         self.replace_coords(new_coords.reshape(-1, 3))
 
@@ -2323,47 +2320,8 @@ class Chain(Structure):
 
     @chain_id.setter
     def chain_id(self, chain_id):
-        # Todo change this to update if name is also updated...
         self.name = chain_id
         self.set_residues_attributes(chain=chain_id)
-        # self.set_atoms_attributes(chain=chain_id)
-
-    # @property
-    # def sequence(self):  # Todo if the chain is mutated, this mechanism will cause errors, must clear the sequence if so
-    #     try:
-    #         return self._sequence
-    #     except AttributeError:
-    #         self._sequence = self.get_structure_sequence()
-    #         return self._sequence
-    #
-    # @sequence.setter
-    # def sequence(self, sequence):
-    #     self._sequence = sequence
-
-    # @property
-    # def reference_sequence(self):
-    #     return self._reference_sequence
-    #
-    # @reference_sequence.setter
-    # def reference_sequence(self, sequence):
-    #     self._reference_sequence = sequence
-
-    # def __key(self):
-    #     return (self.name, self._residue_indices)
-
-    # def __copy__(self):
-    #     """Overwrite Structure.__copy__() with standard copy() method.
-    #     This fails to update any attributes such as .residues or .coords, so these must be provided by another method.
-    #     Theoretically, these should be updated regardless.
-    #     If the Structure is owned by another Structure (Entity, PDB), the shared object will override the
-    #     copy, but not implementing them removes the usability of making a copy for this Structure itself.
-    #     """
-    #     other = self.__class__.__new__(self.__class__)
-    #     other.__dict__ = self.__dict__.copy()
-    #     # for attr, value in other.__dict__.items():
-    #     #     other.__dict__[attr] = copy(value)
-    #
-    #     return other
 
 
 class Entity(Chain, SequenceProfile):
@@ -2586,21 +2544,21 @@ class Entity(Chain, SequenceProfile):
     #     """
     #     self.api_entry = get_pdb_info_by_entity(self.name)
 
-    def set_up_captain_chain(self):
-        raise DesignError('This function is not implemented yet')
-        self.is_oligomeric = True
-        for chain in self.chains:
-            dum = True
-            # find the center of mass for all chains
-            # transform the entire group to the origin by subtracting com
-            # superimpose each chain on the captain, returning the quaternion
-            # using the quaternion, find the major, minor axis which should be close to integers
-            # Check for bad position by non-canonical rotation integers
-            # orient the chains so that they are in a canonical orientation
-            # for each chain find the rotation which aligns it with its captain
-            # using the inverse of the orient rotation, apply to the aligned rotation to generate a cumulative rotation
-            # invert the translation of the center of mass to the origin
-            # for all use of these chains in the future, ensure the found transformations are applied to each chain
+    # def set_up_captain_chain(self):
+    #     raise DesignError('This function is not implemented yet')
+    #     self.is_oligomeric = True
+    #     for chain in self.chains:
+    #         dum = True
+    #         # find the center of mass for all chains
+    #         # transform the entire group to the origin by subtracting com
+    #         # superimpose each chain on the captain, returning the quaternion
+    #         # using the quaternion, find the major, minor axis which should be close to integers
+    #         # Check for bad position by non-canonical rotation integers
+    #         # orient the chains so that they are in a canonical orientation
+    #         # for each chain find the rotation which aligns it with its captain
+    #         # using the inverse of the orient rotation, apply to the aligned rotation to generate a cumulative rotation
+    #         # invert the translation of the center of mass to the origin
+    #         # for all use of these chains in the future, ensure the found transformations are applied to each chain
 
     def make_oligomer(self, symmetry=None, rotation=None, translation=None, rotation2=None, translation2=None):
         #                   transform=None):
@@ -4047,7 +4005,7 @@ class Atom:
     Structure coordinates for Keyword Arg coords=self.coords"""
     def __init__(self, index=None, number=None, atom_type=None, alt_location=None, residue_type=None, chain=None,
                  residue_number=None, code_for_insertion=None, occ=None, temp_fact=None, element_symbol=None,
-                 atom_charge=None, coords=None):
+                 atom_charge=None):  # coords=None
         self.index = index
         self.number = number
         self.type = atom_type
