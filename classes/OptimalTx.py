@@ -169,7 +169,7 @@ class OptimalTx:
 
         # get error value from the ideal translation and the delta
         resid = np.matmul(np.tile(self.dof9, (coords1.shape[0], 1, 1)), shift) - guide_delta  # (9 x n_dof) x (n_dof x 1) - (9 x 1) = (9 x 1)
-        error = \
-            np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)).flatten() / coords_rmsd_reference
+        error = np.sqrt(np.matmul(resid.swapaxes(-2, -1), resid) / float(self.number_of_coordinates)).flatten() \
+            / coords_rmsd_reference
 
         return shift[np.nonzero(error <= self.max_z_value)].squeeze()
