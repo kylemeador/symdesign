@@ -1118,7 +1118,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
     asu_is_viable = np.where(asu_clash_counts == 0)
     number_of_non_clashing_transforms = len(asu_is_viable[0])
-    log.info('\tClash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
+    log.info('Clash testing for All Oligomer1 and Oligomer2 (took %f s) found %d viable ASU\'s'
              % (check_clash_coords_time, number_of_non_clashing_transforms))
 
     # degen_counts = [degen_count for idx, degen_count in enumerate(degen_counts) if idx in asu_is_viable]
@@ -1332,6 +1332,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
         pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
+        tx_idx = tx_counts[idx]
         degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
         rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
         tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
