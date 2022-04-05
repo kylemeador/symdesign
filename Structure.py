@@ -591,6 +591,24 @@ class Structure(StructureBase):
         # else:
         #     return None
 
+    def reset_indices_attributes(self):
+        """Upon loading a new Structure with old Structure object, remove any indices that might have been saved
+        Including:
+            self._coords_indexed_backbone_indices
+            self._coords_indexed_backbone_and_cb_indices
+            self._coords_indexed_cb_indices
+            self._coords_indexed_ca_indices
+            self._backbone_indices
+            self._backbone_and_cb_indices
+            self._cb_indices
+            self._ca_indices
+            self._heavy_atom_indices
+            self._helix_cb_indices
+        """
+        structure_indices = [attribute for attribute in self.__dict__ if attribute.endswith('_indices')]
+        for structure_index in structure_indices:
+            del structure_index
+
     @property
     def coords_indexed_backbone_indices(self):
         """Return backbone Atom indices from the Structure indexed to the Coords view
