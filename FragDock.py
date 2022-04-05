@@ -1350,7 +1350,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
             asu.uc_dimensions = full_uc_dimensions[idx]
         asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
-        #                      surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes during initialization
+        # ignore ASU clashes during initialization since already checked ^
         # log.debug('Checked expand clash')
         if symmetric_material.symmetric_assembly_is_clash():
             exp_des_clash_time = time.time() - exp_des_clash_time_start
@@ -1387,7 +1387,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
             asu = get_central_asu(asu, asu.uc_dimensions, sym_entry.dimension)
             cryst1_record = generate_cryst1_record(asu.uc_dimensions, sym_entry.resulting_symmetry)
         else:
-            asu = symmetric_material.get_contacting_asu(distance=cb_distance)
+            asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
         pdb1_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
