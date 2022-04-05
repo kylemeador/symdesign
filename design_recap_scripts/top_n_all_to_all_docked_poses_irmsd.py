@@ -27,19 +27,19 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
 
     oligomer1_resnums_by_chain_dict = {}
     for atom1 in oligomer1_pdb.atoms:
-        if atom1.is_CA():
-            if atom1.get_chain() not in oligomer1_resnums_by_chain_dict:
-                oligomer1_resnums_by_chain_dict[atom1.get_chain()] = [atom1.get_residue_number()]
+        if atom1.is_ca():
+            if atom1.chain not in oligomer1_resnums_by_chain_dict:
+                oligomer1_resnums_by_chain_dict[atom1.chain] = [atom1.residue_number]
             else:
-                oligomer1_resnums_by_chain_dict[atom1.get_chain()].append(atom1.get_residue_number())
+                oligomer1_resnums_by_chain_dict[atom1.chain].append(atom1.residue_number)
 
     oligomer2_resnums_by_chain_dict = {}
     for atom2 in oligomer2_pdb.atoms:
-        if atom2.is_CA():
-            if atom2.get_chain() not in oligomer2_resnums_by_chain_dict:
-                oligomer2_resnums_by_chain_dict[atom2.get_chain()] = [atom2.get_residue_number()]
+        if atom2.is_ca():
+            if atom2.chain not in oligomer2_resnums_by_chain_dict:
+                oligomer2_resnums_by_chain_dict[atom2.chain] = [atom2.residue_number]
             else:
-                oligomer2_resnums_by_chain_dict[atom2.get_chain()].append(atom2.get_residue_number())
+                oligomer2_resnums_by_chain_dict[atom2.chain].append(atom2.residue_number)
 
     oligomers_resnums_lists = oligomer1_resnums_by_chain_dict.values() + oligomer2_resnums_by_chain_dict.values()
     oligomers_resnums_sets = map(set, oligomers_resnums_lists)
@@ -49,9 +49,9 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
     oligomer1_pdb_standardized_atom_list = []
     oligomer1_pdb_standardized_chid_list = []
     for atom1 in oligomer1_pdb.atoms:
-        if atom1.get_residue_number() in resnums_in_common:
+        if atom1.residue_number in resnums_in_common:
             oligomer1_pdb_standardized_atom_list.append(atom1)
-            oligomer1_pdb_standardized_chid_list.append(atom1.get_chain())
+            oligomer1_pdb_standardized_chid_list.append(atom1.chain)
     oligomer1_pdb_standardized_chid_list = list(set(oligomer1_pdb_standardized_chid_list))
     oligomer1_pdb_standardized.set_all_atoms(oligomer1_pdb_standardized_atom_list)
     oligomer1_pdb_standardized.chain_id_list = oligomer1_pdb_standardized_chid_list
@@ -60,9 +60,9 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
     oligomer2_pdb_standardized_atom_list = []
     oligomer2_pdb_standardized_chid_list = []
     for atom2 in oligomer2_pdb.atoms:
-        if atom2.get_residue_number() in resnums_in_common:
+        if atom2.residue_number in resnums_in_common:
             oligomer2_pdb_standardized_atom_list.append(atom2)
-            oligomer2_pdb_standardized_chid_list.append(atom2.get_chain())
+            oligomer2_pdb_standardized_chid_list.append(atom2.chain)
     oligomer2_pdb_standardized_chid_list = list(set(oligomer2_pdb_standardized_chid_list))
     oligomer2_pdb_standardized.set_all_atoms(oligomer2_pdb_standardized_atom_list)
     oligomer2_pdb_standardized.chain_id_list = oligomer2_pdb_standardized_chid_list
@@ -79,11 +79,11 @@ def standardize_intra_oligomer_chain_lengths(oligomer1_pdb):
 
     oligomer1_resnums_by_chain_dict = {}
     for atom1 in oligomer1_pdb.atoms:
-        if atom1.is_CA():
-            if atom1.get_chain() not in oligomer1_resnums_by_chain_dict:
-                oligomer1_resnums_by_chain_dict[atom1.get_chain()] = [atom1.get_residue_number()]
+        if atom1.is_ca():
+            if atom1.chain not in oligomer1_resnums_by_chain_dict:
+                oligomer1_resnums_by_chain_dict[atom1.chain] = [atom1.residue_number]
             else:
-                oligomer1_resnums_by_chain_dict[atom1.get_chain()].append(atom1.get_residue_number())
+                oligomer1_resnums_by_chain_dict[atom1.chain].append(atom1.residue_number)
 
     oligomers_resnums_lists = oligomer1_resnums_by_chain_dict.values()
     oligomers_resnums_sets = map(set, oligomers_resnums_lists)
@@ -93,9 +93,9 @@ def standardize_intra_oligomer_chain_lengths(oligomer1_pdb):
     oligomer1_pdb_standardized_atom_list = []
     oligomer1_pdb_standardized_chid_list = []
     for atom1 in oligomer1_pdb.atoms:
-        if atom1.get_residue_number() in resnums_in_common:
+        if atom1.residue_number in resnums_in_common:
             oligomer1_pdb_standardized_atom_list.append(atom1)
-            oligomer1_pdb_standardized_chid_list.append(atom1.get_chain())
+            oligomer1_pdb_standardized_chid_list.append(atom1.chain)
     oligomer1_pdb_standardized_chid_list = list(set(oligomer1_pdb_standardized_chid_list))
     oligomer1_pdb_standardized.set_all_atoms(oligomer1_pdb_standardized_atom_list)
     oligomer1_pdb_standardized.chain_id_list = oligomer1_pdb_standardized_chid_list
@@ -119,13 +119,13 @@ def rotated_translated_atoms(atom_list, rot, tx):
         x_transformed = coordinates_rot_tx[atom_count][0]
         y_transformed = coordinates_rot_tx[atom_count][1]
         z_transformed = coordinates_rot_tx[atom_count][2]
-        atom_transformed = Atom(atom.get_number(), atom.get_type(), atom.get_alt_location(),
-                                atom.get_residue_type(), atom.get_chain(),
-                                atom.get_residue_number(),
-                                atom.get_code_for_insertion(), x_transformed, y_transformed,
+        atom_transformed = Atom(atom.number, atom.type, atom.alt_location,
+                                atom.residue_type, atom.chain,
+                                atom.residue_number,
+                                atom.code_for_insertion, x_transformed, y_transformed,
                                 z_transformed,
-                                atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-                                atom.get_atom_charge())
+                                atom.occ, atom.temp_fact, atom.element_symbol,
+                                atom.atom_charge)
         transformed_atom_list.append(atom_transformed)
         atom_count += 1
 
@@ -233,24 +233,24 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     ref_pdb1_int_chids_ordered = []
     ref_pdb1_int_ca_atoms = []
     for ref_pdb1_atom in ref_pdb1.chain(ref_pdb1_int_chids).atoms:
-        if ref_pdb1_atom.get_chain() not in ref_pdb1_int_chids_ordered:
-            ref_pdb1_int_chids_ordered.append(ref_pdb1_atom.get_chain())
-        if ref_pdb1_atom.is_CA():
+        if ref_pdb1_atom.chain not in ref_pdb1_int_chids_ordered:
+            ref_pdb1_int_chids_ordered.append(ref_pdb1_atom.chain)
+        if ref_pdb1_atom.is_ca:
             ref_pdb1_ca_int_ch_atoms.append(ref_pdb1_atom)
 
-            if ref_pdb1_atom.get_residue_number() in ref_pdb1_int_chids_resnums_dict[ref_pdb1_atom.get_chain()]:
+            if ref_pdb1_atom.residue_number in ref_pdb1_int_chids_resnums_dict[ref_pdb1_atom.chain]:
                 ref_pdb1_int_ca_atoms.append(ref_pdb1_atom)
 
     ref_pdb2_ca_int_ch_atoms = []
     ref_pdb2_int_chids_ordered = []
     ref_pdb2_int_ca_atoms = []
     for ref_pdb2_atom in ref_pdb2.chain(ref_pdb2_int_chids).atoms:
-        if ref_pdb2_atom.get_chain() not in ref_pdb2_int_chids_ordered:
-            ref_pdb2_int_chids_ordered.append(ref_pdb2_atom.get_chain())
-        if ref_pdb2_atom.is_CA():
+        if ref_pdb2_atom.chain not in ref_pdb2_int_chids_ordered:
+            ref_pdb2_int_chids_ordered.append(ref_pdb2_atom.chain)
+        if ref_pdb2_atom.is_ca:
             ref_pdb2_ca_int_ch_atoms.append(ref_pdb2_atom)
 
-            if ref_pdb2_atom.get_residue_number() in ref_pdb2_int_chids_resnums_dict[ref_pdb2_atom.get_chain()]:
+            if ref_pdb2_atom.residue_number in ref_pdb2_int_chids_resnums_dict[ref_pdb2_atom.chain]:
                 ref_pdb2_int_ca_atoms.append(ref_pdb2_atom)
 
     ref_int_ca_atoms = ref_pdb1_int_ca_atoms + ref_pdb2_int_ca_atoms
@@ -262,10 +262,10 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
     pdb1_chid_ca_atom_dict = {}
     for pdb1_chid in pdb1_chids:
-        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid).atoms if a.is_CA()]
+        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid).atoms if a.is_ca()]
     pdb2_chid_ca_atom_dict = {}
     for pdb2_chid in pdb2_chids:
-        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid).atoms if a.is_CA()]
+        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid).atoms if a.is_ca()]
 
     # construct lists of all possible chain id permutations for pdb1 and for pdb2
     # that could map onto reference pdb1 and reference pdb2 interface chains respectively
@@ -304,14 +304,14 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
                     # ==> pdb1_perm_int_ca_atoms
                     pdb1_perm_int_ca_atoms = []
                     for atom in pdb1_perm_ca_atoms:
-                        if atom.get_residue_number() in ref_pdb1_int_chids_resnums_dict[chid_map_dict_1[atom.get_chain()]]:
+                        if atom.residue_number in ref_pdb1_int_chids_resnums_dict[chid_map_dict_1[atom.chain]]:
                             pdb1_perm_int_ca_atoms.append(atom)
 
                     # create a list of pdb2_perm atoms that map to reference pdb2 interface CA atoms
                     # ==> pdb2_perm_int_ca_atoms
                     pdb2_perm_int_ca_atoms = []
                     for atom in pdb2_perm_ca_atoms:
-                        if atom.get_residue_number() in ref_pdb2_int_chids_resnums_dict[chid_map_dict_2[atom.get_chain()]]:
+                        if atom.residue_number in ref_pdb2_int_chids_resnums_dict[chid_map_dict_2[atom.chain]]:
                             pdb2_perm_int_ca_atoms.append(atom)
 
                     # create a single list containing both pdb1_perm and pdb2_perm CA atoms that map to reference
@@ -412,10 +412,10 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     for ref_pdb1_atom in ref_pdb1.chain(ref_pdb1_int_chids).atoms:
         # if ref_pdb1_atom.get_chain() not in ref_pdb1_int_chids_ordered:
         #     ref_pdb1_int_chids_ordered.append(ref_pdb1_atom.get_chain())
-        if ref_pdb1_atom.is_CA():
+        if ref_pdb1_atom.is_ca():
             ref_pdb1_ca_int_ch_atoms.append(ref_pdb1_atom)
 
-            if ref_pdb1_atom.get_residue_number() in ref_pdb1_int_chids_resnums_dict[ref_pdb1_atom.get_chain()]:
+            if ref_pdb1_atom.residue_number in ref_pdb1_int_chids_resnums_dict[ref_pdb1_atom.chain]:
                 ref_pdb1_ca_int_atoms.append(ref_pdb1_atom)
 
     ref_pdb2_ca_int_ch_atoms = []
@@ -424,10 +424,10 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     for ref_pdb2_atom in ref_pdb2.chain(ref_pdb2_int_chids).atoms:
         # if ref_pdb2_atom.get_chain() not in ref_pdb2_int_chids_ordered:
         #     ref_pdb2_int_chids_ordered.append(ref_pdb2_atom.get_chain())
-        if ref_pdb2_atom.is_CA():
+        if ref_pdb2_atom.is_ca():
             ref_pdb2_ca_int_ch_atoms.append(ref_pdb2_atom)
 
-            if ref_pdb2_atom.get_residue_number() in ref_pdb2_int_chids_resnums_dict[ref_pdb2_atom.get_chain()]:
+            if ref_pdb2_atom.residue_number in ref_pdb2_int_chids_resnums_dict[ref_pdb2_atom.chain]:
                 ref_pdb2_ca_int_atoms.append(ref_pdb2_atom)
 
     ref_ca_int_atoms = ref_pdb1_ca_int_atoms + ref_pdb2_ca_int_atoms
@@ -439,10 +439,10 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
     pdb1_chid_ca_atom_dict = {}
     for pdb1_chid in pdb1_chids:
-        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid).atoms if a.is_CA()]
+        pdb1_chid_ca_atom_dict[pdb1_chid] = [a for a in pdb1.chain(pdb1_chid).atoms if a.is_ca()]
     pdb2_chid_ca_atom_dict = {}
     for pdb2_chid in pdb2_chids:
-        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid).atoms if a.is_CA()]
+        pdb2_chid_ca_atom_dict[pdb2_chid] = [a for a in pdb2.chain(pdb2_chid).atoms if a.is_ca()]
 
     # construct lists of all possible chain id permutations for pdb1 and for pdb2
     # that could map onto reference pdb1 and reference pdb2 interface chains respectively
@@ -495,7 +495,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
         # ==> pdb1_perm_int_ca_atoms
         pdb1_perm_int_ca_atoms = []
         for atom in allowed_perms1[pdb1_perm]:
-            if atom.get_residue_number() in ref_pdb1_int_chids_resnums_dict[chid_map_dict_1[atom.get_chain()]]:
+            if atom.residue_number in ref_pdb1_int_chids_resnums_dict[chid_map_dict_1[atom.chain]]:
                 pdb1_perm_int_ca_atoms.append(atom)
 
         for pdb2_perm in allowed_perms2:
@@ -506,7 +506,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
             # ==> pdb2_perm_int_ca_atoms
             pdb2_perm_int_ca_atoms = []
             for atom in allowed_perms2[pdb2_perm]:
-                if atom.get_residue_number() in ref_pdb2_int_chids_resnums_dict[chid_map_dict_2[atom.get_chain()]]:
+                if atom.residue_number in ref_pdb2_int_chids_resnums_dict[chid_map_dict_2[atom.chain]]:
                     pdb2_perm_int_ca_atoms.append(atom)
 
             # create a single list containing both pdb1_perm and pdb2_perm CA atoms that map to reference

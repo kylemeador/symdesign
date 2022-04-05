@@ -68,7 +68,7 @@ class FetchPDBBA:
 #         else:
 #             return False
 #
-#     def is_CB(self):
+#     def is_cb(self):
 #         return self.type == "CB" or (self.type== "H" and self.residue_type == "GLY" )
 #
 #     def distance(self, atom, intra=False):
@@ -722,11 +722,11 @@ class AtomPair:
 #     def getTermCAAtom(self, term, chain_id):  # updated name to getTermCAAtom 6/01/20
 #         if term == "N":
 #             for atom in self.chain(chain_id):
-#                 if atom.type == "CA":  # atom.is_CA()
+#                 if atom.type == "CA":  # atom.is_ca()
 #                     return atom
 #         elif term == "C":
 #             for atom in self.chain(chain_id)[::-1]:
-#                 if atom.type == "CA":  # atom.is_CA()
+#                 if atom.type == "CA":  # atom.is_ca()
 #                     return atom
 #         else:
 #             print("Select N or C Term")

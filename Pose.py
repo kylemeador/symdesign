@@ -3484,13 +3484,13 @@ def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
         frag1_ca_count = 0
         for atom in pdb1.all_atoms:
             if atom.residue_number in pdb1_res_num_list:
-                if atom.is_CA():
+                if atom.is_ca():
                     frag1_ca_count += 1
 
         frag2_ca_count = 0
         for atom in pdb2.all_atoms:
             if atom.residue_number in pdb2_res_num_list:
-                if atom.is_CA():
+                if atom.is_ca():
                     frag2_ca_count += 1
 
         if frag1_ca_count == 5 and frag2_ca_count == 5:
@@ -3543,14 +3543,14 @@ def get_multi_chain_interface_fragment_residue_numbers(pdb1, pdb2, interacting_p
         for atom in pdb1.all_atoms:
             if atom.chain == pdb1_central_chain_id:
                 if atom.residue_number in pdb1_res_num_list:
-                    if atom.is_CA():
+                    if atom.is_ca():
                         frag1_ca_count += 1
 
         frag2_ca_count = 0
         for atom in pdb2.all_atoms:
             if atom.chain == pdb2_central_chain_id:
                 if atom.residue_number in pdb2_res_num_list:
-                    if atom.is_CA():
+                    if atom.is_ca():
                         frag2_ca_count += 1
 
         if frag1_ca_count == 5 and frag2_ca_count == 5:

@@ -62,7 +62,7 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
         for atom in pdb.chain(pdb_ch1_id).atoms:
             if atom.residue_number in ch1_res_num_list:
                 int_frag_out_atom_list_ch1.append(atom)
-                if atom.is_CA():
+                if atom.is_ca():
                     frag1_ca_count += 1
 
         frag2_ca_count = 0
@@ -70,7 +70,7 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
         for atom in pdb.chain(pdb_ch2_id).atoms:
             if atom.residue_number in ch2_res_num_list:
                 int_frag_out_atom_list_ch2.append(atom)
-                if atom.is_CA():
+                if atom.is_ca():
                     frag2_ca_count += 1
 
         if frag1_ca_count == frag_length and frag2_ca_count == frag_length:
@@ -153,7 +153,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
                 for atom in pdb.chain(pdb_ch1_id).atoms:
                     if atom.residue_number in ch1_res_num_list:
                         int_frag_out_atom_list_ch1.append(atom)
-                        if atom.is_CA():
+                        if atom.is_ca():
                             frag1_ca_count += 1
 
                 frag2_ca_count = 0
@@ -161,7 +161,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
                 for atom in pdb.chain(pdb_ch2_id).atoms:
                     if atom.residue_number in ch2_res_num_list:
                         int_frag_out_atom_list_ch2.append(atom)
-                        if atom.is_CA():
+                        if atom.is_ca():
                             frag2_ca_count += 1
 
                 if frag1_ca_count == frag_length and frag2_ca_count == frag_length:

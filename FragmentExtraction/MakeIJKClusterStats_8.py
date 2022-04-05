@@ -57,11 +57,11 @@ def ijk_stats(cluster_rep_path, db_dir, info_outdir, frag_length, sc_dist):
             mapped_chain_res_count = 0
             paired_chain_res_count = 0
             for atom in member_pdb.atoms:
-                if atom.is_CA() and atom.chain == member_mapped_ch:
+                if atom.is_ca() and atom.chain == member_mapped_ch:
                     residue_frequency[mapped_chain_res_count][0] = \
                         protein_letters_3to1.get(atom.residue_type.title(), None)
                     mapped_chain_res_count += 1
-                elif atom.is_CA() and atom.chain == member_paired_ch:
+                elif atom.is_ca() and atom.chain == member_paired_ch:
                     residue_frequency[paired_chain_res_count][1] = \
                         protein_letters_3to1.get(atom.residue_type.title(), None)
                     paired_chain_res_count += 1
@@ -198,11 +198,11 @@ def main(db_dir, info_outdir, frag_length, sc_dist, multi=False, num_threads=4):
                     mapped_chain_res_count = 0
                     paired_chain_res_count = 0
                     for atom in member_pdb.atoms:
-                        if atom.is_CA() and atom.chain == member_mapped_ch:
+                        if atom.is_ca() and atom.chain == member_mapped_ch:
                             residue_frequency[mapped_chain_res_count][0] = \
                                 protein_letters_3to1.get(atom.residue_type.title(), None)
                             mapped_chain_res_count += 1
-                        elif atom.is_CA() and atom.chain == member_paired_ch:
+                        elif atom.is_ca() and atom.chain == member_paired_ch:
                             residue_frequency[paired_chain_res_count][1] = \
                                 protein_letters_3to1.get(atom.residue_type.title(), None)
                             paired_chain_res_count += 1
