@@ -352,9 +352,11 @@ class PDB(Structure):
                 # Reindex all residue and atom indices
                 self.chains[0].start_indices(dtype='residue', at=0)
                 self.chains[0].start_indices(dtype='atom', at=0)
+                self.chains[0].reset_indices_attributes()
                 for prior_idx, chain in enumerate(self.chains[1:]):
                     chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
                     chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
+                    chain.reset_indices_attributes()
                 # set the arrayed attributes for all PDB containers
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 if rename_chains:
@@ -382,9 +384,11 @@ class PDB(Structure):
                 # Reindex all residue and atom indices
                 self.entities[0].start_indices(dtype='residue', at=0)
                 self.entities[0].start_indices(dtype='atom', at=0)
+                self.entities[0].reset_indices_attributes()
                 for prior_idx, entity in enumerate(self.entities[1:]):
                     entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
                     entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
+                    entity.reset_indices_attributes()
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 if rename_chains:
