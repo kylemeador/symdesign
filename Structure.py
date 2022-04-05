@@ -456,7 +456,7 @@ class Structure(StructureBase):
         Returns:
             (Numpy.ndarray)
         """
-        # index_mask = [atom.index for atom in self.atoms if atom.is_backbone() or atom.is_CB()]
+        # index_mask = [atom.index for atom in self.atoms if atom.is_backbone() or atom.is_cb()]
         return self._coords.coords[self.backbone_and_cb_indices]
 
     def get_ca_coords(self):
@@ -466,7 +466,7 @@ class Structure(StructureBase):
             (Numpy.ndarray)
         """
         # index_mask = [residue.ca.index for residue in self.residues]
-        # index_mask = [atom.index for atom in self.atoms if atom.is_CA()]
+        # index_mask = [atom.index for atom in self.atoms if atom.is_ca()]
         return self._coords.coords[self.ca_indices]
 
     def get_cb_coords(self):
@@ -476,7 +476,7 @@ class Structure(StructureBase):
             (Numpy.ndarray)
         """
         # index_mask = [residue.cb.index for residue in self.residues]
-        # index_mask = [atom.index for atom in self.atoms if atom.is_CB(InclGlyCA=InclGlyCA)]
+        # index_mask = [atom.index for atom in self.atoms if atom.is_cb(InclGlyCA=InclGlyCA)]
         # return self._coords.coords[index_mask]
         return self._coords.coords[self.cb_indices]
 
@@ -3234,7 +3234,7 @@ class Residue:
                 if atom.residue_type == 'GLY':
                     self.cb_index = idx
                     # self.cb = atom.index
-            elif atom.type == 'CB':  # atom.is_CB(InclGlyCA=True):
+            elif atom.type == 'CB':  # atom.is_cb(InclGlyCA=True):
                 self.cb_index = idx
                 # self.cb = atom.index
             elif atom.type == 'C':
