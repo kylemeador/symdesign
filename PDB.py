@@ -918,16 +918,15 @@ class PDB(Structure):
             # v make Chain objects (if they are names)
             info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in info.get('chains')]
             info['chains'] = [chain for chain in info['chains'] if chain]  # remove any missing chains
-            info['representative'] = info['chains'][0]
-            accession = self.dbref.get(info['representative'].chain_id, None)
+            # info['representative'] = info['chains'][0]
+            accession = self.dbref.get(info['chains'][0].chain_id, None)
             info['accession'] = accession['accession'] if accession else accession
 
         # self.update_entity_accession_id()  # only useful if retrieve_pdb_info_from_api() is called
         # for entity_name, info in self.entity_d.items():  # generated from a PDB API sequence search v
             entity_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name
             self.entities.append(
-                Entity.from_representative(representative=info['representative'], name=entity_name, log=self.log,
-                                           chains=info['chains'], uniprot_id=info['accession']))
+                Entity.from_chains(chains=info['chains'], uniprot_id=info['accession'], name=entity_name, log=self.log))
 
     def get_entity_info_from_atoms(self, tolerance=0.9, **kwargs):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects

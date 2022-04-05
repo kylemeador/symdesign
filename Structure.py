@@ -2352,7 +2352,7 @@ class Entity(Chain, SequenceProfile):
         name=None (str): The name for the Entity. Typically, PDB.name is used to make a PDB compatible form
         PDB EntryID_EntityID
     """
-    def __init__(self, representative=None, uniprot_id=None, **kwargs):
+    def __init__(self, chains=None, uniprot_id=None, **kwargs):  # representative=None,
         # When init occurs chain_ids are set if chains were passed. If not, then they are auto generated
         #                                                                             name=None, coords=None, log=None):
         # assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
@@ -2364,7 +2364,8 @@ class Entity(Chain, SequenceProfile):
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
-        chains = kwargs.get('chains', [])  # [Chain objs]
+        # chains = kwargs.get('chains', [])  # [Chain objs]
+        representative = chains[0]
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          coords=representative._coords, **kwargs)
         self._chains = []
@@ -2398,12 +2399,12 @@ class Entity(Chain, SequenceProfile):
         self.uniprot_id = uniprot_id
 
     @classmethod
-    def from_representative(cls, representative=None, uniprot_id=None, **kwargs):  # chains=None,
-        if isinstance(representative, Structure):
-            return cls(representative=representative, uniprot_id=uniprot_id, **kwargs)  # chains=chains,
-        else:
-            raise DesignError('When initializing an Entity, you must pass a representative Structure object. This is '
-                              'typically a Chain, but could be another collection of residues in a Structure object')
+    def from_chains(cls, chains=None, uniprot_id=None, **kwargs):
+        # if isinstance(representative, Structure):
+        return cls(chains=chains, uniprot_id=uniprot_id, **kwargs)
+        # else:
+        #     raise DesignError('When initializing an Entity, you must pass a representative Structure object. This is '
+        #                       'typically a Chain, but could be another collection of residues in a Structure object')
 
     @Structure.coords.setter
     def coords(self, coords):
