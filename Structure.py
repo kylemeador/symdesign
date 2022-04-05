@@ -2488,13 +2488,13 @@ class Entity(Chain, SequenceProfile):
             try:  # this section is only useful if the current instance is an Entity copy
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
                 _, rot, tx, _ = superposition3d(self.get_ca_coords(), self.prior_ca_coords)
-                # self._chain_transforms = [dict(rotation=np.matmul(rot, transform['rotation']),
-                #                                translation=transform['translation'] + tx)
-                #                           for transform in self.__chain_transforms[1:]]
                 self._chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
-                self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
-                                                    rotation2=rot, translation2=tx)
+                self._chain_transforms.extend([dict(rotation=np.matmul(rot, transform['rotation']),
+                                                    translation=transform['translation'] + tx)
                                                for transform in self.__chain_transforms[1:]])
+                # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
+                #                                     rotation2=rot, translation2=tx)
+                #                                for transform in self.__chain_transforms[1:]])
             except AttributeError:  # no prior_ca_coords
                 self.log.info('%s chain_transform %s' % (self.name, 'LastAttributeError'))
                 self._chain_transforms = []
@@ -3150,6 +3150,7 @@ class Entity(Chain, SequenceProfile):
         # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
         # other.update_attributes(residues=other._residues, coords=other._coords)
         if other.is_oligomeric:
+            self.log.info('Copy Entity. Clearing chains, chain_transforms')
             other._chains.clear()
             other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
             other.__chain_transforms = other.chain_transforms
