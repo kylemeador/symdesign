@@ -4007,7 +4007,7 @@ class Atom:
                  residue_number=None, code_for_insertion=None, occ=None, temp_fact=None, element_symbol=None,
                  atom_charge=None):  # coords=None
         self.index = index
-        self.number = number
+        self._number = number
         self.type = atom_type
         self.alt_location = alt_location
         self.residue_type = residue_type
@@ -4054,14 +4054,14 @@ class Atom:
         else:
             return False
 
-    def is_CB(self, InclGlyCA=True):
-        if InclGlyCA:
+    def is_cb(self, gly_ca=True):
+        if gly_ca:
             return self.type == 'CB' or (self.residue_type == 'GLY' and self.type == 'CA')
         else:
             #                                    When Rosetta assigns, it is this  v  but PDB assigns as this  v
             return self.type == 'CB' or (self.residue_type == 'GLY' and (self.type == '2HA' or self.type == 'HA3'))
 
-    def is_CA(self):
+    def is_ca(self):
         return self.type == 'CA'
 
     # def distance(self, atom, intra=False):
@@ -4082,32 +4082,36 @@ class Atom:
     #         distance = (self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2
     #         return distance
 
-    def get_index(self):
-        return self.index
+    # def get_index(self):
+    #     return self.index
 
-    def get_number(self):
-        return self.number
+    @property
+    def number(self):
+        return self._number
 
-    def get_type(self):
-        return self.type
+    # def get_number(self):
+    #     return self.number
 
-    def get_alt_location(self):
-        return self.alt_location
+    # def type(self):
+    #     return self.type
 
-    def get_residue_type(self):
-        return self.residue_type
+    # def alt_location(self):
+    #     return self.alt_location
 
-    def get_chain(self):
-        return self.chain
+    # def residue_type(self):
+    #     return self.residue_type
 
-    def get_pdb_residue_number(self):
-        return self.pdb_residue_number
+    # def chain(self):
+    #     return self.chain
 
-    def get_residue_number(self):
-        return self.residue_number
+    # def pdb_residue_number(self):
+    #     return self.pdb_residue_number
 
-    def get_code_for_insertion(self):
-        return self.code_for_insertion
+    # def residue_number(self):
+    #     return self.residue_number
+
+    # def get_code_for_insertion(self):
+    #     return self.code_for_insertion
 
     # @property
     # def x(self):
@@ -4136,20 +4140,20 @@ class Atom:
     #     self._coords.coords[self.index][2] = z
     #     # self.coords[2] = z
 
-    def get_occ(self):
-        return self.occ
+    # def occ(self):
+    #     return self.occ
 
-    def get_temp_fact(self):
-        return self.temp_fact
+    # def temp_fact(self):
+    #     return self.temp_fact
 
-    def get_element_symbol(self):
-        return self.element_symbol
+    # def element_symbol(self):
+    #     return self.element_symbol
 
-    def get_atom_charge(self):
-        return self.atom_charge
+    # def atom_charge(self):
+    #     return self.atom_charge
 
     def __key(self):
-        return self.number, self.type
+        return self.number, self.type  # self.index, self.type
 
     def __str__(self, **kwargs):  # type=None, number=None, pdb=False, chain=None,
         """Represent Atom in PDB format"""
@@ -4171,7 +4175,7 @@ class Atom:
         return (self.number == other.number and self.chain == other.chain and self.type == other.type and
                 self.residue_type == other.residue_type)
 
-    def __hash__(self):  # Todo current key is mutable so this hash is invalid
+    def __hash__(self):
         return hash(self.__key())
 
 

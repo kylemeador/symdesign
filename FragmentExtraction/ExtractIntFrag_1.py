@@ -172,7 +172,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
             #     for atom in pdb_ch1.atoms:
             #         if atom.residue_number in ch1_res_num_list:
             #             int_frag_out_atom_list_ch1.append(atom)
-            #             if atom.is_CA():
+            #             if atom.is_ca():
             #                 frag1_ca_count += 1
             #
             #     frag2_ca_count = 0
@@ -180,7 +180,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
             #     for atom in pdb_ch2.atoms:
             #         if atom.residue_number in ch2_res_num_list:
             #             int_frag_out_atom_list_ch2.append(atom)
-            #             if atom.is_CA():
+            #             if atom.is_ca():
             #                 frag2_ca_count += 1
             #
             #     int_frag_out = PDB()
