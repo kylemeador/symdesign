@@ -2090,7 +2090,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                                                                        [distance])[0]
                         idx += 1
             max_contact_idx = contact_count.argmax()
-            second_contact_idx = contact_count.argsort()[-2]
+            # second_contact_idx = contact_count.argsort()[-2]
             additional_chains = []
             max_chains = list(chain_combinations[max_contact_idx])
             if len(max_chains) != len(self.active_entities):
@@ -2114,9 +2114,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
             entities = max_chains + additional_chains
 
-        chain_2 = PDB.from_entities(list(chain_combinations[second_contact_idx]), name='asu', log=self.log, pose_format=False,
-                          biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
-        chain_2.write(out_path='SecondContactingChain.pdb')
+        # chain_2 = PDB.from_entities(list(chain_combinations[second_contact_idx]), name='asu', log=self.log, pose_format=False,
+        #                   biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
+        # chain_2.write(out_path='SecondContactingChain.pdb')
         return PDB.from_entities(entities, name='asu', log=self.log, pose_format=False,
                                  biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
 
