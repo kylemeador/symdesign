@@ -2495,9 +2495,9 @@ class Entity(Chain, SequenceProfile):
             try:  # this section is only useful if the current instance is an Entity copy
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
                 self._chain_transforms = []
-                if self.prior_ca_coords is not None:
-                    self.log.info('prior_ca_coords has not been set but it is not None')
-                    getattr(self, 'prior_ca_coords')  # try to get exception raised here?
+                # if self.prior_ca_coords is not None:
+                #     self.log.info('prior_ca_coords has not been set but it is not None')
+                #     getattr(self, 'prior_ca_coords')  # try to get exception raised here?
                 missing_at = 'prior_ca_coords'
                 prior_ca_coords = self.prior_ca_coords
                 if self.is_oligomeric:  # True if multiple chains
