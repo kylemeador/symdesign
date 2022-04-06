@@ -539,8 +539,8 @@ class PDB(Structure):
                     discard_chain = next(available_chain_ids)
                 else:  # when there are more chains than supplied by file, chose the next available
                     chain_id = next(available_chain_ids)
-                self.chains.append(Chain(name=chain_id, residue_indices=residue_indices, residues=self._residues,
-                                         coords=self._coords, log=self.log))
+                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log, residues=self._residues,
+                                         residue_indices=residue_indices))
                 # self.chains[idx].set_atoms_attributes(chain=chain_id)
             self.chain_id_list = [chain.name for chain in self.chains]
         else:

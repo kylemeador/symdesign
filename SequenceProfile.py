@@ -34,8 +34,8 @@ subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 
 class SequenceProfile:
-    """Contains the sequence information for a Structural unit. Should always be subclassed by an object like an Entity,
-    basically any structure object with a .reference_sequence attribute could be used"""
+    """Contains the sequence information for a Structural unit. Should always be subclassed by an object like an Entity.
+    Basically any structure object with a .reference_sequence attribute could be used"""
     idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
 
     def __init__(self, **kwargs):
