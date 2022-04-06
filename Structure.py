@@ -2371,7 +2371,7 @@ class Entity(Chain, SequenceProfile):
         self._chains = []
         # self.chain_transforms = []
         # if chains:
-        chain_ids = [chains[0].name]
+        chain_ids = [representative.name]
         self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         if len(chains) > 1:
             self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
@@ -2497,22 +2497,23 @@ class Entity(Chain, SequenceProfile):
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
                 if self.is_oligomeric:  # True if multiple chains
                     current_ca_coords = self.get_ca_coords()
+                    missing_at = 'prior_ca_coords'
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
-
                     # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
                     #                                     translation=transform['translation'] + tx)
                     #                                for transform in self.__chain_transforms[1:]])
                     # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
                     #                                     rotation2=rot, translation2=tx)
                     #                                for transform in self.__chain_transforms[1:]])
+                    missing_at = '__chain_transforms'
                     for transform in self.__chain_transforms[1:]:
                         chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
                                                  + transform['translation'], np.transpose(new_rot)) + new_tx
                         _, rot, tx, _ = superposition3d(chain_coords, current_ca_coords)
                         self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
-            except AttributeError:  # no prior_ca_coords
-                self.log.info('%s chain_transform %s' % (self.name, 'LastAttributeError'))
+            except AttributeError:  # no prior_ca_coords or __chain_transforms
+                self.log.info('%s chain_transform %s because missing %s' % (self.name, 'LastAttributeError', missing_at))
                 self._chain_transforms = []
 
             return self._chain_transforms
