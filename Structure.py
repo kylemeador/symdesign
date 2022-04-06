@@ -2410,11 +2410,10 @@ class Entity(Chain, SequenceProfile):
             #                         and setter is not happening because of a copy (no new info, update unimportant)
             if self.is_oligomeric:  # and not (coords.coords == self._coords.coords).all():
                 # each mate chain coords are dependent on the representative (captain) coords, find the transform
-                chains = self.chains
                 self.chain_transforms.clear()
-                for chain in chains:
+                for chain in self.chains:
                     # rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], self.get_cb_coords())
-                    rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], chain.get_cb_coords())
+                    _, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], chain.get_cb_coords())
                     self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 self._chains.clear()
                 # then apply to mates
@@ -2496,7 +2495,6 @@ class Entity(Chain, SequenceProfile):
         except AttributeError:
             try:  # this section is only useful if the current instance is an Entity copy
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
-                self._chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
                 if self.is_oligomeric:  # True if multiple chains
                     current_ca_coords = self.get_ca_coords()
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
@@ -2512,6 +2510,7 @@ class Entity(Chain, SequenceProfile):
                                                  + transform['translation'], np.transpose(new_rot)) + new_tx
                         _, rot, tx, _ = superposition3d(chain_coords, current_ca_coords)
                         self._chain_transforms.append(dict(rotation=rot, translation=tx))
+                self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
             except AttributeError:  # no prior_ca_coords
                 self.log.info('%s chain_transform %s' % (self.name, 'LastAttributeError'))
                 self._chain_transforms = []
