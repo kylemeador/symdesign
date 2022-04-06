@@ -2532,8 +2532,8 @@ class Entity(Chain, SequenceProfile):
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
-            self.log('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
-                     % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
+            self.log.info('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
+                          % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
                 chain.chain_id = chain_ids[idx]
