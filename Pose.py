@@ -2078,7 +2078,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             idx = 0
             chain_combinations, entity_combinations = [], []
             contact_count = \
-                np.zeros(sum(map(prod, combinations((len(entity.chains) for entity in self.active_entities), 2))))
+                np.zeros(sum(map(prod, combinations((entity.number_of_monomers for entity in self.active_entities), 2))))
             # contact_count = np.zeros((prod([len(entity.chains) for entity in self.active_entities])))
             for entity1, entity2 in combinations(self.active_entities, 2):
                 for chain1 in entity1.chains:
