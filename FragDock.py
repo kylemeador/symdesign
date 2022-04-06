@@ -1346,6 +1346,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         asu = PDB.from_entities([entity1, entity2], log=log, name='asu',
                                 entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
+        asu.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity1.name))
+        asu.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity2.name))
+
         # log.debug('Grabbing asu')
         # if not asu:  # _pdb_1 and not asu_pdb_2:
         #     log.info('\tNO Design ASU Found')
@@ -1359,6 +1362,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         # ignore ASU clashes during initialization since already checked ^
         # log.debug('Checked expand clash')
+        symmetric_material.entities[0].write_oligomer(
+            out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
+        symmetric_material.entities[1].write_oligomer(
+            out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
+
         if symmetric_material.symmetric_assembly_is_clash():
             exp_des_clash_time = time.time() - exp_des_clash_time_start
             log.info('\tBackbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
