@@ -2371,21 +2371,21 @@ class Entity(Chain, SequenceProfile):
         self._chains = []
         # self.chain_transforms = []
         if chains:
+            chain_ids = [chains[0].name]
+            self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
             if len(chains) > 1:
                 self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
 
-            chain_ids = [chains[0].name]
-            self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-            for idx, chain in enumerate(chains[1:]):  # one of these is the representative, but we can treat it the same
-                if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
-                    _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
-                else:
-                    self.log.warning('The Chain %s passed to %s doesn\'t have the same number of residues'
-                                     % (chain.name, self.name))
-                    # Todo perform a superposition with overlapping residues...
-                    rot, tx = identity_matrix, origin  # Todo replace these place holders
-                self.chain_transforms.append(dict(rotation=rot, translation=tx))
-                chain_ids.append(chain.name)
+                for idx, chain in enumerate(chains[1:]):
+                    if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
+                        _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
+                    else:
+                        self.log.warning('The Chain %s passed to %s doesn\'t have the same number of residues'
+                                         % (chain.name, self.name))
+                        # Todo perform a superposition with overlapping residues...
+                        rot, tx = identity_matrix, origin  # Todo replace these place holders
+                    self.chain_transforms.append(dict(rotation=rot, translation=tx))
+                    chain_ids.append(chain.name)
             self.chain_ids = chain_ids
             # else:  # elif len(chains) == 1:
             #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
@@ -2488,20 +2488,21 @@ class Entity(Chain, SequenceProfile):
             try:  # this section is only useful if the current instance is an Entity copy
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
                 self._chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
-                current_ca_coords = self.get_ca_coords()
-                _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
+                if self.is_oligomeric:  # True if multiple chains
+                    current_ca_coords = self.get_ca_coords()
+                    _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
 
-                # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
-                #                                     translation=transform['translation'] + tx)
-                #                                for transform in self.__chain_transforms[1:]])
-                # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
-                #                                     rotation2=rot, translation2=tx)
-                #                                for transform in self.__chain_transforms[1:]])
-                for transform in self.__chain_transforms[1:]:
-                    chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
-                                             + transform['translation'], np.transpose(new_rot)) + new_tx
-                    _, rot, tx, _ = superposition3d(chain_coords, current_ca_coords)
-                    self._chain_transforms.append(dict(rotation=rot, translation=tx))
+                    # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
+                    #                                     translation=transform['translation'] + tx)
+                    #                                for transform in self.__chain_transforms[1:]])
+                    # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
+                    #                                     rotation2=rot, translation2=tx)
+                    #                                for transform in self.__chain_transforms[1:]])
+                    for transform in self.__chain_transforms[1:]:
+                        chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
+                                                 + transform['translation'], np.transpose(new_rot)) + new_tx
+                        _, rot, tx, _ = superposition3d(chain_coords, current_ca_coords)
+                        self._chain_transforms.append(dict(rotation=rot, translation=tx))
             except AttributeError:  # no prior_ca_coords
                 self.log.info('%s chain_transform %s' % (self.name, 'LastAttributeError'))
                 self._chain_transforms = []
