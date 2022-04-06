@@ -25,7 +25,7 @@ from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
     possible_symmetries
 from utils.GeneralUtils import transform_coordinate_sets
-from utils.SymmetryUtils import get_ptgrp_sym_op
+from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number
 
 # globals
 logger = start_log(name=__name__)
@@ -2370,32 +2370,28 @@ class Entity(Chain, SequenceProfile):
                          coords=representative._coords, **kwargs)
         self._chains = []
         # self.chain_transforms = []
-        if chains:
-            chain_ids = [chains[0].name]
-            self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-            if len(chains) > 1:
-                self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
+        # if chains:
+        chain_ids = [chains[0].name]
+        self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
+        if len(chains) > 1:
+            self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
 
-                for idx, chain in enumerate(chains[1:]):
-                    if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
-                        _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
-                    else:
-                        self.log.warning('The Chain %s passed to %s doesn\'t have the same number of residues'
-                                         % (chain.name, self.name))
-                        # Todo perform a superposition with overlapping residues...
-                        rot, tx = identity_matrix, origin  # Todo replace these place holders
-                    self.chain_transforms.append(dict(rotation=rot, translation=tx))
-                    chain_ids.append(chain.name)
-            self.chain_ids = chain_ids
-            # else:  # elif len(chains) == 1:
-            #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-        else:
-            self.chain_ids = [self.chain_id]
-            self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-            # self.chain_ids = [chain.name for chain in chains]
-            # self.structure_containers.extend(['chains'])
-        # self.reference_sequence = kwargs.get('sequence', self.get_structure_sequence())
-        # self.reference_sequence = kwargs.get('sequence')
+            for idx, chain in enumerate(chains[1:]):
+                if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
+                    _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
+                else:
+                    self.log.warning('The Chain %s passed to %s doesn\'t have the same number of residues'
+                                     % (chain.name, self.name))
+                    # Todo perform a superposition with overlapping residues...
+                    rot, tx = identity_matrix, origin  # Todo replace these place holders
+                self.chain_transforms.append(dict(rotation=rot, translation=tx))
+                chain_ids.append(chain.name)
+        self.chain_ids = chain_ids
+        # else:  # elif len(chains) == 1:
+        #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
+        # else:
+        #     self.chain_ids = [self.chain_id]
+        #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         # self._uniprot_id = None
         self.uniprot_id = uniprot_id
 
@@ -2468,11 +2464,19 @@ class Entity(Chain, SequenceProfile):
         # self.set_atoms_attributes(chain=chain_id)
 
     @property
+    def number_of_monomers(self):  # Todo what if not symmetric?
+        try:
+            return self._number_of_monomers
+        except AttributeError:
+            self._number_of_monomers = valid_subunit_number[self.symmetry]
+            return self._number_of_monomers
+
+    @property
     def chain_ids(self):
         try:
             return self._chain_ids
         except AttributeError:  # This shouldn't be possible with the constructor available
-            self._chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+            self._chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
             return self._chain_ids
 
     @chain_ids.setter
@@ -2636,7 +2640,7 @@ class Entity(Chain, SequenceProfile):
         if symmetry == 'C1':  # not symmetric
             self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]  # Todo is this redundant?
             # This resets the chain_ids which would fuck up the logical permanence of this object!
-            # self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+            # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
             return
 
         self.is_oligomeric = True
@@ -2707,7 +2711,7 @@ class Entity(Chain, SequenceProfile):
                 # # self.chains[idx] = sub_symmetry_mate_pdb
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
-        # self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+        # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
 
     @property
@@ -2848,7 +2852,7 @@ class Entity(Chain, SequenceProfile):
             self.scout_symmetry()
         # ensure if the structure is dihedral a selected dihedral_chain is orthogonal to the maximum symmetry axis
         max_symmetry_data = self.rotation_d[self.max_symmetry]
-        if len(self.chain_ids) / max_symmetry_data['sym'] == 2:
+        if self.number_of_monomers / max_symmetry_data['sym'] == 2:
             for chain, data in self.rotation_d.items():
                 if data['sym'] == 2:
                     axis_dot_product = np.dot(max_symmetry_data['axis'], data['axis'])
@@ -2860,9 +2864,10 @@ class Entity(Chain, SequenceProfile):
                         else:
                             self.dihedral_chain = chain
                             return True
-        elif 1 < len(self.chain_ids) / max_symmetry_data['sym'] < 2:
+        elif 1 < self.number_of_monomers / max_symmetry_data['sym'] < 2:
             self.log.critical('The symmetry of %s is malformed! Highest symmetry (%d-fold) is less than 2x greater than'
-                              ' the number (%d) of chains' % (self.name, max_symmetry_data['sym'], len(self.chain_ids)))
+                              ' the number (%d) of chains'
+                              % (self.name, max_symmetry_data['sym'], self.number_of_monomers))
 
         return False
 
@@ -2952,7 +2957,7 @@ class Entity(Chain, SequenceProfile):
                 last_jump = idx  # index of lines where the VRTs and connect_virtuals end. The "last jump"
 
         assert set(trunk) - set(virtuals) == set(), 'Symmetry Definition File VRTS are malformed'
-        assert len(self.chain_ids) == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
+        assert self.number_of_monomers == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
 
         if dihedral:  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
