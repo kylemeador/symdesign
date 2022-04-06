@@ -2532,6 +2532,8 @@ class Entity(Chain, SequenceProfile):
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
+            self.log('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
+                     % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
                 chain.chain_id = chain_ids[idx]
@@ -3174,9 +3176,9 @@ class Entity(Chain, SequenceProfile):
         if other.is_oligomeric:
             self.log.info('Copy Entity. Clearing chains, chain_transforms')
             other._chains.clear()
-            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
             other.__chain_transforms = other.chain_transforms
             del other._chain_transforms
+            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
 
         return other
 
