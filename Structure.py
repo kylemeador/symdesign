@@ -2643,7 +2643,7 @@ class Entity(Chain, SequenceProfile):
         #     translation, rotation, ext_translation, setting_rotation
         # origin = np.array([0., 0., 0.])
         if symmetry == 'C1':  # not symmetric
-            self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]  # Todo is this redundant?
+            # self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]  # Todo is this redundant?
             # This resets the chain_ids which would fuck up the logical permanence of this object!
             # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
             return
