@@ -2386,6 +2386,7 @@ class Entity(Chain, SequenceProfile):
                     rot, tx = identity_matrix, origin  # Todo replace these place holders
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 chain_ids.append(chain.name)
+            self.number_of_monomers = len(chains)
         self.chain_ids = chain_ids
         # else:  # elif len(chains) == 1:
         #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
@@ -2464,12 +2465,16 @@ class Entity(Chain, SequenceProfile):
         # self.set_atoms_attributes(chain=chain_id)
 
     @property
-    def number_of_monomers(self):  # Todo what if not symmetric?
+    def number_of_monomers(self):
         try:
             return self._number_of_monomers
         except AttributeError:
-            self._number_of_monomers = valid_subunit_number[self.symmetry]
+            self._number_of_monomers = valid_subunit_number.get(self.symmetry, len(self._chain_ids))
             return self._number_of_monomers
+
+    @number_of_monomers.setter
+    def number_of_monomers(self, value):
+        self._number_of_monomers = value
 
     @property
     def chain_ids(self):
@@ -2690,6 +2695,10 @@ class Entity(Chain, SequenceProfile):
         # self.chains.append(self.chain_representative)
         self.chain_transforms.clear()
         self.chain_ids.clear()
+        try:
+            del self._number_of_monomers
+        except AttributeError:
+            pass
         # for idx, rot in enumerate(degeneracy_rotation_matrices[1:], 1):  # exclude the first rotation matrix as it is identity
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
