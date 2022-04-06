@@ -2495,9 +2495,10 @@ class Entity(Chain, SequenceProfile):
         except AttributeError:
             try:  # this section is only useful if the current instance is an Entity copy
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
-                if self.is_oligomeric:  # True if multiple chains
+                self._chain_transforms = []
+                missing_at = 'prior_ca_coords'
+                if self.is_oligomeric and self.prior_ca_coords:  # True if multiple chains
                     current_ca_coords = self.get_ca_coords()
-                    missing_at = 'prior_ca_coords'
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
                     # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
                     #                                     translation=transform['translation'] + tx)
@@ -2514,7 +2515,6 @@ class Entity(Chain, SequenceProfile):
                 self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
             except AttributeError:  # no prior_ca_coords or __chain_transforms
                 self.log.info('%s chain_transform %s because missing %s' % (self.name, 'LastAttributeError', missing_at))
-                self._chain_transforms = []
 
             return self._chain_transforms
 
