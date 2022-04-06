@@ -2500,7 +2500,7 @@ class Entity(Chain, SequenceProfile):
                 for transform in self.__chain_transforms[1:]:
                     chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
                                              + transform['translation'], np.transpose(new_rot)) + new_tx
-                    _, rot, tx, _ = superposition3d(current_ca_coords, chain_coords)
+                    _, rot, tx, _ = superposition3d(chain_coords, current_ca_coords)
                     self._chain_transforms.append(dict(rotation=rot, translation=tx))
             except AttributeError:  # no prior_ca_coords
                 self.log.info('%s chain_transform %s' % (self.name, 'LastAttributeError'))
