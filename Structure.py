@@ -2375,7 +2375,6 @@ class Entity(Chain, SequenceProfile):
         self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         if len(chains) > 1:
             self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
-
             for idx, chain in enumerate(chains[1:]):
                 if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
@@ -2497,7 +2496,7 @@ class Entity(Chain, SequenceProfile):
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
                 self._chain_transforms = []
                 missing_at = 'prior_ca_coords'
-                if self.is_oligomeric and self.prior_ca_coords:  # True if multiple chains
+                if self.is_oligomeric and self.prior_ca_coords is not None:  # True if multiple chains
                     current_ca_coords = self.get_ca_coords()
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
                     # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
