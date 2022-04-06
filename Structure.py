@@ -2488,18 +2488,18 @@ class Entity(Chain, SequenceProfile):
 
     @property
     def chain_transforms(self):
-        self.log.info('%s chain_transform %s' % (self.name, 'start'))
+        # self.log.info('%s chain_transform %s' % (self.name, 'start'))
         try:
             return self._chain_transforms
         except AttributeError:
             try:  # this section is only useful if the current instance is an Entity copy
-                self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
+                # self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
                 self._chain_transforms = []
                 # if self.prior_ca_coords is not None:
                 #     self.log.info('prior_ca_coords has not been set but it is not None')
                 #     getattr(self, 'prior_ca_coords')  # try to get exception raised here?
-                missing_at = 'prior_ca_coords'
-                prior_ca_coords = self.prior_ca_coords
+                # missing_at = 'prior_ca_coords'
+                self.prior_ca_coords
                 if self.is_oligomeric:  # True if multiple chains
                     current_ca_coords = self.get_ca_coords()
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
@@ -2509,7 +2509,7 @@ class Entity(Chain, SequenceProfile):
                     # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
                     #                                     rotation2=rot, translation2=tx)
                     #                                for transform in self.__chain_transforms[1:]])
-                    missing_at = '__chain_transforms'
+                    # missing_at = '__chain_transforms'
                     for transform in self.__chain_transforms[1:]:
                         chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
                                                  + transform['translation'], np.transpose(new_rot)) + new_tx
@@ -2517,7 +2517,8 @@ class Entity(Chain, SequenceProfile):
                         self._chain_transforms.append(dict(rotation=rot, translation=tx))
                 self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
             except AttributeError:  # no prior_ca_coords or __chain_transforms
-                self.log.info('%s chain_transform %s because missing %s' % (self.name, 'LastAttributeError', missing_at))
+                pass
+                # self.log.info('%s chain_transform %s because missing %s' % (self.name, 'LastAttributeError', missing_at))
 
             return self._chain_transforms
 
@@ -3179,7 +3180,7 @@ class Entity(Chain, SequenceProfile):
         if other.is_oligomeric:
             self.log.info('Copy Entity. Clearing chains, chain_transforms')
             other._chains.clear()
-            other.__chain_transforms = other.chain_transforms
+            other.__chain_transforms = other.chain_transforms  # requires update before copy
             del other._chain_transforms
             other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
 
