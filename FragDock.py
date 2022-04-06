@@ -1339,9 +1339,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
         tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
         entity1 = pdb1_copy.entities[0]
-        # entity1.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity1.name))
+        entity1.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity1.name))
         entity2 = pdb2_copy.entities[0]
-        # entity2.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity2.name))
+        entity2.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity2.name))
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         asu = PDB.from_entities([entity1, entity2], log=log, name='asu',
