@@ -76,8 +76,8 @@ class StructureBase:
     """Collect extra keyword arguments such as:
         chains, entities, seqres, multimodel, pose_format, solve_discrepancy
     """
-    def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, solve_discrepancy=None,
-                 sequence=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
+    def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, sequence=None,
+                 solve_discrepancy=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
                  query_by_sequence=True, entity_names=None, rename_chains=None, biomt=None, biomt_header=None,
                  **kwargs):
         super().__init__(**kwargs)
@@ -2495,8 +2495,12 @@ class Entity(Chain, SequenceProfile):
             try:  # this section is only useful if the current instance is an Entity copy
                 self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
                 self._chain_transforms = []
+                if self.prior_ca_coords is not None:
+                    self.log.info('prior_ca_coords has not been set but it is not None')
+                    getattr(self, 'prior_ca_coords')  # try to get exception raised here?
                 missing_at = 'prior_ca_coords'
-                if self.is_oligomeric and self.prior_ca_coords is not None:  # True if multiple chains
+                prior_ca_coords = self.prior_ca_coords
+                if self.is_oligomeric:  # True if multiple chains
                     current_ca_coords = self.get_ca_coords()
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
                     # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
