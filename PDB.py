@@ -7,6 +7,7 @@ from copy import copy, deepcopy
 from glob import glob
 from itertools import chain as iter_chain  # repeat,
 from shutil import move
+from time import sleep
 from typing import Union
 
 import numpy as np
@@ -394,6 +395,7 @@ class PDB(Structure):
                 self.log.info('After copy')
                 for idx, entity in enumerate(self.entities, 1):
                     entity.write_oligomer(out_path='%s%d_post_copy_oligomer.pdb' % (entity.name, idx))
+                    sleep(20)
                     # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
                     # entity_dict.pop('_atom_indices')
                     # entity_dict.pop('_residue_indices')
