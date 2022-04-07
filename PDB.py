@@ -382,7 +382,7 @@ class PDB(Structure):
                 self.entities = copy(entities)  # copy the passed entities list
                 self.log.info('Before copy')
                 for entity in self.entities:
-                    entity_dict = {k: v for k, v in entity.__dict__.items() if v}
+                    entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
                     entity_dict.pop('_atom_indices')
                     entity_dict.pop('_residue_indices')
                     entity_dict.pop('_cb_indices')
@@ -390,7 +390,7 @@ class PDB(Structure):
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 self.log.info('After copy')
                 for entity in self.entities:
-                    entity_dict = {k: v for k, v in entity.__dict__.items() if v}
+                    entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
                     entity_dict.pop('_atom_indices')
                     entity_dict.pop('_residue_indices')
                     entity_dict.pop('_cb_indices')
