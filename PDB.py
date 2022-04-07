@@ -93,12 +93,12 @@ class PDB(Structure):
                 self.process_pdb(chains=chains, entities=entities, **kwargs)
             elif entities:
                 self.process_pdb(entities=entities, chains=chains, **kwargs)
-                for idx, entity in enumerate(self.entities, 1):
-                    filename = entity.write_oligomer(out_path='%s%d_post_process_pdb_oligomer-%d.pdb'
-                                                              % (entity.name, idx, randint(0, 10000)))
-                    self.log.info('Wrote %s' % filename)
-                self.log.info('After process_pdb')
-                sleep(20)
+                # for idx, entity in enumerate(self.entities, 1):
+                #     filename = entity.write_oligomer(out_path='%s%d_post_process_pdb_oligomer-%d.pdb'
+                #                                               % (entity.name, idx, randint(0, 10000)))
+                #     self.log.info('Wrote %s' % filename)
+                # self.log.info('After process_pdb')
+                # sleep(20)
             else:
                 raise DesignError('The PDB object could not be initialized due to missing/malformed arguments')
 
