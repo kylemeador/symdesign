@@ -393,9 +393,9 @@ class PDB(Structure):
                     # self.log.info(entity_dict)
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 self.log.info('After copy')
-                for idx, entity in enumerate(self.entities, 1):
-                    entity.write_oligomer(out_path='%s%d_post_copy_oligomer.pdb' % (entity.name, idx))
-                    sleep(20)
+                # for idx, entity in enumerate(self.entities, 1):
+                #     entity.write_oligomer(out_path='%s%d_post_copy_oligomer.pdb' % (entity.name, idx))
+                #     sleep(20)
                     # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
                     # entity_dict.pop('_atom_indices')
                     # entity_dict.pop('_residue_indices')
@@ -403,13 +403,13 @@ class PDB(Structure):
                     # entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
                     # self.log.info(entity_dict)
                 # Reindex all residue and atom indices
+                self.entities[0].reset_indices_attributes()
                 self.entities[0].start_indices(dtype='residue', at=0)
                 self.entities[0].start_indices(dtype='atom', at=0)
-                self.entities[0].reset_indices_attributes()
                 for prior_idx, entity in enumerate(self.entities[1:]):
+                    entity.reset_indices_attributes()
                     entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
                     entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
-                    entity.reset_indices_attributes()
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 if rename_chains:
