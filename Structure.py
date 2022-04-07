@@ -606,7 +606,7 @@ class Structure(StructureBase):
                              '_backbone_and_cb_indices', '_cb_indices', '_ca_indices', '_heavy_atom_indices',
                              '_helix_cb_indices']
         # structure_indices = [attribute for attribute in self.__dict__ if attribute.endswith('_indices')]
-        self.log.info('Deleting the following indices: %s' % structure_indices)
+        # self.log.info('Deleting the following indices: %s' % structure_indices)
         for structure_index in structure_indices:
             self.__dict__.pop(structure_index, None)
 
