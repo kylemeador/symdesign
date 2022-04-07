@@ -1346,8 +1346,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         asu = PDB.from_entities([entity2, entity1], log=log, name='asu',
                                 entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
-        # asu.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity2.name))
-        # asu.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity1.name))
+        asu.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity2.name))
+        asu.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity1.name))
 
         # log.debug('Grabbing asu')
         # if not asu:  # _pdb_1 and not asu_pdb_2:
