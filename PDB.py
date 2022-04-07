@@ -326,13 +326,14 @@ class PDB(Structure):
             self.set_coords(coords)
 
         if isinstance(chains, (list, Structures)) or isinstance(entities, (list, Structures)):  # create from existing
-            atoms, residues = [], []
+            atoms, residues, coords = [], [], []
             # add lists together, only one is populated from class construction
             structures = ([] if not isinstance(chains, (list, Structures)) else chains) + \
                          ([] if not isinstance(entities, (list, Structures)) else entities)
             for structure in structures:
                 atoms.extend(structure.atoms)
                 residues.extend(structure.residues)
+                coords.extend(structure.coords)
             self.atom_indices = list(range(len(atoms)))
             self.residue_indices = list(range(len(residues)))
             self.atoms = atoms
@@ -340,13 +341,13 @@ class PDB(Structure):
             # have to copy Residues object to set new attributes on each member Residue
             self.residues = copy(residues)
             # set residue attributes, index according to new Atoms/Coords index
-            self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
+            self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
             self._residues.reindex_residue_atoms()
-            self.set_coords(coords=np.concatenate([structure.coords for structure in structures]))
+            self.set_coords(coords=np.concatenate(coords))
             self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
 
         if chains:
-            if isinstance(chains, list):  # create the instance from existing chains
+            if isinstance(chains, (list, Structures)):  # create the instance from existing chains
                 self.chains = copy(chains)  # copy the passed chains list
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 # Reindex all residue and atom indices
@@ -378,7 +379,7 @@ class PDB(Structure):
             self.design = True
 
         if entities:
-            if isinstance(entities, list):  # create the instance from existing entities
+            if isinstance(entities, (list, Structures)):  # create the instance from existing entities
                 self.entities = copy(entities)  # copy the passed entities list
                 self.log.info('Before copy')
                 for idx, entity in enumerate(self.entities, 1):
