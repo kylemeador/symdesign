@@ -380,7 +380,13 @@ class PDB(Structure):
         if entities:
             if isinstance(entities, list):  # create the instance from existing entities
                 self.entities = copy(entities)  # copy the passed entities list
+                print('Before copy')
+                for entity in self.entities:
+                    print(entity.__dict__)
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
+                print('After copy')
+                for entity in self.entities:
+                    print(entity.__dict__)
                 # Reindex all residue and atom indices
                 self.entities[0].start_indices(dtype='residue', at=0)
                 self.entities[0].start_indices(dtype='atom', at=0)
@@ -400,13 +406,12 @@ class PDB(Structure):
                         self.log.debug('Entity %s new chain identifier %s' % (entity.name, entity.chain_id))
                 # else:
                 #     pass
-                    # because we don't care for chains attributes (YET) we update after everything is set
-                    # self.chains = chains
-                    # self.reorder_chains()
-                    # self.chain_id_list = [chain.name for chain in self.chains]
-                    # self.chain_id_list = [chain.name for chain in chains]
-            else:
-                # create Entities from Chain.Residues
+                #     # because we don't care for chains attributes (YET) we update after everything is set
+                #     self.chains = chains
+                #     self.reorder_chains()
+                #     self.chain_id_list = [chain.name for chain in self.chains]
+                #     self.chain_id_list = [chain.name for chain in chains]
+            else:  # create Entities from Chain.Residues
                 self.create_entities(**kwargs)
 
         if pose_format:
