@@ -334,7 +334,7 @@ class PDB(Structure):
             for structure in structures:
                 atoms.extend(structure.atoms)
                 residues.extend(structure.residues)
-                coords.extend(structure.coords)
+                coords.append(structure.coords)
             self.atom_indices = list(range(len(atoms)))
             self.residue_indices = list(range(len(residues)))
             self.atoms = atoms
@@ -384,7 +384,7 @@ class PDB(Structure):
                 self.entities = copy(entities)  # copy the passed entities list
                 self.log.info('Before copy')
                 for idx, entity in enumerate(self.entities, 1):
-                    entity.write_oligomer(out_path='%s%d_post_copy_oligomer.pdb' % (entity.name, idx))
+                    entity.write_oligomer(out_path='%s%d_pre_copy_oligomer.pdb' % (entity.name, idx))
                     # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
                     # entity_dict.pop('_atom_indices')
                     # entity_dict.pop('_residue_indices')
