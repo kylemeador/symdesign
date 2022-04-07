@@ -135,7 +135,7 @@ class Structure(StructureBase):
                 # have to copy Residues object to set new attributes on each member Residue
                 self.residues = copy(residues)
                 # set residue attributes, index according to new Atoms/Coords index
-                self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
+                self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
                 self._residues.reindex_residue_atoms()
                 self.set_coords(coords=np.concatenate([residue.coords for residue in residues]))
             else:
@@ -207,10 +207,6 @@ class Structure(StructureBase):
         except AttributeError:
             coords = Coords(coords)
         self._coords = coords
-        # if isinstance(coords, Coords):
-        #     self._coords = coords
-        # else:
-        #     self._coords = Coords(coords)
 
         if self._coords.coords.shape[0] != 0:
             assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
@@ -1994,9 +1990,9 @@ class Structure(StructureBase):
     def copy_structures(self):
         """Copy all member Structures that reside in Structure containers"""
         for structure_type in self.structure_containers:
-            structure = getattr(self, structure_type)
-            for idx, instance in enumerate(structure):
-                structure[idx] = copy(instance)
+            structures = getattr(self, structure_type)
+            for idx, structure in enumerate(structures):
+                structures[idx] = copy(structure)
 
     @staticmethod
     def return_chain_generator():
