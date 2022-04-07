@@ -602,8 +602,9 @@ class Structure(StructureBase):
             self._helix_cb_indices
         """
         structure_indices = [attribute for attribute in self.__dict__ if attribute.endswith('_indices')]
+        self.log.info('Deleting the following indices: %s' % structure_indices)
         for structure_index in structure_indices:
-            del structure_index
+            self.__dict__.pop(structure_index)
 
     @property
     def coords_indexed_backbone_indices(self):
