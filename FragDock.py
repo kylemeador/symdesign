@@ -728,8 +728,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
                     # Get (Oligomer1 Ghost Fragment (rotated), Oligomer2 (rotated) Surface Fragment)
                     # guide coodinate pairs in the same Euler rotational space bucket
-                    log.info('Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler rotational '
-                             'space bucket')
+                    # log.info('Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler rotational '
+                    #          'space bucket')
 
                     euler_start = time.time()
                     # first returned variable has indices increasing 1,1,1,1,1,2,2,2,2,3,4,4,4,...
@@ -745,7 +745,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     # log.debug('Number of matching euler angle pairs REVERSE: %d' % len(overlapping_ghost_frags_rev))
                     # ensure pairs are similar between overlapping_ghost_frags and overlapping_ghost_frags_rev
                     # by indexing the ghost_frag_residues
-                    log.info('Euler Search Took: %f s for %d ghost/surf pairs'
+                    log.info('\tEuler Search Took: %f s for %d ghost/surf pairs'
                              % (euler_time, len(init_ghost_frag1_residues) * len(init_surf_frag2_residues)))
 
                     forward_reverse_comparison_start = time.time()
@@ -799,14 +799,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
                     forward_reverse_comparison_time = time.time() - forward_reverse_comparison_start
-                    log.info('Indexing %d possible overlap pairs found only %d possible out of %d (took %f s)'
+                    log.info('\tIndexing %d possible overlap pairs found only %d possible out of %d (took %f s)'
                              % (len(overlapping_ghost_frags) * len(overlapping_ghost_frags_rev), possible_overlaps.sum()
                                 , number_overlapping_pairs, forward_reverse_comparison_time))
                     # print('The number of euler overlaps (%d) is equal to the number of possible overlaps (%d)' %
                     #       (len(overlapping_ghost_frags), len(possible_overlaps)))
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
-                    log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
-                             'coordinate pairs')
+                    # log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
+                    #          'coordinate pairs')
                     # if rot2_count % 2 == 0:
                     possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # bool index the indices
                     possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
@@ -913,9 +913,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     degen_counts.extend([(degen1_count, degen2_count) for _ in range(final_passing_shifts)])
                     rot_counts.extend([(rot1_count, rot2_count) for _ in range(final_passing_shifts)])
                     tx_counts.extend(list(range(1, final_passing_shifts + 1)))
-                    log.info('Optimal Shift Search Took: %s s for %d guide coordinate pairs'
+                    log.info('\tOptimal Shift Search Took: %s s for %d guide coordinate pairs'
                              % (optimal_shifts_time, len(possible_ghost_frag_indices)))
-                    log.info('%s Initial Interface Fragment Match%s Found'
+                    log.info('\t%s Initial Interface Fragment Match%s Found'
                              % (final_passing_shifts if final_passing_shifts else 'No',
                                 'es' if final_passing_shifts != 1 else ''))
                     # print(rot_counts[-10:], degen_counts[-10:], tx_counts[-10:])
