@@ -1346,8 +1346,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         asu = PDB.from_entities([entity2, entity1], log=log, name='asu',
                                 entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
-        asu.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity2.name))
-        asu.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity1.name))
+        # asu.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity2.name))
+        # asu.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity1.name))
 
         # log.debug('Grabbing asu')
         # if not asu:  # _pdb_1 and not asu_pdb_2:
@@ -1362,10 +1362,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         # ignore ASU clashes during initialization since already checked ^
         # log.debug('Checked expand clash')
-        symmetric_material.entities[0].write_oligomer(
-            out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
-        symmetric_material.entities[1].write_oligomer(
-            out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
+        # symmetric_material.entities[0].write_oligomer(
+        #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
+        # symmetric_material.entities[1].write_oligomer(
+        #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
 
         if symmetric_material.symmetric_assembly_is_clash():
             exp_des_clash_time = time.time() - exp_des_clash_time_start
@@ -1404,8 +1404,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         else:
             asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
-        symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
-        symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
+        # symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
+        # symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
         pdb1_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
