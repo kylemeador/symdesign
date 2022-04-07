@@ -2536,8 +2536,8 @@ class Entity(Chain, SequenceProfile):
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
-            self.log.info('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
-                          % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
+            # self.log.info('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
+            #               % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
                 chain.chain_id = chain_ids[idx]
@@ -3178,7 +3178,7 @@ class Entity(Chain, SequenceProfile):
         # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
         # other.update_attributes(residues=other._residues, coords=other._coords)
         if other.is_oligomeric:
-            self.log.info('Copy Entity. Clearing chains, chain_transforms')
+            # self.log.info('Copy Entity. Clearing chains, chain_transforms')
             other._chains.clear()
             other.__chain_transforms = other.chain_transforms  # requires update before copy
             del other._chain_transforms
