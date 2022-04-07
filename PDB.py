@@ -392,10 +392,10 @@ class PDB(Structure):
                     # entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
                     # self.log.info(entity_dict)
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
-                self.log.info('After copy')
-                for idx, entity in enumerate(self.entities, 1):
-                    entity.write_oligomer(out_path='%s%d_post_copy_oligomer.pdb' % (entity.name, idx))
-                    sleep(20)
+                # self.log.info('After copy')
+                # for idx, entity in enumerate(self.entities, 1):
+                #     entity.write_oligomer(out_path='%s%d_post_copy_oligomer.pdb' % (entity.name, idx))
+                #     sleep(20)
                     # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
                     # entity_dict.pop('_atom_indices')
                     # entity_dict.pop('_residue_indices')
@@ -412,6 +412,10 @@ class PDB(Structure):
                     entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
+                for idx, entity in enumerate(self.entities, 1):
+                    entity.write_oligomer(out_path='%s%d_post_update_attributes_oligomer.pdb' % (entity.name, idx))
+                self.log.info('After update_attributes')
+                sleep(20)
                 if rename_chains:
                     # set each successive Entity to have an incrementally higher chain id
                     available_chain_ids = self.return_chain_generator()
