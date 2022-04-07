@@ -1332,19 +1332,19 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
         pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
-        tx_idx = tx_counts[idx]
-        degen1_count, degen2_count = degen_counts[idx]
-        rot1_count, rot2_count = rot_counts[idx]
-        degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
-        rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
-        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
+        # tx_idx = tx_counts[idx]
+        # degen1_count, degen2_count = degen_counts[idx]
+        # rot1_count, rot2_count = rot_counts[idx]
+        # degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
+        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
+        # tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
         entity1 = pdb1_copy.entities[0]
         # entity1.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity1.name))
         entity2 = pdb2_copy.entities[0]
         # entity2.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity2.name))
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
-        asu = PDB.from_entities([entity2, entity1], log=log, name='asu',
+        asu = PDB.from_entities([entity1, entity2], log=log, name='asu',
                                 entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
         # asu.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity2.name))
         # asu.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity1.name))
@@ -1362,10 +1362,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         # ignore ASU clashes during initialization since already checked ^
         # log.debug('Checked expand clash')
-        symmetric_material.entities[0].write_oligomer(
-            out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
-        symmetric_material.entities[1].write_oligomer(
-            out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
+        # symmetric_material.entities[0].write_oligomer(
+        #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
+        # symmetric_material.entities[1].write_oligomer(
+        #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
 
         if symmetric_material.symmetric_assembly_is_clash():
             exp_des_clash_time = time.time() - exp_des_clash_time_start
@@ -1385,8 +1385,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
         degen_dir = rot_subdir_out_path.split(os.sep)[-2]
         rot_dir = rot_subdir_out_path.split(os.sep)[-1]
-        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, idx)
-        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, idx)
+        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, tx_idx)
+        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, tx_idx)
         os.makedirs(tx_dir, exist_ok=True)
         # Make directories to output matched fragment PDB files
         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
