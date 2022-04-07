@@ -380,13 +380,21 @@ class PDB(Structure):
         if entities:
             if isinstance(entities, list):  # create the instance from existing entities
                 self.entities = copy(entities)  # copy the passed entities list
-                print('Before copy')
+                self.log.info('Before copy')
                 for entity in self.entities:
-                    print(entity.__dict__)
+                    entity_dict = {k: v for k, v in entity.__dict__.items() if v}
+                    entity_dict.pop('_atom_indices')
+                    entity_dict.pop('_residue_indices')
+                    entity_dict.pop('_cb_indices')
+                    self.log.info(entity_dict)
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
-                print('After copy')
+                self.log.info('After copy')
                 for entity in self.entities:
-                    print(entity.__dict__)
+                    entity_dict = {k: v for k, v in entity.__dict__.items() if v}
+                    entity_dict.pop('_atom_indices')
+                    entity_dict.pop('_residue_indices')
+                    entity_dict.pop('_cb_indices')
+                    self.log.info(entity_dict)
                 # Reindex all residue and atom indices
                 self.entities[0].start_indices(dtype='residue', at=0)
                 self.entities[0].start_indices(dtype='atom', at=0)
