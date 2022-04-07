@@ -386,6 +386,7 @@ class PDB(Structure):
                     entity_dict.pop('_atom_indices')
                     entity_dict.pop('_residue_indices')
                     entity_dict.pop('_cb_indices')
+                    entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
                     self.log.info(entity_dict)
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 self.log.info('After copy')
@@ -394,6 +395,7 @@ class PDB(Structure):
                     entity_dict.pop('_atom_indices')
                     entity_dict.pop('_residue_indices')
                     entity_dict.pop('_cb_indices')
+                    entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
                     self.log.info(entity_dict)
                 # Reindex all residue and atom indices
                 self.entities[0].start_indices(dtype='residue', at=0)
