@@ -382,21 +382,23 @@ class PDB(Structure):
                 self.entities = copy(entities)  # copy the passed entities list
                 self.log.info('Before copy')
                 for entity in self.entities:
-                    entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
-                    entity_dict.pop('_atom_indices')
-                    entity_dict.pop('_residue_indices')
-                    entity_dict.pop('_cb_indices')
-                    entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
-                    self.log.info(entity_dict)
+                    entity.write_oligomer(out_path='%s_pre_copy_oligomer.pdb' % self.name)
+                    # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
+                    # entity_dict.pop('_atom_indices')
+                    # entity_dict.pop('_residue_indices')
+                    # entity_dict.pop('_cb_indices')
+                    # entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
+                    # self.log.info(entity_dict)
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 self.log.info('After copy')
                 for entity in self.entities:
-                    entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
-                    entity_dict.pop('_atom_indices')
-                    entity_dict.pop('_residue_indices')
-                    entity_dict.pop('_cb_indices')
-                    entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
-                    self.log.info(entity_dict)
+                    entity.write_oligomer(out_path='%s_post_copy_oligomer.pdb' % self.name)
+                    # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
+                    # entity_dict.pop('_atom_indices')
+                    # entity_dict.pop('_residue_indices')
+                    # entity_dict.pop('_cb_indices')
+                    # entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
+                    # self.log.info(entity_dict)
                 # Reindex all residue and atom indices
                 self.entities[0].start_indices(dtype='residue', at=0)
                 self.entities[0].start_indices(dtype='atom', at=0)
