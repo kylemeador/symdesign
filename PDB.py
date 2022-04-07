@@ -6,6 +6,7 @@ from collections.abc import Iterable
 from copy import copy, deepcopy
 from glob import glob
 from itertools import chain as iter_chain  # repeat,
+from random import randint
 from shutil import move
 from time import sleep
 from typing import Union
@@ -92,8 +93,15 @@ class PDB(Structure):
                 self.process_pdb(chains=chains, entities=entities, **kwargs)
             elif entities:
                 self.process_pdb(entities=entities, chains=chains, **kwargs)
+                for idx, entity in enumerate(self.entities, 1):
+                    filename = entity.write_oligomer(out_path='%s%d_post_process_pdb_oligomer-%d.pdb'
+                                                              % (entity.name, idx, randint(0, 10000)))
+                    self.log.info('Wrote %s' % filename)
+                self.log.info('After process_pdb')
+                sleep(20)
             else:
                 raise DesignError('The PDB object could not be initialized due to missing/malformed arguments')
+
             if metadata and isinstance(metadata, PDB):
                 self.copy_metadata(metadata)
 
@@ -395,7 +403,7 @@ class PDB(Structure):
                 # self.log.info('After copy')
                 # for idx, entity in enumerate(self.entities, 1):
                 #     entity.write_oligomer(out_path='%s%d_post_copy_oligomer.pdb' % (entity.name, idx))
-                #     sleep(20)
+                # sleep(20)
                     # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
                     # entity_dict.pop('_atom_indices')
                     # entity_dict.pop('_residue_indices')
@@ -412,10 +420,10 @@ class PDB(Structure):
                     entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
-                for idx, entity in enumerate(self.entities, 1):
-                    entity.write_oligomer(out_path='%s%d_post_update_attributes_oligomer.pdb' % (entity.name, idx))
-                self.log.info('After update_attributes')
-                sleep(20)
+                # for idx, entity in enumerate(self.entities, 1):
+                #     entity.write_oligomer(out_path='%s%d_post_update_attributes_oligomer.pdb' % (entity.name, idx))
+                # self.log.info('After update_attributes')
+                # sleep(20)
                 if rename_chains:
                     # set each successive Entity to have an incrementally higher chain id
                     available_chain_ids = self.return_chain_generator()
