@@ -2,6 +2,8 @@ import sys
 import os
 import numpy as np
 
+from PDB import PDB
+from Structure import superposition3d
 
 
 def coords_to_pdb(coords):
@@ -23,25 +25,37 @@ def coords_to_pdb(coords):
 
 if __name__ == '__main__':
     file = sys.argv[1]
-    with open('file', 'r') as f:
+    t32_rosetta_file = sys.argv[2]
+    t32_orient_file = sys.argv[3]
+    with open(file, 'r') as f:
         new_coords = f.readlines()
 
     coords = []
-    for i in new_coords:
-        temp = i.strip()
-        coords.append([temp.split()[-3], temp.split()[-2], temp.split()[-1]])
+    for line in new_coords:
+        if line[:3] == 'xyz':
+            temp_coords = line.strip().replace('+', '').split()
+            coords.append([list(map(float, temp_coords[-3].split(','))), list(map(float, temp_coords[-2].split(','))),
+                           list(map(float, temp_coords[-1].split(',')))])
     print(coords)
+    final_coords = np.array(coords)
+    t32_rosetta = PDB.from_file(t32_rosetta_file)
+    t32_orient = PDB.from_file(t32_orient_file)
+    _, rot, tx, _ = superposition3d(t32_orient.entities[0].get_cb_coords(), t32_rosetta.entities[0].get_cb_coords())
+    final_coords = np.matmul(final_coords, rot) + tx
 
-    final_coords = np.zeros((len(coords), 3))
-    # final_coords = []
-    for i in range(len(coords)):
-        internal_coords = []
-        for j in range(len(3)):
-	    new = coords[i][j].strip()
-            new = new.strip('+')
-            coord = new.split(',')
-	    # internal_coords.append(coord)
-	    final_coords[i][j] = coord
-    # final_coords.append(internal_coords)
-    new_lines = coords_to_pdb(final_coords)
+    # with open(new_file, 'w') as f:
+    #     f.write('%s\n' % '\n'.join(' '.join(','.join(coord_triplet) for coord_triplet in coord_group) for coord_group in final_coords.tolist()))
+    print('%s\n' % '\n'.join(' '.join(','.join(list(map(str, coord_triplet))) for coord_triplet in coord_group) for coord_group in final_coords.tolist()))
+    # final_coords = np.zeros((len(coords), 3))
+    # # final_coords = []
+    # for i in range(len(coords)):
+    #     internal_coords = []
+    #     for j in range(len(3)):
+    #         coord = coords[i][j].strip().strip('+').split(',')
+    #         # new = new.strip('+')
+    #         # coord = new.split(',')
+    #         # internal_coords.append(coord)
+    #         final_coords[i][j] = coord
+    # # final_coords.append(internal_coords)
+    # new_lines = coords_to_pdb(final_coords)
 
