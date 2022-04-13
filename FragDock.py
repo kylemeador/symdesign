@@ -876,12 +876,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                         optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,
                                                             np.hstack((blank_vector,) * (sym_entry.n_dof_external -3))))
                         # ^ I think for the sake of cleanliness, I need to make this matrix
-                        # must find positive indices before group_external_dof1 multiplication in case negatives there
+                        # must find positive indices before external_dof1 multiplication in case negatives there
                         positive_indices = \
                             np.where(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) == True)
                         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
-                        stacked_external_tx1 = optimal_ext_dof_shifts[:, :, None] * sym_entry.group_external_dof1
-                        stacked_external_tx2 = optimal_ext_dof_shifts[:, :, None] * sym_entry.group_external_dof2
+                        stacked_external_tx1 = optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1
+                        stacked_external_tx2 = optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2
+                        # Todo check the sum implemented after the concatenate below!
+                        #  Have to sum below over the axis=-2. They are 3x3 right now and should be 1x3
                         full_ext_tx1.append(stacked_external_tx1[positive_indices])
                         full_ext_tx2.append(stacked_external_tx2[positive_indices])
                         full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
@@ -929,8 +931,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # this returns the vectorized uc_dimensions
     if sym_entry.unit_cell:
         full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
-        full_ext_tx1 = np.concatenate(full_ext_tx1)
-        full_ext_tx2 = np.concatenate(full_ext_tx2)
+        full_ext_tx1 = np.concatenate(full_ext_tx1).sum(axis=-2)
+        full_ext_tx2 = np.concatenate(full_ext_tx2).sum(axis=-2)
     # make full vectorized transformations overwriting individual variables
     full_rotation1 = np.concatenate(full_rotation1)
     full_rotation2 = np.concatenate(full_rotation2)

@@ -262,19 +262,22 @@ class SymEntry:
         self._is_ref_frame_tx_dof2 = True if self.ref_frame_tx_dof2 != '<0,0,0>' else False
         self.ref_frame_tx_dof1 = list(map(str.strip, self.ref_frame_tx_dof1.strip('<>').split(',')))
         self.ref_frame_tx_dof2 = list(map(str.strip, self.ref_frame_tx_dof2.strip('<>').split(',')))
-        self.group_external_dof1 = construct_tx_dof_ref_frame_matrix(self.ref_frame_tx_dof1)
-        self.group_external_dof2 = construct_tx_dof_ref_frame_matrix(self.ref_frame_tx_dof2)
+        self.external_dof1 = construct_uc_matrix(self.ref_frame_tx_dof1)
+        self.external_dof2 = construct_uc_matrix(self.ref_frame_tx_dof2)
 
         ext_dof_indices = []
         if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
-            self.ext_dof = np.empty((0, 3), float)  # np.array([0., 0., 0.])
+            self.ext_dof = np.empty((0, 3), float)  # <- np.array([[0.], [0.], [0.]])
         else:
-            difference_matrix = self.group_external_dof2 - self.group_external_dof1
-            difference_sum = difference_matrix.sum(axis=1)
-            for idx in range(3):
-                if difference_sum[idx] != 0:
-                    ext_dof_indices.append(idx)
-            self.ext_dof = difference_matrix[ext_dof_indices]
+            difference_matrix = self.external_dof2 - self.external_dof1
+            # for entry 6 - string_vector is 4*e, 4*e, 4*e
+            # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
+            # (^).sum(axis=1(-2)) = [4, 4, 4]
+            self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-2))]
+            # for idx in range(3):
+            #     if difference_sum[idx] != 0:
+            #         ext_dof_indices.append(idx)
+            # self.ext_dof = difference_matrix[ext_dof_indices]
 
         self.n_dof_external = len(ext_dof_indices)
         self.unit_cell = None if self.unit_cell == 'N/A' else \
@@ -530,9 +533,12 @@ class SymEntry:
         if not self.unit_cell:
             return
         string_lengths, string_angles = self.unit_cell
-        uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
-
-        lengths = np.abs(uc_mat.sum(axis=1))
+        # for entry 6 - string_vector is 4*e, 4*e, 4*e
+        # construct_uc_matrix() = [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
+        uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]
+        # [:, :, None] <- expands axis so multiplication is accurate. eg. [[[1.], [0.], [0.]],[[0.], [0.], [0.]]]
+        lengths = np.abs(uc_mat.sum(axis=-2))
+        # (^).sum(axis=1) = [4, 4, 4]
         # lengths = [0.0, 0.0, 0.0]
         # for i in range(len(string_vec_lens)):
         #     lengths[i] = abs((e1[i] + f1[i] + g1[i]))
@@ -569,28 +575,30 @@ def construct_uc_matrix(string_vector):
             if '-' in string:
                 variable_matrix[row_idx][col_idx] *= -1
 
+    # for entry 6 - string_vector is 4*e, 4*e, 4*e
+    # [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
     return variable_matrix
 
 
-def construct_tx_dof_ref_frame_matrix(string_vector):
-    """
-
-    Args:
-        string_vector (list[str]):
-    Returns:
-        (numpy.ndarray)
-    """
-    string_position = {'e': 0, 'f': 1, 'g': 2}
-    variable_matrix = np.zeros((3, 3))
-    for col_idx, string in enumerate(string_vector):
-        if string[-1] != '0':
-            row_idx = string_position.get(string[-1])
-            variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
-
-            if '-' in string:
-                variable_matrix[row_idx][col_idx] *= -1
-
-    return variable_matrix
+# def construct_tx_dof_ref_frame_matrix(string_vector):
+#     """
+#
+#     Args:
+#         string_vector (list[str]):
+#     Returns:
+#         (numpy.ndarray): 3x3 array
+#     """
+#     string_position = {'e': 0, 'f': 1, 'g': 2}
+#     variable_matrix = np.zeros((3, 3))
+#     for col_idx, string in enumerate(string_vector):
+#         if string[-1] != '0':
+#             row_idx = string_position.get(string[-1])
+#             variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
+#
+#             if '-' in string:
+#                 variable_matrix[row_idx][col_idx] *= -1
+#
+#     return variable_matrix
 
 
 def get_tx_dof_ref_frame_var_vec(string_vec, var):
@@ -688,10 +696,10 @@ def get_degen_rotmatrices(degeneracy_matrices=None, rotation_matrices=None):
         return [rotation_matrices]
 
     elif rotation_matrices is None and degeneracy_matrices is not None:  # is this ever true? list addition seems wrong
-        return [[np.array(identity_matrix)]] + [[degen_mat] for degen_mat in degeneracy_matrices]
+        return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracy_matrices]
 
     elif rotation_matrices is None and degeneracy_matrices is None:
-        return [[np.array(identity_matrix)]]
+        return [[identity_matrix]]
 
 
 def parse_uc_str_to_tuples(uc_string):
@@ -809,18 +817,16 @@ def sdf_lookup(symmetry=None):
     raise DesignError('Error locating specified symmetry entry: %s' % symmetry_name)
 
 
+header_format_string = '{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}'
+query_output_format_string = '{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}'
+
+
 def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
     if isinstance(result, str):
         matching_entries = []
         for entry_number, entry in symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
                 ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _, _, _ = entry
-            # group2 = entry[6]
-            # int_dof_group1 = entry[3]
-            # int_dof_group2 = entry[8]
-            # ref_frame_tx_dof_group1 = entry[5]
-            # ref_frame_tx_dof_group2 = entry[10]
-            # result = entry[12]
             if resulting_symmetry == result:
                 required_sym_operators = True
                 group1_members = sub_symmetries.get(group1.replace('D', 'C'), [])
@@ -839,10 +845,32 @@ def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
 
                 if required_sym_operators:
                     matching_entries.append(entry_number)  # TODO include the groups?
-                # else:
-                #     matching_entries.append()
-        if len(matching_entries) == 1:
-            return matching_entries[0]
+
+        if matching_entries:
+            if len(matching_entries) == 1:
+                return matching_entries[0]
+            else:
+                print('\033[1mFound multiple specified symmetries matching including %s\033[0m' % (', '.join(matching_entries)))
+                for match in matching_entries:
+                    group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
+                        ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _, _, _ = symmetry_combinations[match]
+                    int_rot1, int_tx1, int_rot2, int_tx2 = 0, 0, 0, 0
+                    for int_dof in int_dof_group1:
+                        if int_dof.startswith('r'):
+                            int_rot1 = 1
+                        if int_dof.startswith('t'):
+                            int_tx1 = 1
+                    for int_dof in int_dof_group2:
+                        if int_dof.startswith('r'):
+                            int_rot2 = 1
+                        if int_dof.startswith('t'):
+                            int_tx2 = 1
+                    print(query_output_format_string.format(str(entry_number), group1, str(int_rot1), str(int_tx1),
+                                                            ref_frame_tx_dof_group1, group2, str(int_rot2),
+                                                            str(int_tx2), ref_frame_tx_dof_group2, result))
+                print('Cannot distinguish between the desired entry. Please repeat your command, however, specify the '
+                      'Entry Number (ex: --%s 1) to clarify the desired entry' % PUtils.sym_entry)
+                exit()
         else:
             raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s".'
                              'Try to reformat your symmetry specification to include only symmetries that are group '
@@ -852,10 +880,6 @@ def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
     else:
         raise ValueError('The arguments passed to %s are improperly formatted!'
                          % lookup_sym_entry_by_symmetry_combination.__name__)
-
-
-header_format_string = "{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}"
-query_output_format_string = "{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}"
 
 
 def print_query_header():
