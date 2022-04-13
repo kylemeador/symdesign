@@ -1554,13 +1554,13 @@ class DesignDirectory:  # (JobResources):
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
-        metric_cmd = main_cmd + metrics_pdb + \
+        entity_cmd = script_cmd + metrics_pdb + \
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
         if self.mpi and not self.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
-            metric_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + metric_cmd
+            entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + entity_cmd
             self.run_in_shell = False
 
         self.log.info('Design Command: %s' % list2cmdline(design_cmd))
@@ -1571,7 +1571,7 @@ class DesignDirectory:  # (JobResources):
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            _metric_cmd = metric_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+            _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
                 ([entity_sdf] if entity_sdf != '' else [])
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
