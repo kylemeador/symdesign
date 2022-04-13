@@ -1023,17 +1023,8 @@ class DesignDirectory:  # (JobResources):
     def get_fragment_metrics(self):
         """Set, then get fragment metrics for all fragment observations in the design.
         TODO Doesn't need an attached pose if fragments have been generated"""
-        # while True:
-        # design_residues = self.info.get('design_residues', False)
-        # if self.design_residues == []:  # when no interface was found
-        #     self.design_residues = []
-        #     break
-        # elif not self.design_residues:  # no search yet, == False
         if self.design_residues is False:  # no search yet, == False
             self.identify_interface()  # sets self.design_residues and self.interface_residues
-        # else:
-            # design_residues = design_residues.split(',')
-            # break
 
         self.log.debug('Starting fragment metric collection')
         if self.fragment_observations:  # check if fragment generation has been populated somewhere
@@ -1324,7 +1315,7 @@ class DesignDirectory:  # (JobResources):
         main_cmd = copy.copy(script_cmd)
         # Need to initialize the pose so each entity can get sdf created
         # Todo check for the necessity of function calls here by seeing if attributes
-        #  self.design_residues, self.fragment_observations exist. Can remove <-$ if so
+        #  self.design_residues, self.fragment_observations, self.center_residue_numbers exist. Can remove <-$ if so
         self.identify_interface()  # <-$ needed for prepare_rosetta_flags to load_pose, just replaced with above
         # self.load_pose()  # Todo implement this
         # interface_secondary_structure
@@ -1347,17 +1338,13 @@ class DesignDirectory:  # (JobResources):
             main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
             self.run_in_shell = False
 
-        metric_cmd_bound = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
-                                                    % (PUtils.stage[3], '_DEV' if self.development else ''))]
+        metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
+            [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
+                          % (PUtils.stage[3], '_DEV' if self.development else ''))]
         entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
                                               % (PUtils.stage[3], '_DEV' if self.development else ''))]
-        metric_cmds = [metric_cmd_bound + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [])]
-        #               [metric_cmd_unbound + ['-parser:script_vars', 'interface=%d' % number] for number in [1, 2]]
-        # metric_cmds = []
+        metric_cmds = [metric_cmd_bound]
         for idx, entity in enumerate(self.pose.entities, 1):
-            if entity not in self.pose.active_entities:
-                # Todo remove as measurement of neighbor modification is required
-                continue
             if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
                 entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
                 entity_sym = 'symmetry=make_point_group'
@@ -1389,7 +1376,7 @@ class DesignDirectory:  # (JobResources):
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
             self.prepare_symmetry_for_rosetta()
-            self.get_fragment_metrics()
+            self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
             flags = self.prepare_rosetta_flags(out_path=self.scripts)
 
@@ -1451,6 +1438,7 @@ class DesignDirectory:  # (JobResources):
         """
         if self.design_dimension is not None:  # can be 0
             self.symmetry_protocol = PUtils.protocol[self.design_dimension]
+            self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
             self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
             if self.design_dimension == 0:  # point
                 if self.design_symmetry in ['T', 'O', 'I']:
@@ -1463,7 +1451,6 @@ class DesignDirectory:  # (JobResources):
                     raise ValueError('The symmetry %s is unavailable at this time!')
             else:  # layer or space
                 self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
-            self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
         else:
             self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
             self.symmetry_protocol = 'asymmetric'
@@ -1525,7 +1512,7 @@ class DesignDirectory:  # (JobResources):
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         self.prepare_symmetry_for_rosetta()
-        self.get_fragment_metrics()
+        self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
         self.make_path(self.scripts)
         if not os.path.exists(self.flags) or self.force_flags:
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
@@ -1579,9 +1566,6 @@ class DesignDirectory:  # (JobResources):
         self.log.info('Design Command: %s' % list2cmdline(design_cmd))
         metric_cmds = []
         for idx, entity in enumerate(self.pose.entities, 1):
-            if entity not in self.pose.active_entities:
-                # Todo remove as measurement of neighbor modification is required
-                continue
             if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
                 entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
                 entity_sym = 'symmetry=make_point_group'
@@ -2143,7 +2127,7 @@ class DesignDirectory:  # (JobResources):
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
         self.prepare_symmetry_for_rosetta()
-        self.get_fragment_metrics()
+        self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
         self.make_path(self.scripts)
         if not os.path.exists(self.flags) or self.force_flags:
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
@@ -2160,27 +2144,24 @@ class DesignDirectory:  # (JobResources):
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         # metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
-        metric_cmd = main_cmd + ['-in:file:l', design_list_file] + \
+        entity_cmd = main_cmd + ['-in:file:l', design_list_file] + \
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
         if self.mpi:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
-            metric_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + metric_cmd
+            entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + entity_cmd
             self.run_in_shell = False
 
         self.log.info('Design Command: %s' % list2cmdline(design_cmd))
         metric_cmds = []
         for idx, entity in enumerate(self.pose.entities, 1):
-            if entity not in self.pose.active_entities:
-                # Todo remove as measurement of neighbor modification is required
-                continue
             if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
                 entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            _metric_cmd = metric_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+            _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
                 ([entity_sdf] if entity_sdf != '' else [])
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
