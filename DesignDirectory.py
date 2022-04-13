@@ -1873,9 +1873,9 @@ class DesignDirectory:  # (JobResources):
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def refine(self, to_design_directory=False, interface_to_alanine=True):
+    def refine(self, to_design_directory=False, interface_to_alanine=True, gather_metrics=False):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
-        relax_cmd = copy.copy(script_cmd)
+        main_cmd = copy.copy(script_cmd)
         stage = PUtils.refine
         if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
             # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
@@ -1914,12 +1914,12 @@ class DesignDirectory:  # (JobResources):
 
         if self.force_flags or not os.path.exists(flags):  # Generate a new flags file
             self.prepare_symmetry_for_rosetta()
-            self.get_fragment_metrics()
+            self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(flag_dir)
             flags = self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_path=flag_dir)
 
         # RELAX: Prepare command
-        relax_cmd += relax_flags + additional_flags + \
+        relax_cmd = main_cmd + relax_flags + additional_flags + \
             ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [] + \
             ['@%s' % flags, '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
              '-in:file:native', refine_pdb,  # native is here to block flag file version, not actually useful for refine
@@ -1927,13 +1927,46 @@ class DesignDirectory:  # (JobResources):
              '-parser:script_vars', 'switch=%s' % stage]
         self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
 
+        if gather_metrics:
+            main_cmd += ['-in:file:s', refine_pdb, '@%s' % flags,
+                         '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol',
+                         '-in:file:native', refine_pdb]  # have to nullify the native file from flags
+            if self.mpi:
+                main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
+                self.run_in_shell = False
+
+            metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
+                [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
+                              % (PUtils.stage[3], '_DEV' if self.development else ''))]
+            entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
+                                                  % (PUtils.stage[3], '_DEV' if self.development else ''))]
+            metric_cmds = [metric_cmd_bound]
+            for idx, entity in enumerate(self.pose.entities, 1):
+                if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+                    entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
+                    entity_sym = 'symmetry=make_point_group'
+                else:
+                    entity_sdf, entity_sym = '', 'symmetry=asymmetric'
+                _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+                    ([entity_sdf] if entity_sdf != '' else [])
+                self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
+                metric_cmds.append(_metric_cmd)
+        else:
+            metric_cmds = []
+
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if not self.run_in_shell:
-            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir)
+            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
+                               additional=[list2cmdline(command) for command in metric_cmds])
             #                  status_wrap=self.serialized_info)
         else:
             relax_process = Popen(relax_cmd)
             relax_process.communicate()
+            if gather_metrics:
+                for metric_cmd in metric_cmds:
+                    metrics_process = Popen(metric_cmd)
+                    # Wait for Rosetta Design command to complete
+                    metrics_process.communicate()
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
     def find_asu(self):
