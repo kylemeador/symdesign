@@ -3,7 +3,7 @@ from copy import copy
 from pickle import load
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil
-from typing import Set, List, Iterable
+from typing import Set, List, Iterable, Dict
 # from operator import itemgetter
 
 import numpy as np
@@ -1692,8 +1692,8 @@ class SymmetricModel(Model):
     def assign_entities_to_sub_symmetry(self):
         """From a symmetry entry, find the entities which belong to each sub-symmetry (the component groups) which make
         the global symmetry. Construct the sub-symmetry by copying each symmetric chain to the Entity's .chains
-        attribute
-        """
+        attribute"""
+        raise DesignError('Cannot yet assign entities to sub symmetry! Need more debugging to use this function')
         if not self.symmetry:
             raise DesignError('Must set a global symmetry to assign entities to sub symmetry!')
 
@@ -1754,7 +1754,111 @@ class SymmetricModel(Model):
             # Maybe this route of generation is too flawed for layer/space? Nanohedra framework gives a comprehensive
             # handle on all these issues though
 
-        # Solution as of 4/8/22 v
+        # find the approximate scalar translation of the asu center of mass from the reference symmetry origin
+        approx_entity_com_reference_tx = np.linalg.norm(all_entities_com - ext_tx)
+        approx_entity_z_tx = [0., 0., approx_entity_com_reference_tx]
+        # apply the setting matrix for each group to the approximate translation
+        set_mat1 = self.sym_entry.setting_matrix1
+        set_mat2 = self.sym_entry.setting_matrix2
+        # TODO test transform_coordinate_sets has the correct input format (numpy.ndarray)
+        com_group1 = \
+            transform_coordinate_sets(origin, translation=approx_entity_z_tx, rotation2=set_mat1, translation2=ext_tx)
+        com_group2 = \
+            transform_coordinate_sets(origin, translation=approx_entity_z_tx, rotation2=set_mat2, translation2=ext_tx)
+        # expand the tx'd, setting matrix rot'd, approximate coms for each group using self.expansion operators
+        coms_group1 = self.return_symmetric_coords(com_group1)
+        coms_group2 = self.return_symmetric_coords(com_group2)
+
+        # measure the closest distance from each entity com to the setting matrix transformed approx group coms to find
+        # which group the entity belongs to. Save the group and the operation index of the expansion matrices. With both
+        # of these, it is possible to find a new setting matrix that is symmetry equivalent and will generate the
+        # correct sub-symmetry symmetric copies for each provided Entity
+        group_entity_rot_ops = {1: {}, 2: {}}
+        # min_dist1, min_dist2, min_1_entity, min_2_entity = float('inf'), float('inf'), None, None
+        for entity in self.asu.entities:
+            entity_com = entity.center_of_mass
+            min_dist, min_entity_group_operator = float('inf'), None
+            for idx in range(len(expand_matrices)):  # has the length of the symmetry operations
+                com1_distance = np.linalg.norm(entity_com - coms_group1[idx])
+                com2_distance = np.linalg.norm(entity_com - coms_group2[idx])
+                if com1_distance < com2_distance:
+                    if com1_distance < min_dist:
+                        min_dist = com1_distance
+                        min_entity_group_operator = (group2, expand_matrices[idx])
+                    # # entity_min_group = 1
+                    # entity_group_d[1].append(entity)
+                else:
+                    if com2_distance < min_dist:
+                        min_dist = com2_distance
+                        min_entity_group_operator = (group2, expand_matrices[idx])
+                    # # entity_min_group = 2
+                    # entity_group_d[2].append(entity)
+            if min_entity_group_operator:
+                group, operation = min_entity_group_operator
+                group_entity_rot_ops[group][entity] = operation
+                # {1: {entity1: [[],[],[]]}, 2: {entity2: [[],[],[]]}}
+
+        set_mat = {1: set_mat1, 2: set_mat2}
+        inv_set_matrix = {1: np.linalg.inv(set_mat1), 2: np.linalg.inv(set_mat2)}
+        group_rotation_matrices = {1: rotation_matrices_group1, 2: rotation_matrices_group2}
+        # Multiplication is not possible in this way apparently!
+        # group_set_rotation_matrices = {1: np.matmul(rotation_matrices_group1, np.transpose(set_mat1)),
+        #                                2: np.matmul(rotation_matrices_group2, np.transpose(set_mat2))}
+
+        # Apply the rotation matrices to the identified group Entities. First modify the Entity by the inverse expansion
+        # and setting matrices to orient along Z axis. Apply the rotation matrix, then reverse operations back to start
+        for idx, (group, entity_ops) in enumerate(group_entity_rot_ops.items()):
+            for entity, rot_op in entity_ops.items():
+                dummy_rotation = False
+                dummy_translation = False
+                # Todo need to reverse the expansion matrix first to get the entity coords to the "canonical" setting
+                #  matrix as expected by Nanohedra. I can then make_oligomers
+                entity.make_oligomer(symmetry=group, **dict(rotation=dummy_rotation, translation=dummy_translation,
+                                                            rotation2=set_mat[idx], translation2=ext_tx))
+                # # Todo if this is a fractional rot/tx pair this won't work
+                # #  I converted the space group external tx and design_pg_symmetry to rot_matrices so I should
+                # #  test if the change to local point group symmetry in a layer or space group is sufficient
+                # inv_expand_matrix = np.linalg.inv(rot_op)
+                # inv_rotation_matrix = np.linalg.inv(dummy_rotation)
+                # # entity_inv = entity.return_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
+                # # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
+                # centered_coords = transform_coordinate_sets(entity.coords, translation=-ext_tx)
+                # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_expand_matrix,
+                #                                             rotation2=inv_set_matrix[group])
+                # TODO                                        NEED DIHEDRAl rotation v back to canonical
+                # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_rotation_matrix,
+                # TODO                                        as well as v translation (not approx, dihedral won't work)
+                #                                             translation=approx_entity_z_tx)
+                # # now rotate, then undo symmetry expansion matrices
+                # # for rot in group_rotation_matrices[group][1:]:  # exclude the first rotation matrix as it is identity
+                # for rot in group_rotation_matrices[group]:
+                #     temp_coords = transform_coordinate_sets(sym_on_z_coords, rotation=np.array(rot), rotation2=set_mat[group])
+                #     # rot_centered_coords = transform_coordinate_sets(sym_on_z_coords, rotation=rot)
+                #     # final_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation,
+                #     #                                          translation=translation, <-NEED^ for DIHEDRAL
+                #     #                                          rotation2=rotation2, translation2=translation2)
+                #     final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=ext_tx)
+                #     # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
+                #     sub_symmetry_mate_pdb = copy(entity.chain_representative)
+                #     sub_symmetry_mate_pdb.replace_coords(final_coords)
+                #     entity.chains.append(sub_symmetry_mate_pdb)
+                #     # need to take the cyclic system generated and somehow transpose it on the dihedral group.
+                #     # an easier way would be to grab the assembly from the SymDesignOutput/Data/PDBs and set the
+                #     # oligomer onto the ASU. The .chains would then be populated for the non-transposed chains
+                #     # if dihedral:  # TODO
+                #     #     dummy = True
+
+    def assign_pose_transformation(self) -> List[Dict]:
+        """Using the symmetry entry and symmetric material, find the specific transformations necessary to establish the
+        individual symmetric components in the global symmetry
+
+        Returns:
+            (list[dict]): The specific transformation dictionaries which place each Entity with proper symmetry axis in
+                the Pose
+        """
+        if not self.symmetry:
+            raise DesignError('Must set a global symmetry to assign pose transformation!')
+
         # get optimal external translation
         if self.dimension > 0:
             optimal_external_shifts = self.sym_entry.get_optimal_shift_from_uc_dimensions(*self.uc_dimensions)
@@ -1763,7 +1867,7 @@ class SymmetricModel(Model):
             external_tx = [external_tx1, external_tx2]
         else:
             # external_tx1, external_tx2 = None, None
-            external_tx = [None for _ in len(self.sym_entry.groups)]
+            external_tx = [None for _ in self.sym_entry.groups]
 
         inv_setting_matrices = {key: np.linalg.inv(setting_matrix) for key, setting_matrix in setting_matrices.items()}
         center_of_mass_symmetric_entities = self.center_of_mass_symmetric_entities
@@ -1835,102 +1939,10 @@ class SymmetricModel(Model):
                                  % (self.name, self.symmetry, group_idx + 1, self.sym_entry.combination_string,
                                     symmetry_combination_format, PUtils.sym_entry))
 
-        # find the particular rotation to orient the Entity oligomer to a cannonical orientation
-        # Solution as of 4/8/22 ^
+        # Todo find the particular rotation to orient the Entity oligomer to a cannonical orientation. This must
+        #  accompany standards required for the SymDesign Database for actions like refinement
 
-        # # find the approximate scalar translation of the asu center of mass from the reference symmetry origin
-        # approx_entity_com_reference_tx = np.linalg.norm(all_entities_com - ext_tx)
-        # approx_entity_z_tx = [0., 0., approx_entity_com_reference_tx]
-        # # apply the setting matrix for each group to the approximate translation
-        # set_mat1 = self.sym_entry.setting_matrix1
-        # set_mat2 = self.sym_entry.setting_matrix2
-        # # TODO test transform_coordinate_sets has the correct input format (numpy.ndarray)
-        # com_group1 = \
-        #     transform_coordinate_sets(origin, translation=approx_entity_z_tx, rotation2=set_mat1, translation2=ext_tx)
-        # com_group2 = \
-        #     transform_coordinate_sets(origin, translation=approx_entity_z_tx, rotation2=set_mat2, translation2=ext_tx)
-        # # expand the tx'd, setting matrix rot'd, approximate coms for each group using self.expansion operators
-        # coms_group1 = self.return_symmetric_coords(com_group1)
-        # coms_group2 = self.return_symmetric_coords(com_group2)
-        #
-        # # measure the closest distance from each entity com to the setting matrix transformed approx group coms to find
-        # # which group the entity belongs to. Save the group and the operation index of the expansion matrices. With both
-        # # of these, it is possible to find a new setting matrix that is symmetry equivalent and will generate the
-        # # correct sub-symmetry symmetric copies for each provided Entity
-        # group_entity_rot_ops = {1: {}, 2: {}}
-        # # min_dist1, min_dist2, min_1_entity, min_2_entity = float('inf'), float('inf'), None, None
-        # for entity in self.asu.entities:
-        #     entity_com = entity.center_of_mass
-        #     min_dist, min_entity_group_operator = float('inf'), None
-        #     for idx in range(len(expand_matrices)):  # has the length of the symmetry operations
-        #         com1_distance = np.linalg.norm(entity_com - coms_group1[idx])
-        #         com2_distance = np.linalg.norm(entity_com - coms_group2[idx])
-        #         if com1_distance < com2_distance:
-        #             if com1_distance < min_dist:
-        #                 min_dist = com1_distance
-        #                 min_entity_group_operator = (group2, expand_matrices[idx])
-        #             # # entity_min_group = 1
-        #             # entity_group_d[1].append(entity)
-        #         else:
-        #             if com2_distance < min_dist:
-        #                 min_dist = com2_distance
-        #                 min_entity_group_operator = (group2, expand_matrices[idx])
-        #             # # entity_min_group = 2
-        #             # entity_group_d[2].append(entity)
-        #     if min_entity_group_operator:
-        #         group, operation = min_entity_group_operator
-        #         group_entity_rot_ops[group][entity] = operation
-        #         # {1: {entity1: [[],[],[]]}, 2: {entity2: [[],[],[]]}}
-        #
-        # set_mat = {1: set_mat1, 2: set_mat2}
-        # inv_set_matrix = {1: np.linalg.inv(set_mat1), 2: np.linalg.inv(set_mat2)}
-        # group_rotation_matrices = {1: rotation_matrices_group1, 2: rotation_matrices_group2}
-        # # Multiplication is not possible in this way apparently!
-        # # group_set_rotation_matrices = {1: np.matmul(rotation_matrices_group1, np.transpose(set_mat1)),
-        # #                                2: np.matmul(rotation_matrices_group2, np.transpose(set_mat2))}
-        #
-        # # Apply the rotation matrices to the identified group Entities. First modify the Entity by the inverse expansion
-        # # and setting matrices to orient along Z axis. Apply the rotation matrix, then reverse operations back to start
-        # for idx, (group, entity_ops) in enumerate(group_entity_rot_ops.items()):
-        #     for entity, rot_op in entity_ops.items():
-        #         dummy_rotation = False
-        #         dummy_translation = False
-        #         # Todo need to reverse the expansion matrix first to get the entity coords to the "canonical" setting
-        #         #  matrix as expected by Nanohedra. I can then make_oligomers
-        #         entity.make_oligomer(symmetry=group, **dict(rotation=dummy_rotation, translation=dummy_translation,
-        #                                                     rotation2=set_mat[idx], translation2=ext_tx))
-        #         # # Todo if this is a fractional rot/tx pair this won't work
-        #         # #  I converted the space group external tx and design_pg_symmetry to rot_matrices so I should
-        #         # #  test if the change to local point group symmetry in a layer or space group is sufficient
-        #         # inv_expand_matrix = np.linalg.inv(rot_op)
-        #         # inv_rotation_matrix = np.linalg.inv(dummy_rotation)
-        #         # # entity_inv = entity.return_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
-        #         # # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
-        #         # centered_coords = transform_coordinate_sets(entity.coords, translation=-ext_tx)
-        #         # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_expand_matrix,
-        #         #                                             rotation2=inv_set_matrix[group])
-        #         # TODO                                        NEED DIHEDRAl rotation v back to canonical
-        #         # sym_on_z_coords = transform_coordinate_sets(centered_coords, rotation=inv_rotation_matrix,
-        #         # TODO                                        as well as v translation (not approx, dihedral won't work)
-        #         #                                             translation=approx_entity_z_tx)
-        #         # # now rotate, then undo symmetry expansion matrices
-        #         # # for rot in group_rotation_matrices[group][1:]:  # exclude the first rotation matrix as it is identity
-        #         # for rot in group_rotation_matrices[group]:
-        #         #     temp_coords = transform_coordinate_sets(sym_on_z_coords, rotation=np.array(rot), rotation2=set_mat[group])
-        #         #     # rot_centered_coords = transform_coordinate_sets(sym_on_z_coords, rotation=rot)
-        #         #     # final_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation,
-        #         #     #                                          translation=translation, <-NEED^ for DIHEDRAL
-        #         #     #                                          rotation2=rotation2, translation2=translation2)
-        #         #     final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=ext_tx)
-        #         #     # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
-        #         #     sub_symmetry_mate_pdb = copy(entity.chain_representative)
-        #         #     sub_symmetry_mate_pdb.replace_coords(final_coords)
-        #         #     entity.chains.append(sub_symmetry_mate_pdb)
-        #         #     # need to take the cyclic system generated and somehow transpose it on the dihedral group.
-        #         #     # an easier way would be to grab the assembly from the SymDesignOutput/Data/PDBs and set the
-        #         #     # oligomer onto the ASU. The .chains would then be populated for the non-transposed chains
-        #         #     # if dihedral:  # TODO
-        #         #     #     dummy = True
+        return transform_solutions
 
     def symmetric_assembly_is_clash(self, distance=2.1):  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
