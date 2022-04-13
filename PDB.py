@@ -7,7 +7,6 @@ from copy import copy, deepcopy
 from glob import glob
 from itertools import chain as iter_chain  # repeat,
 from random import randint
-from shutil import move
 from time import sleep
 from typing import Union
 
@@ -16,11 +15,11 @@ from sklearn.neighbors import BallTree
 from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 
-import PathUtils as PUtils
-from PathUtils import orient_exe_path, orient_log_file, orient_dir  # reference_aa_file, scout_symmdef, make_symmdef
+from PathUtils import orient_exe_path, orient_dir, reference_aa_file, reference_residues_pkl, pdb_db
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
-from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable
+from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, \
+    pickle_object
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number
 
 logger = start_log(name=__name__)
@@ -1470,7 +1469,7 @@ def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
     return file_names
 
 
-def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # assembly=None, out_dir=os.getcwd(),
+def fetch_pdb_file(pdb_code, asu=True, location=pdb_db, **kwargs):  # assembly=None, out_dir=os.getcwd(),
     """Fetch PDB object of each chain from PDBdb or PDB server
 
     Args:
@@ -1483,15 +1482,15 @@ def fetch_pdb_file(pdb_code, asu=True, location=PUtils.pdb_db, **kwargs):  # ass
     Returns:
         (Union[None, str]): path/to/your.pdb if located/downloaded successfully (alphabetical characters in lowercase)
     """
-    # if location == PUtils.pdb_db and asu:
+    # if location == pdb_db and asu:
     if os.path.exists(location) and asu:
         get_pdb = (lambda pdb_code, location=None, **kwargs:  # asu=None, assembly=None, out_dir=None
                    glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
         logger.debug('Searching for PDB file at \'%s\'' % os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
-        #            glob(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
-        # print(os.path.join(PUtils.pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
+        #            glob(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
+        # print(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code))
     else:
         get_pdb = fetch_pdb
 
@@ -1533,5 +1532,7 @@ def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
             log.error(str(err))
 
 
-# ref_aa = PDB.from_file('/home/kylemeador/symdesign/data/AAreference.pdb', log=None, pose_format=False, entities=False)
-# pickle_object(ref_aa.residues, name='/home/kylemeador/symdesign/data/AAreferenceResidues.pkl', out_path='')
+# ref_aa = PDB.from_file(reference_aa_file, log=None, pose_format=False, entities=False)
+# from shutil import move
+# move(reference_residues_pkl, '%s.bak' % reference_residues_pkl)
+# pickle_object(ref_aa.residues, name=reference_residues_pkl, out_path='')
