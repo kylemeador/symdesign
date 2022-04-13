@@ -1761,34 +1761,39 @@ class DesignDirectory:  # (JobResources):
             # rename_chains = True
 
         if entities:
-            asu = PDB.from_entities(entities, name='%s-asu' % str(self), cryst_record=self.cryst_record, log=self.log,
-                                    rename_chains=rename_chains)
+            pdb = PDB.from_entities(entities, cryst_record=self.cryst_record, log=self.log, rename_chains=rename_chains)
+            #                       name='%s-asu' % str(self)
         else:
-            asu = PDB.from_file(source if source else self.source, name='%s-asu' % str(self),
-                                entity_names=self.entity_names, log=self.log)
-            # pass names if available ^
-
-        self.pose = Pose.from_asu(asu, sym_entry=self.sym_entry, source_db=self.resources,
-                                  design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
-                                  ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-        if not self.entity_names:  # store the entity names if they were never generated
-            self.entity_names = [entity.name for entity in self.pose.entities]
-            self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
-            self.info['entity_names'] = self.entity_names
-
-        # generate oligomers for each entity in the pose
-        if self.pose_transformation:
+            pdb = PDB.from_file(source if source else self.source, entity_names=self.entity_names, log=self.log)
+            #                              pass names if available ^
+        if self.sym_entry:
+            self.pose = Pose.from_asu(pdb, sym_entry=self.sym_entry, name='%s-asu' % str(self),
+                                      design_selector=self.design_selector, log=self.log,
+                                      source_db=self.resources, frag_db=self.frag_db, euler_lookup=self.euler_lookup,
+                                      ignore_clashes=self.ignore_clashes)
+            # generate oligomers for each entity in the pose
+            # if self.pose_transformation:
             for idx, entity in enumerate(self.pose.entities):
                 entity.make_oligomer(symmetry=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
                 # write out new oligomers to the DesignDirectory TODO add flag to include these
                 # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
                 # entity.write_oligomer(out_path=out_path)
+            # else:
+                # may switch this whole function to align the assembly identified by the asu entities PDB code after
+                # download from PDB API
+                # raise DesignError('The functionality for specifying the pose transformation parameters is not possible yet.'
+                #                   '\nThis pose is not designable with the current version of %s' % PUtils.program_name)
+                # self.pose.assign_entities_to_sub_symmetry()
+                # pass
         else:
-            # may switch this whole function to align the assembly identified by the asu entities PDB code after
-            # download from PDB API
-            # raise DesignError('The functionality for specifying the pose transformation parameters is not possible yet.'
-            #                   '\nThis pose is not designable with the current version of %s' % PUtils.program_name)
-            self.pose.assign_entities_to_sub_symmetry()
+            self.pose = Pose.from_pdb(pdb, name=str(self),
+                                      design_selector=self.design_selector, log=self.log,
+                                      source_db=self.resources, frag_db=self.frag_db, euler_lookup=self.euler_lookup,
+                                      ignore_clashes=self.ignore_clashes)
+        if not self.entity_names:  # store the entity names if they were never generated
+            self.entity_names = [entity.name for entity in self.pose.entities]
+            self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
+            self.info['entity_names'] = self.entity_names
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu or not os.path.exists(self.asu):
@@ -1956,11 +1961,15 @@ class DesignDirectory:  # (JobResources):
         ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
         the minimal unit of Entities that are in contact
         """
-        pdb = PDB.from_file(self.assembly, log=self.log)
-        asu = pdb.return_asu()
-        # ensure format matches clean_asu standard
-        asu.update_attributes_from_pdb(pdb)
-        asu.write(out_path=self.asu)
+        if self.sym_entry:  # if the symmetry isn't known then this wouldn't be a great option
+            self.load_pose(source=self.assembly)
+            self.save_asu()
+        else:
+            pdb = PDB.from_file(self.assembly, log=self.log)
+            asu = pdb.return_asu()
+            # Todo ensure asu format matches pose.get_contacting_asu standard
+            asu.update_attributes_from_pdb(pdb)
+            asu.write(out_path=self.asu)
 
     def symmetric_assembly_is_clash(self):
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Design level for clashes and raise
@@ -1984,9 +1993,9 @@ class DesignDirectory:  # (JobResources):
         """
         if not self.pose:
             self.load_pose()
-        if self.pose.symmetry:
+        if self.sym_entry:
             self.symmetric_assembly_is_clash()
-            self.pose.write(out_path=self.assembly, assembly=True, increment_chains=self.increment_chains)
+            self.pose.write(assembly=True, out_path=self.assembly, increment_chains=self.increment_chains)
             self.log.info('Symmetrically expanded assembly file written to: \'%s\'' % self.assembly)
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.expand_asu.__name__)
@@ -2008,6 +2017,7 @@ class DesignDirectory:  # (JobResources):
         self.info['fragments'] = self.pose.return_fragment_observations()
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
+    # @handle_design_errors(errors=(DesignError, AssertionError))  # Todo this may be called too many places to use here
     def identify_interface(self):
         """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
         entities
@@ -2021,10 +2031,10 @@ class DesignDirectory:  # (JobResources):
         # self.expand_asu()  # can't use this as it is a stand in for SymDesign call which needs to catch Errors!
         # if not self.pose:
         self.load_pose()
-        if self.pose.symmetry:
+        if self.sym_entry:
             self.symmetric_assembly_is_clash()
             if self.output_assembly:
-                self.pose.write(out_path=self.assembly, assembly=True, increment_chains=self.increment_chains)
+                self.pose.write(assembly=True, out_path=self.assembly, increment_chains=self.increment_chains)
                 self.log.info('Symmetrically expanded assembly file written to: \'%s\'' % self.assembly)
         self.pose.find_and_split_interface()
 
