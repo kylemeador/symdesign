@@ -12,6 +12,7 @@ program_command = 'python SymDesign.py'
 submodule_guide = '%s --guide MODULE' % program_command
 submodule_help = '%s MODULE --help' % program_command
 guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
+sym_entry = 'sym_entry'
 nano = 'nanohedra'
 interface_design = 'interface_design'
 interface_metrics = 'interface_metrics'
