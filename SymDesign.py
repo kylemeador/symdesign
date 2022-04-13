@@ -730,6 +730,10 @@ if __name__ == '__main__':
                                      ' folder of the output.\nDefault=%s'
                                      % (PUtils.data.title(), PUtils.clustered_poses % ('LOCATION', 'TIMESTAMP')))
     # ---------------------------------------------------
+    parser_refine = subparsers.add_parser(PUtils.refine, help='')
+    parser_refine.add_argument('-ala', '--interface_to_alanine', action='store_true',
+                               help='Whether to mutate all interface residues to alanine before refinement')
+    # ---------------------------------------------------
     parser_design = subparsers.add_parser(PUtils.interface_design,
                                           help='Gather poses of interest and format for design using sequence '
                                                'constraints in Rosetta. Constrain using evolutionary profiles of '
@@ -1048,8 +1052,8 @@ if __name__ == '__main__':
     initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,
                           'optimize_designs', 'custom_script']  # PUtils.analysis,
     # TODO consolidate these checks
-    if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
-                       PUtils.interface_metrics, 'optimize_designs', 'custom_script', 'rename_chains', 'status',
+    if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu', 'status',
+                       PUtils.interface_metrics, PUtils.refine, 'optimize_designs', 'custom_script', 'rename_chains',
                        'check_clashes', 'visualize']:
         initialize, queried_flags['construct_pose'] = True, True  # set up design directories
         # if args.module in ['orient', 'expand_asu']:
@@ -1720,6 +1724,18 @@ if __name__ == '__main__':
                                                             file_list=args.file_list, native=args.native,
                                                             suffix=args.suffix, score_only=args.score_only,
                                                             variables=args.variables))
+
+        terminate(results=results)
+    # ---------------------------------------------------
+    elif args.module == PUtils.refine:  # -i fragment_library, -s scout
+        to_design_directory = True  # always the case when using this module
+        if args.multi_processing:
+            zipped_args = zip(design_directories, repeat(to_design_directory), repeat(args.interface_to_alanine))
+            results = SDUtils.mp_map(DesignDirectory.refine, zipped_args, threads=threads)
+        else:
+            for design in design_directories:
+                results.append(design.refine(to_design_directory=to_design_directory,
+                                             interface_to_alanine=args.interface_to_alanine))
 
         terminate(results=results)
     # ---------------------------------------------------
