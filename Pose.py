@@ -690,6 +690,49 @@ class Model:  # Todo (Structure)
         self._name = name
 
     @property
+    def entities(self):  # TODO COMMENT OUT .pdb
+        return self.pdb.entities
+
+    @property
+    def chains(self):
+        return [chain for entity in self.entities for chain in entity.chains]
+
+    @property
+    def active_chains(self):
+        return [chain for entity in self.active_entities for chain in entity.chains]
+
+    @property
+    def chain_breaks(self):
+        return [entity.c_terminal_residue.number for entity in self.entities]
+
+    @property
+    def residues(self):  # TODO COMMENT OUT .pdb
+        return self.pdb.residues
+
+    @property
+    def reference_sequence(self) -> str:
+        # return ''.join(self.pdb.reference_sequence.values())
+        return ''.join(entity.reference_sequence for entity in self.entities)
+
+    def entity(self, entity):  # TODO COMMENT OUT .pdb
+        return self.pdb.entity(entity)
+
+    def chain(self, chain):  # TODO COMMENT OUT .pdb
+        return self.pdb.entity_from_chain(chain)
+
+    @property
+    def atom_indices_per_entity(self):
+        return [entity.atom_indices for entity in self.pdb.entities]
+
+    @property
+    def residue_indices_per_entity(self):
+        return [entity.residue_indices for entity in self.pdb.entities]
+
+    @property
+    def number_of_atoms_per_entity(self):  # TODO COMMENT OUT .pdb
+        return [entity.number_of_atoms for entity in self.pdb.entities]
+
+    @property
     def number_of_atoms(self):  # TODO COMMENT OUT .pdb
         return self.pdb.number_of_atoms
 
@@ -900,7 +943,7 @@ class SymmetricModel(Model):
         self.expand_matrices = None  # expand_matrices  # Todo make expand_matrices numpy
         self.sym_entry = None
         self.symmetry = None  # symmetry  # also defined in PDB as self.space_group
-        self.symmetry_point_group = None
+        self.point_group_symmetry = None
         self.oligomeric_equivalent_model_idxs = {}
         # self.output_asu = True
         self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
@@ -985,7 +1028,7 @@ class SymmetricModel(Model):
     #     self._number_of_uc_symmetry_mates = number_of_uc_symmetry_mates
 
     @property
-    def symmetric_center_of_mass(self):
+    def center_of_mass_symmetric(self):
         """The center of mass for the entire symmetric system
 
         Returns:
@@ -996,14 +1039,15 @@ class SymmetricModel(Model):
                                      1 / self.number_of_atoms * self.number_of_symmetry_mates), self.model_coords)
 
     @property
-    def symmetric_centers_of_mass(self):
+    def center_of_mass_symmetric_models(self):
         """The individual centers of mass for each model in the symmetric system
 
         Returns:
             (numpy.ndarray)
         """
         if self.symmetry:
-            return np.matmul(np.full(self.number_of_atoms, 1 / self.number_of_atoms),
+            number_of_atoms = self.number_of_atoms
+            return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms),
                              np.split(self.model_coords, self.number_of_symmetry_mates))
 
     @property
@@ -1058,8 +1102,8 @@ class SymmetricModel(Model):
             self.sym_entry = sym_entry
             self.symmetry = sym_entry.resulting_symmetry
             self.dimension = sym_entry.dimension
+            self.point_group_symmetry = sym_entry.point_group_symmetry
             if self.dimension > 0:
-                self.symmetry_point_group = sym_entry.pt_grp
                 self.uc_dimensions = uc_dimensions
 
         elif symmetry:
@@ -1075,7 +1119,7 @@ class SymmetricModel(Model):
                 self.symmetry = symmetry
             elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
                 self.symmetry = possible_symmetries[symmetry]
-                self.symmetry_point_group = possible_symmetries[symmetry]
+                self.point_group_symmetry = possible_symmetries[symmetry]
                 self.dimension = 0
 
             elif self.uc_dimensions:
@@ -1401,9 +1445,9 @@ class SymmetricModel(Model):
             interacting_models = np.unique(asu_query // len(asu_query)).tolist()
         else:
             center_of_mass = self.center_of_mass
-            interacting_models = [model_idx for model_idx, sym_model_com in enumerate(self.symmetric_centers_of_mass)
+            interacting_models = [model_idx for model_idx, sym_model_com in enumerate(self.center_of_mass_symmetric_models)
                                   if np.linalg.norm(center_of_mass - sym_model_com) < distance]
-            # print('interacting_models com', self.symmetric_centers_of_mass[interacting_models])
+            # print('interacting_models com', self.center_of_mass_symmetric_models[interacting_models])
 
         return interacting_models
 
@@ -1653,8 +1697,8 @@ class SymmetricModel(Model):
         all_entities_com = self.center_of_mass
         origin = np.array([0., 0., 0.])
         # check if global symmetry is centered at the origin. If not, translate to the origin with ext_tx
-        self.log.debug('The symmetric center of mass is: %s' % str(self.symmetric_center_of_mass))
-        if np.isclose(self.symmetric_center_of_mass, origin):  # is this threshold loose enough?
+        self.log.debug('The symmetric center of mass is: %s' % str(self.center_of_mass_symmetric))
+        if np.isclose(self.center_of_mass_symmetric, origin):  # is this threshold loose enough?
             # the com is at the origin
             self.log.debug('The symmetric center of mass is at the origin')
             ext_tx = origin
@@ -1674,10 +1718,10 @@ class SymmetricModel(Model):
                 assert self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates, \
                     'Cannot have more models (%d) than a single unit cell (%d)!' \
                     % (self.number_of_symmetry_mates, self.number_of_uc_symmetry_mates)
-                expand_matrices = get_ptgrp_sym_op(self.symmetry_point_group)
+                expand_matrices = get_ptgrp_sym_op(self.point_group_symmetry)
             else:
                 expand_matrices = self.expand_matrices
-            ext_tx = self.symmetric_center_of_mass  # only works for unit cell or point group NOT surrounding UC
+            ext_tx = self.center_of_mass_symmetric  # only works for unit cell or point group NOT surrounding UC
             # This is typically centered at the origin for the symmetric assembly... NEED rigourous testing.
             # Maybe this route of generation is too flawed for layer/space? Nanohedra framework gives a comprehensive
             # handle on all these issues though
@@ -2006,36 +2050,36 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self._active_entities = [entity for entity in self.entities if entity in self.design_selector_entities]
             return self._active_entities
 
-    @property
-    def entities(self):  # TODO COMMENT OUT .pdb
-        return self.pdb.entities
-
-    @property
-    def chains(self):
-        return [chain for entity in self.entities for chain in entity.chains]
-
-    @property
-    def active_chains(self):
-        return [chain for entity in self.active_entities for chain in entity.chains]
-
-    @property
-    def chain_breaks(self):
-        return [entity.c_terminal_residue.number for entity in self.entities]
-
-    @property
-    def residues(self):  # TODO COMMENT OUT .pdb
-        return self.pdb.residues
-
-    @property
-    def reference_sequence(self) -> str:
-        # return ''.join(self.pdb.reference_sequence.values())
-        return ''.join(entity.reference_sequence for entity in self.entities)
-
-    def entity(self, entity):  # TODO COMMENT OUT .pdb
-        return self.pdb.entity(entity)
-
-    def chain(self, chain):  # TODO COMMENT OUT .pdb
-        return self.pdb.entity_from_chain(chain)
+    # @property
+    # def entities(self):  # TODO COMMENT OUT .pdb
+    #     return self.pdb.entities
+    #
+    # @property
+    # def chains(self):
+    #     return [chain for entity in self.entities for chain in entity.chains]
+    #
+    # @property
+    # def active_chains(self):
+    #     return [chain for entity in self.active_entities for chain in entity.chains]
+    #
+    # @property
+    # def chain_breaks(self):
+    #     return [entity.c_terminal_residue.number for entity in self.entities]
+    #
+    # @property
+    # def residues(self):  # TODO COMMENT OUT .pdb
+    #     return self.pdb.residues
+    #
+    # @property
+    # def reference_sequence(self) -> str:
+    #     # return ''.join(self.pdb.reference_sequence.values())
+    #     return ''.join(entity.reference_sequence for entity in self.entities)
+    #
+    # def entity(self, entity):  # TODO COMMENT OUT .pdb
+    #     return self.pdb.entity(entity)
+    #
+    # def chain(self, chain):  # TODO COMMENT OUT .pdb
+    #     return self.pdb.entity_from_chain(chain)
 
     # def find_center_of_mass(self):
     #     """Retrieve the center of mass for the specified Structure"""
