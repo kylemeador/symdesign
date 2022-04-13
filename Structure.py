@@ -116,8 +116,7 @@ class Structure(StructureBase):
             if coords is None:  # assumes that this is a Structure init without existing shared coords
                 try:
                     # coords = [atom.coords for atom in atoms]
-                    coords = np.concatenate([atom.coords for atom in atoms])
-                    self.set_coords(coords=coords)
+                    self.set_coords(coords=np.concatenate([atom.coords for atom in atoms]))
                 except AttributeError:
                     raise DesignError('Can\'t initialize Structure with Atom objects lacking coords when no Coords '
                                       'object is passed! Either pass Atom objects with coords attribute or pass Coords')
@@ -141,6 +140,7 @@ class Structure(StructureBase):
             else:
                 self.residue_indices = residue_indices
                 self.set_residue_slice(residues)
+                self.coords = coords
                 # self.set_residues(residues)
             # if coords is None:  # assumes that this is a Structure init without existing shared coords
             #     # try:
@@ -149,8 +149,8 @@ class Structure(StructureBase):
             #     self.set_coords(coords=coords)
             #     # except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
             #     #     self.coords = None
-        if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
-            self.coords = coords
+        # if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
+        #     self.coords = coords
 
         super().__init__(**kwargs)
 
@@ -220,8 +220,7 @@ class Structure(StructureBase):
             coords=None (Union[numpy.ndarray, list]): The coordinates to set for the structure
         Only use set_coords once per Structure object creation otherwise Structures with multiple containers will be
         corrupted"""
-        if coords is not None:
-            self.coords = coords
+        self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
         # self.store_coordinate_index_residue_map()
@@ -2594,7 +2593,7 @@ class Entity(Chain, SequenceProfile):
 
     def retrieve_sequence_from_api(self, entity_id=None):
         if not entity_id:
-            if len(self.name.split('_')) != 2:
+            if len(self.name.split('_')) != 2:  # Todo if name=None then throws attribute error
                 self.log.warning('For Entity method .%s, if an entity_id isn\'t passed and the Entity name %s is not '
                                  'the correct format (1abc_1), the query will fail. Retrieving closest entity_id by PDB'
                                  ' API structure sequence' % (self.retrieve_sequence_from_api.__name__, self.name))
@@ -4262,32 +4261,32 @@ class Atom:
 
 class Coords:
     def __init__(self, coords=None):
-        # self.coords = np.array(coords)  # Todo simplify to this, remove properties
+        # self.coords = np.array(coords)
         if coords is not None:
-            self.coords = coords
+            self.coords = np.array(coords)
         else:
             self.coords = []
 
-    @property
-    def coords(self):
-        """This holds the atomic coords which is a view from the Structure that created them"""
-        return self._coords
-
-    @coords.setter
-    def coords(self, coords):
-        self._coords = np.array(coords)
+    # @property
+    # def coords(self):
+    #     """This holds the atomic coords which is a view from the Structure that created them"""
+    #     return self._coords
+    #
+    # @coords.setter
+    # def coords(self, coords):
+    #     self._coords = np.array(coords)
 
     def delete(self, indices):
-        self._coords = np.delete(self._coords, indices, axis=0)
+        self.coords = np.delete(self.coords, indices, axis=0)
 
     def insert(self, new_coords, at=None):
-        self._coords = \
-            np.concatenate((self._coords[:at] if 0 <= at <= len(self._coords) else self._coords, new_coords,
-                            self._coords[at:])
-                           if at else (self._coords[:at] if 0 <= at <= len(self._coords) else self._coords, new_coords))
+        self.coords = \
+            np.concatenate((self.coords[:at] if 0 <= at <= len(self.coords) else self.coords, new_coords,
+                            self.coords[at:])
+                           if at else (self.coords[:at] if 0 <= at <= len(self.coords) else self.coords, new_coords))
 
     def __len__(self):
-        return self._coords.shape[0]
+        return self.coords.shape[0]
 
 
 def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=False, report_quaternion=False):
