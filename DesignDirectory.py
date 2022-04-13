@@ -1889,46 +1889,42 @@ class DesignDirectory:  # (JobResources):
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def refine(self, to_design_directory=False):
+    def refine(self, to_design_directory=False, interface_to_alanine=True):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         relax_cmd = copy.copy(script_cmd)
         stage = PUtils.stage[1]
         if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
-            # Todo should really remove this option as separate runs are very time consuming and
-            #  not the most accurate (I THINK)
-            flags = os.path.join(self.scripts, 'flags')
-            flag_dir = self.scripts
-            pdb_out_path = self.designs
-            additional_flags = []
             # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
             # Todo unnecessary? call self.load_pose with a flag for the type of file? how to reconcile with interface
             #  design and the asu versus pdb distinction. Can asu be implied by symmetry? Not for a trimer input that
             #  needs to be oriented and refined
             # assign designable residues to interface1/interface2 variables, not necessary for non complex PDB jobs
             self.identify_interface()
-            # self.load_pose()
-            # Mutate all design positions to Ala before the Refinement
-            # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
-            # mutated_pdb = copy.copy(self.pose.pdb)  # copy method implemented, but incompatible!
-            # Have to use self.pose.pdb as Residue objects in entity_residues are from self.pose.pdb and not copy()!
-            for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
-                if interface_residue_sets[0]:  # check that there are residues present
-                    for idx, interface_residue_set in enumerate(interface_residue_sets):
-                        self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
-                        for residue in interface_residue_set:
-                            self.log.debug('Mutating %d%s' % (residue.number, residue.type))
-                            if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
-                                self.pose.pdb.mutate_residue(residue=residue, to='A')
+            if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
+                # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
+                # mutated_pdb = copy.copy(self.pose.pdb)  # copy method implemented, but incompatible!
+                # Have to use self.pose.pdb as Residue objects in entity_residues are from self.pose.pdb and not copy()!
+                for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
+                    if interface_residue_sets[0]:  # check that there are residues present
+                        for idx, interface_residue_set in enumerate(interface_residue_sets):
+                            self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
+                            for residue in interface_residue_set:
+                                self.log.debug('Mutating %d%s' % (residue.number, residue.type))
+                                if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
+                                    self.pose.pdb.mutate_residue(residue=residue, to='A')
 
             # self.pose.pdb.write(out_path=self.refine_pdb)
             self.pose.write(out_path=self.refine_pdb)
+            self.log.debug('Cleaned PDB for %s: \'%s\'' % (self.refine_pdb, stage.title()))
+            flags = os.path.join(self.scripts, 'flags')
+            flag_dir = self.scripts
+            pdb_out_path = self.designs
             refine_pdb = self.refine_pdb
-            self.log.debug('Cleaned PDB for Refine: \'%s\'' % self.refine_pdb)
+            additional_flags = []
         else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
             flags = os.path.join(self.refine_dir, 'refine_flags')
             flag_dir = self.refine_dir
             pdb_out_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
-            # out_put_pdb_path = os.path.join(self.refine_dir, '%s.pdb' % self.pose.name)
             refine_pdb = self.source
             additional_flags = ['-no_scorefile', 'true']
 
@@ -1942,15 +1938,15 @@ class DesignDirectory:  # (JobResources):
         relax_cmd += relax_flags + additional_flags + \
             ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [] + \
             ['@%s' % flags, '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
-             '-in:file:native', refine_pdb,  # native is here to block flags, not actually useful for refine
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
+             '-in:file:native', refine_pdb,  # native is here to block flag file version, not actually useful for refine
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % stage),
              '-parser:script_vars', 'switch=%s' % stage]
         self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
         if not self.run_in_shell:
-            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir)  # ,
-                               # status_wrap=self.serialized_info)
+            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir)
+            #                  status_wrap=self.serialized_info)
         else:
             relax_process = Popen(relax_cmd)
             relax_process.communicate()
