@@ -1,5 +1,6 @@
 import math
 import os
+import warnings
 from typing import List
 
 import numpy as np
@@ -16,7 +17,7 @@ __version__ = "1.0"
 
 logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3, propagate=False)
-
+symmetry_combination_format = 'ResultingSymmetry:{Component1Symmetry}{Component2Symmetry}{...}'
 # SYMMETRY COMBINATION MATERIAL TABLE (T.O.Y and J.L, 2020)
 symmetry_combinations = {
     1: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'C2', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 4, 2],
@@ -242,7 +243,60 @@ setting_matrices = {1: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
                     }
 flip_x_matrix = [[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]]  # rot 180x
 flip_y_matrix = [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]  # rot 180y
-identity_matrix = setting_matrices[1]
+identity_matrix = np.array(setting_matrices[1])
+point_group_degeneracy_matrices = {
+    'T': 6,
+
+}
+# These specify combinations of symmetric point groups which can be used to construct a larger point group
+sub_symmetries = {'C1': ['C1'],
+                  'C2': ['C1', 'C2'],
+                  'C3': ['C1', 'C3'],
+                  'C4': ['C1', 'C2', 'C4'],
+                  'C5': ['C1', 'C5'],
+                  'C6': ['C1', 'C2', 'C3', 'C6'],
+                  'T': ['C1', 'C2', 'C3', 'T'],
+                  'O': ['C1', 'C2', 'C3', 'C4', 'O'],
+                  'I': ['C1', 'C2', 'C3', 'C5', 'I'],
+                  }
+point_group_setting_matrix_members = {
+    # Up until 'T' are all correct for original 124, but dynamic dict creation is preferred with additional combinations
+    # 'C3': {'C2': {1}, 'C3': {1}},
+    # # 53
+    # 'C4': {'C2': {1}, 'C4': {1}},
+    # # 10, 71
+    # 'C6': {'C2': {1}, 'C3': {1}, 'C6': {1}},
+    # # 2, 17, 59
+    # 'D2': {'C2': {1, 2}, 'D2': {1}},
+    # # 1, 20, 84, 85
+    # 'D3': {'C2': {2, 6}, 'C3': {1}, 'D3': {1, 11}},
+    # # 3, 4, 27, 28, 64, 65,
+    # 'D4': {'C2': {1, 2, 8}, 'C4': {1}, 'D2': {1, 5}, 'D4': {1}},
+    # # 11, 12, 21, 22, 37-39, 73, 74, 78, 86, 93-95, 115, 116
+    # 'D5': {'C2': {2}, 'C5': {1}},
+    # # 15
+    # 'D6': {'C2': {1, 2, 6, 10}, 'C3': {1}, 'C6': {1}, 'D2': {1, 13}, 'D3': {1, 4, 11}, 'D6': {1}},
+    # # 18, 19, 23, 24, 29-31, 42-44, 60, 68, 82, 83, 87, 89-91, 97, 98, 107, 111, 112
+    # 'T': {'C2': {3}, 'C3': {4, 12}},  # might have to check using degeneracy matrix mult to first setting matrix 6(4)=12
+    # 'O': {'C2': {3}, 'C3': {4, 12}, 'C4': {1}},
+    # 'I': {'C2': {1}, 'C3': {7}, 'C5': {9}},
+}
+for entry_number, entry in symmetry_combinations.items():
+    group1, int_dof_group1, setting1, ref_frame_tx_dof_group1, group2, int_dof_group2, setting2, \
+    ref_frame_tx_dof_group2, point_group, result, dimension, _, _, _ = entry
+    result_entry = point_group_setting_matrix_members.get(point_group, None)
+    if result_entry:
+        if group1 in result_entry:
+            result_entry[group1].add(setting1)
+        else:
+            result_entry[group1] = {setting1}
+
+        if group2 in result_entry:
+            result_entry[group2].add(setting2)
+        else:
+            result_entry[group2] = {setting2}
+    else:
+        point_group_setting_matrix_members[point_group] = {group1: {setting1}, group2: {setting2}}
 
 
 class SymEntry:
@@ -435,7 +489,7 @@ class SymEntry:
         """
         # here allows for D5. Is this bad? .pop('D5') The sym_entries are hardcoded...
         valid_pt_gp_symm_list = list(valid_subunit_number.keys())
-        valid_pt_gp_symm_list.remove('D5')
+        # valid_pt_gp_symm_list.remove('D5')
 
         # if self.group1 not in valid_pt_gp_symm_list:
         #     raise ValueError('Invalid Point Group Symmetry')
@@ -554,6 +608,41 @@ class SymEntry:
                 angles[idx] = float(string_angle)
 
         return np.concatenate(lengths, angles)
+
+    def get_optimal_shift_from_uc_dimensions(self, a, b, c, *angles):  # alpha, beta, gamma
+        """Return the optimal shifts provided unit cell dimensions and the external translation degrees of freedom
+
+        Args:
+            a (float): The unit cell parameter for the lattice dimension 'a'
+            b (float): The unit cell parameter for the lattice dimension 'b'
+            c (float): The unit cell parameter for the lattice dimension 'c'
+            angles (list): The unit cell parameters for the lattice angles alpha, beta, gamma
+            # alpha (float): The unit cell parameter for the lattice angle alpha
+            # beta (float): The unit cell parameter for the lattice angle beta
+            # gamma (float): The unit cell parameter for the lattice angle gamma
+        Returns:
+            (numpy.ndarray): The optimal shifts in each direction a, b, and c  # (list)
+        """
+        if not self.unit_cell:
+            return
+        string_lengths, string_angles = self.unit_cell
+        # uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
+        uc_mat = construct_uc_matrix(string_lengths)
+        # to reverse the values from the incoming a, b, and c, we should divide by the uc_matrix_constraints
+        # given the matrix should only ever have one value in each column (max) a sum over the column should produce the
+        # desired vector to calculate the optimal shift.
+        # There is a possibility of returning inf when we divide 0 by a value so ignore this warning
+        with warnings.catch_warnings() as w:
+            # Cause all warnings to always be ignored
+            warnings.simplefilter('ignore')
+            external_translation_shifts = [a, b, c] / np.abs(uc_mat.sum(axis=-2))
+            # replace any inf with zero
+            external_translation_shifts = np.nan_to_num(external_translation_shifts, copy=False, posinf=0., neginf=0.)
+
+        if len(string_lengths) == 2:
+            g = 1.
+
+        return external_translation_shifts  # [e, f, g]
 
 
 def construct_uc_matrix(string_vector):
@@ -1090,3 +1179,81 @@ def dimension(dim):
             print(entry)
     else:
         print('DIMENSION NOT SUPPORTED, VALID DIMENSIONS ARE: 0, 2 or 3')
+
+
+if __name__ == '__main__':
+    # To figure out if there is translation internally (on Z) then externally on Z - There indeed is, however, this
+    # analysis doesn't take into consideration the setting matrices might counteract the internal translation so that
+    # this translation only lies on another axis
+    # double_translation = []
+    # for entry in symmetry_combinations:
+    #     sym_entry = SymEntry(entry)
+    #     tx1, tx2 = False, False
+    #     if sym_entry.ref_frame_tx_dof1[-1] != '0' and sym_entry.is_internal_tx1:
+    #         tx1 = True
+    #     if sym_entry.ref_frame_tx_dof2[-1] != '0' and sym_entry.is_internal_tx2:
+    #         tx2 = True
+    #     if tx1 or tx2:
+    #         if tx1:
+    #             entry_result = (entry, '1')
+    #         if tx2:
+    #             entry_result = (entry, '2')
+    #         if tx1 and tx2:
+    #             entry_result = (entry, '1+2')
+    #         double_translation.append(entry_result)
+    #
+    # print('\n'.join('%d: %s' % tup for tup in double_translation))
+
+    point_cloud_scale = 2
+    # Oxy is X, N is Y, C is origin
+    point_cloud = np.array([[point_cloud_scale, 0, 0], [0, point_cloud_scale, 0], [0, 0, 0]])
+    # point_cloud += np.array([0, 0, 1])
+    transformed_points = np.empty((len(setting_matrices), 3, 3))
+    for idx, matrix in enumerate(setting_matrices.values()):
+        transformed_points[idx] = np.matmul(point_cloud, np.transpose(matrix))
+
+    atom_string = '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
+    alt_location = ''
+    code_for_insertion = ''
+    occ = 1
+    temp_fact = 20.0
+    atom_charge = ''
+    atom_types = ['O', 'N', 'C']
+    chain_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    atom_idx = 1
+
+    # add placeholder atoms for setting matrix transform
+    atoms = []
+    it_chain_letters = iter(chain_letters)
+    for set_idx, points in enumerate(transformed_points.tolist(), 1):
+        chain = next(it_chain_letters)
+        for point_idx, point in enumerate(points):
+            atom_type = atom_types[point_idx]
+            atoms.append(atom_string.format('ATOM', format(atom_type, '3s'), alt_location, code_for_insertion, occ, temp_fact,
+                                            atom_type, atom_charge)
+                         % (format(atom_idx, '5d'), '%s%2d' % (atom_type, set_idx), chain, format(point_idx + 1, '4d'),
+                            '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(point))))
+            atom_idx += 1
+
+    # add origin
+    atom_idx = 1
+    atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
+                                    'C', atom_charge)
+                 % (format(atom_idx, '5d'), 'GLY', 'O', format(0, '4d'),
+                    '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple([0, 0, 0]))))
+    # add axis
+    axis_length = 2 * point_cloud_scale
+    axis_list = [0, 0, 0]
+    axis_type = ['X', 'Y', 'Z']
+    for idx, _ in enumerate(axis_list):
+        atom_idx += 1
+        axis_point = axis_list.copy()
+        axis_point[idx] = axis_length
+        atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
+                                        'C', atom_charge)
+                     % (format(atom_idx, '5d'), 'GLY', axis_type[idx], format(idx + 1, '4d'),
+                        '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(axis_point))))
+
+    # write to file
+    with open(os.path.join(os.getcwd(), 'setting_matrix_points.pdb'), 'w') as f:
+        f.write('%s\n' % '\n'.join(atoms))
