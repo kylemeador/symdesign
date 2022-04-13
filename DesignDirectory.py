@@ -6,7 +6,7 @@ import shutil
 from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
-from typing import Union
+from typing import Union, Dict, List
 # from textwrap import fill
 
 import matplotlib.pyplot as plt
@@ -43,7 +43,7 @@ from PathUtils import groups
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
     hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
-from classes.SymEntry import SymEntry, sdf_lookup
+from classes.SymEntry import SymEntry, sdf_lookup, identity_matrix
 from Database import FragmentDatabase
 from utils.SymmetryUtils import valid_subunit_number
 
@@ -342,14 +342,12 @@ class DesignDirectory:  # (JobResources):
                 self.make_path(self.project_designs)
                 self.make_path(self.path)
                 shutil.copy(self.source_path, self.path)
-            # if not self.pose_transformation:  # check is useless as init with a .pdb wouldn't have this info...
             # need to start here if I want to load pose through normal mechanism... ugh
             self.set_up_design_directory()
             if not self.entity_names:
                 self.load_pose()  # load the source pdb to find the entity_names
                 self.entity_names = [entity.name for entity in self.pose.entities]
             # self.set_up_design_directory()
-            # TODO need to extract the _pose_transformation...
         else:  # initialize DesignDirectory with existing /program_root/projects/project/design
             self.initialized = True
             self.path = self.source_path
@@ -716,36 +714,50 @@ class DesignDirectory:  # (JobResources):
 
         return {'n': n_term, 'c': c_term}
 
+    def clear_pose_transformation(self):
+        del self._pose_transformation
+        self.info.pop('pose_transformation')
+
     @property
     def pose_transformation(self):
         """Provide the transformation parameters for the design in question
 
         Returns:
-            (dict): {1: {'rotation': numpy.ndarray, 'translation': numpy.ndarray, 'rotation2': numpy.ndarray,
-                         'translation2': numpy.ndarray},
-                     2: {...}}
+            (list[dict]): [{'rotation': numpy.ndarray, 'translation': numpy.ndarray, 'rotation2': numpy.ndarray,
+                            'translation2': numpy.ndarray}, ...]
         """
-        # if self._pose_transformation:
         try:
             return self._pose_transformation
         except AttributeError:
-        # else:
             try:
-                self.retrieve_pose_metrics_from_file()  # creates self._pose_transformation attribute
+                self._pose_transformation = self.retrieve_pose_transformation_from_file()
             except FileNotFoundError:
-                # TODO generate transformation parameters from input?
-                origin = np.array([0., 0., 0.])
-                identity = np.array([[1., 0., 0.], [0., 1., 0.], [0., 0., 1.]])
-                self._pose_transformation = \
-                    {idx: {'rotation': identity, 'translation': origin, 'rotation2': identity, 'translation2': origin}
-                     for idx, entity in enumerate(self.pose.entities)}
-                self.log.error('There was no pose transformation file specified at %s. '
-                               'Using null transformation instead' % self.pose_file)
+                try:
+                    self._pose_transformation = self.pose.assign_pose_transformation()
+                except DesignError:
+                    # Todo
+                    #  This must be something outside of the realm of possibilities of Nanohedra symmetry groups
+                    #  Perhaps we need to get the parameters for oligomer generation from PISA or other operator source
+                    self.log.critical('There was no pose transformation file specified at %s and no transformation '
+                                      'found from routine search of Nanohedra docking parameters. Is this pose from the'
+                                      ' PDB? You may need to utilize PISA to accurately deduce the locations of pose '
+                                      'transformations to make the correct oligomers. For now, using null '
+                                      'transformation which is likely not what you want...' % self.pose_file)
+                    self._pose_transformation = \
+                        [dict(rotation=identity_matrix, translation=None) for _ in self.pose.entities]
                 # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
             self.info['pose_transformation'] = self._pose_transformation
             # self.log.debug('Using transformation parameters:\n\t%s'
             #                % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
             return self._pose_transformation
+
+    @pose_transformation.setter
+    def pose_transformation(self, transform):
+        if isinstance(transform, list):
+            self._pose_transformation = transform
+            self.info['pose_transformation'] = self._pose_transformation
+        else:
+            raise ValueError('The attribute pose_transformation must be a list, not %s' % type(transform))
 
     def rotation_parameters(self):
         return self.rot_range_deg_pdb1, self.rot_range_deg_pdb2, self.rot_step_deg1, self.rot_step_deg2
@@ -883,10 +895,7 @@ class DesignDirectory:  # (JobResources):
                 self.info['nanohedra'] = True
                 self.info['sym_entry'] = self.sym_entry
                 self.info['oligomer_names'] = self.oligomer_names
-                # self.retrieve_pose_metrics_from_file()  # inherent in call to self.pose_transformation
-                # self.info['pose_transformation'] = self.pose_transformation
-                # self.log.debug('Using transformation parameters:\n\t%s'
-                #                % '\n\t'.join(pretty_format_table(self.pose_transformation.items())))
+                self.pose_transformation = self.retrieve_pose_metrics_from_file()
                 # self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
                 self.info['entity_names'] = self.entity_names  # Todo remove after T33
                 # self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
@@ -1122,11 +1131,51 @@ class DesignDirectory:  # (JobResources):
         self.info['fragments'] = self.fragment_observations  # inform the design state that fragments have been produced
 
     # @handle_errors(errors=(FileNotFoundError,))
-    def retrieve_pose_metrics_from_file(self):
-        """Gather information for the docked Pose from Nanohedra output. Includes coarse fragment metrics"""
+    def retrieve_pose_transformation_from_file(self) -> List[Dict]:
+        """Gather pose transformation information for the Pose from Nanohedra output
+
+        Returns:
+            (list[dict])
+        """
         try:
             with open(self.pose_file, 'r') as f:
-                self._pose_transformation = {}
+                pose_transformation = {}
+                for line in f.readlines():
+                    if line[:20] == 'ROT/DEGEN MATRIX PDB':
+                        data = eval(line[22:].strip())  # Todo remove eval(), this is a program vulnerability
+                        pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
+                    elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
+                        data = eval(line[17:].strip())
+                        if data:  # == 'None'
+                            pose_transformation[int(line[15:16])]['translation'] = np.array(data)
+                        else:
+                            pose_transformation[int(line[15:16])]['translation'] = np.array([0, 0, 0])
+                    elif line[:18] == 'SETTING MATRIX PDB':
+                        data = eval(line[20:].strip())
+                        pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
+                    elif line[:22] == 'REFERENCE FRAME Tx PDB':
+                        data = eval(line[24:].strip())
+                        if data:
+                            pose_transformation[int(line[22:23])]['translation2'] = np.array(data)
+                        else:
+                            pose_transformation[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
+                    elif 'CRYST1 RECORD:' in line:
+                        cryst_record = line[15:].strip()
+                        self.cryst_record = None if cryst_record == 'None' else cryst_record
+
+            return [pose_transformation[idx] for idx, _ in enumerate(pose_transformation, 1)]
+        except TypeError:
+            raise FileNotFoundError('The specified pose metrics file was not declared and cannot be found!')
+
+    def retrieve_pose_metrics_from_file(self) -> List[Dict]:
+        """Gather information for the docked Pose from Nanohedra output. Includes coarse fragment metrics
+
+        Returns:
+            (list[dict])
+        """
+        try:
+            with open(self.pose_file, 'r') as f:
+                pose_transformation = {}
                 for line in f.readlines():
                     if line[:15] == 'DOCKED POSE ID:':
                         self.pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').\
@@ -1143,22 +1192,22 @@ class DesignDirectory:  # (JobResources):
                         self.percent_overlapping_fragment = float(line[25:].strip()) / 100
                     elif line[:20] == 'ROT/DEGEN MATRIX PDB':
                         data = eval(line[22:].strip())  # Todo remove eval(), this is a program vulnerability
-                        self._pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
+                        pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
                     elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
                         data = eval(line[17:].strip())
                         if data:  # == 'None'
-                            self._pose_transformation[int(line[15:16])]['translation'] = np.array(data)
+                            pose_transformation[int(line[15:16])]['translation'] = np.array(data)
                         else:
-                            self._pose_transformation[int(line[15:16])]['translation'] = np.array([0, 0, 0])
+                            pose_transformation[int(line[15:16])]['translation'] = np.array([0, 0, 0])
                     elif line[:18] == 'SETTING MATRIX PDB':
                         data = eval(line[20:].strip())
-                        self._pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
+                        pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
                     elif line[:22] == 'REFERENCE FRAME Tx PDB':
                         data = eval(line[24:].strip())
                         if data:
-                            self._pose_transformation[int(line[22:23])]['translation2'] = np.array(data)
+                            pose_transformation[int(line[22:23])]['translation2'] = np.array(data)
                         else:
-                            self._pose_transformation[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
+                            pose_transformation[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
                     elif 'Nanohedra Score:' in line:  # res_lev_sum_score
                         self.all_residue_score = float(line[16:].rstrip())
                     elif 'CRYST1 RECORD:' in line:
@@ -1168,6 +1217,7 @@ class DesignDirectory:  # (JobResources):
                         self.canonical_pdb1 = line[:31].strip()
                     elif line[:31] == 'Canonical Orientation PDB2 Path':
                         self.canonical_pdb2 = line[:31].strip()
+            return [pose_transformation[idx] for idx, _ in enumerate(pose_transformation, 1)]
         except TypeError:
             raise FileNotFoundError('The specified pose metrics file was not declared and cannot be found!')
 
@@ -1580,8 +1630,8 @@ class DesignDirectory:  # (JobResources):
         """
         self.get_oligomers(refined=refined, oriented=oriented)
         if self.pose_transformation:
-            self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_number])
-                              for oligomer_number, oligomer in enumerate(self.oligomers, 1)]
+            self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_idx])
+                              for oligomer_idx, oligomer in enumerate(self.oligomers)]
             # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
             # Todo make oligomer, oligomer! If symmetry permits now that storing as refined asu, oriented asu, model asu
             self.log.debug('Oligomers were transformed to the found docking parameters')
@@ -1599,7 +1649,7 @@ class DesignDirectory:  # (JobResources):
             structures (Iterable[Structure]): The Structure objects you would like to transform
         """
         if self.pose_transformation:
-            self.log.debug('Oligomers were transformed to the found docking parameters')
+            self.log.debug('Structures were transformed to the found docking parameters')
             # Todo assumes a 1:1 correspondence between structures and transforms (component group numbers) CHANGE
             return [structure.return_transformed_copy(**self.pose_transformation[idx])
                     for idx, structure in enumerate(structures)]
@@ -1827,6 +1877,7 @@ class DesignDirectory:  # (JobResources):
 
             orient_file = pdb.write(out_path=out_path)
             self.log.critical('The oriented file was saved to %s' % orient_file)
+            self.clear_pose_transformation()
             self.load_pose(entities=pdb.entities)
             self.save_asu(rename_chains=True)
         else:
@@ -2168,7 +2219,7 @@ class DesignDirectory:  # (JobResources):
             # design_structures.append(PDB.from_file(file, name=decoy_name, log=self.log, entities=False))
             design = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
             #                        pass names if available ^
-            if self.pose_transformation:
+            if self.sym_entry:
                 for idx, entity in enumerate(design.entities):
                     entity.make_oligomer(symmetry=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
             design_structures.append(design)
