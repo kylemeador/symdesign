@@ -206,7 +206,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # Check if design has any clashes when expanded
         exp_des_clash_time_start = time.time()
         asu.uc_dimensions = uc_dimensions
-        asu.expand_matrices = sym_entry.expand_matrices
+        # asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         #                      surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
         exp_des_clash_time_stop = time.time()
@@ -1360,7 +1360,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         exp_des_clash_time_start = time.time()
         if sym_entry.unit_cell:
             asu.uc_dimensions = full_uc_dimensions[idx]
-        asu.expand_matrices = sym_entry.expand_matrices
+        # asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         # ignore ASU clashes during initialization since already checked ^
         # log.debug('Checked expand clash')
