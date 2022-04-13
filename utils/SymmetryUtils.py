@@ -230,7 +230,7 @@ def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(sym_op_locatio
     Returns:
         (list[tuple[list[list], list]])
     """
-    sg_op_filepath = os.path.join(space_group_operator_dir, '%s.pickle' % sym_type)
+    sg_op_filepath = os.path.join(space_group_operator_dir, '%s.pickle' % sym_type.upper())
     with open(sg_op_filepath, 'rb') as sg_op_file:
         sg_sym_op = pickle.load(sg_op_file)
 
