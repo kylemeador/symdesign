@@ -1892,7 +1892,7 @@ class DesignDirectory:  # (JobResources):
     def refine(self, to_design_directory=False, interface_to_alanine=True):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         relax_cmd = copy.copy(script_cmd)
-        stage = PUtils.stage[1]
+        stage = PUtils.refine
         if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
             # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
             # Todo unnecessary? call self.load_pose with a flag for the type of file? how to reconcile with interface
@@ -2435,10 +2435,10 @@ class DesignDirectory:  # (JobResources):
                 scores_df.drop('repacking', axis=1, inplace=True)
             # Process dataframes for missing values and drop refine trajectory if present
             scores_df[groups] = protocol_s
-            refine_index = scores_df[scores_df[groups] == PUtils.stage[1]].index
+            refine_index = scores_df[scores_df[groups] == PUtils.refine].index
             scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
             residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-            residue_info.pop(PUtils.stage[1], None)  # Remove refine from analysis
+            residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
             # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
             residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
             residue_df.fillna(0., inplace=True)

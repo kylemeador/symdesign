@@ -9,7 +9,7 @@ import subprocess
 from itertools import repeat
 
 from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
-    program_name, interface_design
+    program_name, interface_design, refine
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors, \
     calculate_mp_threads
 
@@ -58,18 +58,18 @@ relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp
                '-relax:bb_move false']
 # Those jobs having a scale of 2 utilize two threads. Therefore two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
-process_scale = {stage[1]: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
+process_scale = {refine: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
                  stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
                  stage[11]: 1, stage[12]: 2, stage[13]: 2, 'optimize_designs': 2,
                  'metrics_bound': 2, 'interface_metrics': 2, 'hhblits': 1, 'bmdca': 2}
 # Cluster Dependencies and Multiprocessing
-sbatch_templates = {stage[1]: os.path.join(sbatch_template_dir, stage[1]),
+sbatch_templates = {refine: os.path.join(sbatch_template_dir, refine),
                     interface_design: os.path.join(sbatch_template_dir, stage[2]),
                     stage[2]: os.path.join(sbatch_template_dir, stage[2]),
                     stage[12]: os.path.join(sbatch_template_dir, stage[2]),
                     stage[3]: os.path.join(sbatch_template_dir, stage[2]),
-                    stage[4]: os.path.join(sbatch_template_dir, stage[1]),
-                    stage[5]: os.path.join(sbatch_template_dir, stage[1]),
+                    stage[4]: os.path.join(sbatch_template_dir, refine),
+                    stage[5]: os.path.join(sbatch_template_dir, refine),
                     nano: os.path.join(sbatch_template_dir, nano),
                     stage[6]: os.path.join(sbatch_template_dir, stage[6]),
                     stage[7]: os.path.join(sbatch_template_dir, stage[6]),
