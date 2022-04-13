@@ -66,7 +66,7 @@ attributes = {'symmetry': 'rcsb_struct_symmetry.symbol', 'experimental_method': 
               'accession_db': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.'
                               'database_name',
               'organism': 'rcsb_entity_source_organism.taxonomy_lineage.name'}
-search_term = 'ELECTRON MICROSCOPY'  # For example. of 'C2'
+search_term = 'ELECTRON MICROSCOPY'  # For example
 
 parameter_query = {'attribute': attributes, 'operator': operators, 'value': search_term}
 query = {"query": {"type": "terminal", "service": "text", 'parameters': parameter_query}, "return_type": "entry"}
