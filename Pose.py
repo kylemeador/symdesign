@@ -547,7 +547,7 @@ class Models(Structures):
         return cls(models=pdb.chains, **kwargs)
 
     @classmethod
-    def from_PDB(cls, pdb, **kwargs):
+    def from_pdb(cls, pdb, **kwargs):
         """Construct Models from multimodel PDB file using the PDB.chains
         Ex: [Chain1, Chain1, ...]
         """
@@ -626,6 +626,7 @@ class Model:  # Todo (Structure)
         # elif isinstance(pdb, PDB):
         # self.biomt_header = ''
         # self.biomt = []
+        self.name = kwargs.get('name')
         if log:
             self.log = log
         elif log is None:
@@ -687,7 +688,8 @@ class Model:  # Todo (Structure)
 
     @name.setter
     def name(self, name):
-        self._name = name
+        if name not in [None, False]:
+            self._name = name
 
     @property
     def entities(self):  # TODO COMMENT OUT .pdb
@@ -783,9 +785,12 @@ class Model:  # Todo (Structure)
 
     @model_coords.setter
     def model_coords(self, coords):
-        if isinstance(coords, Coords):
+        # if isinstance(coords, Coords):
+        try:
+            coords.coords
             self._model_coords = coords
-        else:
+        # else:
+        except AttributeError:
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
@@ -935,7 +940,7 @@ class SymmetricModel(Model):
         # self.pdb = pdb
         # self.models = []
         # self.coords = []
-        # self.model_coords = []
+        # self.model_coords = [] <- designated as symmetric_coords
         self.assembly_tree = None  # stores a sklearn tree for coordinate searching
         self.asu_equivalent_model_idx = None
         self.coords_type = None  # coords_type
@@ -955,19 +960,20 @@ class SymmetricModel(Model):
     @classmethod
     def from_assembly(cls, assembly, symmetry=None):
         assert symmetry, 'Currently, can\'t initialize a symmetric model without the symmetry! Pass symmetry during ' \
-                         'Class initialization. Or add a scout symmetry Class method to SymmetricModel.'
+                         'Class initialization. Or add a Class method to scout for symmetry to SymmetricModel...'
         return cls(models=assembly, **symmetry)
 
     @classmethod
-    def from_asu(cls, asu, generate_symmetry_mates=True, **kwargs):
-        """From an Structure representing an asu, return the SymmetricModel with generated symmetry mates
+    def from_asu(cls, asu, **kwargs):  # generate_symmetry_mates=True
+        """From a Structure representing an asu, return the SymmetricModel with generated symmetry mates
 
         Keyword Args:
+            # generate_symmetry_mates=True (bool): Whether the symmetric copies of the ASU model should be generated
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Returns:
             (SymmetricModel)
         """
-        return cls(asu=asu, generate_symmetry_mates=generate_symmetry_mates, **kwargs)
+        return cls(asu=asu, **kwargs)  # generate_symmetry_mates=generate_symmetry_mates,
 
     @property
     def asu(self):
@@ -1026,6 +1032,14 @@ class SymmetricModel(Model):
     # @number_of_uc_symmetry_mates.setter
     # def number_of_uc_symmetry_mates(self, number_of_uc_symmetry_mates):
     #     self._number_of_uc_symmetry_mates = number_of_uc_symmetry_mates
+    @property
+    def symmetric_coords(self):
+        """Return a view of the symmetric Coords"""
+        return self._model_coords.coords
+
+    @symmetric_coords.setter
+    def symmetric_coords(self, coords):
+        self.model_coords = coords
 
     @property
     def center_of_mass_symmetric(self):
@@ -1034,9 +1048,9 @@ class SymmetricModel(Model):
         Returns:
             (numpy.ndarray)
         """
-        if self.symmetry:
-            return np.matmul(np.full(self.number_of_atoms * self.number_of_symmetry_mates,
-                                     1 / self.number_of_atoms * self.number_of_symmetry_mates), self.model_coords)
+        # if self.symmetry:
+        return np.matmul(np.full(self.number_of_atoms * self.number_of_symmetry_mates,
+                                 1 / self.number_of_atoms * self.number_of_symmetry_mates), self.symmetric_coords)
 
     @property
     def center_of_mass_symmetric_models(self):
@@ -1045,10 +1059,10 @@ class SymmetricModel(Model):
         Returns:
             (numpy.ndarray)
         """
-        if self.symmetry:
-            number_of_atoms = self.number_of_atoms
-            return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms),
-                             np.split(self.model_coords, self.number_of_symmetry_mates))
+        # if self.symmetry:
+        number_of_atoms = self.number_of_atoms
+        return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms),
+                         np.split(self.symmetric_coords, self.number_of_symmetry_mates))
 
     @property
     def center_of_mass_symmetric_entities(self):
@@ -1057,14 +1071,14 @@ class SymmetricModel(Model):
         Returns:
             (numpy.ndarray)
         """
-        if self.symmetry:
-            split_models = np.split(self.model_coords, self.number_of_symmetry_mates)
-            self._center_of_mass_symmetric_entities = []
-            for number_of_atoms, entity_indices in zip(self.number_of_atoms_per_entity, self.atom_indices_per_entity):
-                self._center_of_mass_symmetric_entities.append(
-                    np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), split_models[:, [entity_indices]]))
+        # if self.symmetry:
+        split_models = np.split(self.symmetric_coords, self.number_of_symmetry_mates)
+        self._center_of_mass_symmetric_entities = []
+        for number_of_atoms, entity_indices in zip(self.number_of_atoms_per_entity, self.atom_indices_per_entity):
+            self._center_of_mass_symmetric_entities.append(
+                np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), split_models[:, [entity_indices]]))
 
-            return self._center_of_mass_symmetric_entities
+        return self._center_of_mass_symmetric_entities
 
     @property
     def assembly(self) -> Structure:
@@ -1084,18 +1098,16 @@ class SymmetricModel(Model):
                 self.log.debug('Found selected models %s for assembly' % selected_models)
             else:
                 selected_models = list(range(self.number_of_models))
-            self._assembly = \
-                PDB.from_chains(list(iter_chain.from_iterable(model.chains for idx, model in enumerate(self.models)
-                                                              if idx in selected_models)),
-                                name='assembly', log=self.log, biomt_record=self.format_biomt(),
-                                cryst_record=self.cryst_record)
+
+            chains = []
+            for idx in selected_models:
+                chains.extend(self.models[idx].chains)
+            self._assembly = PDB.from_chains(chains, name='assembly', log=self.log, biomt_record=self.format_biomt(),
+                                             cryst_record=self.cryst_record)
             return self._assembly
 
-    # def write_assembly(self, out_path=os.getcwd(), file_handle=None, increment_chains=False, **kwargs):
-    #     self.assembly.write()
-
     def set_symmetry(self, sym_entry=None, expand_matrices=None, symmetry=None, cryst1=None, uc_dimensions=None,
-                     generate_assembly=True, generate_symmetry_mates=False, **kwargs):
+                     generate_assembly_coords=True, generate_symmetry_mates=False, **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required
@@ -1104,10 +1116,10 @@ class SymmetricModel(Model):
             sym_entry=None (SymEntry):
             expand_matrices=None (list[list[list]]]):
             symmetry=None (str):
-            cryst1=None (str):
+            cryst1=None (str): The unit cell dimensions in PDB CRYST1 format
             uc_dimensions=None (Iterable): # TODO
-            generate_assembly=True (bool):
-            generate_symmetry_mates=False (bool):
+            generate_assembly_coords=True (bool): Whether the symmetric coords should be generated from the ASU coords
+            generate_symmetry_mates=False (bool): Whether the symmetric models should be generated from the ASU model
             return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
@@ -1145,7 +1157,7 @@ class SymmetricModel(Model):
             else:  # when a point group besides T, O, or I is provided
                 raise DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s and add '
                                   'to the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
-        elif not symmetry:
+        else:  # elif not symmetry:
             return  # no symmetry was provided
 
         if expand_matrices:
@@ -1154,12 +1166,12 @@ class SymmetricModel(Model):
             self.expand_matrices = get_ptgrp_sym_op(self.symmetry) if self.dimension == 0 \
                 else self.get_sg_sym_op(self.symmetry)  # ensure symmetry is Hermann–Mauguin notation
 
-        if self.asu and generate_assembly:
-            self.generate_symmetric_assembly(**kwargs)
+        if self.asu and generate_assembly_coords:
+            self.generate_symmetric_coords(**kwargs)
             if generate_symmetry_mates:
                 self.get_assembly_symmetry_mates(**kwargs)
 
-    def generate_symmetric_assembly(self, **kwargs):
+    def generate_symmetric_coords(self, **kwargs):
         """Expand the asu using self.symmetry for the symmetry specification, and optional unit cell dimensions if
         self.dimension > 0. Expands assembly to complete point group, unit cell, or surrounding unit cells
 
@@ -1253,7 +1265,7 @@ class SymmetricModel(Model):
 
         Sets:
             self.number_of_symmetry_mates (int)
-            self.model_coords (numpy.ndarray)
+            self.symmetric_coords (numpy.ndarray)
         """
         if return_side_chains:  # get different function calls depending on the return type # todo
             # get_pdb_coords = getattr(PDB, 'coords')
@@ -1267,7 +1279,7 @@ class SymmetricModel(Model):
         model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
         for idx, rot in enumerate(self.expand_matrices):
             model_coords[idx * coords_length: (idx + 1) * coords_length] = np.matmul(self.coords, np.transpose(rot))
-        self.model_coords = Coords(model_coords)
+        self.symmetric_coords = Coords(model_coords)
 
     def get_unit_cell_coords(self, return_side_chains=True, surrounding_uc=True, **kwargs):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell
@@ -1277,7 +1289,7 @@ class SymmetricModel(Model):
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Sets:
             self.number_of_symmetry_mates (int)
-            self.model_coords (numpy.ndarray)
+            self.symmetric_coords (numpy.ndarray)
         """
         if return_side_chains:  # get different function calls depending on the return type  # todo
             # get_pdb_coords = getattr(PDB, 'coords')
@@ -1305,7 +1317,7 @@ class SymmetricModel(Model):
             # uc_number = 1
             coords = self.return_unit_cell_coords(self.coords)
 
-        self.model_coords = Coords(coords)
+        self.symmetric_coords = Coords(coords)
 
     def return_assembly_symmetry_mates(self, **kwargs) -> List[Structure]:
         """Return symmetry mates as a collection of Structures with symmetric coordinates
@@ -1357,8 +1369,8 @@ class SymmetricModel(Model):
         number_of_atoms = self.number_of_atoms
         for model_idx in range(number_of_models):
             symmetry_mate_pdb = copy(self.asu)
-            symmetry_mate_pdb.replace_coords(self.model_coords[(model_idx * number_of_atoms):
-                                                               ((model_idx + 1) * number_of_atoms)])
+            symmetry_mate_pdb.replace_coords(self.symmetric_coords[(model_idx * number_of_atoms):
+                                                                   ((model_idx + 1) * number_of_atoms)])
             self.models.append(symmetry_mate_pdb)
 
     def find_asu_equivalent_symmetry_model(self):
@@ -1375,12 +1387,12 @@ class SymmetricModel(Model):
         template_atom_coords, template_atom_index = template_atom.ca_coords, template_atom.ca_atom_index
         asu_size = len(self.coords)
         for model_num in range(self.number_of_symmetry_mates):
-            # print(self.model_coords[(model_num * coords_length) + template_atom_index])
+            # print(self.symmetric_coords[(model_num * coords_length) + template_atom_index])
             # print(template_atom_coords ==
-            #         self.model_coords[(model_num * coords_length) + template_atom_index])
-            if np.allclose(template_atom_coords, self.model_coords[(model_num * asu_size) + template_atom_index]):
+            #         self.symmetric_coords[(model_num * coords_length) + template_atom_index])
+            if np.allclose(template_atom_coords, self.symmetric_coords[(model_num * asu_size) + template_atom_index]):
                 # if (template_atom_coords ==
-                #         self.model_coords[(model_num * coords_length) + template_atom_index]).all():
+                #         self.symmetric_coords[(model_num * coords_length) + template_atom_index]).all():
                 self.asu_equivalent_model_idx = model_num
                 return
 
@@ -1412,8 +1424,8 @@ class SymmetricModel(Model):
             for model_num in range(self.number_of_symmetry_mates):
                 sym_model_center_of_mass = \
                     np.matmul(entity_center_of_mass_divisor,
-                              self.model_coords[(model_num * asu_size) + entity_start:
-                                                (model_num * asu_size) + entity_end + 1])
+                              self.symmetric_coords[(model_num * asu_size) + entity_start:
+                                                    (model_num * asu_size) + entity_end + 1])
                 #                                             have to add 1 for slice ^
                 # print('Sym Model', sym_model_center_of_mass)
                 # if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
@@ -1470,7 +1482,7 @@ class SymmetricModel(Model):
     def return_asu_equivalent_symmetry_mate_indices(self):
         """Find the coordinate indices of the asu equivalent model in the SymmetricModel. Zero-indexed
 
-        self.model_coords must be from all atoms which by default is True
+        self.symmetric_coords must be from all atoms which is True by default
         Returns:
             (list): The indices in the SymmetricModel where the ASU is also located
         """
@@ -1483,7 +1495,7 @@ class SymmetricModel(Model):
     def return_intra_oligomeric_symmetry_mate_indices(self, entity):
         """Find the coordinate indices of the intra-oligomeric equivalent models in the SymmetricModel. Zero-indexed
 
-        self.model_coords must be from all atoms which is True by default
+        self.symmetric_coords must be from all atoms which is True by default
         Args:
             entity (Entity): The Entity with oligomeric chains to query for corresponding symmetry mates
         Returns:
@@ -1501,7 +1513,7 @@ class SymmetricModel(Model):
     def find_asu_interaction_indices(self, **kwargs):
         """Find the coordinate indices for the models in the SymmetricModel interacting with the asu. Zero-indexed
 
-        self.model_coords must be from all atoms which is True by default
+        self.symmetric_coords must be from all atoms which is True by default
         Keyword Args:
             calculate_contacts=False (bool): Whether to calculate interacting models by atomic contacts. If this
                 argument is True, the value passed to distance will be the contact distance
@@ -1933,7 +1945,7 @@ class SymmetricModel(Model):
             raise DesignError('Cannot check if the assembly is clashing as it has no symmetry!')
         elif self.number_of_symmetry_mates == 1:
             raise DesignError('Cannot check if the assembly is clashing without first calling %s'
-                              % self.generate_symmetric_assembly.__name__)
+                              % self.generate_symmetric_coords.__name__)
 
         if self.coords_type != 'bb_cb':
             # Need to select only coords that are BB or CB from the model coords
@@ -1942,7 +1954,7 @@ class SymmetricModel(Model):
             asu_indices = None
 
         self.generate_assembly_tree()
-        # clashes = asu_coord_tree.two_point_correlation(self.model_coords[model_indices_without_asu], [distance])
+        # clashes = asu_coord_tree.two_point_correlation(self.symmetric_coords[model_indices_without_asu], [distance])
         clashes = self.assembly_tree.two_point_correlation(self.coords[asu_indices], [distance])
         if clashes[0] > 0:
             self.log.warning('%s: Found %d clashing sites! Pose is not a viable symmetric assembly'
@@ -1972,7 +1984,7 @@ class SymmetricModel(Model):
                                              for model_number in range(self.number_of_symmetry_mates)
                                              for idx in asu_indices])
         else:  # we will grab every coord in the model
-            model_indices_filter = np.array(list(range(len(self.model_coords))))
+            model_indices_filter = np.arange(len(self.symmetric_coords))
             asu_indices = None
 
         # make a boolean mask where the model indices of interest are True
@@ -1986,8 +1998,8 @@ class SymmetricModel(Model):
             '%s: Ran into an issue indexing' % self.symmetric_assembly_is_clash.__name__
 
         # asu_coord_tree = BallTree(self.coords[asu_indices])
-        # return BallTree(self.model_coords[model_indices_without_asu])
-        self.assembly_tree = BallTree(self.model_coords[model_indices_without_asu])
+        # return BallTree(self.symmetric_coords[model_indices_without_asu])
+        self.assembly_tree = BallTree(self.symmetric_coords[model_indices_without_asu])
 
     def format_biomt(self, **kwargs):
         """Return the expand_matrices as a BIOMT record
@@ -2077,8 +2089,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
 
         super().__init__(**kwargs)  # will only generate an assembly if an ASU is present
-        # super().__init__(**kwargs)
-        # self.set_symmetry(**symmetry_kwargs)
 
         frag_db = kwargs.get('frag_db')
         if frag_db:  # Attach existing FragmentDB to the Pose
@@ -2099,9 +2109,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def from_pdb_file(cls, pdb_file, **kwargs):
         return cls(pdb_file=pdb_file, **kwargs)
 
-    @classmethod
-    def from_asu(cls, asu, **kwargs):
-        return cls(asu=asu, **kwargs)
+    # @classmethod
+    # def from_asu(cls, asu, **kwargs):
+    #     return cls(asu=asu, **kwargs)
 
     @classmethod
     def from_asu_file(cls, asu_file, **kwargs):
@@ -2545,7 +2555,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 self.log.debug('Number of indices before removal of \'self\' indices: %s' % len(entity2_indices))
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
                 self.log.debug('Final indices remaining after removing \'self\': %s' % len(entity2_indices))
-            entity2_coords = self.model_coords[entity2_indices]  # only get the coordinate indices we want
+            entity2_coords = self.symmetric_coords[entity2_indices]  # only get the coordinate indices we want
         elif entity1 == entity2:
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
@@ -2653,9 +2663,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         for residue in residues2:
             entity2_indices.extend(residue.heavy_atom_indices)
 
-        coords_length = len(self.coords)
-        if self.symmetry:
-            # get all symmetric indices
+        if self.symmetry:  # get all symmetric indices
+            coords_length = len(self.coords)
             entity2_indices = [idx + (coords_length * model_number)
                                for model_number in range(self.number_of_symmetry_mates) for idx in entity2_indices]
 
@@ -2984,9 +2993,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.log.debug('Entities: %s' % ', '.join(entity.name for entity in self.entities))
         self.log.debug('Active Entities: %s' % ', '.join(entity.name for entity in self.active_entities))
         # self.log.debug('Designable Residues: %s' % ', '.join(entity.name for entity in self.design_selector_indices))
-        # self.log.info('Symmetry is: %s' % symmetry)
-        # if symmetry and isinstance(symmetry, dict):
-        #     self.set_symmetry(**symmetry)
 
         # we get interface residues for the designable entities as well as interface_topology at DesignDirectory level
         if fragments:
