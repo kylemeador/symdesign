@@ -2202,7 +2202,7 @@ def distribution_divergence(frequencies, bgd_frequencies, lambda_=0.5):
             continue
         try:
             with warnings.catch_warnings() as w:
-                # Cause all warnings to always be triggered.
+                # Cause all warnings to always be ignored
                 warnings.simplefilter('ignore')
                 try:
                     prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
