@@ -635,7 +635,7 @@ if __name__ == '__main__':
                                             % (PUtils.submodule_guide, PUtils.submodule_help))
     parser.add_argument('-sdb', '--skip_master_db', action='store_true',
                         help='Skip loading of the entire master database, instead opting to load on the fly')
-    parser.add_argument('-se', '--sym_entry', type=int, default=None,
+    parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
                         help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
     parser.add_argument('-F', '--%s' % PUtils.force_flags, action='store_true',
                         help='Force generation of a new flags file to update script parameters')

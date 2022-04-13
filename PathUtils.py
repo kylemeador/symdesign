@@ -204,7 +204,8 @@ protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'a
 
 
 # help and warnings
-warn_missing_symmetry = 'Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\' or \'--sym_entry\''
+warn_missing_symmetry = \
+    'Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\' or \'--%s\'' % ('%s', sym_entry)
 
 
 def help(module):  # command is SymDesign.py
