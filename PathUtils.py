@@ -14,6 +14,7 @@ submodule_help = '%s MODULE --help' % program_command
 guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
 sym_entry = 'sym_entry'
 nano = 'nanohedra'
+refine = 'refine'
 interface_design = 'interface_design'
 interface_metrics = 'interface_metrics'
 generate_fragments = 'generate_fragments'
@@ -48,10 +49,10 @@ if not rosetta:
           % ', '.join(search_strings))
 
 nstruct = 20  # Todo back to 50?
-stage = {1: 'refine', 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
+stage = {1: refine, 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
          11: 'all_to_cluster', 12: scout, 13: 'hbnet_design_profile', 14: structure_background}
-stage_f = {stage[1]: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
+stage_f = {refine: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
            stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
            stage[5]: {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
            stage[6]: {'path': '', 'len': None}, stage[7]: {'path': '', 'len': None},

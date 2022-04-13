@@ -502,14 +502,13 @@ def terminate(results=None, output=True):
             command_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % stage) for design in success],
                                                   out_path=job_paths, name='_'.join(default_output_tuple))
             sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module)
-            #                                                                    ^ for sbatch template
+            #                                                                        ^ for sbatch template
             logger.critical(sbatch_warning)
             if args.module == PUtils.interface_design and not job.pre_refine:  # must refine before design
-                refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % 'refine')
+                refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % PUtils.refine)
                                                       for design in success], out_path=job_paths,
-                                                     name='_'.join((SDUtils.starttime, 'refine', design_source)))
-                sbatch_refine_file = \
-                    distribute(file=refine_file, out_path=job.sbatch_scripts, scale='refine')
+                                                     name='_'.join((SDUtils.starttime, PUtils.refine, design_source)))
+                sbatch_refine_file = distribute(file=refine_file, out_path=job.sbatch_scripts, scale=PUtils.refine)
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s\nTHEN:\n\tsbatch '
                             '%s' % (sbatch_refine_file, sbatch_file))
             else:
@@ -667,10 +666,10 @@ if __name__ == '__main__':
                                                'order. Useful for writing a multi-model as distinct chains or fixing '
                                                'common PDB formatting errors as well. Writes to design directory')
     # ---------------------------------------------------
-    parser_check_clashes = \
-        subparsers.add_parser('check_clashes',
-                              help='Check for clashes between full models. Useful for understanding if loops are '
-                                   'missing, whether their modelled density is compatible with the pose')
+    parser_clashes = subparsers.add_parser('check_clashes',
+                                           help='Check for clashes between full models. Useful for understanding '
+                                                'if loops are missing, whether their modelled density is '
+                                                'compatible with the pose')
     # ---------------------------------------------------
     parser_dock = subparsers.add_parser(PUtils.nano,
                                         help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, '
@@ -748,7 +747,7 @@ if __name__ == '__main__':
     parser_design.add_argument('-n', '--%s' % PUtils.number_of_trajectories, type=int, default=PUtils.nstruct,
                                help='How many unique sequences should be generated for each input?')
     parser_design.add_argument('-sb', '--%s' % PUtils.structure_background, action='store_true',
-                               help='Whether to set up a low resolution scouting protocol to survey designability')
+                               help='Whether to skip all constraints and measure the structure in an optimal context')
     parser_design.add_argument('-sc', '--%s' % PUtils.scout, action='store_true',
                                help='Whether to set up a low resolution scouting protocol to survey designability')
     # parser_design.add_argument('-i', '--fragment_database', type=str,
@@ -757,45 +756,40 @@ if __name__ == '__main__':
     #                                                   list(PUtils.frag_directory.keys())[0]),
     #                            default=list(PUtils.frag_directory.keys())[0])
     # ---------------------------------------------------
-    parser_interface_metrics = \
-        subparsers.add_parser('interface_metrics',
-                              help='Set up RosettaScript to analyze interface metrics from an interface design job')
-    parser_interface_metrics.add_argument('-sp', '--specific_protocol', type=str,
-                                          help='The specific protocol to perform interface_metrics on')
+    parser_metrics = subparsers.add_parser('interface_metrics',
+                                           help='Set up RosettaScript to analyze interface metrics from a pose')
+    parser_metrics.add_argument('-sp', '--specific_protocol', type=str,
+                                help='The specific protocol to perform interface_metrics on')
     # ---------------------------------------------------
-    parser_optimize_designs = \
-        subparsers.add_parser('optimize_designs',
-                              help='Optimize and touch up designs after running an interface design job. Useful for '
-                                   'reverting excess mutations to wild-type, or directing targeted exploration of '
-                                   'specific troublesome areas.')
+    parser_optimize_designs = subparsers.add_parser('optimize_designs',
+                                                    help='Optimize and touch up designs after running interface design.'
+                                                         ' Useful for reverting excess mutations to wild-type, or '
+                                                         'directing targeted exploration of specific troublesome areas')
     # ---------------------------------------------------
-    parser_custom_script = \
-        subparsers.add_parser('custom_script',
-                              help='Set up a custom RosettaScripts.xml for designs. The custom_script will be provided '
-                                   'to every directory specified and can be run with a number of options specified '
-                                   'below')
-    parser_custom_script.add_argument('-l', '--file_list', action='store_true',
-                                      help='Whether to use already produced designs in the designs/ directory')
-    parser_custom_script.add_argument('-n', '--native', type=str,
-                                      help='What structure to use as a \'native\' structure for Rosetta reference '
-                                           'calculations. Default=refined_pdb',
-                                      choices=['source', 'asu', 'assembly', 'refine_pdb', 'refined_pdb',
-                                               'consensus_pdb', 'consensus_design_pdb'])
-    parser_custom_script.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
-    parser_custom_script.add_argument('script', type=os.path.abspath, help='The location of the custom script')
-    parser_custom_script.add_argument('--suffix', type=str, metavar='SUFFIX',
-                                      help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
-                                           '\'decoy_SUFFIX\') to identify this protocol. No extension will be included')
-    parser_custom_script.add_argument('-v', '--variables', type=str, nargs='*',
-                                      help='Additional variables that should be populated in the script. Provide a list'
-                                           ' of such variables with the format \'variable1=value variable2=value\'. '
-                                           'Where variable1 is a RosettaScripts %%%%variable1%%%% and value is a' 
-                                           # ' either a'  # Todo
-                                           ' known value'
-                                           # ' or an attribute available to the Pose object'
-                                           '. For variables that must'
-                                           ' be calculated on the fly for each design, please modify the Pose.py class '
-                                           'to produce a method that can generate an attribute with the specified name')
+    parser_custom = subparsers.add_parser('custom_script',
+                                          help='Set up a custom RosettaScripts.xml for designs. The custom '
+                                               'script will be run in every pose specified using specified options')
+    parser_custom.add_argument('-l', '--file_list', action='store_true',
+                               help='Whether to use already produced designs in the designs/ directory')
+    parser_custom.add_argument('-n', '--native', type=str, help='What structure to use as a \'native\' structure for '
+                                                                'Rosetta reference calculations. Default=refined_pdb',
+                               choices=['source', 'asu', 'assembly', 'refine_pdb', 'refined_pdb', 'consensus_pdb',
+                                        'consensus_design_pdb'])
+    parser_custom.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
+    parser_custom.add_argument('script', type=os.path.abspath, help='The location of the custom script')
+    parser_custom.add_argument('--suffix', type=str, metavar='SUFFIX',
+                               help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
+                                    '\'decoy_SUFFIX\') to identify this protocol. No extension will be included')
+    parser_custom.add_argument('-v', '--variables', type=str, nargs='*',
+                               help='Additional variables that should be populated in the script. Provide a list'
+                                    ' of such variables with the format \'variable1=value variable2=value\'. '
+                                    'Where variable1 is a RosettaScripts %%%%variable1%%%% and value is a' 
+                                    # ' either a'  # Todo
+                                    ' known value'
+                                    # ' or an attribute available to the Pose object'
+                                    '. For variables that must'
+                                    ' be calculated on the fly for each design, please modify the Pose.py class '
+                                    'to produce a method that can generate an attribute with the specified name')
     # ---------------------------------------------------
     parser_analysis = subparsers.add_parser(PUtils.analysis,
                                             help='Analyze all designs specified. %s --guide %s will inform you about '

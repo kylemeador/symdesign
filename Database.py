@@ -281,10 +281,10 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
             # if sym != 'C1':
             refine_cmd = ['@%s' % flags_file, '-parser:protocol',
-                          os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1])]
+                          os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine)]
             # else:
             #     refine_cmd = ['@%s' % flags_file, '-parser:protocol',
-            #                   os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[1]),
+            #                   os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine),
             #                   '-parser:script_vars']
             refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
                            ['sdf=%s' % sym_def_files[entity.symmetry],
@@ -292,8 +292,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                            for entity in entities_to_refine]
             commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds],
                                                    name='%s-refine_oligomers' % SDUtils.starttime, out_path=refine_dir)
-            refine_sbatch = distribute(file=commands_file, out_path=script_outpath, scale='refine',
-                                       log_file=os.path.join(refine_dir, 'refine.log'),
+            refine_sbatch = distribute(file=commands_file, out_path=script_outpath, scale=PUtils.refine,
+                                       log_file=os.path.join(refine_dir, '%s.log' % PUtils.refine),
                                        max_jobs=int(len(refine_cmds) / 2 + 0.5),
                                        number_of_commands=len(refine_cmds))
             print('\n' * 2)
