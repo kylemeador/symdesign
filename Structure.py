@@ -204,7 +204,7 @@ class Structure(StructureBase):
         """Replace the Structure, Atom, and Residue coordinates with specified Coords Object or numpy.ndarray"""
         try:
             coords.coords
-        except AttributeError:
+        except AttributeError:  # not yet a Coords object, so create one
             coords = Coords(coords)
         self._coords = coords
 
@@ -4265,7 +4265,7 @@ class Coords:
         if coords is not None:
             self.coords = np.array(coords)
         else:
-            self.coords = []
+            self.coords = np.array([])
 
     # @property
     # def coords(self):
