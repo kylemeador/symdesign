@@ -695,11 +695,11 @@ class PDB(Structure):
             # Todo fix this to be more precise
             raise RuntimeError(error_string)
 
+        oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
         if multicomponent:
-            oriented_pdb = PDB.from_file(orient_output)
             _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), self.entities[0].get_cb_coords())
         else:
-            oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
+            # oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
             _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), self.chains[0].get_cb_coords())
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
