@@ -327,7 +327,11 @@ class SymEntry:
             print('NO EXT REF TX')
             self.ext_dof = np.empty((0, 3), float)  # <- np.array([[0.], [0.], [0.]])
         else:
+            print('self.external_dof1', self.external_dof1)
+            print('self.external_dof2', self.external_dof2)
             difference_matrix = self.external_dof2 - self.external_dof1
+            print('difference_matrix', difference_matrix)
+            print('ext_dof', ext_dof)
             # for entry 6 - string_vector is 4*e, 4*e, 4*e
             # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
             # (^).sum(axis=1(-2)) = [4, 4, 4]
