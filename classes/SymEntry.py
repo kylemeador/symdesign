@@ -330,8 +330,9 @@ class SymEntry:
             # for entry 6 - string_vector is 4*e, 4*e, 4*e
             # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
             # (^).sum(axis=1(-2)) = [4, 4, 4]
-            flat_difference_matrix = difference_matrix.sum(axis=-2)
-            self.ext_dof = flat_difference_matrix[np.nonzero(flat_difference_matrix)][:, None]
+            # flat_difference_matrix = difference_matrix.sum(axis=-2)
+            # self.ext_dof = flat_difference_matrix[np.nonzero(flat_difference_matrix)][:, None]
+            self.ext_dof = difference_matrix[:, np.nonzero(difference_matrix.sum(axis=-2))[0]]
             # for idx in range(3):
             #     if difference_sum[idx] != 0:
             #         ext_dof_indices.append(idx)
