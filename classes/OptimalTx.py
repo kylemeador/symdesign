@@ -164,6 +164,8 @@ class OptimalTx:
 
         # below is inverse dof covariance matrix/variance * dof guide_atom_delta sum / variance
         # shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
+        print('self.dof9t_dof9', self.dof9t_dof9)
+        print('tiled_array', np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)))
         shift = np.matmul(np.linalg.inv(np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)) / var_tot),
                           np.matmul(np.tile(self.dof9_t, (coords1.shape[0], 1, 1)), guide_delta) / var_tot)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
 
