@@ -728,6 +728,17 @@ class Model:  # Todo (Structure)
         return [entity.atom_indices for entity in self.pdb.entities]
 
     @property
+    def atom_indices_per_entity_model(self):
+        # alt solution may be quicker by performing the following multiplication then .flatten()
+        # broadcast entity_indices ->
+        # (np.arange(model_number) * coords_length).T
+        # |
+        # v
+        coords_length = len(self.coords)
+        return [[idx + (coords_length * model_number) for model_number in range(self.number_of_models)
+                 for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
+
+    @property
     def residue_indices_per_entity(self):
         return [entity.residue_indices for entity in self.pdb.entities]
 
@@ -1034,6 +1045,19 @@ class SymmetricModel(Model):
     # def number_of_uc_symmetry_mates(self, number_of_uc_symmetry_mates):
     #     self._number_of_uc_symmetry_mates = number_of_uc_symmetry_mates
     @property
+    def atom_indices_per_entity_symmetric(self):
+        # Todo make Structure .atom_indices a numpy array
+        #  Need to modify delete_residue and insert residue ._atom_indices attribute access
+        # alt solution may be quicker by performing the following multiplication then .flatten()
+        # broadcast entity_indices ->
+        # (np.arange(model_number) * coords_length).T
+        # |
+        # v
+        coords_length = len(self.coords)
+        return [[idx + (coords_length * model_number) for model_number in range(self.number_of_symmetry_mates)
+                 for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
+
+    @property
     def symmetric_coords(self):
         """Return a view of the symmetric Coords"""
         return self._model_coords.coords
@@ -1041,6 +1065,54 @@ class SymmetricModel(Model):
     @symmetric_coords.setter
     def symmetric_coords(self, coords):
         self.model_coords = coords
+
+    @property
+    def symmetric_coords_split(self):
+        """A view of the symmetric coords split at different symmetric models
+
+        Returns:
+            (list[numpy.ndarray])
+        """
+        try:
+            return self._symmetric_coords_split
+        except AttributeError:
+            self._symmetric_coords_split = np.split(self.symmetric_coords, self.number_of_symmetry_mates)
+            #                     np.array()  # seems costly
+            return self._symmetric_coords_split
+
+    @property
+    def symmetric_coords_split_by_entity(self):
+        """A view of the symmetric coords split by Entity indices
+
+        Returns:
+            (list[list[numpy.ndarray]])
+        """
+        try:
+            return self._symmetric_coords_split_by_entity
+        except AttributeError:
+            symmetric_coords_split = self.symmetric_coords_split
+            self._symmetric_coords_split_by_entity = []
+            for entity_indices in self.atom_indices_per_entity:
+                # self._symmetric_coords_split_by_entity.append(symmetric_coords_split[:, entity_indices])
+                self._symmetric_coords_split_by_entity.append([symmetric_split[entity_indices] for symmetric_split in symmetric_coords_split])
+
+            return self._symmetric_coords_split_by_entity
+
+    @property
+    def symmetric_coords_by_entity(self):
+        """A view of the symmetric coords by Entity indices
+
+        Returns:
+            (list[numpy.ndarray])
+        """
+        try:
+            return self._symmetric_coords_by_entity
+        except AttributeError:
+            self._symmetric_coords_by_entity = []
+            for entity_indices in self.atom_indices_per_entity_symmetric:
+                self._symmetric_coords_by_entity.append(self.symmetric_coords[entity_indices])
+
+            return self._symmetric_coords_by_entity
 
     @property
     def center_of_mass_symmetric(self):
@@ -1073,11 +1145,10 @@ class SymmetricModel(Model):
             (numpy.ndarray)
         """
         # if self.symmetry:
-        split_models = np.split(self.symmetric_coords, self.number_of_symmetry_mates)
         self._center_of_mass_symmetric_entities = []
-        for number_of_atoms, entity_indices in zip(self.number_of_atoms_per_entity, self.atom_indices_per_entity):
-            self._center_of_mass_symmetric_entities.append(
-                np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), split_models[:, [entity_indices]]))
+        for number_of_atoms, entity_coords in zip(self.number_of_atoms_per_entity, self.symmetric_coords_split_by_entity):
+            self._center_of_mass_symmetric_entities.append(np.matmul(np.full(number_of_atoms, 1 / number_of_atoms),
+                                                                     entity_coords))  # Todo test if works now
 
         return self._center_of_mass_symmetric_entities
 
