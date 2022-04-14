@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from itertools import repeat
 from math import ceil
 from random import random  # , randint
-from typing import Union
+from typing import Union, List, Dict
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
@@ -2666,6 +2666,36 @@ class Entity(Chain, SequenceProfile):
     #         # invert the translation of the center of mass to the origin
     #         # for all use of these chains in the future, ensure the found transformations are applied to each chain
 
+    @property
+    def oligomer(self):
+        """Access the oligomeric Structure
+
+        Returns:
+            (Structures[Structure]): Structures object with the underlying chains in the oligomer
+            (list[Structure]): The underlying chains in the oligomer
+        """
+        if self.is_oligomeric:
+            # return Structures(self.chains)
+            return self.chains
+        else:
+            self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
+                             'instead' % self.name)
+            # return self
+            return [self]
+
+    def remove_mate_chains(self):
+        """Clear the Entity of all Chain and Oligomer information"""
+        self.chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
+        self.number_of_monomers = 1
+        try:
+            del self._chains
+        except AttributeError:
+            pass
+        try:
+            del self._chain_ids
+        except AttributeError:
+            pass
+
     def make_oligomer(self, symmetry=None, rotation=None, translation=None, rotation2=None, translation2=None):
         #                   transform=None):
         """Given a symmetry and an optional transformational mapping, generate oligomeric copies of the Entity as Chains
@@ -2738,14 +2768,20 @@ class Entity(Chain, SequenceProfile):
         # self.chain_representative.start_indices(dtype='residue', at=self.residue_indices[0])
         # self.chains.append(self.chain_representative)
         self.chain_transforms.clear()
-        self.chain_ids.clear()
+        # self.chain_ids.clear()
+        # try:
+        #     del self._number_of_monomers
+        # except AttributeError:
+        #     pass
         try:
-            del self._number_of_monomers
+            del self._chain_ids
         except AttributeError:
             pass
-        # for idx, rot in enumerate(degeneracy_rotation_matrices[1:], 1):  # exclude the first rotation matrix as it is identity
+
+        number_of_monomers = 0
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
+                number_of_monomers += 1
                 rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=np.array(rotation_matrix))
 
                 # debug_pdb2 = self.chain_representative.__copy__()
@@ -2764,25 +2800,9 @@ class Entity(Chain, SequenceProfile):
                 # # self.chains[idx] = sub_symmetry_mate_pdb
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
+        self.number_of_monomers = number_of_monomers
         # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
-
-    @property
-    def oligomer(self):
-        """Access the oligomeric Structure
-
-        Returns:
-            (Structures[Structure]): Structures object with the underlying chains in the oligomer
-            (list[Structure]): The underlying chains in the oligomer
-        """
-        if self.is_oligomeric:
-            # return Structures(self.chains)
-            return self.chains
-        else:
-            self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
-                             'instead' % self.name)
-            # return self
-            return [self]
 
     def format_seqres(self, asu=True, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
