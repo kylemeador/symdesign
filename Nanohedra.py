@@ -105,7 +105,7 @@ if __name__ == '__main__':
                 # master_log_file.close()
                 exit(1)
             else:
-                master_logger.info('Successfully Oriented %d out of the %d Oligomer Input PDB File(s)\n==> %s\n'
+                master_logger.info('Successfully Oriented %d out of the %d Oligomer 1 Input PDB File(s)\n==> %s\n'
                                    % (len(pdb1_oriented_filepaths), len(pdb1_filepaths), oriented_pdb1_outdir))
 
             if sym_entry.group1 == sym_entry.group2 and '.pdb' not in pdb2_path:

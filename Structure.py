@@ -5,7 +5,7 @@ from collections.abc import Iterable
 from itertools import repeat
 from math import ceil
 from random import random  # , randint
-from typing import Union
+from typing import Union, List, Dict
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
@@ -23,9 +23,9 @@ from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
     retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
-    possible_symmetries
+    cubic_point_groups
 from utils.GeneralUtils import transform_coordinate_sets
-from utils.SymmetryUtils import get_ptgrp_sym_op
+from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number
 
 # globals
 logger = start_log(name=__name__)
@@ -76,8 +76,8 @@ class StructureBase:
     """Collect extra keyword arguments such as:
         chains, entities, seqres, multimodel, pose_format, solve_discrepancy
     """
-    def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, solve_discrepancy=None,
-                 sequence=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
+    def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, sequence=None,
+                 solve_discrepancy=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
                  query_by_sequence=True, entity_names=None, rename_chains=None, biomt=None, biomt_header=None,
                  **kwargs):
         super().__init__(**kwargs)
@@ -116,8 +116,7 @@ class Structure(StructureBase):
             if coords is None:  # assumes that this is a Structure init without existing shared coords
                 try:
                     # coords = [atom.coords for atom in atoms]
-                    coords = np.concatenate([atom.coords for atom in atoms])
-                    self.set_coords(coords=coords)
+                    self.set_coords(coords=np.concatenate([atom.coords for atom in atoms]))
                 except AttributeError:
                     raise DesignError('Can\'t initialize Structure with Atom objects lacking coords when no Coords '
                                       'object is passed! Either pass Atom objects with coords attribute or pass Coords')
@@ -135,12 +134,13 @@ class Structure(StructureBase):
                 # have to copy Residues object to set new attributes on each member Residue
                 self.residues = copy(residues)
                 # set residue attributes, index according to new Atoms/Coords index
-                self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <-done in set_coords
+                self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
                 self._residues.reindex_residue_atoms()
                 self.set_coords(coords=np.concatenate([residue.coords for residue in residues]))
             else:
                 self.residue_indices = residue_indices
                 self.set_residue_slice(residues)
+                self.coords = coords
                 # self.set_residues(residues)
             # if coords is None:  # assumes that this is a Structure init without existing shared coords
             #     # try:
@@ -149,8 +149,8 @@ class Structure(StructureBase):
             #     self.set_coords(coords=coords)
             #     # except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
             #     #     self.coords = None
-        if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
-            self.coords = coords
+        # if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
+        #     self.coords = coords
 
         super().__init__(**kwargs)
 
@@ -204,13 +204,9 @@ class Structure(StructureBase):
         """Replace the Structure, Atom, and Residue coordinates with specified Coords Object or numpy.ndarray"""
         try:
             coords.coords
-        except AttributeError:
+        except AttributeError:  # not yet a Coords object, so create one
             coords = Coords(coords)
         self._coords = coords
-        # if isinstance(coords, Coords):
-        #     self._coords = coords
-        # else:
-        #     self._coords = Coords(coords)
 
         if self._coords.coords.shape[0] != 0:
             assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
@@ -224,8 +220,7 @@ class Structure(StructureBase):
             coords=None (Union[numpy.ndarray, list]): The coordinates to set for the structure
         Only use set_coords once per Structure object creation otherwise Structures with multiple containers will be
         corrupted"""
-        if coords is not None:
-            self.coords = coords
+        self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
         # self.store_coordinate_index_residue_map()
@@ -605,9 +600,14 @@ class Structure(StructureBase):
             self._heavy_atom_indices
             self._helix_cb_indices
         """
-        structure_indices = [attribute for attribute in self.__dict__ if attribute.endswith('_indices')]
+        structure_indices = ['_coords_indexed_backbone_indices', '_coords_indexed_backbone_and_cb_indices',
+                             '_coords_indexed_cb_indices', '_coords_indexed_ca_indices', '_backbone_indices',
+                             '_backbone_and_cb_indices', '_cb_indices', '_ca_indices', '_heavy_atom_indices',
+                             '_helix_cb_indices']
+        # structure_indices = [attribute for attribute in self.__dict__ if attribute.endswith('_indices')]
+        # self.log.info('Deleting the following indices: %s' % structure_indices)
         for structure_index in structure_indices:
-            del structure_index
+            self.__dict__.pop(structure_index, None)
 
     @property
     def coords_indexed_backbone_indices(self):
@@ -1263,7 +1263,11 @@ class Structure(StructureBase):
 
     def replace_coords(self, new_coords):
         """Replace the current Coords array with a new Coords array"""
-        self._coords.coords = new_coords
+        try:
+            new_coords.shape
+            self._coords.coords = new_coords
+        except AttributeError:
+            raise ValueError('The coords passed to %s must be a numpy.ndarray' % self.replace_coords.__name__)
 
     def local_density(self, residue_numbers=None, distance=12.):
         """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
@@ -1361,7 +1365,7 @@ class Structure(StructureBase):
                     atom_idx = coords_indexed_residue_atoms[clashing_atom_idx]
                     # atom = atoms[clashing_atom_idx]
                     atom = other_residue[atom_idx]
-                    if atom.is_backbone() or atom.is_CB():
+                    if atom.is_backbone() or atom.is_cb():
                         backbone_clashes.append((residue, other_residue, atom_idx))
                     elif 'H' not in atom.type:
                         side_chain_clashes.append((residue, other_residue, atom_idx))
@@ -1994,9 +1998,9 @@ class Structure(StructureBase):
     def copy_structures(self):
         """Copy all member Structures that reside in Structure containers"""
         for structure_type in self.structure_containers:
-            structure = getattr(self, structure_type)
-            for idx, instance in enumerate(structure):
-                structure[idx] = copy(instance)
+            structures = getattr(self, structure_type)
+            for idx, structure in enumerate(structures):
+                structures[idx] = copy(structure)
 
     @staticmethod
     def return_chain_generator():
@@ -2015,6 +2019,8 @@ class Structure(StructureBase):
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
         other.__dict__ = self.__dict__.copy()
+        # other.__dict__ = {}  # Todo
+        # for attr, value in self.__dict__.items():  # Todo
         for attr, value in other.__dict__.items():
             other.__dict__[attr] = copy(value)
         other.set_residues_attributes(_coords=other._coords)  # , _atoms=other._atoms)
@@ -2370,13 +2376,12 @@ class Entity(Chain, SequenceProfile):
                          coords=representative._coords, **kwargs)
         self._chains = []
         # self.chain_transforms = []
-        if chains:
-            if len(chains) > 1:
-                self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
-
-            chain_ids = [chains[0].name]
-            self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-            for idx, chain in enumerate(chains[1:]):  # one of these is the representative, but we can treat it the same
+        # if chains:
+        chain_ids = [representative.name]
+        self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
+        if len(chains) > 1:
+            self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
+            for idx, chain in enumerate(chains[1:]):
                 if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
                 else:
@@ -2386,16 +2391,13 @@ class Entity(Chain, SequenceProfile):
                     rot, tx = identity_matrix, origin  # Todo replace these place holders
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 chain_ids.append(chain.name)
-            self.chain_ids = chain_ids
-            # else:  # elif len(chains) == 1:
-            #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-        else:
-            self.chain_ids = [self.chain_id]
-            self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
-            # self.chain_ids = [chain.name for chain in chains]
-            # self.structure_containers.extend(['chains'])
-        # self.reference_sequence = kwargs.get('sequence', self.get_structure_sequence())
-        # self.reference_sequence = kwargs.get('sequence')
+            self.number_of_monomers = len(chains)
+        self.chain_ids = chain_ids
+        # else:  # elif len(chains) == 1:
+        #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
+        # else:
+        #     self.chain_ids = [self.chain_id]
+        #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         # self._uniprot_id = None
         self.uniprot_id = uniprot_id
 
@@ -2413,11 +2415,10 @@ class Entity(Chain, SequenceProfile):
             #                         and setter is not happening because of a copy (no new info, update unimportant)
             if self.is_oligomeric:  # and not (coords.coords == self._coords.coords).all():
                 # each mate chain coords are dependent on the representative (captain) coords, find the transform
-                chains = self.chains
                 self.chain_transforms.clear()
-                for chain in chains:
+                for chain in self.chains:
                     # rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], self.get_cb_coords())
-                    rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], chain.get_cb_coords())
+                    _, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], chain.get_cb_coords())
                     self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 self._chains.clear()
                 # then apply to mates
@@ -2435,7 +2436,12 @@ class Entity(Chain, SequenceProfile):
                                  'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
-    def uniprot_id(self):
+    def uniprot_id(self) -> str:
+        """The UniProt ID for the Entity used for accessing genomic and homology features
+
+        Returns:
+            (str)
+        """
         try:
             return self._uniprot_id
         except AttributeError:
@@ -2459,7 +2465,12 @@ class Entity(Chain, SequenceProfile):
             self._uniprot_id = uniprot_id
 
     @property
-    def chain_id(self):
+    def chain_id(self) -> str:
+        """The Chain name for the Entity instance
+
+        Returns:
+            (str)
+        """
         return self.residues[0].chain
 
     @chain_id.setter
@@ -2468,11 +2479,33 @@ class Entity(Chain, SequenceProfile):
         # self.set_atoms_attributes(chain=chain_id)
 
     @property
-    def chain_ids(self):
+    def number_of_monomers(self) -> int:
+        """The number of copies of the Entity in the Oligomer
+
+        Returns:
+            (int)
+        """
+        try:
+            return self._number_of_monomers
+        except AttributeError:
+            self._number_of_monomers = valid_subunit_number.get(self.symmetry, len(self._chain_ids))
+            return self._number_of_monomers
+
+    @number_of_monomers.setter
+    def number_of_monomers(self, value):
+        self._number_of_monomers = value
+
+    @property
+    def chain_ids(self) -> List:
+        """The names of each Chain found in the Entity
+
+        Returns:
+            (list)
+        """
         try:
             return self._chain_ids
         except AttributeError:  # This shouldn't be possible with the constructor available
-            self._chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+            self._chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
             return self._chain_ids
 
     @chain_ids.setter
@@ -2480,31 +2513,43 @@ class Entity(Chain, SequenceProfile):
         self._chain_ids = chain_ids
 
     @property
-    def chain_transforms(self):
-        self.log.info('%s chain_transform %s' % (self.name, 'start'))
+    def chain_transforms(self) -> List[Dict]:
+        """The specific transformation operators to generate all mate chains of the Oligomer
+
+        Returns:
+            (list[dict])
+        """
+        # self.log.info('%s chain_transform %s' % (self.name, 'start'))
         try:
             return self._chain_transforms
         except AttributeError:
             try:  # this section is only useful if the current instance is an Entity copy
-                self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
-                self._chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
-                current_ca_coords = self.get_ca_coords()
-                _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
-
-                # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
-                #                                     translation=transform['translation'] + tx)
-                #                                for transform in self.__chain_transforms[1:]])
-                # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
-                #                                     rotation2=rot, translation2=tx)
-                #                                for transform in self.__chain_transforms[1:]])
-                for transform in self.__chain_transforms[1:]:
-                    chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
-                                             + transform['translation'], np.transpose(new_rot)) + new_tx
-                    _, rot, tx, _ = superposition3d(current_ca_coords, chain_coords)
-                    self._chain_transforms.append(dict(rotation=rot, translation=tx))
-            except AttributeError:  # no prior_ca_coords
-                self.log.info('%s chain_transform %s' % (self.name, 'LastAttributeError'))
+                # self.log.info('%s chain_transform %s' % (self.name, 'AttributeError'))
                 self._chain_transforms = []
+                # if self.prior_ca_coords is not None:
+                #     self.log.info('prior_ca_coords has not been set but it is not None')
+                #     getattr(self, 'prior_ca_coords')  # try to get exception raised here?
+                # missing_at = 'prior_ca_coords'
+                self.prior_ca_coords
+                if self.is_oligomeric:  # True if multiple chains
+                    current_ca_coords = self.get_ca_coords()
+                    _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
+                    # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
+                    #                                     translation=transform['translation'] + tx)
+                    #                                for transform in self.__chain_transforms[1:]])
+                    # self._chain_transforms.extend([dict(rotation=transform['rotation'], translation=transform['translation'],
+                    #                                     rotation2=rot, translation2=tx)
+                    #                                for transform in self.__chain_transforms[1:]])
+                    # missing_at = '__chain_transforms'
+                    for transform in self.__chain_transforms[1:]:
+                        chain_coords = np.matmul(np.matmul(self.prior_ca_coords, np.transpose(transform['rotation']))
+                                                 + transform['translation'], np.transpose(new_rot)) + new_tx
+                        _, rot, tx, _ = superposition3d(chain_coords, current_ca_coords)
+                        self._chain_transforms.append(dict(rotation=rot, translation=tx))
+                self._chain_transforms.insert(0, dict(rotation=identity_matrix, translation=origin))
+            except AttributeError:  # no prior_ca_coords or __chain_transforms
+                pass
+                # self.log.info('%s chain_transform %s because missing %s' % (self.name, 'LastAttributeError', missing_at))
 
             return self._chain_transforms
 
@@ -2522,6 +2567,8 @@ class Entity(Chain, SequenceProfile):
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
+            self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
+                           % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
                 chain.chain_id = chain_ids[idx]
@@ -2565,6 +2612,11 @@ class Entity(Chain, SequenceProfile):
             return self._disorder
 
     def chain(self, chain_name):
+        """Fetch and return a Chain by name
+
+        Returns:
+            (Entity)
+        """
         for idx, chain_id in enumerate(self.chain_ids):
             if chain_id == chain_name:
                 try:
@@ -2577,7 +2629,7 @@ class Entity(Chain, SequenceProfile):
 
     def retrieve_sequence_from_api(self, entity_id=None):
         if not entity_id:
-            if len(self.name.split('_')) != 2:
+            if len(self.name.split('_')) != 2:  # Todo if name=None then throws attribute error
                 self.log.warning('For Entity method .%s, if an entity_id isn\'t passed and the Entity name %s is not '
                                  'the correct format (1abc_1), the query will fail. Retrieving closest entity_id by PDB'
                                  ' API structure sequence' % (self.retrieve_sequence_from_api.__name__, self.name))
@@ -2614,8 +2666,37 @@ class Entity(Chain, SequenceProfile):
     #         # invert the translation of the center of mass to the origin
     #         # for all use of these chains in the future, ensure the found transformations are applied to each chain
 
+    @property
+    def oligomer(self):
+        """Access the oligomeric Structure
+
+        Returns:
+            (Structures[Structure]): Structures object with the underlying chains in the oligomer
+            (list[Structure]): The underlying chains in the oligomer
+        """
+        if self.is_oligomeric:
+            # return Structures(self.chains)
+            return self.chains
+        else:
+            self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
+                             'instead' % self.name)
+            # return self
+            return [self]
+
+    def remove_mate_chains(self):
+        """Clear the Entity of all Chain and Oligomer information"""
+        self.chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
+        self.number_of_monomers = 1
+        # try:
+        self.chains.clear()
+        # except AttributeError:
+        #     pass
+        try:
+            del self._chain_ids
+        except AttributeError:
+            pass
+
     def make_oligomer(self, symmetry=None, rotation=None, translation=None, rotation2=None, translation2=None):
-        #                   transform=None):
         """Given a symmetry and an optional transformational mapping, generate oligomeric copies of the Entity as Chains
 
         Assumes that the symmetric system treats the canonical symmetric axis as the Z-axis, and if the Entity is not at
@@ -2633,10 +2714,27 @@ class Entity(Chain, SequenceProfile):
         #     translation, rotation, ext_translation, setting_rotation
         # origin = np.array([0., 0., 0.])
         if symmetry == 'C1':  # not symmetric
-            self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]  # Todo is this redundant?
+            # self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]  # Todo is this redundant?
             # This resets the chain_ids which would fuck up the logical permanence of this object!
-            # self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+            # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
             return
+
+        self.symmetry = symmetry
+        if symmetry in cubic_point_groups:
+            # self.symmetry = possible_symmetries.get(symmetry, None)
+            rotation_matrices = get_ptgrp_sym_op(self.symmetry)
+            # Todo may need to add T degeneracy here!
+            degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
+        elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
+            rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
+            # apparently passing the degeneracy matrix first without any specification towards the row/column major
+            # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
+            # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
+            degeneracy_rotation_matrices = \
+                get_degen_rotmatrices(degeneracy_matrices=flip_x_matrix, rotation_matrices=rotation_matrices)
+        else:
+            rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
+            degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
 
         self.is_oligomeric = True
         if rotation is None:
@@ -2647,21 +2745,6 @@ class Entity(Chain, SequenceProfile):
             rotation2 = identity_matrix
         if translation2 is None:
             translation2 = origin
-
-        self.symmetry = symmetry
-        if symmetry in possible_symmetries:  # ['T', 'O', 'I']:
-            self.symmetry = possible_symmetries.get(symmetry, None)
-            rotation_matrices = get_ptgrp_sym_op(self.symmetry)
-            degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
-        elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
-            rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
-            # apparently passing the degeneracy matrix first without any specification towards the row/column major
-            # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
-            # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
-            degeneracy_rotation_matrices = get_degen_rotmatrices(np.array([flip_x_matrix]), rotation_matrices)
-        else:
-            rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
-            degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
         inv_rotation = np.linalg.inv(rotation)
         inv_setting = np.linalg.inv(rotation2)
@@ -2684,10 +2767,20 @@ class Entity(Chain, SequenceProfile):
         # self.chain_representative.start_indices(dtype='residue', at=self.residue_indices[0])
         # self.chains.append(self.chain_representative)
         self.chain_transforms.clear()
-        self.chain_ids.clear()
-        # for idx, rot in enumerate(degeneracy_rotation_matrices[1:], 1):  # exclude the first rotation matrix as it is identity
+        # self.chain_ids.clear()
+        # try:
+        #     del self._number_of_monomers
+        # except AttributeError:
+        #     pass
+        try:
+            del self._chain_ids
+        except AttributeError:
+            pass
+
+        number_of_monomers = 0
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
+                number_of_monomers += 1
                 rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=np.array(rotation_matrix))
 
                 # debug_pdb2 = self.chain_representative.__copy__()
@@ -2706,25 +2799,9 @@ class Entity(Chain, SequenceProfile):
                 # # self.chains[idx] = sub_symmetry_mate_pdb
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
-        # self.chain_ids = list(self.return_chain_generator())[:len(self.chain_transforms)]
+        self.number_of_monomers = number_of_monomers
+        # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
-
-    @property
-    def oligomer(self):
-        """Access the oligomeric Structure
-
-        Returns:
-            (Structures[Structure]): Structures object with the underlying chains in the oligomer
-            (list[Structure]): The underlying chains in the oligomer
-        """
-        if self.is_oligomeric:
-            # return Structures(self.chains)
-            return self.chains
-        else:
-            self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
-                             'instead' % self.name)
-            # return self
-            return [self]
 
     def format_seqres(self, asu=True, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
@@ -2847,7 +2924,7 @@ class Entity(Chain, SequenceProfile):
             self.scout_symmetry()
         # ensure if the structure is dihedral a selected dihedral_chain is orthogonal to the maximum symmetry axis
         max_symmetry_data = self.rotation_d[self.max_symmetry]
-        if len(self.chain_ids) / max_symmetry_data['sym'] == 2:
+        if self.number_of_monomers / max_symmetry_data['sym'] == 2:
             for chain, data in self.rotation_d.items():
                 if data['sym'] == 2:
                     axis_dot_product = np.dot(max_symmetry_data['axis'], data['axis'])
@@ -2859,9 +2936,10 @@ class Entity(Chain, SequenceProfile):
                         else:
                             self.dihedral_chain = chain
                             return True
-        elif 1 < len(self.chain_ids) / max_symmetry_data['sym'] < 2:
+        elif 1 < self.number_of_monomers / max_symmetry_data['sym'] < 2:
             self.log.critical('The symmetry of %s is malformed! Highest symmetry (%d-fold) is less than 2x greater than'
-                              ' the number (%d) of chains' % (self.name, max_symmetry_data['sym'], len(self.chain_ids)))
+                              ' the number (%d) of chains'
+                              % (self.name, max_symmetry_data['sym'], self.number_of_monomers))
 
         return False
 
@@ -2951,7 +3029,7 @@ class Entity(Chain, SequenceProfile):
                 last_jump = idx  # index of lines where the VRTs and connect_virtuals end. The "last jump"
 
         assert set(trunk) - set(virtuals) == set(), 'Symmetry Definition File VRTS are malformed'
-        assert len(self.chain_ids) == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
+        assert self.number_of_monomers == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
 
         if dihedral:  # Remove dihedral connecting (trunk) virtuals: VRT, VRT0, VRT1
             virtuals = [virtual for virtual in virtuals if len(virtual) > 1]  # subunit_
@@ -3157,11 +3235,11 @@ class Entity(Chain, SequenceProfile):
         # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
         # other.update_attributes(residues=other._residues, coords=other._coords)
         if other.is_oligomeric:
-            self.log.info('Copy Entity. Clearing chains, chain_transforms')
+            # self.log.info('Copy Entity. Clearing chains, chain_transforms')
             other._chains.clear()
-            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
-            other.__chain_transforms = other.chain_transforms
+            other.__chain_transforms = other.chain_transforms  # requires update before copy
             del other._chain_transforms
+            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
 
         return other
 
@@ -4240,32 +4318,32 @@ class Atom:
 
 class Coords:
     def __init__(self, coords=None):
-        # self.coords = np.array(coords)  # Todo simplify to this, remove properties
+        # self.coords = np.array(coords)
         if coords is not None:
-            self.coords = coords
+            self.coords = np.array(coords)
         else:
-            self.coords = []
+            self.coords = np.array([])
 
-    @property
-    def coords(self):
-        """This holds the atomic coords which is a view from the Structure that created them"""
-        return self._coords
-
-    @coords.setter
-    def coords(self, coords):
-        self._coords = np.array(coords)
+    # @property
+    # def coords(self):
+    #     """This holds the atomic coords which is a view from the Structure that created them"""
+    #     return self._coords
+    #
+    # @coords.setter
+    # def coords(self, coords):
+    #     self._coords = np.array(coords)
 
     def delete(self, indices):
-        self._coords = np.delete(self._coords, indices, axis=0)
+        self.coords = np.delete(self.coords, indices, axis=0)
 
     def insert(self, new_coords, at=None):
-        self._coords = \
-            np.concatenate((self._coords[:at] if 0 <= at <= len(self._coords) else self._coords, new_coords,
-                            self._coords[at:])
-                           if at else (self._coords[:at] if 0 <= at <= len(self._coords) else self._coords, new_coords))
+        self.coords = \
+            np.concatenate((self.coords[:at] if 0 <= at <= len(self.coords) else self.coords, new_coords,
+                            self.coords[at:])
+                           if at else (self.coords[:at] if 0 <= at <= len(self.coords) else self.coords, new_coords))
 
     def __len__(self):
-        return self._coords.shape[0]
+        return self.coords.shape[0]
 
 
 def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=False, report_quaternion=False):

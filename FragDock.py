@@ -206,7 +206,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # Check if design has any clashes when expanded
         exp_des_clash_time_start = time.time()
         asu.uc_dimensions = uc_dimensions
-        asu.expand_matrices = sym_entry.expand_matrices
+        # asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         #                      surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
         exp_des_clash_time_stop = time.time()
@@ -728,8 +728,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
                     # Get (Oligomer1 Ghost Fragment (rotated), Oligomer2 (rotated) Surface Fragment)
                     # guide coodinate pairs in the same Euler rotational space bucket
-                    log.info('Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler rotational '
-                             'space bucket')
+                    # log.info('Get Ghost Fragment/Surface Fragment guide coordinate pairs in the same Euler rotational '
+                    #          'space bucket')
 
                     euler_start = time.time()
                     # first returned variable has indices increasing 1,1,1,1,1,2,2,2,2,3,4,4,4,...
@@ -745,7 +745,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     # log.debug('Number of matching euler angle pairs REVERSE: %d' % len(overlapping_ghost_frags_rev))
                     # ensure pairs are similar between overlapping_ghost_frags and overlapping_ghost_frags_rev
                     # by indexing the ghost_frag_residues
-                    log.info('Euler Search Took: %f s for %d ghost/surf pairs'
+                    log.info('\tEuler Search Took: %f s for %d ghost/surf pairs'
                              % (euler_time, len(init_ghost_frag1_residues) * len(init_surf_frag2_residues)))
 
                     forward_reverse_comparison_start = time.time()
@@ -799,14 +799,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     # indexing_possible_overlap_time = time.time() - indexing_possible_overlap_start
 
                     forward_reverse_comparison_time = time.time() - forward_reverse_comparison_start
-                    log.info('Indexing %d possible overlap pairs found only %d possible out of %d (took %f s)'
+                    log.info('\tIndexing %d possible overlap pairs found only %d possible out of %d (took %f s)'
                              % (len(overlapping_ghost_frags) * len(overlapping_ghost_frags_rev), possible_overlaps.sum()
                                 , number_overlapping_pairs, forward_reverse_comparison_time))
                     # print('The number of euler overlaps (%d) is equal to the number of possible overlaps (%d)' %
                     #       (len(overlapping_ghost_frags), len(possible_overlaps)))
                     # Get optimal shift parameters for initial (Ghost Fragment, Surface Fragment) guide coordinate pairs
-                    log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
-                             'coordinate pairs')
+                    # log.info('Get optimal shift parameters for the selected Ghost Fragment/Surface Fragment guide '
+                    #          'coordinate pairs')
                     # if rot2_count % 2 == 0:
                     possible_ghost_frag_indices = overlapping_ghost_frags[possible_overlaps]  # bool index the indices
                     possible_surf_frag_indices = overlapping_surf_frags[possible_overlaps]
@@ -876,12 +876,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                         optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,
                                                             np.hstack((blank_vector,) * (sym_entry.n_dof_external -3))))
                         # ^ I think for the sake of cleanliness, I need to make this matrix
-                        # must find positive indices before group_external_dof1 multiplication in case negatives there
+                        # must find positive indices before external_dof1 multiplication in case negatives there
                         positive_indices = \
                             np.where(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) == True)
                         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
-                        stacked_external_tx1 = optimal_ext_dof_shifts[:, :, None] * sym_entry.group_external_dof1
-                        stacked_external_tx2 = optimal_ext_dof_shifts[:, :, None] * sym_entry.group_external_dof2
+                        stacked_external_tx1 = optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1
+                        stacked_external_tx2 = optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2
+                        # Todo check the sum implemented after the concatenate below!
+                        #  Have to sum below over the axis=-2. They are 3x3 right now and should be 1x3
                         full_ext_tx1.append(stacked_external_tx1[positive_indices])
                         full_ext_tx2.append(stacked_external_tx2[positive_indices])
                         full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
@@ -913,9 +915,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                     degen_counts.extend([(degen1_count, degen2_count) for _ in range(final_passing_shifts)])
                     rot_counts.extend([(rot1_count, rot2_count) for _ in range(final_passing_shifts)])
                     tx_counts.extend(list(range(1, final_passing_shifts + 1)))
-                    log.info('Optimal Shift Search Took: %s s for %d guide coordinate pairs'
+                    log.info('\tOptimal Shift Search Took: %s s for %d guide coordinate pairs'
                              % (optimal_shifts_time, len(possible_ghost_frag_indices)))
-                    log.info('%s Initial Interface Fragment Match%s Found'
+                    log.info('\t%s Initial Interface Fragment Match%s Found'
                              % (final_passing_shifts if final_passing_shifts else 'No',
                                 'es' if final_passing_shifts != 1 else ''))
                     # print(rot_counts[-10:], degen_counts[-10:], tx_counts[-10:])
@@ -929,8 +931,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # this returns the vectorized uc_dimensions
     if sym_entry.unit_cell:
         full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
-        full_ext_tx1 = np.concatenate(full_ext_tx1)
-        full_ext_tx2 = np.concatenate(full_ext_tx2)
+        full_ext_tx1 = np.concatenate(full_ext_tx1).sum(axis=-2)
+        full_ext_tx2 = np.concatenate(full_ext_tx2).sum(axis=-2)
     # make full vectorized transformations overwriting individual variables
     full_rotation1 = np.concatenate(full_rotation1)
     full_rotation2 = np.concatenate(full_rotation2)
@@ -1332,20 +1334,23 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
         pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
-        tx_idx = tx_counts[idx]
-        degen1_count, degen2_count = degen_counts[idx]
-        rot1_count, rot2_count = rot_counts[idx]
-        degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
-        rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
-        tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
+        # tx_idx = tx_counts[idx]
+        # degen1_count, degen2_count = degen_counts[idx]
+        # rot1_count, rot2_count = rot_counts[idx]
+        # degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
+        # rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
+        # tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
         entity1 = pdb1_copy.entities[0]
-        entity1.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity1.name))
+        # entity1.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity1.name))
         entity2 = pdb2_copy.entities[0]
-        entity2.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity2.name))
+        # entity2.write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer.pdb' % entity2.name))
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         asu = PDB.from_entities([entity1, entity2], log=log, name='asu',
                                 entity_names=[pdb1_copy.name, pdb2_copy.name], rename_chains=True)
+        # asu.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity2.name))
+        # asu.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_asu.pdb' % entity1.name))
+
         # log.debug('Grabbing asu')
         # if not asu:  # _pdb_1 and not asu_pdb_2:
         #     log.info('\tNO Design ASU Found')
@@ -1355,10 +1360,15 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         exp_des_clash_time_start = time.time()
         if sym_entry.unit_cell:
             asu.uc_dimensions = full_uc_dimensions[idx]
-        asu.expand_matrices = sym_entry.expand_matrices
+        # asu.expand_matrices = sym_entry.expand_matrices
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         # ignore ASU clashes during initialization since already checked ^
         # log.debug('Checked expand clash')
+        # symmetric_material.entities[0].write_oligomer(
+        #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
+        # symmetric_material.entities[1].write_oligomer(
+        #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity1.name))
+
         if symmetric_material.symmetric_assembly_is_clash():
             exp_des_clash_time = time.time() - exp_des_clash_time_start
             log.info('\tBackbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
@@ -1377,8 +1387,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
         degen_dir = rot_subdir_out_path.split(os.sep)[-2]
         rot_dir = rot_subdir_out_path.split(os.sep)[-1]
-        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, idx)
-        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, idx)
+        pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, tx_idx)
+        sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, tx_idx)
         os.makedirs(tx_dir, exist_ok=True)
         # Make directories to output matched fragment PDB files
         # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
@@ -1396,8 +1406,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         else:
             asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
-        symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
-        symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer+asu.pdb' % entity2.name))
+        # symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
+        # symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
         pdb1_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
         pdb2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 

@@ -502,14 +502,13 @@ def terminate(results=None, output=True):
             command_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % stage) for design in success],
                                                   out_path=job_paths, name='_'.join(default_output_tuple))
             sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module)
-            #                                                                    ^ for sbatch template
+            #                                                                        ^ for sbatch template
             logger.critical(sbatch_warning)
             if args.module == PUtils.interface_design and not job.pre_refine:  # must refine before design
-                refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % 'refine')
+                refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % PUtils.refine)
                                                       for design in success], out_path=job_paths,
-                                                     name='_'.join((SDUtils.starttime, 'refine', design_source)))
-                sbatch_refine_file = \
-                    distribute(file=refine_file, out_path=job.sbatch_scripts, scale='refine')
+                                                     name='_'.join((SDUtils.starttime, PUtils.refine, design_source)))
+                sbatch_refine_file = distribute(file=refine_file, out_path=job.sbatch_scripts, scale=PUtils.refine)
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s\nTHEN:\n\tsbatch '
                             '%s' % (sbatch_refine_file, sbatch_file))
             else:
@@ -600,9 +599,13 @@ if __name__ == '__main__':
                         help='Name of comma separated file with each line formatted:\n'
                              'poseID, [designID], [residue_number:design_directive '
                              'residue_number2-residue_number9:directive ...]')
+    parser.add_argument('-F', '--%s' % PUtils.force_flags, action='store_true',
+                        help='Force generation of a new flags file to update script parameters')
     parser.add_argument('-g', '--guide', action='store_true',
                         help='Access the %s guide! Display the program or module specific guide. Ex: \'%s --guide\' '
                              'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
+    parser.add_argument('-gf', '--%s' % PUtils.generate_fragments, action='store_true',
+                        help='Generate fragment overlap for poses of interest.')
     parser.add_argument('-l', '--load_database', action='store_true',
                         help='Whether to fetch and store resources for each Structure in the sequence/structure '
                              'database')
@@ -626,6 +629,15 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--single', type=os.path.abspath,
                         metavar=ex_path('SymDesignOutput', 'Projects', 'your_project', 'single_design[.pdb]'),
                         help='If design name is specified by a single path instead')
+    parser.add_argument('-wf', '--write_fragments', action='store_true',
+                        help='For any fragments generated, write them along with the Pose')
+    parser.add_argument('-wo', '--write_oligomers', action='store_true',
+                        help='For any oligomers generated, write them along with the Pose')
+    parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
+                        help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
+    parser.add_argument('-S', '--symmetry', type=str, default=None,
+                        help='The specific symmetry of the designs of interest. Preferrably in a composition formula'
+                             'such as T:{C3}{C3}...')
     subparsers = parser.add_subparsers(title='Modules', dest='module',
                                        description='These are the different modes that designs can be processed',
                                        help='Chose a Module followed by Module specific flags. To get help with a '
@@ -633,12 +645,6 @@ if __name__ == '__main__':
                                             'enter:\t%s\n\nTo get help with Module flags enter:\t%s\n, Any Module '
                                             '--guide or --help can be accessed in this way.'
                                             % (PUtils.submodule_guide, PUtils.submodule_help))
-    parser.add_argument('-sdb', '--skip_master_db', action='store_true',
-                        help='Skip loading of the entire master database, instead opting to load on the fly')
-    parser.add_argument('-se', '--sym_entry', type=int, default=None,
-                        help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
-    parser.add_argument('-F', '--%s' % PUtils.force_flags, action='store_true',
-                        help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
     # Set Up SubModule Parsers
     # ---------------------------------------------------
@@ -667,10 +673,10 @@ if __name__ == '__main__':
                                                'order. Useful for writing a multi-model as distinct chains or fixing '
                                                'common PDB formatting errors as well. Writes to design directory')
     # ---------------------------------------------------
-    parser_check_clashes = \
-        subparsers.add_parser('check_clashes',
-                              help='Check for clashes between full models. Useful for understanding if loops are '
-                                   'missing, whether their modelled density is compatible with the pose')
+    parser_clashes = subparsers.add_parser('check_clashes',
+                                           help='Check for clashes between full models. Useful for understanding '
+                                                'if loops are missing, whether their modelled density is '
+                                                'compatible with the pose')
     # ---------------------------------------------------
     parser_dock = subparsers.add_parser(PUtils.nano,
                                         help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, '
@@ -730,6 +736,12 @@ if __name__ == '__main__':
                                      ' folder of the output.\nDefault=%s'
                                      % (PUtils.data.title(), PUtils.clustered_poses % ('LOCATION', 'TIMESTAMP')))
     # ---------------------------------------------------
+    parser_refine = subparsers.add_parser(PUtils.refine, help='')
+    parser_refine.add_argument('-ala', '--interface_to_alanine', action='store_true',
+                               help='Whether to mutate all interface residues to alanine before refinement')
+    parser_refine.add_argument('-met', '--gather_metrics', action='store_true',
+                               help='Whether to gather interface metrics for contained interfaces after refinement')
+    # ---------------------------------------------------
     parser_design = subparsers.add_parser(PUtils.interface_design,
                                           help='Gather poses of interest and format for design using sequence '
                                                'constraints in Rosetta. Constrain using evolutionary profiles of '
@@ -744,7 +756,7 @@ if __name__ == '__main__':
     parser_design.add_argument('-n', '--%s' % PUtils.number_of_trajectories, type=int, default=PUtils.nstruct,
                                help='How many unique sequences should be generated for each input?')
     parser_design.add_argument('-sb', '--%s' % PUtils.structure_background, action='store_true',
-                               help='Whether to set up a low resolution scouting protocol to survey designability')
+                               help='Whether to skip all constraints and measure the structure in an optimal context')
     parser_design.add_argument('-sc', '--%s' % PUtils.scout, action='store_true',
                                help='Whether to set up a low resolution scouting protocol to survey designability')
     # parser_design.add_argument('-i', '--fragment_database', type=str,
@@ -753,45 +765,40 @@ if __name__ == '__main__':
     #                                                   list(PUtils.frag_directory.keys())[0]),
     #                            default=list(PUtils.frag_directory.keys())[0])
     # ---------------------------------------------------
-    parser_interface_metrics = \
-        subparsers.add_parser('interface_metrics',
-                              help='Set up RosettaScript to analyze interface metrics from an interface design job')
-    parser_interface_metrics.add_argument('-sp', '--specific_protocol', type=str,
-                                          help='The specific protocol to perform interface_metrics on')
+    parser_metrics = subparsers.add_parser('interface_metrics',
+                                           help='Set up RosettaScript to analyze interface metrics from a pose')
+    parser_metrics.add_argument('-sp', '--specific_protocol', type=str,
+                                help='The specific protocol to perform interface_metrics on')
     # ---------------------------------------------------
-    parser_optimize_designs = \
-        subparsers.add_parser('optimize_designs',
-                              help='Optimize and touch up designs after running an interface design job. Useful for '
-                                   'reverting excess mutations to wild-type, or directing targeted exploration of '
-                                   'specific troublesome areas.')
+    parser_optimize_designs = subparsers.add_parser('optimize_designs',
+                                                    help='Optimize and touch up designs after running interface design.'
+                                                         ' Useful for reverting excess mutations to wild-type, or '
+                                                         'directing targeted exploration of specific troublesome areas')
     # ---------------------------------------------------
-    parser_custom_script = \
-        subparsers.add_parser('custom_script',
-                              help='Set up a custom RosettaScripts.xml for designs. The custom_script will be provided '
-                                   'to every directory specified and can be run with a number of options specified '
-                                   'below')
-    parser_custom_script.add_argument('-l', '--file_list', action='store_true',
-                                      help='Whether to use already produced designs in the designs/ directory')
-    parser_custom_script.add_argument('-n', '--native', type=str,
-                                      help='What structure to use as a \'native\' structure for Rosetta reference '
-                                           'calculations. Default=refined_pdb',
-                                      choices=['source', 'asu', 'assembly', 'refine_pdb', 'refined_pdb',
-                                               'consensus_pdb', 'consensus_design_pdb'])
-    parser_custom_script.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
-    parser_custom_script.add_argument('script', type=os.path.abspath, help='The location of the custom script')
-    parser_custom_script.add_argument('--suffix', type=str, metavar='SUFFIX',
-                                      help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
-                                           '\'decoy_SUFFIX\') to identify this protocol. No extension will be included')
-    parser_custom_script.add_argument('-v', '--variables', type=str, nargs='*',
-                                      help='Additional variables that should be populated in the script. Provide a list'
-                                           ' of such variables with the format \'variable1=value variable2=value\'. '
-                                           'Where variable1 is a RosettaScripts %%%%variable1%%%% and value is a' 
-                                           # ' either a'  # Todo
-                                           ' known value'
-                                           # ' or an attribute available to the Pose object'
-                                           '. For variables that must'
-                                           ' be calculated on the fly for each design, please modify the Pose.py class '
-                                           'to produce a method that can generate an attribute with the specified name')
+    parser_custom = subparsers.add_parser('custom_script',
+                                          help='Set up a custom RosettaScripts.xml for designs. The custom '
+                                               'script will be run in every pose specified using specified options')
+    parser_custom.add_argument('-l', '--file_list', action='store_true',
+                               help='Whether to use already produced designs in the designs/ directory')
+    parser_custom.add_argument('-n', '--native', type=str, help='What structure to use as a \'native\' structure for '
+                                                                'Rosetta reference calculations. Default=refined_pdb',
+                               choices=['source', 'asu', 'assembly', 'refine_pdb', 'refined_pdb', 'consensus_pdb',
+                                        'consensus_design_pdb'])
+    parser_custom.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
+    parser_custom.add_argument('script', type=os.path.abspath, help='The location of the custom script')
+    parser_custom.add_argument('--suffix', type=str, metavar='SUFFIX',
+                               help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
+                                    '\'decoy_SUFFIX\') to identify this protocol. No extension will be included')
+    parser_custom.add_argument('-v', '--variables', type=str, nargs='*',
+                               help='Additional variables that should be populated in the script. Provide a list'
+                                    ' of such variables with the format \'variable1=value variable2=value\'. '
+                                    'Where variable1 is a RosettaScripts %%%%variable1%%%% and value is a' 
+                                    # ' either a'  # Todo
+                                    ' known value'
+                                    # ' or an attribute available to the Pose object'
+                                    '. For variables that must'
+                                    ' be calculated on the fly for each design, please modify the Pose.py class '
+                                    'to produce a method that can generate an attribute with the specified name')
     # ---------------------------------------------------
     parser_analysis = subparsers.add_parser(PUtils.analysis,
                                             help='Analyze all designs specified. %s --guide %s will inform you about '
@@ -1031,25 +1038,24 @@ if __name__ == '__main__':
     # Process arguments for program initialization
     # -----------------------------------------------------------------------------------------------------------------
     # We have to ensure that if the user has provided it, the symmetry is correct
-    if queried_flags.get('sym_entry'):
-        sym_entry = SymEntry(int(queried_flags['sym_entry']))
-        queried_flags['sym_entry'] = sym_entry
-    if queried_flags['symmetry']:
+    if queried_flags['symmetry'] and queried_flags.get('sym_entry'):
+        queried_flags['sym_entry'] = \
+            parse_symmetry_to_sym_entry(queried_flags['symmetry'], sym_entry=queried_flags['sym_entry'])
+    elif queried_flags.get('sym_entry'):
+        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
+    elif queried_flags['symmetry']:
         if queried_flags['symmetry'].lower()[:5] == 'cryst':
             # the symmetry information is in the pdb header
             queried_flags['symmetry'] = 'cryst'
         else:  # queried_flags['symmetry'] in possible_symmetries:
-            # Todo integrate with SymEntry search
             queried_flags['sym_entry'] = parse_symmetry_to_sym_entry(queried_flags['symmetry'])
-        # else:
-        #     raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
-        #                               '\n\t%s\nCorrect your flags and try again'
-        #                               % (queried_flags['symmetry'], ', '.join(possible_symmetries)))
+    sym_entry = queried_flags['sym_entry']
+
     initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,
                           'optimize_designs', 'custom_script']  # PUtils.analysis,
     # TODO consolidate these checks
-    if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu',
-                       PUtils.interface_metrics, 'optimize_designs', 'custom_script', 'rename_chains', 'status',
+    if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu', 'status',
+                       PUtils.interface_metrics, PUtils.refine, 'optimize_designs', 'custom_script', 'rename_chains',
                        'check_clashes', 'visualize']:
         initialize, queried_flags['construct_pose'] = True, True  # set up design directories
         # if args.module in ['orient', 'expand_asu']:
@@ -1601,6 +1607,16 @@ if __name__ == '__main__':
 
         terminate(results=results)
     # ---------------------------------------------------
+    elif args.module == PUtils.generate_fragments or queried_flags.get(PUtils.generate_fragments):
+        # Start pose processing and preparation for Rosetta
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
+        else:
+            for design in design_directories:
+                results.append(design.generate_interface_fragments())
+
+        terminate(results=results)
+    # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
         # Initialize docking procedure
         if args.run_in_shell:
@@ -1673,16 +1689,6 @@ if __name__ == '__main__':
         # else:
         #     logger.error('No \'%s\' commands were written!' % PUtils.nano)
     # ---------------------------------------------------
-    elif args.module == PUtils.generate_fragments:  # -i fragment_library
-        # Start pose processing and preparation for Rosetta
-        if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
-        else:
-            for design in design_directories:
-                results.append(design.generate_interface_fragments())
-
-        terminate(results=results)
-    # ---------------------------------------------------
     elif args.module == 'interface_metrics':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
@@ -1720,6 +1726,20 @@ if __name__ == '__main__':
                                                             file_list=args.file_list, native=args.native,
                                                             suffix=args.suffix, score_only=args.score_only,
                                                             variables=args.variables))
+
+        terminate(results=results)
+    # ---------------------------------------------------
+    elif args.module == PUtils.refine:  # -i fragment_library, -s scout
+        args.to_design_directory = True  # always the case when using this module
+        if args.multi_processing:
+            zipped_args = zip(design_directories, repeat(args.to_design_directory), repeat(args.interface_to_alanine),
+                              repeat(args.gather_metrics))
+            results = SDUtils.mp_map(DesignDirectory.refine, zipped_args, threads=threads)
+        else:
+            for design in design_directories:
+                results.append(design.refine(to_design_directory=args.to_design_directory,
+                                             interface_to_alanine=args.interface_to_alanine,
+                                             gather_metrics=args.gather_metrics))
 
         terminate(results=results)
     # ---------------------------------------------------
@@ -1990,14 +2010,8 @@ if __name__ == '__main__':
                 # zipped_args = zip(combinations(design_interfaces, 2))
                 design_scores = SDUtils.mp_starmap(ialign, combinations(design_interfaces, 2), threads=threads)
 
-                for idx, is_score in enumerate(design_scores):  # Todo reinstate
-                # for idx, (is_score, des1, des2) in enumerate(design_scores):  # Todo remove
-                #     print('%5d : %f' % (idx, is_score))
+                for idx, is_score in enumerate(design_scores):
                     if is_score > is_threshold:
-                        # pair1, pair2 = design_directory_pairs[idx]  # Todo remove
-                        # # if pair != design_directory_pairs[idx]: # Todo remove
-                        # if (des1, des2) != (pair1.name, pair2.name):  # Todo remove
-                        #     print('Pair is not aligned with idx!')  # Todo remove
                         design_pairs.append(set(design_directory_pairs[idx]))
             else:
                 # for design1, design2 in combinations(design_directories, 2):  # all_files

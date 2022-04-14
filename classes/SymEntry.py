@@ -1,5 +1,6 @@
 import math
 import os
+import warnings
 from typing import List
 
 import numpy as np
@@ -16,9 +17,9 @@ __version__ = "1.0"
 
 logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3, propagate=False)
-
+symmetry_combination_format = 'ResultingSymmetry:{Component1Symmetry}{Component2Symmetry}{...}'
 # SYMMETRY COMBINATION MATERIAL TABLE (T.O.Y and J.L, 2020)
-sym_comb_dict = {
+symmetry_combinations = {
     1: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'C2', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'D2', 'D2', 0, 'N/A', 4, 2],
     2: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<e,0,0>', 'C3', ['r:<0,0,1,c>'], 1, '<e,0.577350*e,0>', 'C6', 'p6', 2, '(2*e, 2*e), 120', 4, 6],
     3: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'C3', ['r:<0,0,1,c>', 't:<0,0,d>'], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 4, 2],
@@ -211,6 +212,46 @@ all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200
 point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7: 'O32', 13: 'O42', 56: 'O43',
                        200: 'T', 210: 'O', 211: 'O', 220: 'I'}
 
+rotation_range = {'C1': 360, 'C2': 180, 'C3': 120, 'C4': 90, 'C5': 72, 'C6': 60}
+cubic_point_groups = ['T', 'O', 'I']
+# ROTATION SETTING MATRICES - All descriptions are with view on the positive side of respective axis
+setting_matrices = {
+    1: np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
+    # identity
+    2: np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]),
+    # 90 degrees CCW on Y
+    3: np.array([[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]]),
+    # 45 degrees CCW on Y, which is 2-fold axis in T, O
+    4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
+    # 45 degrees CW on X, 45 degrees CW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
+    5: np.array([[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]),
+    # 45 degrees CW on Z
+    6: np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]),
+    # 90 degrees CW on X
+    7: np.array([[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]]),
+    # ~20.9 degrees CW on X which is 3-fold axis in I (2-fold is positive Z)
+    8: np.array([[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]]),
+    # 90 degrees CW on Y, 135 degrees CW on Z, which is 45 degree X,Y plane diagonal in D4
+    9: np.array([[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]]),
+    # ~31.7 degrees CCW on Y which is 5-fold axis in I (2-fold is positive Z)
+    10: np.array([[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]]),
+    # 90 degrees CW on Y, 150 degrees CW on Z, which is 60 degree X,Y plane diagonal in D6
+    11: np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+    # 90 degrees CCW on Z
+    12: np.array([[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]),
+    # 45 degrees CCW on X, 45 degrees CCW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
+    13: np.array([[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]])
+    # 60 degrees CCW on Z
+    }
+inv_setting_matrices = {key: np.linalg.inv(setting_matrix) for key, setting_matrix in setting_matrices.items()}
+identity_matrix = setting_matrices[1]
+flip_x_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180x
+flip_y_matrix = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180y
+point_group_degeneracy_matrices = {
+    'T': 6,
+
+}
+# These specify combinations of symmetric point groups which can be used to construct a larger point group
 sub_symmetries = {'C1': ['C1'],
                   'C2': ['C1', 'C2'],
                   'C3': ['C1', 'C3'],
@@ -221,62 +262,79 @@ sub_symmetries = {'C1': ['C1'],
                   'O': ['C1', 'C2', 'C3', 'C4', 'O'],
                   'I': ['C1', 'C2', 'C3', 'C5', 'I'],
                   }
-# ROTATION RANGE DEG
-C2 = 180
-C3 = 120
-C4 = 90
-C5 = 72
-C6 = 60
-rotation_range = {'C1': 360, 'C2': 180, 'C3': 120, 'C4': 90, 'C5': 72, 'C6': 60}
-# ROTATION SETTING MATRICES
-setting_matrices = {1: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],  # identity
-                    2: [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],  # 90 degrees CC on Y
-                    3: [[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]],  # 2-fold axis in T, O
-                    4: [[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]],  # 3-fold axis in T, O
-                    5: [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]],
-                    6: [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]],  # # 90 degrees CC on X
-                    7: [[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]],  # 3-fold axis in I
-                    8: [[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]],
-                    9: [[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]],  # 5-fold axis in I
-                    10: [[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]],
-                    11: [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
-                    12: [[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]],  # opposite 3-fold axis in T, O
-                    13: [[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]]}
-flip_x_matrix = [[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]]  # rot 180x
-flip_y_matrix = [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]  # rot 180y
-identity_matrix = setting_matrices[1]
+point_group_setting_matrix_members = {
+    # Up until 'T' are all correct for original 124, but dynamic dict creation is preferred with additional combinations
+    # 'C3': {'C2': {1}, 'C3': {1}},
+    # # 53
+    # 'C4': {'C2': {1}, 'C4': {1}},
+    # # 10, 71
+    # 'C6': {'C2': {1}, 'C3': {1}, 'C6': {1}},
+    # # 2, 17, 59
+    # 'D2': {'C2': {1, 2}, 'D2': {1}},
+    # # 1, 20, 84, 85
+    # 'D3': {'C2': {2, 6}, 'C3': {1}, 'D3': {1, 11}},
+    # # 3, 4, 27, 28, 64, 65,
+    # 'D4': {'C2': {1, 2, 8}, 'C4': {1}, 'D2': {1, 5}, 'D4': {1}},
+    # # 11, 12, 21, 22, 37-39, 73, 74, 78, 86, 93-95, 115, 116
+    # 'D5': {'C2': {2}, 'C5': {1}},
+    # # 15
+    # 'D6': {'C2': {1, 2, 6, 10}, 'C3': {1}, 'C6': {1}, 'D2': {1, 13}, 'D3': {1, 4, 11}, 'D6': {1}},
+    # # 18, 19, 23, 24, 29-31, 42-44, 60, 68, 82, 83, 87, 89-91, 97, 98, 107, 111, 112
+    # 'T': {'C2': {1}, 'C3': {4, 12}},  # might have to check using degeneracy matrix mult to first setting matrix 6(4)=12
+    # 'O': {'C2': {3}, 'C3': {4, 12}, 'C4': {1}},
+    # 'I': {'C2': {1}, 'C3': {7}, 'C5': {9}},
+}
+for entry_number, entry in symmetry_combinations.items():
+    group1, int_dof_group1, setting1, ref_frame_tx_dof_group1, group2, int_dof_group2, setting2, \
+        ref_frame_tx_dof_group2, point_group, result, dimension, _, _, _ = entry
+    result_entry = point_group_setting_matrix_members.get(point_group, None)
+    if result_entry:
+        if group1 in result_entry:
+            result_entry[group1].add(setting1)
+        else:
+            result_entry[group1] = {setting1}
+
+        if group2 in result_entry:
+            result_entry[group2].add(setting2)
+        else:
+            result_entry[group2] = {setting2}
+    else:
+        point_group_setting_matrix_members[point_group] = {group1: {setting1}, group2: {setting2}}
 
 
 class SymEntry:
     def __init__(self, entry, sym_map=None):
-        sym_entry = sym_comb_dict.get(entry)
+        sym_entry = symmetry_combinations.get(entry)
         try:
             self.group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
                 self.group2, self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2, \
-                self.pt_grp, self.resulting_symmetry, self.dimension, self.unit_cell, self.tot_dof, self.cycle_size = \
-                sym_entry
+                self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.tot_dof, \
+                self.cycle_size = sym_entry
         except TypeError:
             raise ValueError('\nINVALID SYMMETRY ENTRY \'%s\'. SUPPORTED VALUES ARE: %d to %d and CUSTOM ENTRIES: %s\n'
-                             % (entry, 1, len(sym_comb_dict), ', '.join(map(str, custom_entries))))
+                             % (entry, 1, len(symmetry_combinations), ', '.join(map(str, custom_entries))))
         self.entry_number = entry
         # Reformat reference_frame entries
         self._is_ref_frame_tx_dof1 = True if self.ref_frame_tx_dof1 != '<0,0,0>' else False
         self._is_ref_frame_tx_dof2 = True if self.ref_frame_tx_dof2 != '<0,0,0>' else False
         self.ref_frame_tx_dof1 = list(map(str.strip, self.ref_frame_tx_dof1.strip('<>').split(',')))
         self.ref_frame_tx_dof2 = list(map(str.strip, self.ref_frame_tx_dof2.strip('<>').split(',')))
-        self.group_external_dof1 = construct_tx_dof_ref_frame_matrix(self.ref_frame_tx_dof1)
-        self.group_external_dof2 = construct_tx_dof_ref_frame_matrix(self.ref_frame_tx_dof2)
+        self.external_dof1 = construct_uc_matrix(self.ref_frame_tx_dof1)
+        self.external_dof2 = construct_uc_matrix(self.ref_frame_tx_dof2)
 
         ext_dof_indices = []
         if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
-            self.ext_dof = np.empty((0, 3), float)  # np.array([0., 0., 0.])
+            self.ext_dof = np.empty((0, 3), float)  # <- np.array([[0.], [0.], [0.]])
         else:
-            difference_matrix = self.group_external_dof2 - self.group_external_dof1
-            difference_sum = difference_matrix.sum(axis=1)
-            for idx in range(3):
-                if difference_sum[idx] != 0:
-                    ext_dof_indices.append(idx)
-            self.ext_dof = difference_matrix[ext_dof_indices]
+            difference_matrix = self.external_dof2 - self.external_dof1
+            # for entry 6 - string_vector is 4*e, 4*e, 4*e
+            # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
+            # (^).sum(axis=1(-2)) = [4, 4, 4]
+            self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-2))]
+            # for idx in range(3):
+            #     if difference_sum[idx] != 0:
+            #         ext_dof_indices.append(idx)
+            # self.ext_dof = difference_matrix[ext_dof_indices]
 
         self.n_dof_external = len(ext_dof_indices)
         self.unit_cell = None if self.unit_cell == 'N/A' else \
@@ -292,11 +350,11 @@ class SymEntry:
         self.degeneracy_matrices_1, self.degeneracy_matrices_2 = self.get_degeneracy_matrices()
 
         if not sym_map:
-            self.sym_map = {1: self.group1, 2: self.group2}  # assumes a 2 component symmetry. index with only 2 options
+            self.sym_map = {1: self.group1, 2: self.group2}  # assumes 2 component symmetry. index with only 2 options
         else:  # requires full specification of all symmetry groups
-            for idx, sym_operator in enumerate(sym_map, 1):
-                setattr(self, 'group%d' % idx, sym_operator)
-            self.sym_map = {idx: getattr(self, 'group%d' % idx) for idx, sym_operator in enumerate(sym_map, 1)}
+            for idx, sub_symmetry in enumerate(sym_map, 1):
+                setattr(self, 'group%d' % idx, sub_symmetry)
+            self.sym_map = {idx: getattr(self, 'group%d' % idx) for idx, _ in enumerate(sym_map, 1)}
 
     # @property
     # def group1_sym(self):
@@ -312,8 +370,12 @@ class SymEntry:
         return list(self.sym_map.values())
 
     @property
-    def point_group_sym(self):
-        return self.pt_grp
+    def combination_string(self):
+        return '%s:{%s}' % (self.resulting_symmetry, '}{'.join(list(self.sym_map.values())))
+
+    # @property
+    # def point_group_symmetry(self):
+    #     return self.point_group_symmetry
 
     @property
     def rotation_range1(self):
@@ -336,7 +398,7 @@ class SymEntry:
         try:
             return self._setting_matrix1
         except AttributeError:
-            self._setting_matrix1 = np.array(setting_matrices[self.rot_set_group1])
+            self._setting_matrix1 = setting_matrices[self.rot_set_group1]
         return self._setting_matrix1
 
     # @property
@@ -348,7 +410,7 @@ class SymEntry:
         try:
             return self._setting_matrix2
         except AttributeError:
-            self._setting_matrix2 = np.array(setting_matrices[self.rot_set_group2])
+            self._setting_matrix2 = setting_matrices[self.rot_set_group2]
         return self._setting_matrix2
 
     # @property
@@ -430,7 +492,7 @@ class SymEntry:
         """
         # here allows for D5. Is this bad? .pop('D5') The sym_entries are hardcoded...
         valid_pt_gp_symm_list = list(valid_subunit_number.keys())
-        valid_pt_gp_symm_list.remove('D5')
+        # valid_pt_gp_symm_list.remove('D5')
 
         # if self.group1 not in valid_pt_gp_symm_list:
         #     raise ValueError('Invalid Point Group Symmetry')
@@ -438,8 +500,8 @@ class SymEntry:
         # if self.group2 not in valid_pt_gp_symm_list:
         #     raise ValueError('Invalid Point Group Symmetry')
 
-        if self.point_group_sym not in valid_pt_gp_symm_list:
-            raise ValueError('Invalid Point Group Symmetry')
+        if self.point_group_symmetry not in valid_pt_gp_symm_list:
+            raise ValueError('Invalid Point Group Symmetry %s' % self.point_group_symmetry)
 
         if self.dimension not in [0, 2, 3]:
             raise ValueError('Invalid Design Dimension')
@@ -456,14 +518,14 @@ class SymEntry:
             # For layers that obey a cyclic point group symmetry and that are constructed from two oligomers that both
             # obey cyclic symmetry only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
             elif self.dimension == 2 and i == 1 and \
-                    (self.group1[0], self.group2[0], self.point_group_sym[0]) == ('C', 'C', 'C'):
+                    (self.group1[0], self.group2[0], self.point_group_symmetry[0]) == ('C', 'C', 'C'):
                 degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
             # else:
             #     if oligomer_symmetry[0] == "C" and design_symmetry[0] == "C":
             #         degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
 
-            elif oligomer_symmetry in ['D3', 'D4', 'D6'] and self.point_group_sym in ['D3', 'D4', 'D6', 'T', 'O']:
+            elif oligomer_symmetry in ['D3', 'D4', 'D6'] and self.point_group_symmetry in ['D3', 'D4', 'D6', 'T', 'O']:
                 # commented out "if" statement below because all possible translations are not always tested for D3
                 # example: in entry 82, only translations along <e,0.577e> are sampled.
                 # This restriction only considers 1 out of the 2 equivalent Wyckoff positions.
@@ -479,22 +541,22 @@ class SymEntry:
                     # ROT 30 degrees about z
                     degeneracy_matrices = [[[0.86603, -0.5, 0.0], [0.5, 0.86603, 0.0], [0.0, 0.0, 1.0]]]
 
-            elif oligomer_symmetry == 'D2' and self.point_group_sym != 'O':
-                if self.point_group_sym == 'T':
+            elif oligomer_symmetry == 'D2' and self.point_group_symmetry != 'O':
+                if self.point_group_symmetry == 'T':
                     degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
 
-                elif self.point_group_sym == 'D4':
+                elif self.point_group_symmetry == 'D4':
                     degeneracy_matrices = [[[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]]]  # z,x,y and y,z,x
 
-                elif self.point_group_sym == 'D2' or self.point_group_sym == 'D6':
+                elif self.point_group_symmetry == 'D2' or self.point_group_symmetry == 'D6':
                     degeneracy_matrices = [[[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]],
                                            [[-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 0.0, 1.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]]]
 
-            elif oligomer_symmetry == 'T' and self.point_group_sym == 'T':
+            elif oligomer_symmetry == 'T' and self.point_group_symmetry == 'T':
                 degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
 
             degeneracies.append(np.array(degeneracy_matrices)) if degeneracy_matrices is not None \
@@ -520,31 +582,70 @@ class SymEntry:
         basis vectors with component translation degrees of freedom
 
         Args:
-            optimal_shift_vec (numpy.ndarray)
+            optimal_shift_vec (numpy.ndarray): An Nx3 array where N is the number of shift instances
+                and 3 is number of possible external degrees of freedom (even if they are not utilized)
         Returns:
             (Union[numpy.ndarray, None]): The Unit Cell dimensions for each optimal shift vector passed
         """
         if not self.unit_cell:
-            return None
+            return
         string_lengths, string_angles = self.unit_cell
-        uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
-
-        lengths = np.abs(uc_mat.sum(axis=1))
+        # for entry 6 - string_vector is 4*e, 4*e, 4*e
+        # construct_uc_matrix() = [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
+        uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]
+        # [:, :, None] <- expands axis so multiplication is accurate. eg. [[[1.], [0.], [0.]],[[0.], [0.], [0.]]]
+        lengths = np.abs(uc_mat.sum(axis=-2))
+        # (^).sum(axis=1) = [4, 4, 4]
         # lengths = [0.0, 0.0, 0.0]
         # for i in range(len(string_vec_lens)):
         #     lengths[i] = abs((e1[i] + f1[i] + g1[i]))
         if len(string_lengths) == 2:
-            lengths[:, 2] = 1.0
+            lengths[:, 2] = 1.
 
         if len(string_angles) == 1:
-            angles = [90.0, 90.0, float(string_angles[0])]
+            angles = [90., 90., float(string_angles[0])]
         else:
             # angles = [float(string_angle) for string_angle in string_angles]
-            angles = [0.0, 0.0, 0.0]  # need this incase there are only 2 angles... which there aren't right now
+            angles = [0., 0., 0.]  # need this incase there are only 2 angles... which there aren't right now
             for idx, string_angle in enumerate(string_angles):
                 angles[idx] = float(string_angle)
 
         return np.concatenate(lengths, angles)
+
+    def get_optimal_shift_from_uc_dimensions(self, a, b, c, *angles):  # alpha, beta, gamma
+        """Return the optimal shifts provided unit cell dimensions and the external translation degrees of freedom
+
+        Args:
+            a (float): The unit cell parameter for the lattice dimension 'a'
+            b (float): The unit cell parameter for the lattice dimension 'b'
+            c (float): The unit cell parameter for the lattice dimension 'c'
+            angles (list): The unit cell parameters for the lattice angles alpha, beta, gamma
+            # alpha (float): The unit cell parameter for the lattice angle alpha
+            # beta (float): The unit cell parameter for the lattice angle beta
+            # gamma (float): The unit cell parameter for the lattice angle gamma
+        Returns:
+            (numpy.ndarray): The optimal shifts in each direction a, b, and c  # (list)
+        """
+        if not self.unit_cell:
+            return
+        string_lengths, string_angles = self.unit_cell
+        # uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]  # <- expands axis so mult accurate
+        uc_mat = construct_uc_matrix(string_lengths)
+        # to reverse the values from the incoming a, b, and c, we should divide by the uc_matrix_constraints
+        # given the matrix should only ever have one value in each column (max) a sum over the column should produce the
+        # desired vector to calculate the optimal shift.
+        # There is a possibility of returning inf when we divide 0 by a value so ignore this warning
+        with warnings.catch_warnings() as w:
+            # Cause all warnings to always be ignored
+            warnings.simplefilter('ignore')
+            external_translation_shifts = [a, b, c] / np.abs(uc_mat.sum(axis=-2))
+            # replace any inf with zero
+            external_translation_shifts = np.nan_to_num(external_translation_shifts, copy=False, posinf=0., neginf=0.)
+
+        if len(string_lengths) == 2:
+            g = 1.
+
+        return external_translation_shifts  # [e, f, g]
 
 
 def construct_uc_matrix(string_vector):
@@ -554,7 +655,7 @@ def construct_uc_matrix(string_vector):
         string_vector (list[str]):
 
     Returns:
-        (numpy.ndarray)
+        (numpy.ndarray): 3x3 array with the values to specify unit cell dimensions from basis vector constraints
     """
     string_position = {'e': 0, 'f': 1, 'g': 2}
     variable_matrix = np.zeros((3, 3))
@@ -566,28 +667,30 @@ def construct_uc_matrix(string_vector):
             if '-' in string:
                 variable_matrix[row_idx][col_idx] *= -1
 
+    # for entry 6 - string_vector is 4*e, 4*e, 4*e
+    # [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
     return variable_matrix
 
 
-def construct_tx_dof_ref_frame_matrix(string_vector):
-    """
-
-    Args:
-        string_vector (list[str]):
-    Returns:
-        (numpy.ndarray)
-    """
-    string_position = {'e': 0, 'f': 1, 'g': 2}
-    variable_matrix = np.zeros((3, 3))
-    for col_idx, string in enumerate(string_vector):
-        if string[-1] != '0':
-            row_idx = string_position.get(string[-1])
-            variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
-
-            if '-' in string:
-                variable_matrix[row_idx][col_idx] *= -1
-
-    return variable_matrix
+# def construct_tx_dof_ref_frame_matrix(string_vector):
+#     """
+#
+#     Args:
+#         string_vector (list[str]):
+#     Returns:
+#         (numpy.ndarray): 3x3 array
+#     """
+#     string_position = {'e': 0, 'f': 1, 'g': 2}
+#     variable_matrix = np.zeros((3, 3))
+#     for col_idx, string in enumerate(string_vector):
+#         if string[-1] != '0':
+#             row_idx = string_position.get(string[-1])
+#             variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
+#
+#             if '-' in string:
+#                 variable_matrix[row_idx][col_idx] *= -1
+#
+#     return variable_matrix
 
 
 def get_tx_dof_ref_frame_var_vec(string_vec, var):
@@ -668,12 +771,12 @@ def get_degen_rotmatrices(degeneracy_matrices=None, rotation_matrices=None):
     specified transformations.
 
     Keyword Args:
-        degeneracy_matrices (np.ndarray): column major with shape (degeneracies, 3, 3)
+        degeneracy_matrices (numpy.ndarray): column major with shape (degeneracies, 3, 3)
             # [[[x, y, z], [x, y, z], [x, y, z]], ...]
-        rotation_matrices (np.ndarray): row major with shape (rotations, 3, 3)
+        rotation_matrices (numpy.ndarray): row major with shape (rotations, 3, 3)
             # [[[x, y, z], [x, y, z], [x, y, z]], ...]
     Returns:
-        (list[list[np.ndarray]])  # (list[list[list[list]]])
+        (list[list[numpy.ndarray]])  # (list[list[list[list]]])
     """
     if rotation_matrices is not None and degeneracy_matrices is not None:
         degen_rot_matrices = [np.matmul(rotation_matrices, degen_mat) for degen_mat in degeneracy_matrices]
@@ -685,10 +788,10 @@ def get_degen_rotmatrices(degeneracy_matrices=None, rotation_matrices=None):
         return [rotation_matrices]
 
     elif rotation_matrices is None and degeneracy_matrices is not None:  # is this ever true? list addition seems wrong
-        return [[np.array(identity_matrix)]] + [[degen_mat] for degen_mat in degeneracy_matrices]
+        return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracy_matrices]
 
     elif rotation_matrices is None and degeneracy_matrices is None:
-        return [[np.array(identity_matrix)]]
+        return [[identity_matrix]]
 
 
 def parse_uc_str_to_tuples(uc_string):
@@ -746,27 +849,30 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
     return lengths + angles
 
 
-def parse_symmetry_to_sym_entry(symmetry_string):
+def parse_symmetry_to_sym_entry(symmetry_string, sym_entry=None):
     symmetry_string = symmetry_string.strip()
     clean_split = None
     if len(symmetry_string) > 3:
         clean_split = [split.strip('}:') for split in symmetry_string.split('{')]
-    elif len(symmetry_string) == 3:  # Rosetta Formatting
+    elif len(symmetry_string) == 3:  # Probably Rosetta formatting
         clean_split = [symmetry_string[0], '%s' % symmetry_string[1], '%s' % symmetry_string[2]]
         # clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
     elif symmetry_string in ['T', 'O']:  # , 'I']:
         logger.warning('This functionality is not working properly yet!')
         clean_split = [symmetry_string, symmetry_string]  # , symmetry_string]
-    else:  # C2, D6, C34
+    else:  # C2, D6, C35
         raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
 
     # logger.debug('Symmetry parsing split: %s' % clean_split)
-    try:
-        sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
-    except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
-        # the prescribed symmetry was a plane, space group, or point group that isn't in nanohedra. try a custom input
-        # raise ValueError('%s is not a supported symmetry!' % symmetry_string)
-        sym_entry = lookup_sym_entry_by_symmetry_combination(*clean_split)
+    if not sym_entry:
+        try:
+            sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
+            if not isinstance(sym_entry, int):
+                raise TypeError
+        except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
+            # the prescribed symmetry was a plane, space group, or point group that isn't in nanohedra. try a custom input
+            # raise ValueError('%s is not a supported symmetry!' % symmetry_string)
+            sym_entry = lookup_sym_entry_by_symmetry_combination(*clean_split)
 
     # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
     return SymEntry(sym_entry, sym_map=clean_split[1:])  # remove the result
@@ -806,40 +912,62 @@ def sdf_lookup(symmetry=None):
     raise DesignError('Error locating specified symmetry entry: %s' % symmetry_name)
 
 
+header_format_string = '{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}'
+query_output_format_string = '{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}'
+
+
 def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
     if isinstance(result, str):
         matching_entries = []
-        for entry_number, entry in sym_comb_dict.items():
+        for entry_number, entry in symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
                 ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _, _, _ = entry
-            # group2 = entry[6]
-            # int_dof_group1 = entry[3]
-            # int_dof_group2 = entry[8]
-            # ref_frame_tx_dof_group1 = entry[5]
-            # ref_frame_tx_dof_group2 = entry[10]
-            # result = entry[12]
             if resulting_symmetry == result:
                 required_sym_operators = True
-                group1_members = sub_symmetries.get(group1.replace('D', 'C'), list())
+                group1_members = sub_symmetries.get(group1.replace('D', 'C'), [])
                 group1_members.extend('C2') if 'D' in group1 else None
                 # group1_dihedral = True if 'D' in group1 else False
-                group2_members = sub_symmetries.get(group2.replace('D', 'C'), list())
+                group2_members = sub_symmetries.get(group2.replace('D', 'C'), [])
                 group2_members.extend('C2') if 'D' in group2 else None
                 # group2_dihedral = True if 'D' in group2 else False
                 for sym_operator in symmetry_operators:
                     if sym_operator in [resulting_symmetry, group1, group2]:
                         continue
-                    elif sym_operator in [group1_members, group2_members]:
+                    elif sym_operator in group1_members + group2_members:
                         continue
                     else:
                         required_sym_operators = False
 
                 if required_sym_operators:
                     matching_entries.append(entry_number)  # TODO include the groups?
-                # else:
-                #     matching_entries.append()
-        if len(matching_entries) == 1:
-            return matching_entries[0]
+
+        if matching_entries:
+            if len(matching_entries) == 1:
+                return matching_entries[0]
+            else:
+                print('\033[1mFound multiple specified symmetries matching including %s\033[0m'
+                      % (', '.join(map(str, matching_entries))))
+                print_query_header()
+                for match in matching_entries:
+                    group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
+                        ref_frame_tx_dof_group2, _, _, _, _, _, _ = symmetry_combinations[match]
+                    int_rot1, int_tx1, int_rot2, int_tx2 = 0, 0, 0, 0
+                    for int_dof in int_dof_group1:
+                        if int_dof.startswith('r'):
+                            int_rot1 = 1
+                        if int_dof.startswith('t'):
+                            int_tx1 = 1
+                    for int_dof in int_dof_group2:
+                        if int_dof.startswith('r'):
+                            int_rot2 = 1
+                        if int_dof.startswith('t'):
+                            int_tx2 = 1
+                    print(query_output_format_string.format(str(match), group1, str(int_rot1), str(int_tx1),
+                                                            ref_frame_tx_dof_group1, group2, str(int_rot2),
+                                                            str(int_tx2), ref_frame_tx_dof_group2, result))
+                print('Cannot distinguish between the desired entry. Please repeat your command, however, additionally '
+                      'specify the preferred Entry Number (ex: --%s 1) to proceed' % PUtils.sym_entry)
+                exit()
         else:
             raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s".'
                              'Try to reformat your symmetry specification to include only symmetries that are group '
@@ -851,10 +979,6 @@ def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
                          % lookup_sym_entry_by_symmetry_combination.__name__)
 
 
-header_format_string = "{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}"
-query_output_format_string = "{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}"
-
-
 def print_query_header():
     print(header_format_string.format("ENTRY", "GROUP1", "IntDofRot1", "IntDofTx1", "ReferenceFrameDof1", "GROUP2",
                                       "IntDofRot2", "IntDofTx2", "ReferenceFrameDof2", "RESULT"))
@@ -863,7 +987,7 @@ def print_query_header():
 def query_combination(combination_list):
     if isinstance(combination_list, list) and len(combination_list) == 2:
         matching_entries = []
-        for entry_number, entry in sym_comb_dict.items():
+        for entry_number, entry in symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
                 ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
             # group2 = entry[6]
@@ -907,7 +1031,7 @@ def query_combination(combination_list):
 def query_result(desired_result):
     if isinstance(desired_result, str):
         matching_entries = []
-        for entry_number, entry in sym_comb_dict.items():
+        for entry_number, entry in symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
                 ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
             # group2 = entry[6]
@@ -950,7 +1074,7 @@ def query_result(desired_result):
 def query_counterpart(query_group):
     if isinstance(query_group, str):
         matching_entries = []
-        for entry_number, entry in sym_comb_dict.items():
+        for entry_number, entry in symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
                 ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
             # group2 = entry[6]
@@ -992,7 +1116,7 @@ def query_counterpart(query_group):
 
 def all_entries():
     all_entries_list = []
-    for entry_number, entry in sym_comb_dict.items():
+    for entry_number, entry in symmetry_combinations.items():
         group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
         ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
         # group2 = entry[6]
@@ -1028,7 +1152,7 @@ def all_entries():
 def dimension(dim):
     if dim in [0, 2, 3]:
         matching_entries_list = []
-        for entry_number, entry in sym_comb_dict.items():
+        for entry_number, entry in symmetry_combinations.items():
             group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
                 ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
             # group1 = entry[1]
@@ -1063,3 +1187,81 @@ def dimension(dim):
             print(entry)
     else:
         print('DIMENSION NOT SUPPORTED, VALID DIMENSIONS ARE: 0, 2 or 3')
+
+
+if __name__ == '__main__':
+    # To figure out if there is translation internally (on Z) then externally on Z - There indeed is, however, this
+    # analysis doesn't take into consideration the setting matrices might counteract the internal translation so that
+    # this translation only lies on another axis
+    # double_translation = []
+    # for entry in symmetry_combinations:
+    #     sym_entry = SymEntry(entry)
+    #     tx1, tx2 = False, False
+    #     if sym_entry.ref_frame_tx_dof1[-1] != '0' and sym_entry.is_internal_tx1:
+    #         tx1 = True
+    #     if sym_entry.ref_frame_tx_dof2[-1] != '0' and sym_entry.is_internal_tx2:
+    #         tx2 = True
+    #     if tx1 or tx2:
+    #         if tx1:
+    #             entry_result = (entry, '1')
+    #         if tx2:
+    #             entry_result = (entry, '2')
+    #         if tx1 and tx2:
+    #             entry_result = (entry, '1+2')
+    #         double_translation.append(entry_result)
+    #
+    # print('\n'.join('%d: %s' % tup for tup in double_translation))
+
+    point_cloud_scale = 2
+    # Oxy is X, N is Y, C is origin
+    point_cloud = np.array([[point_cloud_scale, 0, 0], [0, point_cloud_scale, 0], [0, 0, 0]])
+    # point_cloud += np.array([0, 0, 1])
+    transformed_points = np.empty((len(setting_matrices), 3, 3))
+    for idx, matrix in enumerate(setting_matrices.values()):
+        transformed_points[idx] = np.matmul(point_cloud, np.transpose(matrix))
+
+    atom_string = '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'
+    alt_location = ''
+    code_for_insertion = ''
+    occ = 1
+    temp_fact = 20.0
+    atom_charge = ''
+    atom_types = ['O', 'N', 'C']
+    chain_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+    atom_idx = 1
+
+    # add placeholder atoms for setting matrix transform
+    atoms = []
+    it_chain_letters = iter(chain_letters)
+    for set_idx, points in enumerate(transformed_points.tolist(), 1):
+        chain = next(it_chain_letters)
+        for point_idx, point in enumerate(points):
+            atom_type = atom_types[point_idx]
+            atoms.append(atom_string.format('ATOM', format(atom_type, '3s'), alt_location, code_for_insertion, occ, temp_fact,
+                                            atom_type, atom_charge)
+                         % (format(atom_idx, '5d'), '%s%2d' % (atom_type, set_idx), chain, format(point_idx + 1, '4d'),
+                            '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(point))))
+            atom_idx += 1
+
+    # add origin
+    atom_idx = 1
+    atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
+                                    'C', atom_charge)
+                 % (format(atom_idx, '5d'), 'GLY', 'O', format(0, '4d'),
+                    '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple([0, 0, 0]))))
+    # add axis
+    axis_length = 2 * point_cloud_scale
+    axis_list = [0, 0, 0]
+    axis_type = ['X', 'Y', 'Z']
+    for idx, _ in enumerate(axis_list):
+        atom_idx += 1
+        axis_point = axis_list.copy()
+        axis_point[idx] = axis_length
+        atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
+                                        'C', atom_charge)
+                     % (format(atom_idx, '5d'), 'GLY', axis_type[idx], format(idx + 1, '4d'),
+                        '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(axis_point))))
+
+    # write to file
+    with open(os.path.join(os.getcwd(), 'setting_matrix_points.pdb'), 'w') as f:
+        f.write('%s\n' % '\n'.join(atoms))

@@ -1,6 +1,6 @@
 from copy import copy
 
-from PathUtils import program_command, nano, program_name, interface_design
+from PathUtils import program_command, program_name, interface_design
 from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
     format_index_string
@@ -8,21 +8,22 @@ from SequenceProfile import read_fasta_file
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
 # Todo separate into types of options, aka fragments, residue selection, symmetry
-global_flags = {'symmetry': {'type': str, 'default': None,
-                'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
-                               'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
-                'nanohedra_output': {'type': bool, 'default': False,
-                                     'description': 'Whether the design targets are the result of %s output.%sUse this'
-                                                    ' flag to set up a %s project from docked poses%sor to analyze the '
-                                                    'output of %s.%sAfter a %s directory is initialized with '
-                                                    '--nanohedra_output True,%syou may submit future jobs containing '
-                                                    'these designs without this flag'
-                                                    % (terminal_formatter, nano.title(), terminal_formatter,
-                                                       program_name, terminal_formatter, nano.title(),
-                                                       terminal_formatter, program_name)},
+global_flags = {
+    # 'symmetry': {'type': str, 'default': None,
+    #             'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
+    #                            'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
+    #             'nanohedra_output': {'type': bool, 'default': False,
+    #                                  'description': 'Whether the design targets are the result of %s output.%sUse this'
+    #                                                 ' flag to set up a %s project from docked poses%sor to analyze the '
+    #                                                 'output of %s.%sAfter a %s directory is initialized with '
+    #                                                 '--nanohedra_output True,%syou may submit future jobs containing '
+    #                                                 'these designs without this flag'
+    #                                                 % (terminal_formatter, nano.title(), terminal_formatter,
+    #                                                    program_name, terminal_formatter, nano.title(),
+    #                                                    terminal_formatter, program_name)},
                 'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
-                'design_range': {'type': str, 'default': None,
-                                 'description': 'Whether to subset selected designs by a range of percentage values'},
+                # 'design_range': {'type': str, 'default': None,
+                #                  'description': 'Whether to subset selected designs by a range of percentage values'},
                 'mpi': {'type': int, 'default': None,
                         'description': 'If commands should be run as MPI parallel processes, how many processes should '
                                        'be invoked for each job?'},
@@ -167,7 +168,7 @@ def return_default_flags(mode):
     if mode in flags:
         return dict(zip(flags[mode].keys(), [value_format['default'] for value_format in flags[mode].values()]))
     else:
-        return dict(zip(global_flags.keys(), [value_format['default'] for value_format in global_flags.values()]))
+        return dict(zip(all_flags.keys(), [value_format['default'] for value_format in all_flags.values()]))
 
 
 @handle_errors(errors=KeyboardInterrupt)
