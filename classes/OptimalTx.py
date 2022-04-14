@@ -11,7 +11,7 @@ class OptimalTx:
         self.number_of_coordinates = number_of_coordinates
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
-        print('self.dof', self.dof)
+        # print('self.dof', self.dof)
         self.zshift1 = zshift1  # internal translational DOF1
         self.zshift2 = zshift2  # internal translational DOF2
         self.dof9 = None
@@ -26,7 +26,7 @@ class OptimalTx:
         if self.zshift2 is not None:
             self.dof = np.append(self.dof, self.zshift2, axis=0)
             self.n_dof_internal += 1
-        print('self.dof', self.dof)
+        # print('self.dof', self.dof)
 
         self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
         self.n_dof = self.dof.shape[0]
@@ -51,9 +51,9 @@ class OptimalTx:
             # self.dof9_t[i] = np.array(self.number_of_coordinates * [self.dof[i]]).flatten()
             self.dof9_t[i] = np.tile(self.dof[i], self.number_of_coordinates)
             # dof[i] = (np.array(3 * [self.dof_ext[i]])).flatten()
-        print('self.dof9_t', self.dof9_t)
+        # print('self.dof9_t', self.dof9_t)
         self.dof9 = np.transpose(self.dof9_t)
-        print('self.dof9', self.dof9)
+        # print('self.dof9', self.dof9)
         self.dof9t_dof9 = np.matmul(self.dof9_t, self.dof9)
 
     def solve_optimal_shift(self, coords1, coords2, coords_rmsd_reference):
@@ -168,8 +168,8 @@ class OptimalTx:
 
         # below is inverse dof covariance matrix/variance * dof guide_atom_delta sum / variance
         # shift = np.matmul(vtdinvvinv, vtdinvdelta)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
-        print('self.dof9t_dof9', self.dof9t_dof9)
-        print('tiled_array', np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)))
+        # print('self.dof9t_dof9', self.dof9t_dof9)
+        # print('tiled_array', np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)))
         shift = np.matmul(np.linalg.inv(np.tile(self.dof9t_dof9, (coords1.shape[0], 1, 1)) / var_tot),
                           np.matmul(np.tile(self.dof9_t, (coords1.shape[0], 1, 1)), guide_delta) / var_tot)  # (n_dof x n_dof) x (n_dof x 1) = (n_dof x 1)
 
