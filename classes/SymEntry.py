@@ -854,19 +854,21 @@ def parse_symmetry_to_sym_entry(symmetry_string, sym_entry=None):
     clean_split = None
     if len(symmetry_string) > 3:
         clean_split = [split.strip('}:') for split in symmetry_string.split('{')]
-    elif len(symmetry_string) == 3:  # Rosetta Formatting
+    elif len(symmetry_string) == 3:  # Probably Rosetta formatting
         clean_split = [symmetry_string[0], '%s' % symmetry_string[1], '%s' % symmetry_string[2]]
         # clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
     elif symmetry_string in ['T', 'O']:  # , 'I']:
         logger.warning('This functionality is not working properly yet!')
         clean_split = [symmetry_string, symmetry_string]  # , symmetry_string]
-    else:  # C2, D6, C34
+    else:  # C2, D6, C35
         raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
 
     # logger.debug('Symmetry parsing split: %s' % clean_split)
     if not sym_entry:
         try:
             sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
+            if not isinstance(sym_entry, int):
+                raise TypeError
         except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
             # the prescribed symmetry was a plane, space group, or point group that isn't in nanohedra. try a custom input
             # raise ValueError('%s is not a supported symmetry!' % symmetry_string)
@@ -963,7 +965,7 @@ def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
                     print(query_output_format_string.format(str(match), group1, str(int_rot1), str(int_tx1),
                                                             ref_frame_tx_dof_group1, group2, str(int_rot2),
                                                             str(int_tx2), ref_frame_tx_dof_group2, result))
-                print('Cannot distinguish between the desired entry. Please repeat your command, however, additionally'
+                print('Cannot distinguish between the desired entry. Please repeat your command, however, additionally '
                       'specify the preferred Entry Number (ex: --%s 1) to proceed' % PUtils.sym_entry)
                 exit()
         else:

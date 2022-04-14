@@ -1607,7 +1607,7 @@ if __name__ == '__main__':
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == PUtils.generate_fragments or args.queried_flags.get(PUtils.generate_fragments):
+    elif args.module == PUtils.generate_fragments or queried_flags.get(PUtils.generate_fragments):
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
