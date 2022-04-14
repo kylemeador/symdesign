@@ -2687,17 +2687,16 @@ class Entity(Chain, SequenceProfile):
         """Clear the Entity of all Chain and Oligomer information"""
         self.chain_transforms = [dict(rotation=identity_matrix, translation=origin)]
         self.number_of_monomers = 1
-        try:
-            del self._chains
-        except AttributeError:
-            pass
+        # try:
+        self.chains.clear()
+        # except AttributeError:
+        #     pass
         try:
             del self._chain_ids
         except AttributeError:
             pass
 
     def make_oligomer(self, symmetry=None, rotation=None, translation=None, rotation2=None, translation2=None):
-        #                   transform=None):
         """Given a symmetry and an optional transformational mapping, generate oligomeric copies of the Entity as Chains
 
         Assumes that the symmetric system treats the canonical symmetric axis as the Z-axis, and if the Entity is not at
@@ -2720,16 +2719,6 @@ class Entity(Chain, SequenceProfile):
             # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
             return
 
-        self.is_oligomeric = True
-        if rotation is None:
-            rotation = identity_matrix
-        if translation is None:
-            translation = origin
-        if rotation2 is None:
-            rotation2 = identity_matrix
-        if translation2 is None:
-            translation2 = origin
-
         self.symmetry = symmetry
         if symmetry in cubic_point_groups:
             # self.symmetry = possible_symmetries.get(symmetry, None)
@@ -2746,6 +2735,16 @@ class Entity(Chain, SequenceProfile):
         else:
             rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
             degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
+
+        self.is_oligomeric = True
+        if rotation is None:
+            rotation = identity_matrix
+        if translation is None:
+            translation = origin
+        if rotation2 is None:
+            rotation2 = identity_matrix
+        if translation2 is None:
+            translation2 = origin
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
         inv_rotation = np.linalg.inv(rotation)
         inv_setting = np.linalg.inv(rotation2)
