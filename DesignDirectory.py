@@ -1768,7 +1768,7 @@ class DesignDirectory:  # (JobResources):
                                       ignore_clashes=self.ignore_clashes)
             # generate oligomers for each entity in the pose
             for idx, entity in enumerate(self.pose.entities):
-                entity.make_oligomer(symmetry=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
+                entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
                 # write out new oligomers to the DesignDirectory
                 if self.write_oligomers:
                     entity.write_oligomer(out_path=os.path.join(self.path, '%s_oligomer.pdb' % entity.name))

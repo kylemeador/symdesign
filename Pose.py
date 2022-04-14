@@ -701,10 +701,6 @@ class Model:  # Todo (Structure)
         return [chain for entity in self.entities for chain in entity.chains]
 
     @property
-    def active_chains(self):
-        return [chain for entity in self.active_entities for chain in entity.chains]
-
-    @property
     def chain_breaks(self):
         return [entity.c_terminal_residue.number for entity in self.entities]
 
@@ -993,8 +989,7 @@ class SymmetricModel(Model):
 
     @asu.setter
     def asu(self, asu):
-        self._pdb = asu  # skip the checks in Pose from self.pdb = asu
-        # self._asu = asu
+        self.pdb = asu
 
     def set_asu_coords(self, coords):
         # overwrite all the coords for each member Entity
@@ -1099,7 +1094,8 @@ class SymmetricModel(Model):
             self._symmetric_coords_split_by_entity = []
             for entity_indices in self.atom_indices_per_entity:
                 # self._symmetric_coords_split_by_entity.append(symmetric_coords_split[:, entity_indices])
-                self._symmetric_coords_split_by_entity.append([symmetric_split[entity_indices] for symmetric_split in symmetric_coords_split])
+                self._symmetric_coords_split_by_entity.append([symmetric_split[entity_indices]
+                                                               for symmetric_split in symmetric_coords_split])
 
             return self._symmetric_coords_split_by_entity
 
@@ -2045,61 +2041,69 @@ class SymmetricModel(Model):
         # assume a globular nature to entity chains
         # therefore the minimal com to com dist is our asu and therefore naive asu coords
         all_coms = []
-        for group_idx, indices in asu_indices:
+        for group_idx, indices in enumerate(asu_indices):
             # pdist()
             all_coms.append(center_of_mass_symmetric_entities[group_idx][indices])
 
-        idx = 0
-        asu_indices_combinations = []
-        asu_indices_index, asu_coms_index = [], []
-        com_offsets = np.zeros(sum(map(prod, combinations((len(indices) for indices in asu_indices), 2))))
-        for idx1, idx2 in combinations(range(len(asu_indices)), 2):
-            # for index1 in asu_indices[idx1]:
-            for idx_com1, com1 in enumerate(all_coms[idx1]):
-                for idx_com2, com2 in enumerate(all_coms[idx2]):
-                    asu_indices_combinations.append((idx1, idx_com1, idx2, idx_com2))
-                    asu_indices_index.append((idx1, idx2))
-                    asu_coms_index.append((idx_com1, idx_com2))
-                    com_offsets[idx] = np.sqrt(com1.dot(com2))
-                    idx += 1
-        minimal_com_distance_index = com_offsets.argmin()
-        entity_index1, com_index1, entity_index2, com_index2 = asu_indices_combinations[minimal_com_distance_index]
-        # entity_index1, entity_index2 = asu_indices_index[minimal_com_distance_index]
-        # com_index1, com_index2 = asu_coms_index[minimal_com_distance_index]
-        core_indices = [(entity_index1, com_index1), (entity_index2, com_index2)]
-        # asu_index2 = asu_indices[entity_index2][com_index2]
-        additional_indices = []
-        if len(asu_indices) != 2:  # we have to find more indices
-            # find the indices where either of the minimally distanced coms are utilized
-            # selected_asu_indices_indices = {idx for idx, (ent_idx1, com_idx1, ent_idx2, com_idx2) in enumerate(asu_indices_combinations)
-            #                                 if entity_index1 == ent_idx1 or entity_index2 == ent_idx2 and not }
-            selected_asu_indices_indices = {idx for idx, ent_idx_pair in enumerate(asu_indices_index)
-                                            if entity_index1 in ent_idx_pair or entity_index2 in ent_idx_pair and
-                                            asu_indices_index[idx] != ent_idx_pair}
-            remaining_indices = set(range(len(asu_indices))).difference({entity_index1, entity_index2})
-            for index in remaining_indices:
-                # find the indices where the missing index is utilized
-                remaining_index_indices = \
-                    {idx for idx, ent_idx_pair in enumerate(asu_indices_index) if index in ent_idx_pair}
-                # only use those where found asu indices already occur
-                viable_remaining_indices = list(remaining_index_indices.intersection(selected_asu_indices_indices))
-                index_min_com_dist_idx = com_offsets[viable_remaining_indices].argmin()
-                for new_index_idx, new_index in enumerate(asu_indices_index[viable_remaining_indices[index_min_com_dist_idx]]):
-                    if index == new_index:
-                        additional_indices.append((index, asu_coms_index[viable_remaining_indices[index_min_com_dist_idx]][new_index_idx]))
+        if len(asu_indices) == 1:
+            # new_asu_indices = asu_indices[0]  # choice doesn't matter
+            selected_asu_indices = [asu_indices[0][0]]  # choice doesn't matter, grab the first
+        else:
+            idx = 0
+            asu_indices_combinations = []
+            asu_indices_index, asu_coms_index = [], []
+            com_offsets = np.zeros(sum(map(prod, combinations((len(indices) for indices in asu_indices), 2))))
+            for idx1, idx2 in combinations(range(len(asu_indices)), 2):
+                # for index1 in asu_indices[idx1]:
+                for idx_com1, com1 in enumerate(all_coms[idx1]):
+                    for idx_com2, com2 in enumerate(all_coms[idx2]):
+                        asu_indices_combinations.append((idx1, idx_com1, idx2, idx_com2))
+                        asu_indices_index.append((idx1, idx2))
+                        asu_coms_index.append((idx_com1, idx_com2))
+                        com_offsets[idx] = np.sqrt(com1.dot(com2))
+                        idx += 1
+            self.log.critical('com_offsets: %s' % com_offsets)
+            minimal_com_distance_index = com_offsets.argmin()
+            entity_index1, com_index1, entity_index2, com_index2 = asu_indices_combinations[minimal_com_distance_index]
+            # entity_index1, entity_index2 = asu_indices_index[minimal_com_distance_index]
+            # com_index1, com_index2 = asu_coms_index[minimal_com_distance_index]
+            core_indices = [(entity_index1, com_index1), (entity_index2, com_index2)]
+            # asu_index2 = asu_indices[entity_index2][com_index2]
+            additional_indices = []
+            if len(asu_indices) != 2:  # we have to find more indices
+                # find the indices where either of the minimally distanced coms are utilized
+                # selected_asu_indices_indices = {idx for idx, (ent_idx1, com_idx1, ent_idx2, com_idx2) in enumerate(asu_indices_combinations)
+                #                                 if entity_index1 == ent_idx1 or entity_index2 == ent_idx2 and not }
+                selected_asu_indices_indices = {idx for idx, ent_idx_pair in enumerate(asu_indices_index)
+                                                if entity_index1 in ent_idx_pair or entity_index2 in ent_idx_pair and
+                                                asu_indices_index[idx] != ent_idx_pair}
+                remaining_indices = set(range(len(asu_indices))).difference({entity_index1, entity_index2})
+                for index in remaining_indices:
+                    # find the indices where the missing index is utilized
+                    remaining_index_indices = \
+                        {idx for idx, ent_idx_pair in enumerate(asu_indices_index) if index in ent_idx_pair}
+                    # only use those where found asu indices already occur
+                    viable_remaining_indices = list(remaining_index_indices.intersection(selected_asu_indices_indices))
+                    index_min_com_dist_idx = com_offsets[viable_remaining_indices].argmin()
+                    for new_index_idx, new_index in enumerate(asu_indices_index[viable_remaining_indices[index_min_com_dist_idx]]):
+                        if index == new_index:
+                            additional_indices.append((index, asu_coms_index[viable_remaining_indices[index_min_com_dist_idx]][new_index_idx]))
+            new_asu_indices = core_indices + additional_indices
 
-        # selected_asu_indices = [asu_indices[entity_idx][com_idx] for entity_idx, com_idx in core_indices + additional_indices]
-        selected_asu_indices = []
-        for range_idx in range(len(asu_indices)):
-            for entity_idx, com_idx in core_indices + additional_indices:
-                if range_idx == entity_idx:
-                    selected_asu_indices.append(asu_indices[entity_idx][com_idx])
+            # selected_asu_indices = [asu_indices[entity_idx][com_idx] for entity_idx, com_idx in core_indices + additional_indices]
+            selected_asu_indices = []
+            for range_idx in range(len(asu_indices)):
+                for entity_idx, com_idx in new_asu_indices:
+                    if range_idx == entity_idx:
+                        selected_asu_indices.append(asu_indices[entity_idx][com_idx])
 
         symmetric_coords_split_by_entity = self.symmetric_coords_split_by_entity
-        asu_coords = [symmetric_coords_split_by_entity[group_idx][sym_idx] for group_idx, sym_idx in enumerate(selected_asu_indices)]
+        asu_coords = [symmetric_coords_split_by_entity[group_idx][sym_idx]
+                      for group_idx, sym_idx in enumerate(selected_asu_indices)]
+        # self.log.critical('asu_coords: %s' % asu_coords)
         self.set_asu_coords(np.concatenate(asu_coords))
-        for idx, entity in enumerate(self.entities):
-            entity.make_oligomer(self.sym_entry.groups[idx], **transform_solutions[idx])
+        # for idx, entity in enumerate(self.entities):
+        #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **transform_solutions[idx])
 
         return transform_solutions
 
@@ -2339,11 +2343,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     # @property
     # def chains(self):
     #     return [chain for entity in self.entities for chain in entity.chains]
-    #
-    # @property
-    # def active_chains(self):
-    #     return [chain for entity in self.active_entities for chain in entity.chains]
-    #
+
+    @property
+    def active_chains(self):
+        return [chain for entity in self.active_entities for chain in entity.chains]
+
     # @property
     # def chain_breaks(self):
     #     return [entity.c_terminal_residue.number for entity in self.entities]
@@ -2405,15 +2409,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             chain_combinations, entity_combinations = [], []
             contact_count = \
                 np.zeros(sum(map(prod, combinations((entity.number_of_monomers for entity in self.active_entities), 2))))
-            # contact_count = np.zeros((prod([len(entity.chains) for entity in self.active_entities])))
             for entity1, entity2 in combinations(self.active_entities, 2):
                 for chain1 in entity1.chains:
                     chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
                     for chain2 in entity2.chains:
                         entity_combinations.append((entity1, entity2))
                         chain_combinations.append((chain1, chain2))
-                        contact_count[idx] = chain_cb_coord_tree.two_point_correlation(chain2.get_cb_coords(),
-                                                                                       [distance])[0]
+                        contact_count[idx] = \
+                            chain_cb_coord_tree.two_point_correlation(chain2.get_cb_coords(), [distance])[0]
                         idx += 1
             max_contact_idx = contact_count.argmax()
             # second_contact_idx = contact_count.argsort()[-2]
@@ -2954,11 +2957,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """Locate the interface residues for the designable entities and split into two interfaces
 
         Sets:
-            self.split_interface_residues (dict): Residue/Entity id of each residue at the interface identified by interface id
-                as split by topology
+            self.split_interface_residues (dict): Residue/Entity id of each residue at the interface identified by
+                interface id as split by topology
         """
         self.log.debug('Find and split interface using active_entities: %s' %
-                       [entity.name for entity in self.active_entities])
+                       ', '.join(entity.name for entity in self.active_entities))
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.find_interface_residues(*entity_pair)
 
@@ -3070,6 +3073,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.split_interface_residues[key + 1] = sorted(all_residues, key=lambda res_ent: res_ent[0].number)
 
         if not self.split_interface_residues[1]:
+            # Todo return an error but don't raise anything
             raise DesignError('Interface was unable to be split because no residues were found on one side of the'
                               ' interface!')
         else:
