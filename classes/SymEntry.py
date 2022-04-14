@@ -315,8 +315,8 @@ class SymEntry:
                              % (entry, 1, len(symmetry_combinations), ', '.join(map(str, custom_entries))))
         self.entry_number = entry
         # Reformat reference_frame entries
-        self._is_ref_frame_tx_dof1 = True if self.ref_frame_tx_dof1 != '<0,0,0>' else False
-        self._is_ref_frame_tx_dof2 = True if self.ref_frame_tx_dof2 != '<0,0,0>' else False
+        self.is_ref_frame_tx_dof1 = False if self.ref_frame_tx_dof1 == '<0,0,0>' else True
+        self.is_ref_frame_tx_dof2 = False if self.ref_frame_tx_dof2 == '<0,0,0>' else True
         self.ref_frame_tx_dof1 = list(map(str.strip, self.ref_frame_tx_dof1.strip('<>').split(',')))
         self.ref_frame_tx_dof2 = list(map(str.strip, self.ref_frame_tx_dof2.strip('<>').split(',')))
         self.external_dof1 = construct_uc_matrix(self.ref_frame_tx_dof1)
@@ -324,6 +324,7 @@ class SymEntry:
 
         ext_dof_indices = []
         if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
+            print('NO EXT REF TX')
             self.ext_dof = np.empty((0, 3), float)  # <- np.array([[0.], [0.], [0.]])
         else:
             difference_matrix = self.external_dof2 - self.external_dof1
@@ -466,13 +467,13 @@ class SymEntry:
         else:
             return False
 
-    @property
-    def is_ref_frame_tx_dof1(self):
-        return self._is_ref_frame_tx_dof1
-
-    @property
-    def is_ref_frame_tx_dof2(self):
-        return self._is_ref_frame_tx_dof2
+    # @property
+    # def is_ref_frame_tx_dof1(self):
+    #     return self._is_ref_frame_tx_dof1
+    #
+    # @property
+    # def is_ref_frame_tx_dof2(self):
+    #     return self._is_ref_frame_tx_dof2
 
     # @property
     # def ext_dof(self):
