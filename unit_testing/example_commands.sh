@@ -16,7 +16,7 @@ python /yeates1/kmeador/symdesign2/Nanohedra.py -dock -entry 54 -pdb_dir1_path C
 python /yeates1/kmeador/symdesign2/Nanohedra.py -dock -entry 84 -pdb_dir1_path D2/3wb0.pdb1 -pdb_dir2_path D2/1rcu.pdb1 -outdir /yeates1/kmeador/symdesign2/unit_testing/NanohedraEntry84DockedPoses -output_assembly
 
 # P432 - Space group (pdb1 rotational degree of freedom)
-python /yeates1/kmeador/symdesign2/Nanohedra.py -dock -entry 67 -pdb_dir1_path C3/1vhc.pdb1 -pdb_dir2_path C4/2fw7.pdb1 -rot_step1 3 -outdir /yeates1/kmeador/symdesign2/unit_testing/NanohedraEntry67DockedPoses -output_assembly
+python /yeates1/kmeador/symdesign2/Nanohedra.py -dock -entry 67 -pdb_dir1_path C3/1vhc.pdb1 -pdb_dir2_path D4/2fw7.pdb1 -rot_step1 3 -outdir /yeates1/kmeador/symdesign2/unit_testing/NanohedraEntry67DockedPoses -output_assembly
 
 # To run these actual scripts, comment out the echo and \'\" \"\' lines.
 "
