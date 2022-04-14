@@ -2704,16 +2704,18 @@ class Entity(Chain, SequenceProfile):
         if symmetry in cubic_point_groups:
             # self.symmetry = possible_symmetries.get(symmetry, None)
             rotation_matrices = get_ptgrp_sym_op(self.symmetry)
-            degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
+            # Todo may need to add T degeneracy here!
+            degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
         elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
             rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
             # apparently passing the degeneracy matrix first without any specification towards the row/column major
             # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
             # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
-            degeneracy_rotation_matrices = get_degen_rotmatrices(np.array([flip_x_matrix]), rotation_matrices)
+            degeneracy_rotation_matrices = \
+                get_degen_rotmatrices(degeneracy_matrices=flip_x_matrix, rotation_matrices=rotation_matrices)
         else:
             rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
-            degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
+            degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
         inv_rotation = np.linalg.inv(rotation)
         inv_setting = np.linalg.inv(rotation2)

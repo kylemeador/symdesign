@@ -213,37 +213,40 @@ point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7
                        200: 'T', 210: 'O', 211: 'O', 220: 'I'}
 
 rotation_range = {'C1': 360, 'C2': 180, 'C3': 120, 'C4': 90, 'C5': 72, 'C6': 60}
+cubic_point_groups = ['T', 'O', 'I']
 # ROTATION SETTING MATRICES - All descriptions are with view on the positive side of respective axis
-setting_matrices = {1: [[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]],
-                    # identity
-                    2: [[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]],
-                    # 90 degrees CCW on Y
-                    3: [[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]],
-                    # 45 degrees CCW on Y, which is 2-fold axis in T, O
-                    4: [[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]],
-                    # 45 degrees CW on X, 45 degrees CW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
-                    5: [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]],
-                    # 45 degrees CW on Z
-                    6: [[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]],
-                    # 90 degrees CW on X
-                    7: [[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]],
-                    # ~20.9 degrees CW on X which is 3-fold axis in I (2-fold is positive Z)
-                    8: [[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]],
-                    # 90 degrees CW on Y, 135 degrees CW on Z, which is 45 degree X,Y plane diagonal in D4
-                    9: [[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]],
-                    # ~31.7 degrees CCW on Y which is 5-fold axis in I (2-fold is positive Z)
-                    10: [[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]],
-                    # 90 degrees CW on Y, 150 degrees CW on Z, which is 60 degree X,Y plane diagonal in D6
-                    11: [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]],
-                    # 90 degrees CCW on Z
-                    12: [[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]],
-                    # 45 degrees CCW on X, 45 degrees CCW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
-                    13: [[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]]
-                    # 60 degrees CCW on Z
-                    }
-flip_x_matrix = [[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]]  # rot 180x
-flip_y_matrix = [[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]  # rot 180y
-identity_matrix = np.array(setting_matrices[1])
+setting_matrices = {
+    1: np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
+    # identity
+    2: np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]),
+    # 90 degrees CCW on Y
+    3: np.array([[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]]),
+    # 45 degrees CCW on Y, which is 2-fold axis in T, O
+    4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
+    # 45 degrees CW on X, 45 degrees CW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
+    5: np.array([[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]),
+    # 45 degrees CW on Z
+    6: np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]),
+    # 90 degrees CW on X
+    7: np.array([[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]]),
+    # ~20.9 degrees CW on X which is 3-fold axis in I (2-fold is positive Z)
+    8: np.array([[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]]),
+    # 90 degrees CW on Y, 135 degrees CW on Z, which is 45 degree X,Y plane diagonal in D4
+    9: np.array([[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]]),
+    # ~31.7 degrees CCW on Y which is 5-fold axis in I (2-fold is positive Z)
+    10: np.array([[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]]),
+    # 90 degrees CW on Y, 150 degrees CW on Z, which is 60 degree X,Y plane diagonal in D6
+    11: np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+    # 90 degrees CCW on Z
+    12: np.array([[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]),
+    # 45 degrees CCW on X, 45 degrees CCW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
+    13: np.array([[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]])
+    # 60 degrees CCW on Z
+    }
+inv_setting_matrices = {key: np.linalg.inv(setting_matrix) for key, setting_matrix in setting_matrices.items()}
+identity_matrix = setting_matrices[1]
+flip_x_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180x
+flip_y_matrix = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180y
 point_group_degeneracy_matrices = {
     'T': 6,
 
@@ -277,13 +280,13 @@ point_group_setting_matrix_members = {
     # # 15
     # 'D6': {'C2': {1, 2, 6, 10}, 'C3': {1}, 'C6': {1}, 'D2': {1, 13}, 'D3': {1, 4, 11}, 'D6': {1}},
     # # 18, 19, 23, 24, 29-31, 42-44, 60, 68, 82, 83, 87, 89-91, 97, 98, 107, 111, 112
-    # 'T': {'C2': {3}, 'C3': {4, 12}},  # might have to check using degeneracy matrix mult to first setting matrix 6(4)=12
+    # 'T': {'C2': {1}, 'C3': {4, 12}},  # might have to check using degeneracy matrix mult to first setting matrix 6(4)=12
     # 'O': {'C2': {3}, 'C3': {4, 12}, 'C4': {1}},
     # 'I': {'C2': {1}, 'C3': {7}, 'C5': {9}},
 }
 for entry_number, entry in symmetry_combinations.items():
     group1, int_dof_group1, setting1, ref_frame_tx_dof_group1, group2, int_dof_group2, setting2, \
-    ref_frame_tx_dof_group2, point_group, result, dimension, _, _, _ = entry
+        ref_frame_tx_dof_group2, point_group, result, dimension, _, _, _ = entry
     result_entry = point_group_setting_matrix_members.get(point_group, None)
     if result_entry:
         if group1 in result_entry:
@@ -349,9 +352,9 @@ class SymEntry:
         if not sym_map:
             self.sym_map = {1: self.group1, 2: self.group2}  # assumes 2 component symmetry. index with only 2 options
         else:  # requires full specification of all symmetry groups
-            for idx, sym_operator in enumerate(sym_map, 1):
-                setattr(self, 'group%d' % idx, sym_operator)
-            self.sym_map = {idx: getattr(self, 'group%d' % idx) for idx, sym_operator in enumerate(sym_map, 1)}
+            for idx, sub_symmetry in enumerate(sym_map, 1):
+                setattr(self, 'group%d' % idx, sub_symmetry)
+            self.sym_map = {idx: getattr(self, 'group%d' % idx) for idx, _ in enumerate(sym_map, 1)}
 
     # @property
     # def group1_sym(self):
@@ -395,7 +398,7 @@ class SymEntry:
         try:
             return self._setting_matrix1
         except AttributeError:
-            self._setting_matrix1 = np.array(setting_matrices[self.rot_set_group1])
+            self._setting_matrix1 = setting_matrices[self.rot_set_group1]
         return self._setting_matrix1
 
     # @property
@@ -407,7 +410,7 @@ class SymEntry:
         try:
             return self._setting_matrix2
         except AttributeError:
-            self._setting_matrix2 = np.array(setting_matrices[self.rot_set_group2])
+            self._setting_matrix2 = setting_matrices[self.rot_set_group2]
         return self._setting_matrix2
 
     # @property
@@ -768,12 +771,12 @@ def get_degen_rotmatrices(degeneracy_matrices=None, rotation_matrices=None):
     specified transformations.
 
     Keyword Args:
-        degeneracy_matrices (np.ndarray): column major with shape (degeneracies, 3, 3)
+        degeneracy_matrices (numpy.ndarray): column major with shape (degeneracies, 3, 3)
             # [[[x, y, z], [x, y, z], [x, y, z]], ...]
-        rotation_matrices (np.ndarray): row major with shape (rotations, 3, 3)
+        rotation_matrices (numpy.ndarray): row major with shape (rotations, 3, 3)
             # [[[x, y, z], [x, y, z], [x, y, z]], ...]
     Returns:
-        (list[list[np.ndarray]])  # (list[list[list[list]]])
+        (list[list[numpy.ndarray]])  # (list[list[list[list]]])
     """
     if rotation_matrices is not None and degeneracy_matrices is not None:
         degen_rot_matrices = [np.matmul(rotation_matrices, degen_mat) for degen_mat in degeneracy_matrices]
