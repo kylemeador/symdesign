@@ -331,7 +331,7 @@ class SymEntry:
             # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
             # (^).sum(axis=1(-2)) = [4, 4, 4]
             flat_difference_matrix = difference_matrix.sum(axis=-2)
-            self.ext_dof = flat_difference_matrix[np.nonzero(flat_difference_matrix)]
+            self.ext_dof = flat_difference_matrix[np.nonzero(flat_difference_matrix)][:, None]
             # for idx in range(3):
             #     if difference_sum[idx] != 0:
             #         ext_dof_indices.append(idx)
