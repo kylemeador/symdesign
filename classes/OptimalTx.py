@@ -21,6 +21,7 @@ class OptimalTx:
         # add internal z-shift degrees of freedom to 9-dim arrays if they exist
         self.n_dof_internal = 0
         if self.zshift1 is not None:
+            print('self.zshift1', self.zshift1)
             self.dof = np.append(self.dof, -self.zshift1, axis=0)
             self.n_dof_internal += 1
         if self.zshift2 is not None:
