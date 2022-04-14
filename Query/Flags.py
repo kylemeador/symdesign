@@ -1,6 +1,6 @@
 from copy import copy
 
-from PathUtils import program_command, nano, program_name, interface_design
+from PathUtils import program_command, program_name, interface_design
 from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
     format_index_string
@@ -168,7 +168,7 @@ def return_default_flags(mode):
     if mode in flags:
         return dict(zip(flags[mode].keys(), [value_format['default'] for value_format in flags[mode].values()]))
     else:
-        return dict(zip(global_flags.keys(), [value_format['default'] for value_format in global_flags.values()]))
+        return dict(zip(all_flags.keys(), [value_format['default'] for value_format in all_flags.values()]))
 
 
 @handle_errors(errors=KeyboardInterrupt)
