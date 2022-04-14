@@ -714,7 +714,7 @@ class PDB(Structure):
             #     try:
             # moving coords are from the pre-orient structure where orient may have removed residues
             # lets try to remove those residues by doing an alignment
-            align_orient_seq, align_moving_seq, *_ = generate_alignment_local(orient_fixed_seq, moving_seq)
+            align_orient_seq, align_moving_seq, *_ = generate_alignment_local(orient_fixed_seq, moving_seq)[0]
             # align_seq_1.replace('-', '')
             # orient_idx1 = moving_seq.find(align_orient_seq.replace('-', '')[0])
             for orient_idx1, aa in enumerate(align_orient_seq):
