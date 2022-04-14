@@ -1038,7 +1038,6 @@ class DesignDirectory:  # (JobResources):
             if self.pose.fragment_queries:
                 self.log.debug('Fragment observations found in Pose. Adding to the Design state')
                 self.fragment_observations = self.pose.return_fragment_observations()
-                self.info['fragments'] = self.fragment_observations
                 frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
             elif os.path.exists(self.frag_file):  # try to pull them from disk
                 self.log.debug('Fragment observations found on disk. Adding to the Design state')
@@ -1060,6 +1059,7 @@ class DesignDirectory:  # (JobResources):
                 # self.generate_interface_fragments()
             else:
                 raise DesignError('Design hit a snag that shouldn\'t have happened. Please report to the developers')
+            self.info['fragments'] = self.fragment_observations
             self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
         self.center_residue_numbers = frag_metrics['center_residues']
@@ -1124,7 +1124,6 @@ class DesignDirectory:  # (JobResources):
                     fragment_observations.add((residue_number1, residue_number2, '_'.join(cluster_id), match_score))
         self.fragment_observations = [dict(zip(('mapped', 'paired', 'cluster', 'match'), frag_obs))
                                       for frag_obs in fragment_observations]
-        self.info['fragments'] = self.fragment_observations  # inform the design state that fragments have been produced
 
     # @handle_errors(errors=(FileNotFoundError,))
     def retrieve_pose_transformation_from_file(self) -> List[Dict]:
@@ -2038,7 +2037,8 @@ class DesignDirectory:  # (JobResources):
         self.identify_interface()
         self.make_path(self.frags, condition=self.write_frags)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
-        self.info['fragments'] = self.pose.return_fragment_observations()
+        self.fragment_observations = self.pose.return_fragment_observations()
+        self.info['fragments'] = self.fragment_observations
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     # @handle_design_errors(errors=(DesignError, AssertionError))  # Todo this may be called too many places to use here
@@ -2115,11 +2115,13 @@ class DesignDirectory:  # (JobResources):
                                   'generated for this Design! Try with the flag --generate_fragments or run %s'
                                   % PUtils.generate_fragments)
             self.make_path(self.data)
-            self.pose.interface_design(evolution=not self.no_evolution_constraint, fragments=not self.no_term_constraint,
+            self.pose.interface_design(evolution=not self.no_evolution_constraint,
+                                       fragments=not self.no_term_constraint,
                                        query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
                                        write_fragments=self.write_frags, des_dir=self)
             self.make_path(self.designs)
-            self.info['fragments'] = self.pose.return_fragment_observations()
+            self.fragment_observations = self.pose.return_fragment_observations()
+            self.info['fragments'] = self.fragment_observations
             # Todo edit each of these files to be relative paths?
             self.info['design_profile'] = self.pose.design_pssm_file
             self.info['evolutionary_profile'] = self.pose.pssm_file
