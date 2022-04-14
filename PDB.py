@@ -1555,8 +1555,8 @@ def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
             pdb.write(out_path=oriented_file_path)
             log.info('Oriented: %s' % pdb_filename)
             return oriented_file_path
-        except (ValueError, RuntimeError) as err:
-            log.error(str(err))
+        # except (ValueError, RuntimeError) as err:
+        #     log.error(str(err))
 
 
 # ref_aa = PDB.from_file(reference_aa_file, log=None, pose_format=False, entities=False)
