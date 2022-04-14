@@ -2273,8 +2273,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 for chain1 in entity1.chains:
                     chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
                     for chain2 in entity2.chains:
-                        chain_combinations.append((chain1, chain2))
                         entity_combinations.append((entity1, entity2))
+                        chain_combinations.append((chain1, chain2))
                         contact_count[idx] = chain_cb_coord_tree.two_point_correlation(chain2.get_cb_coords(),
                                                                                        [distance])[0]
                         idx += 1
@@ -2284,22 +2284,23 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             max_chains = list(chain_combinations[max_contact_idx])
             if len(max_chains) != len(self.active_entities):
                 # find the indices where either of the maximally contacting chains are utilized
-                selected_chain_indices = [idx for idx, chain_pair in enumerate(chain_combinations)
-                                          if max_chains[0] in chain_pair or max_chains[1] in chain_pair]
+                selected_chain_indices = {idx for idx, chain_pair in enumerate(chain_combinations)
+                                          if max_chains[0] in chain_pair or max_chains[1] in chain_pair}
                 remaining_entities = set(self.active_entities).difference(entity_combinations[max_contact_idx])
                 for entity in remaining_entities:  # get the maximum contacts and the associated entity and chain indices
                     # find the indices where the missing entity is utilized
-                    remaining_indices = [idx for idx, entity_pair in enumerate(entity_combinations)
-                                         if entity in entity_pair]
+                    remaining_indices = \
+                        {idx for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair}
                     # pair_position = [0 if entity_pair[0] == entity else 1
                     #                  for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair]
-                    viable_remaining_indices = list(set(remaining_indices).intersection(selected_chain_indices))
+                    # only use those where found asu chains already occur
+                    viable_remaining_indices = list(remaining_indices.intersection(selected_chain_indices))
                     # out of the viable indices where the selected chains are matched with the missing entity,
                     # find the highest contact
-                    max_index = contact_count[viable_remaining_indices].argmax()
-                    for entity_idx, entity_in_combo in enumerate(entity_combinations[viable_remaining_indices[max_index]]):
+                    max_idx = contact_count[viable_remaining_indices].argmax()
+                    for entity_idx, entity_in_combo in enumerate(entity_combinations[viable_remaining_indices[max_idx]]):
                         if entity == entity_in_combo:
-                            additional_chains.append(chain_combinations[viable_remaining_indices[max_index]][entity_idx])
+                            additional_chains.append(chain_combinations[viable_remaining_indices[max_idx]][entity_idx])
 
             entities = max_chains + additional_chains
 
