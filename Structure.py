@@ -23,7 +23,7 @@ from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
     retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
-    possible_symmetries
+    cubic_point_groups
 from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number
 
@@ -1263,7 +1263,11 @@ class Structure(StructureBase):
 
     def replace_coords(self, new_coords):
         """Replace the current Coords array with a new Coords array"""
-        self._coords.coords = new_coords
+        try:
+            new_coords.shape
+            self._coords.coords = new_coords
+        except AttributeError:
+            raise ValueError('The coords passed to %s must be a numpy.ndarray' % self.replace_coords.__name__)
 
     def local_density(self, residue_numbers=None, distance=12.):
         """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
@@ -1361,7 +1365,7 @@ class Structure(StructureBase):
                     atom_idx = coords_indexed_residue_atoms[clashing_atom_idx]
                     # atom = atoms[clashing_atom_idx]
                     atom = other_residue[atom_idx]
-                    if atom.is_backbone() or atom.is_CB():
+                    if atom.is_backbone() or atom.is_cb():
                         backbone_clashes.append((residue, other_residue, atom_idx))
                     elif 'H' not in atom.type:
                         side_chain_clashes.append((residue, other_residue, atom_idx))
@@ -2015,6 +2019,8 @@ class Structure(StructureBase):
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
         other.__dict__ = self.__dict__.copy()
+        # other.__dict__ = {}  # Todo
+        # for attr, value in self.__dict__.items():  # Todo
         for attr, value in other.__dict__.items():
             other.__dict__[attr] = copy(value)
         other.set_residues_attributes(_coords=other._coords)  # , _atoms=other._atoms)
@@ -2430,7 +2436,12 @@ class Entity(Chain, SequenceProfile):
                                  'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
-    def uniprot_id(self):
+    def uniprot_id(self) -> str:
+        """The UniProt ID for the Entity used for accessing genomic and homology features
+
+        Returns:
+            (str)
+        """
         try:
             return self._uniprot_id
         except AttributeError:
@@ -2454,7 +2465,12 @@ class Entity(Chain, SequenceProfile):
             self._uniprot_id = uniprot_id
 
     @property
-    def chain_id(self):
+    def chain_id(self) -> str:
+        """The Chain name for the Entity instance
+
+        Returns:
+            (str)
+        """
         return self.residues[0].chain
 
     @chain_id.setter
@@ -2463,7 +2479,12 @@ class Entity(Chain, SequenceProfile):
         # self.set_atoms_attributes(chain=chain_id)
 
     @property
-    def number_of_monomers(self):
+    def number_of_monomers(self) -> int:
+        """The number of copies of the Entity in the Oligomer
+
+        Returns:
+            (int)
+        """
         try:
             return self._number_of_monomers
         except AttributeError:
@@ -2475,7 +2496,12 @@ class Entity(Chain, SequenceProfile):
         self._number_of_monomers = value
 
     @property
-    def chain_ids(self):
+    def chain_ids(self) -> List:
+        """The names of each Chain found in the Entity
+
+        Returns:
+            (list)
+        """
         try:
             return self._chain_ids
         except AttributeError:  # This shouldn't be possible with the constructor available
@@ -2487,7 +2513,12 @@ class Entity(Chain, SequenceProfile):
         self._chain_ids = chain_ids
 
     @property
-    def chain_transforms(self):
+    def chain_transforms(self) -> List[Dict]:
+        """The specific transformation operators to generate all mate chains of the Oligomer
+
+        Returns:
+            (list[dict])
+        """
         # self.log.info('%s chain_transform %s' % (self.name, 'start'))
         try:
             return self._chain_transforms
@@ -2536,8 +2567,8 @@ class Entity(Chain, SequenceProfile):
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
-            # self.log.info('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
-            #               % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
+            self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
+                           % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
             for idx, chain in enumerate(self._chains):
                 # set the entity.chain_id (which sets all atoms/residues...)
                 chain.chain_id = chain_ids[idx]
@@ -2581,6 +2612,11 @@ class Entity(Chain, SequenceProfile):
             return self._disorder
 
     def chain(self, chain_name):
+        """Fetch and return a Chain by name
+
+        Returns:
+            (Entity)
+        """
         for idx, chain_id in enumerate(self.chain_ids):
             if chain_id == chain_name:
                 try:
@@ -2665,8 +2701,8 @@ class Entity(Chain, SequenceProfile):
             translation2 = origin
 
         self.symmetry = symmetry
-        if symmetry in possible_symmetries:  # ['T', 'O', 'I']:
-            self.symmetry = possible_symmetries.get(symmetry, None)
+        if symmetry in cubic_point_groups:
+            # self.symmetry = possible_symmetries.get(symmetry, None)
             rotation_matrices = get_ptgrp_sym_op(self.symmetry)
             degeneracy_rotation_matrices = get_degen_rotmatrices(None, rotation_matrices)
         elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
