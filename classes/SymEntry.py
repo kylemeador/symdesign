@@ -324,18 +324,14 @@ class SymEntry:
 
         ext_dof_indices = []
         if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
-            print('NO EXT REF TX')
             self.ext_dof = np.empty((0, 3), float)  # <- np.array([[0.], [0.], [0.]])
         else:
-            print('self.external_dof1', self.external_dof1)
-            print('self.external_dof2', self.external_dof2)
             difference_matrix = self.external_dof2 - self.external_dof1
-            print('difference_matrix', difference_matrix)
             # for entry 6 - string_vector is 4*e, 4*e, 4*e
             # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
             # (^).sum(axis=1(-2)) = [4, 4, 4]
-            self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-2))]
-            print('ext_dof', self.ext_dof)
+            flat_difference_matrix = difference_matrix.sum(axis=-2)
+            self.ext_dof = flat_difference_matrix[np.nonzero(flat_difference_matrix)]
             # for idx in range(3):
             #     if difference_sum[idx] != 0:
             #         ext_dof_indices.append(idx)
