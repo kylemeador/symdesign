@@ -599,9 +599,13 @@ if __name__ == '__main__':
                         help='Name of comma separated file with each line formatted:\n'
                              'poseID, [designID], [residue_number:design_directive '
                              'residue_number2-residue_number9:directive ...]')
+    parser.add_argument('-F', '--%s' % PUtils.force_flags, action='store_true',
+                        help='Force generation of a new flags file to update script parameters')
     parser.add_argument('-g', '--guide', action='store_true',
                         help='Access the %s guide! Display the program or module specific guide. Ex: \'%s --guide\' '
                              'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
+    parser.add_argument('-gf', '--%s' % PUtils.generate_fragments, action='store_true',
+                        help='Generate fragment overlap for poses of interest.')
     parser.add_argument('-l', '--load_database', action='store_true',
                         help='Whether to fetch and store resources for each Structure in the sequence/structure '
                              'database')
@@ -625,6 +629,15 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--single', type=os.path.abspath,
                         metavar=ex_path('SymDesignOutput', 'Projects', 'your_project', 'single_design[.pdb]'),
                         help='If design name is specified by a single path instead')
+    parser.add_argument('-wf', '--write_fragments', action='store_true',
+                        help='For any fragments generated, write them along with the Pose')
+    parser.add_argument('-wo', '--write_oligomers', action='store_true',
+                        help='For any oligomers generated, write them along with the Pose')
+    parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
+                        help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
+    parser.add_argument('-S', '--symmetry', type=str, default=None,
+                        help='The specific symmetry of the designs of interest. Preferrably in a composition formula'
+                             'such as T:{C3}{C3}...')
     subparsers = parser.add_subparsers(title='Modules', dest='module',
                                        description='These are the different modes that designs can be processed',
                                        help='Chose a Module followed by Module specific flags. To get help with a '
@@ -632,12 +645,6 @@ if __name__ == '__main__':
                                             'enter:\t%s\n\nTo get help with Module flags enter:\t%s\n, Any Module '
                                             '--guide or --help can be accessed in this way.'
                                             % (PUtils.submodule_guide, PUtils.submodule_help))
-    parser.add_argument('-sdb', '--skip_master_db', action='store_true',
-                        help='Skip loading of the entire master database, instead opting to load on the fly')
-    parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
-                        help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
-    parser.add_argument('-F', '--%s' % PUtils.force_flags, action='store_true',
-                        help='Force generation of a new flags file to update script parameters')
     # ---------------------------------------------------
     # Set Up SubModule Parsers
     # ---------------------------------------------------
@@ -1031,20 +1038,19 @@ if __name__ == '__main__':
     # Process arguments for program initialization
     # -----------------------------------------------------------------------------------------------------------------
     # We have to ensure that if the user has provided it, the symmetry is correct
-    if queried_flags.get('sym_entry'):
-        sym_entry = SymEntry(int(queried_flags['sym_entry']))
-        queried_flags['sym_entry'] = sym_entry
-    if queried_flags['symmetry']:
+    if queried_flags['symmetry'] and queried_flags.get('sym_entry'):
+        queried_flags['sym_entry'] = \
+            parse_symmetry_to_sym_entry(queried_flags['symmetry'], sym_entry=queried_flags['sym_entry'])
+    elif queried_flags.get('sym_entry'):
+        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
+    elif queried_flags['symmetry']:
         if queried_flags['symmetry'].lower()[:5] == 'cryst':
             # the symmetry information is in the pdb header
             queried_flags['symmetry'] = 'cryst'
         else:  # queried_flags['symmetry'] in possible_symmetries:
-            # Todo integrate with SymEntry search
             queried_flags['sym_entry'] = parse_symmetry_to_sym_entry(queried_flags['symmetry'])
-        # else:
-        #     raise SDUtils.DesignError('The symmetry \'%s\' is not supported! Supported symmetries include:'
-        #                               '\n\t%s\nCorrect your flags and try again'
-        #                               % (queried_flags['symmetry'], ', '.join(possible_symmetries)))
+    sym_entry = queried_flags['sym_entry']
+
     initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,
                           'optimize_designs', 'custom_script']  # PUtils.analysis,
     # TODO consolidate these checks
@@ -1601,6 +1607,16 @@ if __name__ == '__main__':
 
         terminate(results=results)
     # ---------------------------------------------------
+    elif args.module == PUtils.generate_fragments or args.queried_flags.get(PUtils.generate_fragments):
+        # Start pose processing and preparation for Rosetta
+        if args.multi_processing:
+            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
+        else:
+            for design in design_directories:
+                results.append(design.generate_interface_fragments())
+
+        terminate(results=results)
+    # ---------------------------------------------------
     elif args.module == PUtils.nano:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
         # Initialize docking procedure
         if args.run_in_shell:
@@ -1672,16 +1688,6 @@ if __name__ == '__main__':
         #     logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
         # else:
         #     logger.error('No \'%s\' commands were written!' % PUtils.nano)
-    # ---------------------------------------------------
-    elif args.module == PUtils.generate_fragments:  # -i fragment_library
-        # Start pose processing and preparation for Rosetta
-        if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
-        else:
-            for design in design_directories:
-                results.append(design.generate_interface_fragments())
-
-        terminate(results=results)
     # ---------------------------------------------------
     elif args.module == 'interface_metrics':
         # Start pose processing and preparation for Rosetta
@@ -2004,14 +2010,8 @@ if __name__ == '__main__':
                 # zipped_args = zip(combinations(design_interfaces, 2))
                 design_scores = SDUtils.mp_starmap(ialign, combinations(design_interfaces, 2), threads=threads)
 
-                for idx, is_score in enumerate(design_scores):  # Todo reinstate
-                # for idx, (is_score, des1, des2) in enumerate(design_scores):  # Todo remove
-                #     print('%5d : %f' % (idx, is_score))
+                for idx, is_score in enumerate(design_scores):
                     if is_score > is_threshold:
-                        # pair1, pair2 = design_directory_pairs[idx]  # Todo remove
-                        # # if pair != design_directory_pairs[idx]: # Todo remove
-                        # if (des1, des2) != (pair1.name, pair2.name):  # Todo remove
-                        #     print('Pair is not aligned with idx!')  # Todo remove
                         design_pairs.append(set(design_directory_pairs[idx]))
             else:
                 # for design1, design2 in combinations(design_directories, 2):  # all_files

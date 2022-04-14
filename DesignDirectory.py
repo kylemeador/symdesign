@@ -173,6 +173,7 @@ class DesignDirectory:  # (JobResources):
         self.specific_protocol = kwargs.get('specific_protocol', False)
         self.structure_background = kwargs.get(PUtils.structure_background, False)
         self.write_frags = kwargs.get('write_fragments', True)
+        self.write_oligomers = kwargs.get('write_oligomers', False)
         self.run_in_shell = kwargs.get('run_in_shell', False)
         self.mpi = kwargs.get('mpi', False)
         self.output_assembly = kwargs.get('output_assembly', False)
@@ -191,12 +192,12 @@ class DesignDirectory:  # (JobResources):
         self.composition = None  # building_blocks (4ftd_5tch)
         self.design_background = kwargs.get('design_background', 'design_profile')  # by default, grab design profile
         self.design_db = None
+        self.design_residue_ids = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self.design_selector = kwargs.get('design_selector', None)
         self.entity_names = []
         self.euler_lookup = None
         self.fragment_observations = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
         self.info = {}  # internal state info
-        self.design_residue_ids = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self._info = {}  # internal state info at load time
         # self.oligomer_names = []
         self.oligomers = []
@@ -1044,10 +1045,11 @@ class DesignDirectory:  # (JobResources):
             # fragments were attempted, but returned nothing, set frag_metrics to the template (empty)
             elif self.fragment_observations == list():
                 frag_metrics = fragment_metric_template
+            # fragments haven't been attempted on this pose
             elif self.fragment_observations is None:
-                self.log.warning('There are no fragment observations for this Design! Returning null values... '
-                                 'If this isn\'t what you expected, ensure that you haven\'t disabled it with "--%s"'
-                                 % PUtils.no_term_constraint)
+                self.log.warning('There were no fragments generated for this Design! If this isn\'t what you expected, '
+                                 'ensure that you haven\'t disabled it with "--%s" or explicitly request it with --%s'
+                                 % (PUtils.no_term_constraint, PUtils.generate_fragments))
                                  # 'Have you run %s on it yet?' % PUtils.generate_fragments)
                 frag_metrics = fragment_metric_template
                 # self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet?
@@ -2017,8 +2019,7 @@ class DesignDirectory:  # (JobResources):
     @handle_design_errors(errors=(DesignError, AssertionError))
     def generate_interface_fragments(self):
         """For the design info given by a DesignDirectory source, initialize the Pose then generate interfacial fragment
-        information between Entities. Aware of symmetry and design_selectors in fragment generation
-        file
+        information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
         if not self.frag_db:
             self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
