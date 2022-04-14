@@ -719,8 +719,12 @@ class DesignDirectory:  # (JobResources):
         return {'n': n_term, 'c': c_term}
 
     def clear_pose_transformation(self):
-        del self._pose_transformation
-        self.info.pop('pose_transformation')
+        """Remove any pose transformation data from the Pose"""
+        try:
+            del self._pose_transformation
+            self.info.pop('pose_transformation')
+        except AttributeError:
+            pass
 
     @property
     def pose_transformation(self):
@@ -1763,19 +1767,11 @@ class DesignDirectory:  # (JobResources):
                                       source_db=self.resources, frag_db=self.frag_db, euler_lookup=self.euler_lookup,
                                       ignore_clashes=self.ignore_clashes)
             # generate oligomers for each entity in the pose
-            # if self.pose_transformation:
             for idx, entity in enumerate(self.pose.entities):
                 entity.make_oligomer(symmetry=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
-                # write out new oligomers to the DesignDirectory TODO add flag to include these
-                # out_path = os.path.join(self.path, '%s_oligomer.pdb' % entity.name)
-                # entity.write_oligomer(out_path=out_path)
-            # else:
-                # may switch this whole function to align the assembly identified by the asu entities PDB code after
-                # download from PDB API
-                # raise DesignError('The functionality for specifying the pose transformation parameters is not possible yet.'
-                #                   '\nThis pose is not designable with the current version of %s' % PUtils.program_name)
-                # self.pose.assign_entities_to_sub_symmetry()
-                # pass
+                # write out new oligomers to the DesignDirectory
+                if self.write_oligomers:
+                    entity.write_oligomer(out_path=os.path.join(self.path, '%s_oligomer.pdb' % entity.name))
         else:
             self.pose = Pose.from_pdb(pdb, name=str(self),
                                       design_selector=self.design_selector, log=self.log,
@@ -1877,7 +1873,9 @@ class DesignDirectory:  # (JobResources):
 
             orient_file = pdb.write(out_path=out_path)
             self.log.critical('The oriented file was saved to %s' % orient_file)
-            self.clear_pose_transformation()
+            # self.clear_pose_transformation()
+            for entity in pdb.entities:
+                entity.remove_mate_chains()
             self.load_pose(entities=pdb.entities)
             self.save_asu(rename_chains=True)
         else:
