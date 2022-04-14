@@ -849,7 +849,7 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
     return lengths + angles
 
 
-def parse_symmetry_to_sym_entry(symmetry_string):
+def parse_symmetry_to_sym_entry(symmetry_string, sym_entry=None):
     symmetry_string = symmetry_string.strip()
     clean_split = None
     if len(symmetry_string) > 3:
@@ -864,12 +864,13 @@ def parse_symmetry_to_sym_entry(symmetry_string):
         raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
 
     # logger.debug('Symmetry parsing split: %s' % clean_split)
-    try:
-        sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
-    except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
-        # the prescribed symmetry was a plane, space group, or point group that isn't in nanohedra. try a custom input
-        # raise ValueError('%s is not a supported symmetry!' % symmetry_string)
-        sym_entry = lookup_sym_entry_by_symmetry_combination(*clean_split)
+    if not sym_entry:
+        try:
+            sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
+        except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
+            # the prescribed symmetry was a plane, space group, or point group that isn't in nanohedra. try a custom input
+            # raise ValueError('%s is not a supported symmetry!' % symmetry_string)
+            sym_entry = lookup_sym_entry_by_symmetry_combination(*clean_split)
 
     # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
     return SymEntry(sym_entry, sym_map=clean_split[1:])  # remove the result
@@ -942,10 +943,12 @@ def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
             if len(matching_entries) == 1:
                 return matching_entries[0]
             else:
-                print('\033[1mFound multiple specified symmetries matching including %s\033[0m' % (', '.join(matching_entries)))
+                print('\033[1mFound multiple specified symmetries matching including %s\033[0m'
+                      % (', '.join(map(str, matching_entries))))
+                print_query_header()
                 for match in matching_entries:
                     group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-                        ref_frame_tx_dof_group2, _, resulting_symmetry, dimension, _, _, _ = symmetry_combinations[match]
+                        ref_frame_tx_dof_group2, _, _, _, _, _, _ = symmetry_combinations[match]
                     int_rot1, int_tx1, int_rot2, int_tx2 = 0, 0, 0, 0
                     for int_dof in int_dof_group1:
                         if int_dof.startswith('r'):
@@ -957,11 +960,11 @@ def lookup_sym_entry_by_symmetry_combination(result, *symmetry_operators):
                             int_rot2 = 1
                         if int_dof.startswith('t'):
                             int_tx2 = 1
-                    print(query_output_format_string.format(str(entry_number), group1, str(int_rot1), str(int_tx1),
+                    print(query_output_format_string.format(str(match), group1, str(int_rot1), str(int_tx1),
                                                             ref_frame_tx_dof_group1, group2, str(int_rot2),
                                                             str(int_tx2), ref_frame_tx_dof_group2, result))
-                print('Cannot distinguish between the desired entry. Please repeat your command, however, specify the '
-                      'Entry Number (ex: --%s 1) to clarify the desired entry' % PUtils.sym_entry)
+                print('Cannot distinguish between the desired entry. Please repeat your command, however, additionally'
+                      'specify the preferred Entry Number (ex: --%s 1) to proceed' % PUtils.sym_entry)
                 exit()
         else:
             raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s".'
