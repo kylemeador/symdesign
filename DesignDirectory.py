@@ -199,6 +199,7 @@ class DesignDirectory:  # (JobResources):
         self.fragment_observations = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
         self.info = {}  # internal state info
         self._info = {}  # internal state info at load time
+        self.init_pdb = None  # used if the design has never been initialized previously
         # self.oligomer_names = []
         self.oligomers = []
         self.pose = None  # contains the design's Pose object
@@ -346,8 +347,10 @@ class DesignDirectory:  # (JobResources):
             # need to start here if I want to load pose through normal mechanism... ugh
             self.set_up_design_directory()
             if not self.entity_names:
-                self.load_pose()  # load the source pdb to find the entity_names
-                self.entity_names = [entity.name for entity in self.pose.entities]
+                self.init_pdb = PDB.from_file(self.source_path, log=self.log)
+                self.entity_names = [entity.name for entity in self.init_pdb.entities]
+                # self.load_pose()  # load the source pdb to find the entity_names
+                # self.entity_names = [entity.name for entity in self.pose.entities]
             # self.set_up_design_directory()
         else:  # initialize DesignDirectory with existing /program_root/projects/project/design
             self.initialized = True
@@ -1747,8 +1750,11 @@ class DesignDirectory:  # (JobResources):
             # rename_chains = True
 
         if entities:
-            pdb = PDB.from_entities(entities, cryst_record=self.cryst_record, log=self.log, rename_chains=rename_chains)
+            pdb = PDB.from_entities(entities, log=self.log, rename_chains=rename_chains)
             #                       name='%s-asu' % str(self)
+        elif self.init_pdb:  # this is a fresh pose, and we already loaded so reuse
+            # careful, if some processing to the pdb has since occurred then this will be wrong!
+            pdb = self.init_pdb
         else:
             pdb = PDB.from_file(source if source else self.source, entity_names=self.entity_names, log=self.log)
             #                              pass names if available ^
@@ -1856,7 +1862,11 @@ class DesignDirectory:  # (JobResources):
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         self.symmetry is used to specify the orientation
         """
-        pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
+        if self.init_pdb:
+            pdb = self.init_pdb
+        else:
+            pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
+
         if self.design_symmetry:
             if to_design_directory:
                 out_path = self.assembly
