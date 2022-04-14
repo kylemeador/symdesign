@@ -87,7 +87,7 @@ if __name__ == '__main__':
                 os.makedirs(oriented_pdb1_outdir)
             pdb1_oriented_filepaths = [orient_pdb_file(pdb1_path, log=master_logger, sym=sym_entry.group1,
                                                        out_dir=oriented_pdb1_outdir) for pdb1_path in pdb1_filepaths]
-            pdb1_oriented_filepaths = list(filter(pdb1_oriented_filepaths))
+            pdb1_oriented_filepaths = list(filter(None, pdb1_oriented_filepaths))
             if len(pdb1_oriented_filepaths) == 0:
                 master_logger.info('COULD NOT ORIENT %s PDB FILES. CHECK %s%sorient_oligomer_log.txt FOR '
                                    'MORE INFORMATION' % (oligomer_input.upper(), oriented_pdb1_outdir, os.sep))
@@ -119,7 +119,7 @@ if __name__ == '__main__':
                 pdb2_oriented_filepaths = [orient_pdb_file(pdb2_path, log=master_logger, sym=sym_entry.group2,
                                                            out_dir=oriented_pdb2_outdir)
                                            for pdb2_path in pdb2_filepaths]
-                pdb2_oriented_filepaths = list(filter(pdb2_oriented_filepaths))
+                pdb2_oriented_filepaths = list(filter(None, pdb2_oriented_filepaths))
 
                 if len(pdb2_oriented_filepaths) == 0:
                     master_logger.info('COULD NOT ORIENT OLIGOMER 2 INPUT PDB FILE(S) CHECK '
