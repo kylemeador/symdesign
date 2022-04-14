@@ -989,12 +989,17 @@ class SymmetricModel(Model):
 
     @property
     def asu(self):
-        return self._asu
+        return self._pdb
 
     @asu.setter
     def asu(self, asu):
-        self._asu = asu
-        self.pdb = asu  # TODO COMMENT OUT
+        self._pdb = asu  # skip the checks in Pose from self.pdb = asu
+        # self._asu = asu
+
+    def set_asu_coords(self, coords):
+        # overwrite all the coords for each member Entity
+        self.pdb.replace_coords(coords)
+        # Todo delete any saved attributes from the SymmetricModel
 
     @property
     def cryst_record(self) -> str:
