@@ -672,7 +672,7 @@ class Model:  # Todo (Structure)
         # return self._coords.coords
 
     @coords.setter
-    def coords(self, coords):  # TODO DISCONNECT HERE
+    def coords(self, coords):  # TODO DISCONNECT HERE Reconcile with set_coords, replace_coords, etc.
         if isinstance(coords, Coords):
             self.pdb._coords = coords
             # self._coords = coords
@@ -2034,6 +2034,67 @@ class SymmetricModel(Model):
 
         # Todo find the particular rotation to orient the Entity oligomer to a cannonical orientation. This must
         #  accompany standards required for the SymDesign Database for actions like refinement
+
+        # this routine uses the same logic at the get_contacting_asu however using the COM of the found
+        # pose_transformation coordinates to find the ASU entities. These will then be used to make oligomers
+        # assume a globular nature to entity chains
+        # therefore the minimal com to com dist is our asu and therefore naive asu coords
+        all_coms = []
+        for group_idx, indices in asu_indices:
+            # pdist()
+            all_coms.append(center_of_mass_symmetric_entities[group_idx][indices])
+
+        idx = 0
+        asu_indices_combinations = []
+        asu_indices_index, asu_coms_index = [], []
+        com_offsets = np.zeros(sum(map(prod, combinations((len(indices) for indices in asu_indices), 2))))
+        for idx1, idx2 in combinations(range(len(asu_indices)), 2):
+            # for index1 in asu_indices[idx1]:
+            for idx_com1, com1 in enumerate(all_coms[idx1]):
+                for idx_com2, com2 in enumerate(all_coms[idx2]):
+                    asu_indices_combinations.append((idx1, idx_com1, idx2, idx_com2))
+                    asu_indices_index.append((idx1, idx2))
+                    asu_coms_index.append((idx_com1, idx_com2))
+                    com_offsets[idx] = np.sqrt(com1.dot(com2))
+                    idx += 1
+        minimal_com_distance_index = com_offsets.argmin()
+        entity_index1, com_index1, entity_index2, com_index2 = asu_indices_combinations[minimal_com_distance_index]
+        # entity_index1, entity_index2 = asu_indices_index[minimal_com_distance_index]
+        # com_index1, com_index2 = asu_coms_index[minimal_com_distance_index]
+        core_indices = [(entity_index1, com_index1), (entity_index2, com_index2)]
+        # asu_index2 = asu_indices[entity_index2][com_index2]
+        additional_indices = []
+        if len(asu_indices) != 2:  # we have to find more indices
+            # find the indices where either of the minimally distanced coms are utilized
+            # selected_asu_indices_indices = {idx for idx, (ent_idx1, com_idx1, ent_idx2, com_idx2) in enumerate(asu_indices_combinations)
+            #                                 if entity_index1 == ent_idx1 or entity_index2 == ent_idx2 and not }
+            selected_asu_indices_indices = {idx for idx, ent_idx_pair in enumerate(asu_indices_index)
+                                            if entity_index1 in ent_idx_pair or entity_index2 in ent_idx_pair and
+                                            asu_indices_index[idx] != ent_idx_pair}
+            remaining_indices = set(range(len(asu_indices))).difference({entity_index1, entity_index2})
+            for index in remaining_indices:
+                # find the indices where the missing index is utilized
+                remaining_index_indices = \
+                    {idx for idx, ent_idx_pair in enumerate(asu_indices_index) if index in ent_idx_pair}
+                # only use those where found asu indices already occur
+                viable_remaining_indices = list(remaining_index_indices.intersection(selected_asu_indices_indices))
+                index_min_com_dist_idx = com_offsets[viable_remaining_indices].argmin()
+                for new_index_idx, new_index in enumerate(asu_indices_index[viable_remaining_indices[index_min_com_dist_idx]]):
+                    if index == new_index:
+                        additional_indices.append((index, asu_coms_index[viable_remaining_indices[index_min_com_dist_idx]][new_index_idx]))
+
+        # selected_asu_indices = [asu_indices[entity_idx][com_idx] for entity_idx, com_idx in core_indices + additional_indices]
+        selected_asu_indices = []
+        for range_idx in range(len(asu_indices)):
+            for entity_idx, com_idx in core_indices + additional_indices:
+                if range_idx == entity_idx:
+                    selected_asu_indices.append(asu_indices[entity_idx][com_idx])
+
+        symmetric_coords_split_by_entity = self.symmetric_coords_split_by_entity
+        asu_coords = [symmetric_coords_split_by_entity[group_idx][sym_idx] for group_idx, sym_idx in enumerate(selected_asu_indices)]
+        self.set_asu_coords(np.concatenate(asu_coords))
+        for idx, entity in enumerate(self.entities):
+            entity.make_oligomer(self.sym_entry.groups[idx], **transform_solutions[idx])
 
         return transform_solutions
 
