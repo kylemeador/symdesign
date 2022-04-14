@@ -331,11 +331,11 @@ class SymEntry:
             print('self.external_dof2', self.external_dof2)
             difference_matrix = self.external_dof2 - self.external_dof1
             print('difference_matrix', difference_matrix)
-            print('ext_dof', ext_dof)
             # for entry 6 - string_vector is 4*e, 4*e, 4*e
             # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
             # (^).sum(axis=1(-2)) = [4, 4, 4]
             self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-2))]
+            print('ext_dof', self.ext_dof)
             # for idx in range(3):
             #     if difference_sum[idx] != 0:
             #         ext_dof_indices.append(idx)
