@@ -17,6 +17,7 @@ from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1t
 
 from PathUtils import orient_exe_path, orient_dir, reference_aa_file, reference_residues_pkl, pdb_db
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
+from SequenceProfile import generate_alignment_local
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, \
     pickle_object
@@ -696,11 +697,37 @@ class PDB(Structure):
             raise RuntimeError(error_string)
 
         oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
+        orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
-            _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), self.entities[0].get_cb_coords())
+            moving_struct = self.entities[0]
+            # _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), self.entities[0].get_cb_coords())
         else:
-            # oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
-            _, rot, tx, _ = superposition3d(oriented_pdb.chains[0].get_cb_coords(), self.chains[0].get_cb_coords())
+            # orient_fixed_struct = oriented_pdb.chains[0]
+            moving_struct = self.chains[0]
+        try:
+            _, rot, tx, _ = superposition3d(orient_fixed_struct.get_cb_coords(), moving_struct.get_cb_coords())
+        except ValueError:  # we have the wrong lengths, lets subtract a certain amount by performing a seq alignment
+            # rot, tx = None, None
+            orient_fixed_seq = orient_fixed_struct.sequence
+            moving_seq = moving_struct.sequence
+            # while not rot:
+            #     try:
+            # moving coords are from the pre-orient structure where orient may have removed residues
+            # lets try to remove those residues by doing an alignment
+            align_orient_seq, align_moving_seq, *_ = generate_alignment_local(orient_fixed_seq, moving_seq)
+            # align_seq_1.replace('-', '')
+            # orient_idx1 = moving_seq.find(align_orient_seq.replace('-', '')[0])
+            for orient_idx1, aa in enumerate(align_orient_seq):
+                if aa != '-':  # we found the first aligned residue
+                    break
+            orient_idx2 = orient_idx1 + len(align_orient_seq.replace('-', ''))
+            # starting_index_of_seq2 = moving_seq.find(align_moving_seq.replace('-', '')[0])
+            # # get the first matching index of the moving_seq from the first aligned residue
+            # ending_index_of_seq2 = starting_index_of_seq2 + align_moving_seq.rfind(moving_seq[-1])  # find last index of reference
+            _, rot, tx, _ = superposition3d(orient_fixed_struct.get_cb_coords(),
+                                            moving_struct.get_cb_coords()[orient_idx1:orient_idx2])
+            # except ValueError:
+            #     rot, tx = None, None
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
 
