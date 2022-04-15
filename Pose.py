@@ -16,7 +16,7 @@ from sklearn.neighbors import BallTree
 import PathUtils as PUtils
 from SymDesignUtils import pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
     start_log, null_log, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
-    split_interface_numbers
+    split_number_pairs_and_sort
 from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatrices, SymEntry, flip_x_matrix, \
     possible_symmetries, point_group_setting_matrix_members, setting_matrices, symmetry_combination_format, \
     inv_setting_matrices
@@ -2862,7 +2862,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         interface_indices1, interface_indices2 = [], []
         for entity1, entity2 in self.interface_residues:
             atoms_indices1, atoms_indices2 = \
-                split_interface_numbers(self.find_interface_atoms(entity1=entity1, entity2=entity2))
+                split_number_pairs_and_sort(self.find_interface_atoms(entity1=entity1, entity2=entity2))
             interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
             # print('INDICES1', atoms_indices1, '\nINDICES2', atoms_indices2)
 
