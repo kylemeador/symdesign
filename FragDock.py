@@ -896,12 +896,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                         # stacked_external_tx2 = list(repeat(None, number_passing_shifts))
 
                     # Prepare the transformation parameters for storage in full transformation arrays
-                    internal_tx_params1 = transform_passing_shifts[:, sym_entry.n_dof_external] \
+                    internal_tx_params1 = transform_passing_shifts[:, sym_entry.n_dof_external][:, None] \
                         if sym_entry.is_internal_tx1 else blank_vector
-                    internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external + 1] \
+                    internal_tx_params2 = transform_passing_shifts[:, sym_entry.n_dof_external + 1][:, None] \
                         if sym_entry.is_internal_tx2 else blank_vector
-                    stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1[:, None]))
-                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2[:, None]))
+                    stacked_internal_tx_vectors1 = np.hstack((blank_vector, blank_vector, internal_tx_params1))
+                    stacked_internal_tx_vectors2 = np.hstack((blank_vector, blank_vector, internal_tx_params2))
                     stacked_rot_mat1 = np.tile(rot_mat1, (number_passing_shifts, 1, 1))
                     stacked_rot_mat2 = np.tile(rot_mat2, (number_passing_shifts, 1, 1))
 
