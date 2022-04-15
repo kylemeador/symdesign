@@ -136,7 +136,7 @@ class PDB(Structure):
         sym_attrbutes = ['symmetry', 'uc_dimensions', 'cryst_record', 'cryst']  # , 'max_symmetry': self.max_symmetry}
         return {sym_attrbutes[idx]: sym_attr
                 for idx, sym_attr in enumerate([self.space_group, self.uc_dimensions, self.cryst_record, self.cryst])
-                if sym_attr}
+                if sym_attr is not None}
 
     # def set_chain_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all Chains in the Structure"""
