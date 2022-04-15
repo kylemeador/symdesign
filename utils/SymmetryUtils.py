@@ -53,17 +53,17 @@ def generate_cryst1_record(dimensions, space_group) -> str:
         (str): The CRYST1 record
     """
     if space_group in sg_cryst1_fmt_dict:
-        fmt_sg = sg_cryst1_fmt_dict[space_group]
+        formatted_space_group = sg_cryst1_fmt_dict[space_group]
     elif space_group in pg_cryst1_fmt_dict:
-        fmt_sg = pg_cryst1_fmt_dict[space_group]
+        formatted_space_group = pg_cryst1_fmt_dict[space_group]
         dimensions[2] = 1.0
-        dimensions[3] = 90.0  # Todo this hard coding should be wrong for hexagonal plane groups
-        dimensions[4] = 90.0  #  also here
+        dimensions[4] = 90.0
+        dimensions[5] = 90.0
     else:
         raise ValueError('SPACEGROUP NOT SUPPORTED')
 
     return 'CRYST1{dim[0]:9.3f}{dim[1]:9.3f}{dim[2]:9.3f}{dim[3]:7.2f}{dim[4]:7.2f}{dim[5]:7.2f} {sg:<11s}{z:4d}\n'\
-        .format(dim=dimensions, sg=fmt_sg, z=sg_zvalues[space_group])
+        .format(dim=dimensions, sg=formatted_space_group, z=sg_zvalues[space_group])
 
 
 def cart_to_frac(cart_coords, dimensions):
