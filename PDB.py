@@ -583,13 +583,13 @@ class PDB(Structure):
                     discard_chain = next(available_chain_ids)
                 else:  # when there are more chains than supplied by file, chose the next available
                     chain_id = next(available_chain_ids)
-                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log, residues=self._residues,
+                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
                                          residue_indices=residue_indices))
                 # self.chains[idx].set_atoms_attributes(chain=chain_id)
             self.chain_id_list = [chain.name for chain in self.chains]
         else:
             for chain_id in self.chain_id_list:
-                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self.log, residues=self._residues,
+                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
                                          residue_indices=[idx for idx, residue in enumerate(self.residues)
                                                           if residue.chain == chain_id]))
         self.get_chain_sequences()  # Todo maybe depreciate in favor of entities?
@@ -995,7 +995,7 @@ class PDB(Structure):
             new_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name
             self.entity_d[new_name] = self.entity_d.pop(entity_name)
             self.entities.append(
-                Entity.from_chains(chains=info['chains'], uniprot_id=info['accession'], name=entity_name, log=self.log))
+                Entity.from_chains(chains=info['chains'], uniprot_id=info['accession'], name=new_name, log=self._log))
 
     def get_entity_info_from_atoms(self, tolerance=0.9, **kwargs):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
