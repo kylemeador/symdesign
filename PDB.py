@@ -983,18 +983,17 @@ class PDB(Structure):
                 except IndexError:
                     raise IndexError('The number of indices in entity_names must equal %d' % len(self.entity_d))
 
-        # For each Entity, get the chain representative Todo choose most symmetrically average if Entity is symmetric
-        for entity_name, info in self.entity_d.items():
+        # For each Entity, get chains
+        for entity_name, info in list(self.entity_d.items()):  # make a copy as update occurs w/ iter
             # v make Chain objects (if they are names)
             info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in info.get('chains')]
             info['chains'] = [chain for chain in info['chains'] if chain]  # remove any missing chains
             # info['representative'] = info['chains'][0]
             accession = self.dbref.get(info['chains'][0].chain_id, None)
             info['accession'] = accession['accession'] if accession else accession
-
-        # self.update_entity_accession_id()  # only useful if retrieve_pdb_info_from_api() is called
-        # for entity_name, info in self.entity_d.items():  # generated from a PDB API sequence search v
-            entity_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name
+            #                                         generated from a PDB API sequence search v
+            new_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name
+            self.entity_d[new_name] = self.entity_d.pop(entity_name)
             self.entities.append(
                 Entity.from_chains(chains=info['chains'], uniprot_id=info['accession'], name=entity_name, log=self.log))
 
