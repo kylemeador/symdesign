@@ -873,11 +873,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                         # for a single DOF, multiplication won't matter as only one matrix element will be available
                         #
                         optimal_ext_dof_shifts = transform_passing_shifts[:, :sym_entry.n_dof_external]
+                        print('optimal_ext_dof_shifts raw', optimal_ext_dof_shifts)
                         optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,
                                                             np.hstack((blank_vector,) * (3- sym_entry.n_dof_external))))
                         # ^ I think for the sake of cleanliness, I need to make this matrix
                         # must find positive indices before external_dof1 multiplication in case negatives there
-                        print('optimal_ext_dof_shifts', optimal_ext_dof_shifts)
+                        print('optimal_ext_dof_shifts formatted', optimal_ext_dof_shifts)
                         positive_indices = \
                             np.where(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) == True)
                         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
