@@ -1278,7 +1278,7 @@ class SymmetricModel(Model):
         Returns:
             (Union[numpy.ndarray, None]): The fractional coordinates of a unit cell
         """
-        if self.uc_dimensions is not None:
+        if self.uc_dimensions is None:
             self.log.error('No unit cell dimensions were passed')
             return
 
@@ -1313,7 +1313,7 @@ class SymmetricModel(Model):
         Returns:
             (Union[numpy.ndarray, None]): The cartesian coordinates of a unit cell
         """
-        if self.uc_dimensions is not None:
+        if self.uc_dimensions is None:
             self.log.error('No unit cell dimensions were passed')
             return
 
@@ -1945,6 +1945,7 @@ class SymmetricModel(Model):
             external_tx = [None for _ in self.sym_entry.groups]
 
         center_of_mass_symmetric_entities = self.center_of_mass_symmetric_entities
+        # self.log.critical('center_of_mass_symmetric_entities = %s' % center_of_mass_symmetric_entities)
         transform_solutions = []
         asu_indices = []
         for group_idx, sym_group in enumerate(self.sym_entry.groups):
@@ -1964,8 +1965,10 @@ class SymmetricModel(Model):
             current_best_minimal_central_offset = float('inf')
             # sym_group_setting_matrices = point_group_setting_matrix_members[self.point_group_symmetry].get(sym_group)
             for setting_matrix_idx in point_group_setting_matrix_members[self.point_group_symmetry].get(sym_group, []):
+                # self.log.critical('Setting_matrix_idx = %d' % setting_matrix_idx)
                 temp_model_coms = np.matmul(center_of_mass_symmetric_entities[group_idx],
                                             np.transpose(inv_setting_matrices[setting_matrix_idx]))
+                # self.log.critical('temp_model_coms = %s' % temp_model_coms)
                 # find groups of COMs with equal z heights
                 possible_height_groups = {}
                 for idx, com in enumerate(temp_model_coms.round(decimals=3)):
@@ -2042,10 +2045,12 @@ class SymmetricModel(Model):
         # pose_transformation coordinates to find the ASU entities. These will then be used to make oligomers
         # assume a globular nature to entity chains
         # therefore the minimal com to com dist is our asu and therefore naive asu coords
+        # self.log.critical('asu_indices: %s' % asu_indices)
         all_coms = []
         for group_idx, indices in enumerate(asu_indices):
             # pdist()
             all_coms.append(center_of_mass_symmetric_entities[group_idx][indices])
+        # self.log.critical('all_coms: %s' % all_coms)
 
         if len(asu_indices) == 1:
             # new_asu_indices = asu_indices[0]  # choice doesn't matter
