@@ -873,17 +873,17 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                         # for a single DOF, multiplication won't matter as only one matrix element will be available
                         #
                         optimal_ext_dof_shifts = transform_passing_shifts[:, :sym_entry.n_dof_external]
-                        print('optimal_ext_dof_shifts raw', optimal_ext_dof_shifts)
                         optimal_ext_dof_shifts = np.hstack((optimal_ext_dof_shifts,
                                                             np.hstack((blank_vector,) * (3- sym_entry.n_dof_external))))
                         # ^ I think for the sake of cleanliness, I need to make this matrix
                         # must find positive indices before external_dof1 multiplication in case negatives there
-                        print('optimal_ext_dof_shifts formatted', optimal_ext_dof_shifts)
                         positive_indices = \
-                            np.where(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) == True)
+                            np.where(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) == True)[0]
                         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
-                        stacked_external_tx1 = optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1
-                        stacked_external_tx2 = optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2
+                        stacked_external_tx1 = \
+                            (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
+                        stacked_external_tx2 = \
+                            (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
                         # Todo check the sum implemented after the concatenate below!
                         #  Have to sum below over the axis=-2. They are 3x3 right now and should be 1x3
                         full_ext_tx1.append(stacked_external_tx1[positive_indices])
