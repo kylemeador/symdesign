@@ -333,17 +333,11 @@ class SymEntry:
             # for entry 85 - string_vector is 4*e, 4*f, 4*g
             # which is uc_dimension_matrix of [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
             # (^).sum(axis=-1) = [4, 4, 4]
-            self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-1))[0]]
-            # flat_difference_matrix = difference_matrix.sum(axis=-2)
-            # self.ext_dof = flat_difference_matrix[np.nonzero(flat_difference_matrix)][:, None]
-            # for idx in range(3):
-            #     if difference_sum[idx] != 0:
-            #         ext_dof_indices.append(idx)
-            # self.ext_dof = difference_matrix[ext_dof_indices]
+            self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-1))]
 
         self.n_dof_external = len(self.ext_dof)
         self.unit_cell = None if self.unit_cell == 'N/A' else \
-            [dim.replace('(', '').replace(')', '').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
+            [dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
 
         if self.dimension == 0:
             self.expand_matrices = get_ptgrp_sym_op(self.resulting_symmetry)
