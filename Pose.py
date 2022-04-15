@@ -1204,7 +1204,7 @@ class SymmetricModel(Model):
             self.symmetry = sym_entry.resulting_symmetry
             self.dimension = sym_entry.dimension
             self.point_group_symmetry = sym_entry.point_group_symmetry
-            if self.dimension > 0 and uc_dimensions:
+            if self.dimension > 0 and uc_dimensions is not None:
                 self.uc_dimensions = uc_dimensions
 
         elif symmetry:
@@ -1223,7 +1223,7 @@ class SymmetricModel(Model):
                 self.point_group_symmetry = possible_symmetries[symmetry]
                 self.dimension = 0
 
-            elif self.uc_dimensions:
+            elif self.uc_dimensions is not None:
                 raise DesignError('Symmetry %s is not available yet! If you didn\'t provide it, the symmetry was likely'
                                   ' set from a PDB file. Get the symmetry operations from the international'
                                   ' tables and add to the pickled operators if this displeases you!' % symmetry)
@@ -1278,7 +1278,7 @@ class SymmetricModel(Model):
         Returns:
             (Union[numpy.ndarray, None]): The fractional coordinates of a unit cell
         """
-        if not self.uc_dimensions:
+        if self.uc_dimensions is not None:
             self.log.error('No unit cell dimensions were passed')
             return
 
@@ -1311,7 +1311,7 @@ class SymmetricModel(Model):
         Returns:
             (Union[numpy.ndarray, None]): The cartesian coordinates of a unit cell
         """
-        if not self.uc_dimensions:
+        if self.uc_dimensions is not None:
             self.log.error('No unit cell dimensions were passed')
             return
 
