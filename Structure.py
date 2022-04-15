@@ -904,22 +904,22 @@ class Structure(StructureBase):
     def create_residues(self):
         """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
         new_residues = []
-        residue_indices, found_types = [], []
+        atom_indices, found_types = [], []
         current_residue_number = self.atoms[0].residue_number
         # residue_idx = 0
         for idx, atom in enumerate(self.atoms):
             # if the current residue number is the same as the prior number and the atom.type is not already present
             if atom.residue_number == current_residue_number and atom.type not in found_types:
-                residue_indices.append(idx)
+                atom_indices.append(idx)
                 found_types.append(atom.type)
             else:
-                new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords,
-                                            log=self.log))  # index=residue_idx
+                new_residues.append(Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords,
+                                            log=self._log))
                 # residue_idx += 1
-                found_types, residue_indices = [atom.type], [idx]
+                found_types, atom_indices = [atom.type], [idx]
                 current_residue_number = atom.residue_number
         # ensure last residue is added after iteration is complete
-        new_residues.append(Residue(atom_indices=residue_indices, atoms=self._atoms, coords=self._coords, log=self.log))
+        new_residues.append(Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords, log=self._log))
         #                           index=residue_idx,
         self.residue_indices = list(range(len(new_residues)))
         self.residues = new_residues
@@ -2358,25 +2358,18 @@ class Entity(Chain, SequenceProfile):
         name=None (str): The name for the Entity. Typically, PDB.name is used to make a PDB compatible form
         PDB EntryID_EntityID
     """
-    def __init__(self, chains=None, uniprot_id=None, **kwargs):  # representative=None,
-        # When init occurs chain_ids are set if chains were passed. If not, then they are auto generated
-        #                                                                             name=None, coords=None, log=None):
-        # assert isinstance(representative, Chain), 'Error: Cannot initiate a Entity without a Chain object! Pass a ' \
-        #                                           'Chain object as the representative!'
-        # Sets up whether Entity has full control over it's member Chain attributes
+    def __init__(self, chains=None, uniprot_id=None, **kwargs):
+        """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
         self.is_oligomeric = False
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
-        # chains = kwargs.get('chains', [])  # [Chain objs]
         representative = chains[0]
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          coords=representative._coords, **kwargs)
         self._chains = []
-        # self.chain_transforms = []
-        # if chains:
         chain_ids = [representative.name]
         self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         if len(chains) > 1:
