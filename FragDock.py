@@ -931,8 +931,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # this returns the vectorized uc_dimensions
     if sym_entry.unit_cell:
         full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
+        print('full_ext_tx1', full_ext_tx1)
         full_ext_tx1 = np.concatenate(full_ext_tx1)  # .sum(axis=-2)
         full_ext_tx2 = np.concatenate(full_ext_tx2)  # .sum(axis=-2)
+        print('full_ext_tx1', full_ext_tx1)
     # Todo uncomment below lines if use tile_transform in the reverse orientation
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     # else:
@@ -949,14 +951,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
     transformation1 = {'rotation': full_rotation1, 'translation': full_int_tx1[:, None, :],
                        'rotation2': set_mat1,
-                       'translation2': full_ext_tx1[:, None, :] if full_ext_tx1 is None else None}
+                       'translation2': full_ext_tx1[:, None, :] if full_ext_tx1 is not None else None}
     transformation2 = {'rotation': full_rotation2, 'translation': full_int_tx2[:, None, :],
                        'rotation2': set_mat2,
-                       'translation2': full_ext_tx2[:, None, :] if full_ext_tx2 is None else None}
+                       'translation2': full_ext_tx2[:, None, :] if full_ext_tx2 is not None else None}
     # tile_transform1 = {'rotation': full_rotation2,
     #                    'translation': full_int_tx2[:, None, :],
     #                    'rotation2': set_mat2,
-    #                    'translation2': full_ext_tx_sum[:, None, :] if full_ext_tx_sum is None else None}  # invert translation
+    #                    'translation2': full_ext_tx_sum[:, None, :] if full_ext_tx_sum is not None else None}  # invert translation
     # tile_transform2 = {'rotation': inv_setting1,
     #                    'translation': full_int_tx1[:, None, :] * -1,
     #                    'rotation2': full_inv_rotation1,
@@ -1090,7 +1092,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                                    'translation': full_int_tx2[:, None, :][chunk_slice],
                                                                    'rotation2': set_mat2,
                                                                    'translation2': full_ext_tx_sum[:, None, :][chunk_slice]
-                                                                   if full_ext_tx_sum is None else None}),
+                                                                   if full_ext_tx_sum is not None else None}),
                                       **{'rotation': inv_setting1,
                                          'translation': full_int_tx1[:, None, :][chunk_slice] * -1,
                                          'rotation2': full_inv_rotation1[chunk_slice],
@@ -1169,7 +1171,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #                    'translation': full_int_tx2[:, None, :],
     #                    'rotation2': set_mat2,
     #                    'translation2': full_ext_tx_sum[:, None, :]
-    #                    if full_ext_tx_sum is None else None}  # invert translation
+    #                    if full_ext_tx_sum is not None else None}  # invert translation
     # tile_transform2 = {'rotation': inv_setting1,
     #                    'translation': full_int_tx1[:, None, :] * -1,
     #                    'rotation2': full_inv_rotation1,
@@ -1178,7 +1180,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #                           'translation': full_int_tx2[:, None, None, :],
     #                           'rotation2': set_mat2[None, None, :, :],
     #                           'translation2': full_ext_tx_sum[:, None, None, :]
-    #                           if full_ext_tx_sum is None else None}  # invert translation
+    #                           if full_ext_tx_sum is not None else None}  # invert translation
     # tile_transform2_guides = {'rotation': inv_setting1[None, None, :, :],
     #                           'translation': full_int_tx1[:, None, None, :] * -1,
     #                           'rotation2': full_inv_rotation1[:, None, :, :],
@@ -1196,7 +1198,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                                'translation': full_int_tx2[:, None, :],
                                                                'rotation2': set_mat2,
                                                                'translation2': full_ext_tx_sum[:, None, :]
-                                                               if full_ext_tx_sum is None else None}),
+                                                               if full_ext_tx_sum is not None else None}),
                                   **{'rotation': inv_setting1,
                                      'translation': full_int_tx1[:, None, :] * -1,
                                      'rotation2': full_inv_rotation1,
@@ -1213,7 +1215,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                                'translation': full_int_tx2[:, None, None, :],
                                                                'rotation2': set_mat2[None, None, :, :],
                                                                'translation2': full_ext_tx_sum[:, None, None, :]
-                                                               if full_ext_tx_sum is None else None}),
+                                                               if full_ext_tx_sum is not None else None}),
                                   **{'rotation': inv_setting1[None, None, :, :],
                                      'translation': full_int_tx1[:, None, None, :] * -1,
                                      'rotation2': full_inv_rotation1[:, None, :, :],
