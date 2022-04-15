@@ -935,7 +935,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         full_ext_tx2 = np.concatenate(full_ext_tx2)  # .sum(axis=-2)
     # Todo uncomment below lines if use tile_transform in the reverse orientation
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
-    # else:
+    else:
+        full_uc_dimensions = None
     #     full_ext_tx_sum = None
     # full_inv_rotation1 = np.linalg.inv(full_rotation1)
     # inv_setting1 = np.linalg.inv(set_mat1)
@@ -1082,6 +1083,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #                                                                [clash_dist])
     #               for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])])
     # asu_clash_counts = []
+    clash_vect = [clash_dist]
     asu_clash_counts = np.ones(number_of_dense_transforms)
     for chunk in range(number_of_chunks):
         upper = (chunk + 1) * chunk_size if chunk + 1 != number_of_chunks else number_of_dense_transforms
@@ -1103,7 +1105,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                          'translation2': None})
         # asu_clash_counts.extend(
         asu_clash_counts[chunk_slice] = \
-            [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx], [clash_dist])[0]
+            [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx], clash_vect)[0]
              for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])]
         # print('asu_clash_counts: %s' % asu_clash_counts)
     check_clash_coords_time = time.time() - check_clash_coords_start
@@ -1241,12 +1243,23 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     for idx, trans_surf_guide_coords in enumerate(list(inverse_transformed_surf_frags2_guide_coords)):
         # query/contact pairs/isin  - 0.028367  <- I predict query is about 0.015
         # indexing guide_coords     - 0.000389
-        # total get_int_frags_time  - 0.028756
+        # total get_int_frags_time  - 0.028756 s
 
         # indexing guide_coords     - 0.000389
         # Euler Lookup              - 0.008161 s for 71435 fragment pairs
         # Overlap Score Calculation - 0.000365 s for 2949 fragment pairs
         # Total Match time          - 0.008915 s
+
+        # query                     - 0.000895 s <- 100 fold shorter than predict
+        # contact pairs             - 0.019595
+        # isin indexing             - 0.008992 s
+        # indexing guide_coords     - 0.000438
+        # get_int_frags_time        - 0.029920 s
+
+        # indexing guide_coords     - 0.000438
+        # Euler Lookup              - 0.005603 s for 35400 fragment pairs
+        # Overlap Score Calculation - 0.000209 s for 887 fragment pairs
+        # Total Match time          - 0.006250 s
         int_frags_time_start = time.time()
         pdb2_query = pdb1_cb_balltree.query_radius(inverse_transformed_pdb2_tiled_cb_coords[idx], cb_distance)
         pdb1_cb_balltree_time = time.time() - int_frags_time_start
@@ -1422,6 +1435,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         tx_idx = tx_counts[idx]
         degen1_count, degen2_count = degen_counts[idx]
         rot1_count, rot2_count = rot_counts[idx]
+        # temp indexing on degen and rot counts
         degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
         rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
         tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)

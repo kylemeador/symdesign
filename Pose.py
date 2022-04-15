@@ -1283,6 +1283,8 @@ class SymmetricModel(Model):
             return
 
         a2r = np.pi / 180.0
+        print('self.uc_dimensions', self.uc_dimensions)
+        print('self.coords', self.coords)
         a, b, c, alpha, beta, gamma = self.uc_dimensions
         alpha *= a2r
         beta *= a2r
@@ -1383,14 +1385,14 @@ class SymmetricModel(Model):
             surrounding_frac_coords = \
                 np.concatenate([uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0., 1., -1.]
                                 for y_shift in [0., 1., -1.] for z_shift in z_shifts])
-            coords = self.frac_to_cart(surrounding_frac_coords)
+            model_coords = self.frac_to_cart(surrounding_frac_coords)
             self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
         else:
             self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates
             # uc_number = 1
-            coords = self.return_unit_cell_coords(self.coords)
+            model_coords = self.return_unit_cell_coords(self.coords)
 
-        self.symmetric_coords = Coords(coords)
+        self.symmetric_coords = Coords(model_coords)
 
     def return_assembly_symmetry_mates(self, **kwargs) -> List[Structure]:
         """Return symmetry mates as a collection of Structures with symmetric coordinates
