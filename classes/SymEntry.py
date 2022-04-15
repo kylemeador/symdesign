@@ -340,7 +340,7 @@ class SymEntry:
 
         self.n_dof_external = len(ext_dof_indices)
         self.unit_cell = None if self.unit_cell == 'N/A' else \
-            [[x.replace(' ', '') for x in dim.replace('()', '').split(',')] for dim in self.unit_cell.split('), ')]
+            [dim.replace('(', '').replace(')', '').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
 
         if self.dimension == 0:
             self.expand_matrices = get_ptgrp_sym_op(self.resulting_symmetry)
