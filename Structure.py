@@ -1,4 +1,4 @@
-import logging
+from logging import Logger
 import os
 import subprocess
 from copy import copy  # , deepcopy
@@ -182,7 +182,7 @@ class Structure(StructureBase):
     #     self._name = name
 
     @property
-    def log(self):
+    def log(self) -> Logger:
         """Returns: (logging.Logger)"""
         return self._log.log
 
@@ -194,7 +194,7 @@ class Structure(StructureBase):
         # except AttributeError:
         #     log_object = Log(log_object)
         # self._log = log_object
-        if isinstance(log, logging.Logger):  # prefer this protection method versus Log.log property overhead?
+        if isinstance(log, Logger):  # prefer this protection method versus Log.log property overhead?
             self._log.log = log
         else:
             raise TypeError('The log type (%s) is not of the specified type logging.Logger' % type(log))
