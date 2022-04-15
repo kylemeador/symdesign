@@ -612,7 +612,8 @@ class SymEntry:
             for idx, string_angle in enumerate(string_angles):
                 angles[idx] = float(string_angle)
 
-        return np.concatenate(lengths, angles)
+        # return np.concatenate(lengths, np.tile(angles, len(lengths)))
+        return np.hstack((lengths, np.tile(angles, len(lengths)).reshape(-1, 3)))
 
     def get_optimal_shift_from_uc_dimensions(self, a, b, c, *angles):  # alpha, beta, gamma
         """Return the optimal shifts provided unit cell dimensions and the external translation degrees of freedom
