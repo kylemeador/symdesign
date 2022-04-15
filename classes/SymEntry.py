@@ -608,7 +608,7 @@ class SymEntry:
             angles = [90., 90., float(string_angles[0])]
         else:
             # angles = [float(string_angle) for string_angle in string_angles]
-            angles = [0., 0., 0.]  # need this incase there are only 2 angles... which there aren't right now
+            angles = [0., 0., 0.]  # need this incase there is only 1 angle
             for idx, string_angle in enumerate(string_angles):
                 angles[idx] = float(string_angle)
 
