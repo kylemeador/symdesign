@@ -2375,6 +2375,7 @@ class Entity(Chain, SequenceProfile):
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
+        # Todo choose most symmetrically average if Entity is symmetric
         representative = chains[0]
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          coords=representative._coords, **kwargs)
