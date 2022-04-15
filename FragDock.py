@@ -992,7 +992,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     del transformation2
     # cluster_representative_indices, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
     _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
-    sufficiently_dense_indices = np.arange(len(starting_transforms))  #
+    sufficiently_dense_indices = np.arange(starting_transforms)
     # sufficiently_dense_indices = np.where(cluster_labels != -1)  # Todo comment back after test?
     number_of_dense_transforms = len(sufficiently_dense_indices[0])
     clustering_time = time.time() - clustering_start
