@@ -1137,35 +1137,35 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     full_inv_rotation1 = full_inv_rotation1[asu_is_viable]
     # viable_cluster_labels = cluster_labels[asu_is_viable[0]]
 
-    # check of transformation with forward of 2 and reverse of 1
-    pdb1.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_pdb1.pdb'))
-    for idx in range(5):
-        # print(full_rotation2[idx].shape)
-        # print(full_int_tx2[idx].shape)
-        # print(set_mat2.shape)
-        # print(full_ext_tx_sum[idx].shape if full_ext_tx_sum else None)
-        pdb2_copy = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
-                                                    'translation': full_int_tx2[idx],
-                                                    'rotation2': set_mat2,
-                                                    'translation2': full_ext_tx_sum[idx]
-                                                    if full_ext_tx_sum is not None else None})
-        # pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform_mid%d.pdb' % idx))
-        pdb2_copy.transform(**{'rotation': inv_setting1,
-                               'translation': full_int_tx1[idx] * -1,
-                               'rotation2': full_inv_rotation1[idx]})
-        pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform%d.pdb' % idx))
-
-    for idx in range(5):
-        pdb1_copye = pdb1.return_transformed_copy(**{'rotation': full_rotation1[idx],
-                                                     'translation': full_int_tx1[idx],
-                                                     'rotation2': set_mat1,
-                                                     'translation2': full_ext_tx1[idx] if full_ext_tx1 is not None else None})
-        pdb1_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform1_%d.pdb' % idx))
-        pdb2_copye = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
-                                                     'translation': full_int_tx2[idx],
-                                                     'rotation2': set_mat2,
-                                                     'translation2': full_ext_tx2[idx] if full_ext_tx2 is not None else None})
-        pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
+    # # check of transformation with forward of 2 and reverse of 1
+    # pdb1.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_pdb1.pdb'))
+    # for idx in range(5):
+    #     # print(full_rotation2[idx].shape)
+    #     # print(full_int_tx2[idx].shape)
+    #     # print(set_mat2.shape)
+    #     # print(full_ext_tx_sum[idx].shape if full_ext_tx_sum else None)
+    #     pdb2_copy = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
+    #                                                 'translation': full_int_tx2[idx],
+    #                                                 'rotation2': set_mat2,
+    #                                                 'translation2': full_ext_tx_sum[idx]
+    #                                                 if full_ext_tx_sum is not None else None})
+    #     # pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform_mid%d.pdb' % idx))
+    #     pdb2_copy.transform(**{'rotation': inv_setting1,
+    #                            'translation': full_int_tx1[idx] * -1,
+    #                            'rotation2': full_inv_rotation1[idx]})
+    #     pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform%d.pdb' % idx))
+    #
+    # for idx in range(5):
+    #     pdb1_copye = pdb1.return_transformed_copy(**{'rotation': full_rotation1[idx],
+    #                                                  'translation': full_int_tx1[idx],
+    #                                                  'rotation2': set_mat1,
+    #                                                  'translation2': full_ext_tx1[idx] if full_ext_tx1 is not None else None})
+    #     pdb1_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform1_%d.pdb' % idx))
+    #     pdb2_copye = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
+    #                                                  'translation': full_int_tx2[idx],
+    #                                                  'rotation2': set_mat2,
+    #                                                  'translation2': full_ext_tx2[idx] if full_ext_tx2 is not None else None})
+    #     pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
 
     #################
     # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
@@ -1263,131 +1263,131 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         int_frags_time_start = time.time()
         pdb2_query = pdb1_cb_balltree.query_radius(inverse_transformed_pdb2_tiled_cb_coords[idx], cb_distance)
         pdb1_cb_balltree_time = time.time() - int_frags_time_start
-        print('pdb2_query', pdb2_query)
+        # print('pdb2_query', pdb2_query)
         contacting_pairs = [(pdb1_coords_indexed_residues[pdb1_cb_indices[pdb1_idx]].number,
                              pdb2_coords_indexed_residues[pdb2_cb_indices[pdb2_idx]].number)
                             for pdb2_idx, pdb1_contacts in enumerate(pdb2_query) for pdb1_idx in pdb1_contacts]
-        try:
-            interface_residue_numbers1, interface_residue_numbers2 = zip(*contacting_pairs)
-            # These were interface_surf_frags and interface_ghost_frags
-            # interface_ghost1_indices = \
-            #     np.concatenate([np.where(ghost_frag1_residues == residue) for residue in interface_residue_numbers1])
-            # interface_surf2_indices = \
-            #     np.concatenate([np.where(surf_frag2_residues == residue) for residue in interface_residue_numbers2])
-            is_in_index_start = time.time()
-            interface_ghost1_indices = np.isin(ghost_frag1_residues, interface_residue_numbers1).nonzero()[0]
-            interface_surf2_indices = np.isin(surf_frag2_residues, interface_residue_numbers2).nonzero()[0]
-            is_in_index_time = time.time() - is_in_index_start
-            all_fragment_match_time_start = time.time()
-            # if idx % 2 == 0:
-            # interface_ghost_frags = complete_ghost_frags1[interface_ghost1_indices]
-            # interface_surf_frags = complete_surf_frags2[interface_surf2_indices]
-            # int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_indices]
-            int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_indices]
-            # int_surf_frag_guide_coords = surf_frags2_guide_coords[interface_surf2_indices]
-            # int_trans_ghost_guide_coords = \
-            #     transform_coordinate_sets(int_ghost_frag_guide_coords, rotation=rot_mat1, translation=internal_tx_param1,
-            #                               rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
-            # int_trans_surf2_guide_coords = \
-            #     transform_coordinate_sets(int_surf_frag_guide_coords, rotation=rot_mat2, translation=internal_tx_param2,
-            #                               rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
+        # try:
+        interface_residue_numbers1, interface_residue_numbers2 = zip(*contacting_pairs)
+        # These were interface_surf_frags and interface_ghost_frags
+        # interface_ghost1_indices = \
+        #     np.concatenate([np.where(ghost_frag1_residues == residue) for residue in interface_residue_numbers1])
+        # interface_surf2_indices = \
+        #     np.concatenate([np.where(surf_frag2_residues == residue) for residue in interface_residue_numbers2])
+        is_in_index_start = time.time()
+        interface_ghost1_indices = np.isin(ghost_frag1_residues, interface_residue_numbers1).nonzero()[0]
+        interface_surf2_indices = np.isin(surf_frag2_residues, interface_residue_numbers2).nonzero()[0]
+        is_in_index_time = time.time() - is_in_index_start
+        all_fragment_match_time_start = time.time()
+        # if idx % 2 == 0:
+        # interface_ghost_frags = complete_ghost_frags1[interface_ghost1_indices]
+        # interface_surf_frags = complete_surf_frags2[interface_surf2_indices]
+        # int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_indices]
+        int_ghost_frag_guide_coords = ghost_frag1_guide_coords[interface_ghost1_indices]
+        # int_surf_frag_guide_coords = surf_frags2_guide_coords[interface_surf2_indices]
+        # int_trans_ghost_guide_coords = \
+        #     transform_coordinate_sets(int_ghost_frag_guide_coords, rotation=rot_mat1, translation=internal_tx_param1,
+        #                               rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
+        # int_trans_surf2_guide_coords = \
+        #     transform_coordinate_sets(int_surf_frag_guide_coords, rotation=rot_mat2, translation=internal_tx_param2,
+        #                               rotation2=sym_entry.setting_matrix2, translation2=external_tx_params2)
 
-            # transforming only surface frags will have large speed gains from not having to transform all ghosts
-            # int_trans_surf2_guide_coords = trans_surf_guide_coords[interface_surf2_indices]
-            int_trans_surf2_guide_coords = trans_surf_guide_coords[interface_surf2_indices]
-            # NOT crucial ###
-            unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = \
-                len(int_ghost_frag_guide_coords), len(int_trans_surf2_guide_coords)
-            get_int_frags_time = time.time() - int_frags_time_start
-            log.info('\tNewly Formed Interface Contains %d Unique Fragments on Oligomer 1 and %d on Oligomer 2\n\t'
-                     '(took %f s to to get interface fragments, %f s to query distances, %f s to index residue numbers)'
-                     % (unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2, get_int_frags_time,
-                        pdb1_cb_balltree_time, is_in_index_time))
-            # NOT crucial ###
+        # transforming only surface frags will have large speed gains from not having to transform all ghosts
+        # int_trans_surf2_guide_coords = trans_surf_guide_coords[interface_surf2_indices]
+        int_trans_surf2_guide_coords = trans_surf_guide_coords[interface_surf2_indices]
+        # NOT crucial ###
+        unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2 = \
+            len(int_ghost_frag_guide_coords), len(int_trans_surf2_guide_coords)
+        get_int_frags_time = time.time() - int_frags_time_start
+        log.info('\tNewly Formed Interface Contains %d Unique Fragments on Oligomer 1 and %d on Oligomer 2\n\t'
+                 '(took %f s to to get interface fragments, %f s to query distances, %f s to index residue numbers)'
+                 % (unique_interface_frag_count_pdb1, unique_interface_frag_count_pdb2, get_int_frags_time,
+                    pdb1_cb_balltree_time, is_in_index_time))
+        # NOT crucial ###
 
-            # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Surface Fragment) guide coordinate pairs
-            # in the same Euler rotational space bucket
-            # DON'T think this is crucial! ###
-            eul_lookup_start_time = time.time()
-            # overlapping_ghost_indices, overlapping_surf_indices = \
-            #     euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf2_guide_coords)
-            overlapping_ghost_indices, overlapping_surf_indices = \
-                euler_lookup.check_lookup_table(int_ghost_frag_guide_coords, int_trans_surf2_guide_coords)  # ,
-            #                                   secondary_structure_match=ij_type_match)
-            ij_type_match = ij_type_match_lookup_table[interface_ghost1_indices[overlapping_ghost_indices],
-                                                       interface_surf2_indices[overlapping_surf_indices]]
-            # log.debug('Euler lookup')
-            eul_lookup_time = time.time() - eul_lookup_start_time
-            # DON'T think this is crucial! ###
+        # Get (Oligomer1 Interface Ghost Fragment, Oligomer2 Interface Surface Fragment) guide coordinate pairs
+        # in the same Euler rotational space bucket
+        # DON'T think this is crucial! ###
+        eul_lookup_start_time = time.time()
+        # overlapping_ghost_indices, overlapping_surf_indices = \
+        #     euler_lookup.check_lookup_table(int_trans_ghost_guide_coords, int_trans_surf2_guide_coords)
+        overlapping_ghost_indices, overlapping_surf_indices = \
+            euler_lookup.check_lookup_table(int_ghost_frag_guide_coords, int_trans_surf2_guide_coords)  # ,
+        #                                   secondary_structure_match=ij_type_match)
+        ij_type_match = ij_type_match_lookup_table[interface_ghost1_indices[overlapping_ghost_indices],
+                                                   interface_surf2_indices[overlapping_surf_indices]]
+        # log.debug('Euler lookup')
+        eul_lookup_time = time.time() - eul_lookup_start_time
+        # DON'T think this is crucial! ###
 
-            # Calculate z_value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
-            overlap_score_time_start = time.time()
-            # get only fragment indices that pass ij filter and their associated coords
-            passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
-            # passing_ghost_coords = int_trans_ghost_guide_coords[passing_ghost_indices]
-            passing_ghost_coords = int_ghost_frag_guide_coords[passing_ghost_indices]
-            passing_surf_indices = overlapping_surf_indices[ij_type_match]
-            passing_surf_coords = int_trans_surf2_guide_coords[passing_surf_indices]
+        # Calculate z_value for the selected (Ghost Fragment, Interface Fragment) guide coordinate pairs
+        overlap_score_time_start = time.time()
+        # get only fragment indices that pass ij filter and their associated coords
+        passing_ghost_indices = overlapping_ghost_indices[ij_type_match]
+        # passing_ghost_coords = int_trans_ghost_guide_coords[passing_ghost_indices]
+        passing_ghost_coords = int_ghost_frag_guide_coords[passing_ghost_indices]
+        passing_surf_indices = overlapping_surf_indices[ij_type_match]
+        passing_surf_coords = int_trans_surf2_guide_coords[passing_surf_indices]
 
-            # reference_rmsds = ghost_frag1_rmsds[interface_ghost1_indices][overlapping_ghost_indices][ij_type_match]
-            reference_rmsds = ghost_frag1_rmsds[interface_ghost1_indices][passing_ghost_indices]
-            all_fragment_match = calculate_match(passing_ghost_coords, passing_surf_coords, reference_rmsds)
-            overlap_score_time = time.time() - overlap_score_time_start
-            log.info('\tEuler Lookup took %f s for %d fragment pairs and Overlap Score Calculation took %f s for %d '
-                     'fragment pairs' % (eul_lookup_time, unique_interface_frag_count_pdb1 * unique_interface_frag_count_pdb2,
-                                         overlap_score_time, len(overlapping_ghost_indices)))
-            # else:  # this doesn't seem to be as fast from initial tests
-            #     # below bypasses euler lookup
-            #     # 1
-            #     # # this may be slower than just calculating all and not worrying about interface!
-            #     # int_ij_matching_ghost1_indices = np.isin(ij_matching_ghost1_indices, interface_ghost1_indices)
-            #     # int_ij_matching_surf2_indices = np.isin(ij_matching_surf2_indices, interface_surf2_indices)
-            #     # typed_ghost1_coords = ghost_frag1_guide_coords[int_ij_matching_ghost1_indices]
-            #     # typed_surf2_coords = surf_frags2_guide_coords[int_ij_matching_surf2_indices]
-            #     # reference_rmsds = ghost_frag1_rmsds[int_typed_ghost1_indices]
-            #     # # 2
-            #     # typed_ghost1_coords = ghost_frag1_guide_coords[ij_matching_ghost1_indices]
-            #     # typed_surf2_coords = surf_frags2_guide_coords[ij_matching_surf2_indices]
-            #     # reference_rmsds = ghost_frag1_rmsds[ij_matching_ghost1_indices]
-            #     # 3
-            #     # first slice the table according to the interface residues
-            #     # int_ij_lookup_table = \
-            #     #     ij_type_match_lookup_table[interface_ghost1_indices[:, None], interface_surf2_indices]
-            #     int_ij_lookup_table = np.logical_and(ij_type_match_lookup_table,
-            #                                          (np.einsum('i, j -> ij', interface_ghost1_indices, interface_surf2_indices)))
-            #     # axis 0 is ghost frag, 1 is surface frag
-            #     # int_row_indices, int_column_indices = np.indices(int_ij_lookup_table.shape)  # row vary by ghost, column by surf
-            #     # int_ij_matching_ghost1_indices = \
-            #     #     row_indices[interface_ghost1_indices[:, None], interface_surf2_indices][int_ij_lookup_table]
-            #     # int_ij_matching_surf2_indices = \
-            #     #     column_indices[interface_ghost1_indices[:, None], interface_surf2_indices][int_ij_lookup_table]
-            #     int_ij_matching_ghost1_indices = row_indices[int_ij_lookup_table]
-            #     int_ij_matching_surf2_indices = column_indices[int_ij_lookup_table]
-            #     # int_ij_matching_ghost1_indices = \
-            #     #     (int_ij_lookup_table * np.arange(int_ij_lookup_table.shape[0]))[int_ij_lookup_table]
-            #     # int_ij_matching_surf2_indices = \
-            #     #     (int_ij_lookup_table * np.arange(int_ij_lookup_table.shape[1])[:, None])[int_ij_lookup_table]
-            #     typed_ghost1_coords = ghost_frag1_guide_coords[int_ij_matching_ghost1_indices]
-            #     typed_surf2_coords = surf_frags2_guide_coords[int_ij_matching_surf2_indices]
-            #     reference_rmsds = ghost_frag1_rmsds[int_ij_matching_ghost1_indices]
-            #
-            #     all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
+        # reference_rmsds = ghost_frag1_rmsds[interface_ghost1_indices][overlapping_ghost_indices][ij_type_match]
+        reference_rmsds = ghost_frag1_rmsds[interface_ghost1_indices][passing_ghost_indices]
+        all_fragment_match = calculate_match(passing_ghost_coords, passing_surf_coords, reference_rmsds)
+        overlap_score_time = time.time() - overlap_score_time_start
+        log.info('\tEuler Lookup took %f s for %d fragment pairs and Overlap Score Calculation took %f s for %d '
+                 'fragment pairs' % (eul_lookup_time, unique_interface_frag_count_pdb1 * unique_interface_frag_count_pdb2,
+                                     overlap_score_time, len(overlapping_ghost_indices)))
+        # else:  # this doesn't seem to be as fast from initial tests
+        #     # below bypasses euler lookup
+        #     # 1
+        #     # # this may be slower than just calculating all and not worrying about interface!
+        #     # int_ij_matching_ghost1_indices = np.isin(ij_matching_ghost1_indices, interface_ghost1_indices)
+        #     # int_ij_matching_surf2_indices = np.isin(ij_matching_surf2_indices, interface_surf2_indices)
+        #     # typed_ghost1_coords = ghost_frag1_guide_coords[int_ij_matching_ghost1_indices]
+        #     # typed_surf2_coords = surf_frags2_guide_coords[int_ij_matching_surf2_indices]
+        #     # reference_rmsds = ghost_frag1_rmsds[int_typed_ghost1_indices]
+        #     # # 2
+        #     # typed_ghost1_coords = ghost_frag1_guide_coords[ij_matching_ghost1_indices]
+        #     # typed_surf2_coords = surf_frags2_guide_coords[ij_matching_surf2_indices]
+        #     # reference_rmsds = ghost_frag1_rmsds[ij_matching_ghost1_indices]
+        #     # 3
+        #     # first slice the table according to the interface residues
+        #     # int_ij_lookup_table = \
+        #     #     ij_type_match_lookup_table[interface_ghost1_indices[:, None], interface_surf2_indices]
+        #     int_ij_lookup_table = np.logical_and(ij_type_match_lookup_table,
+        #                                          (np.einsum('i, j -> ij', interface_ghost1_indices, interface_surf2_indices)))
+        #     # axis 0 is ghost frag, 1 is surface frag
+        #     # int_row_indices, int_column_indices = np.indices(int_ij_lookup_table.shape)  # row vary by ghost, column by surf
+        #     # int_ij_matching_ghost1_indices = \
+        #     #     row_indices[interface_ghost1_indices[:, None], interface_surf2_indices][int_ij_lookup_table]
+        #     # int_ij_matching_surf2_indices = \
+        #     #     column_indices[interface_ghost1_indices[:, None], interface_surf2_indices][int_ij_lookup_table]
+        #     int_ij_matching_ghost1_indices = row_indices[int_ij_lookup_table]
+        #     int_ij_matching_surf2_indices = column_indices[int_ij_lookup_table]
+        #     # int_ij_matching_ghost1_indices = \
+        #     #     (int_ij_lookup_table * np.arange(int_ij_lookup_table.shape[0]))[int_ij_lookup_table]
+        #     # int_ij_matching_surf2_indices = \
+        #     #     (int_ij_lookup_table * np.arange(int_ij_lookup_table.shape[1])[:, None])[int_ij_lookup_table]
+        #     typed_ghost1_coords = ghost_frag1_guide_coords[int_ij_matching_ghost1_indices]
+        #     typed_surf2_coords = surf_frags2_guide_coords[int_ij_matching_surf2_indices]
+        #     reference_rmsds = ghost_frag1_rmsds[int_ij_matching_ghost1_indices]
+        #
+        #     all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
 
-            # check if the pose has enough high quality fragment matches
-            high_qual_match_indices = np.where(all_fragment_match > high_quality_match_value)[0]
-            high_qual_match_count = len(high_qual_match_indices)
-            all_fragment_match_time = time.time() - all_fragment_match_time_start
-            if high_qual_match_count < min_matched:
-                log.info('\t%d < %d Which is Set as the Minimal Required Amount of High Quality Fragment Matches '
-                         '(took %f s)' % (high_qual_match_count, min_matched, all_fragment_match_time))
-                continue
+        # check if the pose has enough high quality fragment matches
+        high_qual_match_indices = np.where(all_fragment_match > high_quality_match_value)[0]
+        high_qual_match_count = len(high_qual_match_indices)
+        all_fragment_match_time = time.time() - all_fragment_match_time_start
+        if high_qual_match_count < min_matched:
+            log.info('\t%d < %d Which is Set as the Minimal Required Amount of High Quality Fragment Matches '
+                     '(took %f s)' % (high_qual_match_count, min_matched, all_fragment_match_time))
+            continue
 
-            passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
-            number_passing_overlaps = len(passing_overlaps_indices)
-            log.info('\t%d High Quality Fragments Out of %d Matches Found in Complete Fragment Library (took %f s)' %
-                     (high_qual_match_count, number_passing_overlaps, all_fragment_match_time))
-        except ValueError:
-            pass
+        passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
+        number_passing_overlaps = len(passing_overlaps_indices)
+        log.info('\t%d High Quality Fragments Out of %d Matches Found in Complete Fragment Library (took %f s)' %
+                 (high_qual_match_count, number_passing_overlaps, all_fragment_match_time))
+        # except ValueError:
+        #     pass
         # Get contacting PDB 1 ASU and PDB 2 ASU
         copy_pdb_start = time.time()
         rot_mat1 = full_rotation1[idx]
