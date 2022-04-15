@@ -884,8 +884,6 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                             (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof1).sum(axis=-2)
                         stacked_external_tx2 = \
                             (optimal_ext_dof_shifts[:, :, None] * sym_entry.external_dof2).sum(axis=-2)
-                        # Todo check the sum implemented after the concatenate below!
-                        #  Have to sum below over the axis=-2. They are 3x3 right now and should be 1x3
                         full_ext_tx1.append(stacked_external_tx1[positive_indices])
                         full_ext_tx2.append(stacked_external_tx2[positive_indices])
                         full_optimal_ext_dof_shifts.append(optimal_ext_dof_shifts[positive_indices])
@@ -933,9 +931,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # this returns the vectorized uc_dimensions
     if sym_entry.unit_cell:
         full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
-        full_ext_tx1 = np.concatenate(full_ext_tx1).sum(axis=-2)
-        full_ext_tx2 = np.concatenate(full_ext_tx2).sum(axis=-2)
-    # Todo if use tile_transform in the reverse orientation
+        full_ext_tx1 = np.concatenate(full_ext_tx1)  # .sum(axis=-2)
+        full_ext_tx2 = np.concatenate(full_ext_tx2)  # .sum(axis=-2)
+    # Todo uncomment below lines if use tile_transform in the reverse orientation
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     # else:
     #     full_ext_tx_sum = None
