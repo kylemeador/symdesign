@@ -935,6 +935,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
         full_ext_tx1 = np.concatenate(full_ext_tx1).sum(axis=-2)
         full_ext_tx2 = np.concatenate(full_ext_tx2).sum(axis=-2)
+    # Todo if use tile_transform in the reverse orientation
+    #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
+    # else:
+    #     full_ext_tx_sum = None
+    # full_inv_rotation1 = np.linalg.inv(full_rotation1)
+    # inv_setting1 = np.linalg.inv(set_mat1)
     # make full vectorized transformations overwriting individual variables
     full_rotation1 = np.concatenate(full_rotation1)
     full_rotation2 = np.concatenate(full_rotation2)
@@ -945,11 +951,18 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # must add a new axis to translations so the operations are broadcast together in transform_coordinate_sets()
     transformation1 = {'rotation': full_rotation1, 'translation': full_int_tx1[:, np.newaxis, :],
                        'rotation2': set_mat1,
-                       'translation2': full_ext_tx1[:, np.newaxis, :] if full_ext_tx1 else None}
+                       'translation2': full_ext_tx1[:, np.newaxis, :] if full_ext_tx1 is None else None}
     transformation2 = {'rotation': full_rotation2, 'translation': full_int_tx2[:, np.newaxis, :],
                        'rotation2': set_mat2,
-                       'translation2': full_ext_tx2[:, np.newaxis, :] if full_ext_tx2 else None}
-
+                       'translation2': full_ext_tx2[:, np.newaxis, :] if full_ext_tx2 is None else None}
+    # tile_transform1 = {'rotation': full_rotation2,
+    #                    'translation': full_int_tx2[:, np.newaxis, :],
+    #                    'rotation2': set_mat2,
+    #                    'translation2': full_ext_tx_sum[:, np.newaxis, :] if full_ext_tx_sum is None else None}  # invert translation
+    # tile_transform2 = {'rotation': inv_setting1,
+    #                    'translation': full_int_tx1[:, np.newaxis, :] * -1,
+    #                    'rotation2': full_inv_rotation1,
+    #                    'translation2': None}
     # find the clustered transformations to expedite search of ASU clashing
     # Todo
     #  can I use the cluster_transformation_pairs distance graph to provide feedback on other aspects of the dock?
@@ -975,6 +988,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     clustering_start = time.time()
     transform_neighbor_tree, cluster = \
         cluster_transformation_pairs(transformation1, transformation2, minimum_members=min_matched)
+    del transformation1
+    del transformation2
     # cluster_representative_indices, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
     _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
     sufficiently_dense_indices = np.where(cluster_labels != -1)
@@ -1154,7 +1169,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     tile_transform1 = {'rotation': full_rotation2,
                        'translation': full_int_tx2[:, np.newaxis, :],
                        'rotation2': set_mat2,
-                       'translation2': full_ext_tx_sum[:, np.newaxis, :] if full_ext_tx_sum else None}  # invert translation
+                       'translation2': full_ext_tx_sum[:, np.newaxis, :]
+                       if full_ext_tx_sum is None else None}  # invert translation
     tile_transform2 = {'rotation': inv_setting1,
                        'translation': full_int_tx1[:, np.newaxis, :] * -1,
                        'rotation2': full_inv_rotation1,
@@ -1162,7 +1178,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     tile_transform1_guides = {'rotation': full_rotation2[:, np.newaxis, :, :],
                               'translation': full_int_tx2[:, np.newaxis, np.newaxis, :],
                               'rotation2': set_mat2[np.newaxis, np.newaxis, :, :],
-                              'translation2': full_ext_tx_sum[:, np.newaxis, np.newaxis, :] if full_ext_tx_sum else None}  # invert translation
+                              'translation2': full_ext_tx_sum[:, np.newaxis, np.newaxis, :]
+                              if full_ext_tx_sum is None else None}  # invert translation
     tile_transform2_guides = {'rotation': inv_setting1[np.newaxis, np.newaxis, :, :],
                               'translation': full_int_tx1[:, np.newaxis, np.newaxis, :] * -1,
                               'rotation2': full_inv_rotation1[:, np.newaxis, :, :],
