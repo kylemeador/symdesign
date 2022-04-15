@@ -34,7 +34,7 @@ class PDB(Structure):
     """
     def __init__(self, file=None, atoms=None, residues=None, chains=None, entities=None, coords=None, metadata=None,
                  log=False, **kwargs):
-        # let structure start a log if log is False
+        # PDB defaults to Structure logger (log is False)
         super().__init__(log=log, **kwargs)
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},

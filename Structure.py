@@ -105,11 +105,14 @@ class Structure(StructureBase):
         self.structure_containers = []
 
         if log:
-            self.log = log
+            # self.log = log
+            self._log = log
         elif log is None:
-            self.log = Log(null_log)
+            # self.log = Log(null_log)
+            self._log = Log(null_log)
         else:  # When log is explicitly passed as False, use the module logger
-            self.log = Log(logger)
+            # self.log = Log(logger)
+            self._log = Log(logger)
 
         if atoms is not None:  # Todo make look like below residues init!
             self.atoms = atoms
@@ -183,9 +186,29 @@ class Structure(StructureBase):
         return self._log.log
 
     @log.setter
-    def log(self, log_object):
-        # self._log = Log(logger_object)
-        self._log = log_object
+    def log(self, log):  # log_object):
+        """Set the Structure, Atom, and Residue log with specified Log Object"""
+        # try:
+        #     log_object.log
+        # except AttributeError:
+        #     log_object = Log(log_object)
+        # self._log = log_object
+        if isinstance(log, logging.Logger):  # prefer this protection method versus Log.log property overhead?
+            self._log.log = log
+        else:
+            raise TypeError('The log type (%s) is not of the specified type logging.Logger' % type(log))
+
+    # def set_log(self, log=None):
+    #     """Set the log for the Structure as a Log object. Additionally, updates all member Residues with the
+    #     Log object and maps the atom/coordinate index to each Residue, residue atom index pair.
+    #
+    #     Keyword Args:
+    #         log=None (Union[numpy.ndarray, list]): The coordinates to set for the structure
+    #     """
+    #     self.log = log
+    #     # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
+    #     self._residues.set_attributes(log=self._log)
+    #     # self.set_residues_attributes(log=self._log)
 
     @property
     def sequence(self):  # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
