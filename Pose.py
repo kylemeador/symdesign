@@ -1283,8 +1283,6 @@ class SymmetricModel(Model):
             return
 
         a2r = np.pi / 180.0
-        print('self.uc_dimensions', self.uc_dimensions)
-        print('self.coords', self.coords)
         a, b, c, alpha, beta, gamma = self.uc_dimensions
         alpha *= a2r
         beta *= a2r
