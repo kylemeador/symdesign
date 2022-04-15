@@ -877,6 +877,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                             np.hstack((blank_vector,) * (3- sym_entry.n_dof_external))))
                         # ^ I think for the sake of cleanliness, I need to make this matrix
                         # must find positive indices before external_dof1 multiplication in case negatives there
+                        print('optimal_ext_dof_shifts', optimal_ext_dof_shifts)
                         positive_indices = \
                             np.where(np.all(np.where(optimal_ext_dof_shifts < 0, False, True), axis=1) == True)
                         # optimal_ext_dof_shifts[:, :, None] <- None expands the axis to make multiplication accurate
