@@ -931,10 +931,10 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # this returns the vectorized uc_dimensions
     if sym_entry.unit_cell:
         full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
-        print('full_ext_tx1', full_ext_tx1)
+        print('full_ext_tx2', full_ext_tx2)
         full_ext_tx1 = np.concatenate(full_ext_tx1)  # .sum(axis=-2)
         full_ext_tx2 = np.concatenate(full_ext_tx2)  # .sum(axis=-2)
-        print('full_ext_tx1', full_ext_tx1)
+        print('full_ext_tx2', full_ext_tx2)
     # Todo uncomment below lines if use tile_transform in the reverse orientation
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     # else:
