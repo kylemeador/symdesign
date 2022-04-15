@@ -1044,7 +1044,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # log.info('\tCopy and Transform All Oligomer1 and Oligomer2 coords for clash testing (took %f s)'
     #          % transfrom_clash_coords_time)
 
-    memory_constraint = 30000000000  # 60 gB available, then half this for the space during calculation and storage
+    memory_constraint = 15000000000  # 60 gB available, then half this for the space during calculation and storage
     # assume each element has 8 bytes
     element_memory = 8
     number_of_elements_available = memory_constraint / element_memory
