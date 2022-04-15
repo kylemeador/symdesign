@@ -12,7 +12,7 @@ from ClusterUtils import cluster_transformation_pairs, find_cluster_representati
 from PathUtils import frag_text_file, master_log, biological_fragment_db_pickle, frag_dir
 from Structure import superposition3d, Structure
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
-    split_interface_numbers, calculate_match, z_value_from_match_score, unpickle
+    calculate_match, z_value_from_match_score, unpickle
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
     transform_coordinate_sets, get_rotation_step, write_docking_parameters, transform_coordinates
