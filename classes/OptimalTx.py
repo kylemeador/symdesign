@@ -11,7 +11,7 @@ class OptimalTx:
         self.number_of_coordinates = number_of_coordinates
         self.dof_ext = np.array(dof_ext)  # External translational DOF (number DOF external x 3)
         self.dof = self.dof_ext.copy()
-        print('self.dof', self.dof)
+        # print('self.dof', self.dof)
         self.zshift1 = zshift1  # internal translational DOF1
         self.zshift2 = zshift2  # internal translational DOF2
         self.dof9 = None
@@ -21,13 +21,13 @@ class OptimalTx:
         # add internal z-shift degrees of freedom to 9-dim arrays if they exist
         self.n_dof_internal = 0
         if self.zshift1 is not None:
-            print('self.zshift1', self.zshift1)
+            # print('self.zshift1', self.zshift1)
             self.dof = np.append(self.dof, -self.zshift1, axis=0)
             self.n_dof_internal += 1
         if self.zshift2 is not None:
             self.dof = np.append(self.dof, self.zshift2, axis=0)
             self.n_dof_internal += 1
-        print('self.dof', self.dof)
+        # print('self.dof', self.dof)
 
         self.n_dof_external = self.dof_ext.shape[0]  # get the length of the numpy array
         self.n_dof = self.dof.shape[0]
