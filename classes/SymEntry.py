@@ -329,10 +329,13 @@ class SymEntry:
             difference_matrix = self.external_dof2 - self.external_dof1
             # for entry 6 - string_vector is 4*e, 4*e, 4*e
             # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
-            # (^).sum(axis=1(-2)) = [4, 4, 4]
+            # (^).sum(axis=-1)) = [12, 0, 0]
+            # for entry 85 - string_vector is 4*e, 4*f, 4*g
+            # which is uc_dimension_matrix of [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
+            # (^).sum(axis=-1) = [4, 4, 4]
+            self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-1))[0]]
             # flat_difference_matrix = difference_matrix.sum(axis=-2)
             # self.ext_dof = flat_difference_matrix[np.nonzero(flat_difference_matrix)][:, None]
-            self.ext_dof = difference_matrix[:, np.nonzero(difference_matrix.sum(axis=-2))[0]].T
             # for idx in range(3):
             #     if difference_sum[idx] != 0:
             #         ext_dof_indices.append(idx)
@@ -672,6 +675,8 @@ def construct_uc_matrix(string_vector):
 
     # for entry 6 - string_vector is 4*e, 4*e, 4*e
     # [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
+    # for entry 85 - string_vector is 4*e, 4*f, 4*g
+    # [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
     return variable_matrix
 
 
