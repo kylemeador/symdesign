@@ -931,10 +931,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # this returns the vectorized uc_dimensions
     if sym_entry.unit_cell:
         full_uc_dimensions = sym_entry.get_uc_dimensions(np.concatenate(full_optimal_ext_dof_shifts))
-        print('full_ext_tx2', full_ext_tx2)
         full_ext_tx1 = np.concatenate(full_ext_tx1)  # .sum(axis=-2)
         full_ext_tx2 = np.concatenate(full_ext_tx2)  # .sum(axis=-2)
-        print('full_ext_tx2', full_ext_tx2)
     # Todo uncomment below lines if use tile_transform in the reverse orientation
     #     full_ext_tx_sum = full_ext_tx2 - full_ext_tx1
     # else:
@@ -1110,35 +1108,35 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         # print('asu_clash_counts: %s' % asu_clash_counts)
     check_clash_coords_time = time.time() - check_clash_coords_start
 
-    # # check of transformation with forward of 2 and reverse of 1
-    # pdb1.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_pdb1.pdb'))
-    # for idx in range(5):
-    #     # print(full_rotation2[idx].shape)
-    #     # print(full_int_tx2[idx].shape)
-    #     # print(set_mat2.shape)
-    #     # print(full_ext_tx_sum[idx].shape if full_ext_tx_sum else None)
-    #     pdb2_copy = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
-    #                                                 'translation': full_int_tx2[idx],
-    #                                                 'rotation2': set_mat2,
-    #                                                 'translation2': full_ext_tx_sum[idx]
-    #                                                 if full_ext_tx_sum else None})
-    #     # pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform_mid%d.pdb' % idx))
-    #     pdb2_copy.transform(**{'rotation': inv_setting1,
-    #                            'translation': full_int_tx1[idx] * -1,
-    #                            'rotation2': full_inv_rotation1[idx]})
-    #     pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform%d.pdb' % idx))
-    #
-    # for idx in range(5):
-    #     pdb1_copye = pdb1.return_transformed_copy(**{'rotation': full_rotation1[idx],
-    #                                                  'translation': full_int_tx1[idx],
-    #                                                  'rotation2': set_mat1,
-    #                                                  'translation2': full_ext_tx1[idx] if full_ext_tx1 else None})
-    #     pdb1_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform1_%d.pdb' % idx))
-    #     pdb2_copye = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
-    #                                                  'translation': full_int_tx2[idx],
-    #                                                  'rotation2': set_mat2,
-    #                                                  'translation2': full_ext_tx2[idx] if full_ext_tx2 else None})
-    #     pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
+    # check of transformation with forward of 2 and reverse of 1
+    pdb1.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_pdb1.pdb'))
+    for idx in range(5):
+        # print(full_rotation2[idx].shape)
+        # print(full_int_tx2[idx].shape)
+        # print(set_mat2.shape)
+        # print(full_ext_tx_sum[idx].shape if full_ext_tx_sum else None)
+        pdb2_copy = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
+                                                    'translation': full_int_tx2[idx],
+                                                    'rotation2': set_mat2,
+                                                    'translation2': full_ext_tx_sum[idx]
+                                                    if full_ext_tx_sum is not None else None})
+        # pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform_mid%d.pdb' % idx))
+        pdb2_copy.transform(**{'rotation': inv_setting1,
+                               'translation': full_int_tx1[idx] * -1,
+                               'rotation2': full_inv_rotation1[idx]})
+        pdb2_copy.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_reverse_transform%d.pdb' % idx))
+
+    for idx in range(5):
+        pdb1_copye = pdb1.return_transformed_copy(**{'rotation': full_rotation1[idx],
+                                                     'translation': full_int_tx1[idx],
+                                                     'rotation2': set_mat1,
+                                                     'translation2': full_ext_tx1[idx] if full_ext_tx1 is not None else None})
+        pdb1_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform1_%d.pdb' % idx))
+        pdb2_copye = pdb2.return_transformed_copy(**{'rotation': full_rotation2[idx],
+                                                     'translation': full_int_tx2[idx],
+                                                     'rotation2': set_mat2,
+                                                     'translation2': full_ext_tx2[idx] if full_ext_tx2 is not None else None})
+        pdb2_copye.write(out_path=os.path.join(os.getcwd(), 'TEST_forward_transform2_%d.pdb' % idx))
 
     # asu_is_viable = np.where(asu_clash_counts.flatten() == 0)  # , True, False)
     # asu_is_viable = np.where(np.array(asu_clash_counts) == 0)
