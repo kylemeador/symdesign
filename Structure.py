@@ -178,6 +178,15 @@ class Structure(StructureBase):
     #     self._name = name
 
     @property
+    def log(self):
+        """Returns: (logging.Logger)"""
+        return self._log.log
+
+    @log.setter
+    def log(self, logger_object):
+        self._log = Log(logger_object)
+
+    @property
     def sequence(self):  # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
         """Holds the Structure amino acid sequence"""
         try:
@@ -2023,7 +2032,7 @@ class Structure(StructureBase):
         # for attr, value in self.__dict__.items():  # Todo
         for attr, value in other.__dict__.items():
             other.__dict__[attr] = copy(value)
-        other.set_residues_attributes(_coords=other._coords)  # , _atoms=other._atoms)
+        other.set_residues_attributes(_coords=other._coords)  # , _log=other._log)  # , _atoms=other._atoms)
 
         return other
 
@@ -3313,6 +3322,15 @@ class Residue:
         self.log = log
 
     @property
+    def log(self):
+        """Returns: (logging.Logger)"""
+        return self._log.log
+
+    @log.setter
+    def log(self, log_object):
+        self._log = log_object
+
+    @property
     def start_index(self):
         return self._start_index
 
@@ -4307,6 +4325,11 @@ class Atom:
 
     def __hash__(self):
         return hash(self.__key())
+
+
+class Log:
+    def __init__(self, log=None):
+        self.log = log
 
 
 class Coords:
