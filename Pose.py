@@ -961,7 +961,7 @@ class SymmetricModel(Model):
         # self.output_asu = True
         self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
 
-        if self.asu.space_group:
+        if self.asu.symmetry:
             kwargs.update(self.asu.symmetry.copy())
         self.set_symmetry(**kwargs)
 
@@ -1204,7 +1204,7 @@ class SymmetricModel(Model):
             self.symmetry = sym_entry.resulting_symmetry
             self.dimension = sym_entry.dimension
             self.point_group_symmetry = sym_entry.point_group_symmetry
-            if self.dimension > 0:
+            if self.dimension > 0 and uc_dimensions:
                 self.uc_dimensions = uc_dimensions
 
         elif symmetry:
@@ -1237,7 +1237,7 @@ class SymmetricModel(Model):
             self.expand_matrices = expand_matrices
         else:
             self.expand_matrices = get_ptgrp_sym_op(self.symmetry) if self.dimension == 0 \
-                else self.get_sg_sym_op(self.symmetry)  # ensure symmetry is Hermann–Mauguin notation
+                else self.get_sg_sym_op(self.symmetry)  # ensure Hermann–Mauguin notation w/ ''.join(symmetry.split())
 
         if self.asu and generate_assembly_coords:
             self.generate_symmetric_coords(**kwargs)

@@ -6,9 +6,9 @@ from collections.abc import Iterable
 from copy import copy, deepcopy
 from glob import glob
 from itertools import chain as iter_chain  # repeat,
-from random import randint
-from time import sleep
-from typing import Union
+# from random import randint
+# from time import sleep
+from typing import Union, Dict
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -118,13 +118,25 @@ class PDB(Structure):
         return cls(entities=entities, **kwargs)
 
     @property
-    def number_of_chains(self):
+    def number_of_chains(self) -> int:
+        """Return the number of Chain objects in the PDB
+
+        Returns:
+            (int)
+        """
         return len(self.chains)
 
     @property
-    def symmetry(self):
-        return {'symmetry': self.space_group, 'uc_dimensions': self.uc_dimensions, 'cryst_record': self.cryst_record,
-                'cryst': self.cryst}  # , 'max_symmetry': self.max_symmetry}
+    def symmetry(self) -> Dict:
+        """Return the symmetry parameters of the PDB
+
+        Returns:
+            (dict)
+        """
+        sym_attrbutes = ['symmetry', 'uc_dimensions', 'cryst_record', 'cryst']  # , 'max_symmetry': self.max_symmetry}
+        return {sym_attrbutes[idx]: sym_attr
+                for idx, sym_attr in enumerate([self.space_group, self.uc_dimensions, self.cryst_record, self.cryst])
+                if sym_attr}
 
     # def set_chain_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all Chains in the Structure"""
