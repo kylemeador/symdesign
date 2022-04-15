@@ -1089,7 +1089,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                                                                    'translation': full_int_tx2[:, np.newaxis, :][chunk_slice],
                                                                    'rotation2': set_mat2,
                                                                    'translation2': full_ext_tx_sum[:, np.newaxis, :][chunk_slice]
-                                                                   if full_ext_tx_sum else None}),
+                                                                   if full_ext_tx_sum is None else None}),
                                       **{'rotation': inv_setting1,
                                          'translation': full_int_tx1[:, np.newaxis, :][chunk_slice] * -1,
                                          'rotation2': full_inv_rotation1[chunk_slice],
