@@ -107,9 +107,9 @@ class Structure(StructureBase):
         if log:
             self.log = log
         elif log is None:
-            self.log = null_log
+            self.log = Log(null_log)
         else:  # When log is explicitly passed as False, use the module logger
-            self.log = logger
+            self.log = Log(logger)
 
         if atoms is not None:  # Todo make look like below residues init!
             self.atoms = atoms
@@ -183,8 +183,9 @@ class Structure(StructureBase):
         return self._log.log
 
     @log.setter
-    def log(self, logger_object):
-        self._log = Log(logger_object)
+    def log(self, log_object):
+        # self._log = Log(logger_object)
+        self._log = log_object
 
     @property
     def sequence(self):  # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
@@ -3240,9 +3241,11 @@ class Entity(Chain, SequenceProfile):
         if other.is_oligomeric:
             # self.log.info('Copy Entity. Clearing chains, chain_transforms')
             other._chains.clear()
+            # must update .prior_ca_coords here if the coords didn't change. If they did change
+            # as if transforms are calculated in .chain_transforms, they should have
+            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
             other.__chain_transforms = other.chain_transforms  # requires update before copy
             del other._chain_transforms
-            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
 
         return other
 
