@@ -338,7 +338,7 @@ class SymEntry:
             #         ext_dof_indices.append(idx)
             # self.ext_dof = difference_matrix[ext_dof_indices]
 
-        self.n_dof_external = len(ext_dof_indices)
+        self.n_dof_external = len(self.ext_dof)
         self.unit_cell = None if self.unit_cell == 'N/A' else \
             [dim.replace('(', '').replace(')', '').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
 
