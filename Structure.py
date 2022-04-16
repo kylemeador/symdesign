@@ -109,7 +109,8 @@ class Structure(StructureBase):
             if isinstance(log, Log):
                 self._log = log
             else:
-                self.log = log
+                self._log = Log(log)
+                # self.log = log
         elif log is None:
             # self.log = Log(null_log)
             self._log = Log(null_log)
