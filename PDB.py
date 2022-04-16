@@ -362,7 +362,8 @@ class PDB(Structure):
             # have to copy Residues object to set new attributes on each member Residue
             self.residues = copy(residues)
             # set residue attributes, index according to new Atoms/Coords index
-            self._residues.set_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
+            self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
+            # self._residues.set_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
             self._residues.reindex_residue_atoms()
             self.set_coords(coords=np.concatenate(coords))
             self.chain_id_list = remove_duplicates([residue.chain for residue in residues])

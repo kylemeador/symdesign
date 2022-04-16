@@ -141,7 +141,8 @@ class Structure(StructureBase):
                 # have to copy Residues object to set new attributes on each member Residue
                 self.residues = copy(residues)
                 # set residue attributes, index according to new Atoms/Coords index
-                self._residues.set_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
+                # self._residues.set_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
+                self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
                 self._residues.reindex_residue_atoms()
                 self.set_coords(coords=np.concatenate([residue.coords for residue in residues]))
             else:
@@ -259,7 +260,8 @@ class Structure(StructureBase):
         corrupted"""
         self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
-        self._residues.set_attributes(coords=self._coords)
+        self.set_residues_attributes(coords=self._coords)
+        # self._residues.set_attributes(coords=self._coords)
         # self.store_coordinate_index_residue_map()
         # self.coords_indexed_residues = \
         #     [(res_idx, res_atom_idx) for res_idx, residue in enumerate(self.residues) for res_atom_idx in residue.range]
@@ -558,11 +560,11 @@ class Structure(StructureBase):
             for kwarg, value in kwargs.items():
                 setattr(atom, kwarg, value)
 
-    # def set_residues_attributes(self, numbers=None, **kwargs):  # Depreciated in favor of _residues.set_attributes()
-    #     """Set attributes specified by key, value pairs for all Residues in the Structure"""
-    #     for residue in self.get_residues(numbers=numbers, **kwargs):
-    #         for kwarg, value in kwargs.items():
-    #             setattr(residue, kwarg, value)
+    def set_residues_attributes(self, numbers=None, **kwargs):  # Depreciated in favor of _residues.set_attributes()
+        """Set attributes specified by key, value pairs for all Residues in the Structure"""
+        for residue in self.get_residues(numbers=numbers, **kwargs):
+            for kwarg, value in kwargs.items():
+                setattr(residue, kwarg, value)
 
     # def set_residues_attributes_from_array(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all Residues in the Structure"""
@@ -2030,8 +2032,8 @@ class Structure(StructureBase):
             dtype=None (str): The attribute of interest
         """
         # kwargs = dict(b_factor=dtype)
-        self._residues.set_attributes(b_factor=dtype)  # , **kwargs)
-        # self.set_residues_attributes(b_factor=dtype)  # , **kwargs)
+        # self._residues.set_attributes(b_factor=dtype)  # , **kwargs)
+        self.set_residues_attributes(b_factor=dtype)  # , **kwargs)
 
     def copy_structures(self):
         """Copy all member Structures that reside in Structure containers"""
@@ -2061,8 +2063,8 @@ class Structure(StructureBase):
         # for attr, value in self.__dict__.items():  # Todo
         for attr, value in other.__dict__.items():
             other.__dict__[attr] = copy(value)
-        other._residues.set_attributes(_coords=other._coords)  # , _log=other._log)  # , _atoms=other._atoms)
-        # other.set_residues_attributes(_coords=other._coords)  # , _log=other._log)  # , _atoms=other._atoms)
+        # other._residues.set_attributes(_coords=other._coords)  # , _log=other._log)  # , _atoms=other._atoms)
+        other.set_residues_attributes(_coords=other._coords)  # , _log=other._log)  # , _atoms=other._atoms)
 
         return other
 
@@ -2384,8 +2386,8 @@ class Chain(Structure):
     @chain_id.setter
     def chain_id(self, chain_id):
         self.name = chain_id
-        self._residues.set_attributes(chain=chain_id)
-        # self.set_residues_attributes(chain=chain_id)
+        # self._residues.set_attributes(chain=chain_id)
+        self.set_residues_attributes(chain=chain_id)
 
 
 class Entity(Chain, SequenceProfile):
@@ -2509,8 +2511,8 @@ class Entity(Chain, SequenceProfile):
 
     @chain_id.setter
     def chain_id(self, chain_id):
-        self._residues.set_attributes(chain=chain_id)
-        # self.set_residues_attributes(chain=chain_id)
+        # self._residues.set_attributes(chain=chain_id)
+        self.set_residues_attributes(chain=chain_id)
         # self.set_atoms_attributes(chain=chain_id)
 
     @property
