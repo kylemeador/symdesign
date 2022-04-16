@@ -408,7 +408,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     """
 
     Keyword Args:
-        high_quality_match_value=1 (int): when z-value used, 0.5 if match score is used
+        high_quality_match_value=0.5 (float): The value to exceed before a high quality fragment is matched
+            When z-value was used 1.0, however 0.5 when match score is used
     Returns:
         None
     """
@@ -1374,7 +1375,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         #     all_fragment_match = calculate_match(typed_ghost1_coords, typed_surf2_coords, reference_rmsds)
 
         # check if the pose has enough high quality fragment matches
-        high_qual_match_indices = np.where(all_fragment_match > high_quality_match_value)[0]
+        high_qual_match_indices = np.where(all_fragment_match >= high_quality_match_value)[0]
         high_qual_match_count = len(high_qual_match_indices)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
         if high_qual_match_count < min_matched:
