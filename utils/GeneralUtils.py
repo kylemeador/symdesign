@@ -155,10 +155,10 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
         out_info_file.write('INTERNAL Tx PDB1: %s\n' % str(int_dof_tx_vec_1))
         out_info_file.write('SETTING MATRIX PDB1: %s\n' % str(set_mat1.tolist()))
         # if representative_ext_dof_tx_params_1 == [0, 0, 0]:
-        if representative_ext_dof_tx_params_1.sum() == 0:
-            ref_frame_tx_vec_1 = None
-        else:
+        if representative_ext_dof_tx_params_1 is not None:
             ref_frame_tx_vec_1 = representative_ext_dof_tx_params_1
+        else:
+            ref_frame_tx_vec_1 = None
         out_info_file.write('REFERENCE FRAME Tx PDB1: %s\n\n' % str(ref_frame_tx_vec_1))
 
         out_info_file.write('ROT/DEGEN MATRIX PDB2: %s\n' % str(rot_mat2.tolist()))
@@ -169,10 +169,10 @@ def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count
         out_info_file.write('INTERNAL Tx PDB2: %s\n' % str(int_dof_tx_vec_2))
         out_info_file.write('SETTING MATRIX PDB2: %s\n' % str(set_mat2.tolist()))
         # if representative_ext_dof_tx_params_2 == [0, 0, 0]:
-        if representative_ext_dof_tx_params_2.sum() == 0:
-            ref_frame_tx_vec_2 = None
-        else:
+        if representative_ext_dof_tx_params_2 is not None:
             ref_frame_tx_vec_2 = representative_ext_dof_tx_params_2
+        else:
+            ref_frame_tx_vec_2 = None
         out_info_file.write('REFERENCE FRAME Tx PDB2: %s\n\n' % str(ref_frame_tx_vec_2))
 
         out_info_file.write('CRYST1 RECORD: %s\n\n' % cryst1_record)
