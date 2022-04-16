@@ -143,7 +143,7 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):
     asu_com_shifted_cart_array = frac_to_cart(asu_com_shifted_frac_array, uc_dimensions)
     # asu_com_y_shifted_cart_array = frac_to_cart(asu_com_y_shifted_frac_array, uc_dimensions)
     # asu_com_z_shifted_cart_array = frac_to_cart(asu_com_z_shifted_frac_array, uc_dimensions)
-    min_shift_idx = abs(asu_com_shifted_cart_array).argmin(axis=0)
+    min_shift_idx = np.abs(asu_com_shifted_cart_array).argmin(axis=0)
     # y_min_shift_idx = abs(asu_com_y_shifted_cart_array).argmin(axis=0)[1]
     # z_min_shift_idx = abs(asu_com_z_shifted_cart_array).argmin(axis=0)[2]
 
@@ -154,7 +154,7 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):
     if design_dimension == 2:
         xyz_min_shift_vec_frac[2] = 0
 
-    if xyz_min_shift_vec_frac == [0, 0, 0]:
+    if xyz_min_shift_vec_frac.sum() == 0:
         return pdb
     else:
         # xyz_min_shifted_pdb_asu_coords_frac = cart_to_frac(pdb.coords, uc_dimensions) + xyz_min_shift_vec_frac
