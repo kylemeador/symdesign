@@ -1492,7 +1492,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         # Write ASU, PDB1, PDB2, and expanded assembly files
         asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
         if sym_entry.unit_cell:  # 2, 3 dimensions
-            asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
+            # asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
             cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         else:
             cryst1_record = None
