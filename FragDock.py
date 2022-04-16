@@ -1378,41 +1378,41 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         high_qual_match_indices = np.where(all_fragment_match >= high_quality_match_value)[0]
         high_qual_match_count = len(high_qual_match_indices)
         all_fragment_match_time = time.time() - all_fragment_match_time_start
-        if high_qual_match_count == 0:
-            passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
-            log.info('\t%d < %d however, %d fragments are considered passing (took %f s)'
-                     % (high_qual_match_count, min_matched, len(passing_overlaps_indices), all_fragment_match_time))
-            tx_idx = tx_counts[idx]
-            degen1_count, degen2_count = degen_counts[idx]
-            rot1_count, rot2_count = rot_counts[idx]
-            # temp indexing on degen and rot counts
-            degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
-            rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
-            tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
-            oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
-            degen_dir = rot_subdir_out_path.split(os.sep)[-2]
-            rot_dir = rot_subdir_out_path.split(os.sep)[-1]
-            pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, tx_idx)
-            sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, tx_idx)
-            os.makedirs(tx_dir, exist_ok=True)
-            # Make directories to output matched fragment PDB files
-            # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
-            matching_fragments_dir = os.path.join(tx_dir, frag_dir)
-            os.makedirs(matching_fragments_dir, exist_ok=True)
-            high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
-            low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
-            assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
-            specific_transformation1 = {'rotation': rot_mat1, 'translation': internal_tx_param1,
-                                        'rotation2': set_mat1, 'translation2': external_tx_params1}
-            pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
-            pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
-                                                        'rotation2': set_mat2, 'translation2': external_tx_params2})
-            pdb1_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
-            pdb2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
-            # cryst1_record = generate_cryst1_record(asu.uc_dimensions, sym_entry.resulting_symmetry)
-            # symmetric_material.write(assembly=True, out_path=assembly_path, header=cryst1_record,
-            #                          surrounding_uc=output_surrounding_uc)
-        elif high_qual_match_count < min_matched:
+        # if high_qual_match_count == 0:
+        #     passing_overlaps_indices = np.where(all_fragment_match > 0.2)[0]
+        #     log.info('\t%d < %d however, %d fragments are considered passing (took %f s)'
+        #              % (high_qual_match_count, min_matched, len(passing_overlaps_indices), all_fragment_match_time))
+        #     tx_idx = tx_counts[idx]
+        #     degen1_count, degen2_count = degen_counts[idx]
+        #     rot1_count, rot2_count = rot_counts[idx]
+        #     # temp indexing on degen and rot counts
+        #     degen_subdir_out_path = os.path.join(outdir, 'DEGEN_%d_%d' % (degen1_count, degen2_count))
+        #     rot_subdir_out_path = os.path.join(degen_subdir_out_path, 'ROT_%d_%d' % (rot1_count, rot2_count))
+        #     tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)  # idx)
+        #     oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
+        #     degen_dir = rot_subdir_out_path.split(os.sep)[-2]
+        #     rot_dir = rot_subdir_out_path.split(os.sep)[-1]
+        #     pose_id = '%s_%s_%s_TX_%d' % (oligomers_dir, degen_dir, rot_dir, tx_idx)
+        #     sampling_id = '%s_%s_TX_%d' % (degen_dir, rot_dir, tx_idx)
+        #     os.makedirs(tx_dir, exist_ok=True)
+        #     # Make directories to output matched fragment PDB files
+        #     # high_qual_match for fragments that were matched with z values <= 1, otherwise, low_qual_match
+        #     matching_fragments_dir = os.path.join(tx_dir, frag_dir)
+        #     os.makedirs(matching_fragments_dir, exist_ok=True)
+        #     high_quality_matches_dir = os.path.join(matching_fragments_dir, 'high_qual_match')
+        #     low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
+        #     assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
+        #     specific_transformation1 = {'rotation': rot_mat1, 'translation': internal_tx_param1,
+        #                                 'rotation2': set_mat1, 'translation2': external_tx_params1}
+        #     pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
+        #     pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
+        #                                                 'rotation2': set_mat2, 'translation2': external_tx_params2})
+        #     pdb1_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb1_copy.name, sampling_id)))
+        #     pdb2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
+        #     # cryst1_record = generate_cryst1_record(asu.uc_dimensions, sym_entry.resulting_symmetry)
+        #     # symmetric_material.write(assembly=True, out_path=assembly_path, header=cryst1_record,
+        #     #                          surrounding_uc=output_surrounding_uc)
+        if high_qual_match_count < min_matched:
             log.info('\t%d < %d Which is Set as the Minimal Required Amount of High Quality Fragment Matches '
                      '(took %f s)' % (high_qual_match_count, min_matched, all_fragment_match_time))
             continue
