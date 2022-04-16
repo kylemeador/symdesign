@@ -64,7 +64,7 @@ class PDB(Structure):
         # self.sasa = []
         self.space_group = kwargs.get('space_group', None)
         self.structure_containers.extend(['chains', 'entities'])
-        self.uc_dimensions = []
+        self.uc_dimensions = kwargs.get('uc_dimensions', None)
 
         if file:
             if entities is not None:  # if no entities are requested a False argument could be provided
