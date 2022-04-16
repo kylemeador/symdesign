@@ -1428,16 +1428,19 @@ class SymmetricModel(Model):
         #     extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
 
         # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms
-        if self.dimension > 0 and surrounding_uc:
-            if self.number_of_symmetry_mates > self.number_of_uc_symmetry_mates:  # ensure surrounding coordinates exist
-                number_of_models = self.number_of_symmetry_mates
-            else:
-                raise ValueError('Cannot return the surrounding unit cells as no coordinates were generated for them.'
-                                 'Try passing surrounding_uc=True to .set_symmetry()')
-            # else:
-            #     number_of_models = self.number_of_uc_symmetry_mates  # set to the uc only
-        else:
+        if self.dimension == 0:
             number_of_models = self.number_of_symmetry_mates
+        else:  # layer or space group
+            if surrounding_uc:
+                if self.number_of_symmetry_mates > self.number_of_uc_symmetry_mates:  # ensure surrounding coordinates exist
+                    number_of_models = self.number_of_symmetry_mates
+                else:
+                    raise ValueError('Cannot return the surrounding unit cells as no coordinates were generated for '
+                                     'them. Try passing surrounding_uc=True to .set_symmetry()')
+                # else:
+                #     number_of_models = self.number_of_uc_symmetry_mates  # set to the uc only
+            else:
+                number_of_models = self.number_of_uc_symmetry_mates
 
         number_of_atoms = self.number_of_atoms
         for model_idx in range(number_of_models):
