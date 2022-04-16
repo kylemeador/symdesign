@@ -1414,9 +1414,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         if sym_entry.unit_cell:
             asu.space_group = sym_entry.resulting_symmetry
             asu.uc_dimensions = full_uc_dimensions[idx]
-        # asu.expand_matrices = sym_entry.expand_matrices
-        symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
-        # ignore ASU clashes during initialization since already checked ^
+        symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, log=log, surrounding_uc=output_surrounding_uc,
+                                           ignore_clashes=True)
+        # ignore ASU clashes since already checked ^
         # log.debug('Checked expand clash')
         # symmetric_material.entities[0].write_oligomer(
         #     out_path=os.path.join(tx_dir, '%s_symmetric_material.pdb' % entity2.name))
@@ -1478,13 +1478,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         low_quality_matches_dir = os.path.join(matching_fragments_dir, 'low_qual_match')
 
         # Write ASU, PDB1, PDB2, and expanded assembly files
-        cryst1_record = None
+        asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
         if sym_entry.unit_cell:  # 2, 3 dimensions
-            # Todo ensure has same mechanism as non unit cell (asu) PDB object return
             asu = get_central_asu(asu, asu.uc_dimensions, sym_entry.dimension)
             cryst1_record = generate_cryst1_record(asu.uc_dimensions, sym_entry.resulting_symmetry)
         else:
-            asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
+            cryst1_record = None
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
         # symmetric_material.entities[0].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity2.name))
         # symmetric_material.entities[1].write_oligomer(out_path=os.path.join(tx_dir, '%s_oligomer_asu.pdb' % entity1.name))
