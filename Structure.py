@@ -3272,11 +3272,9 @@ class Entity(Chain, SequenceProfile):
         if other.is_oligomeric:
             # self.log.info('Copy Entity. Clearing chains, chain_transforms')
             other._chains.clear()
-            # must update .prior_ca_coords here if the coords didn't change. If they did change
-            # as if transforms are calculated in .chain_transforms, they should have
-            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
             other.__chain_transforms = other.chain_transforms  # requires update before copy
             del other._chain_transforms
+            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
 
         return other
 
