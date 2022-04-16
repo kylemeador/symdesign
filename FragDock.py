@@ -992,11 +992,11 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     del transformation2
     # cluster_representative_indices, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
     _, cluster_labels = find_cluster_representatives(transform_neighbor_tree, cluster)
-    sufficiently_dense_indices = np.arange(starting_transforms)
-    number_of_dense_transforms = starting_transforms
     # Todo comment back after test?
-    #  sufficiently_dense_indices = np.where(cluster_labels != -1)
-    #  number_of_dense_transforms = len(sufficiently_dense_indices[0])
+    # sufficiently_dense_indices = np.arange(starting_transforms)
+    # number_of_dense_transforms = starting_transforms
+    sufficiently_dense_indices = np.where(cluster_labels != -1)
+    number_of_dense_transforms = len(sufficiently_dense_indices[0])
     clustering_time = time.time() - clustering_start
 
     log.info('Found %d total transforms, %d of which are missing the minimum number of close transforms to be viable. '
@@ -1007,13 +1007,13 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     # Transform the oligomeric coords to query for clashes
     transfrom_clash_coords_start = time.time()
     # stack the superposition_rotation_matrix
-    degen_counts = [degen_counts[idx] for idx in sufficiently_dense_indices.tolist()]
-    rot_counts = [rot_counts[idx] for idx in sufficiently_dense_indices.tolist()]
-    tx_counts = [tx_counts[idx] for idx in sufficiently_dense_indices.tolist()]
     # Todo comment back after test?
-    #  degen_counts = [degen_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
-    #  rot_counts = [rot_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
-    #  tx_counts = [tx_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
+    # degen_counts = [degen_counts[idx] for idx in sufficiently_dense_indices.tolist()]
+    # rot_counts = [rot_counts[idx] for idx in sufficiently_dense_indices.tolist()]
+    # tx_counts = [tx_counts[idx] for idx in sufficiently_dense_indices.tolist()]
+    degen_counts = [degen_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
+    rot_counts = [rot_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
+    tx_counts = [tx_counts[idx] for idx in sufficiently_dense_indices[0].tolist()]
     full_rotation1 = full_rotation1[sufficiently_dense_indices]
     full_rotation2 = full_rotation2[sufficiently_dense_indices]
     full_int_tx1 = full_int_tx1[sufficiently_dense_indices]
