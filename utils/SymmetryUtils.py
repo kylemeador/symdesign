@@ -157,17 +157,18 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):
     if xyz_min_shift_vec_frac.sum() == 0:
         return pdb
     else:
-        # xyz_min_shifted_pdb_asu_coords_frac = cart_to_frac(pdb.coords, uc_dimensions) + xyz_min_shift_vec_frac
-        # xyz_min_shifted_pdb_asu_coords_cart = frac_to_cart(xyz_min_shifted_pdb_asu_coords_frac, uc_dimensions)
+        xyz_min_shifted_pdb_asu_coords_frac = cart_to_frac(pdb.coords, uc_dimensions) + xyz_min_shift_vec_frac
+        xyz_min_shifted_pdb_asu_coords_cart = frac_to_cart(xyz_min_shifted_pdb_asu_coords_frac, uc_dimensions)
+        pdb.replace_coords(xyz_min_shifted_pdb_asu_coords_cart)
         # xyz_min_shifted_asu_pdb = copy.copy(pdb)
         # xyz_min_shifted_asu_pdb.set_coords(xyz_min_shifted_pdb_asu_coords_cart)
 
-        xyz_min_shifted_cart_tx = frac_to_cart(xyz_min_shift_vec_frac, uc_dimensions)
+        # xyz_min_shifted_cart_tx = frac_to_cart(xyz_min_shift_vec_frac, uc_dimensions)
         # xyz_min_shifted_asu_pdb = copy.copy(pdb)
         # xyz_min_shifted_asu_pdb.set_coords(pdb.coords + xyz_min_shifted_cart_tx)
-        return pdb.return_transformed_copy(translation=xyz_min_shifted_cart_tx)
+        # return pdb.return_transformed_copy(translation=xyz_min_shifted_cart_tx)
         # xyz_min_shifted_asu_pdb.set_atom_coordinates(xyz_min_shifted_pdb_asu_coords_cart)
-        # return xyz_min_shifted_asu_pdb
+        return pdb
 
 
 def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
