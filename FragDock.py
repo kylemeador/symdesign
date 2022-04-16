@@ -1412,10 +1412,12 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         # Check if design has any clashes when expanded
         exp_des_clash_time_start = time.time()
         if sym_entry.unit_cell:
-            asu.space_group = sym_entry.resulting_symmetry
-            asu.uc_dimensions = full_uc_dimensions[idx]
+            # asu.space_group = sym_entry.resulting_symmetry
+            uc_dimensions = full_uc_dimensions[idx]
+        else:
+            uc_dimensions = None
         symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, log=log, surrounding_uc=output_surrounding_uc,
-                                           ignore_clashes=True)
+                                           ignore_clashes=True, uc_dimensions=uc_dimensions)
         # ignore ASU clashes since already checked ^
         # log.debug('Checked expand clash')
         # symmetric_material.entities[0].write_oligomer(
@@ -1480,8 +1482,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         # Write ASU, PDB1, PDB2, and expanded assembly files
         asu = symmetric_material.get_contacting_asu(distance=cb_distance, rename_chains=True)
         if sym_entry.unit_cell:  # 2, 3 dimensions
-            asu = get_central_asu(asu, asu.uc_dimensions, sym_entry.dimension)
-            cryst1_record = generate_cryst1_record(asu.uc_dimensions, sym_entry.resulting_symmetry)
+            asu = get_central_asu(asu, uc_dimensions, sym_entry.dimension)
+            cryst1_record = generate_cryst1_record(uc_dimensions, sym_entry.resulting_symmetry)
         else:
             cryst1_record = None
         asu.write(out_path=os.path.join(tx_dir, 'asu.pdb'), header=cryst1_record)
