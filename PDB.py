@@ -941,6 +941,11 @@ class PDB(Structure):
             query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
         """
         if not self.entity_d:  # we didn't get the info from the file, so we have to try and piece together
+            # the file is either from a program that has modified the original PDB file, was a model that hasn't been
+            # formatted properly, or may be some sort of PDB assembly. If it is a PDB assembly, the file will have a
+            # final numeric suffix after the .pdb extension. If not, it may be an assembly file from another source, in
+            # which case we have to solve by atomic info. If we have to solve by atomic info, then the number of
+            # chains in the structure and the number of Entity chains will not be equal after prior attempts
             self.retrieve_pdb_info_from_api()  # First try to set self.api_entry if possible. This is probably safe
             if self.api_entry:  # self.api_entry = {'entity': {1: ['A', 'B'], ...}, ...}
                 if self.assembly:  # When PDB API is returning information on the asu and assembly is different
@@ -952,23 +957,27 @@ class PDB(Structure):
                                 # if set(cluster_chains) == chain_set:  # we found the right cluster
                                 if not set(cluster_chains).difference(chains):  # we found the right cluster
                                     self.entity_d[ent_idx] = \
-                                        {'chains': [new_chain for new_chain, old_chain in self.multimodel_chain_map.items()
-                                                    if old_chain in chains]}
+                                        {'chains': [new_chn for new_chn, old_chn in self.multimodel_chain_map.items()
+                                                    if old_chn in chains]}
                                     success = True
                                     break  # this should be fine since entities will cluster together, unless they don't
                             if not success:
                                 self.log.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)'
                                                % (self.api_entry.get('entity'), self.api_entry.get('assembly')))
-                    else:  # chain names should be the same as the assembly API if the file is source from PDB
+                    else:  # chain names should be the same as the assembly API if the file is sourced from PDB
                         self.entity_d = \
                             {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('assembly').items()}
                 else:
                     self.entity_d = \
                         {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('entity').items()}
-            else:  # Still nothing, then API didn't work for pdb_name. Solve by file information
+                # check to see that the entity_d is in line with the number of chains already parsed
+                found_entity_chains = [chain for info in self.entity_d.values() for chain in info.get('chains', [])]
+                if len(self.chain_id_list) != len(found_entity_chains):
+                    self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
+            else:  # Still nothing, then API didn't work for pdb_name. Solve by atom information
                 self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
                 if query_by_sequence and not entity_names:
-                    for entity_number, atom_info in list(self.entity_d.items()):  # make a copy as update occurs with iter
+                    for entity_number, atom_info in list(self.entity_d.items()):  # make a copy, update occurs with iter
                         pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
                         if pdb_api_name:
                             pdb_api_name = pdb_api_name.lower()
