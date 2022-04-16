@@ -1268,7 +1268,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
                              pdb2_coords_indexed_residues[pdb2_cb_indices[pdb2_idx]].number)
                             for pdb2_idx, pdb1_contacts in enumerate(pdb2_query) for pdb1_idx in pdb1_contacts]
         # try:
-        interface_residue_numbers1, interface_residue_numbers2 = zip(*contacting_pairs)
+        interface_residue_numbers1, interface_residue_numbers2 = map(list, map(set, zip(*contacting_pairs)))
         # These were interface_surf_frags and interface_ghost_frags
         # interface_ghost1_indices = \
         #     np.concatenate([np.where(ghost_frag1_residues == residue) for residue in interface_residue_numbers1])
@@ -1401,15 +1401,9 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
             external_tx_params1, external_tx_params2 = None, None
         specific_transformation1 = {'rotation': rot_mat1, 'translation': internal_tx_param1,
                                     'rotation2': set_mat1, 'translation2': external_tx_params1}
-        log.info('Number of chains 1: %d' % pdb1.entities[0].number_of_monomers)
-        log.info('Number of chains 2: %d' % pdb2.entities[0].number_of_monomers)
         pdb1_copy = pdb1.return_transformed_copy(**specific_transformation1)
         pdb2_copy = pdb2.return_transformed_copy(**{'rotation': rot_mat2, 'translation': internal_tx_param2,
                                                     'rotation2': set_mat2, 'translation2': external_tx_params2})
-        log.info('chains len copy 1: %d' % len(pdb1_copy.entities[0].chains))
-        log.info('Number of chains copy 1: %d' % pdb1_copy.entities[0].number_of_monomers)
-        log.info('chains len copy 2: %d' % len(pdb2_copy.entities[0].chains))
-        log.info('Number of chains copy 2: %d' % pdb2_copy.entities[0].number_of_monomers)
         copy_pdb_time = time.time() - copy_pdb_start
         log.info('\tCopy and Transform Oligomer1 and Oligomer2 (took %f s)' % copy_pdb_time)
         asu = PDB.from_entities([pdb1_copy.entities[0], pdb2_copy.entities[0]], log=log, name='asu',
