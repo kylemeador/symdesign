@@ -1474,7 +1474,7 @@ class SymmetricModel(Model):
 
         self.log.error('%s FAILED to find model' % self.find_asu_equivalent_symmetry_model.__name__)
 
-    def find_intra_oligomeric_equivalent_symmetry_models(self, entity, epsilon=3):  # todo put back to 0.5 after SUCCES
+    def find_intra_oligomeric_equivalent_symmetry_models(self, entity, epsilon=0.5):
         """From an Entity's Chain members, find the SymmetricModel equivalent models using Chain center or mass
         compared to the symmetric model center of mass
 
