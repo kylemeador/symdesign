@@ -971,8 +971,8 @@ class DesignDirectory:  # (JobResources):
         # check if the source of the pdb files was refined upon loading
         if self.pre_refine:
             self.refined_pdb = self.asu
-            self.scouted_pdb = '%s_scout.pdb' \
-                               % os.path.join(self.designs, os.path.basename(os.path.splitext(self.refined_pdb)[0]))
+            self.scouted_pdb = \
+                '%s_scout.pdb' % os.path.join(self.designs, os.path.basename(os.path.splitext(self.refined_pdb)[0]))
         else:
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
@@ -1803,7 +1803,12 @@ class DesignDirectory:  # (JobResources):
             self.save_asu()
 
     def save_asu(self, rename_chains=False):
-        """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
+        """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry
+
+        Keyword Args:
+            rename_chains=False (bool): Whether to rename the chains in the output ASU. If the chain IDs are the same
+             and no fusion is specified, then chain IDs will automatically be renamed
+        """
         new_asu = self.pose.get_contacting_asu(rename_chains=rename_chains)
         if self.fuse_chains:
             # try:
