@@ -2411,12 +2411,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """From the Pose PDB and the associated active Entities, find the maximal contacting ASU for each of the
         entities
 
+        If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
         Keyword Args:
             distance=8 (int): The distance to check for contacts
         Returns:
             (PDB): The PDB object with the minimal set of Entities containing the maximally touching configuration
         """
-        # self.debug_pdb(tag='get_contacting')
         if len(self.active_entities) == 1:
             entities = self.active_entities
         else:
@@ -2459,9 +2459,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
             entities = max_chains + additional_chains
 
-        # chain_2 = PDB.from_entities(list(chain_combinations[second_contact_idx]), name='asu', log=self.log, pose_format=False,
-        #                   biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
-        # chain_2.write(out_path='SecondContactingChain.pdb')
+        found_chain_ids = []
+        for entity in entities:
+            if entity.chain_id in found_chain_ids:
+                kwargs['rename_chains'] = True
+                break
+            else:
+                found_chain_ids.append(entity.chain_id)
+
         return PDB.from_entities(entities, name='asu', log=self.log, pose_format=False,
                                  biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
 
