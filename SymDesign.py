@@ -606,6 +606,8 @@ if __name__ == '__main__':
                              'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
     parser.add_argument('-gf', '--%s' % PUtils.generate_fragments, action='store_true',
                         help='Generate fragment overlap for poses of interest.')
+    parser.add_argument('-ic', '--ignore_clashes', action='store_true',
+                        help='Whether errors raised from identified clashes should be ignored and allowed to process')
     parser.add_argument('-l', '--load_database', action='store_true',
                         help='Whether to fetch and store resources for each Structure in the sequence/structure '
                              'database')
