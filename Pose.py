@@ -1972,7 +1972,7 @@ class SymmetricModel(Model):
                 # self.log.critical('temp_model_coms = %s' % temp_model_coms)
                 # find groups of COMs with equal z heights
                 possible_height_groups = {}
-                for idx, com in enumerate(temp_model_coms.round(decimals=3)):
+                for idx, com in enumerate(temp_model_coms.round(decimals=2)):  # 2 decimals may be required precision
                     z_coord = com[-1]
                     if z_coord in possible_height_groups:
                         possible_height_groups[z_coord].append(idx)
@@ -2033,9 +2033,11 @@ class SymmetricModel(Model):
             else:
                 raise ValueError('Using the supplied Model (%s) and the specified symmetry (%s), there was no solution '
                                  'found for Entity #%d. A possible issue could be that the supplied Model has it\'s '
-                                 'Entities out of order for the assumed symmetric entry "%s". If the order is different'
-                                 ' please supply the correct order with the symmetry combination format "%s" to the '
-                                 'flag --%s'
+                                 'Entities out of order for the assumed symmetric entry "%s". If the order of the '
+                                 'Entities in the file is different than the provided symmetry please supply the '
+                                 'correct order with the symmetry combination format "%s" to the flag --%s. Another '
+                                 'possibility is that the symmetry is generated improperly or imprecisely. Please '
+                                 'ensure your inputs are symmetrically viable for the desired symmetry'
                                  % (self.name, self.symmetry, group_idx + 1, self.sym_entry.combination_string,
                                     symmetry_combination_format, 'symmetry'))
 
@@ -2068,6 +2070,7 @@ class SymmetricModel(Model):
                         asu_indices_combinations.append((idx1, idx_com1, idx2, idx_com2))
                         asu_indices_index.append((idx1, idx2))
                         asu_coms_index.append((idx_com1, idx_com2))
+                        # Todo debug RuntimeWarning: invalid value encountered in sqrt
                         com_offsets[idx] = np.sqrt(com1.dot(com2))
                         idx += 1
             # self.log.critical('com_offsets: %s' % com_offsets)
