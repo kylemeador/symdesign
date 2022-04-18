@@ -1,5 +1,6 @@
 import os
 from copy import copy
+from ctypes import Union
 from pickle import load
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil
@@ -653,11 +654,11 @@ class Model:  # Todo (Structure)
         return cls(models=pdb.chains, **kwargs)
 
     @property
-    def number_of_models(self):
+    def number_of_models(self) -> int:
         return len(self.models)
 
     @property
-    def pdb(self):  # TODO DISCONNECT HERE
+    def pdb(self) -> PDB:  # TODO DISCONNECT HERE
         return self._pdb
 
     @pdb.setter
@@ -666,7 +667,7 @@ class Model:  # Todo (Structure)
         # self.coords = pdb._coords
 
     @property
-    def coords(self):  # TODO DISCONNECT HERE
+    def coords(self) -> np.ndarray:  # TODO DISCONNECT HERE
         """Return a view of the representative Coords from the Model. These may be the ASU if a SymmetricModel"""
         return self.pdb._coords.coords
         # return self._coords.coords
@@ -681,7 +682,7 @@ class Model:  # Todo (Structure)
                                  'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
-    def name(self):
+    def name(self) -> str:
         try:
             return self._name
         except AttributeError:
@@ -693,7 +694,7 @@ class Model:  # Todo (Structure)
             self._name = name
 
     @property
-    def entities(self):  # TODO COMMENT OUT .pdb
+    def entities(self) -> Iterable[Entity]:  # TODO COMMENT OUT .pdb
         return self.pdb.entities
 
     @property
@@ -701,11 +702,11 @@ class Model:  # Todo (Structure)
         return [chain for entity in self.entities for chain in entity.chains]
 
     @property
-    def chain_breaks(self):
+    def chain_breaks(self) -> List[int]:
         return [entity.c_terminal_residue.number for entity in self.entities]
 
     @property
-    def residues(self):  # TODO COMMENT OUT .pdb
+    def residues(self) -> Iterable[Residue]:  # TODO COMMENT OUT .pdb
         return self.pdb.residues
 
     @property
@@ -1273,18 +1274,17 @@ class SymmetricModel(Model):
     #     """
     #     self.get_unit_cell_coords(**kwargs)
 
-    def cart_to_frac(self, cart_coords):
+    def cart_to_frac(self, cart_coords) -> np.ndarray:
         """Takes a numpy array of coordinates and finds the fractional coordinates from cartesian coordinates
         From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
 
         Args:
-            cart_coords (Union[numpy.ndarray, list[list]]): The cartesian coordinates of a unit cell
+            cart_coords (Union[numpy.ndarray, Iterable, int, float]): The cartesian coordinates of a unit cell
         Returns:
             (Union[numpy.ndarray, None]): The fractional coordinates of a unit cell
         """
         if self.uc_dimensions is None:
-            self.log.error('No unit cell dimensions were passed')
-            return
+            raise ValueError('Can\'t manipulate unit cell, no unit cell dimensions were passed')
 
         a2r = np.pi / 180.0
         a, b, c, alpha, beta, gamma = self.uc_dimensions
@@ -1306,18 +1306,17 @@ class SymmetricModel(Model):
 
         return np.matmul(cart_coords, np.transpose(m))
 
-    def frac_to_cart(self, frac_coords):
+    def frac_to_cart(self, frac_coords) -> np.ndarray:
         """Takes a numpy array of coordinates and finds the cartesian coordinates from fractional coordinates
         From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
 
         Args:
-            frac_coords (Union[numpy.ndarray, list[list]]): The fractional coordinates of a unit cell
+            frac_coords (Union[numpy.ndarray, Iterable, int, float]): The fractional coordinates of a unit cell
         Returns:
             (Union[numpy.ndarray, None]): The cartesian coordinates of a unit cell
         """
         if self.uc_dimensions is None:
-            self.log.error('No unit cell dimensions were passed')
-            return
+            raise ValueError('Can\'t manipulate unit cell, no unit cell dimensions were passed')
 
         a2r = np.pi / 180.0
         a, b, c, alpha, beta, gamma = self.uc_dimensions
@@ -1652,7 +1651,7 @@ class SymmetricModel(Model):
         else:
             return self.return_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
 
-    def return_symmetric_coords(self, coords):
+    def return_symmetric_coords(self, coords) -> np.ndarray:
         """Return the coordinates from a set of coordinates for the specified SymmetricModel
 
         Args:
@@ -1671,7 +1670,7 @@ class SymmetricModel(Model):
         else:
             return self.return_unit_cell_coords(coords)
 
-    def return_unit_cell_coords(self, coords, fractional=False):  # Todo surrounding_uc=True
+    def return_unit_cell_coords(self, coords, fractional=False) -> np.ndarray:  # Todo surrounding_uc=True
         """Return the unit cell coordinates from a set of coordinates for the specified SymmetricModel
 
         Args:
