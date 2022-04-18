@@ -2324,7 +2324,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # self.log.debug('Adding PDB \'%s\' to Pose' % pdb.name)
         # super(Model, self).pdb = pdb
         self._pdb = pdb
-        self.coords = pdb._coords
+        # self.coords = pdb._coords
         if not self.ignore_clashes:  # TODO add this check to SymmetricModel initialization
             if pdb.is_clash():
                 raise DesignError('%s contains Backbone clashes and is not being considered further!' % self.name)
