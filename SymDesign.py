@@ -1203,28 +1203,30 @@ if __name__ == '__main__':
                              job.sequences, job.profiles, sql=None, log=logger)
         logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
 
+        # Todo logic error when initialization occurs with module that doens't call this, subsequent runs are missing
+        #  directories/resources that haven't been made
         # check to see that proper files have been created if doing design
         # including orientation, refinement, loop modeling, hhblits, bmdca?
         if not example_directory.initialized and args.module in initialize_modules \
                 or args.nanohedra_output or args.load_database:  # or args.module == PUtils.nano
-            job.make_path(job.protein_data)
-            job.make_path(job.pdbs)
-            job.make_path(job.sequence_info)
-            job.make_path(job.sequences)
-            job.make_path(job.profiles)
-            job.make_path(job.job_paths)
-            job.make_path(job.sbatch_scripts)
+            # job.make_path(job.protein_data)
+            # job.make_path(job.pdbs)
+            # job.make_path(job.sequence_info)
+            # job.make_path(job.sequences)
+            # job.make_path(job.profiles)
+            # job.make_path(job.job_paths)
+            # job.make_path(job.sbatch_scripts)
             if args.load_database:  # Todo why is this set_up_design_directory here?
                 for design in design_directories:
                     design.set_up_design_directory()
             # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
             # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
             orient_dir = job.orient_dir
-            job.make_path(orient_dir)
+            # job.make_path(orient_dir)
             orient_asu_dir = job.orient_asu_dir
-            job.make_path(orient_asu_dir)
+            # job.make_path(orient_asu_dir)
             stride_dir = job.stride_dir
-            job.make_path(stride_dir)
+            # job.make_path(stride_dir)
             logger.critical('The requested poses require preprocessing before design modules should be used')
             # logger.info('The required files for %s designs are being collected and oriented if necessary' % PUtils.nano)
             # for design in design_directories:
@@ -1614,7 +1616,6 @@ if __name__ == '__main__':
         terminate(results=results)
     # ---------------------------------------------------
     elif args.module == PUtils.generate_fragments or queried_flags.get(PUtils.generate_fragments):
-        # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
         else:
@@ -1702,8 +1703,8 @@ if __name__ == '__main__':
             results = SDUtils.mp_map(DesignDirectory.rosetta_interface_metrics, design_directories, threads=threads)
         else:
             for design in design_directories:
-                if design.sym_entry is None:
-                    continue
+                # if design.sym_entry is None:
+                #     continue
                 results.append(design.rosetta_interface_metrics())
 
         terminate(results=results)

@@ -87,6 +87,19 @@ class JobResources:
         self.fragment_db = None
         self.resources = None
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO ScoreDatabase integration
+        self.make_path(self.protein_data)
+        self.make_path(self.job_paths)
+        self.make_path(self.sbatch_scripts)
+        # sequence database specific
+        self.make_path(self.sequence_info)
+        self.make_path(self.sequences)
+        self.make_path(self.profiles)
+        # structure database specific
+        self.make_path(self.pdbs)
+        self.make_path(self.orient_dir)
+        self.make_path(self.orient_asu_dir)
+        self.make_path(self.stride_dir)
+        self.make_path(self.full_model_dir)
 
     @staticmethod
     def make_path(path, condition=True):
