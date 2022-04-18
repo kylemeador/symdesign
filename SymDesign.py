@@ -489,7 +489,7 @@ def terminate(results=None, output=True):
             else (PUtils.stage[2] if getattr(args, PUtils.no_hbnet, None)
                   else (PUtils.stage[14] if getattr(args, PUtils.structure_background, None)
                         else PUtils.stage[13]))  # hbnet_design_profile
-        module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano,
+        module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano, PUtils.refine: PUtils.refine,
                         'interface_metrics': 'interface_metrics',
                         'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
                         'optimize_designs': 'optimize_design'}
@@ -1747,7 +1747,7 @@ if __name__ == '__main__':
                                              interface_to_alanine=args.interface_to_alanine,
                                              gather_metrics=args.gather_metrics))
 
-        terminate(results=results)
+        terminate(results=results, output=True)
     # ---------------------------------------------------
     elif args.module == PUtils.interface_design:  # -i fragment_library, -s scout
         # if args.mpi:  # Todo implement
