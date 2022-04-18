@@ -359,7 +359,7 @@ class DesignDirectory:  # (JobResources):
             # need to start here if I want to load pose through normal mechanism... ugh
             self.set_up_design_directory()
             if not self.entity_names:
-                self.init_pdb = PDB.from_file(self.source_path, log=self.log)
+                self.init_pdb = PDB.from_file(self.source_path, log=self.log, pose_format=False)
                 self.entity_names = [entity.name for entity in self.init_pdb.entities]
                 # self.load_pose()  # load the source pdb to find the entity_names
                 # self.entity_names = [entity.name for entity in self.pose.entities]
