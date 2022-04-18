@@ -27,7 +27,7 @@ from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from Structure import Coords, Structure, Structures  # Atoms, Residues,
+from Structure import Coords, Structure, Structures, Chain, Entity  # Atoms, Residues,
 from Database import FragmentDB, FragmentDatabase
 
 # Globals
@@ -709,22 +709,26 @@ class Model:  # Todo (Structure)
         return self.pdb.residues
 
     @property
+    def sequence(self) -> str:
+        return ''.join(entity.sequence for entity in self.entities)
+
+    @property
     def reference_sequence(self) -> str:
         # return ''.join(self.pdb.reference_sequence.values())
         return ''.join(entity.reference_sequence for entity in self.entities)
 
-    def entity(self, entity):  # TODO COMMENT OUT .pdb
+    def entity(self, entity) -> Entity:  # TODO COMMENT OUT .pdb
         return self.pdb.entity(entity)
 
-    def chain(self, chain):  # TODO COMMENT OUT .pdb
+    def chain(self, chain) -> Chain:  # TODO COMMENT OUT .pdb
         return self.pdb.entity_from_chain(chain)
 
     @property
-    def atom_indices_per_entity(self):
+    def atom_indices_per_entity(self) -> List[int]:
         return [entity.atom_indices for entity in self.pdb.entities]
 
     @property
-    def atom_indices_per_entity_model(self):
+    def atom_indices_per_entity_model(self) -> List[List[int]]:
         # alt solution may be quicker by performing the following multiplication then .flatten()
         # broadcast entity_indices ->
         # (np.arange(model_number) * coords_length).T
@@ -735,15 +739,15 @@ class Model:  # Todo (Structure)
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
     @property
-    def residue_indices_per_entity(self):
+    def residue_indices_per_entity(self) -> List[int]:
         return [entity.residue_indices for entity in self.pdb.entities]
 
     @property
-    def number_of_atoms_per_entity(self):  # TODO COMMENT OUT .pdb
+    def number_of_atoms_per_entity(self) -> List[int]:  # TODO COMMENT OUT .pdb
         return [entity.number_of_atoms for entity in self.pdb.entities]
 
     @property
-    def number_of_atoms(self):  # TODO COMMENT OUT .pdb
+    def number_of_atoms(self) -> int:  # TODO COMMENT OUT .pdb
         return self.pdb.number_of_atoms
 
     @property
@@ -1980,7 +1984,7 @@ class SymmetricModel(Model):
                         possible_height_groups[z_coord] = [idx]
                 # find the most centrally disposed, COM grouping with the correct number of COMs in the group
                 # not necessarily positive...
-                centrally_disposed_group = None
+                centrally_disposed_group_height = None
                 minimal_central_offset = float('inf')
                 for height, indices in possible_height_groups.items():
                     # if height < 0:  # this may be detrimental. Increased search cost not worth missing solution
@@ -1991,19 +1995,19 @@ class SymmetricModel(Model):
                         # self.log.critical('central_offset = %f' % central_offset)
                         if central_offset < minimal_central_offset:
                             minimal_central_offset = central_offset
-                            centrally_disposed_group = height
-                            # self.log.critical('centrally_disposed_group = %d' % centrally_disposed_group)
-                        elif central_offset == minimal_central_offset and centrally_disposed_group < 0 < height:
-                            centrally_disposed_group = height
+                            centrally_disposed_group_height = height
+                            # self.log.critical('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
+                        elif central_offset == minimal_central_offset and centrally_disposed_group_height < 0 < height:
+                            centrally_disposed_group_height = height
                         else:  # The central offset is larger
                             pass
                 # if a viable group was found save the group COM as an internal_tx and setting_matrix used to find it
-                if centrally_disposed_group:
+                if centrally_disposed_group_height:
                     if setting_matrix is not None and internal_tx is not None:
                         # There is an alternative solution. Is it better? Or is it a degeneracy?
                         if minimal_central_offset < current_best_minimal_central_offset:
                             # the new one if it is less offset
-                            entity_asu_indices = possible_height_groups[centrally_disposed_group]
+                            entity_asu_indices = possible_height_groups[centrally_disposed_group_height]
                             internal_tx = temp_model_coms[entity_asu_indices].mean(axis=-2)
                             setting_matrix = setting_matrices[setting_matrix_idx]
                         elif minimal_central_offset == current_best_minimal_central_offset:
@@ -2012,14 +2016,14 @@ class SymmetricModel(Model):
                                           '%s (specified in position {%d} of %s). The solution with a positive '
                                           'translation was chosen by convention. This may result in inaccurate behavior'
                                           % (sym_group, group_idx + 1, self.sym_entry.combination_string))
-                            if internal_tx[-1] < 0 < centrally_disposed_group:
-                                entity_asu_indices = possible_height_groups[centrally_disposed_group]
+                            if internal_tx[-1] < 0 < centrally_disposed_group_height:
+                                entity_asu_indices = possible_height_groups[centrally_disposed_group_height]
                                 internal_tx = temp_model_coms[entity_asu_indices].mean(axis=-2)
                                 setting_matrix = setting_matrices[setting_matrix_idx]
                         else:  # The central offset is larger
                             pass
                     else:  # these were not set yet
-                        entity_asu_indices = possible_height_groups[centrally_disposed_group]
+                        entity_asu_indices = possible_height_groups[centrally_disposed_group_height]
                         internal_tx = temp_model_coms[entity_asu_indices].mean(axis=-2)
                         setting_matrix = setting_matrices[setting_matrix_idx]
                         current_best_minimal_central_offset = minimal_central_offset
@@ -2887,7 +2891,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         return interface_counts.mean()
 
     def query_interface_for_fragments(self, entity1=None, entity2=None):
-        """For all found interface residues in a Entity/Entity interface, search for corresponding fragment pairs
+        """For all found interface residues in an Entity/Entity interface, search for corresponding fragment pairs
 
         Keyword Args:
             entity1=None (Structure): The first Entity to measure for an interface
