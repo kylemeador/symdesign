@@ -1926,12 +1926,14 @@ class DesignDirectory:  # (JobResources):
             flag_dir = self.scripts
             pdb_out_path = self.designs
             refine_pdb = self.refine_pdb
+            refined_pdb = self.refined_pdb
             additional_flags = []
         else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
             flags = os.path.join(self.refine_dir, 'refine_flags')
             flag_dir = self.refine_dir
             pdb_out_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
             refine_pdb = self.source
+            refined_pdb = os.path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
 
         if not os.path.exists(self.flags) or self.force_flags:  # Generate a new flags file
@@ -1951,8 +1953,8 @@ class DesignDirectory:  # (JobResources):
         self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
 
         if gather_metrics:
-            #                           nullify -native from flags v
-            main_cmd += ['-in:file:s', refine_pdb, '@%s' % flags, '-in:file:native', refine_pdb,
+            #                            nullify -native from flags v
+            main_cmd += ['-in:file:s', refined_pdb, '@%s' % flags, '-in:file:native', refine_pdb,
                          '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
             if self.mpi:
                 main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
