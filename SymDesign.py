@@ -648,6 +648,8 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     # Set Up SubModule Parsers
     # ---------------------------------------------------
+    # Set Up SubModule Parsers
+    # ---------------------------------------------------
     parser_query = subparsers.add_parser('nanohedra_query', help='Query %s.py docking entries' % PUtils.nano.title())
     # ---------------------------------------------------
     parser_flag = subparsers.add_parser('flags', help='Generate a flags file for %s' % PUtils.program_name)

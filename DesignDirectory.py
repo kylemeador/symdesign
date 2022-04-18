@@ -38,7 +38,6 @@ from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
     stats_metrics, significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value
-from PathUtils import groups
 #   columns_to_rename, calc_relative_sa, join_columns,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
