@@ -320,7 +320,9 @@ class SymEntry:
         self.ref_frame_tx_dof1 = list(map(str.strip, self.ref_frame_tx_dof1.strip('<>').split(',')))
         self.ref_frame_tx_dof2 = list(map(str.strip, self.ref_frame_tx_dof2.strip('<>').split(',')))
         self.external_dof1 = construct_uc_matrix(self.ref_frame_tx_dof1)
+        # [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
         self.external_dof2 = construct_uc_matrix(self.ref_frame_tx_dof2)
+        # [[0, 0, 1], [0, 0, 0], [0, 0, 0]]
 
         ext_dof_indices = []
         if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
