@@ -428,14 +428,14 @@ class DataStore:
 
             return files[0]
         else:
-            self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
+            self.log.warning('No files found for "%s". Attempting to incorporate into the Database' % path)
 
     def retrieve_files(self) -> List:
         """Returns the actual location of all files in the stored .location"""
         path = os.path.join(self.location, '*%s' % self.extension)
         files = glob(path)
         if not files:
-            self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
+            self.log.warning('No files found for "%s". Attempting to incorporate into the Database' % path)
         return files
 
     def retrieve_names(self) -> List:
@@ -443,7 +443,7 @@ class DataStore:
         path = os.path.join(self.location, '*%s' % self.extension)
         names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in glob(path)]))
         if not names:
-            self.log.error('No files found for \'%s\'. Attempting to incorporate into the Database' % path)
+            self.log.warning('No files found for "%s". Attempting to incorporate into the Database' % path)
         return names
 
     def retrieve_data(self, name=None):
