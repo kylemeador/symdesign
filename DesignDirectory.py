@@ -2269,7 +2269,7 @@ class DesignDirectory:  # (JobResources):
             #                        pass names if available ^
             if self.sym_entry:
                 for idx, entity in enumerate(design.entities):
-                    entity.make_oligomer(symmetry=self.sym_entry.sym_map[idx + 1], **self.pose_transformation[idx])
+                    entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
             design_structures.append(design)
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
@@ -2361,12 +2361,12 @@ class DesignDirectory:  # (JobResources):
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
-            protocol_s = scores_df[groups]
+            protocol_s = scores_df[PUtils.groups]
             # protocol_s.replace({'combo_profile': 'design_profile'}, inplace=True)  # ensure proper profile name
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
-            remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + [groups]
+            remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + [PUtils.groups]
             scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
             scores_columns = scores_df.columns.to_list()
             self.log.debug('Score columns present: %s' % scores_columns)
@@ -2476,8 +2476,8 @@ class DesignDirectory:  # (JobResources):
                     np.nan
                 scores_df.drop('repacking', axis=1, inplace=True)
             # Process dataframes for missing values and drop refine trajectory if present
-            scores_df[groups] = protocol_s
-            refine_index = scores_df[scores_df[groups] == PUtils.refine].index
+            scores_df[PUtils.groups] = protocol_s
+            refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
             scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
             residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
             residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
@@ -2914,10 +2914,10 @@ class DesignDirectory:  # (JobResources):
             #                                 residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
             # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
             sasa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
-                                                           residue_df.columns.get_level_values(-1) == 'sasa_total']]\
+                                                           residue_df.columns.get_level_values(-1) == 'sasa_total']] \
                 .droplevel(-1, axis=1)
             bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
-                                                          residue_df.columns.get_level_values(-1) == 'bsa_total']]\
+                                                          residue_df.columns.get_level_values(-1) == 'bsa_total']] \
                 .droplevel(-1, axis=1)
             total_surface_area_df = sasa_assembly_df + bsa_assembly_df
             # ratio_df = bsa_assembly_df / total_surface_area_df
@@ -2937,7 +2937,7 @@ class DesignDirectory:  # (JobResources):
             assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
 
             # Get total design statistics for every sequence in the pose and every protocol specifically
-            protocol_groups = scores_df.groupby(groups)
+            protocol_groups = scores_df.groupby(PUtils.groups)
             # protocol_groups = trajectory_df.groupby(groups)
             designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
                                    for protocol, indices in protocol_groups.indices.items()}
@@ -3063,8 +3063,8 @@ class DesignDirectory:  # (JobResources):
                 seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
                 residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
                 # Next group the labels
-                sequence_groups = seq_pc_df.groupby(groups)
-                residue_energy_groups = residue_energy_pc_df.groupby(groups)
+                sequence_groups = seq_pc_df.groupby(PUtils.groups)
+                residue_energy_groups = residue_energy_pc_df.groupby(PUtils.groups)
                 # Measure statistics for each group
                 # All protocol means have pairwise distance measured to access similarity
                 # Gather protocol similarity/distance metrics
@@ -3246,7 +3246,7 @@ class DesignDirectory:  # (JobResources):
                 residue_df = pd.concat([wt_df, residue_df], sort=False)
                 # residue_df.drop(residue_indices_no_frags, inplace=True, axis=1)
                 residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-                residue_df[(groups, groups)] = protocol_s
+                residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
                 # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
                 if merge_residue_data:
                     trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
@@ -3265,7 +3265,7 @@ class DesignDirectory:  # (JobResources):
         # CONSTRUCT: Create pose series and format index names
         pose_s = pd.concat([other_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
-        pose_s.drop([groups], level=2, inplace=True, errors='ignore')
+        pose_s.drop([PUtils.groups], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=1, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
         pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
