@@ -7,6 +7,7 @@ import subprocess
 import time
 from copy import deepcopy, copy
 # from glob import glob
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -3120,7 +3121,7 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
     return mutations
 
 
-def generate_mutations_from_reference(reference, sequences):  # , pose_num=True):
+def generate_mutations_from_reference(reference, sequences) -> Dict[Dict[Dict]]:  # , pose_num=True):
     """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
 
     Args:
@@ -3130,7 +3131,7 @@ def generate_mutations_from_reference(reference, sequences):  # , pose_num=True)
         # pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
         second Entity as Entity1 last residue + 1
     Returns:
-        (dict): {pdb_code: {chain_id: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}, ...}
+        (dict): {pdb_code: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
     # mutations = {'reference': {chain: {sequence_idx: {'from': aa, 'to': aa}
     #                                    for sequence_idx, aa in enumerate(ref_sequence, 1)}
