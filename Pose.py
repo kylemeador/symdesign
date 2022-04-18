@@ -2074,8 +2074,8 @@ class SymmetricModel(Model):
                         asu_indices_combinations.append((idx1, idx_com1, idx2, idx_com2))
                         asu_indices_index.append((idx1, idx2))
                         asu_coms_index.append((idx_com1, idx_com2))
-                        # Todo debug RuntimeWarning: invalid value encountered in sqrt
-                        com_offsets[idx] = np.sqrt(com1.dot(com2))
+                        dist = com2 - com1
+                        com_offsets[idx] = np.sqrt(dist.dot(dist))
                         idx += 1
             # self.log.critical('com_offsets: %s' % com_offsets)
             minimal_com_distance_index = com_offsets.argmin()
