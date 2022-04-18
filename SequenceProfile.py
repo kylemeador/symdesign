@@ -3121,7 +3121,7 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
     return mutations
 
 
-def generate_mutations_from_reference(reference, sequences) -> Dict[Dict[Dict]]:  # , pose_num=True):
+def generate_mutations_from_reference(reference, sequences) -> Dict[str, Dict[str, str]]:  # , pose_num=True):
     """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
 
     Args:
