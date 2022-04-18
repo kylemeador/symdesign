@@ -43,7 +43,7 @@ rosetta_flags = extras_flags[rosetta_extras] + \
      # '-overwrite',
      '-linmem_ig 10', '-out:file:scorefile_format json', '-output_only_asymmetric_unit true', '-no_chainend_ter true',
      '-write_seqres_records true', '-output_pose_energies_table false', '-output_pose_cache_data false',
-     '-holes:dalphaball %s' % dalphaball if os.path.exists(dalphaball) else '',
+     '-holes:dalphaball %s' % dalphaball if os.path.exists(dalphaball) else '',  # This creates a new line if not used
      '-use_occurrence_data',  # Todo integrate into xml with Rosetta Source update
      '-preserve_header true', '-write_pdb_title_section_records true',
      '-chemical:exclude_patches LowerDNA UpperDNA Cterm_amidation SpecialRotamer VirtualBB ShoveBB VirtualNTerm '
@@ -52,10 +52,10 @@ rosetta_flags = extras_flags[rosetta_extras] + \
      'lys_dimethylated lys_monomethylated lys_trimethylated lys_acetylated glu_carboxylated MethylatedProteinCterm',
      '-mute all', '-unmute protocols.rosetta_scripts.ParsedProtocol protocols.jd2.JobDistributor']
 
-relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints false',
-               '-no_optH false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev 0.5',
-               '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate true', '-no_nstruct_label true',
-               '-relax:bb_move false']
+relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints', 'false',
+               '-no_optH', 'false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev', '0.5',
+               '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate', 'true', '-no_nstruct_label', 'true',
+               '-relax:bb_move', 'false']
 # Those jobs having a scale of 2 utilize two threads. Therefore two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
 process_scale = {refine: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
