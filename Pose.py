@@ -28,7 +28,7 @@ from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from Structure import Coords, Structure, Structures, Chain, Entity  # Atoms, Residues,
+from Structure import Coords, Structure, Structures, Chain, Entity, Residue  # Atoms, Residues,
 from Database import FragmentDB, FragmentDatabase
 
 # Globals
