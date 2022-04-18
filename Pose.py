@@ -2070,7 +2070,7 @@ class SymmetricModel(Model):
                         asu_coms_index.append((idx_com1, idx_com2))
                         com_offsets[idx] = np.sqrt(com1.dot(com2))
                         idx += 1
-            self.log.critical('com_offsets: %s' % com_offsets)
+            # self.log.critical('com_offsets: %s' % com_offsets)
             minimal_com_distance_index = com_offsets.argmin()
             entity_index1, com_index1, entity_index2, com_index2 = asu_indices_combinations[minimal_com_distance_index]
             # entity_index1, entity_index2 = asu_indices_index[minimal_com_distance_index]
