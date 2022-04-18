@@ -1121,7 +1121,9 @@ if __name__ == '__main__':
     elif args.output_directory:
         job = JobResources(queried_flags['output_directory'])
     else:
-        job = JobResources(os.path.join(os.getcwd(), PUtils.program_output))
+        symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
+        SDUtils.make_path(symdesign_directory)
+        job = JobResources(symdesign_directory)
     queried_flags['job_resources'] = job
 
     initial_iter = None
