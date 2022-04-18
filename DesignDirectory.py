@@ -964,6 +964,7 @@ class DesignDirectory:  # (JobResources):
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
 
+        # configure standard pose loading mechanism
         if self.specific_design:
             matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design))
             self.specific_design = self.name + '_' + self.specific_design
@@ -1331,12 +1332,13 @@ class DesignDirectory:  # (JobResources):
             self.get_fragment_metrics()  # <-$ needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            self.log.debug('Pose flags written to: %s' % self.flags)
 
         pdb_list = os.path.join(self.scripts, 'design_files%s.txt' %
                                 ('_%s' % self.specific_protocol if self.specific_protocol else ''))
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list] + \
             (['-s', self.specific_protocol] if self.specific_protocol else [])
-        main_cmd += ['-in:file:l', pdb_list, '@%s' % self.flags,
+        main_cmd += ['@%s' % self.flags, '-in:file:l', pdb_list,
                      # TODO out:file:score_only file is not respected if out:path:score_file given
                      #  -run:score_only true?
                      '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
@@ -1379,13 +1381,14 @@ class DesignDirectory:  # (JobResources):
         cmd = copy.copy(script_cmd)
         script_name = os.path.splitext(os.path.basename(script))[0]
         flags = os.path.join(self.scripts, 'flags')
-        if self.force_flags or not os.path.exists(flags):  # Generate a new flags_design file
+        if not os.path.exists(self.flags) or self.force_flags:  # Generate a new flags_design file
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
             self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
             flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            self.log.debug('Pose flags written to: %s' % flags)
 
         cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
 
@@ -1427,9 +1430,8 @@ class DesignDirectory:  # (JobResources):
         else:
             variables = []
 
-        cmd += ['-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native, '@%s' % flags] + \
-            score + suffix + trajectories + \
-            ['-parser:protocol', script] + variables
+        cmd += ['@%s' % flags, '-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native] + \
+            score + suffix + trajectories + ['-parser:protocol', script] + variables
         if self.mpi:
             cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + cmd
             self.run_in_shell = False
@@ -1523,6 +1525,7 @@ class DesignDirectory:  # (JobResources):
         self.make_path(self.scripts)
         if not os.path.exists(self.flags) or self.force_flags:
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            self.log.debug('Pose flags written to: %s' % self.flags)
 
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
             if not self.no_term_constraint:  # design_with_fragments
@@ -1544,12 +1547,10 @@ class DesignDirectory:  # (JobResources):
         # DESIGN: Prepare command and flags file
         # evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
-        design_cmd = main_cmd + \
-            (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
-            ['-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-             '@%s' % self.flags, '-out:suffix', '_%s' % protocol,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct + \
-            out_file
+        design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
+            ['@%s' % self.flags, '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1),
+             '-out:suffix', '_%s' % protocol] + nstruct_instruct + out_file
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
             additional_cmds.append(
                 main_cmd +
@@ -1920,15 +1921,16 @@ class DesignDirectory:  # (JobResources):
             refine_pdb = self.source
             additional_flags = ['-no_scorefile', 'true']
 
-        if self.force_flags or not os.path.exists(flags):  # Generate a new flags file
+        if not os.path.exists(self.flags) or self.force_flags:  # Generate a new flags file
             self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(flag_dir)
-            flags = self.prepare_rosetta_flags(pdb_out_path=pdb_out_path, out_path=flag_dir)
+            flags = self.prepare_rosetta_flags(out_path=flag_dir, pdb_out_path=pdb_out_path)
+            self.log.debug('Pose flags written to: %s' % flags)
 
         # RELAX: Prepare command
         relax_cmd = main_cmd + relax_flags + additional_flags + \
-            ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else [] + \
+            (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
             ['@%s' % flags, '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
              '-in:file:native', refine_pdb,  # native is here to block flag file version, not actually useful for refine
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % stage),
@@ -1936,9 +1938,9 @@ class DesignDirectory:  # (JobResources):
         self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
 
         if gather_metrics:
-            main_cmd += ['-in:file:s', refine_pdb, '@%s' % flags,
-                         '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol',
-                         '-in:file:native', refine_pdb]  # have to nullify the native file from flags
+            #                           nullify -native from flags v
+            main_cmd += ['-in:file:s', refine_pdb, '@%s' % flags, '-in:file:native', refine_pdb,
+                         '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
             if self.mpi:
                 main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
                 self.run_in_shell = False
@@ -2174,6 +2176,7 @@ class DesignDirectory:  # (JobResources):
         self.make_path(self.scripts)
         if not os.path.exists(self.flags) or self.force_flags:
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
+            self.log.debug('Pose flags written to: %s' % self.flags)
 
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
