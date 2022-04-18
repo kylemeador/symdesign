@@ -1055,7 +1055,7 @@ if __name__ == '__main__':
             queried_flags['sym_entry'] = parse_symmetry_to_sym_entry(queried_flags['symmetry'])
     sym_entry = queried_flags['sym_entry']
 
-    initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,
+    initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics, PUtils.refine,
                           'optimize_designs', 'custom_script']  # PUtils.analysis,
     # TODO consolidate these checks
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu', 'status',
