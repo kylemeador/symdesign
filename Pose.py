@@ -2815,9 +2815,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         self.interface_residues[(entity1, entity2)] = (entity1_residues, entity2_residues)
         entities = [entity1, entity2]
-        self.log.debug('Added interface_residues: %s' % ['%d%s' % (residue.number, entities[idx].chain_id)
+        self.log.debug('Added interface_residues: %s' % ', '.join('%d%s' % (residue.number, entities[idx].chain_id)
                        for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)])
-                       for residue in entity_residues])
+                       for residue in entity_residues))
 
     def find_interface_atoms(self, entity1=None, entity2=None, distance=4.68):
         """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
