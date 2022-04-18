@@ -132,7 +132,7 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):
     # array_range = np.full(21, 1)
     # asu_com_frac_array = array_range[:, np.newaxis] * asu_com_frac
     shift_range = np.arange(-10, 11)
-    shift_zeros = np.zeros(len(shift_range))
+    # shift_zeros = np.zeros(len(shift_range))
     shift = np.array([shift_range, shift_range, shift_range]).T
     # y_shift = np.array([shift_zeros, shift_range, shift_zeros]).T
     # z_shift = np.array([shift_zeros, shift_zeros, shift_range]).T
