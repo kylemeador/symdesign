@@ -130,8 +130,14 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'entity_1_name':  # TODO make a single metric
                       {'description': 'The name of the entity', 'direction': None, 'function': None, 'filter': None},
+                  'entity_1_number_of_mutations':  # TODO make a single metric
+                      {'description': 'The number of mutations made',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'entity_1_number_of_residues':  # TODO make a single metric
                       {'description': 'The number of residues', 'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_1_percent_mutations':  # TODO make a single metric
+                      {'description': 'The percentage of the entity that has been mutated',
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'entity_1_radius':  # TODO make a single metric
                       {'description': 'The center of mass of the entity from the assembly core',
                        'direction': 'min', 'function': 'rank', 'filter': True},
@@ -358,6 +364,9 @@ master_metrics = {'average_fragment_z_score':
                   'percent_interface_area_polar':
                       {'description': 'The percent of interface area which is occupied by polar atoms',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
+                  'percent_mutations':
+                      {'description': 'The percent of the design which has been mutated',
+                       'direction': 'max', 'function': 'normalize', 'filter': True},
                   'percent_residues_fragment_center':
                       {'description': 'The percentage of residues which are central fragment observations',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
@@ -417,9 +426,14 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993 at interface '
                                       'core fragment positions',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - bound
+                  'solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - complex
                       {'description': 'The free energy resulting from hydration of the separated interface surfaces. '
-                                      'Positive values indicate poorly soluble surfaces',
+                                      'Positive values indicate poorly soluble surfaces upon dissociation',
+                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                  'solvation_energy_activation':  # unbound - bound
+                      {'description': 'The free energy of solvation resulting from packing the bound, uncomplexed state'
+                                      ' to an unbound, uncomplexed state. Positive values indicate a tendency towards '
+                                      'the bound configuration',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
                   'solvation_energy_bound':
                       {'description': 'The desolvation free energy of the separated interface surfaces. Positive values'
@@ -561,11 +575,12 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
                  'observations',
                  'observed_design', 'observed_evolution', 'observed_fragment', 'observed_interface', 'percent_core',
                  'percent_fragment', 'percent_fragment_coil', 'percent_fragment_helix', 'percent_fragment_strand',
-                 'percent_interface_area_hydrophobic', 'percent_interface_area_polar',
+                 'percent_interface_area_hydrophobic', 'percent_interface_area_polar', 'percent_mutations',
                  'percent_residues_fragment_center',
                  'percent_residues_fragment_total', 'percent_rim', 'percent_support',
                  'protocol_energy_distance_sum', 'protocol_similarity_sum', 'protocol_seq_distance_sum',
-                 'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'solvation_energy', 'support',
+                 'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'solvation_energy',
+                 'solvation_energy_activation', 'support',
                  'symmetry', 'total_non_fragment_interface_residues'}
 #                  'buns_heavy_total', 'buns_hpol_total', 'buns_total',
 #                These are missing the bb_hb contribution and are inaccurate
@@ -660,7 +675,7 @@ delta_pairs = {'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),
                # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
                'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),
                'solvation_energy': ('solvation_energy_unbound', 'solvation_energy_complex'),
-               # 'solvation_energy': ('interaction_energy_complex', 'interface_energy_no_intra_residue_score'),
+               'solvation_energy_activation': ('solvation_energy_unbound', 'solvation_energy_bound'),
                'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
                'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
                'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
@@ -1184,26 +1199,29 @@ def per_res_metric(sequence_metrics, key=None):
 
 
 def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permutations=1000):  # TODO SDUtils
-    """From a two group dataframe, run a permutation test with mean comparison as default
+    """Run a permutation test on a dataframe with two categorical groups. Default uses mean to compare significance
 
     Args:
-        grouped_df (pandas.DataFrame): DataFrame with only two groups contained. Doesn't need to be sorted
-        diff_s (pandas.Series): Series with difference between two groups 'compare' stat for each column in grouped_df
+        grouped_df (pandas.DataFrame): The features of interest in samples from two groups of interest.
+            Doesn't need to be sorted
+        diff_s (pandas.Series): The differences in each feature in the two groups after evaluating the 'compare' stat
     Keyword Args:
         group1_size=0 (int): Size of the observations in group1
         compare='mean' (str): Choose from any pandas.DataFrame attribute that collapses along a column
             Other options might be median.
     Returns:
-        p_value_s (Series): Contains the p-value(s) of the permutation test using the 'compare' statistic against diff_s
+        (Series): Contains the p-value(s) of the permutation test using the 'compare' statistic against diff_s
     """
     permut_s_array = []
+    df_length = len(grouped_df)
     for i in range(permutations):
-        shuffled_df = grouped_df.sample(n=len(grouped_df))
+        shuffled_df = grouped_df.sample(n=df_length)
         permut_s_array.append(getattr(shuffled_df.iloc[:group1_size, :], compare)().sub(
             getattr(shuffled_df.iloc[group1_size:, :], compare)()))
-    # How many times the absolute permuted set is less than the absolute difference set. Returns bool, which when taking
-    # the mean of, True value reflects 1 while False (more than/equal to the difference set) is 0.
-    # In essence, the returned mean is the p-value, which indicates how significant the permutation test results are
+    # How many times the magnitude of the permuted comparison set is less than the magnitude of the difference set
+    # If permuted is less than, returns True, which when taking the mean (or other 'compare'), reflects 1 while False
+    # (more than/equal to the difference set) is 0.
+    # Essentially, the returned mean is the p-value, which indicates how significant the permutation test results are
     abs_s = diff_s.abs()
     bool_df = pd.DataFrame([permut_s.abs().lt(abs_s) for permut_s in permut_s_array])
 
