@@ -2425,6 +2425,17 @@ class DesignDirectory:  # (JobResources):
             # reference_mutations = cleaned_mutations.pop('reference', None)  # save the reference
             scores_df['number_of_mutations'] = \
                 pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
+            scores_df['percent_mutations'] = \
+                scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
+            # residue_indices_per_entity = self.pose.residue_indices_per_entity
+            for idx, (entity, entity_indices) in enumerate(zip(self.pose.entities, self.pose.residue_indices_per_entity), 1):
+                # entity_indices = residue_indices_per_entity[idx]
+                scores_df['entity_%d_number_of_mutations' % idx] = \
+                    pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
+                               for design, mutations in all_mutations.items()})
+                scores_df['entity_%d_percent_mutations' % idx] = \
+                    scores_df['entity_%d_number_of_mutations' % idx] / \
+                    other_pose_metrics['entity_%d_number_of_residues' % idx]
 
             # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
             interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
