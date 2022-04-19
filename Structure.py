@@ -2551,7 +2551,7 @@ class Entity(Chain, SequenceProfile):
             chain_gen = self.return_chain_generator()
             chain_id = self.chain_id
             self._chain_ids = [chain_id]
-            for _ in range(1, self.number_of_monomers):
+            for _ in range(self.number_of_monomers):
                 next_chain = next(chain_gen)
                 if next_chain != chain_id:
                     self._chain_ids.append(next_chain)
