@@ -1802,20 +1802,14 @@ class DesignDirectory:  # (JobResources):
 
             self.save_asu()
 
-    def save_asu(self, rename_chains=False):
-        """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry
-
-        Keyword Args:
-            rename_chains=False (bool): Whether to rename the chains in the output ASU. If the chain IDs are the same
-             and no fusion is specified, then chain IDs will automatically be renamed
-        """
-        new_asu = self.pose.get_contacting_asu(rename_chains=rename_chains)
+    def save_asu(self):  # , rename_chains=False
+        """Save a new Structure from multiple Chain or Entity objects including the Pose symmetry"""
         if self.fuse_chains:
             # try:
             for fusion_nterm, fusion_cterm in self.fuse_chains:
                 # rename_success = False
                 new_success, same_success = False, False
-                for idx, entity in enumerate(new_asu.entities):
+                for idx, entity in enumerate(self.pose.entities):
                     if entity.chain_id == fusion_cterm:
                         entity_new_chain_idx = idx
                         new_success = True
@@ -1831,11 +1825,11 @@ class DesignDirectory:  # (JobResources):
                     # self.log.critical('Your requested fusion of chain %s with chain %s didn\'t work!' %
                     #                   (fusion_nterm, fusion_cterm))
                 else:  # won't be accessed unless entity_new_chain_idx is set
-                    new_asu.entities[entity_new_chain_idx].chain_id = fusion_nterm
+                    self.pose.entities[entity_new_chain_idx].chain_id = fusion_nterm
             # except AttributeError:
             #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
             #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_id_list)))
-        new_asu.write(out_path=self.asu)
+        self.pose.write(out_path=self.asu)
         self.info['pre_refine'] = self.pre_refine
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)
 
