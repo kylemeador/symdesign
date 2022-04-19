@@ -794,6 +794,7 @@ def connection_exception_handler(url, max_attempts=5):
     Returns:
         (union[dict, None]): The json formatted response to the url GET or None
     """
+    query_response = None
     iteration = 1
     while True:
         try:
