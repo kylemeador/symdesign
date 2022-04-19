@@ -127,6 +127,15 @@ class PDB(Structure):
         return len(self.chains)
 
     @property
+    def number_of_entities(self) -> int:
+        """Return the number of Entity objects in the PDB
+
+        Returns:
+            (int)
+        """
+        return len(self.entities)
+
+    @property
     def symmetry(self) -> Dict:
         """Return the symmetry parameters of the PDB
 
