@@ -274,10 +274,10 @@ if __name__ == '__main__':
         filtered_reference_commands = filter_by_indices(index_array, reference_commands)
         if args.exclude:
             modified_reference = list(set(reference_commands) - set(filtered_reference_commands))
-            SDUtils.io_save(modified_reference, filename='%s_excluded_%s' % (args.file, os.path.basename(args.query)))
+            SDUtils.io_save(modified_reference, file_name='%s_excluded_%s' % (args.file, os.path.basename(args.query)))
         else:
             SDUtils.io_save(filtered_reference_commands,
-                            filename='%s_filtered_%s' % (args.file, os.path.basename(args.query)))
+                            file_name='%s_filtered_%s' % (args.file, os.path.basename(args.query)))
     elif args.sub_module == 'link':
         output_dir = os.path.join(os.getcwd(), args.directory)
         if not os.path.exists(output_dir):
