@@ -2000,13 +2000,13 @@ class SymmetricModel(Model):
                     # if height < 0:  # this may be detrimental. Increased search cost not worth missing solution
                     #     continue
                     if len(indices) == group_subunit_number:
-                        x = (temp_model_coms[indices] - [0, 0, height])[0]  # get first point. Their norm is equivalent
+                        x = (temp_model_coms[indices] - [0, 0, height])[0]  # get first point. Norms are equivalent
                         central_offset = np.sqrt(x.dot(x))  # np.abs()
-                        # self.log.critical('central_offset = %f' % central_offset)
+                        self.log.critical('central_offset = %f' % central_offset)
                         if central_offset < minimal_central_offset:
                             minimal_central_offset = central_offset
                             centrally_disposed_group_height = height
-                            # self.log.critical('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
+                            self.log.critical('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
                         elif central_offset == minimal_central_offset and centrally_disposed_group_height < 0 < height:
                             centrally_disposed_group_height = height
                         else:  # The central offset is larger
@@ -2471,9 +2471,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                             additional_chains.append(chain_combinations[viable_remaining_indices[max_idx]][entity_idx])
 
             new_entities = max_chains + additional_chains
-            print([(entity.name, entity.chain_id) for entity in entities])
+            # print([(entity.name, entity.chain_id) for entity in entities])
             entities = [new_entity for entity in entities for new_entity in new_entities if entity == new_entity]
-            print([(entity.name, entity.chain_id) for entity in entities])
+            # print([(entity.name, entity.chain_id) for entity in entities])
         return entities
 
     def return_contacting_asu(self, **kwargs) -> PDB:
