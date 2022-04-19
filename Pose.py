@@ -2341,6 +2341,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # self.pdbs_d[pdb.name] = pdb
         self.create_design_selector()  # **self.design_selector) TODO rework this whole mechanism
 
+    @SymmetricModel.asu.setter
+    def asu(self, asu):
+        self.pdb = asu  # process incoming structure as normal
+        if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
+            self.set_contacting_asu()  # find maximally touching ASU and set ._pdb
+
     # @property
     # def name(self):
     #     try:
@@ -2463,8 +2469,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                         if entity == entity_in_combo:
                             additional_chains.append(chain_combinations[viable_remaining_indices[max_idx]][entity_idx])
 
-            entities = max_chains + additional_chains
+            new_entities = max_chains + additional_chains
+            entities = [new_entity for entity in entities for new_entity in new_entities if entity == new_entity]
+        return entities
 
+    def return_contacting_asu(self, **kwargs) -> PDB:
+        """From the Pose Entities, find the maximal contacting Chain for each of the entities and return the ASU
+
+        If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
+
+        Returns:
+            (PDB): A PDB object with the minimal set of Entities containing the maximally touching configuration
+        """
+        entities = self.find_contacting_asu(**kwargs)
         found_chain_ids = []
         for entity in entities:
             if entity.chain_id in found_chain_ids:
@@ -2475,6 +2492,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         return PDB.from_entities(entities, name='asu', log=self.log, pose_format=False,
                                  biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
+
+    def set_contacting_asu(self, **kwargs):
+        """From the Pose Entities, find the maximal contacting Chain for each of the entities and set the Pose.asu
+
+        Sets:
+            self._pdb: To a PDB object with the minimal set of Entities containing the maximally touching configuration
+        """
+        entities = self.find_contacting_asu(**kwargs)
+        self._pdb = PDB.from_entities(entities, name='asu', log=self.log, pose_format=False, **kwargs)
 
     # def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
     #     self.ignore_clashes = ignore_clashes
