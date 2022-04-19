@@ -141,6 +141,9 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True,
         location=os.getcwd() (str): If a FileHandler is used (handler=2) where should file be written?
             .log is appended to file
         propagate=True (bool): Whether to propagate messages to parent loggers (such as root or parent.current_logger)
+        format_log=True (bool): Whether to format the log with logger specific formatting otherwise use message format
+        no_log_name=False (bool): Whether to omit the logger name from the output
+        set_logger_level=False (bool): Whether to set the level for the logger overall in addition to the logHandler
     Returns:
         (logging.Logger): Logger object to handle messages
     """
