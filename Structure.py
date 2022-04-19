@@ -2789,14 +2789,14 @@ class Entity(Chain, SequenceProfile):
         self.symmetry = symmetry
         self.is_oligomeric = True
         if rotation is None:
-            rotation = identity_matrix
+            rotation, inv_rotation = identity_matrix, identity_matrix
         else:
             inv_rotation = np.linalg.inv(rotation)
         if translation is None:
             translation = origin
 
         if rotation2 is None:
-            rotation2 = identity_matrix
+            rotation2, inv_rotation2 = identity_matrix, identity_matrix
         else:
             inv_setting = np.linalg.inv(rotation2)
         if translation2 is None:
