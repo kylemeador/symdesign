@@ -2471,7 +2471,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                             additional_chains.append(chain_combinations[viable_remaining_indices[max_idx]][entity_idx])
 
             new_entities = max_chains + additional_chains
+            print([(entity.name, entity.chain_id) for entity in entities])
             entities = [new_entity for entity in entities for new_entity in new_entities if entity == new_entity]
+            print([(entity.name, entity.chain_id) for entity in entities])
         return entities
 
     def return_contacting_asu(self, **kwargs) -> PDB:
