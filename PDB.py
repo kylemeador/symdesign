@@ -1559,7 +1559,7 @@ def fetch_pdb_file(pdb_code, asu=True, location=pdb_db, **kwargs):  # assembly=N
         return pdb_file[0]  # we should only find one file, therefore, return the first
 
 
-def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
+def orient_pdb_file(pdb_path, log=logger, symmetry=None, out_dir=None):
     """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
         resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
         of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
@@ -1581,7 +1581,7 @@ def orient_pdb_file(pdb_path, log=logger, sym=None, out_dir=None):
     else:
         pdb = PDB.from_file(pdb_path, log=None, pose_format=False, entities=False)
         try:
-            pdb.orient(symmetry=sym)
+            pdb.orient(symmetry=symmetry)
             pdb.write(out_path=oriented_file_path)
             log.info('Oriented: %s' % pdb_filename)
             return oriented_file_path

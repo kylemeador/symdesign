@@ -189,7 +189,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     pdb.stride(to_file=self.stride.store(name=pdb.name))
                     all_entities.append(pdb)  # .entities[0]
                 else:
-                    orient_file = orient_pdb_file(file_path, log=orient_log, sym=symmetry, out_dir=orient_dir)
+                    orient_file = orient_pdb_file(file_path, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
                     if not orient_file:
                         logger.warning('No oriented file possible for %s. See the orient log' % entry_entity)
                         continue
