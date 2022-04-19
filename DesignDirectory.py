@@ -1941,6 +1941,7 @@ class DesignDirectory:  # (JobResources):
             self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(flag_dir)
+            self.make_path(pdb_out_path)
             flags = self.prepare_rosetta_flags(out_path=flag_dir, pdb_out_path=pdb_out_path)
             self.log.debug('Pose flags written to: %s' % flags)
 
