@@ -1579,7 +1579,7 @@ def orient_pdb_file(pdb_path, log=logger, symmetry=None, out_dir=None):
         return oriented_file_path
     # elif sym in valid_subunit_number:
     else:
-        pdb = PDB.from_file(pdb_path, log=None, pose_format=False, entities=False)
+        pdb = PDB.from_file(pdb_path, log=log, pose_format=False)  #, entities=False)
         try:
             pdb.orient(symmetry=symmetry)
             pdb.write(out_path=oriented_file_path)
