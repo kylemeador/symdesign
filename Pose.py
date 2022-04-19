@@ -2012,7 +2012,7 @@ class SymmetricModel(Model):
                         else:  # The central offset is larger
                             pass
                 # if a viable group was found save the group COM as an internal_tx and setting_matrix used to find it
-                if centrally_disposed_group_height:
+                if centrally_disposed_group_height is not None:
                     if setting_matrix is not None and internal_tx is not None:
                         # There is an alternative solution. Is it better? Or is it a degeneracy?
                         if minimal_central_offset < current_best_minimal_central_offset:
