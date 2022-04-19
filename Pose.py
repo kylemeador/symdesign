@@ -1473,16 +1473,17 @@ class SymmetricModel(Model):
             return
 
         template_atom = self.asu.n_terminal_residue
-        template_atom_coords, template_atom_index = template_atom.ca_coords, template_atom.ca_atom_index
-        asu_size = len(self.coords)
-        for model_num in range(self.number_of_symmetry_mates):
-            # print(self.symmetric_coords[(model_num * coords_length) + template_atom_index])
-            # print(template_atom_coords ==
-            #         self.symmetric_coords[(model_num * coords_length) + template_atom_index])
-            if np.allclose(template_atom_coords, self.symmetric_coords[(model_num * asu_size) + template_atom_index]):
-                # if (template_atom_coords ==
-                #         self.symmetric_coords[(model_num * coords_length) + template_atom_index]).all():
-                self.asu_equivalent_model_idx = model_num
+        atom_ca_coord, atom_idx = template_atom.ca_coords, template_atom.ca_atom_index
+        print('Template ca coord', atom_ca_coord)
+        number_of_atoms = self.number_of_atoms
+        for model_idx in range(self.number_of_symmetry_mates):
+            print(self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx])
+            # print(atom_ca_coord ==
+            #         self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx])
+            if np.allclose(atom_ca_coord, self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]):
+                # if (atom_ca_coord ==
+                #         self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]).all():
+                self.asu_equivalent_model_idx = model_idx
                 return
 
         self.log.error('%s FAILED to find model' % self.find_asu_equivalent_symmetry_model.__name__)
@@ -2973,7 +2974,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary THIS IS ALL WRONG DEPENDING ON THE CONTEXT
             if entity1 == entity2:
-                skip_models = self.oligomeric_equivalent_model_idxs[entity1]  # + [self.asu_equivalent_model_idx]
+                skip_models = self.oligomeric_equivalent_model_idxs[entity1]
                 self.log.info('Skipping oligomeric models %s' % skip_models)
             else:
                 skip_models = []
