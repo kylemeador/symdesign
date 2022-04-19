@@ -1889,7 +1889,7 @@ class DesignDirectory:  # (JobResources):
             for entity in pdb.entities:
                 entity.remove_mate_chains()
             self.load_pose(entities=pdb.entities)
-            self.save_asu(rename_chains=True)
+            # self.save_asu(rename_chains=True)
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
