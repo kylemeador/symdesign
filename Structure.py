@@ -2518,7 +2518,7 @@ class Entity(Chain, SequenceProfile):
         try:
             self._chain_ids[0] = chain_id
         except AttributeError:
-            # if _chain_ids is an attribute, then it will be length 1. If not set, will be set later
+            # if _chain_ids is an attribute, then it will be length 1. If not set, will be set accordingly later
             pass
 
     @property
@@ -2530,7 +2530,7 @@ class Entity(Chain, SequenceProfile):
         """
         try:
             return self._number_of_monomers
-        except AttributeError:
+        except AttributeError:  # set based on the symmetry, unless that fails then find using chain_ids
             self._number_of_monomers = valid_subunit_number.get(self.symmetry, len(self._chain_ids))
             return self._number_of_monomers
 
@@ -2554,7 +2554,7 @@ class Entity(Chain, SequenceProfile):
             for _ in range(1, self.number_of_monomers):
                 next_chain = next(chain_gen)
                 if next_chain != chain_id:
-                    self._chain_ids.extend(next_chain)
+                    self._chain_ids.append(next_chain)
             return self._chain_ids
 
     @chain_ids.setter
@@ -2624,8 +2624,8 @@ class Entity(Chain, SequenceProfile):
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
-            # self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
-            #                % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
+            self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
+                           % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
             for idx, chain in enumerate(self._chains):
                 # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
@@ -2767,44 +2767,41 @@ class Entity(Chain, SequenceProfile):
             self.chain_transforms
             self.chain_ids
         """
-        # if transform:
-        #     translation, rotation, ext_translation, setting_rotation
-        # origin = np.array([0., 0., 0.])
-        if symmetry == 'C1':  # not symmetric
-            # self.chain_transforms = [{'rotation': identity_matrix, 'translation': origin}]  # Todo is this redundant?
-            # This resets the chain_ids which would fuck up the logical permanence of this object!
-            # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
-            return
+        try:
+            if symmetry == 'C1':  # not symmetric
+                return
+            elif symmetry in cubic_point_groups:
+                # self.symmetry = possible_symmetries.get(symmetry, None)
+                rotation_matrices = get_ptgrp_sym_op(symmetry)
+                # Todo may need to add T degeneracy here!
+                degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
+            elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
+                rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
+                degeneracy_rotation_matrices = \
+                    get_degen_rotmatrices(degeneracy_matrices=flip_x_matrix, rotation_matrices=rotation_matrices)
+            else:
+                rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
+                degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
+        except KeyError:
+            raise ValueError('The symmetry %s is not a viable symmetry! You should try to add compatibility for it'
+                             ' if you believe this is a mistake' % symmetry)
 
         self.symmetry = symmetry
-        if symmetry in cubic_point_groups:
-            # self.symmetry = possible_symmetries.get(symmetry, None)
-            rotation_matrices = get_ptgrp_sym_op(self.symmetry)
-            # Todo may need to add T degeneracy here!
-            degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
-        elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
-            rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
-            # apparently passing the degeneracy matrix first without any specification towards the row/column major
-            # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
-            # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
-            degeneracy_rotation_matrices = \
-                get_degen_rotmatrices(degeneracy_matrices=flip_x_matrix, rotation_matrices=rotation_matrices)
-        else:
-            rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
-            degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
-
         self.is_oligomeric = True
         if rotation is None:
             rotation = identity_matrix
+        else:
+            inv_rotation = np.linalg.inv(rotation)
         if translation is None:
             translation = origin
+
         if rotation2 is None:
             rotation2 = identity_matrix
+        else:
+            inv_setting = np.linalg.inv(rotation2)
         if translation2 is None:
             translation2 = origin
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
-        inv_rotation = np.linalg.inv(rotation)
-        inv_setting = np.linalg.inv(rotation2)
         # entity_inv = entity.return_transformed_copy(rotation=inv_expand_matrix, rotation2=inv_set_matrix[group])
         # need to reverse any external transformation to the entity coords so rotation occurs at the origin...
         # and undo symmetry expansion matrices
@@ -2839,7 +2836,6 @@ class Entity(Chain, SequenceProfile):
             for rotation_matrix in degeneracy_matrices:
                 number_of_monomers += 1
                 rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=np.array(rotation_matrix))
-
                 # debug_pdb2 = self.chain_representative.__copy__()
                 # debug_pdb2.replace_coords(rot_centered_coords)
                 # debug_pdb2.write(out_path='invert_set_invert_rot_ROT-%d%s.pdb' % (idx, self.name))
