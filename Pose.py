@@ -2773,8 +2773,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 # We don't want interactions with the symmetric asu model or intra-oligomeric contacts
                 if entity1.is_oligomeric:  # remove oligomeric protomers (contains asu)
                     remove_indices = self.return_intra_oligomeric_symmetry_mate_indices(entity1)
-                    self.log.debug('Removing indices from models %s due to detected oligomer'
-                                   % ','.join(map(str, self.oligomeric_equivalent_model_idxs.get(entity1))))
+                    self.log.info('Removing indices from models %s due to detected oligomer'
+                                  % ','.join(map(str, self.oligomeric_equivalent_model_idxs.get(entity1))))
                     self.log.debug('Removing %d indices from symmetric query due to detected oligomer'
                                    % (len(remove_indices)))
                 else:  # remove asu
@@ -2974,7 +2974,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # asu frag subtraction is unnecessary THIS IS ALL WRONG DEPENDING ON THE CONTEXT
             if entity1 == entity2:
                 skip_models = self.oligomeric_equivalent_model_idxs[entity1]  # + [self.asu_equivalent_model_idx]
-                self.log.debug('Skipping oligomeric models %s' % skip_models)
+                self.log.info('Skipping oligomeric models %s' % skip_models)
             else:
                 skip_models = []
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
