@@ -2429,6 +2429,7 @@ class Entity(Chain, SequenceProfile):
                 chain_ids.append(chain.name)
             self.number_of_monomers = len(chains)
         self.chain_ids = chain_ids
+        self.prior_ca_coords = self.get_ca_coords()
         # else:  # elif len(chains) == 1:
         #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         # else:
@@ -2451,8 +2452,9 @@ class Entity(Chain, SequenceProfile):
             #                         and setter is not happening because of a copy (no new info, update unimportant)
             if self.is_oligomeric:  # and not (coords.coords == self._coords.coords).all():
                 # each mate chain coords are dependent on the representative (captain) coords, find the transform
+                chains = self.chains
                 self.chain_transforms.clear()
-                for chain in self.chains:
+                for chain in chains:
                     # rmsd, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], self.get_cb_coords())
                     _, rot, tx, _ = superposition3d(coords.coords[self.cb_indices], chain.get_cb_coords())
                     self.chain_transforms.append(dict(rotation=rot, translation=tx))
@@ -2513,7 +2515,11 @@ class Entity(Chain, SequenceProfile):
     def chain_id(self, chain_id):
         # self._residues.set_attributes(chain=chain_id)
         self.set_residues_attributes(chain=chain_id)
-        # self.set_atoms_attributes(chain=chain_id)
+        try:
+            self._chain_ids[0] = chain_id
+        except AttributeError:
+            # if _chain_ids is an attribute, then it will be length 1. If not set, will be set later
+            pass
 
     @property
     def number_of_monomers(self) -> int:
@@ -2542,7 +2548,13 @@ class Entity(Chain, SequenceProfile):
         try:
             return self._chain_ids
         except AttributeError:  # This shouldn't be possible with the constructor available
-            self._chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
+            chain_gen = self.return_chain_generator()
+            chain_id = self.chain_id
+            self._chain_ids = [chain_id]
+            for _ in range(1, self.number_of_monomers):
+                next_chain = next(chain_gen)
+                if next_chain != chain_id:
+                    self._chain_ids.extend(next_chain)
             return self._chain_ids
 
     @chain_ids.setter
@@ -2567,7 +2579,8 @@ class Entity(Chain, SequenceProfile):
                 #     self.log.info('prior_ca_coords has not been set but it is not None')
                 #     getattr(self, 'prior_ca_coords')  # try to get exception raised here?
                 # missing_at = 'prior_ca_coords'
-                self.prior_ca_coords
+                # self.prior_ca_coords
+                self.__chain_transforms
                 if self.is_oligomeric:  # True if multiple chains
                     current_ca_coords = self.get_ca_coords()
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
@@ -2594,20 +2607,27 @@ class Entity(Chain, SequenceProfile):
     def chain_transforms(self, value):
         self._chain_transforms = value
 
+    def remove_chain_transforms(self):
+        """Remove chain_transforms attribute in preparation for coordinate movement"""
+        self._chains.clear()
+        self.__chain_transforms = self.chain_transforms
+        del self._chain_transforms
+        self.prior_ca_coords = self.get_ca_coords()
+
     @property
     def chains(self):
         """Returns:
             (list[Entity]): Transformed copies of the Entity itself
         """
-        if self._chains:  # check if it exists in the case that coords have been changed and chains cleared
+        if self._chains:  # check if empty list in the case that coords have been changed and chains cleared
             return self._chains
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
-            self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
-                           % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
+            # self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
+            #                % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
             for idx, chain in enumerate(self._chains):
-                # set the entity.chain_id (which sets all atoms/residues...)
+                # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
             return self._chains
 
@@ -2839,6 +2859,24 @@ class Entity(Chain, SequenceProfile):
         self.number_of_monomers = number_of_monomers
         # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
+
+    def translate(self, translation):
+        """Perform a translation to the Structure ensuring only the Structure container of interest is translated
+        ensuring the underlying coords are not modified"""
+        self.remove_chain_transforms()
+        super().translate(translation)
+
+    def rotate(self, rotation):
+        """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
+        underlying coords are not modified"""
+        self.remove_chain_transforms()
+        super().rotate(rotation)
+
+    def transform(self, **kwargs):
+        """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
+        transformed ensuring the underlying coords are not modified"""
+        self.remove_chain_transforms()
+        super().transform(**kwargs)
 
     def format_seqres(self, asu=True, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
@@ -3273,10 +3311,11 @@ class Entity(Chain, SequenceProfile):
         # other.update_attributes(residues=other._residues, coords=other._coords)
         if other.is_oligomeric:
             # self.log.info('Copy Entity. Clearing chains, chain_transforms')
-            other._chains.clear()
-            other.__chain_transforms = other.chain_transforms  # requires update before copy
-            del other._chain_transforms
-            other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
+            # other._chains.clear()
+            other.remove_chain_transforms()
+            # other.__chain_transforms = other.chain_transforms  # requires update before copy
+            # del other._chain_transforms
+            # other.prior_ca_coords = other.get_ca_coords()  # update these as next generation will rely on them for chain_transforms
 
         return other
 
