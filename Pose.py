@@ -698,7 +698,15 @@ class Model:  # Todo (Structure)
         return self.pdb.entities
 
     @property
-    def chains(self):
+    def number_of_entities(self) -> int:  # TODO COMMENT OUT .pdb
+        return self.pdb.number_of_entities
+
+    @property
+    def number_of_chains(self) -> int:  # TODO COMMENT OUT .pdb
+        return self.pdb.number_of_chains
+
+    @property
+    def chains(self) -> Iterable[Entity]:
         return [chain for entity in self.entities for chain in entity.chains]
 
     @property
@@ -901,10 +909,8 @@ class Model:  # Todo (Structure)
                     pass
                 elif assembly:  # will make models and use next logic steps to write them out
                     self.get_assembly_symmetry_mates(**kwargs)
-                # elif self.output_asu or
-                # elif not self.models:
                 else:  # when assembly not explicitly requested, skip models, using biomt_record/cryst_record for sym
-                    for entity in self.pdb.entities:
+                    for entity in self.entities:
                         entity.write(file_handle=outfile, **kwargs)
                     # Todo with Structure subclass
                     #  super().write(out_path=out_path, **kwargs)
@@ -924,7 +930,11 @@ class Model:  # Todo (Structure)
                                                                                         c_term_residue.type, chain,
                                                                                         c_term_residue.number))
                     return out_path
-            # else:
+            else:  # just a model
+                self.pdb.write(file_handle=outfile, **kwargs)
+                # Todo with Structure subclass
+                #  super().write(out_path=out_path, **kwargs)
+                return out_path
             if self.models:  # these were generated if assembly=True, therefore user doesn't want to increment chains
                 for model_number, structure in enumerate(self.models, 1):
                     outfile.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
@@ -2406,24 +2416,21 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #
     #     self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb, log=self.log)
 
-    def get_contacting_asu(self, distance=8, **kwargs):
-        """From the Pose PDB and the associated active Entities, find the maximal contacting ASU for each of the
-        entities
+    def find_contacting_asu(self, distance=8, **kwargs) -> Iterable[Entity]:
+        """From the Pose Entities, find the maximal contacting Chain for each of the entities
 
-        If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
         Keyword Args:
             distance=8 (int): The distance to check for contacts
         Returns:
-            (PDB): The PDB object with the minimal set of Entities containing the maximally touching configuration
+            (Iterable[Entity]): The minimal set of Entities containing the maximally touching configuration
         """
-        if len(self.active_entities) == 1:
-            entities = self.active_entities
-        else:
+        entities = self.entities
+        if self.number_of_entities != 1:
             idx = 0
             chain_combinations, entity_combinations = [], []
             contact_count = \
-                np.zeros(sum(map(prod, combinations((entity.number_of_monomers for entity in self.active_entities), 2))))
-            for entity1, entity2 in combinations(self.active_entities, 2):
+                np.zeros(sum(map(prod, combinations((entity.number_of_monomers for entity in entities), 2))))
+            for entity1, entity2 in combinations(entities, 2):
                 for chain1 in entity1.chains:
                     chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
                     for chain2 in entity2.chains:
@@ -2432,15 +2439,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                         contact_count[idx] = \
                             chain_cb_coord_tree.two_point_correlation(chain2.get_cb_coords(), [distance])[0]
                         idx += 1
+
             max_contact_idx = contact_count.argmax()
-            # second_contact_idx = contact_count.argsort()[-2]
             additional_chains = []
             max_chains = list(chain_combinations[max_contact_idx])
-            if len(max_chains) != len(self.active_entities):
+            if len(max_chains) != self.number_of_entities:
                 # find the indices where either of the maximally contacting chains are utilized
                 selected_chain_indices = {idx for idx, chain_pair in enumerate(chain_combinations)
                                           if max_chains[0] in chain_pair or max_chains[1] in chain_pair}
-                remaining_entities = set(self.active_entities).difference(entity_combinations[max_contact_idx])
+                remaining_entities = set(entities).difference(entity_combinations[max_contact_idx])
                 for entity in remaining_entities:  # get the maximum contacts and the associated entity and chain indices
                     # find the indices where the missing entity is utilized
                     remaining_indices = \
