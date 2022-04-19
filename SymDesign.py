@@ -988,7 +988,8 @@ if __name__ == '__main__':
         unknown_args = additional_args
     args, additional_args = parser.parse_known_args(additional_args, args)
     # print(args)
-    print('Found additional arguments that are not recognized program wide:', additional_args)
+    if additional_args:
+        print('Found additional arguments that are not recognized program wide:', additional_args)
     default_flags = Flags.return_default_flags(args.module)
     formatted_flags = format_additional_flags(additional_args)
     default_flags.update(formatted_flags)
