@@ -977,7 +977,7 @@ class DesignDirectory:  # (JobResources):
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
 
-        # configure standard pose loading mechanism
+        # configure standard pose loading mechanism with self.source
         if self.specific_design:
             matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design))
             self.specific_design = self.name + '_' + self.specific_design
@@ -998,7 +998,9 @@ class DesignDirectory:  # (JobResources):
                     self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
                 except IndexError:  # glob found no files
                     self.source = None
-        else:  # if the DesignDirectory is loaded as .pdb, the source should be loaded already
+        else:
+            # if the DesignDirectory is loaded as .pdb, the source should be loaded already
+            # self.source = self.init_pdb
             pass
 
         # design specific files
@@ -2275,8 +2277,12 @@ class DesignDirectory:  # (JobResources):
         profile_background = {}
         if self.design_profile:
             profile_background['design'] = self.design_profile
+        # else:
+        #     self.log.info('Design has no fragment information')
         if self.evolutionary_profile:
             profile_background['evolution'] = self.evolutionary_profile
+        else:
+            self.log.info('Design has no evolution information')
         if self.fragment_data:
             profile_background['fragment'] = self.fragment_data
         else:

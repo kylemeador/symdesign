@@ -631,15 +631,15 @@ if __name__ == '__main__':
     parser.add_argument('-s', '--single', type=os.path.abspath,
                         metavar=ex_path('SymDesignOutput', 'Projects', 'your_project', 'single_design[.pdb]'),
                         help='If design name is specified by a single path instead')
-    parser.add_argument('-wf', '--write_fragments', action='store_true',
-                        help='For any fragments generated, write them along with the Pose')
-    parser.add_argument('-wo', '--write_oligomers', action='store_true',
-                        help='For any oligomers generated, write them along with the Pose')
     parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
                         help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
     parser.add_argument('-S', '--symmetry', type=str, default=None,
                         help='The specific symmetry of the designs of interest. Preferrably in a composition formula'
                              'such as T:{C3}{C3}...')
+    parser.add_argument('-wf', '--write_fragments', action='store_true',
+                        help='For any fragments generated, write them along with the Pose')
+    parser.add_argument('-wo', '--write_oligomers', action='store_true',
+                        help='For any oligomers generated, write them along with the Pose')
     subparsers = parser.add_subparsers(title='Modules', dest='module',
                                        description='These are the different modes that designs can be processed',
                                        help='Chose a Module followed by Module specific flags. To get help with a '
@@ -1357,7 +1357,7 @@ if __name__ == '__main__':
             pre_refine = None  # False
             pre_loop_model = None  # False
 
-        if args.multi_processing and not args.skip_master_db:
+        if args.multi_processing:  # and not args.skip_master_db:
             # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
             master_db.load_all_data()
             # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
@@ -1430,7 +1430,8 @@ if __name__ == '__main__':
                     else:
                         pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.oligomer1)
                     pdb1_oriented_filepaths = \
-                        [orient_pdb_file(file, log=orient_log, sym=symmetry_map[0], out_dir=master_db.oriented.location)
+                        [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
+                                         out_dir=master_db.oriented.location)
                          for file in pdb1_filepaths]
                     entities1 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
@@ -1452,7 +1453,8 @@ if __name__ == '__main__':
                     else:
                         pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.oligomer2)
                     pdb2_oriented_filepaths = \
-                        [orient_pdb_file(file, log=orient_log, sym=symmetry_map[1], out_dir=master_db.oriented.location)
+                        [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
+                                         out_dir=master_db.oriented.location)
                          for file in pdb2_filepaths]
                     entities2 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
