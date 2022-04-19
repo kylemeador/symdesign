@@ -987,8 +987,8 @@ if __name__ == '__main__':
         args, additional_args = parser.parse_known_args(additional_args, args)
         unknown_args = additional_args
     args, additional_args = parser.parse_known_args(additional_args, args)
-    print(args)
-    print(additional_args)
+    # print(args)
+    print('Found additional arguments that are not recognized program wide:', additional_args)
     default_flags = Flags.return_default_flags(args.module)
     formatted_flags = format_additional_flags(additional_args)
     default_flags.update(formatted_flags)
@@ -1743,7 +1743,7 @@ if __name__ == '__main__':
         if args.multi_processing:
             zipped_args = zip(design_directories, repeat(args.to_design_directory), repeat(args.interface_to_alanine),
                               repeat(args.gather_metrics))
-            results = SDUtils.mp_map(DesignDirectory.refine, zipped_args, threads=threads)
+            results = SDUtils.mp_starmap(DesignDirectory.refine, zipped_args, threads=threads)
         else:
             for design in design_directories:
                 results.append(design.refine(to_design_directory=args.to_design_directory,
