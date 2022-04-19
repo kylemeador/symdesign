@@ -950,9 +950,12 @@ def collect_designs(files=None, directory=None, project=None, single=None):
             if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
                 all_paths.append(file)
             else:  # assume a file that specifies individual designs was passed and load all design names in that file
-                with open(file, 'r') as f:
-                    paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
-                                repeat(os.sep))  # only strip the trailing 'os.sep' in case file names are passed
+                try:
+                    with open(file, 'r') as f:
+                        paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
+                                    repeat(os.sep))  # only strip the trailing 'os.sep' in case file names are passed
+                except IsADirectoryError:
+                    raise DesignError('%s is a directory not a file. Did you mean to run with --file?' % file)
                 all_paths.extend(paths)
         location = files[0]  # assigned to the first file even if there are multiple...
     elif directory:
