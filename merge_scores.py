@@ -50,14 +50,14 @@ if __name__ == '__main__':
                  '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Grab all poses (directories) to be processed from either directory name or file
-    all_poses1, location = SDUtils.collect_designs(file=args.file, directory=args.directory)
+    all_poses1, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses1 != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
                                  % (PUtils.nano, location)
     all_design_directories1 = DesignDirectory.set_up_directory_objects(all_poses1)
     logger.info('%d Poses found in \'%s\'' % (len(all_poses1), location))
 
     # Grab all poses (directories) to be processed from either directory name or file
-    all_poses2, location = SDUtils.collect_designs(file=args.file, directory=args.directory)
+    all_poses2, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses2 != list(), 'No %s directories found within \'%s\' input! Please ensure correct location' \
                                  % (PUtils.nano, location)
     all_design_directories2 = DesignDirectory.set_up_directory_objects(all_poses2)

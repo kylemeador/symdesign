@@ -1154,7 +1154,7 @@ if __name__ == '__main__':
             location = args.specification_file
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
-                                                          project=args.project, single=args.single)
+                                                          projects=args.project, singles=args.single)
         if args.design_range:
             low, high = map(float, args.design_range.split('-'))
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))

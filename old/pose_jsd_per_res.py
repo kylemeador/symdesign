@@ -60,7 +60,7 @@ if __name__ == '__main__':
                  '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Collect all designs to be processed
-    all_designs, location = SDUtils.collect_designs(file=args.file, directory=args.directory)
+    all_designs, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
     assert all_designs != list(), 'No %s directories found within \'%s\' input! Please ensure correct location'\
                                   % (PUtils.nano, location)
     logger.info('%d Poses found in \'%s\'' % (len(all_designs), location))

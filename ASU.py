@@ -593,7 +593,7 @@ if __name__ == '__main__':
             design_recapitulation(args.file, args.out_path, pdb_dir=args.directory, oligomer=args.oligomer_asu)
     else:
         if args.directory or args.file:
-            file_paths, location = SDUtils.collect_designs(file=args.file, directory=args.directory, dir_type=args.mode)
+            file_paths, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
         else:
             exit('Specify either a file or a directory to locate the files!')
 
