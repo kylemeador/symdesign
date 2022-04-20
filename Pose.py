@@ -1190,7 +1190,7 @@ class SymmetricModel(Model):
             chains = []
             for idx in selected_models:
                 chains.extend(self.models[idx].chains)
-            self._assembly = PDB.from_chains(chains, name='assembly', log=self.log, biomt_record=self.format_biomt(),
+            self._assembly = PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
                                              cryst_record=self.cryst_record)
             return self._assembly
 
