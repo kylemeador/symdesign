@@ -1095,7 +1095,7 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
         for key, value in scores.items():
             # metadata = column.split('_')
             if key.startswith('per_res_'):
-                metadata = key.split('_')
+                metadata = key.strip('_').split('_')
                 # remove chain_id in rosetta_numbering="False"
                 # if we have enough chains, weird characters appear "per_res_energy_complex_19_" which mess up split
                 # also numbers appear "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
