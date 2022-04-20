@@ -2514,10 +2514,10 @@ class DesignDirectory:  # (JobResources):
                 scores_df.drop('repacking', axis=1, inplace=True)
             # Process dataframes for missing values and drop refine trajectory if present
             scores_df[PUtils.groups] = protocol_s
-            refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
-            scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-            residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-            residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
+            # refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
+            # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+            # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+            # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
             # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
             residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
             residue_df.fillna(0., inplace=True)
@@ -2974,17 +2974,20 @@ class DesignDirectory:  # (JobResources):
             scores_df['interface_area_to_residue_surface_ratio'] = \
                 (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
-            residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
+            residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]  # Todo this isn't explict!!
 
             # POSE ANALYSIS
-            # consensus cst_weights are very large and destroy the mean. remove v if consensus is run multiple times
-            trajectory_df = scores_df.sort_index().drop(PUtils.stage[5], axis=0, errors='ignore')
+            # refine is not considered sequence design and destroys mean. remove v
+            # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
+            # consensus cst_weights are very large and destroy the mean.
+            # remove this step for consensus or refine if they are run multiple times
+            trajectory_df = scores_df.sort_index().drop([PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
             # add all docking and pose information to each trajectory
             pose_metrics_df = pd.concat([pd.Series(other_pose_metrics)] * len(trajectory_df), axis=1).T
             pose_metrics_df.rename(index=dict(zip(range(len(trajectory_df)), trajectory_df.index)), inplace=True)
             trajectory_df = pd.concat([pose_metrics_df, trajectory_df, pose_collapse_df], axis=1)
             # TODO v what about when run on consensus only?
-            assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
+            # assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
 
             # Get total design statistics for every sequence in the pose and every protocol specifically
             protocol_groups = scores_df.groupby(PUtils.groups)
@@ -3013,7 +3016,7 @@ class DesignDirectory:  # (JobResources):
                     protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
                         {protocol: '%s_%s' % (protocol, stat) for protocol in unique_protocols})
             trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
-            # this concat puts back consensus design to trajectory_df since protocol_stats is calculated on scores_df
+            # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
 
             # Calculate sequence statistics
             # first for entire pose
@@ -3061,8 +3064,8 @@ class DesignDirectory:  # (JobResources):
 
             # Calculate protocol significance
             pvalue_df = pd.DataFrame()
-            scout_protocols = filter(re.compile('.*scout').match, protocol_s.index.to_list())  # list()
-            similarity_protocols = set(unique_protocols).difference(scout_protocols)
+            scout_protocols = filter(re.compile('.*scout').match, protocol_s.index.to_list())
+            similarity_protocols = set(unique_protocols).difference([PUtils.refine] + list(scout_protocols))
             if background_protocol not in unique_protocols:
                 self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
                                  'for this design' % background_protocol)
