@@ -373,7 +373,7 @@ class SequenceProfile:
         p = subprocess.Popen(cmd)
         p.communicate()
 
-    @handle_errors(errors=(FileNotFoundError,))
+    # @handle_errors(errors=(FileNotFoundError,))
     def parse_psiblast_pssm(self, **kwargs):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
         # Todo it's CURRENTLY IMPOSSIBLE to use in calculate_design_profile, CHANGE psiblast lod score parsing
@@ -434,7 +434,7 @@ class SequenceProfile:
         p.communicate()
         # os.system('rm %s' % self.a3m_file)
 
-    @handle_errors(errors=(FileNotFoundError,))
+    # @handle_errors(errors=(FileNotFoundError,))
     def parse_hhblits_pssm(self, null_background=True, **kwargs):
         """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 
@@ -1768,7 +1768,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
 #     return outfile_name, p
 
 
-@handle_errors(errors=(FileNotFoundError,))
+# @handle_errors(errors=(FileNotFoundError,))
 def parse_pssm(file, **kwargs):
     """Take the contents of a pssm file, parse, and input into a pose profile dictionary.
 
@@ -1860,7 +1860,7 @@ def get_lod(aa_freq_dict, bg_dict, round_lod=True):
 #     return generate_msa_dictionary(msa_from_seq_records(read_fasta_file(file)))
 
 
-@handle_errors(errors=(FileNotFoundError,))
+# @handle_errors(errors=(FileNotFoundError,))
 def parse_hhblits_pssm(file, null_background=True, **kwargs):
     """Take contents of protein.hmm, parse file and input into pose_dict. File is Single AA code alphabetical order
 

@@ -238,7 +238,7 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
     return filename
 
 
-@handle_errors(errors=(FileNotFoundError,))
+# @handle_errors(errors=(FileNotFoundError,))
 def update_status(serialized_info, stage, mode='check'):
     """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
     info = unpickle(serialized_info)
