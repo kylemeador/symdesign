@@ -425,7 +425,6 @@ class DataStore:
         if files:
             if len(files) > 1:
                 self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, files[0]))
-
             return files[0]
         else:
             self.log.warning('No files found for "%s". Attempting to incorporate into the Database' % path)
