@@ -4,7 +4,7 @@ import time
 from copy import deepcopy
 from json import dumps, load
 import sys
-from typing import Union, List
+from typing import Union, List, Dict
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -14,7 +14,7 @@ import requests
 
 from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError, ex_path
 from Query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, header_string, \
-    format_string
+    format_string, connection_exception_handler
 
 # Globals
 logger = start_log(name=__name__)
@@ -727,7 +727,7 @@ def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
     return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d, 'struct': struct_d, 'method': exptl_method}
 
 
-def get_pdb_info_by_entity(entity_id):
+def get_pdb_info_by_entity(entity_id) -> Dict:
     """Query the PDB API for an EntityID and return the associated chains and reference dictionary
 
     Args:
@@ -783,43 +783,7 @@ def get_pdb_info_by_entity(entity_id):
         return {}
 
 
-def connection_exception_handler(url, max_attempts=5):
-    """Wrap requests GET commands in an exception handler which attempts to aquire the data multiple times if the
-    connection is refused due to a high volume of requests
-
-    Args:
-        url (str): The url to GET information from
-    Keyword Args:
-        max_attempts=5 (int): The number of queries that should be attempts without successful return
-    Returns:
-        (union[dict, None]): The json formatted response to the url GET or None
-    """
-    query_response = None
-    iteration = 1
-    while True:
-        try:
-            query_response = requests.get(url)
-            if query_response.status_code == 200:
-                return query_response.json()
-            elif query_response.status_code == 204:
-                logger.warning('No response was returned. Your query likely found no matches!')
-                break
-            else:
-                logger.debug('Your query returned an unrecognized status code (%d)' % query_response.status_code)
-                time.sleep(1)
-                iteration += 1
-        except requests.exceptions.ConnectionError:
-            logger.debug('Requests ran into a connection error. Sleeping, then retrying')
-            time.sleep(1)
-            iteration += 1
-
-        if iteration > max_attempts:
-            raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
-                              'Offending request %s' % getattr(query_response, 'url'))
-    return
-
-
-def query_entity_id(entity_id):
+def query_entity_id(entity_id) -> Union[Dict, None]:
     """Fetches the JSON object for the entity_id from the PDB API
      
     For all method types the following keys are available:
@@ -834,11 +798,15 @@ def query_entity_id(entity_id):
     Args:
         entity_id (str): The entity_id with the format PDBentryID_entityID. Ex: 1abc_1
     Returns:
-        (union[dict, None])
+        (Union[dict, None])
     """
     # Todo change data retrieval to POST
-    return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s'
-                                        % tuple(entity_id.split('_')))
+    entity_split = entity_id.split('_')
+    if len(entity_split) == 2 and len(entity_split[0]) == 4:
+        return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s'
+                                            % tuple(entity_split))
+    logger.warning('Entity ID \'%s\' is not of the required format and will not be found with the PDB API' % entity_id)
+    return
 
 
 def get_entity_uniprot_id(entity_id=None, pdb=None, entity=None, chain=None):
