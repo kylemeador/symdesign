@@ -2474,7 +2474,7 @@ class Entity(Chain, SequenceProfile):
                                  'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
-    def uniprot_id(self) -> str:
+    def uniprot_id(self) -> Union[str, None]:
         """The UniProt ID for the Entity used for accessing genomic and homology features
 
         Returns:
@@ -2487,11 +2487,12 @@ class Entity(Chain, SequenceProfile):
             for chain, api_data in self.api_entry.items():  # [next(iter(self.api_entry))]
                 # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
                 if api_data.get('db', None) == 'UNP':
+                    # set the first found chain. They are likely all the same anyway
                     self._uniprot_id = api_data.get('accession', None)
-                    try:
-                        return self._uniprot_id  # return/set the first found chain. They are likely the same anyway
-                    except AttributeError:
-                        continue
+            try:
+                return self._uniprot_id
+            except AttributeError:
+                pass
         self.log.warning('No uniprot_id found for Entity %s' % self.name)
         return
         # # Make a random pseudo UniProtID
