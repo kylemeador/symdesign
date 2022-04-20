@@ -2524,6 +2524,7 @@ class DesignDirectory:  # (JobResources):
 
             # Find designs where required data is present
             viable_designs = scores_df.index.to_list()
+            assert viable_designs, 'No viable designs remain after processing!'
             self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
             other_pose_metrics['observations'] = len(scores_df)
             pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
@@ -2537,7 +2538,7 @@ class DesignDirectory:  # (JobResources):
             # per residue data includes every residue in the pose
             per_residue_data = {'errat_deviation': {}, 'sasa_total': {}}  # 'local_density': {},
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
-                if structure.name not in scores_df.index:
+                if structure.name not in viable_designs:
                     continue
                 design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, source_db=self.resources,
                                             design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
