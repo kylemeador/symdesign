@@ -81,7 +81,11 @@ class StructureBase:
                  solve_discrepancy=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
                  query_by_sequence=True, entity_names=None, rename_chains=None, biomt=None, biomt_header=None,
                  **kwargs):
-        super().__init__(**kwargs)
+        try:
+            super().__init__(**kwargs)
+        except TypeError:
+            raise TypeError('The argument(s) passed to the Structure object were not recognized: %s' %
+                            ', '.join(kwargs.keys()))
 
 
 class Structure(StructureBase):
