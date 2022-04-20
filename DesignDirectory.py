@@ -2405,7 +2405,7 @@ class DesignDirectory:  # (JobResources):
             all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
             #    generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
             residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
-            #                                         hbonds=interface_hbonds)
+                                                    hbonds=interface_hbonds)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info = residue_processing(all_design_scores, simplify_mutation_dict(all_mutations), per_res_columns,
             #                                   hbonds=interface_hbonds)
