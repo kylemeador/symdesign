@@ -975,7 +975,7 @@ def interface_residue_composition_similarity(series):
     return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
 
 
-def residue_processing(score_dict, mutations, columns, hbonds=None):  # offset=None,
+def residue_processing(score_dict, mutations, columns, hbonds=None):
     """Process Residue Metrics from Rosetta score dictionary
 
     One-indexed residues
@@ -987,78 +987,89 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):  # offset=N
         columns (list): ['per_res_energy_complex_5', 'per_res_sasa_polar_1_unbound_5', 
             'per_res_energy_1_unbound_5', ...]
     Keyword Args:
-        # offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
-        residue_dict (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 
-            22.29, 'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0}, ...}, ...}
-    """  # , 'hot_spot': 1
+        (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 22.29,
+                   'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0},  # , 'hot_spot': 1
+              ...}, ...}
+    """
+    # pose_length (int): The number of residues in the pose
+    pose_length = len(mutations['reference'])
+    warn = False
     total_residue_dict = {}
-    for entry in score_dict:
-        residue_dict = {}
-        # for key, value in score_dict[entry].items():
-        for column in columns:
+    for design, scores in score_dict.items():
+        residue_data = {}
+        for column in map(str.strip, columns, '_'):
             metadata = column.split('_')
-            # if key.startswith('per_res_'):
-            # metadata = key.split('_')
-            res = int(metadata[-1])
-            r_type = metadata[2]  # energy or sasa
+            # remove chain_id in rosetta_numbering="False"
+            # if we have enough chains, weird characters appear "per_res_energy_complex_19_" which mess up split
+            # also numbers appear "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
+            residue_number = int(metadata[-1].translate(digit_translate_table))
+            if residue_number > pose_length:
+                if not warn:
+                    warn = True
+                    logger.warning('Encountered %s which has residue number > the pose length (%d). If this system is '
+                                   'NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
+                                   'PerResidue SimpleMetrics, there is an error in processing that requires your'
+                                   'debugging. Otherwise, this is likely a numerical chain and will be treated under '
+                                   'that assumption. Always ensure that output_as_pdb_nums="true" is set'
+                                   % (column, pose_length))
+                residue_number = int(metadata[-1].translate(digit_translate_table)[:-1])
+            if residue_number not in residue_data:
+                residue_data[residue_number] = deepcopy(residue_template)
+
+            metric = metadata[2]  # energy or sasa
             pose_state = metadata[-2]  # unbound or complex or fsp (favor_sequence_profile)  # cst (constraint)
-            if pose_state == 'unbound' and offset:  # 'oligomer'
-                res += offset[metadata[-3]]  # get interface, chain name, length offset
-            if res not in residue_dict:
-                residue_dict[res] = deepcopy(residue_template)
-            if r_type == 'sasa':
+            if metric == 'sasa':
                 # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
-                polarity = metadata[3]  # hydrophobic or polar or total
-                residue_dict[res][r_type][polarity][pose_state] = round(score_dict[entry][column], 3)
+                polarity = metadata[3]
+                residue_data[residue_number][metric][polarity][pose_state] = scores.get(column, 0)
             else:
                 # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
-                residue_dict[res][r_type][pose_state] = round(score_dict[entry][column], 3)
-        # if residue_dict:
-        for res in residue_dict:
-            try:
-                residue_dict[res]['type'] = mutations[entry][res]
-            except KeyError:
-                residue_dict[res]['type'] = mutations['ref'][res]  # fill with aa from wild_type sequence
-            if hbonds:
-                if res in hbonds[entry]:
-                    residue_dict[res]['hbond'] = 1
-            residue_dict[res]['energy_delta'] = residue_dict[res]['energy']['complex'] \
-                - residue_dict[res]['energy']['unbound']  # - residue_dict[res]['energy']['cst']  # 'oligomer'
-            # - residue_dict[res]['energy']['fsp']
-            rel_oligomer_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                 residue_dict[res]['sasa']['total']['unbound'])  # 'oligomer'
-            rel_complex_sasa = calc_relative_sa(residue_dict[res]['type'],
-                                                residue_dict[res]['sasa']['total']['complex'])
-            for polarity in residue_dict[res]['sasa']:
-                # convert sasa measurements into bsa measurements
-                residue_dict[res]['bsa_' + polarity] = round(
-                    residue_dict[res]['sasa'][polarity]['unbound'] - residue_dict[res]['sasa'][polarity][
-                        'complex'], 2)  # 'oligomer'
-            if residue_dict[res]['bsa_total'] > 0:
-                if rel_oligomer_sasa < 0.25:
-                    residue_dict[res]['support'] = 1
-                elif rel_complex_sasa < 0.25:
-                    residue_dict[res]['core'] = 1
-                else:
-                    residue_dict[res]['rim'] = 1
-            else:  # remove residue from dictionary as no interface design should be done? keep interior residues
-                if rel_complex_sasa < 0.25:
-                    residue_dict[res]['interior'] = 1
-                # else:
-                #     residue_dict[res]['surface'] = 1
+                residue_data[residue_number][metric][pose_state] += scores.get(column, 0)
 
-            residue_dict[res].pop('sasa')
-            residue_dict[res].pop('energy')
-            # if residue_dict[res]['energy'] <= hot_spot_energy:
-            #     residue_dict[res]['hot_spot'] = 1
-        total_residue_dict[entry] = residue_dict
+        for residue_number, data in residue_data.items():
+            try:
+                data['type'] = mutations[design][residue_number]  # % pose_length]
+            except KeyError:
+                data['type'] = mutations['reference'][residue_number]  # % pose_length]  # fill with aa from wt seq
+            if hbonds:
+                if residue_number in hbonds[design]:
+                    data['hbond'] = 1
+            data['energy_delta'] = round(data['energy']['complex'] - data['energy']['unbound'], 2)
+            #     - data['energy']['fsp'] - data['energy']['cst']
+            # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
+            relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
+            relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
+            for polarity in data['sasa']:
+                # convert sasa measurements into bsa measurements
+                data['bsa_%s' % polarity] = \
+                    round(data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex'], 2)
+
+            if data['bsa_total'] > 0:
+                if relative_oligomer_sasa < 0.25:
+                    data['support'] = 1
+                elif relative_complex_sasa < 0.25:
+                    data['core'] = 1
+                else:
+                    data['rim'] = 1
+            else:  # Todo remove residue from dict as no design should be done? keep interior residue constant?
+                if relative_complex_sasa < 0.25:
+                    data['interior'] = 1
+                # else:
+                #     residue_data[residue_number]['surface'] = 1
+            data['coordinate_constraint'] = round(data['energy']['cst'], 2)
+            data['residue_favored'] = round(data['energy']['fsp'], 2)
+            data.pop('energy')
+            data.pop('sasa')
+            # if residue_data[residue_number]['energy'] <= hot_spot_energy:
+            #     residue_data[residue_number]['hot_spot'] = 1
+        total_residue_dict[design] = residue_data
 
     return total_residue_dict
 
 
-def dirty_residue_processing(score_dict, mutations, hbonds=None):  # offset=None, pose_length,
+def dirty_residue_processing(score_dict, mutations, hbonds=None):
     """Process Residue Metrics from Rosetta score dictionary
 
     One-indexed residues
@@ -1068,7 +1079,6 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):  # offset=None
         mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
                            '0001': {mutation_index: {}, ...}, ...}
     Keyword Args:
-        # offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
         hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 22.29,
@@ -1086,19 +1096,20 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):  # offset=None
             # metadata = column.split('_')
             if key.startswith('per_res_'):
                 metadata = key.split('_')
-                # residue_number = int(metadata[-1])
-                # residue_number = int(metadata[-1][:-1])  # remove the chain identifier used with rosetta_numbering="False"
-                residue_number = int(metadata[-1].translate(digit_translate_table))  # remove chain_id in rosetta_numbering="False"
+                # remove chain_id in rosetta_numbering="False"
+                # if we have enough chains, weird characters appear "per_res_energy_complex_19_" which mess up split
+                # also numbers appear "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
+                residue_number = int(metadata[-1].translate(digit_translate_table))
                 if residue_number > pose_length:
-                    if not warn:  # TODO this can move to residue_processing (clean) once instated
+                    if not warn:
                         warn = True
-                        logger.warning('Encountered %s which has residue number > the pose length (%d). Scores above '
-                                       'will be discarded. Use pbd_numbering on all Rosetta PerResidue SimpleMetrics to'
-                                       ' ensure that symmetric copies have the same residue number on symmetry mates.'
-                                       % (key, pose_length))
-                    continue
-                # if pose_state == 'unbound' and offset:
-                #     residue_number += offset[metadata[-3]]  # get oligomer chain offset
+                        logger.warning(
+                            'Encountered %s which has residue number > the pose length (%d). If this system is '
+                            'NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
+                            'PerResidue SimpleMetrics, there is an error in processing that requires your'
+                            'debugging. Otherwise, this is likely a numerical chain and will be treated under '
+                            'that assumption. Always ensure that output_as_pdb_nums="true" is set' % (key, pose_length))
+                    residue_number = int(metadata[-1].translate(digit_translate_table)[:-1])
                 if residue_number not in residue_data:
                     residue_data[residue_number] = deepcopy(residue_template)
 
