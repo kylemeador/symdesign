@@ -13,7 +13,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
-from typing import List, Union
+from typing import List, Union, Iterable, Iterator, Tuple, Sequence
 
 import numpy as np
 # from numba import njit
@@ -933,16 +933,17 @@ def get_docked_dirs_from_base(base):
     return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
 
 
-def collect_designs(files=None, directory=None, project=None, single=None):
+def collect_designs(files: Sequence = None, directory: str = None, projects: Sequence = None, singles: Sequence = None)\
+        -> Tuple[List, str]:
     """Grab all poses from an input source
 
     Keyword Args:
-        files=None (iterable): Iterable with disk location of files containing design directories
+        files=None (Sequence): Iterable with disk location of files containing design directories
         directory=None (str): Disk location of the program directory
-        project=None (str): Disk location of a project directory
-        single=None (str): Disk location of a single design directory
+        project=None (Sequence): Disk location of a project directory
+        single=None (Sequence): Disk location of a single design directory
     Returns:
-        (tuple[(list), (str)]): All pose directories found, The location where they are located
+        (tuple[list, str]): All pose directories found, The location where they are located
     """
     if files:
         all_paths = []
@@ -960,58 +961,71 @@ def collect_designs(files=None, directory=None, project=None, single=None):
                 except IsADirectoryError:
                     raise DesignError('%s is a directory not a file. Did you mean to run with --file?' % file)
                 all_paths.extend(paths)
-        location = files[0]  # assigned to the first file even if there are multiple...
-    elif directory:
-        location = directory
+        # location = files[0]  # assigned to the first file even if there are multiple...
+    else:
+        # if directory:
         base_directory = get_base_symdesign_dir(directory)
-        if not base_directory:  # This is probably an uninitialized project. Grab all .pdb files
+        # return all design directories within:
+        #  base directory -> /base/Projects/project1, ... /base/Projects/projectN
+        #  specified projects -> /base/Projects/project1, /base/Projects/project2, ...
+        #  specified singles -> /base/Projects/project/design1, /base/Projects/project/design2, ...
+        if base_directory or projects or singles:
+            all_paths = get_symdesign_dirs(base=base_directory, projects=projects, singles=singles)
+        elif directory:  # This is probably an uninitialized project. Grab all .pdb files
             all_paths = get_all_file_paths(directory, extension='.pdb')
-        else:  # return all design directories within the base directory ->/base/Projects/project/design
-            all_paths = map(os.path.dirname, get_symdesign_dirs(base=base_directory))
+        else:  # function was called with all set to None. This shouldn't happen
+            all_paths = []
+            # raise DesignError('There was no argument provided to %s! Which returns no designs...'
+            #                   % collect_designs.__name__)
+        # location = directory
+    # elif projects:
+    #     all_paths = get_symdesign_dirs(project=projects)
+    #     location = projects[0]  # assigned to the first path even if there are multiple...
+    # elif singles:
+    #     all_paths = get_symdesign_dirs(single=singles)
+    #     location = singles[0]  # assigned to the first path even if there are multiple...
+    # else:  # this shouldn't happen
+    #     all_paths = []
+    location = (files or directory or projects or singles or None)
 
-    elif project:
-        all_paths = get_symdesign_dirs(project=project)
-        location = project
-    elif single:
-        all_paths = get_symdesign_dirs(single=single)
-        location = single
-    else:  # this shouldn't happen
-        all_paths = []
-        location = None
-
-    return sorted(set(all_paths)), location
+    return sorted(set(all_paths)), location[0] if isinstance(location, Sequence) else location
 
 
-def get_base_symdesign_dir(directory) -> Union[None, str]:
-    base_dir = None
+def get_base_symdesign_dir(directory: None) -> Union[None, str]:
+    # base_dir = None
     if not directory:
-        return
+        pass
     elif PUtils.program_output in directory:   # directory1/SymDesignOutput/directory2/directory3
         for idx, dirname in enumerate(directory.split(os.sep), 1):
             if dirname == PUtils.program_output:
-                base_dir = '%s%s' % (os.sep, os.path.join(*directory.split(os.sep)[:idx]))
+                directory = '%s%s' % (os.sep, os.path.join(*directory.split(os.sep)[:idx]))
                 break
     elif PUtils.program_output in os.listdir(directory):  # directory_provided/SymDesignOutput
         for sub_directory in os.listdir(directory):
             if sub_directory == PUtils.program_output:
-                base_dir = os.path.join(directory, sub_directory)
+                directory = os.path.join(directory, sub_directory)
                 break
-    else:
-        return
 
-    return base_dir
+    return directory
 
 
-def get_symdesign_dirs(base=None, project=None, single=None):
+def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Iterable = None) -> Iterator:
     """Return the specific design directories from the specified hierarchy with the format
     /base(SymDesignOutput)/Projects/project/design
     """
-    if single:
-        return map(os.path.dirname, glob('%s%s' % (single, os.sep)))  # sorted(set())
-    elif project:
-        return map(os.path.dirname, glob('%s%s*%s' % (project, os.sep, os.sep)))  # sorted(set())
-    else:
-        return map(os.path.dirname, glob('%s%s%s' % (base, 3 * ('%s*' % os.sep), os.sep)))  # sorted(set())
+    paths = []
+    if base:
+        paths = glob('%s%s%s' % (base, 3 * ('%s*' % os.sep), os.sep))  # base/*/*/*/
+        # return map(os.path.dirname, glob('%s%s%s' % (base, 3 * ('%s*' % os.sep), os.sep)))  # sorted(set())
+    elif projects:
+        for project in projects:
+            paths.extend(glob('%s%s*%s' % (project, os.sep, os.sep)))  # project/*/
+        # return map(os.path.dirname, paths)  # sorted(set())
+    else:  # if single:
+        for single, extension in map(os.path.splitext, singles):
+            paths.extend(glob('%s%s' % (single, os.sep)))  # single/
+        # return map(os.path.dirname, paths)  # sorted(set())
+    return map(os.path.dirname, paths)  # sorted(set())
 
 
 class DesignSpecification(Dialect):
