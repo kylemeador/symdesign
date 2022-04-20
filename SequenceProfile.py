@@ -7,7 +7,7 @@ import subprocess
 import time
 from copy import deepcopy, copy
 # from glob import glob
-from typing import Dict
+from typing import Dict, Union
 
 import numpy as np
 import pandas as pd
@@ -32,6 +32,144 @@ aa_weighted_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I
                       'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
 add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
+
+
+class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
+    numerical_translation = dict(zip('-ACDEFGHIKLMNPQRSTVWY', range(21)))
+
+    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + extended_protein_letters,
+                 weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
+        """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
+
+        gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
+        probability of residue i in the specific column more accurately.
+        Keyword Args:
+            bio_alignment=None ((Bio.Align.MultipleSeqAlignment)): "Array" of SeqRecords
+            aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first
+            sequence will be used
+            alphabet=extended_protein_letters (str): '-ACDEFGHIKLMNPQRSTVWYBXZJUO'
+            weight_alignment_by_sequence=False (bool): If weighting should be performed. Use in cases of
+                unrepresentative sequence population in the MSA
+            sequence_weights=None (dict): If the alignment should be weighted, and weights are already available, the
+                weights for each sequence
+            gaps=False (bool): Whether gaps (-) should be counted in column weights
+        Sets:
+            alignment - (Bio.Align.MultipleSeqAlignment)
+            number_of_sequences - 214
+            query - 'MGSTHLVLK...'
+            query_with_gaps - 'MGS--THLVLK...'
+            counts - {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
+            frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
+            observations - {1: 210, 2:211, ...}}
+        """
+        if not alignment:
+            pass
+        else:
+            if not aligned_sequence:
+                aligned_sequence = str(alignment[0].seq)
+            # Add Info to 'meta' record as needed and populate a amino acid count dict (one-indexed)
+            self.alignment = alignment
+            self.number_of_sequences = len(alignment)
+            self.length = alignment.get_alignment_length()
+            self.query = aligned_sequence.replace('-', '')
+            self.query_length = len(self.query)
+            self.query_with_gaps = aligned_sequence
+            self.counts = SequenceProfile.populate_design_dictionary(self.length, alphabet, dtype=int)
+            for record in self.alignment:
+                for i, aa in enumerate(record.seq, 1):
+                    self.counts[i][aa] += 1
+
+            self.observations = find_column_observations(self.counts, **kwargs)
+            if weight_alignment_by_sequence:
+                sequence_weights = weight_sequences(self.counts, self.alignment, column_counts=self.observations)
+
+            if sequence_weights:  # overwrite the current counts with weighted counts
+                self.sequence_weights = sequence_weights
+                for record in self.alignment:
+                    for i, aa in enumerate(record.seq, 1):
+                        self.counts[i][aa] += sequence_weights[i]
+            else:
+                self.sequence_weights = []
+
+            self.frequencies = {}
+            self.msa_to_prob_distribution()
+
+    @classmethod
+    def from_stockholm(cls, file, **kwargs):
+        try:
+            return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
+        except FileNotFoundError:
+            raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
+
+    @classmethod
+    def from_fasta(cls, file):
+        try:
+            return cls(alignment=read_alignment(file))
+        except FileNotFoundError:
+            raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
+
+    def msa_to_prob_distribution(self):
+        """Find the Alignment probability distribution
+
+        Sets:
+            self.frequencies (dict[mapping[int, dict[mapping[alphabet,float]]]]):
+                {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...}
+        """
+        for residue, amino_acid_counts in self.counts.items():
+            total_column_weight = self.observations[residue]
+            assert total_column_weight != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' \
+                                             % (MultipleSequenceAlignment.msa_to_prob_distribution.__name__, residue)
+            self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
+
+    @property
+    def query_indices(self):
+        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
+        1 and 0 during subsequent arithmetic
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._sequence_index[0]
+        except AttributeError:
+            self._sequence_index = np.isin(self.array, b'-', invert=True)
+            return self._sequence_index[0]
+
+    @property
+    def sequence_indices(self):
+        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
+        1 and 0 during subsequent arithmetic
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._sequence_index
+        except AttributeError:
+            self._sequence_index = np.isin(self.array, b'-', invert=True)
+            return self._sequence_index
+
+    @property
+    def numerical_alignment(self):
+        """Return the array as a numerical representation
+
+        Returns:
+            (numpy.ndarray)
+        """
+        try:
+            return self._numerical_alignment
+        except AttributeError:
+            self._numerical_alignment = np.array([[self.numerical_translation[aa] for aa in record]
+                                                  for record in self.alignment])
+            return self._numerical_alignment
+
+    @property
+    def array(self):
+        try:
+            return self._array
+        except AttributeError:
+            self._array = np.array([list(record) for record in self.alignment], np.character)
+            return self._array
 
 
 class SequenceProfile:
@@ -532,8 +670,18 @@ class SequenceProfile:
                 self.profile[new_key] = position_profile
                 new_key += 1
 
-    def add_msa(self,):  # Todo adapt to different data sources
-        """Add a multiple sequence alignment to the profile"""
+    def add_msa(self, msa: Union[str, MultipleSequenceAlignment] = None):
+        """Add a multiple sequence alignment to the profile
+
+        Keyword Args:
+            msa=None (Union[str, MultipleSequenceAlignment]): The multiple sequence alignment to use for collapse
+        """
+        if msa:
+            if isinstance(msa, MultipleSequenceAlignment):
+                self.msa = msa
+            else:
+                self.msa_file = msa
+
         if not self.msa_file:
             # self.msa = self.resources.alignments.retrieve_data(name=self.name)
             raise AttributeError('No .msa_file attribute is specified yet!')
@@ -548,7 +696,7 @@ class SequenceProfile:
             except FileNotFoundError:
                 raise FileNotFoundError('No multiple sequence alignment exists at %s' % self.msa_file)
 
-    def collapse_profile(self):
+    def collapse_profile(self, msa: Union[str, MultipleSequenceAlignment] = None):
         """Find the mean and standard deviation for each index in the SequenceProfile sequence MSA
 
         Turn each sequence into a HCI array. All sequences have different lengths.
@@ -567,14 +715,16 @@ class SequenceProfile:
         is removed of any gaps and only the iterations will be left, essentially giving the HCI for the sequence
         profile in the native context, however adjusted to the specific context of the protein/design sequence at hand
 
+        Keyword Args:
+            msa=None (Union[str, MultipleSequenceAlignment]): The multiple sequence alignment to use for collapse
         Returns:
             (pandas.DataFrame): DataFrame containing each sequences hydrophobic collapse values for the profile, mean,
                 and std
         """
         if not self.msa:
             try:
-                self.add_msa()
-            except DesignError:
+                self.add_msa(msa)
+            except FileNotFoundError:
                 raise DesignError('Ensure that you have properly set up the .msa for this SequenceProfile. To do this, '
                                   'either link the Structure to the Master Database, call %s, or pass the location of a'
                                   ' multiple sequence alignment. Supported formats:\n%s)'
@@ -2653,143 +2803,6 @@ def weight_sequences(alignment, bio_alignment, column_counts=None):
 msa_supported_types = {'fasta': '.fasta', 'stockholm': '.sto'}
 msa_generation_function = 'SequenceProfile.hhblits()'
 
-
-class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
-    numerical_translation = dict(zip('-ACDEFGHIKLMNPQRSTVWY', range(21)))
-
-    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + extended_protein_letters,
-                 weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
-        """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
-
-        gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
-        probability of residue i in the specific column more accurately.
-        Keyword Args:
-            bio_alignment=None ((Bio.Align.MultipleSeqAlignment)): "Array" of SeqRecords
-            aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first
-            sequence will be used
-            alphabet=extended_protein_letters (str): '-ACDEFGHIKLMNPQRSTVWYBXZJUO'
-            weight_alignment_by_sequence=False (bool): If weighting should be performed. Use in cases of
-                unrepresentative sequence population in the MSA
-            sequence_weights=None (dict): If the alignment should be weighted, and weights are already available, the
-                weights for each sequence
-            gaps=False (bool): Whether gaps (-) should be counted in column weights
-        Sets:
-            alignment - (Bio.Align.MultipleSeqAlignment)
-            number_of_sequences - 214
-            query - 'MGSTHLVLK...'
-            query_with_gaps - 'MGS--THLVLK...'
-            counts - {1: {'A': 13, 'C': 1, 'D': 23, ...}, 2: {}, ...},
-            frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
-            observations - {1: 210, 2:211, ...}}
-        """
-        if not alignment:
-            pass
-        else:
-            if not aligned_sequence:
-                aligned_sequence = str(alignment[0].seq)
-            # Add Info to 'meta' record as needed and populate a amino acid count dict (one-indexed)
-            self.alignment = alignment
-            self.number_of_sequences = len(alignment)
-            self.length = alignment.get_alignment_length()
-            self.query = aligned_sequence.replace('-', '')
-            self.query_length = len(self.query)
-            self.query_with_gaps = aligned_sequence
-            self.counts = SequenceProfile.populate_design_dictionary(self.length, alphabet, dtype=int)
-            for record in self.alignment:
-                for i, aa in enumerate(record.seq, 1):
-                    self.counts[i][aa] += 1
-
-            self.observations = find_column_observations(self.counts, **kwargs)
-            if weight_alignment_by_sequence:
-                sequence_weights = weight_sequences(self.counts, self.alignment, column_counts=self.observations)
-
-            if sequence_weights:  # overwrite the current counts with weighted counts
-                self.sequence_weights = sequence_weights
-                for record in self.alignment:
-                    for i, aa in enumerate(record.seq, 1):
-                        self.counts[i][aa] += sequence_weights[i]
-            else:
-                self.sequence_weights = []
-
-            self.frequencies = {}
-            self.msa_to_prob_distribution()
-
-    @classmethod
-    def from_stockholm(cls, file, **kwargs):
-        try:
-            return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
-        except FileNotFoundError:
-            raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
-
-    @classmethod
-    def from_fasta(cls, file):
-        try:
-            return cls(alignment=read_alignment(file))
-        except FileNotFoundError:
-            raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
-
-    def msa_to_prob_distribution(self):
-        """Find the Alignment probability distribution
-
-        Sets:
-            self.frequencies (dict[mapping[int, dict[mapping[alphabet,float]]]]):
-                {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...}
-        """
-        for residue, amino_acid_counts in self.counts.items():
-            total_column_weight = self.observations[residue]
-            assert total_column_weight != 0, '%s: Processing error... Downstream cannot divide by 0. Position = %s' \
-                                             % (MultipleSequenceAlignment.msa_to_prob_distribution.__name__, residue)
-            self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
-
-    @property
-    def query_indices(self):
-        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
-        1 and 0 during subsequent arithmetic
-
-        Returns:
-            (numpy.ndarray)
-        """
-        try:
-            return self._sequence_index[0]
-        except AttributeError:
-            self._sequence_index = np.isin(self.array, b'-', invert=True)
-            return self._sequence_index[0]
-
-    @property
-    def sequence_indices(self):
-        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
-        1 and 0 during subsequent arithmetic
-
-        Returns:
-            (numpy.ndarray)
-        """
-        try:
-            return self._sequence_index
-        except AttributeError:
-            self._sequence_index = np.isin(self.array, b'-', invert=True)
-            return self._sequence_index
-
-    @property
-    def numerical_alignment(self):
-        """Return the array as a numerical representation
-
-        Returns:
-            (numpy.ndarray)
-        """
-        try:
-            return self._numerical_alignment
-        except AttributeError:
-            self._numerical_alignment = np.array([[self.numerical_translation[aa] for aa in record]
-                                                  for record in self.alignment])
-            return self._numerical_alignment
-
-    @property
-    def array(self):
-        try:
-            return self._array
-        except AttributeError:
-            self._array = np.array([list(record) for record in self.alignment], np.character)
-            return self._array
 
 # def generate_msa_dictionary(bio_alignment, aligned_sequence=None, alphabet=protein_letters,
 #                             weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
