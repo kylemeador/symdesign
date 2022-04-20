@@ -2313,7 +2313,7 @@ class DesignDirectory:  # (JobResources):
             # Gather mutations for residue specific processing and design sequences
             pose_sequences = {}
             for structure in design_structures:
-                pose_sequences[structure.name] = ''.join(structure.atom_sequences.values())  # {chain: sequence, ...}
+                pose_sequences[structure.name] = structure.sequence
 
             # Assumes each structure is the same length
             # format {entity: {design_name: sequence, ...}, ...}
@@ -2348,7 +2348,10 @@ class DesignDirectory:  # (JobResources):
             # Get the scores from the score file on design trajectory metrics
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
-            self.log.debug('All metrics collected: %s' % ', '.join(set(all_design_scores.values().keys())))
+            all_keys = []
+            for dic in list(all_design_scores.values()):
+                all_keys.extend(dic.keys())
+            self.log.debug('All metrics collected: %s' % ', '.join(set(all_keys)))
 
             # Gather mutations for residue specific processing and design sequences
             pose_length = self.pose.number_of_residues
@@ -2402,8 +2405,8 @@ class DesignDirectory:  # (JobResources):
             interface_hbonds = dirty_hbond_processing(all_design_scores)
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)
-            all_mutations = \
-                generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
+            all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
+            #    generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
             residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
                                                     hbonds=interface_hbonds)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
@@ -3065,7 +3068,7 @@ class DesignDirectory:  # (JobResources):
                 for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
                     select_df = \
                         trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2], significance_columns]
-                    difference_s = trajectory_df.loc[prot1, :].sub(trajectory_df.loc[prot2, :])
+                    difference_s = trajectory_df.loc[prot1, :].sub(trajectory_df.loc[prot2, :])  # prot1/2 pull out mean
                     pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
                                                                     group1_size=len(designs_by_protocol[prot1]))
                 pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
