@@ -98,8 +98,8 @@ class Structure(StructureBase):
         self._coords_residue_index = None
         self._residues = None
         self._residue_indices = None
-        self.biomt = kwargs.get('biomt', [])
-        self.biomt_header = kwargs.get('biomt_header', '')
+        self.biomt = kwargs.get('biomt', [])  # list of vectors to format
+        self.biomt_header = kwargs.get('biomt_header', '')  # str with already formatted header
         self.name = name
         self.secondary_structure = None
         self.sasa = None
