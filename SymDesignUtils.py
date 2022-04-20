@@ -353,7 +353,7 @@ def index_intersection(index_groups):
 
 def digit_keeper():
     table = defaultdict(type(None))
-    table.update({ord(c): c for c in digits})
+    table.update({ord(digit): digit for digit in digits})  # '0123456789'
 
     return table
 
@@ -588,31 +588,31 @@ def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', out_path=os.getcwd(), ad
     return file_name
 
 
-@handle_errors(errors=(FileNotFoundError,))
-def parse_flags_file(directory, name=PUtils.interface_design, flag_variable=None):
-    """Returns the design flags passed to Rosetta from a design directory
-
-    Args:
-        directory (str): Location of design directory on disk
-    Keyword Args:
-        name=PUtils.interface_design (str): The flags file suffix
-        flag_variable=None (str): The name of a specific variable to retrieve
-    Returns:
-        variable_dict (dict): {'interfaceA': 15A,21A,25A,..., 'dssm_file': , ...}
-    """
-    parser_vars = '-parser:script_vars'
-    with open(os.path.join(directory, 'flags_%s' % name), 'r') as f:
-        all_lines = f.readlines()
-        for line in all_lines:
-            if line[:19] == parser_vars:
-                variables = line.lstrip(parser_vars).strip().split()
-                variable_dict = {}
-                for variable in variables:
-                    variable_dict[variable.split('=')[0]] = variable.split('=')[1]
-                if flag_variable:
-                    return variable_dict[flag_variable]
-                else:
-                    return variable_dict
+# @handle_errors(errors=(FileNotFoundError,))
+# def parse_flags_file(directory, name=PUtils.interface_design, flag_variable=None):  # UNUSED
+#     """Returns the design flags passed to Rosetta from a design directory
+#
+#     Args:
+#         directory (str): Location of design directory on disk
+#     Keyword Args:
+#         name=PUtils.interface_design (str): The flags file suffix
+#         flag_variable=None (str): The name of a specific variable to retrieve
+#     Returns:
+#         variable_dict (dict): {'interfaceA': 15A,21A,25A,..., 'dssm_file': , ...}
+#     """
+#     parser_vars = '-parser:script_vars'
+#     with open(os.path.join(directory, 'flags_%s' % name), 'r') as f:
+#         all_lines = f.readlines()
+#         for line in all_lines:
+#             if line[:19] == parser_vars:
+#                 variables = line.lstrip(parser_vars).strip().split()
+#                 variable_dict = {}
+#                 for variable in variables:
+#                     variable_dict[variable.split('=')[0]] = variable.split('=')[1]
+#                 if flag_variable:
+#                     return variable_dict[flag_variable]
+#                 else:
+#                     return variable_dict
 
 
 def get_interface_residues(design_variables, pdb=True, zero=False):
