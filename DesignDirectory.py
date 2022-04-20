@@ -2348,6 +2348,7 @@ class DesignDirectory:  # (JobResources):
             # Get the scores from the score file on design trajectory metrics
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
+            self.log.debug('All metrics collected: %s' % ', '.join(set(all_design_scores.values().keys())))
 
             # Gather mutations for residue specific processing and design sequences
             pose_length = self.pose.number_of_residues
