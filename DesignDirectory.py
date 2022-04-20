@@ -2382,7 +2382,9 @@ class DesignDirectory:  # (JobResources):
                     hbonds_columns.append(column)
 
             # Check proper input
-            self.log.debug('All metrics collected scores_df: %s' % ', '.join(set(scores_df.columns)))
+            print(scores_df)
+            print(hbonds_columns)
+            self.log.debug('All metrics collected scores_df: %s' % ', '.join(set(scores_df.columns.to_list())))
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
