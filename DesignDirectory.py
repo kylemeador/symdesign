@@ -25,6 +25,7 @@ from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
+from Query.UniProt import is_uniprot_thermophilic
 from Structure import Structure  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, all_vs_all, \
