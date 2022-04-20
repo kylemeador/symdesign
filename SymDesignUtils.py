@@ -21,7 +21,7 @@ import numpy as np
 
 # import CommandDistributer
 import PathUtils as PUtils
-from Query.utils import validate_input
+# from Query.utils import validate_input
 
 # Globals
 input_string = '\nInput: '
@@ -454,6 +454,14 @@ def write_file(data, file_name=None):
     with open(file_name, 'w') as f:
         f.write('%s\n' % '\n'.join(data))
     logger.info('The file \'%s\' was written' % file_name)
+
+
+def validate_input(prompt, response=None):  # exact copy as in Query.utils
+    _input = input(prompt)
+    while _input not in response:
+        _input = input('Invalid input... \'%s\' not a valid response. Try again%s' % (_input, input_string))
+
+    return _input
 
 
 def io_save(data, file_name=None):
