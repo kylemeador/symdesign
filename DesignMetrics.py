@@ -144,6 +144,9 @@ master_metrics = {'average_fragment_z_score':
                   'entity_1_symmetry':  # TODO make a single metric
                       {'description': 'The symmetry notation of the entity',
                        'direction': None, 'function': None, 'filter': None},
+                  'entity_1_thermophile':  # TODO make a single metric
+                      {'description': 'Whether the entity is a thermophile',
+                       'direction': 'max', 'function': 'boolean', 'filter': None},
                   'entity_max_radius_average_deviation':
                       {'description': 'In a multi entity assembly, the total deviation of the max radii of each entity '
                                       'from one another', 'direction': 'min', 'function': 'rank', 'filter': True},
@@ -175,6 +178,9 @@ master_metrics = {'average_fragment_z_score':
                   'entity_residue_length_total':
                       {'description': 'The total number of residues in the design',
                        'direction': 'min', 'function': 'rank', 'filter': True},
+                  'entity_thermophilicity':
+                      {'description': 'The extent to which the entities in the pose are thermophilic',
+                       'direction': 'max', 'function': 'rank', 'filter': True},
                   'errat_accuracy':
                       {'description': 'The overall Errat score of the design',
                        'direction': 'max', 'function': 'rank', 'filter': True},
