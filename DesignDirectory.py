@@ -2348,10 +2348,6 @@ class DesignDirectory:  # (JobResources):
             # Get the scores from the score file on design trajectory metrics
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
-            # all_keys = []
-            # for dic in list(all_design_scores.values()):
-            #     all_keys.extend(dic.keys())
-            # self.log.debug('All metrics collected: %s' % ', '.join(set(all_keys)))
 
             # Gather mutations for residue specific processing and design sequences
             pose_length = self.pose.number_of_residues
@@ -2365,7 +2361,7 @@ class DesignDirectory:  # (JobResources):
                     else:
                         pose_sequences[design] = sequence
                 else:
-                    self.log.debug('Design %s is missing sequence data, removing from design pool' % design)
+                    self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
                     all_design_scores.pop(design)
             # format {entity: {design_name: sequence, ...}, ...}
             entity_sequences = \
@@ -2382,9 +2378,6 @@ class DesignDirectory:  # (JobResources):
                     hbonds_columns.append(column)
 
             # Check proper input
-            print(scores_df)
-            print(hbonds_columns)
-            self.log.debug('All metrics collected scores_df: %s' % ', '.join(set(scores_df.columns.to_list())))
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
