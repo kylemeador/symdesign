@@ -1012,7 +1012,7 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
                     warn = True
                     logger.warning('Encountered %s which has residue number > the pose length (%d). If this system is '
                                    'NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
-                                   'PerResidue SimpleMetrics, there is an error in processing that requires your'
+                                   'PerResidue SimpleMetrics, there is an error in processing that requires your '
                                    'debugging. Otherwise, this is likely a numerical chain and will be treated under '
                                    'that assumption. Always ensure that output_as_pdb_nums="true" is set'
                                    % (column, pose_length))

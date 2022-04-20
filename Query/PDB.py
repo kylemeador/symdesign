@@ -777,7 +777,7 @@ def get_pdb_info_by_entity(entity_id) -> Dict:
 
             ref_d = {chain: db_d for chain in chains}
         except KeyError:  # there are no know identifiers found
-            ref_d = {chain: None for chain in chains}
+            ref_d = {chain: {} for chain in chains}
         return ref_d
     else:
         return {}
