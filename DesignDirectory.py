@@ -532,7 +532,10 @@ class DesignDirectory:  # (JobResources):
         try:
             return self._design_profile
         except AttributeError:
-            self._design_profile = parse_pssm(self.design_profile_file)
+            try:
+                self._design_profile = parse_pssm(self.design_profile_file)
+            except FileNotFoundError:
+                self._design_profile = None
             return self._design_profile
 
     @property
@@ -540,7 +543,10 @@ class DesignDirectory:  # (JobResources):
         try:
             return self._evolutionary_profile
         except AttributeError:
-            self._evolutionary_profile = parse_pssm(self.evolutionary_profile_file)
+            try:
+                self._evolutionary_profile = parse_pssm(self.evolutionary_profile_file)
+            except FileNotFoundError:
+                self._evolutionary_profile = None
             return self._evolutionary_profile
 
     @property
@@ -548,7 +554,10 @@ class DesignDirectory:  # (JobResources):
         try:
             return self._fragment_profile
         except AttributeError:
-            self._fragment_profile = parse_pssm(self.fragment_profile_file)
+            try:
+                self._fragment_profile = parse_pssm(self.fragment_profile_file)
+            except FileNotFoundError:
+                self._fragment_profile = None
             return self._fragment_profile
 
     @property
@@ -556,7 +565,10 @@ class DesignDirectory:  # (JobResources):
         try:
             return self._fragment_data
         except AttributeError:
-            self._fragment_data = unpickle(self.fragment_data_pkl)
+            try:
+                self._fragment_data = unpickle(self.fragment_data_pkl)
+            except FileNotFoundError:
+                self._fragment_data = None
             return self._fragment_data
 
     @property
