@@ -38,7 +38,8 @@ from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_
     columns_to_new_column, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
     mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
     stats_metrics, significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
-    protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value
+    protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value, \
+    residue_processing, multiple_sequence_alignment_dependent_metrics
 #   columns_to_rename, calc_relative_sa, join_columns,
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
@@ -2594,24 +2595,13 @@ class DesignDirectory:  # (JobResources):
             #   new_collapse_islands, new_collapse_island_significance
 
             # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
+            msa_metrics = True
             collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
             inverse_residue_contact_order_z, contact_order = {}, {}
             for entity in self.pose.entities:
-                # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
-                entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
-                # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
-                # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
-                collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
-                collapse_df[entity] = collapse
-                wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)  # TODO comment out, instate below?
-                # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
-                wt_collapse_bool[entity] = np.where(wt_collapse[entity] > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-                wt_collapse_z_score[entity] = \
-                    z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
                 # we must give a copy of coords_indexed_residues from the pose to each entity...
                 # Todo clean this behavior up as it is not good if entity is used downstream
                 entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
-
                 # we need to get the contact order, errat from the symmetric entity
                 entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
                 residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
@@ -2630,6 +2620,25 @@ class DesignDirectory:  # (JobResources):
                 residue_contact_order_z = \
                     z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
                 inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
+                wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)  # TODO comment out, instate below?
+                wt_collapse_bool[entity] = np.where(wt_collapse[entity] > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+                # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
+                entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
+                # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
+                # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
+                if msa_metrics:
+                    if not entity.msa:
+                        msa_metrics = False
+                        self.log.info('Metrics relying on a multiple sequence alignment are not being collect as there is '
+                                      'no MSA found. These include: %s' % multiple_sequence_alignment_dependent_metrics)
+                        # set anything found to null values
+                        collapse_df, wt_collapse_z_score = {}, {}
+                        break
+                    collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
+                    collapse_df[entity] = collapse
+                    # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
+                    wt_collapse_z_score[entity] = \
+                        z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
 
             folding_and_collapse = \
                 {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
@@ -2647,13 +2656,6 @@ class DesignDirectory:  # (JobResources):
                     collapse_concatenated.append(standardized_collapse)
                     # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
                     # normalized_collapse = standardized_collapse - wt_collapse[entity]
-                    z_array = z_score(standardized_collapse,  # observed_collapse,
-                                      collapse_df[entity].loc['mean', :], collapse_df[entity].loc['std', :])
-                    # todo test for magnitude of the wt versus profile, remove subtraction?
-                    normalized_collapse_z = z_array - wt_collapse_z_score[entity]
-                    hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
-                    global_collapse_z = np.where(normalized_collapse_z > 0, normalized_collapse_z, 0)
-
                     # find collapse where: delta above standard collapse, collapsable boolean, and successive number
                     # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
                     # scale the collapse propensity by the standard collapse threshold and make z score
@@ -2722,11 +2724,19 @@ class DesignDirectory:  # (JobResources):
                     new_collapse_islands.append(new_collapse_peak_start.sum())
                     new_collapse_island_significance.append(sum(new_collapse_peak_start * abs(collapse_significance)))
 
-                    # offset inverse_residue_contact_order_z to center at 1 instead of 0. Todo deal with negatives
-                    contact_order_collapse_z_sum.append(sum((inverse_residue_contact_order_z[entity] + 1) * global_collapse_z))
-                    sequential_collapse_peaks_z_sum.append(sum(sequential_collapse_weights * global_collapse_z))
-                    sequential_collapse_z_sum.append(sum(sequential_weights * global_collapse_z))
-                    global_collapse_z_sum.append(global_collapse_z.sum())
+                    if msa_metrics:
+                        z_array = z_score(standardized_collapse,  # observed_collapse,
+                                          collapse_df[entity].loc['mean', :], collapse_df[entity].loc['std', :])
+                        # todo test for magnitude of the wt versus profile, remove subtraction?
+                        normalized_collapse_z = z_array - wt_collapse_z_score[entity]
+                        hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
+                        global_collapse_z = np.where(normalized_collapse_z > 0, normalized_collapse_z, 0)
+                        # offset inverse_residue_contact_order_z to center at 1 instead of 0. Todo deal with negatives
+                        contact_order_collapse_z_sum.append(
+                            sum((inverse_residue_contact_order_z[entity] + 1) * global_collapse_z))
+                        sequential_collapse_peaks_z_sum.append(sum(sequential_collapse_weights * global_collapse_z))
+                        sequential_collapse_z_sum.append(sum(sequential_weights * global_collapse_z))
+                        global_collapse_z_sum.append(global_collapse_z.sum())
 
                 # add the total and concatenated metrics to analysis structures
                 folding_and_collapse['hydrophobicity_deviation_magnitude'][design] = sum(hydrophobicity_deviation_magnitude)
@@ -2846,21 +2856,22 @@ class DesignDirectory:  # (JobResources):
                 # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
 
                 # Plot: Collapse description of total profile against each design
-                profile_mean_collapse_concatenated_s = \
-                    pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
-                profile_std_collapse_concatenated_s = \
-                    pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
-                profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
-                profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
-                collapse_graph_describe_df = pd.DataFrame({
-                    'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
-                    'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
-                })
-                collapse_graph_describe_df.index += 1  # offset index to residue numbering
-                collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
-                collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
-                                   color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
-                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
+                if msa_metrics:
+                    profile_mean_collapse_concatenated_s = \
+                        pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
+                    profile_std_collapse_concatenated_s = \
+                        pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
+                    profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
+                    profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
+                    collapse_graph_describe_df = pd.DataFrame({
+                        'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
+                        'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
+                    })
+                    collapse_graph_describe_df.index += 1  # offset index to residue numbering
+                    collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
+                    collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
+                                       color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
+                    # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
 
                 # Plot: Errat Accuracy
                 errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
