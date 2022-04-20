@@ -650,7 +650,8 @@ class DesignDirectory:  # (JobResources):
                 'entity_%d_n_terminal_helix' % ent_idx: entity.is_termini_helical(),
                 'entity_%d_c_terminal_helix' % ent_idx: entity.is_termini_helical(termini='c'),
                 'entity_%d_n_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(),
-                'entity_%d_c_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(termini='c')})
+                'entity_%d_c_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(termini='c'),
+                'entity_%d_thermophile' % ent_idx: is_uniprot_thermophilic(entity.uniprot_id)})
             if min_rad < minimum_radius:
                 minimum_radius = min_rad
             if max_rad > maximum_radius:
@@ -2302,6 +2303,7 @@ class DesignDirectory:  # (JobResources):
             for structure in design_structures:
                 pose_sequences[structure.name] = ''.join(structure.atom_sequences.values())  # {chain: sequence, ...}
 
+            # Assumes each structure is the same length
             # format {entity: {design_name: sequence, ...}, ...}
             entity_sequences = \
                 {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
@@ -2429,6 +2431,7 @@ class DesignDirectory:  # (JobResources):
             scores_df['percent_mutations'] = \
                 scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
             # residue_indices_per_entity = self.pose.residue_indices_per_entity
+            is_thermophilic = []
             for idx, (entity, entity_indices) in enumerate(zip(self.pose.entities, self.pose.residue_indices_per_entity), 1):
                 # entity_indices = residue_indices_per_entity[idx]
                 scores_df['entity_%d_number_of_mutations' % idx] = \
@@ -2437,6 +2440,9 @@ class DesignDirectory:  # (JobResources):
                 scores_df['entity_%d_percent_mutations' % idx] = \
                     scores_df['entity_%d_number_of_mutations' % idx] / \
                     other_pose_metrics['entity_%d_number_of_residues' % idx]
+                is_thermophilic.append(getattr(other_pose_metrics, 'entity_%d_thermophile' % idx, 0))
+
+            scores_df['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
             # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
             interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
