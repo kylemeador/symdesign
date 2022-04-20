@@ -718,7 +718,9 @@ significance_columns = ['buried_unsatisfied_hbonds',
                         'percent_interface_area_hydrophobic', 'shape_complementarity', 'solvation_energy']
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']
-
+multiple_sequence_alignment_dependent_metrics = \
+    ['global_collapse_z_sum', 'hydrophobicity_deviation_magnitude', 'new_collapse_island_significance',
+     'new_collapse_islands', 'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
 stats_metrics = ['mean', 'std']
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
