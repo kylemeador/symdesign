@@ -621,16 +621,16 @@ if __name__ == '__main__':
     parser.add_argument('-of', '--output_design_file', type=str,
                         help='If provided, the name of the output designs file. If blank, one will be automatically '
                              'generated based off input_location, module, and the time.')
-    parser.add_argument('-p', '--project', type=os.path.abspath,
-                        metavar=ex_path('SymDesignOutput', 'Projects', 'your_project'),
-                        help='If pose names are specified by project instead of directories, which project to use?')
+    parser.add_argument('-p', '--project', type=os.path.abspath, nargs='*',
+                        metavar=ex_path('SymDesignOutput', 'Projects', 'your_project(s)'),
+                        help='If you wish to operate on designs specified by a whole project, which project(s) to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
                         help='Should commands be executed at %s runtime? In most cases, it won\'t maximize cassini\'s '
                              'computational resources. Additionally, all computation may fail on a single trajectory '
                              'mistake.\nDefault=False' % PUtils.program_name)
-    parser.add_argument('-s', '--single', type=os.path.abspath,
-                        metavar=ex_path('SymDesignOutput', 'Projects', 'your_project', 'single_design[.pdb]'),
-                        help='If design name is specified by a single path instead')
+    parser.add_argument('-s', '--single', type=os.path.abspath, nargs='*',
+                        metavar=ex_path('SymDesignOutput', 'Projects', 'your_project', 'single_design(s)[.pdb]'),
+                        help='If you wish to operate on designs specified by a single pose, which pose(s) to use?')
     parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
                         help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
     parser.add_argument('-S', '--symmetry', type=str, default=None,
@@ -863,9 +863,9 @@ if __name__ == '__main__':
     parser_sequence.add_argument('-e', '--entity_specification', type=str,
                                  # choices=['single', 'all', 'none'], Todo make work with list...
                                  help='If there are specific entities in the designs you want to tag, indicate how '
-                                      'tagging should occur. Viable options include \'single\' - a single entity, '
-                                      '\'all\' - all entities, \'none\' - no entities, or provide a comma separated '
-                                      'list such as \'1,0,1\' where \'1\' indicates a tag requirement and \'0\' '
+                                      'tagging should occur. Viable options include "single" - a single entity, '
+                                      '"all" - all entities, "none" - no entities, or provide a comma separated '
+                                      'list such as "1,0,1" where "1" indicates a tag requirement and "0" '
                                       'indicates no tag is required.')
     parser_sequence.add_argument('-f', '--filter', action='store_true',
                                  help='Whether to filter sequence selection using metrics from DataFrame')
@@ -1809,7 +1809,7 @@ if __name__ == '__main__':
     #     directory_pairs, failures = None, None
     #     if args.directory2 or args.file2:
     #         # Grab all poses (directories) to be processed from either directory name or file
-    #         all_poses2, location2 = SDUtils.collect_designs(file=args.file2, directory=args.directory2)
+    #         all_poses2, location2 = SDUtils.collect_designs(files=args.file2, directory=args.directory2)
     #         assert all_poses2 != list(), logger.critical(
     #             'No %s.py directories found within \'%s\'! Please ensure correct location' % (PUtils.nano.title(),
     #                                                                                           location2))
