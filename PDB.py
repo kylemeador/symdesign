@@ -924,7 +924,7 @@ class PDB(Structure):
                 return  # True
             self.log.debug('PDB code \'%s\' was not found with the PDB API.' % self.name)
         else:
-            self.log.debug('PDB code \'%s\' is not of the required format and will not be found with the PDB API.'
+            self.log.debug('PDB code \'%s\' is not of the required format and will not be found with the PDB API'
                            % self.name)
         return  # False
         # if not self.api_entry and self.name and len(self.name) == 4:
