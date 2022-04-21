@@ -2949,7 +2949,8 @@ class DesignDirectory:  # (JobResources):
                     dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
                     dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
                 except AttributeError:
-                    self.log.error('No DCA analysis could be performed, missing required parameters files')
+                    self.log.error('For %s, no DCA analysis could be performed, missing required parameters files'
+                                   % entity.name)
                     dca_succeed = False
 
             if dca_succeed:
