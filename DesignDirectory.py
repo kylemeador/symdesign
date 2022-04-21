@@ -2949,8 +2949,8 @@ class DesignDirectory:  # (JobResources):
                     dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
                     dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
                 except AttributeError:
-                    self.log.error('For %s, no DCA analysis could be performed, missing required parameters files'
-                                   % entity.name)
+                    self.log.warning('For %s, no DCA analysis could be performed, missing required parameters files'
+                                     % entity.name)
                     dca_succeed = False
 
             if dca_succeed:
@@ -3073,7 +3073,7 @@ class DesignDirectory:  # (JobResources):
             similarity_protocols = set(unique_protocols).difference([PUtils.refine] + list(scout_protocols))
             if background_protocol not in unique_protocols:
                 self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
-                                 'for this design' % background_protocol)
+                                 'for this pose' % background_protocol)
             elif len(similarity_protocols) == 1:  # measure significance
                 self.log.warning('Can\'t measure protocol significance, only one protocol of interest')
             # missing_protocols = protocols_of_interest.difference(unique_protocols)
