@@ -1201,7 +1201,7 @@ if __name__ == '__main__':
                 designs_directory = args.output_directory
             os.makedirs(designs_directory, exist_ok=True)
         master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
-                             job.sequences, job.profiles, sql=None, log=logger)
+                             job.sequences, job.profiles, sql=None)  # , log=logger)
         logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
 
         # Todo logic error when initialization occurs with module that doens't call this, subsequent runs are missing
@@ -1377,7 +1377,7 @@ if __name__ == '__main__':
 
     elif args.module == PUtils.nano:
         master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
-                             job.sequences, job.profiles, sql=None, log=logger)
+                             job.sequences, job.profiles, sql=None)  # , log=logger)
         logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
         if args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
