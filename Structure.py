@@ -3835,7 +3835,7 @@ class Residue:
         try:
             return self._sasa
         except AttributeError:
-            raise DesignError('Residue %d%s has no \'.sasa\' attribute! Ensure you call Structure.get_sasa() before you'
+            raise DesignError('Residue %d%s has no ".sasa" attribute! Ensure you call Structure.get_sasa() before you'
                               ' request Residue specific SASA information'
                               % (self.number, self.chain))
 
