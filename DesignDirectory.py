@@ -2455,7 +2455,7 @@ class DesignDirectory:  # (JobResources):
                     other_pose_metrics['entity_%d_number_of_residues' % idx]
                 is_thermophilic.append(getattr(other_pose_metrics, 'entity_%d_thermophile' % idx, 0))
 
-            scores_df['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
+            other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
             # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
             interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]

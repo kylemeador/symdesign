@@ -1,3 +1,5 @@
+from typing import Union, Any
+
 from SymDesignUtils import start_log
 from Query.utils import connection_exception_handler
 
@@ -7,17 +9,17 @@ logger = start_log(name=__name__)
 example = 'https://rest.uniprot.org/uniprotkb/Q9HIA7.json'
 
 
-def query_uniprot(uniprot_id):
+def query_uniprot(uniprot_id: str) -> Union[Any, None]:
     """
     {'entryType': 'UniProtKB unreviewed (TrEMBL)', 'primaryAccession': 'Q9HIA7',
-    'uniProtkbId': 'Q9HIA7_THEAC', '
-    entryAudit': {'firstPublicDate': '2001-03-01', 'lastAnnotationUpdateDate': '2021-06-02', 'lastSequenceUpdateDate': '2001-03-01', 'entryVersion': 97, 'sequenceVersion': 1},
+    'uniProtkbId': 'Q9HIA7_THEAC',
+    'entryAudit': {'firstPublicDate': '2001-03-01', 'lastAnnotationUpdateDate': '2021-06-02', 'lastSequenceUpdateDate': '2001-03-01', 'entryVersion': 97, 'sequenceVersion': 1},
     'annotationScore': 15.100000000000001,
     'organism': {'scientificName':
                  'Thermoplasma acidophilum (strain ATCC 25905 / DSM 1728 / JCM 9062 / NBRC 15155 / AMRC-C165)',
-    'taxonId': 273075,
-    'evidences': [{'evidenceCode': 'ECO:0000313', 'source': 'Proteomes', 'id': 'UP000001024'}],
-    'lineage': ['Archaea', 'Candidatus Thermoplasmatota', 'Thermoplasmata', 'Thermoplasmatales', 'Thermoplasmataceae', 'Thermoplasma']},
+                 'taxonId': 273075,
+                 'evidences': [{'evidenceCode': 'ECO:0000313', 'source': 'Proteomes', 'id': 'UP000001024'}],
+                 'lineage': ['Archaea', 'Candidatus Thermoplasmatota', 'Thermoplasmata', 'Thermoplasmatales', 'Thermoplasmataceae', 'Thermoplasma']},
     'proteinExistence': '1: Evidence at protein level',
     'proteinDescription': {'recommendedName': {'fullName': {'evidences': [{'evidenceCode': 'ECO:0000259', 'source': 'Pfam', 'id': 'PF01923'}], 'value': 'Cob_adeno_trans domain-containing protein'}}},
     'genes': [{'orderedLocusNames': [{'evidences': [{'evidenceCode': 'ECO:0000313', 'source': 'EMBL', 'id': 'CAC12554.1'}], 'value': 'Ta1434'}]}], 'comments': [{'texts': [{'evidences': [{'evidenceCode': 'ECO:0000256', 'source': 'ARBA', 'id': 'ARBA00007487'}], 'value': 'Belongs to the Cob(I)alamin adenosyltransferase family'}], 'commentType': 'SIMILARITY'}],
@@ -37,12 +39,11 @@ def query_uniprot(uniprot_id):
         return
 
 
-def is_uniprot_thermophilic(uniprot_id):
+def is_uniprot_thermophilic(uniprot_id: str) -> int:
     uniprot_json = query_uniprot(uniprot_id)
     if uniprot_json:
-        lineage = uniprot_json.get('lineage', [])
-        for element in lineage:
+        for element in uniprot_json.get('organism', {}).get('lineage', []):
             if 'thermo' in element.lower():
-                return True
+                return 1  # True
 
-    return False
+    return 0  # False

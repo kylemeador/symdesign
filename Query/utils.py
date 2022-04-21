@@ -1,4 +1,5 @@
 import time
+from typing import Union, Any
 
 import requests
 
@@ -81,7 +82,7 @@ def verify_choice():
     #     return False
 
 
-def connection_exception_handler(url, max_attempts=5):
+def connection_exception_handler(url: str, max_attempts: int = 5) -> Union[Any, None]:
     """Wrap requests GET commands in an exception handler which attempts to aquire the data multiple times if the
     connection is refused due to a high volume of requests
 
