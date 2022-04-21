@@ -3130,6 +3130,8 @@ class Entity(Chain, SequenceProfile):
                 lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_subunit VRT%s_base SUBUNIT'
                              % (jump_subunit, jump_subunit))
                 count += 1
+            print(lines[-3])
+            print(lines[-2])
             print(lines[-1])
             print(lines[-1].strip())
             lines[-1] = \
@@ -3140,7 +3142,7 @@ class Entity(Chain, SequenceProfile):
             # where complex subunits = num_subunits - 1
             # new_energy = 'E = %d*%s + ' % (energy, subunits[0])  # assumes subunits are read in alphanumerical order
             # new_energy += ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:]))
-            lines[1] = '%s\n' % 'E = %d*%s + %s' \
+            lines[1] = '%s' % 'E = %d*%s + %s' \
                 % (energy, subunits[0], ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:])))
 
         if not to_file:
