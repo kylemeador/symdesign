@@ -3069,7 +3069,7 @@ class Entity(Chain, SequenceProfile):
             os.system('rm %s' % struct_file)
         assert p.returncode == 0, 'Symmetry definition file creation failed for %s' % self.name
 
-        self.format_sdf(out.decode('utf-8').split('\n'), to_file=out_file, dihedral=dihedral, **kwargs)
+        self.format_sdf(out.decode('utf-8').split('\n')[:-1], to_file=out_file, dihedral=dihedral, **kwargs)
         #               modify_sym_energy=False, energy=2)
 
         return out_file
@@ -3103,7 +3103,7 @@ class Entity(Chain, SequenceProfile):
                     jumps_subunit.append(jump[:-11])
                 else:
                     trunk.append(jump)
-                last_jump = idx  # index of lines where the VRTs and connect_virtuals end. The "last jump"
+                last_jump = idx  # index where the VRTs and connect_virtuals end. The "last jump"
 
         assert set(trunk) - set(virtuals) == set(), 'Symmetry Definition File VRTS are malformed'
         assert self.number_of_monomers == len(subunits), 'Symmetry Definition File VRTX_base are malformed'
@@ -3114,35 +3114,22 @@ class Entity(Chain, SequenceProfile):
             if '' in virtuals:
                 virtuals.remove('')
 
-        jumps_com_to_add = set(virtuals) - set(jumps_com)
+        jumps_com_to_add = set(virtuals).difference(jumps_com)
         count = 0
         if jumps_com_to_add != set():
-            for jump_com in jumps_com_to_add:
+            for count, jump_com in enumerate(jumps_com_to_add, count):
                 lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_com VRT%s VRT%s_base'
                              % (jump_com, jump_com, jump_com))
-                count += 1
-                print(lines[-1])
-            print(lines[-3])
-            print(lines[-2])
-            print(lines[-1])
-            print(lines[-1].strip())
             lines[-2] = lines[-2].strip() + (len(jumps_com_to_add) * ' JUMP%s_to_subunit') % tuple(jumps_com_to_add)
-            # lines[-2] += '\n'
 
-        jumps_subunit_to_add = set(virtuals) - set(jumps_subunit)
+        jumps_subunit_to_add = set(virtuals).difference(jumps_subunit)
         if jumps_subunit_to_add != set():
-            for jump_subunit in jumps_subunit_to_add:
+            for count, jump_subunit in enumerate(jumps_subunit_to_add, count):
                 lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_subunit VRT%s_base SUBUNIT'
                              % (jump_subunit, jump_subunit))
-                count += 1
-                print(lines[-1])
-            print(lines[-3])
-            print(lines[-2])
-            print(lines[-1])
-            print(lines[-1].strip())
             lines[-1] = \
                 lines[-1].strip() + (len(jumps_subunit_to_add) * ' JUMP%s_to_subunit') % tuple(jumps_subunit_to_add)
-            # lines[-1] += '\n'
+
         if modify_sym_energy:
             # new energy should equal the energy multiplier times the scoring subunit plus additional complex subunits
             # where complex subunits = num_subunits - 1
@@ -3157,8 +3144,8 @@ class Entity(Chain, SequenceProfile):
         with open(to_file, 'w') as f:
             f.write('%s\n' % '\n'.join(lines))
         if count != 0:
-            self.log.info('Symmetry Definition File was missing %d lines, so a fix was attempted. '
-                          'Modelling may be affected' % count)
+            self.log.info('Symmetry Definition File "%s" was missing %d lines, so a fix was attempted. '
+                          'Modelling may be affected' % (to_file, count))
         return to_file
 
     def format_missing_loops_for_design(self, max_loop_length=12, exclude_n_term=True, ignore_termini=False, **kwargs):
