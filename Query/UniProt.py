@@ -28,8 +28,13 @@ def query_uniprot(uniprot_id):
     Returns:
 
     """
-    query_url = 'https://rest.uniprot.org/uniprotkb/%s.json' % uniprot_id
-    return connection_exception_handler(query_url)
+    if uniprot_id and len(uniprot_id) in [6, 10]:
+        query_url = 'https://rest.uniprot.org/uniprotkb/%s.json' % uniprot_id
+        return connection_exception_handler(query_url)
+    else:
+        logger.warning('UniProt ID "%s" is not of the required format and will not be found with the UniProt API'
+                       % uniprot_id)
+        return
 
 
 def is_uniprot_thermophilic(uniprot_id):
