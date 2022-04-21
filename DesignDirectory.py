@@ -2632,11 +2632,12 @@ class DesignDirectory:  # (JobResources):
                 if msa_metrics:
                     if not entity.msa:
                         msa_metrics = False
-                        self.log.info('Metrics relying on a multiple sequence alignment are not being collect as there is '
-                                      'no MSA found. These include: %s' % multiple_sequence_alignment_dependent_metrics)
+                        self.log.info('Metrics relying on a multiple sequence alignment are not being collected as '
+                                      'there is no MSA found. These include: %s'
+                                      % ', '.join(multiple_sequence_alignment_dependent_metrics))
                         # set anything found to null values
                         collapse_df, wt_collapse_z_score = {}, {}
-                        break
+                        continue
                     collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
                     collapse_df[entity] = collapse
                     # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
