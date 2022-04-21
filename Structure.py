@@ -3117,22 +3117,21 @@ class Entity(Chain, SequenceProfile):
         count = 0
         if jumps_com_to_add != set():
             for jump_com in jumps_com_to_add:
-                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_com VRT%s VRT%s_base\n'
+                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_com VRT%s VRT%s_base'
                              % (jump_com, jump_com, jump_com))
                 count += 1
-            lines[-2] = lines[-2].strip() + (len(jumps_com_to_add) * ' JUMP%s_to_subunit') \
-                        % tuple(jump_subunit for jump_subunit in jumps_com_to_add)
-            lines[-2] += '\n'
+            lines[-2] = lines[-2].strip() + (len(jumps_com_to_add) * ' JUMP%s_to_subunit') % tuple(jumps_com_to_add)
+            # lines[-2] += '\n'
 
         jumps_subunit_to_add = set(virtuals) - set(jumps_subunit)
         if jumps_subunit_to_add != set():
             for jump_subunit in jumps_subunit_to_add:
-                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_subunit VRT%s_base SUBUNIT\n'
+                lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_subunit VRT%s_base SUBUNIT'
                              % (jump_subunit, jump_subunit))
                 count += 1
-            lines[-1] = lines[-1].strip() + (len(jumps_subunit_to_add) * ' JUMP%s_to_subunit') \
-                % tuple(jump_subunit for jump_subunit in jumps_subunit_to_add)
-            lines[-1] += '\n'
+            lines[-1] = \
+                lines[-1].strip() + (len(jumps_subunit_to_add) * ' JUMP%s_to_subunit') % tuple(jumps_subunit_to_add)
+            # lines[-1] += '\n'
         if modify_sym_energy:
             # new energy should equal the energy multiplier times the scoring subunit plus additional complex subunits
             # where complex subunits = num_subunits - 1
