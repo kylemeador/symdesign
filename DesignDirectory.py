@@ -2540,10 +2540,10 @@ class DesignDirectory:  # (JobResources):
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
                 if structure.name not in viable_designs:
                     continue
-                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, source_db=self.resources,
-                                            design_selector=self.design_selector, frag_db=self.frag_db, log=self.log,
-                                            ignore_clashes=self.ignore_clashes, euler_lookup=self.euler_lookup)
-                assembly = design_pose.assembly
+                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
+                                            design_selector=self.design_selector, log=self.log,
+                                            source_db=self.resources, frag_db=self.frag_db,
+                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
                 # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
 
@@ -2557,12 +2557,14 @@ class DesignDirectory:  # (JobResources):
                 # must find interface residues before measure local_density
                 design_pose.find_and_split_interface()
                 interface_local_density[structure.name] = design_pose.interface_local_density()
-                atomic_deviation[structure.name], per_residue_errat = assembly.errat(out_path=self.data)
+                assembly_minimally_contacting = design_pose.assembly_minimally_contacting
+                atomic_deviation[structure.name], per_residue_errat = \
+                    assembly_minimally_contacting.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
-                assembly.get_sasa()
+                assembly_minimally_contacting.get_sasa()
                 # per_residue_sasa = [residue.sasa for residue in structure.residues
                 #                     if residue.number in self.design_residues]
-                per_residue_sasa = [residue.sasa for residue in assembly.residues[:pose_length]]
+                per_residue_sasa = [residue.sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
                 per_residue_data['sasa_total'][structure.name] = per_residue_sasa[:pose_length]
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
             scores_df['interface_local_density'] = pd.Series(interface_local_density)
