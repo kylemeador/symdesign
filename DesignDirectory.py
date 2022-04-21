@@ -3271,8 +3271,7 @@ class DesignDirectory:  # (JobResources):
                 # todo simplify this mess...
                 errat_collapse_df = \
                     pd.concat([pd.concat(
-                        {'errat_deviation':
-                             pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
+                        {'errat_deviation': pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
                          'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
                                                            index=residue_indices)})],
                         keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
