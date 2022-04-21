@@ -2768,14 +2768,14 @@ class DesignDirectory:  # (JobResources):
             # include if errat score is < 2 std devs and isn't 0.  TODO what about measuring wild-type when no design?
             wt_errat_inclusion_boolean = np.logical_and(wt_errat_concat_s < errat_2_sigma, wt_errat_concat_s != 0.)
             # print('SEPARATE', (wt_errat_concat_s < errat_2_sigma)[30:40], (wt_errat_concat_s != 0.)[30:40])
-            print('LOGICAL AND\n', wt_errat_inclusion_boolean[30:40])
+            # print('LOGICAL AND\n', wt_errat_inclusion_boolean[30:40])
             # errat_sig_df = (errat_df > errat_2_sigma)
             # find where designs deviate above wild-type errat scores
-            print('errat_df', errat_df.iloc[:5, 30:40])
-            print('wt_errat_concat_s', wt_errat_concat_s[30:40])
-            print('SUBTRACTION', errat_df.sub(wt_errat_concat_s, axis=1).iloc[:5, 30:40])
+            # print('errat_df', errat_df.iloc[:5, 30:40])
+            # print('wt_errat_concat_s', wt_errat_concat_s[30:40])
+            # print('SUBTRACTION', errat_df.sub(wt_errat_concat_s, axis=1).iloc[:5, 30:40])
             errat_sig_df = (errat_df.sub(wt_errat_concat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
-            print('errat_sig_df', errat_sig_df.iloc[:5, 30:40])
+            # print('errat_sig_df', errat_sig_df.iloc[:5, 30:40])
             # then select only those residues which are expressly important by the inclusion boolean
             errat_design_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=1)
             # print('SIGNIFICANCE', errat_design_significance)
@@ -3030,7 +3030,7 @@ class DesignDirectory:  # (JobResources):
             #                                              both mut_freq and profile_background[profile] are one-indexed
             divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
                           for profile, background in profile_background.items()}
-            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database, {}))
+            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database))
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence

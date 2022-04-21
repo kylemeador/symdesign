@@ -1540,7 +1540,7 @@ def overlap_consensus(issm, aa_set):
     return consensus
 
 
-def get_db_statistics(database):
+def get_db_statistics(database: os.PathLike[str]) -> Dict:
     """Retrieve summary statistics for a specific fragment database
 
     Args:
@@ -1553,10 +1553,10 @@ def get_db_statistics(database):
         if file.endswith('statistics.pkl'):
             return unpickle(os.path.join(database, file))
 
-    return {}  # Should never be called
+    return {}
 
 
-def get_db_aa_frequencies(database):
+def get_db_aa_frequencies(database: os.PathLike[str]) -> Dict:
     """Retrieve database specific interface background AA frequencies
 
     Args:
