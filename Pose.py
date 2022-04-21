@@ -1191,8 +1191,31 @@ class SymmetricModel(Model):
             for idx in selected_models:
                 chains.extend(self.models[idx].chains)
             self._assembly = PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
-                                             cryst_record=self.cryst_record)
+                                             cryst_record=self.cryst_record, entities=False)
             return self._assembly
+
+    @property
+    def assembly_minimally_contacting(self) -> Structure:
+        """Provides the Structure object only containing the contacting models
+
+        Returns:
+            (Structure)
+        """
+        try:
+            return self._assembly_minimally_contacting
+        except AttributeError:
+            if not self.models:
+                self.get_assembly_symmetry_mates()  # default to surrounding_uc generation, but only return contacting
+            selected_models = self.return_asu_interaction_models()
+            self.log.debug('Found selected models %s for assembly' % selected_models)
+
+            chains = []
+            for idx in selected_models:
+                chains.extend(self.models[idx].chains)
+            self._assembly_minimally_contacting = \
+                PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
+                                cryst_record=self.cryst_record, entities=False)
+            return self._assembly_minimally_contacting
 
     def set_symmetry(self, sym_entry=None, expand_matrices=None, symmetry=None, cryst1=None, uc_dimensions=None,
                      generate_assembly_coords=True, generate_symmetry_mates=False, **kwargs):
@@ -1530,24 +1553,21 @@ class SymmetricModel(Model):
 
         self.oligomeric_equivalent_model_idxs[entity] = equivalent_models
 
-    def return_asu_interaction_models(self, calculate_contacts=False, distance=None, **kwargs):
+    def return_asu_interaction_models(self, calculate_contacts: bool = False, distance: float = 8., **kwargs) -> List:
         """From an asu, find the SymmetricModel equivalent models that immediately surround the asu
 
         Keyword Args:
             calculate_contacts=False (bool): Whether to calculate interacting models by atomic contacts. If this
                 argument is True, the value passed to distance will be the contact distance
-            distance=None (float): The distance measurement to find nearby symmetric models to the asu.
-                If no distance is provided, will use 2x the calculated asu radius (essentially the diameter).
-                If calculate_contacts=True, distance is 8.0 by default
+            distance=8.0 (float): The distance within which nearby symmetric models should be found. When
+                    calculate_contacts is True, uses the default, otherwise, uses the ASU radius plus max Entity radius
         Returns:
             (list): The indices of the models that contact the asu
         """
-        if not distance:
-            if calculate_contacts:
-                distance = 8.  # default contact distance
-            else:
-                # distance = self.asu.radius * 2  # value too large self.pdb.radius * 2
-                distance = self.asu.radius  # Todo adjust this value still!!!
+        if not calculate_contacts:
+            # distance = self.asu.radius * 2  # value too large self.pdb.radius * 2
+            # The furthest point from the ASU COM + the max individual Entity radius
+            distance = self.asu.radius + max([entity.radius for entity in self.entities])  # all the radii
 
         if calculate_contacts:
             self.generate_assembly_tree()
