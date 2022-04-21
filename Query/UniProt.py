@@ -39,9 +39,10 @@ def query_uniprot(uniprot_id):
 
 def is_uniprot_thermophilic(uniprot_id):
     uniprot_json = query_uniprot(uniprot_id)
-    lineage = uniprot_json.get('lineage', [])
-    for element in lineage:
-        if 'thermo' in element.lower():
-            return True
+    if uniprot_json:
+        lineage = uniprot_json.get('lineage', [])
+        for element in lineage:
+            if 'thermo' in element.lower():
+                return True
 
     return False
