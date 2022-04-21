@@ -3034,8 +3034,9 @@ class Entity(Chain, SequenceProfile):
             (str): Symmetry definition filename
         """
         out_file = os.path.join(out_path, '%s.sdf' % self.name)
-        if os.path.exists(out_file):
-            return out_file
+        # Todo reinstate after patch
+        # if os.path.exists(out_file):
+        #     return out_file
 
         # if self.symmetry == 'C1':
         #     return
