@@ -120,7 +120,7 @@ def find_matching_entities_by_sequence(sequence=None, return_id='polymer_entity'
         (list[str]): The entities matching the sequence
     """
     if return_id not in return_types:
-        raise KeyError('The specified return type \'%s\' is not supported. Viable types include %s'
+        raise KeyError('The specified return type "%s" is not supported. Viable types include %s'
                        % (return_id, ', '.join(return_types)))
     sequence_query = generate_terminal_group(service='sequence', sequence=sequence)
     sequence_query_results = query_pdb(generate_query(sequence_query, return_id=return_id, **kwargs))
@@ -187,7 +187,7 @@ def pdb_id_matching_uniprot_id(uniprot_id, return_id='polymer_entity'):
         (list[str]): The list of matching IDs
     """
     if return_id not in return_types:
-        raise KeyError('The specified return type \'%s\' is not supported. Viable types include %s'
+        raise KeyError('The specified return type "%s" is not supported. Viable types include %s'
                        % (return_id, ', '.join(return_types)))
     database = {'attribute': 'rcsb_polymer_entity_container_identifiers.reference_sequence_identifiers.database_name',
                 'negation': False, 'operator': 'exact_match', 'value': 'UniProt'}
@@ -222,7 +222,7 @@ def generate_query(search, return_id='entry', all_matching=True):
         (dict): The formatted query to be sent via HTTP GET
     """
     if return_id not in return_types:
-        raise KeyError('The specified return type \'%s\' is not supported. Viable types include %s'
+        raise KeyError('The specified return type "%s" is not supported. Viable types include %s'
                        % (return_id, ', '.join(return_types)))
 
     query_d = {'query': search, 'return_type': return_id}
@@ -272,7 +272,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         group_grouping_intro = '\nGroups remain, you must group groups as before.'
         group_inquiry_string = '\nWhich of these (identified by #) would you like to combine into a group?%s' % \
                                input_string
-        group_specification_string = 'You specified \'%s\' as a single group.'
+        group_specification_string = 'You specified "%s" as a single group.'
         group_logic_string = '\nWhat group operator %s would you like for this group?%s' % (group_operators,
                                                                                             input_string)
 
@@ -304,7 +304,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                     if len(grouping) > 1:
                         break
                     else:
-                        print('More than one group is required. Your group \'%s\' is invalid' % grouping)
+                        print('More than one group is required. Your group "%s" is invalid' % grouping)
                 while True:
                     confirm = input('%s\n%s' % (group_specification_string % grouping, confirmation_string))
                     if confirm.lower() in bool_d:
@@ -343,9 +343,9 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
           ' set of entry ID\'s from the PDB. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
           'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
           'downstream use. If you require > 25,000 ID\'s, this will save you some headache. You can also use the GUI '
-          'and this tool in combination, as detailed below. Type \'json\' into the next prompt to do so. If you have a '
+          'and this tool in combination, as detailed below. Type "json" into the next prompt to do so. If you have a '
           'search specified from a prior query that you want to process again, this option may be useful as well. '
-          'Otherwise hit \'Enter\'\n'
+          'Otherwise hit "Enter"\n'
           % (header_string % 'PDB API Advanced Query', pdb_advanced_search_url))
     program_start = input(input_string)
     if program_start.lower() == 'json':
@@ -353,7 +353,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         print('DETAILS: If you want to use this function to save time formatting and/or pipeline '
               'interruption, a unique solution is to build your Query with the GUI on the PDB then bring '
               'the resulting JSON back here to submit. To do this, first build your full query, then hit '
-              '\'Enter\' or the Search icon button (magnifying glass icon). A new section of the search '
+              '"Enter" or the Search icon button (magnifying glass icon). A new section of the search '
               'page should appear above the Query builder. Clicking the JSON|->| button will open a new '
               'page with an automatically built JSON representation of your query. Download '
               'this JSON object to a file to return your chosen ID\'s.\n\n')
@@ -366,7 +366,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
             with open(prior_query, 'r') as f:
                 json_input = load(f)
         else:
-            print('The specified path \'%s\' doesn\'t exist! Please try again.' % prior_query)
+            print('The specified path "%s" doesn\'t exist! Please try again.' % prior_query)
         search_query = query_pdb(json_input)
     # elif program_start.lower() == 'previous':
     #     while True:
@@ -409,7 +409,7 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
             #                                (user_input_format % '\n'.join(format_string % item
             #                                                               for item in services.items()), input_string)
             query_builder_attribute_string = '\nWhat type of attribute would you like to use? Examples include:%s' \
-                                             '\n\nFor a more thorough list indicate \'s\' for search.\n' \
+                                             '\n\nFor a more thorough list indicate "s" for search.\n' \
                                              'Alternatively, you can browse %s\nEnsure that your spelling' \
                                              ' is exact if you want your query to succeed!%s' % \
                                              (user_input_format % '\n'.join(format_string % (value, key)
@@ -417,10 +417,10 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                                               attribute_url, input_string)
             query_builder_operator_string = '\nWhat operator would you like to use?\n' \
                                             'Possible operators include:\n\t%s\nIf you would like to negate the ' \
-                                            'operator, on input type \'not\' after your selection. Ex: equals not%s' % \
+                                            'operator, on input type "not" after your selection. Ex: equals not%s' % \
                                             ('%s', input_string)
             query_builder_value_string = '\nWhat value should be %s? Required type is: %s.%s%s'
-            query_display_string = 'Query #%d: Search the PDB by \'%s\' for \'%s\' attributes \'%s%s\' \'%s\'.'
+            query_display_string = 'Query #%d: Search the PDB by "%s" for "%s" attributes "%s%s" "%s".'
 
             while True:  # start the query builder routine
                 while True:
@@ -436,8 +436,8 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                     attribute = input(query_builder_attribute_string)
                     while attribute.lower() == 's':  # If the user would like to search all possible
                         search_term = input('What term would you like to search?%s' % input_string)
-                        attribute = input('Found the following instances of \'%s\':\n%s\nWhich option are you interested '
-                                          'in? Enter \'s\' to repeat search.%s' %
+                        attribute = input('Found the following instances of "%s":\n%s\nWhich option are you interested '
+                                          'in? Enter "s" to repeat search.%s' %
                                           (search_term.upper(), user_input_format %
                                            '\n'.join(format_string % key_description_pair for key_description_pair
                                                      in search_schema(search_term)), input_string))
@@ -711,7 +711,7 @@ def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
             struct_d = {}
             resolution = None
     else:
-        logger.warning('Entry has no \'experimental_method\' keyword')
+        logger.warning('Entry has no "experimental_method" keyword')
         return
 
     entity_chain_d, ref_d, db_d = {}, {}, {}
@@ -805,7 +805,7 @@ def query_entity_id(entity_id) -> Union[Dict, None]:
     if len(entity_split) == 2 and len(entity_split[0]) == 4:
         return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s'
                                             % tuple(entity_split))
-    logger.warning('Entity ID \'%s\' is not of the required format and will not be found with the PDB API' % entity_id)
+    logger.warning('Entity ID "%s" is not of the required format and will not be found with the PDB API' % entity_id)
     return
 
 
@@ -830,11 +830,11 @@ def get_entity_uniprot_id(entity_id=None, pdb=None, entity=None, chain=None):
                 try:
                     entity_id = '%s_%s' % (pdb, chain_entity[chain])
                 except KeyError:
-                    raise KeyError('No chain \'%s\' found in PDB ID %s. Possible chains %s' % (chain, pdb, chain_entity))
+                    raise KeyError('No chain "%s" found in PDB ID %s. Possible chains %s' % (chain, pdb, chain_entity))
             else:
                 all_entities = list(chain_entity.values())
                 entity_id = '%s_%s' % (pdb, all_entities[0])
-                logger.warning('%s: Using the argument \'pdb\' without either \'entity\' or \'chain\' is not '
+                logger.warning('%s: Using the argument "pdb" without either "entity" or "chain" is not '
                                'recommended. Choosing the first EntityID reported in the PDB (%s)'
                                % (get_entity_uniprot_id.__name__, all_entities[0]))
     entity_json = query_entity_id(entity_id)
@@ -858,11 +858,11 @@ def get_entity_reference_sequence(entity_id=None, pdb=None, entity=None, chain=N
                 try:
                     entity_id = '%s_%s' % (pdb, chain_entity[chain])
                 except KeyError:
-                    raise KeyError('No chain \'%s\' found in PDB ID %s. Possible chains %s' % (chain, pdb, chain_entity))
+                    raise KeyError('No chain "%s" found in PDB ID %s. Possible chains %s' % (chain, pdb, chain_entity))
             else:
                 all_entities = list(chain_entity.values())
                 entity_id = '%s_%s' % (pdb, all_entities[0])
-                logger.warning('%s: Using the argument \'pdb\' without either \'entity\' or \'chain\' is not '
+                logger.warning('%s: Using the argument "pdb" without either "entity" or "chain" is not '
                                'recommended. Choosing the first EntityID reported in the PDB (%s)'
                                % (get_entity_reference_sequence.__name__, all_entities[0]))
     entity_json = query_entity_id(entity_id)
