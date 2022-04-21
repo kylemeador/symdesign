@@ -3356,9 +3356,9 @@ def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Val
                         else:
                             position_sum += sequence_array[window_position]
                 window_array[array_idx][seq_idx] = position_sum / window_size
-    logger.debug('Hydrophobic Collapse window values:\n%s' % window_array)
+    # logger.debug('Hydrophobic Collapse window values:\n%s' % window_array)
     hci = window_array.mean(axis=0)
-    logger.debug('Hydrophobic Collapse Index:\n%s' % hci)
+    # logger.debug('Hydrophobic Collapse Index:\n%s' % hci)
 
     return hci
     # hci = np.zeros(sequence_length)  # [0] * (sequence_length + 1)
