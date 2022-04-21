@@ -3121,6 +3121,11 @@ class Entity(Chain, SequenceProfile):
                 lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_com VRT%s VRT%s_base'
                              % (jump_com, jump_com, jump_com))
                 count += 1
+                print(lines[-1])
+            print(lines[-3])
+            print(lines[-2])
+            print(lines[-1])
+            print(lines[-1].strip())
             lines[-2] = lines[-2].strip() + (len(jumps_com_to_add) * ' JUMP%s_to_subunit') % tuple(jumps_com_to_add)
             # lines[-2] += '\n'
 
@@ -3130,6 +3135,7 @@ class Entity(Chain, SequenceProfile):
                 lines.insert(last_jump + count, 'connect_virtual JUMP%s_to_subunit VRT%s_base SUBUNIT'
                              % (jump_subunit, jump_subunit))
                 count += 1
+                print(lines[-1])
             print(lines[-3])
             print(lines[-2])
             print(lines[-1])
