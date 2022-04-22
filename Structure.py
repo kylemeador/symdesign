@@ -2279,11 +2279,11 @@ class Structures(Structure):
                 self._ca_indices.extend(structure.coords_indexed_ca_indices)
             return self._ca_indices
 
-    @property
-    def center_of_mass(self):
-        """Returns: (numpy.ndarray)"""
-        structure_length = self.number_of_atoms
-        return np.matmul(np.full(structure_length, 1 / structure_length), self.coords)
+    # @property
+    # def center_of_mass(self):
+    #     """Returns: (numpy.ndarray)"""
+    #     structure_length = self.number_of_atoms
+    #     return np.matmul(np.full(structure_length, 1 / structure_length), self.coords)
 
     def translate(self, tx):
         for structure in self.structures:
