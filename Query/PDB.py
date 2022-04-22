@@ -738,52 +738,53 @@ def get_pdb_info_by_entity(entity_id) -> Dict:
     entity_json = query_entity_id(entity_id)
     if entity_json:
         chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', 'C']
+        database_keys = ['db', 'accession']
+        db_d = {}
         try:
             try:
                 uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
                 database = 'UNP'
-                if len(uniprot_id) > 1:
+                if len(uniprot_id) > 1:  # Todo choose the most accurate if more than 2...
                     logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
                                    % (entity_id, uniprot_id))
-                db_d = {'db': database, 'accession': uniprot_id[0]}  # may be an issue where there is more than one
+                db_d = dict(zip(database_keys, ('UNP', uniprot_id[0])))  # may be an issue where there is more than one
             except KeyError:  # if no uniprot_id
                 # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
                 # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
-                identifiers = [[ident['database_accession'], ident['database_name']]
+                identifiers = [(ident['database_name'], ident['database_accession'])
                                for ident in entity_json[
                                    'rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
-
                 if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
                     whatever_else = None
-                    priority_l = [None for i in range(len(identifiers))]
-                    for i, tup in enumerate(identifiers, 1):
-                        if tup[1] == 'UniProt':
-                            priority_l[0] = i
-                            identifiers[i - 1][1] = 'UNP'
-                        elif tup[1] == 'GenBank':
-                            priority_l[1] = i  # two elements are required from above len check, never IndexError
-                            identifiers[i - 1][1] = 'GB'
+                    priority_l = [[] for _ in range(len(identifiers))]
+                    for idx, (database, accession) in enumerate(identifiers):
+                        if database == 'UniProt':
+                            priority_l[0].append(idx)
+                            identifiers[idx][0] = 'UNP'
+                        elif database == 'GenBank':
+                            priority_l[1].append(idx)  # two elements are required from above len check, never IndexError
+                            identifiers[idx][0] = 'GB'
                         elif not whatever_else:
-                            whatever_else = i
-                    for idx in priority_l:
-                        if idx:  # we have found a database from the priority list, choose the corresponding identifier idx
-                            db_d = {'accession': identifiers[idx - 1][0], 'db': identifiers[idx - 1][1]}
+                            whatever_else = idx
+                    for identifier_idx in priority_l:
+                        if identifier_idx:  # we have found a priority database, choose the corresponding identifier idx
+                            db_d = dict(zip(database_keys, identifiers[identifier_idx[0]]))  # Todo choose most accurate if more than 2...
                             break
-                        else:
-                            db_d = {'accession': identifiers[whatever_else - 1][0],
-                                    'db': identifiers[whatever_else - 1][1]}
+                    # finally if no solution from priority but something else, choose the other
+                    if not db_d and whatever_else:
+                        db_d = dict(zip(database_keys, identifiers[whatever_else]))
                 else:
-                    db_d = {'accession': identifiers[0], 'db': identifiers[1]}
+                    db_d = dict(zip(database_keys, identifiers[0]))
 
             ref_d = {chain: db_d for chain in chains}
-        except KeyError:  # there are no know identifiers found
-            ref_d = {chain: {} for chain in chains}
+        except KeyError:  # there are no known identifiers found
+            ref_d = {chain: db_d for chain in chains}
         return ref_d
     else:
         return {}
 
 
-def query_entity_id(entity_id) -> Union[Dict, None]:
+def query_entity_id(entity_id: str) -> Union[Dict, None]:
     """Fetches the JSON object for the entity_id from the PDB API
      
     For all method types the following keys are available:
