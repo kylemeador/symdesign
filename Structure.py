@@ -2490,9 +2490,9 @@ class Entity(Chain, SequenceProfile):
             self.api_entry = get_pdb_info_by_entity(self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
             for chain, api_data in self.api_entry.items():  # [next(iter(self.api_entry))]
                 # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
-                if api_data.get('db', None) == 'UNP':
+                if api_data.get('db') == 'UNP':
                     # set the first found chain. They are likely all the same anyway
-                    self._uniprot_id = api_data.get('accession', None)
+                    self._uniprot_id = api_data.get('accession')
             try:
                 return self._uniprot_id
             except AttributeError:
