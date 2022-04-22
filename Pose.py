@@ -733,7 +733,7 @@ class Model:  # Todo (Structure)
         return self.pdb.entity_from_chain(chain)
 
     @property
-    def atom_indices_per_entity(self) -> List[int]:
+    def atom_indices_per_entity(self) -> List[List[int]]:
         return [entity.atom_indices for entity in self.pdb.entities]
 
     @property
@@ -748,7 +748,7 @@ class Model:  # Todo (Structure)
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
     @property
-    def residue_indices_per_entity(self) -> List[int]:
+    def residue_indices_per_entity(self) -> List[List[int]]:
         return [entity.residue_indices for entity in self.pdb.entities]
 
     @property
@@ -758,6 +758,10 @@ class Model:  # Todo (Structure)
     @property
     def number_of_atoms(self) -> int:  # TODO COMMENT OUT .pdb
         return self.pdb.number_of_atoms
+
+    @property
+    def number_of_residues_per_entity(self):  # TODO COMMENT OUT .pdb
+        return [entity.number_of_residues for entity in self.pdb.entities]
 
     @property
     def number_of_residues(self):  # TODO COMMENT OUT .pdb
@@ -1010,6 +1014,8 @@ class SymmetricModel(Model):
         # overwrite all the coords for each member Entity
         self.pdb.replace_coords(coords)
         # Todo delete any saved attributes from the SymmetricModel
+        #  self.asu_equivalent_model_idx
+        #  self.oligomeric_equivalent_model_idxs
 
     @property
     def cryst_record(self) -> str:
@@ -1495,12 +1501,18 @@ class SymmetricModel(Model):
             self.log.debug('Skipping ASU identification as information already exists')
             return
 
-        template_atom = self.asu.n_terminal_residue
-        atom_ca_coord, atom_idx = template_atom.ca_coords, template_atom.ca_atom_index
+        template_residue = self.asu.n_terminal_residue
+        atom_ca_coord, atom_idx = template_residue.ca_coords, template_residue.ca_atom_index
+        entity1_number, entity2_number = self.number_of_residues_per_entity
+        entity2_n_term_residue_idx = entity1_number + 1
+        entity2_n_term_residue = self.residues[entity2_n_term_residue_idx]
         print('Template ca coord', atom_ca_coord)
+        print('Entity2 ca coord', entity2_n_term_residue.ca_coords)
+        entity2_ca_idx = entity2_n_term_residue.ca_atom_index
         number_of_atoms = self.number_of_atoms
         for model_idx in range(self.number_of_symmetry_mates):
-            print(self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx])
+            print('1', self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx])
+            print('2', self.symmetric_coords[(model_idx * number_of_atoms) + entity2_ca_idx])
             # print(atom_ca_coord ==
             #         self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx])
             if np.allclose(atom_ca_coord, self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]):
@@ -1523,7 +1535,8 @@ class SymmetricModel(Model):
         if self.oligomeric_equivalent_model_idxs.get(entity):  # we already found this information
             self.log.debug('Skipping oligomeric identification as information already exists')
             return
-        asu_size = len(self.coords)
+        # number_of_atoms = len(self.coords)
+        number_of_atoms = self.number_of_atoms
         # need to slice through the specific Entity coords once we have the model
         entity_start, entity_end = entity.atom_indices[0], entity.atom_indices[-1]
         entity_length = entity.number_of_atoms
@@ -1537,8 +1550,8 @@ class SymmetricModel(Model):
             for model_num in range(self.number_of_symmetry_mates):
                 sym_model_center_of_mass = \
                     np.matmul(entity_center_of_mass_divisor,
-                              self.symmetric_coords[(model_num * asu_size) + entity_start:
-                                                    (model_num * asu_size) + entity_end + 1])
+                              self.symmetric_coords[(model_num * number_of_atoms) + entity_start:
+                                                    (model_num * number_of_atoms) + entity_end + 1])
                 #                                             have to add 1 for slice ^
                 # print('Sym Model', sym_model_center_of_mass)
                 # if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
@@ -2308,7 +2321,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         elif pdb_file:  # TODO COMMENT OUT .pdb initialize Pose from Model?
             self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
 
-        super().__init__(**kwargs)  # will only generate an assembly if an ASU is present
+        super().__init__(**kwargs)  # will generate assembly coords if an ASU is present
 
         frag_db = kwargs.get('frag_db')
         if frag_db:  # Attach existing FragmentDB to the Pose
