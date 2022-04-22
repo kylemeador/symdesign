@@ -184,6 +184,13 @@ logger = start_log(name=__name__)
 null_log = start_log(name='null', handler=3, propagate=False)
 
 
+def set_logging_to_debug():
+    for logger_name in logging.root.manager.loggerDict:
+        _logger = logging.getLogger(logger_name)
+        _logger.setLevel(logging.DEBUG)
+        _logger.propagate = False
+
+
 def pretty_format_table(data, justification=None, header=None, header_justification=None) -> List[str]:
     """Present a table in readable format by sizing and justifying columns in a nested data structure
     i.e. [row1[column1, column2, ...], row2[], ...]
