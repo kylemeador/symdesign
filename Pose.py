@@ -1015,7 +1015,9 @@ class SymmetricModel(Model):
     def set_asu_coords(self, coords):
         # overwrite all the coords for each member Entity
         self.pdb.replace_coords(coords)
+        self.generate_symmetric_coords()
         # Todo delete any saved attributes from the SymmetricModel
+        #  self.symmetric_coords
         #  self.asu_equivalent_model_idx
         #  self.oligomeric_equivalent_model_idxs
 
@@ -1073,11 +1075,12 @@ class SymmetricModel(Model):
         #  Need to modify delete_residue and insert residue ._atom_indices attribute access
         # alt solution may be quicker by performing the following multiplication then .flatten()
         # broadcast entity_indices ->
-        # (np.arange(model_number) * coords_length).T
+        # (np.arange(model_number) * number_of_atoms).T
         # |
         # v
-        coords_length = len(self.coords)
-        return [[idx + (coords_length * model_number) for model_number in range(self.number_of_symmetry_mates)
+        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
+        number_of_atoms = len(self.coords)
+        return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
     @property
@@ -1151,6 +1154,8 @@ class SymmetricModel(Model):
         number_of_symmetry_mates = self.number_of_symmetry_mates
         return np.matmul(np.full(number_of_atoms * number_of_symmetry_mates,
                                  1 / number_of_atoms * number_of_symmetry_mates), self.symmetric_coords)
+        # Todo, since all symmetry by expand_matrix anyway?
+        #  return self.center_of_mass_symmetric_models.mean(axis=-2)
 
     @property
     def center_of_mass_symmetric_models(self):
@@ -1162,8 +1167,9 @@ class SymmetricModel(Model):
         # if self.symmetry:
         # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
         number_of_atoms = len(self.coords)
-        return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms),
-                         np.split(self.symmetric_coords, self.number_of_symmetry_mates))
+        return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.symmetric_coords_split)
+        # Todo, all symmetry by expand_matrix anyway...
+        #  return np.matmul(self.center_of_mass, self.expand_matrices)
 
     @property
     def center_of_mass_symmetric_entities(self):
@@ -1179,6 +1185,8 @@ class SymmetricModel(Model):
                                                                      entity_coords))  # Todo test if works now
 
         return self._center_of_mass_symmetric_entities
+        # Todo, all symmetry by expand_matrix anyway...
+        #  return [np.matmul(entity.center_of_mass, self.expand_matrices) for entity in self.entities]
 
     @property
     def assembly(self) -> Structure:
