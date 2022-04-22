@@ -1005,6 +1005,7 @@ if __name__ == '__main__':
         # Root logs to stream with level debug
         logger = SDUtils.start_log(level=1, set_logger_level=True)
         logger.debug('Debug mode. Verbose output')
+        SDUtils.set_logging_to_debug()
     else:
         # Root logger logs to stream with level 'warning'
         SDUtils.start_log(level=3, set_logger_level=True)
