@@ -982,7 +982,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
         elif directory:  # This is probably an uninitialized project. Grab all .pdb files
             all_paths = get_all_file_paths(directory, extension='.pdb')
         else:  # function was called with all set to None. This shouldn't happen
-            all_paths = []
+            raise RuntimeError('Can\'t collect_designs when no arguments were passed!')
             # raise DesignError('There was no argument provided to %s! Which returns no designs...'
             #                   % collect_designs.__name__)
         # location = directory
@@ -994,27 +994,27 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
     #     location = singles[0]  # assigned to the first path even if there are multiple...
     # else:  # this shouldn't happen
     #     all_paths = []
-    location = (files or directory or projects or singles or None)
+    location = (files or directory or projects or singles)
 
-    return sorted(set(all_paths)), location[0] if isinstance(location, Sequence) else location
+    return sorted(set(all_paths)), location if isinstance(location, str) else location[0]
 
 
-def get_base_symdesign_dir(directory: None) -> Union[None, str]:
-    # base_dir = None
+def get_base_symdesign_dir(directory: str = None) -> Union[None, str]:
+    base_dir = None
     if not directory:
         pass
     elif PUtils.program_output in directory:   # directory1/SymDesignOutput/directory2/directory3
         for idx, dirname in enumerate(directory.split(os.sep), 1):
             if dirname == PUtils.program_output:
-                directory = '%s%s' % (os.sep, os.path.join(*directory.split(os.sep)[:idx]))
+                base_dir = '%s%s' % (os.sep, os.path.join(*directory.split(os.sep)[:idx]))
                 break
     elif PUtils.program_output in os.listdir(directory):  # directory_provided/SymDesignOutput
         for sub_directory in os.listdir(directory):
             if sub_directory == PUtils.program_output:
-                directory = os.path.join(directory, sub_directory)
+                base_dir = os.path.join(directory, sub_directory)
                 break
 
-    return directory
+    return base_dir
 
 
 def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Iterable = None) -> Iterator:
