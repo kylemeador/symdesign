@@ -1519,19 +1519,13 @@ class SymmetricModel(Model):
 
         template_residue = self.asu.n_terminal_residue
         atom_ca_coord, atom_idx = template_residue.ca_coords, template_residue.ca_atom_index
-        entity1_number, entity2_number = self.number_of_residues_per_entity
-        entity2_n_term_residue_idx = entity1_number + 1
-        entity2_n_term_residue = self.residues[entity2_n_term_residue_idx]
-        print('Template ca coord', atom_ca_coord)
-        print('Entity2 ca coord', entity2_n_term_residue.ca_coords)
-        entity2_ca_idx = entity2_n_term_residue.ca_atom_index
+        # entity1_number, entity2_number = self.number_of_residues_per_entity
+        # entity2_n_term_residue_idx = entity1_number + 1
+        # entity2_n_term_residue = self.residues[entity2_n_term_residue_idx]
+        # entity2_ca_idx = entity2_n_term_residue.ca_atom_index
         # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
         number_of_atoms = len(self.coords)
         for model_idx in range(self.number_of_symmetry_mates):
-            print('1', self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx])
-            print('2', self.symmetric_coords[(model_idx * number_of_atoms) + entity2_ca_idx])
-            # print(atom_ca_coord ==
-            #         self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx])
             if np.allclose(atom_ca_coord, self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]):
                 # if (atom_ca_coord ==
                 #         self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]).all():
@@ -2058,11 +2052,11 @@ class SymmetricModel(Model):
                     if len(indices) == group_subunit_number:
                         x = (temp_model_coms[indices] - [0, 0, height])[0]  # get first point. Norms are equivalent
                         central_offset = np.sqrt(x.dot(x))  # np.abs()
-                        self.log.critical('central_offset = %f' % central_offset)
+                        # self.log.critical('central_offset = %f' % central_offset)
                         if central_offset < minimal_central_offset:
                             minimal_central_offset = central_offset
                             centrally_disposed_group_height = height
-                            self.log.critical('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
+                            # self.log.critical('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
                         elif central_offset == minimal_central_offset and centrally_disposed_group_height < 0 < height:
                             centrally_disposed_group_height = height
                         else:  # The central offset is larger
