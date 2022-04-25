@@ -1790,6 +1790,8 @@ class DesignDirectory:  # (JobResources):
         elif self.init_pdb:  # this is a fresh pose, and we already loaded so reuse
             # careful, if some processing to the pdb has since occurred then this will be wrong!
             pdb = self.init_pdb
+            for entity in pdb.entities:
+                print('init', entity.name, entity.chain)
         else:
             pdb = PDB.from_file(source if source else self.source, entity_names=self.entity_names, log=self.log)
             #                              pass names if available ^
