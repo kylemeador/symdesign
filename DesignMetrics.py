@@ -1107,7 +1107,7 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
     """
     # pose_length (int): The number of residues in the pose
     pose_length = len(mutations['reference'])
-    warn = False
+    warn, warn2 = False, False
     total_residue_dict = {}
     for design, scores in score_dict.items():
         residue_data = {}
