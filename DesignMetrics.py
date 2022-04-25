@@ -1047,9 +1047,11 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
                                      'residue selection in the specified rosetta protocol. If there were warnings '
                                      'produced indicating a larger residue number than pose size, this problem was not '
                                      'addressable heuristically and something else has occurred. It is likely that this'
-                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"')
+                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"'
+                                     % (residue_number, pose_length))
                         warn2 = True
                     remove_residues.append(residue_number)
+                    continue
             if hbonds:
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
@@ -1159,9 +1161,11 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
                                      'residue selection in the specified rosetta protocol. If there were warnings '
                                      'produced indicating a larger residue number than pose size, this problem was not '
                                      'addressable heuristically and something else has occurred. It is likely that this'
-                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"')
+                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"'
+                                     % (residue_number, pose_length))
                         warn2 = True
                     remove_residues.append(residue_number)
+                    continue
             if hbonds:
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
