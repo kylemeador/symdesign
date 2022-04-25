@@ -10,9 +10,9 @@ from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
 from PathUtils import frag_text_file, master_log, biological_fragment_db_pickle, frag_dir
-from Structure import superposition3d, Structure
+from Structure import Structure  # superposition3d
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
-    calculate_match, z_value_from_match_score, unpickle
+    calculate_match, z_value_from_match_score, unpickle, set_logging_to_debug
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
     transform_coordinate_sets, get_rotation_step, write_docking_parameters, transform_coordinates
@@ -441,7 +441,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     else:  # it has been set. Does it exist?
         resume = True if os.path.exists(log_file_path) else False
 
-    log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False)
+    log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
     pdb1.log = log
     pdb2.log = log
 
@@ -1649,10 +1649,12 @@ if __name__ == '__main__':
         if debug:
             # Root logs to stream with level debug
             logger = start_log(level=1, set_logger_level=True)
+            set_logging_to_debug()
             master_logger, bb_logger = logger, logger
             logger.debug('Debug mode. Verbose output')
         else:
-            master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
+            master_logger = start_log(name=os.path.basename(__file__), handler=2, location=master_log_filepath,
+                                      propagate=True)
         # SymEntry Parameters
         sym_entry = SymEntry(sym_entry_number)  # sym_map inclusion?
 

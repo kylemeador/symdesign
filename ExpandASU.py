@@ -2,8 +2,8 @@ import argparse
 import os
 
 from PDB import PDB
-from SymDesignUtils import start_log, to_iterable
-from utils.SymmetryUtils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb, write_expanded_ptgrp
+from SymDesignUtils import start_log, to_iterable, set_logging_to_debug
+from utils.SymmetryUtils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb  #, write_expanded_ptgrp
 
 
 def expand_asu(file, symmetry, out_path=None):
@@ -37,9 +37,10 @@ if __name__ == '__main__':
 
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
+        set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = start_log(name=os.path.basename(__file__), level=2)
+        logger = start_log(name=os.path.basename(__file__), propagate=True)
 
     logger.info('Starting %s with options:\n\t%s' %
                 (os.path.basename(__file__),

@@ -12,9 +12,7 @@ import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 
 # import CmdUtils as CUtils
-logger = SDUtils.start_log(level=3)
-
-
+logger = SDUtils.start_log(name=__name__)
 per_res_keys = ['jsd', 'int_jsd']
 
 
@@ -50,10 +48,11 @@ if __name__ == '__main__':
 
     # Start logging output
     if args.debug:
-        logger = SDUtils.start_log(name='main', level=1)
+        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
+        SDUtils.set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = SDUtils.start_log(name='main', level=2)
+        logger = SDUtils.start_log(name=os.path.basename(__file__), propagate=True)
 
     logger.info('Starting %s with options:\n%s' %
                 (os.path.basename(__file__),

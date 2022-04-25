@@ -5,7 +5,7 @@ from itertools import repeat
 import pandas as pd
 
 from Pose import Pose
-from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, to_iterable, mp_starmap
+from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, to_iterable, mp_starmap, set_logging_to_debug
 # from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
 from classes.EulerLookup import EulerLookup
 from Database import FragmentDB
@@ -48,9 +48,10 @@ if __name__ == '__main__':
 
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
+        set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = start_log(name=os.path.basename(__file__), level=2)
+        logger = start_log(name=os.path.basename(__file__), level=2, propagate=True)
 
     interface_pdbs = []
     if args.directory:

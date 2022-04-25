@@ -14,7 +14,7 @@ from SymDesignUtils import pickle_object, to_iterable, remove_duplicates, io_sav
 
 # from interface_analysis.InterfaceSorting import logger
 
-logger = start_log(name=__name__, level=2)  # was from SDUtils logger, but moved here per standard suggestion
+logger = start_log(name=__name__)
 
 # Globals
 # pisa_type_extensions = {'multimers': '.xml', 'interfaces': '.xml', 'multimer': '.pdb', 'pisa': '.pkl'}

@@ -66,10 +66,11 @@ if __name__ == '__main__':
     args = parser.parse_args()
     # Start logging output
     if args.debug:
-        logger = SDUtils.start_log(name='main', level=1)
+        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
+        SDUtils.set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = SDUtils.start_log(name='main', level=2)
+        logger = SDUtils.start_log(name=os.path.basename(__file__), propagate=True)
 
     all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory)
     assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \

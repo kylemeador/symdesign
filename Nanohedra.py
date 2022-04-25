@@ -9,7 +9,7 @@ from FragDock import nanohedra_dock
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry
 from PDB import orient_pdb_file
-from SymDesignUtils import get_all_pdb_file_paths, start_log, unpickle
+from SymDesignUtils import get_all_pdb_file_paths, start_log, unpickle, set_logging_to_debug
 from utils.GeneralUtils import write_docking_parameters, get_rotation_step
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
 from utils.NanohedraManualUtils import print_usage
@@ -40,10 +40,12 @@ if __name__ == '__main__':
         if debug:
             # Root logs to stream with level debug
             logger = start_log(level=1, set_logger_level=True)
+            set_logging_to_debug()
             master_logger, bb_logger = logger, logger
             logger.debug('Debug mode. Verbose output')
         else:
-            master_logger = start_log(name=__name__, handler=2, location=master_log_filepath)
+            master_logger = start_log(name=os.path.basename(__file__), propagate=True,
+                                      handler=2, location=master_log_filepath)
         master_logger.info('Nanohedra\nMODE: DOCK\n')
 
         try:

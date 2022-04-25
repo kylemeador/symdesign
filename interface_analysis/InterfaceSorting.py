@@ -291,7 +291,7 @@ if __name__ == '__main__':
     parser.add_argument('-F', '--fix_pisa', action='store_true', help='Should the pisa files be corrected?')
     args = parser.parse_args()
 
-    logger = start_log(name=os.path.basename(__file__), level=2)
+    logger = start_log(name=os.path.basename(__file__), propagate=True)
 
     # Input data/files
     # pdb_directory = '/databases/pdb'
