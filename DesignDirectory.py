@@ -1685,8 +1685,8 @@ class DesignDirectory:  # (JobResources):
 
         Keyword Args:
             master_db=None (Database): The Database object which stores relevant files
-            refined=False (bool): Whether or not to use the refined oligomeric directory
-            oriented=False (bool): Whether or not to use the oriented oligomeric directory
+            refined=False (bool): Whether to use the refined oligomeric directory
+            oriented=False (bool): Whether to use the oriented oligomeric directory
         Sets:
             self.oligomers (list[PDB])
         """
@@ -2100,7 +2100,7 @@ class DesignDirectory:  # (JobResources):
             self.design_residues = self.design_residues.union([residue.number for residue, _ in residues_entities])
 
         self.interface_residues = []  # update False to list or replace list and attempt addition of new residues
-        for entity in self.pose.pdb.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
+        for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
             entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, pose_format=False, entities=False)
             entity_oligomer.get_sasa()
             for residue_number in self.design_residues:
@@ -3265,7 +3265,7 @@ class DesignDirectory:  # (JobResources):
                 trajectory_df.sort_index(inplace=True, axis=1)
                 residue_df.sort_index(inplace=True)
                 # Add wild-type residue information in metrics for sequence comparison
-                # find the solvent acessible surface area of the separated entities
+                # find the solvent accessible surface area of the separated entities
                 for entity in self.pose.pdb.entities:
                     entity.get_sasa()
 
