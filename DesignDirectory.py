@@ -362,6 +362,7 @@ class DesignDirectory:  # (JobResources):
             self.set_up_design_directory()
             if not self.entity_names:
                 self.init_pdb = PDB.from_file(self.source_path, log=self.log, pose_format=False)
+                self.init_pdb.write(out_path=os.path.join(self.path, 'init_pdb'))
                 self.entity_names = [entity.name for entity in self.init_pdb.entities]
                 # self.load_pose()  # load the source pdb to find the entity_names
                 # self.entity_names = [entity.name for entity in self.pose.entities]
@@ -769,6 +770,7 @@ class DesignDirectory:  # (JobResources):
             except FileNotFoundError:
                 try:
                     self._pose_transformation = self.pose.assign_pose_transformation()
+                    self.pose.write(out_path=os.path.join(self.path, 'pose_after_assign_transformation'))
                 except DesignError:
                     # Todo
                     #  This must be something outside of the realm of possibilities of Nanohedra symmetry groups
@@ -1796,6 +1798,7 @@ class DesignDirectory:  # (JobResources):
                                       design_selector=self.design_selector, log=self.log,
                                       source_db=self.resources, frag_db=self.frag_db, euler_lookup=self.euler_lookup,
                                       ignore_clashes=self.ignore_clashes)
+            self.pose.write(out_path=os.path.join(self.path, 'pose_after_load'))
             # generate oligomers for each entity in the pose
             for idx, entity in enumerate(self.pose.entities):
                 entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
