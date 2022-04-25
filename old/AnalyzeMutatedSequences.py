@@ -8,7 +8,7 @@ import os
 # generic_protein = None
 
 import PathUtils as PUtils
-from SymDesignUtils import start_log, filter_dictionary_keys
+from SymDesignUtils import start_log, filter_dictionary_keys, set_logging_to_debug
 from PDB import PDB
 from SequenceProfile import position_specific_jsd, weave_mutation_dict, \
     SequenceProfile, jensen_shannon_divergence, rank_possibilities
@@ -142,9 +142,10 @@ if __name__ == '__main__':
     # Start logging output
     if args.debug:
         logger = start_log(name='main', level=1)
+        set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = start_log(name='main', level=2)
+        logger = start_log(name='main', propagate=True)
 
     logger.info('Starting %s with options:\n%s' %
                 (__name__, '\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))

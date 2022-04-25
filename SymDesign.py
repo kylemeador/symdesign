@@ -1004,11 +1004,11 @@ if __name__ == '__main__':
     if args.debug:
         # Root logs to stream with level debug
         logger = SDUtils.start_log(level=1, set_logger_level=True)
-        logger.debug('Debug mode. Verbose output')
         SDUtils.set_logging_to_debug()
+        logger.debug('Debug mode. Verbose output')
     else:
         # Root logger logs to stream with level 'warning'
-        SDUtils.start_log(level=3, set_logger_level=True)
+        SDUtils.start_log(level=3, set_logger_level=True, propagate=True)
         # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
         SDUtils.start_log(handler=2, set_logger_level=True,
                           location=os.path.join(os.getcwd(), args.output_directory if args.output_directory else '',
@@ -1406,8 +1406,9 @@ if __name__ == '__main__':
             symmetry_map = sym_entry.groups
             all_entities = []
             load_resources = False
-            orient_log = SDUtils.start_log(name='orient', handler=2, location=os.path.join(os.path.dirname(args.oligomer1),
-                                                                                           PUtils.orient_log_file))
+            orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
+                                           location=os.path.join(os.path.dirname(args.oligomer1),
+                                                                 PUtils.orient_log_file))
             if args.query_codes:
                 # raise SDUtils.DesignError('This functionality is not yet available. Just connect Query.PDB.__main__')
                 if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
@@ -1638,7 +1639,8 @@ if __name__ == '__main__':
                 master_logger, bb_logger = logger, logger
             else:
                 master_log_filepath = os.path.join(args.output_directory, PUtils.master_log)
-                master_logger = SDUtils.start_log(name=PUtils.nano.title(), handler=2, location=master_log_filepath)
+                master_logger = SDUtils.start_log(name=PUtils.nano.title(), propagate=True,
+                                                  handler=2, location=master_log_filepath)
             master_logger.info('Nanohedra\nMODE: DOCK\n\n')
             write_docking_parameters(args.oligomer1, args.oligomer2, args.rot_step_deg1, args.rot_step_deg2, sym_entry,
                                      job.docking_master_dir, log=master_logger)

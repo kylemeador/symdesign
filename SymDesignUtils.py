@@ -130,7 +130,7 @@ def timestamp():
 starttime = timestamp()
 
 
-def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True, format_log=True, no_log_name=False,
+def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=False, format_log=True, no_log_name=False,
               set_logger_level=False):
     """Create a logger to handle program messages
 
@@ -181,7 +181,7 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=True,
 
 
 logger = start_log(name=__name__)
-null_log = start_log(name='null', handler=3, propagate=False)
+null_log = start_log(name='null', handler=3)
 
 
 def set_logging_to_debug():

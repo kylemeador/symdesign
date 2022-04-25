@@ -55,7 +55,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         logger = SDUtils.start_log(name=__name__, handler=2, level=1,
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     else:
-        logger = SDUtils.start_log(name=__name__, handler=2, level=2,
+        logger = SDUtils.start_log(name=__name__, handler=2, propagate=True,
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     logger.info('Processing directory \'%s\'' % des_dir.path)
 
@@ -705,9 +705,10 @@ if __name__ == '__main__':
     # Start logging output
     if args.debug:
         logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
+        SDUtils.set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
+        logger = SDUtils.start_log(name=os.path.basename(__file__), propagate=True)
 
     logger.info('Starting %s with options:\n%s' %
                 (os.path.basename(__file__),

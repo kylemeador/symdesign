@@ -476,9 +476,10 @@ if __name__ == '__main__':
     # Start logging output
     if args.debug:
         logger = SDUtils.start_log(level=1)
+        SDUtils.set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = SDUtils.start_log(name=os.path.basename(__file__), level=2)
+        logger = SDUtils.start_log(name=os.path.basename(__file__), propagate=True)
 
     logger.info('Starting %s with options:\n\t%s' %
                 (os.path.basename(__file__),

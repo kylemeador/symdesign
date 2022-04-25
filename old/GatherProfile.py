@@ -193,10 +193,11 @@ if __name__ == '__main__':
 
     # Start logging output
     if args.debug:
-        logger = SDUtils.start_log(PUtils.program_name, level=1)
+        logger = SDUtils.start_log(name=os.path.basename(__file__), level=1)
+        SDUtils.set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = SDUtils.start_log(PUtils.program_name, level=2)
+        logger = SDUtils.start_log(name=os.path.basename(__file__), propagate=True)
         # warn_logger = SDUtils.start_log(__name__, level=3)
     logger.info('Starting design with options:\n%s' %
                 ('\n'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))

@@ -8,7 +8,7 @@ sys.path.append(parent_dir)
 import numpy as np
 from sklearn.neighbors import BallTree
 
-from SymDesignUtils import start_log, collect_designs
+from SymDesignUtils import start_log, collect_designs, set_logging_to_debug
 from Structure import MonoFragment
 from Database import FragmentDB
 from PDB import PDB
@@ -80,9 +80,10 @@ if __name__ == '__main__':
     # Start logging output
     if args.debug:
         logger = start_log(name=os.path.basename(__file__), level=1)
+        set_logging_to_debug()
         logger.debug('Debug mode. Verbose output')
     else:
-        logger = start_log(name=os.path.basename(__file__), level=2)
+        logger = start_log(name=os.path.basename(__file__), propagate=True)
 
     logger.info('Starting %s with options:\n\t%s' %
                 (os.path.basename(__file__),
