@@ -2391,10 +2391,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     @SymmetricModel.asu.setter
     def asu(self, asu):
+        for entity in asu.entities:
+            print('OLD', entity.name, entity.chain)
         self.pdb = asu  # process incoming structure as normal
+        for entity in self.entities:
+            print('New', entity.name, entity.chain)
         if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
-            self.log.debug('self.number_of_entities (%d) self.number_of_chains (%d)'
-                           % (self.number_of_entities, self.number_of_chains))
+            # self.log.debug('self.number_of_entities (%d) self.number_of_chains (%d)'
+            #                % (self.number_of_entities, self.number_of_chains))
             self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
             self.set_contacting_asu()  # find maximally touching ASU and set ._pdb
 
