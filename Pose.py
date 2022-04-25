@@ -2052,13 +2052,14 @@ class SymmetricModel(Model):
                     if len(indices) == group_subunit_number:
                         x = (temp_model_coms[indices] - [0, 0, height])[0]  # get first point. Norms are equivalent
                         central_offset = np.sqrt(x.dot(x))  # np.abs()
-                        # self.log.critical('central_offset = %f' % central_offset)
+                        self.log.debug('central_offset = %f' % central_offset)
                         if central_offset < minimal_central_offset:
                             minimal_central_offset = central_offset
                             centrally_disposed_group_height = height
-                            # self.log.critical('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
+                            self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
                         elif central_offset == minimal_central_offset and centrally_disposed_group_height < 0 < height:
                             centrally_disposed_group_height = height
+                            self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
                         else:  # The central offset is larger
                             pass
                 # if a viable group was found save the group COM as an internal_tx and setting_matrix used to find it
@@ -2112,17 +2113,14 @@ class SymmetricModel(Model):
         # pose_transformation coordinates to find the ASU entities. These will then be used to make oligomers
         # assume a globular nature to entity chains
         # therefore the minimal com to com dist is our asu and therefore naive asu coords
-        # self.log.critical('asu_indices: %s' % asu_indices)
-        all_coms = []
-        for group_idx, indices in enumerate(asu_indices):
-            # pdist()
-            all_coms.append(center_of_mass_symmetric_entities[group_idx][indices])
-        # self.log.critical('all_coms: %s' % all_coms)
-
         if len(asu_indices) == 1:
-            # new_asu_indices = asu_indices[0]  # choice doesn't matter
             selected_asu_indices = [asu_indices[0][0]]  # choice doesn't matter, grab the first
         else:
+            all_coms = []
+            for group_idx, indices in enumerate(asu_indices):
+                all_coms.append(center_of_mass_symmetric_entities[group_idx][indices])
+                # pdist()
+            # self.log.critical('all_coms: %s' % all_coms)
             idx = 0
             asu_indices_combinations = []
             asu_indices_index, asu_coms_index = [], []
