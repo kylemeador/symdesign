@@ -568,7 +568,7 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordin
 # unused, just a placeholder for the metrics in population
 final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordinate_constraint',
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',
-                 'divergence_interface_per_residue', 'favor_residue_energy',
+                 'divergence_interface_per_residue', 'entity_thermophilicity', 'favor_residue_energy',
                  'interface_area_hydrophobic', 'interface_area_polar', 'interface_area_total',
                  'interface_composition_similarity', 'interface_connectivity_1', 'interface_connectivity_2',
                  'interface_energy_1_unbound', 'interface_energy_2_unbound',
@@ -629,7 +629,7 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
 
-clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interface_energy_bound',
+clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interface_energy_bound', Todo make _3_..., _4_
                                  'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
@@ -757,6 +757,7 @@ def read_scores(file, key='decoy'):
                 elif score.startswith('R_'):
                     formatted_scores[score.replace('R_', '').replace('S_', '')] = value
                 else:
+                    # res_summary replace is used to take sasa_res_summary and other per_res metrics "string" off
                     score = score.replace('res_summary_', '').replace('solvation_total', 'solvation')
                     formatted_scores[columns_to_rename.get(score, score)] = value
 
@@ -997,7 +998,7 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
     """
     # pose_length (int): The number of residues in the pose
     pose_length = len(mutations['reference'])
-    warn = False
+    warn, warn2 = False, False
     total_residue_dict = {}
     for design, scores in score_dict.items():
         residue_data = {}
@@ -1030,11 +1031,25 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
                 # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
                 residue_data[residue_number][metric][pose_state] += scores.get(column, 0)
 
+        remove_residues = []
         for residue_number, data in residue_data.items():
             try:
-                data['type'] = mutations[design][residue_number]  # % pose_length]
+                data['type'] = mutations[design][residue_number]
             except KeyError:
-                data['type'] = mutations['reference'][residue_number]  # % pose_length]  # fill with aa from wt seq
+                try:
+                    data['type'] = mutations['reference'][residue_number]  # fill with aa from wt seq
+                except KeyError:
+                    # residue is out of bounds on pose length. Possibly a virtual residue or a string that was processed
+                    # incorrectly from the digit_translate_table
+                    if not warn2:
+                        logger.error('Encountered residue number "%s" which is not within the pose size "%d" and will '
+                                     'be removed from processing. This is likely an error with residue processing or '
+                                     'residue selection in the specified rosetta protocol. If there were warnings '
+                                     'produced indicating a larger residue number than pose size, this problem was not '
+                                     'addressable heuristically and something else has occurred. It is likely that this'
+                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"')
+                        warn2 = True
+                    remove_residues.append(residue_number)
             if hbonds:
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
@@ -1066,6 +1081,9 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
             data.pop('sasa')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
+        # clean up any incorrect residues
+        for residue in remove_residues:
+            residue_data.pop(residue)
         total_residue_dict[design] = residue_data
 
     return total_residue_dict
@@ -1125,11 +1143,25 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
                     # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
                     residue_data[residue_number][metric][pose_state] += value
 
+        remove_residues = []
         for residue_number, data in residue_data.items():
             try:
-                data['type'] = mutations[design][residue_number]  # % pose_length]
+                data['type'] = mutations[design][residue_number]
             except KeyError:
-                data['type'] = mutations['reference'][residue_number]  # % pose_length]  # fill with aa from wt seq
+                try:
+                    data['type'] = mutations['reference'][residue_number]  # fill with aa from wt seq
+                except KeyError:
+                    # residue is out of bounds on pose length. Possibly a virtual residue or a string that was processed
+                    # incorrectly from the digit_translate_table
+                    if not warn2:
+                        logger.error('Encountered residue number "%s" which is not within the pose size "%d" and will '
+                                     'be removed from processing. This is likely an error with residue processing or '
+                                     'residue selection in the specified rosetta protocol. If there were warnings '
+                                     'produced indicating a larger residue number than pose size, this problem was not '
+                                     'addressable heuristically and something else has occurred. It is likely that this'
+                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"')
+                        warn2 = True
+                    remove_residues.append(residue_number)
             if hbonds:
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
@@ -1161,6 +1193,9 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
             data.pop('sasa')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
+        # clean up any incorrect residues
+        for residue in remove_residues:
+            residue_data.pop(residue)
         total_residue_dict[design] = residue_data
 
     return total_residue_dict
