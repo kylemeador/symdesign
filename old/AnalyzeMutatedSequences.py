@@ -143,7 +143,7 @@ if __name__ == '__main__':
     if args.debug:
         logger = start_log(name='main', level=1)
         set_logging_to_debug()
-        logger.debug('Debug mode. Verbose output')
+        logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
         logger = start_log(name='main', propagate=True)
 
