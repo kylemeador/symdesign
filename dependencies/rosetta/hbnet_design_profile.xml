@@ -35,7 +35,7 @@
 		<True name="full_pose"/>
 		<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
 		<SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues"/>
-		<And name="hbnet_sym_neighbors_logic" selector="hbnet_residues_sym,not_virtual_residues"/>
+		<And name="hbnet_sym_neighbors_logic" selectors="hbnet_residues_sym,not_virtual_residues"/>
 		<Neighborhood name="hbnet_sym_neighbors" selector="hbnet_sym_neighbors_logic" include_focus_in_subset="false" distance="8"/> # Cb neighbors
 		<Or name="hbnet_sym_neighbors_or_core" selectors="hbnet_sym_neighbors,core_residues"/>
 		<Not name="not_hbnet_sym_or_core_neighbors" selector="hbnet_sym_neighbors_or_core"/>
