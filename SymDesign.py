@@ -253,7 +253,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     f_degen1, f_degen2, f_rot1, f_rot2 = get_last_sampling_state(log_file, zero=False)
                     # degens, rotations = Pose.degen_and_rotation_parameters(
                     #     Pose.gather_docking_metrics(des_dir.log[sym_idx]))
-                    raise DesignError('This functionality has been removed \'des_dir.gather_docking_metrics()\'')
+                    raise DesignError('This functionality has been removed "des_dir.gather_docking_metrics()"')
                     des_dir.gather_docking_metrics()  # log[sym_idx]))
                     degens, rotations = des_dir.degen_and_rotation_parameters()
                     degen1, degen2 = tuple(degens)
@@ -452,7 +452,7 @@ def terminate(results=None, output=True):
 
         with open(designs_file, 'w') as f:
             f.write('%s\n' % '\n'.join(design.path for design in success))
-        logger.critical('The file \'%s\' contains the locations of all designs in your current project that passed '
+        logger.critical('The file "%s" contains the locations of all designs in your current project that passed '
                         'internal checks/filtering. Utilize this file to interact with %s designs in future commands '
                         'for this project such as:\n\t%s --file %s MODULE\n'
                         % (designs_file, PUtils.program_name, PUtils.program_command, designs_file))
@@ -602,8 +602,8 @@ if __name__ == '__main__':
     parser.add_argument('-F', '--%s' % PUtils.force_flags, action='store_true',
                         help='Force generation of a new flags file to update script parameters')
     parser.add_argument('-g', '--guide', action='store_true',
-                        help='Access the %s guide! Display the program or module specific guide. Ex: \'%s --guide\' '
-                             'or \'%s\'' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
+                        help='Access the %s guide! Display the program or module specific guide. Ex: "%s --guide" '
+                             'or "%s"' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
     parser.add_argument('-gf', '--%s' % PUtils.generate_fragments, action='store_true',
                         help='Generate fragment overlap for poses of interest.')
     parser.add_argument('-ic', '--ignore_clashes', action='store_true',
@@ -784,7 +784,7 @@ if __name__ == '__main__':
                                                'script will be run in every pose specified using specified options')
     parser_custom.add_argument('-l', '--file_list', action='store_true',
                                help='Whether to use already produced designs in the designs/ directory')
-    parser_custom.add_argument('-n', '--native', type=str, help='What structure to use as a \'native\' structure for '
+    parser_custom.add_argument('-n', '--native', type=str, help='What structure to use as a "native" structure for '
                                                                 'Rosetta reference calculations. Default=refined_pdb',
                                choices=['source', 'asu', 'assembly', 'refine_pdb', 'refined_pdb', 'consensus_pdb',
                                         'consensus_design_pdb'])
@@ -792,10 +792,10 @@ if __name__ == '__main__':
     parser_custom.add_argument('script', type=os.path.abspath, help='The location of the custom script')
     parser_custom.add_argument('--suffix', type=str, metavar='SUFFIX',
                                help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. '
-                                    '\'decoy_SUFFIX\') to identify this protocol. No extension will be included')
+                                    '"decoy_SUFFIX") to identify this protocol. No extension will be included')
     parser_custom.add_argument('-v', '--variables', type=str, nargs='*',
                                help='Additional variables that should be populated in the script. Provide a list'
-                                    ' of such variables with the format \'variable1=value variable2=value\'. '
+                                    ' of such variables with the format "variable1=value variable2=value". '
                                     'Where variable1 is a RosettaScripts %%%%variable1%%%% and value is a' 
                                     # ' either a'  # Todo
                                     ' known value'
@@ -935,11 +935,11 @@ if __name__ == '__main__':
     parser_visualize = subparsers.add_parser('visualize', help='Get design status for selected designs')
     visualize_names = ['original', 'numerical']
     parser_visualize.add_argument('-n', '--name', choices=visualize_names, default='original', type=str,
-                                  help='Number of trajectories per design. Options include \'%s\''
+                                  help='Number of trajectories per design. Options include "%s"'
                                        % ', '.join(visualize_names))
     visualize_order = ['alphabetical', 'none', 'dataframe', 'paths']
     parser_visualize.add_argument('-o', '--order', choices=visualize_order, default='alphabetical',
-                                  help='The order in which designs will be loaded. Options include \'%s\'.\nIf the '
+                                  help='The order in which designs will be loaded. Options include "%s".\nIf the '
                                        'order is other than alphabetical, provide the required datasource through '
                                        'one of the %s flags such as --dataframe or --file'
                                        % (', '.join(visualize_order), PUtils.program_name))
@@ -1070,7 +1070,7 @@ if __name__ == '__main__':
         #     if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
         #         queried_flags['output_assembly'] = True
         #     else:
-        #         logger.critical('Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\''
+        #         logger.critical('Cannot %s without providing symmetry! Provide symmetry with "--symmetry"'
         #                         % args.module)
         #         exit(1)
     elif args.module in [PUtils.analysis, PUtils.cluster_poses]:
@@ -1183,7 +1183,7 @@ if __name__ == '__main__':
                 design_directories = [DesignDirectory.from_file(pose, **queried_flags)
                                       for pose in all_poses[low_range:high_range]]
         if not design_directories:
-            raise SDUtils.DesignError('No %s directories found within \'%s\'! Please ensure correct '
+            raise SDUtils.DesignError('No %s directories found within "%s"! Please ensure correct '
                                       'location. Are you sure you want to run with -%s %s?'
                                       % (PUtils.program_name, location, 'nanohedra_output', args.nanohedra_output))
         # Todo could make after collect_designs? Pass to all design_directories
@@ -1205,7 +1205,7 @@ if __name__ == '__main__':
             os.makedirs(designs_directory, exist_ok=True)
         master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
                              job.sequences, job.profiles, sql=None)  # , log=logger)
-        logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
+        logger.info('Using design resources from Database located at "%s"' % job.protein_data)
 
         # Todo logic error when initialization occurs with module that doens't call this, subsequent runs are missing
         #  directories/resources that haven't been made
@@ -1371,7 +1371,7 @@ if __name__ == '__main__':
             # design.link_database(resource_db=master_db)
             design.set_up_design_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
-        logger.info('%d unique poses found in \'%s\'' % (len(design_directories), location))
+        logger.info('%d unique poses found in "%s"' % (len(design_directories), location))
         if not args.debug and not queried_flags['skip_logging']:
             example_log = getattr(example_directory.log.handlers[0], 'baseFilename', None)
             if example_log:
@@ -1381,7 +1381,7 @@ if __name__ == '__main__':
     elif args.module == PUtils.nano:
         master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
                              job.sequences, job.profiles, sql=None)  # , log=logger)
-        logger.info('Using design resources from Database located at \'%s\'' % job.protein_data)
+        logger.info('Using design resources from Database located at "%s"' % job.protein_data)
         if args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
                                                                                directory=args.directory, dock=True)
@@ -1393,7 +1393,7 @@ if __name__ == '__main__':
                                           'Please specify --directory1, and/or --directory2 or --directory or '
                                           '--file. See %s' % PUtils.help(args.module))
             # master_directory = next(iter(design_directories))
-            logger.info('%d unique building block docking combinations found in \'%s\''
+            logger.info('%d unique building block docking combinations found in "%s"'
                         % (len(design_directories), location))
         else:
             # if args.output_directory:
@@ -1569,9 +1569,9 @@ if __name__ == '__main__':
                                       'residue_selector' % (PUtils.program_name, PUtils.program_command))
         fasta_file = generate_sequence_template(args.single)
         logger.info('The residue_selector template was written to %s. Please edit this file so that the '
-                    'residue_selector can be generated for protein design. Selection should be formatted as a \'*\' '
+                    'residue_selector can be generated for protein design. Selection should be formatted as a "*" '
                     'replaces all sequence of interest to be considered in design, while a Mask should be formatted as '
-                    'a\'-\'. Ex:\n>pdb_template_sequence\nMAGHALKMLV...\n>residue_selector\nMAGH**KMLV\n\nor'
+                    'a "-". Ex:\n>pdb_template_sequence\nMAGHALKMLV...\n>residue_selector\nMAGH**KMLV\n\nor'
                     '\n>pdb_template_sequence\nMAGHALKMLV...\n>design_mask\nMAGH----LV\n'
                     % fasta_file)
     # ---------------------------------------------------
@@ -1700,9 +1700,9 @@ if __name__ == '__main__':
         #     args.max_jobs = 80
         #     distribute(stage=PUtils.nano, directory=args.directory, file=command_file,
         #                success_file=args.success_file, failure_file=args.success_file, max_jobs=args.max_jobs)
-        #     logger.info('All \'%s\' commands were written to \'%s\'' % (PUtils.nano, command_file))
+        #     logger.info('All "%s" commands were written to "%s"' % (PUtils.nano, command_file))
         # else:
-        #     logger.error('No \'%s\' commands were written!' % PUtils.nano)
+        #     logger.error('No "%s" commands were written!' % PUtils.nano)
     # ---------------------------------------------------
     elif args.module == 'interface_metrics':
         # Start pose processing and preparation for Rosetta
@@ -1797,7 +1797,7 @@ if __name__ == '__main__':
             args.output_file = os.path.join(job.program_root, args.output_file)
 
         if os.path.exists(args.output_file):
-            logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
+            logger.critical('The specified output file "%s" already exists, this will overwrite your old analysis '
                             'data! Please modify that file or specify a new one with with -of/--output_file'
                             % args.output_file)
             exit(1)
@@ -1816,10 +1816,10 @@ if __name__ == '__main__':
     #         # Grab all poses (directories) to be processed from either directory name or file
     #         all_poses2, location2 = SDUtils.collect_designs(files=args.file2, directory=args.directory2)
     #         assert all_poses2 != list(), logger.critical(
-    #             'No %s.py directories found within \'%s\'! Please ensure correct location' % (PUtils.nano.title(),
+    #             'No %s.py directories found within "%s"! Please ensure correct location' % (PUtils.nano.title(),
     #                                                                                           location2))
     #         all_design_directories2 = set_up_directory_objects(all_poses2)
-    #         logger.info('%d Poses found in \'%s\'' % (len(all_poses2), location2))
+    #         logger.info('%d Poses found in "%s"' % (len(all_poses2), location2))
     #         if args.merge_mode == PUtils.interface_design:
     #             directory_pairs, failures = pair_directories(all_design_directories2, design_directories)
     #         else:
@@ -1896,7 +1896,7 @@ if __name__ == '__main__':
                 pose_cluster_map = SDUtils.unpickle(cluster_map)
             else:
                 logger.info('No cluster pose map was found at %s. Clustering similar poses may eliminate redundancy '
-                            'from the final design selection. To cluster poses broadly, run \'%s %s\''
+                            'from the final design selection. To cluster poses broadly, run "%s %s"'
                             % (cluster_map, PUtils.program_command, PUtils.cluster_poses))
                 while True:
                     confirm = input('Would you like to %s on the subset of designs (%d) located so far? [y/n]%s'
@@ -1983,9 +1983,9 @@ if __name__ == '__main__':
                 metric_design_dir_pairs = [(des_dir.number_of_fragments, des_dir.path)
                                            for des_dir in design_directories]
             else:
-                raise SDUtils.DesignError('The metric \'%s\' is not supported!' % args.metric)
+                raise SDUtils.DesignError('The metric "%s" is not supported!' % args.metric)
 
-            logger.debug('Sorting designs according to \'%s\'' % args.metric)
+            logger.debug('Sorting designs according to "%s"' % args.metric)
             metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
             sorted_metric_design_dir_pairs = sorted(metric_design_dir_pairs, key=lambda pair: (pair[0] or 0),
                                                     reverse=True)
@@ -2189,7 +2189,7 @@ if __name__ == '__main__':
             file_path = os.path.join(des_dir.designs, '*%s*' % design)
             file = glob(file_path)
             if not file:  # add to exceptions
-                exceptions.append((des_dir.path, 'No file found for \'%s\'' % file_path))
+                exceptions.append((des_dir.path, 'No file found for "%s"' % file_path))
                 continue
             if not os.path.exists(os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design))):
                 shutil.copy(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
@@ -2385,7 +2385,7 @@ if __name__ == '__main__':
                     if args.avoid_tagging_helices:
                         print('Helical Termini:\n\t%s'
                               % '\n\t'.join('%s\t%s' % item for item in entity_helical_termini.items()))
-                    satisfied = input('If this is acceptable, enter \'continue\', otherwise, '
+                    satisfied = input('If this is acceptable, enter "continue", otherwise, '
                                       'you can modify the tagging options with any other input.%s' % input_string)
                     if satisfied == 'continue':
                         number_of_found_tags = number_of_tags
@@ -2395,7 +2395,7 @@ if __name__ == '__main__':
                         if iteration_idx == len(missing_tags[(des_dir, design)]):
                             print('You have seen all options, but the number of requested tags (%d) doesn\'t equal the '
                                   'number selected (%d)' % (number_of_tags, number_of_found_tags))
-                            satisfied = input('If you are satisfied with this, enter \'continue\', otherwise enter '
+                            satisfied = input('If you are satisfied with this, enter "continue", otherwise enter '
                                               'anything and you can view all remaining options starting from the first '
                                               'entity%s' % input_string)
                             if satisfied == 'continue':
@@ -2418,7 +2418,7 @@ if __name__ == '__main__':
                                     if termini.lower() in ['n', 'c']:
                                         break
                                     else:
-                                        print('\'%s\' is an invalid input, one of \'n\' or \'c\' is required')
+                                        print('"%s" is an invalid input, one of "n" or "c" is required')
                             else:
                                 while True:
                                     tag_input = input('What tag would you like to use? Enter the number of the below '
@@ -2438,7 +2438,7 @@ if __name__ == '__main__':
                                     if termini.lower() in ['n', 'c']:
                                         break
                                     else:
-                                        print('\'%s\' is an invalid input. One of \'n\' or \'c\' is required' % termini)
+                                        print('"%s" is an invalid input. One of "n" or "c" is required' % termini)
 
                             selected_entity = list(sequences_and_tags.keys())[idx]
                             if termini == 'n':
@@ -2460,7 +2460,7 @@ if __name__ == '__main__':
                     while number_of_tags != number_of_found_tags:
                         tag_input = input('Which tag would you like to remove? Enter the number of the currently '
                                           'configured tag option that you would like to remove. If you would like to '
-                                          'keep all, specify \'keep\' \n\t%s\n%s'
+                                          'keep all, specify "keep" \n\t%s\n%s'
                                           % ('\n\t'.join(['%d - %s\n\t\t%s' % (i, entity_name, tag_options['tag'])
                                                           for i, (entity_name, tag_options)
                                                           in enumerate(sequences_and_tags.items(), 1)]), input_string))
@@ -2478,7 +2478,7 @@ if __name__ == '__main__':
                             else:
                                 print('Input doesn\'t match an integer from the available options. Please try again')
                         else:
-                            print('\'%s\' is an invalid input. Try again'
+                            print('"%s" is an invalid input. Try again'
                                   % tag_input)
                         number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
 
@@ -2511,7 +2511,7 @@ if __name__ == '__main__':
                             break
                         idx_range = (idx - 6 if idx - 6 > 0 else 0, idx + 6 if idx + 6 < seq_length else seq_length)
                         while True:
-                            new_amino_acid = input('What amino acid should be swapped for \'X\' in this sequence '
+                            new_amino_acid = input('What amino acid should be swapped for "X" in this sequence '
                                                    'context?\n\t%s\n\t%s%s'
                                                    % ('%d%s%d' % (idx_range[0] + 1, ' ' *
                                                                   (len(range(*idx_range)) -
@@ -2613,7 +2613,7 @@ if __name__ == '__main__':
     # elif args.module == 'modify':  # -m mod
     #     if args.multi_processing:
     #         if args.mod == 'consolidate_degen':
-    #             exit('Operation impossible with flag \'-mp\'')
+    #             exit('Operation impossible with flag "-mp"')
     #
     #     else:
     #         if args.mod == 'consolidate_degen':
@@ -2634,7 +2634,7 @@ if __name__ == '__main__':
                 for stage in PUtils.stage_f:
                     s = status(design_directories, stage, number=args.number_designs)
                     if s:
-                        logger.info('For \'%s\' stage, default settings should generate %d files'
+                        logger.info('For "%s" stage, default settings should generate %d files'
                                     % (stage, PUtils.stage_f[stage]['len']))
     # ---------------------------------------------------
     elif args.module == 'visualize':
@@ -2674,7 +2674,7 @@ if __name__ == '__main__':
                         ordered_files.append(file)
                         break
             files = ordered_files
-            # raise NotImplementedError('--order choice \'paths\' hasn\'t been set up quite yet... Use another method')
+            # raise NotImplementedError('--order choice "paths" hasn\'t been set up quite yet... Use another method')
             # ordered_files = []
             # for index in df.index:
             #     for file in files:
@@ -2722,7 +2722,7 @@ if __name__ == '__main__':
                 cmd.load(file, object=idx)
 
         print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
-              '\nYou should replace \'T\' with whatever symmetry your design is in\n')
+              '\nYou should replace "T" with whatever symmetry your design is in\n')
     # ---------------------------------------------------
     # else:
     #     exit('No module was selected! Did you include one? To get started, checkout the %s' % PUtils.guide_string)
