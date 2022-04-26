@@ -2084,12 +2084,10 @@ class Structure(StructureBase):
         return self.name
 
 
-class Structures(Structure):
-    # todo subclass UserList (https://docs.python.org/3/library/collections.html#userlist-objects)
-    #  the constructor of any subclasses of UserList must be able to construct with one or no arguments.
-    #  I believe that the constructor as specified here on 2/4/22 would suffice
+class Structures(Structure, UserList):
+    # todo
     #  The inheritance of both a Structure and UserClass may get sticky...
-    #  As all the functions I have here overwrite Structure class functions, the inheritance may not be neccessary
+    #  As all the functions I have here overwrite Structure class functions, the inheritance may not be necessary
     """Keep track of groups of Structure objects"""
     def __init__(self, structures=None, **kwargs):  # log=None,
         super().__init__(**kwargs)
@@ -2104,14 +2102,14 @@ class Structures(Structure):
 
         if isinstance(structures, Iterable):
             if all([True if isinstance(structure, Structure) else False for structure in structures]):
-                self.structures = structures
-                # self.data = structures
+                # self.structures = structures
+                self.data = structures
             else:
-                self.structures = []
-                # self.data = []
+                # self.structures = []
+                self.data = []
         else:
-            self.structures = []
-            # self.data = []
+            # self.structures = []
+            self.data = []
 
     # @classmethod
     # def from_file(cls, file, **kwargs):
@@ -2121,6 +2119,10 @@ class Structures(Structure):
     #     pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function
     #     # new_model = cls(models=pdb.chains)
     #     return cls(structures=pdb.chains, **kwargs)
+
+    @property
+    def structures(self):
+        return self.data
 
     @property
     def name(self):
@@ -2136,7 +2138,8 @@ class Structures(Structure):
 
     @property
     def number_of_structures(self):
-        return len(self.structures)
+        # return len(self.structures)
+        return len(self.data)
 
     @property
     def coords(self):
@@ -2151,7 +2154,8 @@ class Structures(Structure):
 
             return self._coords
         except AttributeError:
-            coords = [structure.coords for structure in self.structures]
+            # coords = [structure.coords for structure in self.structures]
+            coords = [structure.coords for structure in self.data]
             # coords = []
             # for structure in self.structures:
             #     coords.extend(structure.coords)
@@ -2166,14 +2170,16 @@ class Structures(Structure):
             return self._atoms
         except AttributeError:
             atoms = []
-            for structure in self.structures:
+            # for structure in self.structures:
+            for structure in self.data:
                 atoms.extend(structure.atoms)
             self._atoms = Atoms(atoms)
             return self._atoms
 
     @property
     def number_of_atoms(self):
-        return len(self.coords)
+        return len(self.atoms)
+        # return len(self.coords)
 
     @property
     def residues(self):  # TODO Residues iteration
@@ -2181,7 +2187,7 @@ class Structures(Structure):
             return self._residues.residues.tolist()
         except AttributeError:
             residues = []
-            for structure in self.structures:
+            for structure in self.data:
                 residues.extend(structure.residues)
             self._residues = Residues(residues)
             return self._residues.residues.tolist()
@@ -2213,7 +2219,7 @@ class Structures(Structure):
         Structure
 
         Returns:
-            (list[list[int]]): Indexed by the by the Residue position in the corresponding .coords attribute
+            (list[list[int]]): Indexed by the Residue position in the corresponding .coords attribute
         """
         try:
             return self._residues_indexed_coords_indices
@@ -2245,7 +2251,7 @@ class Structures(Structure):
             return self._backbone_indices
         except AttributeError:
             self._backbone_indices = []
-            for structure in self.structures:
+            for structure in self.data:
                 self._backbone_indices.extend(structure.coords_indexed_backbone_indices)
             return self._backbone_indices
 
@@ -2255,7 +2261,7 @@ class Structures(Structure):
             return self._backbone_and_cb_indices
         except AttributeError:
             self._backbone_and_cb_indices = []
-            for structure in self.structures:
+            for structure in self.data:
                 self._backbone_and_cb_indices.extend(structure.coords_indexed_backbone_and_cb_indices)
             return self._backbone_and_cb_indices
 
@@ -2265,7 +2271,7 @@ class Structures(Structure):
             return self._cb_indices
         except AttributeError:
             self._cb_indices = []
-            for structure in self.structures:
+            for structure in self.data:
                 self._cb_indices.extend(structure.coords_indexed_cb_indices)
             return self._cb_indices
 
@@ -2286,15 +2292,15 @@ class Structures(Structure):
     #     return np.matmul(np.full(structure_length, 1 / structure_length), self.coords)
 
     def translate(self, tx):
-        for structure in self.structures:
+        for structure in self.data:
             structure.translate(tx)
 
     def rotate(self, rotation):
-        for structure in self.structures:
+        for structure in self.data:
             structure.rotate(rotation)
 
     def transform(self, **kwargs):  # rotation=None, translation=None):
-        for structure in self.structures:
+        for structure in self.data:
             structure.transform(**kwargs)
 
     # def replace_coords(self, new_coords):
@@ -2312,7 +2318,7 @@ class Structures(Structure):
         new_structures = self.__new__(self.__class__)
         # print('Transformed Structure type (__new__) %s' % type(new_structures))
         # print('self.__dict__ is %s' % self.__dict__)
-        new_structures.__init__([structure.return_transformed_copy(**kwargs) for structure in self.structures],
+        new_structures.__init__([structure.return_transformed_copy(**kwargs) for structure in self.data],
                                 log=self.log)  # self.__dict__
         # print('Transformed Structures, structures %s' % [structure for structure in new_structures.structures])
         # print('Transformed Structures, models %s' % [structure for structure in new_structures.models])
@@ -2367,14 +2373,14 @@ class Structures(Structure):
     # def __str__(self):
     #     return self.name
 
-    def __len__(self):
-        return len(self.structures)
+    # def __len__(self):
+    #     return len(self.structures)
 
-    def __iter__(self):
-        yield from iter(self.structures)
+    # def __iter__(self):
+    #     yield from iter(self.structures)
 
-    def __getitem__(self, idx):
-        return self.structures[idx]
+    # def __getitem__(self, idx):
+    #     return self.structures[idx]
 
 
 class Chain(Structure):
