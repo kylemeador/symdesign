@@ -50,7 +50,7 @@ class PDB(Structure):
         self.dbref = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
         self.design = kwargs.get('design', False)  # assume not a design unless explicitly found to be a design
         self.entities = []
-        self.entity_d = {}  # {1: {'chains': [Chain objs], 'seq': 'GHIPLF...', 'representative': 'A'}
+        self.entity_info = []  # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
         # ^ ZERO-indexed for recap project!!!
         self.filepath = file  # PDB filepath if instance is read from PDB file
         self.header = []
@@ -168,7 +168,7 @@ class PDB(Structure):
              'cryst_record': other.__dict__['cryst_record'],
              'cryst': other.__dict__['cryst'],
              'design': other.__dict__['design'],
-             'entity_d': other.__dict__['entity_d'],  # Todo
+             'entity_info': other.__dict__['entity_info'],
              '_name': other.__dict__['_name'],
              'space_group': other.__dict__['space_group'],
              'uc_dimensions': other.__dict__['uc_dimensions'],
@@ -199,7 +199,7 @@ class PDB(Structure):
         # self.atom_sequences = pdb.atom_sequences
         self.filepath = pdb.filepath
         # self.chain_id_list = pdb.chain_id_list
-        self.entity_d = pdb.entity_d
+        self.entity_info = pdb.entity_info
         self.name = pdb.name
         self.secondary_structure = pdb.secondary_structure
         # self.cb_coords = pdb.cb_coords
@@ -320,8 +320,11 @@ class PDB(Structure):
                 entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
             elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
                 # entity number (starting from 1) = {'chains' : {A, B, C}}
-                self.entity_d[entity] = \
-                    {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
+                # self.entity_info[entity] = \
+                    # {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
+                self.entity_info.append(
+                    {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(','))),
+                     'name': entity})
                 entity = None
             elif line[:5] == 'SCALE':
                 self.header.append(line.strip())
@@ -949,7 +952,7 @@ class PDB(Structure):
                 Names will take precedence over query_by_sequence if passed.
             query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
         """
-        if not self.entity_d:  # we didn't get the info from the file, so we have to try and piece together
+        if not self.entity_info:  # we didn't get the info from the file, so we have to try and piece together
             # the file is either from a program that has modified the original PDB file, was a model that hasn't been
             # formatted properly, or may be some sort of PDB assembly. If it is a PDB assembly, the file will have a
             # final numeric suffix after the .pdb extension. If not, it may be an assembly file from another source, in
@@ -965,56 +968,55 @@ class PDB(Structure):
                             for cluster_idx, cluster_chains in self.api_entry.get('assembly').items():
                                 # if set(cluster_chains) == chain_set:  # we found the right cluster
                                 if not set(cluster_chains).difference(chains):  # we found the right cluster
-                                    self.entity_d[ent_idx] = \
+                                    self.entity_info.append(
                                         {'chains': [new_chn for new_chn, old_chn in self.multimodel_chain_map.items()
-                                                    if old_chn in chains]}
+                                                    if old_chn in chains], 'name': ent_idx})
                                     success = True
                                     break  # this should be fine since entities will cluster together, unless they don't
                             if not success:
                                 self.log.error('Unable to find the chains corresponding from asu (%s) to assembly (%s)'
                                                % (self.api_entry.get('entity'), self.api_entry.get('assembly')))
                     else:  # chain names should be the same as the assembly API if the file is sourced from PDB
-                        self.entity_d = \
-                            {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('assembly').items()}
+                        self.entity_info = [{'chains': chains, 'name': ent_idx}
+                                            for ent_idx, chains in self.api_entry.get('assembly').items()]
                 else:
-                    self.entity_d = \
-                        {ent_idx: {'chains': chains} for ent_idx, chains in self.api_entry.get('entity').items()}
-                # check to see that the entity_d is in line with the number of chains already parsed
-                found_entity_chains = [chain for info in self.entity_d.values() for chain in info.get('chains', [])]
+                    self.entity_info = [{'chains': chains, 'name': ent_idx}
+                                        for ent_idx, chains in self.api_entry.get('entity').items()]
+                # check to see that the entity_info is in line with the number of chains already parsed
+                found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
                 if len(self.chain_id_list) != len(found_entity_chains):
                     self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
             else:  # Still nothing, then API didn't work for pdb_name. Solve by atom information
                 self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
                 if query_by_sequence and not entity_names:
-                    for entity_number, atom_info in list(self.entity_d.items()):  # make a copy, update occurs with iter
-                        pdb_api_name = retrieve_entity_id_by_sequence(atom_info['seq'])
+                    for data in self.entity_info:
+                        pdb_api_name = retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_name:
                             pdb_api_name = pdb_api_name.lower()
-                            self.entity_d[pdb_api_name] = self.entity_d.pop(entity_number)
                             self.log.info('Entity %d now named \'%s\', as found by PDB API sequence search'
-                                          % (entity_number, pdb_api_name))
+                                          % (data['name'], pdb_api_name))
+                            data['name'] = pdb_api_name
         if entity_names:
-            for idx, entity_number in enumerate(list(self.entity_d.keys())):  # make a copy as update occurs w/ iter
+            for idx, data in enumerate(self.entity_info):
                 try:
-                    self.entity_d[entity_names[idx]] = self.entity_d.pop(entity_number)
+                    data['name'] = entity_names[idx]
                     self.log.debug('Entity %d now named \'%s\', as directed by supplied entity_names'
-                                   % (entity_number, entity_names[idx]))
+                                   % (idx + 1, entity_names[idx]))
                 except IndexError:
-                    raise IndexError('The number of indices in entity_names must equal %d' % len(self.entity_d))
+                    raise IndexError('The number of indices in entity_names (%d) must equal the number of entities (%d)'
+                                     % (len(entity_names), len(self.entity_info)))
 
         # For each Entity, get chains
-        for entity_name, info in list(self.entity_d.items()):  # make a copy as update occurs w/ iter
+        for data in self.entity_info:
             # v make Chain objects (if they are names)
-            info['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in info.get('chains')]
-            info['chains'] = [chain for chain in info['chains'] if chain]  # remove any missing chains
-            # info['representative'] = info['chains'][0]
-            accession = self.dbref.get(info['chains'][0].chain_id, None)
-            info['accession'] = accession['accession'] if accession else accession
-            #                                         generated from a PDB API sequence search v
-            new_name = '%s_%d' % (self.name, entity_name) if isinstance(entity_name, int) else entity_name
-            self.entity_d[new_name] = self.entity_d.pop(entity_name)
-            self.entities.append(
-                Entity.from_chains(chains=info['chains'], uniprot_id=info['accession'], name=new_name, log=self._log))
+            data['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
+            data['chains'] = [chain for chain in data['chains'] if chain]  # remove any missing chains
+            # get uniprot ID if the file is from the PDB and has a DBREF remark
+            accession = self.dbref.get(data['chains'][0].chain_id, None)
+            data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
+            #                                               generated from a PDB API sequence search v
+            data['name'] = '%s_%d' % (self.name, data['name']) if isinstance(data['name'], int) else data['name']
+            self.entities.append(Entity.from_chains(**data, log=self._log))
 
     def get_entity_info_from_atoms(self, tolerance=0.9, **kwargs):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
@@ -1025,40 +1027,42 @@ class PDB(Structure):
                 but are fairly similar. Alternatively, the use of a structural match could be used.
                 For example, when each chain in an ASU is structurally deviating, but they all share the same sequence
         Sets:
-            self.entity_d
+            self.entity_info
         """
         assert tolerance <= 1, '%s tolerance cannot be greater than 1!' % self.get_entity_info_from_atoms.__name__
-        entity_count = 1
-        self.entity_d[entity_count] = {'chains': [self.chains[0]], 'seq': self.chains[0].sequence}
+        entity_idx = 1
+        self.entity_info.append({'chains': [self.chains[0]], 'sequence': self.chains[0].sequence, 'name': entity_idx})
         for chain in self.chains[1:]:
-            new_entity = True  # assume all chains are unique entities
             self.log.debug('Searching for matching Entities for Chain %s' % chain.name)
-            for entity in self.entity_d:
-                # rmsd, rot, tx, rescale = superposition3d()  # Todo implement structure check
-                # if rmsd < 3:  # 3A threshold needs testing
-                #     self.entity_d[entity]['chains'].append(chain)
-                #     new_entity = False  # The entity is not unique, do not add
-                #     break
+            new_entity = True  # assume all chains are unique entities
+            for data in self.entity_info:
+                # Todo implement structure check
+                #  rmsd_threshold = 1.  # threshold needs testing
+                #  rmsd, rot, tx, _ = superposition3d()
+                #  if rmsd < rmsd_threshold:
+                #      data['chains'].append(chain)
+                #      new_entity = False  # The entity is not unique, do not add
+                #      break
                 # check if the sequence associated with the atom chain is in the entity dictionary
-                if chain.sequence == self.entity_d[entity]['seq']:
+                if chain.sequence == data['sequence']:
                     score = len(chain.sequence)
                 else:
-                    alignment = pairwise2.align.localxx(chain.sequence, self.entity_d[entity]['seq'])
+                    alignment = pairwise2.align.localxx(chain.sequence, data['sequence'])
                     score = alignment[0][2]  # first alignment from localxx, grab score value
-                match_score = score / len(self.entity_d[entity]['seq'])  # could also use which ever sequence is greater
-                length_proportion = abs(len(chain.sequence) - len(self.entity_d[entity]['seq'])) \
-                    / len(self.entity_d[entity]['seq'])
+                match_score = score / len(data['sequence'])  # could also use which ever sequence is greater
+                length_proportion = abs(len(chain.sequence) - len(data['sequence'])) / len(data['sequence'])
                 self.log.debug('Chain %s matches Entity %d with %0.2f identity and length difference of %0.2f'
-                               % (chain.name, entity, match_score, length_proportion))
+                               % (chain.name, data['name'], match_score, length_proportion))
                 if match_score >= tolerance and length_proportion <= 1 - tolerance:
                     # if number of sequence matches is > tolerance, and the length difference < tolerance
                     # the current chain is the same as the Entity, add to chains, and move on to the next chain
-                    self.entity_d[entity]['chains'].append(chain)
+                    data['chains'].append(chain)
                     new_entity = False  # The entity is not unique, do not add
                     break
+
             if new_entity:  # no existing entity matches, add new entity
-                entity_count += 1
-                self.entity_d[entity_count] = {'chains': [chain], 'seq': chain.sequence}
+                entity_idx += 1
+                self.entity_info.append({'chains': [chain], 'sequence': chain.sequence, 'name': entity_idx})
         self.log.debug('Entities were generated from ATOM records.')
 
     def entity_from_chain(self, chain_id):
@@ -1080,35 +1084,40 @@ class PDB(Structure):
         """From another set of atoms, returns the first matching chain from the corresponding entity"""
         return  # TODO when entities are structure compatible
 
-    def match_entity_by_seq(self, other_seq=None, force_closest=False, threshold=0.7):
-        """From another sequence, returns the first matching chain from the corresponding entity"""
+    def match_entity_by_seq(self, other_seq: str = None, force_closest: bool = True, threshold: float = 0.7) \
+            -> Union[Entity, None]:
+        """From another sequence, returns the first matching chain from the corresponding Entity
+
+        Returns
+            (Union[Entity, None])
+        """
+        for entity in self.entities:
+            if other_seq == entity.sequence:
+                return entity
+
+        # we didn't find an ideal match
         if force_closest:
             alignment_score_d = {}
-            for entity in self.entity_d:
+            for entity in self.entities:
                 # TODO get a gap penalty and rework entire alignment function...
-                alignment = pairwise2.align.localxx(other_seq, self.entity_d[entity]['seq'])
+                alignment = pairwise2.align.localxx(other_seq, entity.sequence)
                 max_align_score, max_alignment = 0, None
-                for i, align in enumerate(alignment):
+                for idx, align in enumerate(alignment):
                     if align.score > max_align_score:
                         max_align_score = align.score
-                        max_alignment = i
+                        max_alignment = idx
                 alignment_score_d[entity] = alignment[max_alignment].score
-                # alignment_score_d[entity] = alignment[0][2]
 
             max_score, max_score_entity = 0, None
-            for entity in alignment_score_d:
-                normalized_score = alignment_score_d[entity] / len(self.entity_d[entity]['seq'])
+            for entity, score in alignment_score_d.items():
+                normalized_score = score / len(entity.sequence)
                 if normalized_score > max_score:
                     max_score = normalized_score  # alignment_score_d[entity]
                     max_score_entity = entity
             if max_score > threshold:
-                return self.entity_d[max_score_entity]['chains'][0]
-            else:
-                return
-        else:
-            for entity in self.entity_d:
-                if other_seq == self.entity_d[entity]['seq']:
-                    return self.entity_d[entity]['representative'][0]
+                return max_score_entity
+
+        return
 
     def chain_interface_contacts(self, chain, distance=8):  # Todo very similar to Pose with entities
         """Create a atom tree using CB atoms from one chain and all other atoms
