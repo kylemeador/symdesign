@@ -1007,10 +1007,10 @@ if __name__ == '__main__':
         # Root logs to stream with level debug
         logger = SDUtils.start_log(level=1, set_logger_level=True)
         SDUtils.set_logging_to_debug()
-        logger.debug('Debug mode. Verbose output')
+        logger.debug('Debug mode. Produces verbose output and not written to any .log files')
     else:
         # Root logger logs to stream with level 'warning'
-        SDUtils.start_log(level=3, set_logger_level=True, propagate=True)
+        SDUtils.start_log(level=3, set_logger_level=True)
         # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
         SDUtils.start_log(handler=2, set_logger_level=True,
                           location=os.path.join(os.getcwd(), args.output_directory if args.output_directory else '',
