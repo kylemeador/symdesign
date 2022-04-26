@@ -54,7 +54,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
             oligomer1_pdb_standardized_chid_list.append(atom1.chain)
     oligomer1_pdb_standardized_chid_list = list(set(oligomer1_pdb_standardized_chid_list))
     oligomer1_pdb_standardized.set_all_atoms(oligomer1_pdb_standardized_atom_list)
-    oligomer1_pdb_standardized.chain_id_list = oligomer1_pdb_standardized_chid_list
+    oligomer1_pdb_standardized.chain_ids = oligomer1_pdb_standardized_chid_list
 
     oligomer2_pdb_standardized = PDB()
     oligomer2_pdb_standardized_atom_list = []
@@ -65,7 +65,7 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
             oligomer2_pdb_standardized_chid_list.append(atom2.chain)
     oligomer2_pdb_standardized_chid_list = list(set(oligomer2_pdb_standardized_chid_list))
     oligomer2_pdb_standardized.set_all_atoms(oligomer2_pdb_standardized_atom_list)
-    oligomer2_pdb_standardized.chain_id_list = oligomer2_pdb_standardized_chid_list
+    oligomer2_pdb_standardized.chain_ids = oligomer2_pdb_standardized_chid_list
 
     return oligomer1_pdb_standardized, oligomer2_pdb_standardized
 
@@ -98,7 +98,7 @@ def standardize_intra_oligomer_chain_lengths(oligomer1_pdb):
             oligomer1_pdb_standardized_chid_list.append(atom1.chain)
     oligomer1_pdb_standardized_chid_list = list(set(oligomer1_pdb_standardized_chid_list))
     oligomer1_pdb_standardized.set_all_atoms(oligomer1_pdb_standardized_atom_list)
-    oligomer1_pdb_standardized.chain_id_list = oligomer1_pdb_standardized_chid_list
+    oligomer1_pdb_standardized.chain_ids = oligomer1_pdb_standardized_chid_list
 
     return oligomer1_pdb_standardized
 ########################################################################################################################
@@ -210,7 +210,7 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     # An error message can also be printed out in the event that tot_tested_perms > tot_bio_perms.
     # This could mean that the 'e' threshold is set too high and that interface RMSD values could have been calculated
     # for biologically implausible chain mappings.
-    tot_bio_perms = len(ref_pdb1.chain_id_list) * len(ref_pdb2.chain_id_list)
+    tot_bio_perms = len(ref_pdb1.chain_ids) * len(ref_pdb2.chain_ids)
     tot_tested_perms = 0
 
     # Min Interface RMSD
@@ -256,8 +256,8 @@ def map_align_interface_chains(pdb1, pdb2, ref_pdb1, ref_pdb2, ref_pdb1_int_chid
     ref_int_ca_atoms = ref_pdb1_int_ca_atoms + ref_pdb2_int_ca_atoms
 
     # get pdb1 and pdb2 full chain id lists
-    pdb1_chids = list(set(pdb1.chain_id_list))
-    pdb2_chids = list(set(pdb2.chain_id_list))
+    pdb1_chids = list(set(pdb1.chain_ids))
+    pdb2_chids = list(set(pdb2.chain_ids))
 
     # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
     pdb1_chid_ca_atom_dict = {}
@@ -392,7 +392,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     # This could mean that the 'e' threshold is set too high and that interface RMSD values could have been calculated
     # for biologically implausible chain mappings.
 
-    # tot_bio_perms = len(ref_pdb1.chain_id_list) * len(ref_pdb2.chain_id_list)
+    # tot_bio_perms = len(ref_pdb1.chain_ids) * len(ref_pdb2.chain_ids)
     # tot_tested_perms = 0
 
     # get chain id's for all reference pdb1 and reference pdb2 chains that participate in the 'reference interface'
@@ -433,8 +433,8 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
     ref_ca_int_atoms = ref_pdb1_ca_int_atoms + ref_pdb2_ca_int_atoms
 
     # get pdb1 and pdb2 full chain id lists
-    pdb1_chids = list(set(pdb1.chain_id_list))
-    pdb2_chids = list(set(pdb2.chain_id_list))
+    pdb1_chids = list(set(pdb1.chain_ids))
+    pdb2_chids = list(set(pdb2.chain_ids))
 
     # construct a dictionary for both pdb1 and pdb2 that stores their CA atoms by chain id
     pdb1_chid_ca_atom_dict = {}

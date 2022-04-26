@@ -118,7 +118,7 @@ class AtomPair:
 #         self.header = []
 #         self.sequence_dictionary = {} # python dictionary of SEQRES entries. key is chainID, value is [ 'length', '3 letter AA Seq']. Ex: {'A': ['124', 'ALA GLN GLY PHE...']}
 #         self.filepath = None  # PDB filepath if instance is read from PDB file
-#         self.chain_id_list = []  # list of unique chain IDs in PDB
+#         self.chain_ids = []  # list of unique chain IDs in PDB
 #         self.interface_atoms = []
 #         self.name = None
 #         self.crystal_linker_term_dist_1 = None
@@ -128,13 +128,13 @@ class AtomPair:
 #         self.name = name
 #
 #     def retrieve_chain_ids(self):
-#         # creates a list of unique chain IDs in PDB and feeds it into chain_id_list
+#         # creates a list of unique chain IDs in PDB and feeds it into chain_ids
 #         chain_ids = []
 #         for atom in self.all_atoms:
 #             chain_ids.append(atom.chain)
 #         chain_ids = list(set(chain_ids))
 #         chain_ids.sort(key=lambda x: (x[0].isdigit(), x))
-#         self.chain_id_list = chain_ids
+#         self.chain_ids = chain_ids
 #
 #     def readfile(self, filepath):
 #         # reads PDB file and feeds PDB instance
@@ -226,21 +226,21 @@ class AtomPair:
 #             else:
 #                 self.sequence_dictionary[line[0]] += line[1]  # 2]
 #         try:
-#             first_chain = self.chain_id_list[0]
+#             first_chain = self.chain_ids[0]
 #             try:
 #                 first_seq = self.sequence_dictionary[first_chain].strip().split(' ')
 #                 if multimodel > 0:
 #                     print('CAUTION: Multimodel sequence extraction')
-#                     for chain in self.chain_id_list:
+#                     for chain in self.chain_ids:
 #                         self.sequence_dictionary[chain] = first_seq
 #                 else:
-#                     for chain in self.chain_id_list:
+#                     for chain in self.chain_ids:
 #                         try:
 #                             self.sequence_dictionary[chain] = self.sequence_dictionary[chain].strip().split(' ')
 #                         except KeyError:  # when there are fewer SEQRES than chains, make all chains have first sequence
 #                             self.sequence_dictionary[chain] = first_seq
 #             except (KeyError, AttributeError):
-#                 for chain in self.chain_id_list:
+#                 for chain in self.chain_ids:
 #                     # where PDB originated from outside the official PDB distribution. Probably a design
 #                     # print('This PDB file has no SEQRES, taking sequence from ATOM record')
 #         except IndexError:
@@ -308,11 +308,11 @@ class AtomPair:
 #                 selected_atoms.append(atom)
 #         return selected_atoms
 #     #
-#     # def chains(self, chain_id_list):
+#     # def chains(self, chain_ids):
 #     #     # returns a python list of Atoms containing the subset of Atoms in the PDB instance that belong to the selected chain IDs
 #     #     selected_atoms = []
 #     #     for atom in self.all_atoms:
-#     #         if atom.chain in chain_id_list:
+#     #         if atom.chain in chain_ids:
 #     #             selected_atoms.append(atom)
 #     #     return selected_atoms
 #     #
@@ -328,14 +328,14 @@ class AtomPair:
 #
 #     def is_dimer(self):
 #         # returns True if PDB instance is a dimer (contains exactly 2 chains) and False otherwise
-#         if len(self.chain_id_list) == 2:
+#         if len(self.chain_ids) == 2:
 #             return True
 #         else:
 #             return False
 #
 #     def is_tetramer(self):
 #         # returns True if PDB instance is a Tetramer (contains exactly 4 chains) and False otherwise
-#         if len(self.chain_id_list) == 4:
+#         if len(self.chain_ids) == 4:
 #             return True
 #         else:
 #             return False
@@ -346,8 +346,8 @@ class AtomPair:
 #         if self.is_dimer():
 #
 #             # define interface chains
-#             protomer1 = self.chain(self.chain_id_list[0])
-#             protomer2 = self.chain(self.chain_id_list[1])
+#             protomer1 = self.chain(self.chain_ids[0])
+#             protomer2 = self.chain(self.chain_ids[1])
 #
 #             # create list of CA atom pairs
 #             atompairs = []
@@ -398,7 +398,7 @@ class AtomPair:
 #     def extract_coords_subset(self, res_start, res_end, chain_index, CA):
 #         if CA:
 #             selected_atoms = []
-#             for atom in self.chain(self.chain_id_list[chain_index]):
+#             for atom in self.chain(self.chain_ids[chain_index]):
 #                 if atom.type == "CA":
 #                     if atom.residue_number >= res_start and atom.residue_number <= res_end:
 #                         selected_atoms.append(atom)
@@ -409,7 +409,7 @@ class AtomPair:
 #             return out_coords
 #         else:
 #             selected_atoms = []
-#             for atom in self.chain(self.chain_id_list[chain_index]):
+#             for atom in self.chain(self.chain_ids[chain_index]):
 #                 if atom.residue_number >= res_start and atom.residue_number <= res_end:
 #                     selected_atoms.append(atom)
 #             out_coords = []
@@ -513,7 +513,7 @@ class AtomPair:
 #
 #     def rename_chains(self, chain_list_fixed):
 #         lf = chain_list_fixed
-#         lm = self.chain_id_list[:]
+#         lm = self.chain_ids[:]
 #
 #         l_abc = ['A', 'B', 'C', 'D', 'E', 'F', 'G', 'H', 'I', 'J', 'K', 'L', 'M', 'N', 'O', 'P', 'Q', 'R', 'S', 'T',
 #                  'U', 'V', 'W', 'X', 'Y', 'Z', 'a', 'b', 'c', 'd', 'e', 'f', 'g', 'h', 'i', 'j', 'k', 'l', 'm', 'n',
@@ -531,7 +531,7 @@ class AtomPair:
 #                 lm[i] = l_av[j]
 #                 j += 1
 #
-#         self.chain_id_list = lm
+#         self.chain_ids = lm
 #
 #         prev = self.all_atoms[0].chain
 #         c = 0
@@ -800,7 +800,7 @@ class AtomPair:
 #
 #     def chain_id_to_chain_index(self, chain_id):
 #         try:
-#             return self.chain_id_list.index(chain_id)
+#             return self.chain_ids.index(chain_id)
 #         except ValueError:
 #             print('INVALID CHAIN')
 #
@@ -890,7 +890,7 @@ class AtomPair:
 #         alpha_helix_10_pdb.read_atom_list(alpha_helix_10)
 #
 #         if term == "N":
-#             first_residue_number = self.chain(self.chain_id_list[chain_index])[0].residue_number
+#             first_residue_number = self.chain(self.chain_ids[chain_index])[0].residue_number
 #             fixed_coords = self.extract_coords_subset(first_residue_number, first_residue_number + 4, chain_index,
 #                                                       True)
 #             moving_coords = alpha_helix_10_pdb.extract_coords_subset(11, 15, 0, True)
@@ -900,7 +900,7 @@ class AtomPair:
 #
 #             # rename alpha helix chain
 #             for atom in alpha_helix_10_pdb.all_atoms:
-#                 atom.chain = self.chain_id_list[chain_index]
+#                 atom.chain = self.chain_ids[chain_index]
 #
 #             # renumber residues in concerned chain
 #             if first_residue_number > 10:
@@ -909,7 +909,7 @@ class AtomPair:
 #                 shift = 11 - first_residue_number
 #
 #             for atom in self.all_atoms:
-#                 if atom.chain == self.chain_id_list[chain_index]:
+#                 if atom.chain == self.chain_ids[chain_index]:
 #                     atom.residue_number = atom.residue_number + shift
 #
 #             # only keep non overlapping atoms in helix
@@ -919,12 +919,12 @@ class AtomPair:
 #                     helix_to_add.append(atom)
 #
 #             # create a helix-chain atom list
-#             chain_and_helix = helix_to_add + self.chain(self.chain_id_list[chain_index])
+#             chain_and_helix = helix_to_add + self.chain(self.chain_ids[chain_index])
 #
 #             # place chain_and_helix atoms in the same order as in original PDB file
 #             ordered_atom_list = []
-#             for chain_id in self.chain_id_list:
-#                 if chain_id != self.chain_id_list[chain_index]:
+#             for chain_id in self.chain_ids:
+#                 if chain_id != self.chain_ids[chain_index]:
 #                     ordered_atom_list = ordered_atom_list + self.chain(chain_id)
 #                 else:
 #                     ordered_atom_list = ordered_atom_list + chain_and_helix
@@ -938,7 +938,7 @@ class AtomPair:
 #             self.all_atoms = ordered_atom_list
 #
 #         elif term == "C":
-#             last_residue_number = self.chain(self.chain_id_list[chain_index])[-1].residue_number
+#             last_residue_number = self.chain(self.chain_ids[chain_index])[-1].residue_number
 #             fixed_coords = self.extract_coords_subset(last_residue_number - 4, last_residue_number, chain_index, True)
 #             moving_coords = alpha_helix_10_pdb.extract_coords_subset(1, 5, 0, True)
 #             helix_overlap = PDBOverlap(fixed_coords, moving_coords)
@@ -947,7 +947,7 @@ class AtomPair:
 #
 #             # rename alpha helix chain
 #             for atom in alpha_helix_10_pdb.all_atoms:
-#                 atom.chain = self.chain_id_list[chain_index]
+#                 atom.chain = self.chain_ids[chain_index]
 #
 #             # only keep non overlapping atoms in helix
 #             helix_to_add = []
@@ -961,12 +961,12 @@ class AtomPair:
 #                 atom.residue_number = atom.residue_number + shift
 #
 #             # create a helix-chain atom list
-#             chain_and_helix = self.chain(self.chain_id_list[chain_index]) + helix_to_add
+#             chain_and_helix = self.chain(self.chain_ids[chain_index]) + helix_to_add
 #
 #             # place chain_and_helix atoms in the same order as in original PDB file
 #             ordered_atom_list = []
-#             for chain_id in self.chain_id_list:
-#                 if chain_id != self.chain_id_list[chain_index]:
+#             for chain_id in self.chain_ids:
+#                 if chain_id != self.chain_ids[chain_index]:
 #                     ordered_atom_list = ordered_atom_list + self.chain(chain_id)
 #                 else:
 #                     ordered_atom_list = ordered_atom_list + chain_and_helix
@@ -1337,9 +1337,9 @@ class HelixFusion:
             print('Adding Ideal Ala Helix to Target Molecule')
             target_protein.add_ideal_helix(self.add_target_helix[1], self.add_target_helix[2])
             if self.add_target_helix[1] == 'N':
-                target_term_resi = target_protein.chain(target_protein.chain_id_list[self.add_target_helix[2]])[0].residue_number
+                target_term_resi = target_protein.chain(target_protein.chain_ids[self.add_target_helix[2]])[0].residue_number
             elif self.add_target_helix[1] == 'C':
-                target_term_resi = target_protein.chain(target_protein.chain_id_list[self.add_target_helix[2]])[-1].residue_number - 9
+                target_term_resi = target_protein.chain(target_protein.chain_ids[self.add_target_helix[2]])[-1].residue_number - 9
             else:
                 print('Select N or C Terminus for Target Molecule')
                 return -1
@@ -1474,7 +1474,7 @@ class HelixFusion:
                         #
                         # if is_parallel_1:
                         #     pdb_oligomer.apply(rot, tx)
-                        #     pdb_oligomer.rename_chains(target_protein.chain_id_list)
+                        #     pdb_oligomer.rename_chains(target_protein.chain_ids)
                         #
                         #     PDB_OUT = PDB()
                         #     PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
@@ -1545,7 +1545,7 @@ class HelixFusion:
                         #     if distance_check_1.distance() <= 5:
                         #
                         #             pdb_oligomer.apply(rot, tx)
-                        #             pdb_oligomer.rename_chains(target_protein.chain_id_list)
+                        #             pdb_oligomer.rename_chains(target_protein.chain_ids)
                         #
                         #             PDB_OUT = PDB()
                         #             PDB_OUT.read_atom_list(target_protein.all_atoms + pdb_oligomer.all_atoms)
@@ -1599,7 +1599,7 @@ class HelixFusion:
 
                             if distance_check_1.distance() <= 3:
                                 pdb_oligomer.apply(rot, tx)
-                                pdb_oligomer.reorder_chains(exclude_chains=target_protein.chain_id_list)
+                                pdb_oligomer.reorder_chains(exclude_chains=target_protein.chain_ids)
 
                                 out_pdb = PDB.from_atoms(target_protein.atoms + pdb_oligomer.atoms)
 

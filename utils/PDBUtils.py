@@ -51,7 +51,7 @@ logger = start_log(name=__name__)
 #             atom_index += 1
 #
 #         transformed_pdb.set_all_atoms(transformed_atoms)
-#         transformed_pdb.chain_id_list = pdb.chain_id_list
+#         transformed_pdb.chain_ids = pdb.chain_ids
 #         transformed_pdb.filepath = pdb.filepath
 #
 #         return transformed_pdb
