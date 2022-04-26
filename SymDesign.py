@@ -634,7 +634,7 @@ if __name__ == '__main__':
     parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
                         help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
     parser.add_argument('-S', '--symmetry', type=str, default=None,
-                        help='The specific symmetry of the designs of interest. Preferrably in a composition formula'
+                        help='The specific symmetry of the designs of interest. Preferably in a composition formula'
                              'such as T:{C3}{C3}...')
     parser.add_argument('-wf', '--write_fragments', action='store_true',
                         help='For any fragments generated, write them along with the Pose')
@@ -814,7 +814,7 @@ if __name__ == '__main__':
                                       % (PUtils.all_scores, PUtils.analysis_file % ('TIMESTAMP', 'LOCATION')))
     parser_analysis.add_argument('-N', '--no_save', action='store_true',
                                  help='Don\'t save trajectory information.\nDefault=False')
-    parser_analysis.add_argument('-f', '--figures', action='store_true',
+    parser_analysis.add_argument('-fig', '--figures', action='store_true',
                                  help='Create and save figures for all poses?\nDefault=False')
     parser_analysis.add_argument('-j', '--join', action='store_true',
                                  help='Join Trajectory and Residue Dataframes?\nDefault=False')
@@ -833,15 +833,15 @@ if __name__ == '__main__':
                                       'Designs by?', choices=['score', 'fragments_matched'])
     filter_required.add_argument('-pf', '--pose_design_file', type=str, metavar=ex_path('pose_design.csv'),
                                  help='Name of .csv file with (pose, design pairs to serve as sequence selector')
-    parser_filter.add_argument('-f', '--filter', action='store_true',
+    parser_filter.add_argument('--filter', action='store_true',
                                help='Whether to filter sequence selection using metrics from DataFrame')
     parser_filter.add_argument('-np', '--number_poses', type=int, default=0, metavar='INT',
                                help='Number of top poses to return per pool of designs.\nDefault=All')
-    parser_filter.add_argument('-p', '--protocol', type=str, help='Use a specific protocol to grab designs from?',
+    parser_filter.add_argument('--protocol', type=str, help='Use specific protocol(s) to grab designs from?',
                                default=None, nargs='*')
     parser_filter.add_argument('-s', '--selection_string', type=str, metavar='string',
                                help='String to prepend to output for custom design selection name')
-    parser_filter.add_argument('-w', '--weight', action='store_true',
+    parser_filter.add_argument('--weight', action='store_true',
                                help='Whether to weight sequence selection using metrics from DataFrame')
     metric_weight_functions = ['rank', 'normalize']
     parser_filter.add_argument('-wf', '--weight_function', choices=metric_weight_functions,
@@ -859,7 +859,8 @@ if __name__ == '__main__':
                                       'sequences by a single sequence/Pose')
     parser_sequence.add_argument('-ath', '--avoid_tagging_helices', action='store_true',
                                  help='Should tags be avoided at termini with helices?')
-    parser_sequence.add_argument('--csv', action='store_true', help='Write the sequences file as a .csv')
+    parser_sequence.add_argument('--csv', action='store_true',
+                                 help='Write the sequences file as a .csv instead of the default .fasta')
     parser_sequence.add_argument('-e', '--entity_specification', type=str,
                                  # choices=['single', 'all', 'none'], Todo make work with list...
                                  help='If there are specific entities in the designs you want to tag, indicate how '
@@ -867,7 +868,7 @@ if __name__ == '__main__':
                                       '"all" - all entities, "none" - no entities, or provide a comma separated '
                                       'list such as "1,0,1" where "1" indicates a tag requirement and "0" '
                                       'indicates no tag is required.')
-    parser_sequence.add_argument('-f', '--filter', action='store_true',
+    parser_sequence.add_argument('--filter', action='store_true',
                                  help='Whether to filter sequence selection using metrics from DataFrame')
     parser_sequence.add_argument('-g', '--global_sequences', action='store_true',
                                  help='Should sequences be selected based on their ranking in the total design pool. '
@@ -886,20 +887,20 @@ if __name__ == '__main__':
                                  help='Number of top sequences to return. If global_sequences is True, returns the '
                                       'specified number_sequences sequences (Default=No Limit).\nOtherwise the '
                                       'specified number will be found from each pose (Default=1)')
-    parser_sequence.add_argument('-o', '--optimize_species', type=str, default='e_coli',
+    parser_sequence.add_argument('-opt', '--optimize_species', type=str, default='e_coli',
                                  help='The organism where expression will occur and nucleotide usage should be '
                                       'optimized')
-    parser_sequence.add_argument('-p', '--protocol', type=str, help='Use a specific protocol to grab designs from?',
+    parser_sequence.add_argument('--protocol', type=str, help='Use specific protocol(s) to grab designs from?',
                                  default=None, nargs='*')
-    parser_sequence.add_argument('-S', '--skip_sequence_generation', action='store_true',
+    parser_sequence.add_argument('-ssg', '--skip_sequence_generation', action='store_true',
                                  help='Should sequence generation be skipped? Only selected structure files will be '
                                       'collected')
-    parser_sequence.add_argument('-s', '--selection_string', type=str, metavar='string',
+    parser_sequence.add_argument('-ss', '--selection_string', type=str, metavar='string',
                                  help='String to prepend to output for custom sequence selection name')
     parser_sequence.add_argument('-t', '--preferred_tag', type=str,
                                  help='The name of your preferred expression tag. Default=his_tag',
                                  choices=expression_tags.keys(), default='his_tag')
-    parser_sequence.add_argument('-w', '--weight', action='store_true',
+    parser_sequence.add_argument('--weight', action='store_true',
                                  help='Whether to weight sequence selection using metrics from DataFrame')
     parser_sequence.add_argument('-wf', '--weight_function', choices=metric_weight_functions,
                                  help='How to standardize metrics during sequence selection weighting')
@@ -907,24 +908,25 @@ if __name__ == '__main__':
     parser_multicistron = subparsers.add_parser('multicistronic',
                                                 help='Generate nucleotide sequences for selected designs by codon '
                                                      'optimizing protein sequences, then concatenating nucleotide '
-                                                     'sequences. Requires an input fasta file specified as -f/--file')
-    parser_multicistron.add_argument('-c', '--csv', action='store_true', help='Write the sequences file as a .csv')
+                                                     'sequences. REQUIRES an input .fasta file specified as -f/--file')
+    parser_multicistron.add_argument('-c', '--csv', action='store_true',
+                                     help='Write the sequences file as a .csv instead of the default .fasta')
     parser_multicistron.add_argument('-ms', '--multicistronic_intergenic_sequence', type=str,
                                      help='The sequence to use in the intergenic region of a multicistronic expression '
                                           'output')
     parser_multicistron.add_argument('-n', '--number_of_genes', type=int,
                                      help='The number of protein sequences to concatenate into a multicistronic '
                                           'expression output')
-    parser_multicistron.add_argument('-o', '--optimize_species', type=str, default='e_coli',
+    parser_multicistron.add_argument('-opt', '--optimize_species', type=str, default='e_coli',
                                      help='The organism where expression will occur and nucleotide usage should be '
                                           'optimized')
-    parser_multicistron.add_argument('-s', '--selection_string', type=str, metavar='string',
+    parser_multicistron.add_argument('-ss', '--selection_string', type=str, metavar='string',
                                      help='String to prepend to output for custom sequence selection name')
     # ---------------------------------------------------
     parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
-    parser_status.add_argument('-n', '--number_designs', type=int, help='Number of trajectories per design',
-                               default=None)
-    parser_status.add_argument('-s', '--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
+    parser_status.add_argument('-n', '--%s' % PUtils.number_of_trajectories, type=int, default=PUtils.nstruct,
+                               help='How many unique sequences (trajectories) were generated per design')
+    parser_status.add_argument('--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
                                help='The stage of design to check status of. One of %s'
                                     % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
     parser_status.add_argument('-u', '--update', type=str, choices=('check', 'set', 'remove'),
