@@ -1522,9 +1522,10 @@ if __name__ == '__main__':
             location = args.oligomer1
             initial_iter = [False for _ in range(len(pdb_pairs))]
             initial_iter[0] = True
-            design_directories = pdb_pairs  # for logging purposes below Todo combine this with pdb_pairs variable
+        design_source = os.path.splitext(os.path.basename(location))[0]
     else:  # this logic is possible with select_designs without --metric
         master_db = None
+        # design_source = os.path.basename(example_directory.project_designs)
         # job = JobResources(queried_flags['output_directory'])
         pass
 
