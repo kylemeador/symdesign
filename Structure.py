@@ -1,3 +1,4 @@
+from collections import UserList
 from logging import Logger
 import os
 import subprocess
@@ -2145,21 +2146,14 @@ class Structures(Structure, UserList):
     def coords(self):
         """Return a view of the Coords from the Structures"""
         try:
-            coords_exist = self._coords.shape  # check on first call for attribute, if not, make, else, replace coords
-            total_atoms = 0
-            for structure in self.structures:
-                new_atoms = total_atoms + structure.number_of_atoms
-                self._coords[total_atoms: new_atoms] = structure.coords
-                total_atoms = new_atoms
-
-            return self._coords
+            return self._coords.coords
         except AttributeError:
             # coords = [structure.coords for structure in self.structures]
             coords = [structure.coords for structure in self.data]
             # coords = []
             # for structure in self.structures:
             #     coords.extend(structure.coords)
-            self._coords = np.concatenate(coords)
+            self._coords = Coords(np.concatenate(coords))
 
             return self._coords
 
@@ -2167,14 +2161,14 @@ class Structures(Structure, UserList):
     def atoms(self):
         """Return a view of the Atoms from the Structures"""
         try:
-            return self._atoms
+            return self._atoms.atoms.tolist()
         except AttributeError:
             atoms = []
             # for structure in self.structures:
             for structure in self.data:
                 atoms.extend(structure.atoms)
             self._atoms = Atoms(atoms)
-            return self._atoms
+            return self._atoms.atoms.tolist()
 
     @property
     def number_of_atoms(self):
@@ -2247,9 +2241,14 @@ class Structures(Structure, UserList):
 
     @property
     def backbone_indices(self):
+        # Todo these below are incorrect because the coords indexed indices are each 0-N ... reindex all to coords
         try:
             return self._backbone_indices
         except AttributeError:
+            test_indices = self.backbone_indices
+            self._coords_indexed_backbone_indices = \
+                [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
+
             self._backbone_indices = []
             for structure in self.data:
                 self._backbone_indices.extend(structure.coords_indexed_backbone_indices)
@@ -2306,6 +2305,11 @@ class Structures(Structure, UserList):
     # def replace_coords(self, new_coords):
     #     """Replace the current Coords array with a new Coords array"""
     #     self._coords.coords = new_coords
+    #     total_atoms = 0
+    #     for structure in self.data:
+    #         new_atoms = total_atoms + structure.number_of_atoms
+    #         self._coords.coords[total_atoms: new_atoms] = structure.coords
+    #         total_atoms = new_atoms
 
     # @classmethod
     # def return_transformed_copy(cls, **kwargs):  # rotation=None, translation=None, rotation2=None, translation2=None):
