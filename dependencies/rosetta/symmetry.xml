@@ -6,7 +6,7 @@
 		<IfThenFilter name="report_false"> # This is to report a value that is higher than ReadPoseExtraScoreFilter threshold causing that filter to return false
     		<IF testfilter="true_filter" value="0"/>
 		</IfThenFilter>
-		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is 1, asymmetric is 0
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is -1, asymmetric is 0
     </FILTERS>
 
     <MOVERS>
