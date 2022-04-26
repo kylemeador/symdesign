@@ -843,6 +843,11 @@ class Model:  # Todo (Structure)
             return ''
 
     def format_header(self, **kwargs):
+        """Return the BIOMT and the SEQRES records based on the pose
+
+        Returns:
+            (str)
+        """
         if type(self).__name__ in ['Model']:
             return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
         elif type(self).__name__ in ['Pose', 'SymmetricModel']:
@@ -851,12 +856,11 @@ class Model:  # Todo (Structure)
             return ''
 
     def format_biomt(self, **kwargs):
-        """Return the BIOMT record for the PDB if there was one parsed
+        """Return the BIOMT record for the PDB if there was one parsed or provided by a SymEntry
 
         Returns:
             (str)
         """
-        # Todo test
         if self.pdb.biomt_header != '':  # TODO DISCONNECT HERE
             return self.pdb.biomt_header
         elif self.pdb.biomt:
@@ -2391,11 +2395,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     @SymmetricModel.asu.setter
     def asu(self, asu):
-        for entity in asu.entities:
-            print('OLD', entity.name, entity.chain)
         self.pdb = asu  # process incoming structure as normal
-        for entity in self.entities:
-            print('New', entity.name, entity.chain)
         if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
             # self.log.debug('self.number_of_entities (%d) self.number_of_chains (%d)'
             #                % (self.number_of_entities, self.number_of_chains))
