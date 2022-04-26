@@ -557,6 +557,9 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
     #                                                             'include %s' % ', '.join(possible_symmetries))
+    parser.add_argument('-a', '--output_assembly', action='store_true',
+                        help='Should the assembly be output for docked poses? 2- and 3-D materials will be output '
+                             'with a single unit cell.')
     parser.add_argument('-b', '--debug', action='store_true',
                         help='Whether to log debugging messages to stdout\nDefault=False')
     parser.add_argument('-C', '--cluster_map', type=os.path.abspath,
@@ -631,7 +634,7 @@ if __name__ == '__main__':
     parser.add_argument('-S', '--symmetry', type=str, default=None,
                         help='The specific symmetry of the designs of interest. Preferably in a composition formula'
                              'such as T:{C3}{C3}...')
-    parser.add_argument('-wf', '--write_fragments', action='store_true',
+    parser.add_argument('-wf', '--write_fragments', action='store_true',  # Todo invert the default
                         help='For any fragments generated, write them along with the Pose')
     parser.add_argument('-wo', '--write_oligomers', action='store_true',
                         help='For any oligomers generated, write them along with the Pose')
@@ -681,8 +684,6 @@ if __name__ == '__main__':
                                         help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, '
                                              'or -q to specify PDB Entity codes, building block directories, or query '
                                              'the PDB for building blocks to dock' % PUtils.nano.title())
-    parser_dock.add_argument('-a', '--output_assembly', action='store_true',
-                             help='Should the assembly be output for docked poses?')
     parser_dock.add_argument('-e', '--entry', type=int, default=None, dest='sym_entry', required=True,
                              help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
     parser_dock.add_argument('-mv', '--match_value', type=float, default=0.5, dest='high_quality_match_value',
@@ -731,7 +732,7 @@ if __name__ == '__main__':
     parser_cluster.add_argument('-m', '--mode', type=str, choices=['transform', 'ialign', 'interface_residues'],
                                 default='transform')
     parser_cluster.add_argument('-of', '--output_file', type=str, default=PUtils.clustered_poses,
-                                help='Name of the output .pkl file containing design clusters Will be saved to the %s/'
+                                help='Name of the output .pkl file containing design clusters Will be saved to the %s'
                                      ' folder of the output.\nDefault=%s'
                                      % (PUtils.data.title(), PUtils.clustered_poses % ('LOCATION', 'TIMESTAMP')))
     # ---------------------------------------------------
@@ -804,7 +805,7 @@ if __name__ == '__main__':
                                                  'the various metrics available to analyze.'
                                                  % (PUtils.program_command, PUtils.analysis))
     parser_analysis.add_argument('-of', '--output_file', type=str, default=PUtils.analysis_file,
-                                 help='Name of the output .csv file containing design metrics. Will be saved to the %s/'
+                                 help='Name of the output .csv file containing design metrics. Will be saved to the %s'
                                       ' folder of the output.\nDefault=%s'
                                       % (PUtils.all_scores, PUtils.analysis_file % ('TIMESTAMP', 'LOCATION')))
     parser_analysis.add_argument('-N', '--no_save', action='store_true',

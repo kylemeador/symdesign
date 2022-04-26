@@ -39,12 +39,12 @@ design_flags = {
     #                                    % terminal_formatter},
     # generate_fragments: {'type': bool, 'default': False,
     #                        'description': 'Whether fragments should be generated fresh for each Pose'},
-    'write_fragments': {'type': bool, 'default': True,
-                        'description': 'Whether fragments should be written to file for each Pose'},
-    'output_assembly': {'type': bool, 'default': False,
-                        'description': 'If symmetric, whether the expanded assembly should be output.%s'
-                                       '2- and 3-D materials will be output with a single unit cell.'
-                                       % terminal_formatter},
+    # 'write_fragments': {'type': bool, 'default': True,
+    #                     'description': 'Whether fragments should be written to file for each Pose'},
+    # 'output_assembly': {'type': bool, 'default': False,
+    #                     'description': 'If symmetric, whether the expanded assembly should be output.%s'
+    #                                    '2- and 3-D materials will be output with a single unit cell.'
+    #                                    % terminal_formatter},
     # 'number_of_trajectories': {'type': int, 'default': nstruct,
     #                            'description': 'The number of individual design trajectories to be run for each design'
     #                                           '%sThis determines how many sequence sampling runs are used.'
