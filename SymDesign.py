@@ -461,11 +461,6 @@ def terminate(results=None, output=True):
             all_scores = job.all_scores
             # Save Design DataFrame
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
-            if args.output_file == PUtils.analysis_file:
-                args.output_file = os.path.join(all_scores, args.output_file % (SDUtils.starttime, design_source))
-            # else:  # user provided the output path
-            #     pass
-            #     out_path = os.path.join(all_scores, args.output_file)
             args.output_file = args.output_file if args.output_file.endswith('.csv') else '%s.csv' % args.output_file
             design_df.to_csv(args.output_file)
             logger.info('Analysis of all poses written to %s' % args.output_file)
@@ -1805,10 +1800,10 @@ if __name__ == '__main__':
         # ensure analysis write directory exists
         job.make_path(job.all_scores)
         # Start pose analysis of all designed files
-        if len(args.output_file.split(os.sep)) <= 1:  # the path is a full or relative path, we should use it
-        #     out_path = args.output
-        # else:
-            args.output_file = os.path.join(job.program_root, args.output_file)
+        if args.output_file == PUtils.analysis_file:
+            args.output_file = os.path.join(job.all_scores, args.output_file % (SDUtils.starttime, design_source))
+        elif len(args.output_file.split(os.sep)) <= 1:  # the path isn't an absolute or relative path, prepend location
+            args.output_file = os.path.join(job.all_scores, args.output_file)
 
         if os.path.exists(args.output_file):
             logger.critical('The specified output file "%s" already exists, this will overwrite your old analysis '
