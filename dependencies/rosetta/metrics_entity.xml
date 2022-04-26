@@ -11,6 +11,7 @@
 
 	<RESIDUE_SELECTORS>
 		<ResiduePropertySelector name="virtual_residues" properties="VIRTUAL_RESIDUE" logic="and_logic"/>
+		<Not name="not_virtual_residues" selector="virtual_residues"/>
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
@@ -23,7 +24,7 @@
 		<Not name="not_entity" selector="entity"/>
 		<And name="entity_interface_residues" selectors="entity,tot_interface"/>
 		<SymmetricalResidue name="entity_interface_residues_sym" selector="entity_interface_residues"/>
-		<Logic name="entity_interface_neighbors_logic" selector="entity_interface_residues and not virtual_residues"/>
+		<And name="entity_interface_neighbors_logic" selector="entity_interface_residues,not_virtual_residues"/>
 		<Neighborhood name="entity_interface_neighbors" selector="entity_interface_neighbors_logic" include_focus_in_subset="false" distance="8.0"/> # Cb neighbors
 		<And name="entity_only_interface_neighbors" selectors="entity,entity_interface_neighbors"/>
 		<Or name="entity_interface_and_neighbors" selectors="entity_interface_residues,entity_only_interface_neighbors"/>
