@@ -2625,14 +2625,13 @@ if __name__ == '__main__':
             for design in design_directories:
                 update_status(design.serialized_info, args.stage, mode=args.update)
         else:
-            if args.number_designs:
-                logger.info('Checking for %d files. If no stage is specified, results will be incorrect for all but '
-                            'design stage' % args.number_designs)
+            if args.number_of_trajectories:
+                logger.info('Checking for %d files based on --number_of_trajectories flag' % args.number_of_trajectories)
             if args.stage:
-                status(design_directories, args.stage, number=args.number_designs)
+                status(design_directories, args.stage, number=args.number_of_trajectories)
             else:
                 for stage in PUtils.stage_f:
-                    s = status(design_directories, stage, number=args.number_designs)
+                    s = status(design_directories, stage, number=args.number_of_trajectories)
                     if s:
                         logger.info('For "%s" stage, default settings should generate %d files'
                                     % (stage, PUtils.stage_f[stage]['len']))
