@@ -144,7 +144,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # TODO supplement with names info and pull out by names
 
     cluster_residue_d = des_dir.pose_fragments()
-    transformation_dict = des_dir.pose_transformation()
+    transformation_dict = des_dir.pose_transformation
     # cluster_residue_d, transformation_dict = Pose.gather_fragment_metrics(des_dir, init=True)
     # v Used for central pair fragment mapping of the biological interface generated fragments
     cluster_freq_tuple_d = {cluster: cluster_residue_d[cluster]['freq'] for cluster in cluster_residue_d}
