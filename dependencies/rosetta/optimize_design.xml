@@ -7,26 +7,27 @@
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
+		<ResiduePropertySelector name="virtual_residues" properties="VIRTUAL_RESIDUE" logic="and_logic"/>
 		<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="core_residues_sym" selector="core_residues" />
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
-		<Neighborhood name="interface1_neighbors" selector="interface1" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
+		<Neighborhood name="interface1_neighbors" selector="interface1 and (not virtual_residues)" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
 		<Not name="full_pose_without_interface1" selector="interface1"/>
 		<And name="interface1_sym_only" selectors="interface1_sym,full_pose_without_interface1"/>
 		<And name="interface1_sym_only_interface1_neighbors" selectors="interface1_sym_only,interface1_neighbors"/>
-		<Neighborhood name="interface1_sym_neighbors" selector="interface1_sym" distance="8.0" include_focus_in_subset="false"/>
+<!--		<Neighborhood name="interface1_sym_neighbors" selector="interface1_sym and (not virtual_residues)" distance="8.0" include_focus_in_subset="false"/>-->
 		<Or name="interface_or_neighbors1" selectors="interface1,interface1_neighbors"/>
-		<SymmetricalResidue name="interface_or_neighbors1_sym" selector="interface_or_neighbors1"/>
+<!--		<SymmetricalResidue name="interface_or_neighbors1_sym" selector="interface_or_neighbors1"/>-->
 		# same, but for residues from interface 2
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
-		<Neighborhood name="interface2_neighbors" selector="interface2" distance="8.0" include_focus_in_subset="false"/>
+		<Neighborhood name="interface2_neighbors" selector="interface2 and (not virtual_residues)" distance="8.0" include_focus_in_subset="false"/>
 		<Not name="full_pose_without_interface2" selector="interface2"/>
 		<And name="interface2_sym_only" selectors="interface2_sym,full_pose_without_interface2"/>
 		<And name="interface2_sym_only_interface2_neighbors" selectors="interface2_sym_only,interface2_neighbors"/>
-		<Neighborhood name="interface2_sym_neighbors" selector="interface2_sym" distance="8.0" include_focus_in_subset="false"/>
+<!--		<Neighborhood name="interface2_sym_neighbors" selector="interface2_sym and (not virtual_residues)" distance="8.0" include_focus_in_subset="false"/>-->
 		<Or name="interface_or_neighbors2" selectors="interface2,interface2_neighbors"/>
 		<SymmetricalResidue name="interface_or_neighbors2_sym" selector="interface_or_neighbors2"/>
 		# odd overlaps of the two interfaces with symmetry specifically for generating shape_complementarity surfaces
@@ -41,21 +42,18 @@
 <!--		<SymmetricalResidue name="symmetric_self_interface_residues_sym" selector="symmetric_self_interface_residues"/>-->
 		<SymmetricalResidue name="tot_interface_sym" selector="tot_interface"/>
 		# the negation of all interface residues
-
-		# the negation of all interface residues
 		<Not name="not_interface" selector="tot_interface"/>
 		<Not name="not_interface_sym" selector="tot_interface_sym"/>
-
 		<And name="interface1_sc" selectors="interface2_neighbors,tot_interface_sym"/>
-		<Neighborhood name="interface1_sc_neighbors" selector="interface1_sc" distance="8.0" include_focus_in_subset="false"/>
-		<SymmetricalResidue name="interface1_sc_sym" selector="interface1_sc"/>
+<!--		<Neighborhood name="interface1_sc_neighbors" selector="interface1_sc and (not virtual_residues)" distance="8.0" include_focus_in_subset="false"/>-->
+<!--		<SymmetricalResidue name="interface1_sc_sym" selector="interface1_sc"/>-->
 		<And name="interface2_sc" selectors="interface1_neighbors,tot_interface_sym"/>
-		<SymmetricalResidue name="interface2_sc_sym" selector="interface2_sc"/>
+<!--		<SymmetricalResidue name="interface2_sc_sym" selector="interface2_sc"/>-->
 <!--		<And name="interface2_sc_correct_sym" selectors="interface1_sc_neighbors,interface2_sc_sym"/>-->
-		<Or name="asymmetric_interface" selectors="interface1,interface2_sc"/>
+<!--		<Or name="asymmetric_interface" selectors="interface1,interface2_sc"/>-->
 		<Or name="tot_interface_and_neighbor" selectors="interface_or_neighbors1,interface_or_neighbors2"/>
 		<SymmetricalResidue name="tot_interface_and_neighbor_sym" selector="tot_interface_and_neighbor"/>
-		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
+<!--		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>-->
 
 		# other residues that may be designable
 		# TODO REINSTATE

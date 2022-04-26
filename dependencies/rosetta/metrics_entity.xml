@@ -10,6 +10,7 @@
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
+		<ResiduePropertySelector name="virtual_residues" properties="VIRTUAL_RESIDUE" logic="and_logic"/>
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23,54,65,90,etc... in the %%interface1%% variable
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
@@ -22,7 +23,7 @@
 		<Not name="not_entity" selector="entity"/>
 		<And name="entity_interface_residues" selectors="entity,tot_interface"/>
 		<SymmetricalResidue name="entity_interface_residues_sym" selector="entity_interface_residues"/>
-		<Neighborhood name="entity_interface_neighbors" selector="entity_interface_residues" include_focus_in_subset="false" distance="8.0"/> # Cb neighbors
+		<Neighborhood name="entity_interface_neighbors" selector="entity_interface_residues and (not virtual_residues)" include_focus_in_subset="false" distance="8.0"/> # Cb neighbors
 		<And name="entity_only_interface_neighbors" selectors="entity,entity_interface_neighbors"/>
 		<Or name="entity_interface_and_neighbors" selectors="entity_interface_residues,entity_only_interface_neighbors"/>
 		<SymmetricalResidue name="entity_interface_and_neighbors_sym" selector="entity_interface_and_neighbors"/>
@@ -101,7 +102,7 @@
 		</AddConstraints>
 		# process metrics that are defined in the SimpleMetrics header above
 		# symmetric scorefunction metrics indicated by S_
-		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_bound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%entity%%_unbound" override="false"/> # unbound label on these is for for residue_processing() although they represent bound state
+		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_bound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%entity%%_unbound" override="false"/> # unbound label on these is for residue_processing() although they represent bound state
 		<RunSimpleMetrics name="run_metrics_polar_sasa_bound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%entity%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_sasa_bound" metrics="M_sasa_total_per_res" prefix="" suffix="_total_%%entity%%_unbound" override="false"/>
 		<RunSimpleMetrics name="S_run_metrics_bound" metrics="M_int_hbonds_res_selector,S_M_int_energy_total,S_M_solvation_energy" prefix="" suffix="_%%entity%%_bound" override="false"/>

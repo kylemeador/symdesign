@@ -7,6 +7,7 @@
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
+		<ResiduePropertySelector name="virtual_residues" properties="VIRTUAL_RESIDUE" logic="and_logic"/>
 		<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="core_residues_sym" selector="core_residues" />
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
@@ -32,11 +33,11 @@
 		# all residues
 		<True name="full_pose"/>
 		<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
-		<SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues" />
-		<Neighborhood name="hbnet_neighbors" selector="hbnet_residues_sym" include_focus_in_subset="false" distance="8"/> # Cb neighbors
-		<Or name="hbnet_neighbors_or_core" selectors="hbnet_neighbors,core_residues"/>
-		<Not name="not_hbnet_or_core_neighbors" selector="hbnet_neighbors_or_core"/>
-		<And name="hbnet_interface_neighbors" selectors="hbnet_neighbors,tot_interface"/>
+		<SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues"/>
+		<Neighborhood name="hbnet_sym_neighbors" selector="hbnet_residues_sym and (not virtual_residues)" include_focus_in_subset="false" distance="8"/> # Cb neighbors
+		<Or name="hbnet_sym_neighbors_or_core" selectors="hbnet_sym_neighbors,core_residues"/>
+		<Not name="not_hbnet_sym_or_core_neighbors" selector="hbnet_sym_neighbors_or_core"/>
+		<And name="hbnet_interface_neighbors" selectors="hbnet_sym_neighbors,tot_interface"/>
 		<Or name="hbnet_interface_neighbors_or_core" selectors="hbnet_interface_neighbors,core_residues"/>
 		<Not name="not_hbnet_interface_neighbors_or_core" selector="hbnet_interface_neighbors_or_core"/>
 	</RESIDUE_SELECTORS>
@@ -104,7 +105,7 @@
 
 	# Symmetry set up section
 	<FILTERS>
-		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is -1, asymmetric is 0
 	</FILTERS>
 	<MOVERS>
 		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
