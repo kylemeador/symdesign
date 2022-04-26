@@ -357,22 +357,27 @@ class SymEntry:
                 setattr(self, 'group%d' % idx, sub_symmetry)
             self.sym_map = {idx: getattr(self, 'group%d' % idx) for idx, _ in enumerate(sym_map, 1)}
 
-    # @property
-    # def group1_sym(self):
-    #     return self.group1
-
-    # @property
-    # def group2_sym(self):
-    #     return self.group2
-
     @property
     def groups(self) -> List:
-        """Returns the various symmetries which constitute the SymEntry"""
-        return list(self.sym_map.values())
+        """Returns the symmetry groups which constitute the SymEntry in their corresponding order"""
+        try:
+            return self._groups
+        except AttributeError:
+            self._groups = list(self.sym_map.values())
+            return self._groups
 
     @property
-    def combination_string(self):
-        return '%s:{%s}' % (self.resulting_symmetry, '}{'.join(list(self.sym_map.values())))
+    def group_subunit_numbers(self) -> List:
+        """Returns the number of subunits for each symmetry group in the SymEntry"""
+        try:
+            return self._group_subunit_numbers
+        except AttributeError:
+            self._group_subunit_numbers = [valid_subunit_number[group] for group in self.groups]
+            return self._group_subunit_numbers
+
+    @property
+    def combination_string(self) -> str:
+        return '%s:{%s}' % (self.resulting_symmetry, '}{'.join(self.groups))
 
     # @property
     # def point_group_symmetry(self):
