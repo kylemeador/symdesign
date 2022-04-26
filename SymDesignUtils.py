@@ -172,9 +172,11 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=False
 
     if format_log:
         if no_log_name:
-            log_format = logging.Formatter('%(levelname)s: %(message)s')
+            # log_format = logging.Formatter('%(levelname)s: %(message)s')
+            log_format = logging.Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
         else:
-            log_format = logging.Formatter('[%(name)s]-%(levelname)s: %(message)s')
+            # log_format = logging.Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
+            log_format = logging.Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
         lh.setFormatter(log_format)
 
     return _logger
