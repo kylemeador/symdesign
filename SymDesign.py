@@ -1098,13 +1098,27 @@ if __name__ == '__main__':
 
     if not args.guide and args.module not in ['guide', 'flags', 'residue_selector', 'multicistronic']:
         formatted_queried_flags = queried_flags.copy()
-        sym_entry = formatted_queried_flags.get('sym_entry')
-        if sym_entry:
-            formatted_queried_flags['sym_entry'] = sym_entry.entry_number
+        # where input values should be reported instead of processed version, or the argument is not important
+        for flag in ['design_selector', 'construct_pose']:
+            formatted_queried_flags.pop(flag, None)
+            # get all the default program args and compare them to the provided values
+        reported_args = {}
+        for group in parser._action_groups:
+            for arg in group._group_actions:
+                # value = getattr(queried_flags, arg.dest, None)  # get the parsed flag value
+                value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
+                if value and value != arg.default:  # compare it to the default
+                    reported_args[arg.dest] = value  # add it to reported args if not the default
+        # custom removal/formatting for all remaining
+        for custom_arg in list(formatted_queried_flags.keys()):
+            value = formatted_queried_flags.pop(custom_arg)
+            if value:
+                reported_args[custom_arg] = value
 
-        # formatted_queried_flags.pop('sym_entry', None)
-        formatted_queried_flags.pop('design_selector', None)
-        logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(formatted_queried_flags.items())))
+        sym_entry = reported_args.pop('sym_entry', None)
+        if sym_entry:
+            reported_args['sym_entry'] = sym_entry.entry_number
+        logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(reported_args.items())))
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
