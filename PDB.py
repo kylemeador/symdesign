@@ -8,7 +8,7 @@ from glob import glob
 from itertools import chain as iter_chain  # repeat,
 # from random import randint
 # from time import sleep
-from typing import Union, Dict
+from typing import Union, Dict, Sequence
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -935,20 +935,20 @@ class PDB(Structure):
         # self.get_dbref_info_from_api()
         # self.get_entity_info_from_api()
 
-    def entity(self, entity_id: str):
+    def entity(self, entity_id: str) -> Union[Entity, None]:
         for entity in self.entities:
             if entity_id == entity.name:
                 return entity
         return
 
-    def create_entities(self, entity_names=None, query_by_sequence=True, **kwargs):
+    def create_entities(self, entity_names: Sequence = None, query_by_sequence: bool = True, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during
         file parsing. First, search the PDB API using an attached PDB entry_id, dependent on the presence of a
         biological assembly file and/or multimodel file. Finally, initialize them from the Residues in each Chain
         instance using a specified threshold of sequence homology
 
         Keyword Args:
-            entity_names (list): Names explicitly passed for the Entity instances. Length must equal number of entities.
+            entity_names (Sequence): Names explicitly passed for the Entity instances. Length must equal number of entities.
                 Names will take precedence over query_by_sequence if passed.
             query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
         """
@@ -1065,20 +1065,27 @@ class PDB(Structure):
                 self.entity_info.append({'chains': [chain], 'sequence': chain.sequence, 'name': entity_idx})
         self.log.debug('Entities were generated from ATOM records.')
 
-    def entity_from_chain(self, chain_id):
-        """Return the entity associated with a particular chain id"""
-        # for entity, info in self.entity_d.items():
+    def entity_from_chain(self, chain_id: str) -> Union[Entity, None]:
+        """Return the entity associated with a particular chain id
+
+        Returns:
+            (Union[Entity, None])
+        """
         for entity in self.entities:
             if chain_id == entity.chain_id:
                 return entity
-        return None
+        return
 
-    def entity_from_residue(self, residue_number):
-        """Return the entity associated with a particular Residue number"""
+    def entity_from_residue(self, residue_number: int) -> Union[Entity, None]:
+        """Return the entity associated with a particular Residue number
+
+        Returns:
+            (Union[Entity, None])
+        """
         for entity in self.entities:
             if entity.get_residues(numbers=[residue_number]):
                 return entity
-        return None
+        return
 
     def match_entity_by_struct(self, other_struct=None, entity=None, force_closest=False):
         """From another set of atoms, returns the first matching chain from the corresponding entity"""
