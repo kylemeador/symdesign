@@ -445,8 +445,8 @@ def terminate(results=None, output=True):
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
         default_output_tuple = (SDUtils.starttime, args.module, design_source)
-        if args.output_design_file:
-            designs_file = args.output_design_file
+        if args.output_file and args.module not in [PUtils.analysis, PUtils.cluster_poses]:
+            designs_file = args.output_file
         else:
             designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % default_output_tuple)
 
@@ -461,14 +461,14 @@ def terminate(results=None, output=True):
             all_scores = job.all_scores
             # Save Design DataFrame
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
-            if args.output == PUtils.analysis_file:
-                out_path = os.path.join(all_scores, args.output % (SDUtils.starttime, design_source))
-            else:  # user provided the output path, the global out_path should be used
-                pass
-                # out_path = os.path.join(all_scores, args.output)
-            out_path = out_path if out_path.endswith('.csv') else '%s.csv' % out_path
-            design_df.to_csv(out_path)
-            logger.info('Analysis of all poses written to %s' % out_path)
+            if args.output_file == PUtils.analysis_file:
+                args.output_file = os.path.join(all_scores, args.output_file % (SDUtils.starttime, design_source))
+            # else:  # user provided the output path
+            #     pass
+            #     out_path = os.path.join(all_scores, args.output_file)
+            args.output_file = args.output_file if args.output_file.endswith('.csv') else '%s.csv' % args.output_file
+            design_df.to_csv(args.output_file)
+            logger.info('Analysis of all poses written to %s' % args.output_file)
             if save:
                 logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
         elif args.module == PUtils.cluster_poses:
@@ -554,7 +554,7 @@ if __name__ == '__main__':
                                      '\n\t4. Analysis of all designs using interface metrics '
                                      '\n\t5. Design selection and sequence formatting by combinatorial linear weighting'
                                      ' of interface metrics.\n\n'
-                                     'If your a first time user, try \'%s --guide\''
+                                     'If your a first time user, try "%s --guide"'
                                      '\nAll jobs have built in features for command monitoring & distribution to '
                                      'computational clusters for parallel processing.\n'
                                      % (PUtils.program_name, PUtils.nano.title(), PUtils.program_command),
@@ -618,7 +618,7 @@ if __name__ == '__main__':
     parser.add_argument('-od', '--output_directory', type=os.path.abspath, default=None,
                         help='If provided, the name of the directory to output all created files. If blank, one will be'
                              ' automatically generated based off input_location, module, and the time.')
-    parser.add_argument('-of', '--output_design_file', type=str,
+    parser.add_argument('-of', '--output_file', type=str,
                         help='If provided, the name of the output designs file. If blank, one will be automatically '
                              'generated based off input_location, module, and the time.')
     parser.add_argument('-p', '--project', type=os.path.abspath, nargs='*',
@@ -735,7 +735,7 @@ if __name__ == '__main__':
                                                 'docked configurations.')
     parser_cluster.add_argument('-m', '--mode', type=str, choices=['transform', 'ialign', 'interface_residues'],
                                 default='transform')
-    parser_cluster.add_argument('-o', '--output', type=str, default=PUtils.clustered_poses,
+    parser_cluster.add_argument('-of', '--output_file', type=str, default=PUtils.clustered_poses,
                                 help='Name of the output .pkl file containing design clusters Will be saved to the %s/'
                                      ' folder of the output.\nDefault=%s'
                                      % (PUtils.data.title(), PUtils.clustered_poses % ('LOCATION', 'TIMESTAMP')))
@@ -808,7 +808,7 @@ if __name__ == '__main__':
                                             help='Analyze all designs specified. %s --guide %s will inform you about '
                                                  'the various metrics available to analyze.'
                                                  % (PUtils.program_command, PUtils.analysis))
-    parser_analysis.add_argument('-o', '--output', type=str, default=PUtils.analysis_file,
+    parser_analysis.add_argument('-of', '--output_file', type=str, default=PUtils.analysis_file,
                                  help='Name of the output .csv file containing design metrics. Will be saved to the %s/'
                                       ' folder of the output.\nDefault=%s'
                                       % (PUtils.all_scores, PUtils.analysis_file % ('TIMESTAMP', 'LOCATION')))
@@ -1789,15 +1789,15 @@ if __name__ == '__main__':
         # ensure analysis write directory exists
         job.make_path(job.all_scores)
         # Start pose analysis of all designed files
-        if len(args.output.split(os.sep)) > 1:  # the path is a full or relative path, we should use it
-            out_path = args.output
-        else:
-            out_path = os.path.join(job.program_root, args.output)
+        if len(args.output_file.split(os.sep)) <= 1:  # the path is a full or relative path, we should use it
+        #     out_path = args.output
+        # else:
+            args.output_file = os.path.join(job.program_root, args.output_file)
 
-        if os.path.exists(out_path):
+        if os.path.exists(args.output_file):
             logger.critical('The specified output file \'%s\' already exists, this will overwrite your old analysis '
-                            'data! Please modify that file or specify a new output name with -o/--output'
-                            % out_path)
+                            'data! Please modify that file or specify a new one with with -of/--output_file'
+                            % args.output_file)
             exit(1)
         if args.multi_processing:
             zipped_args = zip(design_directories, repeat(args.join), repeat(save), repeat(args.figures))
@@ -2071,8 +2071,8 @@ if __name__ == '__main__':
             exit('%s is not a viable mode!' % args.mode)
 
         if pose_cluster_map:
-            if args.output:
-                pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, args.output, out_path='')
+            if args.output_file:
+                pose_cluster_file = SDUtils.pickle_object(pose_cluster_map, args.output_file, out_path='')
             else:
                 pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
                                                           PUtils.clustered_poses % (location, SDUtils.starttime),
@@ -2202,12 +2202,12 @@ if __name__ == '__main__':
             #     pass
 
         # Format sequences for expression
-        args.output_design_file = os.path.join(outdir, '%sSelectedDesigns.paths' % args.selection_string)
+        args.output_file = os.path.join(outdir, '%sSelectedDesigns.paths' % args.selection_string)
         design_directories = [des_dir for des_dir, design in results]
         if args.skip_sequence_generation:
             terminate(output=False)
         else:
-            with open(args.output_design_file, 'w') as f:
+            with open(args.output_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(des_dir.path for des_dir in design_directories))
 
         # use one directory as indication of entity specification for them all. Todo modify for different length inputs
