@@ -1184,9 +1184,6 @@ class PDB(Structure):
         Returns:
             (list): List of atoms involved in the identified asu
         """
-        if not chain:
-            chain = self.chain_id_list[0]
-
         def get_unique_contacts(chain, entity, iteration=0, extra=False, partner_entities=None):
             """
 
@@ -1233,10 +1230,10 @@ class PDB(Structure):
                 self.log.debug('Self interface chains: %s' % self_interface_d.keys())
 
                 # all others are in the partner entity
-                # {chain: int}
+                # {Chain: int}
                 partner_interface_d = {self.chain(chain_id): len(residues) for chain_id, residues in interface_d.items()
                                        if chain_id not in self_interface_d}
-                self.log.debug('Partner interface chains %s' % partner_interface_d.keys())
+                self.log.debug('Partner interface Chains %s' % partner_interface_d.keys())
                 if not partner_entities:  # if no partner entity is specified
                     partner_entities = set(self.entities).difference({entity})
                 # else:  # particular entity is desired in the extras recursion
@@ -1276,8 +1273,8 @@ class PDB(Structure):
 
                         # Get the most contacted chain from first entity, in contact with chain of the partner entity
                         for partner_chain in partner_interface_d:
-                            if partner_chain in self.entity_d[p_entity]['chains']:
-                                self.log.debug(partner_chain)
+                            if partner_chain in p_entity.chains:  # this wouldn't be true if the chains were symmetrized
+                                self.log.debug('Partner Chain: %s' % partner_chain.name)
                                 partner_chains_first_entity_contact = \
                                     get_unique_contacts(partner_chain, p_entity, partner_entities=[entity])
                                 self.log.info('Partner entity %s, original chain contacts: %s' %
@@ -1315,7 +1312,11 @@ class PDB(Structure):
 
             return unique_chains_entity.keys()
 
+        if not chain:
+            chain = self.chain_id_list[0]
         chain_of_interest = self.chain(chain)
+        if not chain_of_interest:
+            raise ValueError('The Chain %s is not found in the Structure' % chain)
         partner_chains = get_unique_contacts(chain_of_interest, entity=self.entity_from_chain(chain), extra=extra)
         # partner_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain), extra=extra)
         # partner_chains = get_unique_contacts(chain, entity=self.entity_from_chain(chain).name, extra=extra)
@@ -1327,7 +1328,7 @@ class PDB(Structure):
 
         return asu_atoms, asu_coords
 
-    def return_asu(self, chain='A'):
+    def return_asu(self, chain='A'):  # Todo Depreciate in favor of Pose.get_contacting_asu()
         """Returns the ASU as a new PDB object. See self.get_asu() for method"""
         asu_pdb_atoms, asu_pdb_coords = self.get_asu(chain=chain)
         asu = PDB.from_atoms(atoms=deepcopy(asu_pdb_atoms), coords=asu_pdb_coords, metadata=self, log=self.log)
