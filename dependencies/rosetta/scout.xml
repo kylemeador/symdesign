@@ -6,9 +6,10 @@
     </SCOREFXNS>
 
     <RESIDUE_SELECTORS>
+        <ResiduePropertySelector name="virtual_residues" properties="VIRTUAL_RESIDUE" logic="and_logic"/>
         <Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
         <SymmetricalResidue name="core_residues_sym" selector="core_residues"/>
-        <Neighborhood name="core_neighbors_sym" selector="core_residues_sym" include_focus_in_subset="false" distance="8"/> # Cb neighbors
+        <Neighborhood name="core_neighbors_sym" selector="core_residues_sym and (not virtual_residues)" include_focus_in_subset="false" distance="8"/> # Cb neighbors
         # used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
         <Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
         <SymmetricalResidue name="interface1_sym" selector="interface1" />
