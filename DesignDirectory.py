@@ -745,13 +745,13 @@ class DesignDirectory:  # (JobResources):
 
         return {'n': n_term, 'c': c_term}
 
-    def clear_pose_transformation(self):
-        """Remove any pose transformation data from the Pose"""
-        try:
-            del self._pose_transformation
-            self.info.pop('pose_transformation')
-        except AttributeError:
-            pass
+    # def clear_pose_transformation(self):
+    #     """Remove any pose transformation data from the Pose"""
+    #     try:
+    #         del self._pose_transformation
+    #         self.info.pop('pose_transformation')
+    #     except AttributeError:
+    #         pass
 
     @property
     def pose_transformation(self):
@@ -1800,7 +1800,8 @@ class DesignDirectory:  # (JobResources):
                                       ignore_clashes=self.ignore_clashes)
             # generate oligomers for each entity in the pose
             for idx, entity in enumerate(self.pose.entities):
-                entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
+                if entity.number_of_monomers != self.sym_entry.group_subunit_numbers[idx]:
+                    entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
                 # write out new oligomers to the DesignDirectory
                 if self.write_oligomers:
                     entity.write_oligomer(out_path=os.path.join(self.path, '%s_oligomer.pdb' % entity.name))

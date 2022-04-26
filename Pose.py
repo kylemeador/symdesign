@@ -2184,6 +2184,11 @@ class SymmetricModel(Model):
 
         return transform_solutions
 
+    # def make_oligomers(self):
+    #     """Generate oligomers for each Entity in the SymmetricModel"""
+    #     for idx, entity in enumerate(self.entities):
+    #         entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.transformations[idx])
+
     def symmetric_assembly_is_clash(self, distance=2.1):  # Todo design_selector
         """Returns True if the SymmetricModel presents any clashes. Checks only backbone and CB atoms
 

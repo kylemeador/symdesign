@@ -2397,7 +2397,6 @@ class Chain(Structure):
 class Entity(Chain, SequenceProfile):
     """Entity
     Initialize with Keyword Args:
-        representative=None (Chain): The Chain that should represent the Entity
         chains=None (list): A list of all Chain objects that match the Entity
         uniprot_id=None (str): The unique UniProtID for the Entity
         sequence=None (str): The sequence for the Entity
@@ -2759,10 +2758,10 @@ class Entity(Chain, SequenceProfile):
             pass
 
     def make_oligomer(self, symmetry=None, rotation=None, translation=None, rotation2=None, translation2=None):
-        """Given a symmetry and an optional transformational mapping, generate oligomeric copies of the Entity as Chains
+        """Given a symmetry and transformational mapping, generate oligomeric copies of the Entity
 
         Assumes that the symmetric system treats the canonical symmetric axis as the Z-axis, and if the Entity is not at
-        the origin, that a transformation describing it's current position relative to the origin is passed so that it
+        the origin, that a transformation describing its current position relative to the origin is passed so that it
         can be moved to the origin. At the origin, makes the required oligomeric rotations, to generate an oligomer
         where symmetric copies are stored in the .chains attribute then reverses the operations back to original
         reference frame if any was provided
