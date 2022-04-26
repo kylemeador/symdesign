@@ -71,7 +71,7 @@ def calculate_sequence_metrics(des_dir, alignment, residues=None):  # Unused Tod
 #         seq_dict = pdb.atom_sequences
 #     else:
 #         seq_dict = pdb.reference_sequence
-#     # for _chain in pdb.chain_id_list:
+#     # for _chain in pdb.chain_ids:
 #     #     seq_dict[_chain] =
 #     if chain:
 #         seq_dict = filter_dictionary_keys(seq_dict, chain)

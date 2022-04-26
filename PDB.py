@@ -43,7 +43,7 @@ class PDB(Structure):
         self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
         # self.biomt = []
         # self.biomt_header = ''
-        self.chain_id_list = []  # unique chain IDs in PDB Todo refactor
+        self.chain_ids = []  # unique chain IDs
         self.chains = []
         self.cryst = kwargs.get('cryst', None)  # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
         self.cryst_record = kwargs.get('cryst_record', None)
@@ -77,7 +77,7 @@ class PDB(Structure):
                 if coords is None:
                     raise DesignError('Can\'t initialize Structure with Atom objects without passing coords! Pass '
                                       'desired coords.')
-                self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
+                self.chain_ids = remove_duplicates([atom.chain for atom in atoms])
                 self.process_pdb(atoms=atoms, coords=coords, **kwargs)
             elif residues:
                 if coords is None:
@@ -86,7 +86,7 @@ class PDB(Structure):
                     except AttributeError:
                         raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects '
                                           'lacking coords! Either pass Residue objects with coords or pass coords.')
-                self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
+                self.chain_ids = remove_duplicates([residue.chain for residue in residues])
                 self.process_pdb(residues=residues, coords=coords, **kwargs)
             # Todo add residues, atoms back to kwargs?
             elif chains:
@@ -198,7 +198,7 @@ class PDB(Structure):
         self.reference_sequence = pdb.reference_sequence
         # self.atom_sequences = pdb.atom_sequences
         self.filepath = pdb.filepath
-        # self.chain_id_list = pdb.chain_id_list
+        # self.chain_ids = pdb.chain_ids
         self.entity_info = pdb.entity_info
         self.name = pdb.name
         self.secondary_structure = pdb.secondary_structure
@@ -259,8 +259,8 @@ class PDB(Structure):
                 temp_fact = float(line[60:66])
                 element_symbol = line[76:78].strip()
                 atom_charge = line[78:80].strip()
-                if chain not in self.chain_id_list:
-                    self.chain_id_list.append(chain)
+                if chain not in self.chain_ids:
+                    self.chain_ids.append(chain)
                 # prepare the atomic coordinates for addition to numpy array
                 atom_info.append((atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
                                   code_for_insertion, occ, temp_fact, element_symbol, atom_charge))
@@ -378,7 +378,7 @@ class PDB(Structure):
             # self._residues.set_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
             self._residues.reindex_residue_atoms()
             self.set_coords(coords=np.concatenate(coords))
-            self.chain_id_list = remove_duplicates([residue.chain for residue in residues])
+            self.chain_ids = remove_duplicates([residue.chain for residue in residues])
 
         if chains:
             if isinstance(chains, (list, Structures)):  # create the instance from existing chains
@@ -397,19 +397,19 @@ class PDB(Structure):
                 if rename_chains:
                     self.reorder_chains()
                 # else:
-                #     self.chain_id_list = remove_duplicates([atom.chain for atom in atoms])
+                #     self.chain_ids = remove_duplicates([atom.chain for atom in atoms])
             else:  # create Chains from Residues
                 if self.multimodel:  # discrepancy is not possible
                     self.create_chains(solve_discrepancy=False)
                 else:
                     self.create_chains(solve_discrepancy=solve_discrepancy)
-                self.log.debug('Loaded with Chains: %s' % ','.join(self.chain_id_list))
+                self.log.debug('Loaded with Chains: %s' % ','.join(self.chain_ids))
 
         if seqres:
             self.parse_seqres(seqres)
         else:
             # Todo get the reference sequence from Entities?
-            # self.reference_sequence = {chain_id: None for chain_id in self.chain_id_list}
+            # self.reference_sequence = {chain_id: None for chain_id in self.chain_ids}
             self.design = True
 
         if entities:
@@ -461,8 +461,8 @@ class PDB(Structure):
                 #     # because we don't care for chains attributes (YET) we update after everything is set
                 #     self.chains = chains
                 #     self.reorder_chains()
-                #     self.chain_id_list = [chain.name for chain in self.chains]
-                #     self.chain_id_list = [chain.name for chain in chains]
+                #     self.chain_ids = [chain.name for chain in self.chains]
+                #     self.chain_ids = [chain.name for chain in chains]
             else:  # create Entities from Chain.Residues
                 self.create_entities(**kwargs)
 
@@ -559,9 +559,9 @@ class PDB(Structure):
         else:
             available_chains = list(available_chain_ids)
 
-        # Update chain_id_list, then each chain
-        self.chain_id_list = available_chains[:self.number_of_chains]
-        for chain, new_id in zip(self.chains, self.chain_id_list):
+        # Update chain_ids, then each chain
+        self.chain_ids = available_chains[:self.number_of_chains]
+        for chain, new_id in zip(self.chains, self.chain_ids):
             chain.chain_id = new_id
 
         self.get_chain_sequences()
@@ -591,17 +591,17 @@ class PDB(Structure):
                     # chain_residues[chain_idx].append(residue)
             available_chain_ids = self.return_chain_generator()
             for idx, (chain_idx, residue_indices) in enumerate(chain_residues.items()):
-                if chain_idx < len(self.chain_id_list):  # Todo this logic is flawed when chains come in out of order
-                    chain_id = self.chain_id_list[chain_idx]
+                if chain_idx < len(self.chain_ids):  # Todo this logic is flawed when chains come in out of order
+                    chain_id = self.chain_ids[chain_idx]
                     discard_chain = next(available_chain_ids)
                 else:  # when there are more chains than supplied by file, chose the next available
                     chain_id = next(available_chain_ids)
                 self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
                                          residue_indices=residue_indices))
                 # self.chains[idx].set_atoms_attributes(chain=chain_id)
-            self.chain_id_list = [chain.name for chain in self.chains]
+            self.chain_ids = [chain.name for chain in self.chains]
         else:
-            for chain_id in self.chain_id_list:
+            for chain_id in self.chain_ids:
                 self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
                                          residue_indices=[idx for idx, residue in enumerate(self.residues)
                                                           if residue.chain == chain_id]))
@@ -639,7 +639,7 @@ class PDB(Structure):
 
     def get_chain_sequences(self):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
-        # self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_id_list}
+        # self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_ids}
 
     def orient(self, symmetry=None):
         """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axes defined by symmetry
@@ -668,7 +668,7 @@ class PDB(Structure):
         # Todo change output to logger with potential for file and stdout
 
         # with open(orient_log, 'a+') as log_f:
-        number_of_subunits = len(self.chain_id_list)
+        number_of_subunits = len(self.chain_ids)
         if number_of_subunits > 1:
             if number_of_subunits != subunit_number:
                 if number_of_subunits in multicomponent_valid_subunit_number.get(symmetry):
@@ -984,7 +984,7 @@ class PDB(Structure):
                                         for ent_idx, chains in self.api_entry.get('entity').items()]
                 # check to see that the entity_info is in line with the number of chains already parsed
                 found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
-                if len(self.chain_id_list) != len(found_entity_chains):
+                if len(self.chain_ids) != len(found_entity_chains):
                     self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
             else:  # Still nothing, then API didn't work for pdb_name. Solve by atom information
                 self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
@@ -1313,7 +1313,7 @@ class PDB(Structure):
             return unique_chains_entity.keys()
 
         if not chain:
-            chain = self.chain_id_list[0]
+            chain = self.chain_ids[0]
         chain_of_interest = self.chain(chain)
         if not chain_of_interest:
             raise ValueError('The Chain %s is not found in the Structure' % chain)
@@ -1484,7 +1484,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
 
     interface_pdb = PDB.from_atoms(list(iter_chain.from_iterable([chain_pdb.atoms
                                                                   for chain_pdb in interface_chain_pdbs])))
-    if len(interface_pdb.chain_id_list) == 2:
+    if len(interface_pdb.chain_ids) == 2:
         for temp_name in temp_chain_d:
             interface_pdb.chain(temp_name).set_atoms_attributes(chain=temp_chain_d[temp_name])
             # Todo edit this mechanism! ^

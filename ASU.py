@@ -122,6 +122,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
     rmsd_comp_commands = {}
     for design in design_file_input:
         if pdb_dir:
+            print('CAUTION FINDING THE ASU USING THE INPUT PDB HAS BEEN REWORKED AND MAY NOT BE STABLE. '
+                  'CONSIDER USING THE Pose.return_contacting_asu() instead!')
             asu = design_file_input[design]['design_pdb'].return_asu()
         else:
             asu = PDB.from_file(os.path.join(output_dir, 'design_asus', design + '.pdb'))  # old, design_asus outside
@@ -160,7 +162,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             # downloaded_pdb.name = pdb.lower()
             # downloaded_pdb.renumber_residues()  # Residue numbering needs to be same for each chain...
             try:  # Some pdb's are messed up and don't have CA or CB?!
-                for chain in downloaded_pdb.chain_id_list:
+                for chain in downloaded_pdb.chain_ids:
                     downloaded_pdb.chain(chain).renumber_residues()
                     # downloaded_pdb.reindex_chain_residues(chain)
             except AttributeError:
@@ -168,9 +170,9 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 success = False
                 break
             downloaded_pdb.reorder_chains(exclude_chains=used_chains)  # redoes sequences
-            used_chains += downloaded_pdb.chain_id_list
-            oriented_pdb_seq_a = downloaded_pdb.atom_sequences[downloaded_pdb.chain_id_list[0]]
-            chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a, force_closest=True)
+            used_chains += downloaded_pdb.chain_ids
+            oriented_pdb_seq_a = downloaded_pdb.atom_sequences[downloaded_pdb.chain_ids[0]]
+            chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a)
             logger.debug('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
             logger.debug('Orient\t: %s' % oriented_pdb_seq_a)
             des_mutations_asu = SequenceProfile.generate_mutations(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu],
@@ -188,8 +190,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                     asu.delete_residue(chain_in_asu, residue - asu_offset)
                     # logger.debug'Design %s: Deleted residue %d from Design ASU' % (design, residue - asu_offset))
             # for k in range(1, 34):
-            #     logger.debug(downloaded_pdb.get_residue(downloaded_pdb.chain_id_list[0], k).type)
-            #     logger.debug(downloaded_pdb.get_residue(downloaded_pdb.chain_id_list[0], k).number)
+            #     logger.debug(downloaded_pdb.get_residue(downloaded_pdb.chain_ids[0], k).type)
+            #     logger.debug(downloaded_pdb.get_residue(downloaded_pdb.chain_ids[0], k).number)
             # logger.debug(downloaded_pdb.get_residue(chain, 0).type)
             # logger.debug(downloaded_pdb.get_residue(chain, 0).number)
             for residue in des_mutations_orient:
@@ -199,27 +201,27 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 if des_mutations_orient[residue]['from'] == '-' and residue > 0:
                     orient_offset += 1
                 elif des_mutations_orient[residue]['to'] == '-':  # all need to be removed from reference
-                    for chain in downloaded_pdb.chain_id_list:
+                    for chain in downloaded_pdb.chain_ids:
                         downloaded_pdb.delete_residue(chain, residue - orient_offset)
                         # logger.debug('Design %s: Deleted residue %d from Oriented Input' % (design, residue - orient_offset))
                 else:
-                    for chain in downloaded_pdb.chain_id_list:
+                    for chain in downloaded_pdb.chain_ids:
                         downloaded_pdb.chain(chain).mutate_residue(number=residue - orient_offset,
                                                                  to=des_mutations_orient[residue]['to'])
                         # downloaded_pdb.mutate_to(chain, residue - orient_offset,
                         #                        res_id=des_mutations_orient[residue]['to'])
             # fix the residue numbering to account for deletions
             # asu.renumber_residues()
-            # for chain in asu.chain_id_list:
+            # for chain in asu.chain_ids:
             #     asu.reindex_chain_residues(chain)
             asu.renumber_residues_by_chain()
-            # for chain in downloaded_pdb.chain_id_list:
+            # for chain in downloaded_pdb.chain_ids:
             #     downloaded_pdb.reindex_chain_residues(chain)
             downloaded_pdb.renumber_residues_by_chain()
             # Get the updated sequences
             asu.get_chain_sequences()  # 1/29/21 KM updated this function which might affect this routine
             downloaded_pdb.get_chain_sequences()
-            oriented_pdb_seq_final = downloaded_pdb.atom_sequences[downloaded_pdb.chain_id_list[0]]
+            oriented_pdb_seq_final = downloaded_pdb.atom_sequences[downloaded_pdb.chain_ids[0]]
             final_mutations = SequenceProfile.generate_mutations(oriented_pdb_seq_final,
                                                                  asu.atom_sequences[chain_in_asu], offset=False,
                                                                  blanks=True)
@@ -242,9 +244,9 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             # downloaded_pdb.write(os.path.join(output_dir, design, sym, '%s.pdb' % pdb.lower()))
 
             chain_correspondence[design]['pdb%s' % i] = {'asu_chain': chain_in_asu,
-                                                         'dock_chains': downloaded_pdb.chain_id_list,
+                                                         'dock_chains': downloaded_pdb.chain_ids,
                                                          'path': out_path}
-            # chain_correspondence[chain_in_asu] = downloaded_pdb.chain_id_list
+            # chain_correspondence[chain_in_asu] = downloaded_pdb.chain_ids
 
         # asu_path = os.path.join(output_dir, 'design_asus', '%s' % design)
         if success:

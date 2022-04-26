@@ -34,11 +34,11 @@ def extract_to_file(pdb, interaction_distance=8, fragment_length=5, out_path=os.
 
 
 def extract_fragments(pdb, distance, frag_length, same_chain=False):
-    if len(pdb.chain_id_list) != 2:  # ensure two chains are present
+    if len(pdb.chain_ids) != 2:  # ensure two chains are present
         logger.info('%s %s is missing two chains... It will be skipped!' % (module, pdb.name))
         return pdb.name
-    pdb_ch1_id = pdb.chain_id_list[0]
-    pdb_ch2_id = pdb.chain_id_list[-1]
+    pdb_ch1_id = pdb.chain_ids[0]
+    pdb_ch2_id = pdb.chain_ids[-1]
 
     # Create PDB instance for Ch1 and Ch2
     pdb1 = PDB.from_atoms(pdb.chain(pdb_ch1_id).atoms)
@@ -65,10 +65,10 @@ def find_interacting_residue_fragments(pdb1, pdb2, interacting_pairs, frag_lengt
             if residue_pair[0] + 1 >= residue_pair[1] and set(res_nums_pdb1) & set(res_nums_pdb2) != set():
                 continue
 
-        frag1 = pdb1.chain(pdb1.chain_id_list[0]).get_residue_atoms(res_nums_pdb1)
-        # frag1 = pdb1.get_residue_atoms(pdb1.chain_id_list[0], res_nums_pdb1)
-        frag2 = pdb2.chain(pdb2.chain_id_list[0]).get_residue_atoms(res_nums_pdb2)
-        # frag2 = pdb2.get_residue_atoms(pdb2.chain_id_list[0], res_nums_pdb2)
+        frag1 = pdb1.chain(pdb1.chain_ids[0]).get_residue_atoms(res_nums_pdb1)
+        # frag1 = pdb1.get_residue_atoms(pdb1.chain_ids[0], res_nums_pdb1)
+        frag2 = pdb2.chain(pdb2.chain_ids[0]).get_residue_atoms(res_nums_pdb2)
+        # frag2 = pdb2.get_residue_atoms(pdb2.chain_ids[0], res_nums_pdb2)
         if len(frag1) == frag_length and len(frag2) == frag_length:
             fragment_pairs.append((frag1, frag2))
 
@@ -88,13 +88,13 @@ def write_fragment_pair(fragment_pair, out_path=os.getcwd(), fragment_length=5, 
         if not os.path.exists(os.path.join(out_path, 'individual')):
             os.makedirs(os.path.join(out_path, 'individual'))
         frag1.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb'
-                                 % (frag1.name, frag1.chain_id_list[0], frag1.residues[central_res_idx].number)))
+                                 % (frag1.name, frag1.chain_ids[0], frag1.residues[central_res_idx].number)))
         frag2.write(os.path.join(out_path, 'individual', '%s_ch%s_res%d.pdb'
-                                 % (frag2.name, frag2.chain_id_list[0], frag2.residues[central_res_idx].number)))
+                                 % (frag2.name, frag2.chain_ids[0], frag2.residues[central_res_idx].number)))
 
     int_frag_out = PDB.from_atoms(fragment_pair[0].atoms + fragment_pair[1].atoms)
     int_frag_out.write(os.path.join(out_path, 'paired', '%s_ch%s_%s_res%d_%d.pdb'
-                                    % (frag1.name, frag1.chain_id_list[0], frag2.chain_id_list[0],
+                                    % (frag1.name, frag1.chain_ids[0], frag2.chain_ids[0],
                                        frag1.residues[central_res_idx].number, frag2.residues[central_res_idx].number)))
 
 
@@ -128,11 +128,11 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
         #     pdb = PDB()
         #     pdb.readfile(pdb_path, remove_alt_location=True)
             # # Ensure two chains are present
-            # if len(pdb.chain_id_list) != 2:
+            # if len(pdb.chain_ids) != 2:
             #     print('%s %s is missing two chains... It will be skipped!' % (module, pdb_id))
             #     continue
-            # pdb_ch1_id = pdb.chain_id_list[0]
-            # pdb_ch2_id = pdb.chain_id_list[-1]
+            # pdb_ch1_id = pdb.chain_ids[0]
+            # pdb_ch2_id = pdb.chain_ids[-1]
             #
             # # Create PDB instance for Ch1 and Ch2
             # pdb_ch1 = PDB()

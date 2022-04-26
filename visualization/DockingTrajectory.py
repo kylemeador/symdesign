@@ -31,7 +31,7 @@ def merge_pose_pdbs(des_dir, frags=True):
         oligomers[name] = PDB(file=name_pdb_file[0])
         oligomers[name].name = name
         oligomers[name].reorder_chains(exclude_chains=taken_chains)
-        taken_chains += oligomers[name].chain_id_list
+        taken_chains += oligomers[name].chain_ids
     new_pdb = PDB(atoms=[oligomers[oligomer].atoms for oligomer in oligomers])
 
     if frags:
@@ -40,7 +40,7 @@ def merge_pose_pdbs(des_dir, frags=True):
         for frags in frag_pdbs:
             frag_pdb = PDB.from_file(frags)
             frag_pdb.reorder_chains(exclude_chains=taken_chains)
-            taken_chains += frag_pdb.chain_id_list
+            taken_chains += frag_pdb.chain_ids
             frags.append(frag_pdb)
         new_pdb = PDB.from_atoms(list(chain.from_iterable(pdb.atoms for pdb in frags)))
 

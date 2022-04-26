@@ -1850,7 +1850,7 @@ class DesignDirectory:  # (JobResources):
                     self.pose.entities[entity_new_chain_idx].chain_id = fusion_nterm
             # except AttributeError:
             #     raise ValueError('One or both of the chain IDs %s were not found in the input model. Possible chain'
-            #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_id_list)))
+            #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_ids)))
         self.pose.write(out_path=self.asu)
         self.info['pre_refine'] = self.pre_refine
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)

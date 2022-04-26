@@ -1890,7 +1890,7 @@ class Structure(StructureBase):
                 # fragments.append(Structure.from_residues(deepcopy(frag_residues), log=None))
 
         # for structure in fragments:
-        #     structure.chain_id_list = [structure.residues[0].chain]
+        #     structure.chain_ids = [structure.residues[0].chain]
 
         return fragments
 

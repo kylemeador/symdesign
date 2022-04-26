@@ -91,7 +91,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #     # {1: {'rot/deg': [[], ...],'tx_int': [], 'setting': [[], ...], 'tx_ref': []}, ...}
 
     template_pdb = PDB.from_file(des_dir.source)
-    num_chains = len(template_pdb.chain_id_list)
+    num_chains = len(template_pdb.chain_ids)
 
     # if num_chains != 2:
     if num_chains != len(pdb_codes):
@@ -102,12 +102,12 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         first_oligomer = PDB.from_file(oligomer_file[0])
         # first_oligomer = SDUtils.read_pdb(oligomer_file[0])
         # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
-        for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
-            template_pdb.atoms[atom_idx].chain = template_pdb.chain_id_list[0].lower()
-        template_pdb.chain_id_list = [template_pdb.chain_id_list[0].lower(), template_pdb.chain_id_list[0]]
-        num_chains = len(template_pdb.chain_id_list)
+        for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_ids[0]))):
+            template_pdb.atoms[atom_idx].chain = template_pdb.chain_ids[0].lower()
+        template_pdb.chain_ids = [template_pdb.chain_ids[0].lower(), template_pdb.chain_ids[0]]
+        num_chains = len(template_pdb.chain_ids)
         logger.warning('%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
-                       ' %s' % (des_dir.path, num_chains, template_pdb.chain_id_list))
+                       ' %s' % (des_dir.path, num_chains, template_pdb.chain_ids))
         # Save the renamed chain PDB to central_asu.pdb
         template_pdb.write(out_path=des_dir.source)
 
@@ -118,7 +118,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
 
     # Set up names object containing pdb id and chain info
     names = {}
-    for c, chain in enumerate(template_pdb.chain_id_list):
+    for c, chain in enumerate(template_pdb.chain_ids):
         names[pdb_codes[c]] = template_pdb.get_chain_index
     logger.debug('Chain, Name Pairs: %s' % ', '.join(oligomer + ', ' + str(value(c)) for c, (oligomer, value) in
                                                      enumerate(names.items())))
@@ -216,14 +216,14 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     # if template_pdb.atom_sequences:
     #     missing_termini_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain],
     #                                                             template_pdb.atom_sequences[chain], offset=True,
-    #                                                             termini=True) for chain in template_pdb.chain_id_list}
+    #                                                             termini=True) for chain in template_pdb.chain_ids}
     #     gapped_residues_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain], template_pdb.atom_sequences,
     #                                                             offset=True, reference_gaps=True)
-    #                          for chain in template_pdb.chain_id_list}
+    #                          for chain in template_pdb.chain_ids}
     #     all_missing_residues_d = {chain: generate_mutations_from_seq(pdb_atom_seq[chain],
     #                                                                  template_pdb.atom_sequences,
     #                                                                  offset=True, only_gaps=True)
-    #                               for chain in template_pdb.chain_id_list}
+    #                               for chain in template_pdb.chain_ids}
     #
     #     # Modify residue indices to pose numbering
     #     all_missing_residues_d = {chain: {residue + pose_offset_d[chain]: all_missing_residues_d[chain][residue]
@@ -236,7 +236,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     #             template_pdb.insert_residue(chain, residue, gapped_residues_d[chain][residue]['from'])
 
     template_pdb.renumber_residues()
-    jump = template_pdb.chain(template_pdb.chain_id_list[0]).c_terminal_residue.number
+    jump = template_pdb.chain(template_pdb.chain_ids[0]).c_terminal_residue.number
     template_residues = template_pdb.residues
     logger.info('Last residue of first oligomer %s, chain %s is %d' %
                 (list(names.keys())[0], names[list(names.keys())[0]](0), jump))

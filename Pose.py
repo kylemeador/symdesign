@@ -3254,7 +3254,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # self.pdb.write(out_path=design_dir.asu)
 
         # if design_dir.nano:
-        #     # num_chains = len(self.pdb.chain_id_list)
+        #     # num_chains = len(self.pdb.chain_ids)
         #     # if num_chains != len(design_dir.oligomers):
         #     #     # oligomer_file = glob(os.path.join(des_dir.path, pdb_codes[0] + '_tx_*.pdb'))
         #     #     # assert len(oligomer_file) == 1, 'More than one matching file found with %s' % pdb_codes[0] + '_tx_*.pdb'
@@ -3263,14 +3263,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         #     #     # first_oligomer = PDB(file=oligomer_file[0])
         #     #     # # first_oligomer = SDUtils.read_pdb(oligomer_file[0])
         #     #     # # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
-        #     #     # for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_id_list[0]))):
+        #     #     # for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_ids[0]))):
         #     #     for atom_idx in range(len(design_dir.oligomers.chain(self.pdb.entity(1)))):
-        #     #         self.pdb.atoms[atom_idx].chain = self.pdb.chain_id_list[0].lower()
-        #     #     self.pdb.chain_id_list = [self.pdb.chain_id_list[0].lower(), self.pdb.chain_id_list[0]]
-        #     #     num_chains = len(self.pdb.chain_id_list)
+        #     #         self.pdb.atoms[atom_idx].chain = self.pdb.chain_ids[0].lower()
+        #     #     self.pdb.chain_ids = [self.pdb.chain_ids[0].lower(), self.pdb.chain_ids[0]]
+        #     #     num_chains = len(self.pdb.chain_ids)
         #     #     logger.warning(
         #     #         '%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
-        #     #         ' %s' % (design_dir.path, num_chains, self.pdb.chain_id_list))
+        #     #         ' %s' % (design_dir.path, num_chains, self.pdb.chain_ids))
         #     #     # Save the renamed chain PDB to the source.pdb
         #     #     self.pdb.write(out_path=design_dir.source)
         #
@@ -3840,9 +3840,9 @@ def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
     interface_name = interface_pdb.name
 
-    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[0]).atoms)
+    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[0]).atoms)
     entity1.update_attributes_from_pdb(interface_pdb)
-    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_id_list[-1]).atoms)
+    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[-1]).atoms)
     entity2.update_attributes_from_pdb(interface_pdb)
 
     interacting_residue_pairs = find_interface_pairs(entity1, entity2)

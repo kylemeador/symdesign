@@ -21,10 +21,10 @@ def extract_frags(pdb_path, single_outdir, paired_outdir, interface_dist, lower_
     pdb_id = os.path.splitext(os.path.basename(pdb_path))[0]
     pdb = PDB.from_file(pdb_path)
     # Ensure two chains are present
-    if len(pdb.chain_id_list) != 2:
+    if len(pdb.chain_ids) != 2:
         print('%s %s is missing two chains... It will be skipped!' % (module, pdb_id))
         return pdb_id
-    pdb_ch1_id, pdb_ch2_id = pdb.chain_id_list
+    pdb_ch1_id, pdb_ch2_id = pdb.chain_ids
 
     # # Create PDB instance for Ch1 and Ch2
     # pdb_ch1 = PDB.from_atoms(pdb.chain(pdb_ch1_id).atoms)
@@ -115,11 +115,11 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
             pdb_id = os.path.splitext(os.path.basename(pdb_path))[0]
             pdb = PDB.from_file(pdb_path)
             # Ensure two chains are present
-            if len(pdb.chain_id_list) != 2:
+            if len(pdb.chain_ids) != 2:
                 print('%s %s is missing two chains... It will be skipped!' % (module, pdb_id))
                 continue
-            pdb_ch1_id = pdb.chain_id_list[0]
-            pdb_ch2_id = pdb.chain_id_list[-1]
+            pdb_ch1_id = pdb.chain_ids[0]
+            pdb_ch2_id = pdb.chain_ids[-1]
             #
             # # Find Pairs of Interacting Residues
             # if pdb_ch1.atoms is not None or pdb_ch2.atoms is not None:

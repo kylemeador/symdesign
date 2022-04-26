@@ -1723,7 +1723,7 @@ def residue_object_to_number(residue_dict):  # TODO DEPRECIATE
             # for i, residue in enumerate(residue_dict[entry][_set]):
             for residue in _set:
                 resi_number = residue.residue_number
-                # resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
+                # resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_ids[i], residue)).ca
                 # assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
                 residue_num_set.append(resi_number)
             pairs.append(tuple(residue_num_set))
@@ -2754,7 +2754,7 @@ def weave_sequence_dict(base_dict=None, **kwargs):
 #         for _set in range(len(residue_dict[entry])):
 #             residue_obj_set = []
 #             for i, residue in enumerate(residue_dict[entry][_set]):
-#                 resi_object = Residue(pdb.getResidueAtoms(pdb.chain_id_list[i], residue)).ca
+#                 resi_object = Residue(pdb.getResidueAtoms(pdb.chain_ids[i], residue)).ca
 #                 assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
 #                 residue_obj_set.append(resi_object)
 #             pairs.append(tuple(residue_obj_set))
@@ -3188,7 +3188,7 @@ def generate_mutations_from_reference(reference, sequences) -> Dict[str, Dict[st
 #         (str): Sequence of PDB
 #     """
 #     if type(chain) == int:
-#         chain = pdb.chain_id_list[chain]
+#         chain = pdb.chain_ids[chain]
 #     final_sequence = None
 #     sequence_list = []
 #     failures = []
