@@ -129,7 +129,7 @@
 					<Not name="not_virtual_residues" selector="virtual_residues"/>
 					<Index name="core_residues" resnums="%%core_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
 					<SymmetricalResidue name="core_residues_sym" selector="core_residues"/>
-					<And name="core_neighbors_sym_logic" selector="core_residues_sym,not_virtual_residues"/>
+					<And name="core_neighbors_sym_logic" selectors="core_residues_sym,not_virtual_residues"/>
 					<Neighborhood name="core_neighbors_sym" selector="core_neighbors_sym_logic" include_focus_in_subset="false" distance="8"/> # Cb neighbors
 					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
@@ -153,7 +153,7 @@
 					# Automatically detect all HBNet residues. CRITICAL for HBNet operation
 					<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
 					<SymmetricalResidue name="hbnet_residues_sym" selector="hbnet_residues" />
-					<And name="hbnet_neighbors_logic" selector="hbnet_residues,not_virtual_residues"/>
+					<And name="hbnet_neighbors_logic" selectors="hbnet_residues,not_virtual_residues"/>
 					<Neighborhood name="hbnet_neighbors" selector="hbnet_neighbors_logic" include_focus_in_subset="false" distance="8"/> # Cb neighbors
 					<SymmetricalResidue name="hbnet_neighbors_sym" selector="hbnet_neighbors" />
 					<Or name="hbnet_neighbors_or_core" selectors="hbnet_neighbors,core_residues"/>

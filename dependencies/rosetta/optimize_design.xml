@@ -14,7 +14,7 @@
 		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
 		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface1_sym" selector="interface1"/>
-		<And name="interface1_neighbors_logic" selector="interface1,not_virtual_residues"/>
+		<And name="interface1_neighbors_logic" selectors="interface1,not_virtual_residues"/>
 		<Neighborhood name="interface1_neighbors" selector="interface1_neighbors_logic" distance="8.0" include_focus_in_subset="false"/> # Set include_focus_in_subset to false to get only neighbor
 		<Not name="full_pose_without_interface1" selector="interface1"/>
 		<And name="interface1_sym_only" selectors="interface1_sym,full_pose_without_interface1"/>
@@ -25,7 +25,7 @@
 		# same, but for residues from interface 2
 		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
 		<SymmetricalResidue name="interface2_sym" selector="interface2"/>
-		<And name="interface2_neighbors_logic" selector="interface2,not_virtual_residues"/>
+		<And name="interface2_neighbors_logic" selectors="interface2,not_virtual_residues"/>
 		<Neighborhood name="interface2_neighbors" selector="interface2_neighbors_logic" distance="8.0" include_focus_in_subset="false"/>
 		<Not name="full_pose_without_interface2" selector="interface2"/>
 		<And name="interface2_sym_only" selectors="interface2_sym,full_pose_without_interface2"/>
