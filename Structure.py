@@ -1,4 +1,4 @@
-from collections import UserList
+from collections import UserList, defaultdict
 from logging import Logger
 import os
 import subprocess
@@ -18,14 +18,14 @@ from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_le
 
 from DesignMetrics import gxg_sasa
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
-    reference_residues_pkl
+    reference_residues_pkl, free_sasa_configuration_path
 # from ProteinExpression import find_expression_tags, remove_expression_tags
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
     retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
-    cubic_point_groups
+    cubic_point_groups, origin
 from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number
 
@@ -71,7 +71,62 @@ aa_by_property = \
      'aromatic': {'PHE', 'HIS', 'TRP', 'TYR'},
      'hbonding': {'CYS', 'ASP', 'GLU', 'HIS', 'LYS', 'ASN', 'GLN', 'ARG', 'SER', 'THR', 'TRP', 'TYR'},
      'branched': {'ILE', 'LEU', 'THR', 'VAL'}}
-origin = np.array([0., 0., 0.])
+
+
+def unknown_index():
+    return -1
+
+atomic_polarity_table = {  # apolar = 0, polar = 1
+    'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
+    'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0, 'NH1': 1, 'NH2': 1}),
+    'ASN': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'OD1': 1, 'ND2': 1}),
+    'ASP': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'OD1': 1, 'OD2': 1}),
+    'CYS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'SG': 1}),
+    'GLN': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'OE1': 1, 'NE2': 1}),
+    'GLU': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'OE1': 1, 'OE2': 1}),
+    'GLY': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1}),
+    'HIS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'ND1': 1, 'CD2': 0, 'CE1': 0, 'NE2': 1}),
+    'ILE': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG1': 0, 'CG2': 0, 'CD1': 0}),
+    'LEU': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0}),
+    'LYS': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'CE': 0, 'NZ': 1}),
+    'MET': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'SD': 1, 'CE': 0}),
+    'PHE': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0, 'CE2': 0, 'CZ': 0,}),
+    'PRO': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0}),
+    'SER': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'OG': 1}),
+    'THR': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'OG1': 1, 'CG2': 0}),
+    'TRP': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'NE1': 1, 'CE2': 0, 'CE3': 0, 'CZ2': 0, 'CZ3': 0, 'CH2': 0}),
+    'TYR': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD1': 0, 'CD2': 0, 'CE1': 0, 'CE2': 0, 'CZ': 0, 'OH': 1}),
+    'VAL': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG1': 0, 'CG2': 0})}
+hydrogens = {
+    'ALA': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '3HB': 0},
+    'ARG': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, 'HE': 1, '1HH1': 1, '2HH1': 1, '1HH2': 1, '2HH2': 1},
+    'ASN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HD2': 1, '2HD2': 1,
+            '1HD1': 1, '2HD1': 1},  # these are the alternative specification
+    'ASP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0},
+    'CYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HG': 1},
+    'GLN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE2': 1, '2HE2': 1,
+            '1HE1': 1, '2HE1': 1},  # these are the alternative specification
+    'GLU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0},
+    'GLY': {'2HA': 0, 'H': 1, '1HA': 0},
+    'HIS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 1, 'HD2': 0, 'HE1': 0, 'HE2': 1},  # this assumes HD1 is on ND1, HE2 is on NE2
+    'ILE': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, '1HD1': 0, '2HD1': 0, '3HD1': 0,
+            '3HG1': 0},  # this is the alternative specification
+    'LEU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HG': 0, '1HD1': 0, '2HD1': 0, '3HD1': 0, '1HD2': 0, '2HD2': 0, '3HD2': 0},
+    'LYS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 0, '1HE': 0, '2HE': 0, '1HZ': 1, '2HZ': 1, '3HZ': 1},
+    'MET': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE': 0, '2HE': 0, '3HE': 0},
+    'PHE': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HZ': 0},
+    'PRO': {'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HD': 0, '2HD': 1},
+    'SER': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HG': 1},
+    'THR': {'HA': 0, 'HB': 0, 'H': 1, 'HG1': 1, '1HG2': 0, '2HG2': 0, '3HG2': 0,
+            'HG2': 1, '1HG1': 0, '2HG1': 0, '3HG1': 0},  # these are the alternative specification
+    'TRP': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HE1': 1, 'HE3': 0, 'HZ2': 0, 'HZ3': 0, 'HH2': 0,  # assumes HE1 is on NE1
+            'HE2': 0, 'HZ1': 0, 'HH1': 0, 'HH3': 0},  # none of these should be possible given standard nomenclature, but including incase
+    'TYR': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HH': 1},
+    'VAL': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '3HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0}}
+termini = {'1H': 1, '2H': 1, '3H': 1, 'OXT': 1}
+for residue, residue_atoms in atomic_polarity_table.items():
+    residue_atoms.update(termini)
+    residue_atoms.update(hydrogens[residue])
 
 
 class StructureBase:
@@ -219,6 +274,11 @@ class Structure(StructureBase):
     #     # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
     #     self._residues.set_attributes(log=self._log)
     #     # self.set_residues_attributes(log=self._log)
+
+    @property
+    def contains_hydrogen(self) -> bool:
+        """Returns whether the Structure contains hydrogen atoms"""
+        return self.residues[0].contains_hydrogen
 
     @property
     def sequence(self):  # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
@@ -1439,7 +1499,11 @@ class Structure(StructureBase):
         if atom:
             out_format = 'pdb'
         # --format=pdb --depth=atom
-        #                                                        RADII  SASA
+        # REMARK 999 This PDB file was generated by FreeSASA 2.0.
+        # REMARK 999 In the ATOM records temperature factors have been
+        # REMARK 999 replaced by the SASA of the atom, and the occupancy
+        # REMARK 999 by the radius used in the calculation.
+        # MODEL        1                                        [radii][sasa]
         # ATOM   2557  C   PHE C 113      -2.627 -17.654  13.108  1.61  1.39
         # ATOM   2558  O   PHE C 113      -2.767 -18.772  13.648  1.42 39.95
         # ATOM   2559  CB  PHE C 113      -1.255 -16.970  11.143  1.88 13.46
@@ -1448,11 +1512,14 @@ class Structure(StructureBase):
         # ATOM   2564 CE2  PHE C 113      -0.694 -16.569   7.413  1.76  2.92
         # ATOM   2565  CZ  PHE C 113      -0.196 -17.820   7.063  1.76  4.24
         # ATOM   2566 OXT  PHE C 113      -2.515 -16.590  13.750  1.46 15.09
-        #
+        # ...
+        # TER    7913      GLU A 264
+        # ENDMDL EOF
         # if residue:
         else:
             out_format = 'seq'
         # --format=seq
+        # Residues in ...
         # SEQ A    1 MET :   74.46
         # SEQ A    2 LYS :   96.30
         # SEQ A    3 VAL :    0.00
@@ -1463,17 +1530,36 @@ class Structure(StructureBase):
         # SEQ A    8 LYS :    0.87
         # SEQ A    9 ASP :    1.30
         # SEQ A   10 PHE :   64.55
-        p = subprocess.Popen([free_sasa_exe_path, '--format=%s' % out_format, '--probe-radius', str(probe_radius)],
+        # ...
+        # \n EOF
+        if self.contains_hydrogen:
+            include_hydrogen = ['--hydrogen']
+        else:
+            include_hydrogen = []
+        p = subprocess.Popen([free_sasa_exe_path, '--format=%s' % out_format, '--probe-radius', str(probe_radius),
+                              '-c', free_sasa_configuration_path] + include_hydrogen,
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
         out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
         # if err:  # usually results from Hydrogen atoms, silencing
         #     self.log.warning('\n%s' % err.decode('utf-8'))
-        residues = self.residues
-        idx = 0
-        for line in out.decode('utf-8').split('\n'):
-            if line[:3] == 'SEQ':
+        sasa_output = out.decode('utf-8').split('\n')
+        if atom:
+            # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
+            # since return_atom_string doesn't have models, these won't be present and no option to freesasa about model
+            # would be provided with above subprocess call
+            # coords_indexed_residues = self.coords_indexed_residues
+            # coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
+            atoms = self.atoms
+            for idx, line_split in enumerate(map(str.split, sasa_output[5:-2])):
+                atoms[idx].sasa += line_split[-1]
+        else:
+            residues = self.residues
+            # idx = 0
+            for idx, line in enumerate(sasa_output[1:-1]):  # slice removes need for if == 'SEQ'
+                # if line[:3] == 'SEQ':
                 residues[idx].sasa = float(line[16:])
-                idx += 1
+                # idx += 1
+        # Todo change the sasa property to call this automatically if AttributeError?
         self.sasa = sum([residue.sasa for residue in self.residues])
 
     def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
@@ -3535,6 +3621,11 @@ class Residue:
         self._heavy_atom_indices = indices
 
     @property
+    def contains_hydrogen(self) -> bool:
+        """Returns whether the Residue contains hydrogen atoms"""
+        return self._heavy_atom_indices == self._atom_indices
+
+    @property
     def coords(self):  # in structure too
         """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
@@ -3837,17 +3928,59 @@ class Residue:
         self._secondary_structure = ss_code
 
     @property
-    def sasa(self):
+    def sasa(self) -> float:
         try:
             return self._sasa
         except AttributeError:
-            raise DesignError('Residue %d%s has no ".sasa" attribute! Ensure you call Structure.get_sasa() before you'
-                              ' request Residue specific SASA information'
-                              % (self.number, self.chain))
+            try:
+                self._sasa = self.sasa_apolar + self.sasa_polar
+            except DesignError:
+                raise DesignError('Residue %d%s has no ".sasa" attribute! Ensure you call Structure.get_sasa() before '
+                                  'you request Residue specific SASA information' % (self.number, self.chain))
 
     @sasa.setter
-    def sasa(self, sasa):
+    def sasa(self, sasa: Union[float, int]):
         self._sasa = sasa
+
+    @property
+    def sasa_apolar(self) -> float:
+        try:
+            return self._sasa_apolar
+        except AttributeError:
+            try:
+                residue_atom_polarity = atomic_polarity_table[self.type]
+                polarity_list = [[], [], []]  # apolar = 0, polar = 1, unknown = 2 (-1)
+                for atom in self.atoms:
+                    polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
+
+                self.sasa_apolar, self.sasa_apolar, _ = map(sum, polarity_list)
+            except AttributeError:  # missing atom.sasa
+                raise DesignError('Residue %d%s has no ".sasa_apolar" attribute! Ensure you call Structure.get_sasa() '
+                                  'before you request Residue specific SASA information' % (self.number, self.chain))
+
+    @sasa_apolar.setter
+    def sasa_apolar(self, sasa: Union[float, int]):
+        self._sasa_apolar = sasa
+
+    @property
+    def sasa_polar(self) -> float:
+        try:
+            return self._sasa_polar
+        except AttributeError:
+            try:
+                residue_atom_polarity = atomic_polarity_table[self.type]
+                polarity_list = [[], [], []]  # apolar = 0, polar = 1, unknown = 2 (-1)
+                for atom in self.atoms:
+                    polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
+
+                self.sasa_apolar, self.sasa_apolar, _ = map(sum, polarity_list)
+            except AttributeError:  # missing atom.sasa
+                raise DesignError('Residue %d%s has no ".sasa_polar" attribute! Ensure you call Structure.get_sasa() '
+                                  'before you request Residue specific SASA information' % (self.number, self.chain))
+
+    @sasa_polar.setter
+    def sasa_polar(self, sasa: Union[float, int]):
+        self._sasa_polar = sasa
 
     @property
     def relative_sasa(self):
@@ -4234,7 +4367,7 @@ class Atom:
     Structure coordinates for Keyword Arg coords=self.coords"""
     def __init__(self, index=None, number=None, atom_type=None, alt_location=None, residue_type=None, chain=None,
                  residue_number=None, code_for_insertion=None, occ=None, temp_fact=None, element_symbol=None,
-                 atom_charge=None):  # coords=None
+                 atom_charge=None, sasa=None):  # coords=None
         self.index = index
         self.number = number
         self.type = atom_type
@@ -4248,6 +4381,7 @@ class Atom:
         self.temp_fact = temp_fact
         self.element_symbol = element_symbol
         self.atom_charge = atom_charge
+        self.sasa = sasa
         # if coords:
         #     self.coords = coords
 
@@ -4310,76 +4444,6 @@ class Atom:
     #     else:
     #         distance = (self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2
     #         return distance
-
-    # def get_index(self):
-    #     return self.index
-
-    # @property
-    # def number(self):
-    #     return self._number
-
-    # def get_number(self):
-    #     return self.number
-
-    # def type(self):
-    #     return self.type
-
-    # def alt_location(self):
-    #     return self.alt_location
-
-    # def residue_type(self):
-    #     return self.residue_type
-
-    # def chain(self):
-    #     return self.chain
-
-    # def pdb_residue_number(self):
-    #     return self.pdb_residue_number
-
-    # def residue_number(self):
-    #     return self.residue_number
-
-    # def get_code_for_insertion(self):
-    #     return self.code_for_insertion
-
-    # @property
-    # def x(self):
-    #     return self.coords[0]  # x
-    #
-    # @x.setter
-    # def x(self, x):
-    #     self._coords.coords[self.index][0] = x
-    #     # self.coords[0] = x
-    #
-    # @property
-    # def y(self):
-    #     return self.coords[1]  # y
-    #
-    # @y.setter
-    # def y(self, y):
-    #     self._coords.coords[self.index][1] = y
-    #     # self.coords[1] = y
-    #
-    # @property
-    # def z(self):
-    #     return self.coords[2]  # z
-    #
-    # @z.setter
-    # def z(self, z):
-    #     self._coords.coords[self.index][2] = z
-    #     # self.coords[2] = z
-
-    # def occ(self):
-    #     return self.occ
-
-    # def temp_fact(self):
-    #     return self.temp_fact
-
-    # def element_symbol(self):
-    #     return self.element_symbol
-
-    # def atom_charge(self):
-    #     return self.atom_charge
 
     def __key(self):
         return self.temp_fact, self.type  # self.index, self.type

@@ -113,6 +113,7 @@ nanohedra_dock = os.path.join(source, 'FragDock.py')
 # Nanohedra inheritance
 # Free SASA Executable Path
 free_sasa_exe_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
+free_sasa_configuration_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0.config')
 # free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
 binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_lookup_40.npz')
 # Stop Inheritance ####
