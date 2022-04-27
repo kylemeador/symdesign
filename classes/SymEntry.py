@@ -245,6 +245,7 @@ setting_matrices = {
     }
 inv_setting_matrices = {key: np.linalg.inv(setting_matrix) for key, setting_matrix in setting_matrices.items()}
 identity_matrix = setting_matrices[1]
+origin = np.array([0., 0., 0.])
 flip_x_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180x
 flip_y_matrix = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180y
 point_group_degeneracy_matrices = {
