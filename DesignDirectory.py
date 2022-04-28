@@ -36,7 +36,7 @@ from PDB import PDB
 from Pose import Pose, MultiModel, Models  # , Model
 from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_pairs, \
     columns_to_new_column, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
-    mutation_conserved, per_res_metric, interface_residue_composition_similarity, \
+    mutation_conserved, per_res_metric, interface_composition_similarity, \
     significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value, \
     residue_processing, multiple_sequence_alignment_dependent_metrics
@@ -2284,8 +2284,6 @@ class DesignDirectory:  # (JobResources):
         design_structures = []
         for file in self.get_designs():
             decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
-            # if decoy_name not in scores_df.index:
-            #     continue
             # design_structures.append(PDB.from_file(file, name=decoy_name, log=self.log, entities=False))
             design = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
             #                        pass names if available ^
@@ -2313,53 +2311,54 @@ class DesignDirectory:  # (JobResources):
         idx_slice = pd.IndexSlice
         errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
         collapse_significance_threshold = 0.43
+        pose_length = self.pose.number_of_residues
+        residue_indices = list(range(1, pose_length + 1))
+        pose_sequences = {structure.name: structure.sequence for structure in design_structures}
+        all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
+        #    generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
+
+        # Assumes each structure is the same length
+        entity_sequences = \
+            {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
+                      for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
+        # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
+        # sequence_mutations = \
+        #     generate_multiple_mutations(self.pose.pdb.atom_sequences, pose_sequences, pose_num=False)
+        # sequence_mutations.pop('reference')
+        # entity_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
+        # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
+        #                         for chain, named_sequences in entity_sequences.items()}
         stat_s, divergence_s, sim_series = pd.Series(), pd.Series(), []
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
             self.log.debug('Missing design scores file at %s' % self.scores_file)
-            # Gather mutations for residue specific processing and design sequences
-            pose_sequences = {}
-            for structure in design_structures:
-                pose_sequences[structure.name] = structure.sequence
-
-            # Assumes each structure is the same length
-            # format {entity: {design_name: sequence, ...}, ...}
-            entity_sequences = \
-                {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
-                          for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
-            # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
-            # sequence_mutations = \
-            #     generate_multiple_mutations(self.pose.pdb.atom_sequences, pose_sequences, pose_num=False)
-            # sequence_mutations.pop('reference')
-            # entity_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
-            # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
-            #                         for chain, named_sequences in entity_sequences.items()}
-            # entity_chain_breaks = [(entity, entity.n_terminal_residue.number, entity.c_terminal_residue.number)
-            #                        for entity in self.pose.entities]
-            # # # entity_sequences = {design: scores.get('final_sequence')[:self.pose.number_of_residues]
-            # # #                         for design, scores in all_design_scores.items()}
-            # entity_sequences = {entity.chain_id: {design: sequence[n_term - 1:c_term]
-            #                                      for design, sequence in pose_sequences.items()}
-            #                    for entity, n_term, c_term in entity_chain_breaks}
+            # Todo add relevant missing scores such as those specified as 0 below
+            scores_df = pd.DataFrame({structure.name: {PUtils.groups: 'no_metrics'}  #'metric_keys': 'metric_values'}
+                                      for structure in design_structures}).T
+            design_info = {}
+            for idx, entity in enumerate(self.pose.entities):
+                scores_df['buns_%d_unbound' % idx] = 0
+                scores_df['interface_energy_%d_bound' % idx] = 0
+                scores_df['interface_energy_%d_unbound' % idx] = 0
+                scores_df['solvation_energy_%d_bound' % idx] = 0
+                scores_df['solvation_energy_%d_unbound' % idx] = 0
+                scores_df['interface_connectivity_%d' % idx] = 0
+                # residue_info = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.}, 'type': None, 'hbond': 0}
+                design_info.update({residue.number: {'energy_delta': 0., 'type': residue.type, 'hbond': 0}
+                                    for residue in entity.residues})
+            scores_df['number_hbonds'] = 0
+            protocol_s = scores_df[PUtils.groups]
             # Todo generate the per residue scores internally which matches output from dirty_residue_processing
             # interface_hbonds = dirty_hbond_processing(all_design_scores)
-            #                                         , offset=offset_dict) <- when hbonds are pose numbering
-            # # all_mutations = generate_mutations_from_reference(self.pose.pdb.atom_sequences, pose_sequences)
-            # # all_mutations_no_chains = make_mutations_chain_agnostic(all_mutations)
-            # # cleaned_mutations = simplify_mutation_dict(all_mutations)
+            residue_info = {structure_name: design_info for structure_name in scores_df.index.to_list()}
             # residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
-            #                                         hbonds=interface_hbonds)
-            #                                         , offset=offset_dict) <- when residues are pose numbering
-        else:
+            #                                             hbonds=interface_hbonds)
+        else:  # Get the scores from the score file on design trajectory metrics
             self.log.debug('Found design scores in file: %s' % self.scores_file)
-            # Get the scores from the score file on design trajectory metrics
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
 
             # Gather mutations for residue specific processing and design sequences
-            pose_length = self.pose.number_of_residues
-            residue_indices = list(range(1, pose_length + 1))
-            pose_sequences = {}
-            for design, data in list(all_design_scores.items()):
+            for design, data in list(all_design_scores.items()):  # make a copy as is removed if no sequence present
                 sequence = data.get('final_sequence')
                 if sequence:
                     if len(sequence) >= pose_length:
@@ -2395,1001 +2394,1000 @@ class DesignDirectory:  # (JobResources):
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
             remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + [PUtils.groups]
             scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
-            scores_columns = scores_df.columns.to_list()
-            self.log.debug('Score columns present: %s' % scores_columns)
-            # Replace empty strings with numpy.notanumber (np.nan) and convert remaining to float
-            scores_df.replace('', np.nan, inplace=True)
-            scores_df.fillna(dict(zip(protocol_specific_columns, repeat(0))), inplace=True)
-            scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
-
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             interface_hbonds = dirty_hbond_processing(all_design_scores)
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)
-            all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
-            #    generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
+            number_hbonds_s = \
+                pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
+            # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
+            scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
                                                     hbonds=interface_hbonds)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info = residue_processing(all_design_scores, simplify_mutation_dict(all_mutations), per_res_columns,
             #                                   hbonds=interface_hbonds)
 
-            # TODO scores_file isn't necessary for below metrics until significance. Back them out to remove dependence
-            #  when residue_info is generated by non-scores files, can move almost entire section outside
-            #  (ends  lines below)
-            # Calculate amino acid observation percent from residue dict and background SSM's
-            observation_d = {profile: {design: mutation_conserved(info, background)
-                                       for design, info in residue_info.items()}
-                             for profile, background in profile_background.items()}
+        # Find designs where required data is present
+        viable_designs = scores_df.index.to_list()
+        assert viable_designs, 'No viable designs remain after processing!'
+        self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
+        other_pose_metrics['observations'] = len(viable_designs)
+        pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
+        # Replace empty strings with numpy.notanumber (np.nan) and convert remaining to float
+        scores_df.replace('', np.nan, inplace=True)
+        scores_df.fillna(dict(zip(protocol_specific_columns, repeat(0))), inplace=True)
+        scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
-            # Add observation information into the residue dictionary
-            for design, info in residue_info.items():
-                residue_info[design] = \
-                    weave_sequence_dict(base_dict=info, **{'observed_%s' % profile: design_obs_freqs[design]
-                                                           for profile, design_obs_freqs in observation_d.items()})
+        # design_assemblies = []  # Todo use to store the poses generated below?
+        interface_local_density, atomic_deviation = {}, {}
+        # per residue data includes every residue in the pose
+        per_residue_data = {'errat_deviation': {}, 'sasa_total': {}}  # 'local_density': {},
+        for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
+            if structure.name not in viable_designs:
+                continue
+            if self.sym_entry:
+                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
+                                            design_selector=self.design_selector, log=self.log,
+                                            source_db=self.resources, frag_db=self.frag_db,
+                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+            else:
+                design_pose = Pose.from_pdb(structure, name='%s-asu' % structure.name,
+                                            design_selector=self.design_selector, log=self.log,
+                                            source_db=self.resources, frag_db=self.frag_db,
+                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
 
-            # Find the observed background for each profile, for each design in the pose
-            pose_observed_bkd = {profile: {design: per_res_metric(freq) for design, freq in design_obs_freqs.items()}
-                                 for profile, design_obs_freqs in observation_d.items()}
-            for profile, observed_frequencies in pose_observed_bkd.items():
-                scores_df['observed_%s' % profile] = pd.Series(observed_frequencies)
+            # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
+            #                                            ,symmetry=self.design_symmetry)
 
-            # Process H-bond and Residue metrics to dataframe
-            residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
-            # returns multi-index column with residue number as first (top) column index, metric as second index
-            # during residue_df unstack, all residues with missing dicts are copied as nan
+            # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
+            # per_residue_data['local_density'][structure.name] = \
+            #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
+            #      if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
+            # per_residue_data['local_density'][structure.name] = \
+            #     assembly.local_density(residue_numbers=self.interface_residues)[:pose_length]
 
-            number_hbonds_s = \
-                pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
-            scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
-            # reference_mutations = cleaned_mutations.pop('reference', None)  # save the reference
-            scores_df['number_of_mutations'] = \
-                pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
-            scores_df['percent_mutations'] = \
-                scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
-            # residue_indices_per_entity = self.pose.residue_indices_per_entity
-            is_thermophilic = []
-            for idx, (entity, entity_indices) in enumerate(zip(self.pose.entities, self.pose.residue_indices_per_entity), 1):
-                # entity_indices = residue_indices_per_entity[idx]
-                scores_df['entity_%d_number_of_mutations' % idx] = \
-                    pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
-                               for design, mutations in all_mutations.items()})
-                scores_df['entity_%d_percent_mutations' % idx] = \
-                    scores_df['entity_%d_number_of_mutations' % idx] / \
-                    other_pose_metrics['entity_%d_number_of_residues' % idx]
-                is_thermophilic.append(getattr(other_pose_metrics, 'entity_%d_thermophile' % idx, 0))
+            # must find interface residues before measure local_density
+            design_pose.find_and_split_interface()
+            interface_local_density[structure.name] = design_pose.interface_local_density()
+            assembly_minimally_contacting = design_pose.assembly_minimally_contacting
+            atomic_deviation[structure.name], per_residue_errat = \
+                assembly_minimally_contacting.errat(out_path=self.data)
+            per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
+            # perform SASA measurements
+            assembly_minimally_contacting.get_sasa()
+            # per_residue_sasa = [residue.sasa for residue in structure.residues
+            #                     if residue.number in self.design_residues]
+            per_residue_sasa_complex = \
+                [residue.sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
+            per_residue_sasa_complex_relative = \
+                [residue.relative_sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
+            per_residue_data['sasa_complex'][structure.name] = per_residue_sasa_complex
+            per_residue_data['sasa_complex_relative'][structure.name] = per_residue_sasa_complex_relative
+            per_residue_sasa_unbound, per_residue_sasa_unbound_relative = [], []
+            for idx, entity in enumerate(self.pose.entities, 1):
+                entity.oligomer.get_sasa()
+                per_residue_sasa_unbound.extend(
+                    [residue.sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
+                per_residue_sasa_unbound_relative.extend(
+                    [residue.relative_sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
+            per_residue_data['sasa_unbound'][structure.name] = per_residue_sasa_unbound
+            per_residue_data['sasa_unbound_relative'][structure.name] = per_residue_sasa_unbound_relative
 
-            other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
+        scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
+        scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
-            # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
-            interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
-            interior_residues = \
-                interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
-            interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residues)
-            assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
-            if not self.design_residues:  # we should always get an empty set if we have got to this point
-                raise DesignError('No residues were found with your design criteria... Your flags may be to stringent '
-                                  'or incorrect. Check input files for interface existance')
-            self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.design_residues))))
-            # interior_residues = self.design_residues.difference(interface_residues)
-            # if interface_residues != self.design_residues:
-            if interior_residues:
-                self.log.info('Residues %s are located in the interior' % ', '.join(map(str, interior_residues)))
+        # Calculate hydrophobic collapse for each design
+        # Measure the wild type entity versus the modified entity to find the hci delta
+        # Todo if no design, can't measure the wild-type after the normalization...
 
-            # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-            for r_class in residue_classificiation:
-                scores_df[r_class] = \
-                    residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
+        # A measure of the sequential, the local, the global, and the significance all constitute interesting
+        # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
+        # analysis. In the meantime, I could stay away from any design which causes the global collapse to increase
+        # by some percent of total relating to the z-score. This could also be an absolute which would tend to favor
+        # smaller proteins. Favor smaller or larger? What is the literature/data say about collapse?
+        #
+        # A synopsis of my reading is as follows:
+        # I hypothesize that the worst offenders in collapse modification will be those that increase in
+        # hydrophobicity in sections intended for high contact order packing. Additionally, the establishment of new
+        # collapse locales will be detrimental to the folding pathway regardless of their location, however
+        # establishment in folding locations before a significant protein core is established are particularly
+        # egregious. If there is already collapse occurring, the addition of new collapse could be less important as
+        # the structural determinants (geometric satisfaction) of the collapse are not as significant
+        #
+        # All possible important aspects measured are:
+        # X the sequential collapse (earlier is worse than later as nucleation of core is wrong),
+        #   sequential_collapse_peaks_z_sum, sequential_collapse_z_sum
+        # X the local nature of collapse (is the sequence/structural context amenable to collapse?),
+        #   contact_order_collapse_z_sum
+        # X the global nature of collapse (how much has collapse increased globally),
+        #   hydrophobicity_deviation_magnitude, global_collapse_z_sum,
+        # X the change from "non-collapsing" to "collapsing" where collapse passes a threshold and changes folding
+        #   new_collapse_islands, new_collapse_island_significance
 
-            # Todo this section until...
-            # Calculate new metrics from combinations of other metrics
-            # sum columns using list[0] + list[1] + list[n]
-            summation_pairs = \
-                {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),
-                 'interface_energy_bound':
-                     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),
-                 'interface_energy_unbound':
-                     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),
-                 'sasa_hydrophobic_bound':
-                     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
-                 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
-                 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns)),
-                 'solvation_energy_bound':
-                     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),
-                 'solvation_energy_unbound':
-                     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),
-                 'interface_connectivity':
-                     list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns))}
-            scores_df = columns_to_new_column(scores_df, summation_pairs)
-            scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
-            scores_df['total_interface_residues'] = len(interface_residues)  # add for div_pairs and int_comp_similarity
-            scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
-            # Todo ...HERE contains energy specific metrics which require Rosetta
-            scores_df['interface_composition_similarity'] = \
-                scores_df.apply(interface_residue_composition_similarity, axis=1)
-            # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
-            scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True,
-                           errors='ignore')
-            if scores_df.get('repacking') is not None:
-                # set interface_bound_activation_energy = NaN where repacking is 0
-                # Currently is -1 for True (Rosetta Filter quirk...)
-                scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = \
-                    np.nan
-                scores_df.drop('repacking', axis=1, inplace=True)
-            # Process dataframes for missing values and drop refine trajectory if present
-            scores_df[PUtils.groups] = protocol_s
-            # refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
-            # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-            # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-            # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
-            # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
-            residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
-            residue_df.fillna(0., inplace=True)
-
-            # Find designs where required data is present
-            viable_designs = scores_df.index.to_list()
-            assert viable_designs, 'No viable designs remain after processing!'
-            self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
-            other_pose_metrics['observations'] = len(scores_df)
-            pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
-            # entity_alignment = multi_chain_alignment(entity_sequences)
-            pose_alignment = msa_from_dictionary(pose_sequences)
-            entity_alignments = {entity: msa_from_dictionary(design_sequences)
-                                 for entity, design_sequences in entity_sequences.items()}
-
-            # design_assemblies = []  # Todo use to store the poses generated below?
-            interface_local_density, atomic_deviation = {}, {}
-            # per residue data includes every residue in the pose
-            per_residue_data = {'errat_deviation': {}, 'sasa_total': {}}  # 'local_density': {},
-            for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
-                if structure.name not in viable_designs:
+        # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
+        msa_metrics = True
+        collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
+        inverse_residue_contact_order_z, contact_order = {}, {}
+        for entity in self.pose.entities:
+            # we must give a copy of coords_indexed_residues from the pose to each entity...
+            # Todo clean this behavior up as it is not good if entity is used downstream
+            entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
+            # we need to get the contact order, errat from the symmetric entity
+            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+            residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
+            contact_order[entity] = residue_contact_order
+            _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+            wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
+            # residue_contact_order_mean, residue_contact_order_std = \
+            #     residue_contact_order.mean(), residue_contact_order.std()
+            # print('%s residue_contact_order' % entity.name, residue_contact_order)
+            # temporary contact order debugging
+            # print(residue_contact_order)
+            # entity.contact_order = residue_contact_order
+            # entity.set_residues_attributes_from_array(collapse=wt_collapse[entity])
+            # entity.set_b_factor_data(dtype='collapse')
+            # entity.write_oligomer(out_path=os.path.join(self.path, '%s_collapse.pdb' % entity.name))
+            residue_contact_order_z = \
+                z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
+            inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
+            wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)  # TODO comment out, instate below?
+            wt_collapse_bool[entity] = np.where(wt_collapse[entity] > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+            # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
+            entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
+            # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
+            # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
+            if msa_metrics:
+                if not entity.msa:
+                    msa_metrics = False
+                    self.log.info('Metrics relying on a multiple sequence alignment are not being collected as '
+                                  'there is no MSA found. These include: %s'
+                                  % ', '.join(multiple_sequence_alignment_dependent_metrics))
+                    # set anything found to null values
+                    collapse_df, wt_collapse_z_score = {}, {}
                     continue
-                if self.sym_entry:
-                    design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
-                                                design_selector=self.design_selector, log=self.log,
-                                                source_db=self.resources, frag_db=self.frag_db,
-                                                euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
-                else:
-                    design_pose = Pose.from_pdb(structure, name='%s-asu' % structure.name,
-                                                design_selector=self.design_selector, log=self.log,
-                                                source_db=self.resources, frag_db=self.frag_db,
-                                                euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+                collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
+                collapse_df[entity] = collapse
+                # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
+                wt_collapse_z_score[entity] = \
+                    z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
 
-                # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
-                #                                            ,symmetry=self.design_symmetry)
-
-                # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
-                # per_residue_data['local_density'][structure.name] = \
-                #     [density for residue_number, density in enumerate(assembly.local_density(), 1)
-                #      if residue_number in self.design_residues]  # self.interface_residues <- no interior, mas accurate?
-                # per_residue_data['local_density'][structure.name] = \
-                #     assembly.local_density(residue_numbers=self.interface_residues)[:pose_length]
-
-                # must find interface residues before measure local_density
-                design_pose.find_and_split_interface()
-                interface_local_density[structure.name] = design_pose.interface_local_density()
-                assembly_minimally_contacting = design_pose.assembly_minimally_contacting
-                atomic_deviation[structure.name], per_residue_errat = \
-                    assembly_minimally_contacting.errat(out_path=self.data)
-                per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
-                # perform SASA measurements
-                assembly_minimally_contacting.get_sasa()
-                # per_residue_sasa = [residue.sasa for residue in structure.residues
-                #                     if residue.number in self.design_residues]
-                per_residue_sasa_complex = \
-                    [residue.sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
-                per_residue_sasa_complex_relative = \
-                    [residue.relative_sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
-                per_residue_data['sasa_complex'][structure.name] = per_residue_sasa_complex
-                per_residue_data['sasa_complex_relative'][structure.name] = per_residue_sasa_complex_relative
-                per_residue_sasa_unbound, per_residue_sasa_unbound_relative = [], []
-                for idx, entity in enumerate(self.pose.entities, 1):
-                    entity.oligomer.get_sasa()
-                    per_residue_sasa_unbound.extend(
-                        [residue.sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
-                    per_residue_sasa_unbound_relative.extend(
-                        [residue.relative_sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
-                per_residue_data['sasa_unbound'][structure.name] = per_residue_sasa_unbound
-                per_residue_data['sasa_unbound_relative'][structure.name] = per_residue_sasa_unbound_relative
-
-            scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
-            scores_df['interface_local_density'] = pd.Series(interface_local_density)
-
-            # Calculate hydrophobic collapse for each design
-            # Measure the wild type entity versus the modified entity to find the hci delta
-            # Todo if no design, can't measure the wild-type after the normalization...
-
-            # A measure of the sequential, the local, the global, and the significance all constitute interesting
-            # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
-            # analysis. In the meantime, I could stay away from any design which causes the global collapse to increase
-            # by some percent of total relating to the z-score. This could also be an absolute which would tend to favor
-            # smaller proteins. Favor smaller or larger? What is the literature/data say about collapse?
-            #
-            # A synopsis of my reading is as follows:
-            # I hypothesize that the worst offenders in collapse modification will be those that increase in
-            # hydrophobicity in sections intended for high contact order packing. Additionally, the establishment of new
-            # collapse locales will be detrimental to the folding pathway regardless of their location, however
-            # establishment in folding locations before a significant protein core is established are particularly
-            # egregious. If there is already collapse occurring, the addition of new collapse could be less important as
-            # the structural determinants (geometric satisfaction) of the collapse are not as significant
-            #
-            # All possible important aspects measured are:
-            # X the sequential collapse (earlier is worse than later as nucleation of core is wrong),
-            #   sequential_collapse_peaks_z_sum, sequential_collapse_z_sum
-            # X the local nature of collapse (is the sequence/structural context amenable to collapse?),
-            #   contact_order_collapse_z_sum
-            # X the global nature of collapse (how much has collapse increased globally),
-            #   hydrophobicity_deviation_magnitude, global_collapse_z_sum,
-            # X the change from "non-collapsing" to "collapsing" where collapse passes a threshold and changes folding
-            #   new_collapse_islands, new_collapse_island_significance
-
-            # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
-            msa_metrics = True
-            collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
-            inverse_residue_contact_order_z, contact_order = {}, {}
+        folding_and_collapse = \
+            {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
+             'new_collapse_island_significance': {}, 'contact_order_collapse_z_sum': {},
+             'sequential_collapse_peaks_z_sum': {}, 'sequential_collapse_z_sum': {}, 'global_collapse_z_sum': {}}
+        per_residue_data['hydrophobic_collapse'] = {}
+        for design in viable_designs:
+            hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
+            contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, \
+            global_collapse_z_sum = [], [], [], []
+            collapse_concatenated = []
             for entity in self.pose.entities:
-                # we must give a copy of coords_indexed_residues from the pose to each entity...
-                # Todo clean this behavior up as it is not good if entity is used downstream
-                entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
-                # we need to get the contact order, errat from the symmetric entity
-                entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
-                residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
-                contact_order[entity] = residue_contact_order
-                _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-                wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
+                sequence = entity_sequences[entity][design]
+                standardized_collapse = hydrophobic_collapse_index(sequence)
+                collapse_concatenated.append(standardized_collapse)
+                # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
+                # normalized_collapse = standardized_collapse - wt_collapse[entity]
+                # find collapse where: delta above standard collapse, collapsable boolean, and successive number
+                # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
+                # scale the collapse propensity by the standard collapse threshold and make z score
+                collapse_propensity_z = z_score(standardized_collapse, 0.43, 0.05)
+                collapse_propensity_positive_z_only = np.where(collapse_propensity_z > 0, collapse_propensity_z, 0)
+                # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
+                # collapse_bool = np.where(standardized_collapse > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+                collapse_bool = np.where(collapse_propensity_positive_z_only, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+                increased_collapse = np.where(collapse_bool - wt_collapse_bool[entity] == 1, 1, 0)
+                # check if the increased collapse has made new collapse
+                new_collapse = np.zeros(collapse_bool.shape)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
+                for idx, _bool in enumerate(increased_collapse.tolist()[1:-1], 1):
+                    if _bool and (not wt_collapse_bool[entity][idx - 1] or not wt_collapse_bool[entity][idx + 1]):
+                        new_collapse[idx] = _bool
+                # new_collapse are sites where a new collapse is formed compared to wild-type
+
+                # # we must give a copy of coords_indexed_residues from the pose to each entity...
+                # entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
+                # residue_contact_order = entity.contact_order_per_residue()
+                # contact_order_concatenated.append(residue_contact_order)
+                # inverse_residue_contact_order = max(residue_contact_order) - residue_contact_order
                 # residue_contact_order_mean, residue_contact_order_std = \
-                #     residue_contact_order.mean(), residue_contact_order.std()
-                # print('%s residue_contact_order' % entity.name, residue_contact_order)
-                # temporary contact order debugging
-                # print(residue_contact_order)
-                # entity.contact_order = residue_contact_order
-                # entity.set_residues_attributes_from_array(collapse=wt_collapse[entity])
-                # entity.set_b_factor_data(dtype='collapse')
-                # entity.write_oligomer(out_path=os.path.join(self.path, '%s_collapse.pdb' % entity.name))
-                residue_contact_order_z = \
-                    z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
-                inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
-                wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)  # TODO comment out, instate below?
-                wt_collapse_bool[entity] = np.where(wt_collapse[entity] > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-                # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
-                entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
-                # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
-                # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
+                #     residue_contact_order[entity].mean(), residue_contact_order[entity].std()
+                # residue_contact_order_z = \
+                #     z_score(residue_contact_order, residue_contact_order_mean, residue_contact_order_std)
+                # inverse_residue_contact_order_z = residue_contact_order_z * -1
+
+                # use the contact order (or inverse) to multiply by hci in order to understand the designability of
+                # the specific area and its resulting folding modification
+                # The multiplication by positive collapsing z-score will indicate the degree to which low contact
+                # order stretches are reliant on collapse as a folding mechanism, while high contact order are
+                # negative and the locations of highly negative values indicate high contact order use of collapse
+                collapse_significance = inverse_residue_contact_order_z[entity] * collapse_propensity_positive_z_only
+
+                collapse_peak_start = np.zeros(collapse_bool.shape)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
+                sequential_collapse_points = np.zeros(collapse_bool.shape)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ...]
+                new_collapse_peak_start = np.zeros(collapse_bool.shape)  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
+                collapse_iterator = 0
+                for idx, _ in enumerate(collapse_bool.tolist()[1:], 1):  # peak_value
+                    # check for the new_collapse islands and collapse peak start position by neighbor res similarity
+                    if new_collapse[idx] > new_collapse[idx - 1]:  # only true when 0 -> 1 transition
+                        new_collapse_peak_start[idx] = 1
+                    if collapse_bool[idx] > collapse_bool[idx - 1]:  # only true when 0 -> 1 transition
+                        collapse_peak_start[idx] = 1
+                        collapse_iterator += 1
+                    sequential_collapse_points[idx] = collapse_iterator
+                sequential_collapse_points *= collapse_bool  # reduce sequential collapse iter to collapse points
+
+                # for idx, _ in enumerate(collapse_bool):  # peak_value
+                #     total_collapse_points * collapse_bool
+                # sequential_collapse_weights = \
+                #     scale * (1 - (total_collapse_points * sequential_collapse_points / total_collapse_points))
+                total_collapse_points = collapse_peak_start.sum()
+                step = 1 / total_collapse_points
+                add_step_array = collapse_bool * step
+                # linearly weight residue by sequence position (early > late) with the halfway position (midpoint)
+                # weighted at 1
+                midpoint = 0.5
+                scale = 1 / midpoint
+                # v [0, 0, 0, 0, 2, 2, 0, 0, 1.8, 1.8, ...]
+                sequential_collapse_weights = scale * ((1 - (step * sequential_collapse_points)) + add_step_array)
+                # v [2, 1.98, 1.96, 1.94, 1.92, ...]
+                sequential_weights = \
+                    scale * (1 - (np.arange(entity.number_of_residues) / entity.number_of_residues))
+
+                new_collapse_islands.append(new_collapse_peak_start.sum())
+                new_collapse_island_significance.append(sum(new_collapse_peak_start * abs(collapse_significance)))
+
                 if msa_metrics:
-                    if not entity.msa:
-                        msa_metrics = False
-                        self.log.info('Metrics relying on a multiple sequence alignment are not being collected as '
-                                      'there is no MSA found. These include: %s'
-                                      % ', '.join(multiple_sequence_alignment_dependent_metrics))
-                        # set anything found to null values
-                        collapse_df, wt_collapse_z_score = {}, {}
-                        continue
-                    collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
-                    collapse_df[entity] = collapse
-                    # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
-                    wt_collapse_z_score[entity] = \
-                        z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
+                    z_array = z_score(standardized_collapse,  # observed_collapse,
+                                      collapse_df[entity].loc['mean', :], collapse_df[entity].loc['std', :])
+                    # todo test for magnitude of the wt versus profile, remove subtraction?
+                    normalized_collapse_z = z_array - wt_collapse_z_score[entity]
+                    hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
+                    global_collapse_z = np.where(normalized_collapse_z > 0, normalized_collapse_z, 0)
+                    # offset inverse_residue_contact_order_z to center at 1 instead of 0. Todo deal with negatives
+                    contact_order_collapse_z_sum.append(
+                        sum((inverse_residue_contact_order_z[entity] + 1) * global_collapse_z))
+                    sequential_collapse_peaks_z_sum.append(sum(sequential_collapse_weights * global_collapse_z))
+                    sequential_collapse_z_sum.append(sum(sequential_weights * global_collapse_z))
+                    global_collapse_z_sum.append(global_collapse_z.sum())
 
-            folding_and_collapse = \
-                {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
-                 'new_collapse_island_significance': {}, 'contact_order_collapse_z_sum': {},
-                 'sequential_collapse_peaks_z_sum': {}, 'sequential_collapse_z_sum': {}, 'global_collapse_z_sum': {}}
-            per_residue_data['hydrophobic_collapse'] = {}
-            for design in viable_designs:
-                hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
-                contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, \
-                    global_collapse_z_sum = [], [], [], []
-                collapse_concatenated = []
-                for entity in self.pose.entities:
-                    sequence = entity_sequences[entity][design]
-                    standardized_collapse = hydrophobic_collapse_index(sequence)
-                    collapse_concatenated.append(standardized_collapse)
-                    # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
-                    # normalized_collapse = standardized_collapse - wt_collapse[entity]
-                    # find collapse where: delta above standard collapse, collapsable boolean, and successive number
-                    # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
-                    # scale the collapse propensity by the standard collapse threshold and make z score
-                    collapse_propensity_z = z_score(standardized_collapse, 0.43, 0.05)
-                    collapse_propensity_positive_z_only = np.where(collapse_propensity_z > 0, collapse_propensity_z, 0)
-                    # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
-                    # collapse_bool = np.where(standardized_collapse > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-                    collapse_bool = np.where(collapse_propensity_positive_z_only, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-                    increased_collapse = np.where(collapse_bool - wt_collapse_bool[entity] == 1, 1, 0)
-                    # check if the increased collapse has made new collapse
-                    new_collapse = np.zeros(collapse_bool.shape)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
-                    for idx, _bool in enumerate(increased_collapse.tolist()[1:-1], 1):
-                        if _bool and (not wt_collapse_bool[entity][idx - 1] or not wt_collapse_bool[entity][idx + 1]):
-                            new_collapse[idx] = _bool
-                    # new_collapse are sites where a new collapse is formed compared to wild-type
+            # add the total and concatenated metrics to analysis structures
+            folding_and_collapse['hydrophobicity_deviation_magnitude'][design] = sum(hydrophobicity_deviation_magnitude)
+            folding_and_collapse['new_collapse_islands'][design] = sum(new_collapse_islands)
+            # takes into account new collapse positions contact order and measures the deviation of collapse and
+            # contact order to indicate the potential effect to folding
+            folding_and_collapse['new_collapse_island_significance'][design] = sum(new_collapse_island_significance)
+            folding_and_collapse['contact_order_collapse_z_sum'][design] = sum(contact_order_collapse_z_sum)
+            folding_and_collapse['sequential_collapse_peaks_z_sum'][design] = sum(sequential_collapse_peaks_z_sum)
+            folding_and_collapse['sequential_collapse_z_sum'][design] = sum(sequential_collapse_z_sum)
+            folding_and_collapse['global_collapse_z_sum'][design] = sum(global_collapse_z_sum)
+            # collapse_concatenated = np.concatenate(collapse_concatenated)
+            collapse_concatenated = pd.Series(np.concatenate(collapse_concatenated), name=design)
+            per_residue_data['hydrophobic_collapse'][design] = collapse_concatenated
 
-                    # # we must give a copy of coords_indexed_residues from the pose to each entity...
-                    # entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
-                    # residue_contact_order = entity.contact_order_per_residue()
-                    # contact_order_concatenated.append(residue_contact_order)
-                    # inverse_residue_contact_order = max(residue_contact_order) - residue_contact_order
-                    # residue_contact_order_mean, residue_contact_order_std = \
-                    #     residue_contact_order[entity].mean(), residue_contact_order[entity].std()
-                    # residue_contact_order_z = \
-                    #     z_score(residue_contact_order, residue_contact_order_mean, residue_contact_order_std)
-                    # inverse_residue_contact_order_z = residue_contact_order_z * -1
+        pose_collapse_df = pd.DataFrame(folding_and_collapse)
+        # turn per_residue_data into a dataframe matching residue_df orientation
+        per_residue_df = pd.concat({measure: pd.DataFrame(data, index=residue_indices)
+                                    for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
+        errat_df = per_residue_df.loc[:,
+                   idx_slice[:, per_residue_df.columns.get_level_values(1) == 'errat_deviation']].droplevel(-1, axis=1)
+        wt_errat_concat_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
+        wt_errat_concat_s.index += 1
+        # include if errat score is < 2 std devs and isn't 0.  TODO what about measuring wild-type when no design?
+        wt_errat_inclusion_boolean = np.logical_and(wt_errat_concat_s < errat_2_sigma, wt_errat_concat_s != 0.)
+        # print('SEPARATE', (wt_errat_concat_s < errat_2_sigma)[30:40], (wt_errat_concat_s != 0.)[30:40])
+        # print('LOGICAL AND\n', wt_errat_inclusion_boolean[30:40])
+        # errat_sig_df = (errat_df > errat_2_sigma)
+        # find where designs deviate above wild-type errat scores
+        # print('errat_df', errat_df.iloc[:5, 30:40])
+        # print('wt_errat_concat_s', wt_errat_concat_s[30:40])
+        # print('SUBTRACTION', errat_df.sub(wt_errat_concat_s, axis=1).iloc[:5, 30:40])
+        errat_sig_df = (errat_df.sub(wt_errat_concat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+        # print('errat_sig_df', errat_sig_df.iloc[:5, 30:40])
+        # then select only those residues which are expressly important by the inclusion boolean
+        errat_design_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=1)
+        # print('SIGNIFICANCE', errat_design_significance)
+        errat_design_residue_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=0)
+        # print('RESIDUE SIGNIFICANCE', errat_design_residue_significance[errat_design_residue_significance].index.tolist())
+        pose_collapse_df['errat_deviation'] = errat_design_significance
+        # significant_errat_residues = \
+        #     per_residue_df.index[].remove_unused_levels().levels[0].to_list()
+        # TODO scores_file isn't necessary for below metrics until significance. Back them out to remove dependence
+        #  when residue_info is generated by non-scores files, can move almost entire section outside
+        #  (ends  lines below)
+        # Calculate amino acid observation percent from residue dict and background SSM's
+        observation_d = {profile: {design: mutation_conserved(info, background)
+                                   for design, info in residue_info.items()}
+                         for profile, background in profile_background.items()}
 
-                    # use the contact order (or inverse) to multiply by hci in order to understand the designability of
-                    # the specific area and its resulting folding modification
-                    # The multiplication by positive collapsing z-score will indicate the degree to which low contact
-                    # order stretches are reliant on collapse as a folding mechanism, while high contact order are
-                    # negative and the locations of highly negative values indicate high contact order use of collapse
-                    collapse_significance = inverse_residue_contact_order_z[entity] * collapse_propensity_positive_z_only
+        # Add observation information into the residue dictionary
+        for design, info in residue_info.items():
+            residue_info[design] = \
+                weave_sequence_dict(base_dict=info, **{'observed_%s' % profile: design_obs_freqs[design]
+                                                       for profile, design_obs_freqs in observation_d.items()})
 
-                    collapse_peak_start = np.zeros(collapse_bool.shape)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
-                    sequential_collapse_points = np.zeros(collapse_bool.shape)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ...]
-                    new_collapse_peak_start = np.zeros(collapse_bool.shape)  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
-                    collapse_iterator = 0
-                    for idx, _ in enumerate(collapse_bool.tolist()[1:], 1):  # peak_value
-                        # check for the new_collapse islands and collapse peak start position by neighbor res similarity
-                        if new_collapse[idx] > new_collapse[idx - 1]:  # only true when 0 -> 1 transition
-                            new_collapse_peak_start[idx] = 1
-                        if collapse_bool[idx] > collapse_bool[idx - 1]:  # only true when 0 -> 1 transition
-                            collapse_peak_start[idx] = 1
-                            collapse_iterator += 1
-                        sequential_collapse_points[idx] = collapse_iterator
-                    sequential_collapse_points *= collapse_bool  # reduce sequential collapse iter to collapse points
+        # Find the observed background for each profile, for each design in the pose
+        pose_observed_bkd = {profile: {design: per_res_metric(freq) for design, freq in design_obs_freqs.items()}
+                             for profile, design_obs_freqs in observation_d.items()}
+        for profile, observed_frequencies in pose_observed_bkd.items():
+            scores_df['observed_%s' % profile] = pd.Series(observed_frequencies)
 
-                    # for idx, _ in enumerate(collapse_bool):  # peak_value
-                    #     total_collapse_points * collapse_bool
-                    # sequential_collapse_weights = \
-                    #     scale * (1 - (total_collapse_points * sequential_collapse_points / total_collapse_points))
-                    total_collapse_points = collapse_peak_start.sum()
-                    step = 1 / total_collapse_points
-                    add_step_array = collapse_bool * step
-                    # linearly weight residue by sequence position (early > late) with the halfway position (midpoint)
-                    # weighted at 1
-                    midpoint = 0.5
-                    scale = 1 / midpoint
-                    # v [0, 0, 0, 0, 2, 2, 0, 0, 1.8, 1.8, ...]
-                    sequential_collapse_weights = scale * ((1 - (step * sequential_collapse_points)) + add_step_array)
-                    # v [2, 1.98, 1.96, 1.94, 1.92, ...]
-                    sequential_weights = \
-                        scale * (1 - (np.arange(entity.number_of_residues) / entity.number_of_residues))
+        # Process H-bond and Residue metrics to dataframe
+        residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+        # returns multi-index column with residue number as first (top) column index, metric as second index
+        # during residue_df unstack, all residues with missing dicts are copied as nan
 
-                    new_collapse_islands.append(new_collapse_peak_start.sum())
-                    new_collapse_island_significance.append(sum(new_collapse_peak_start * abs(collapse_significance)))
+        # reference_mutations = cleaned_mutations.pop('reference', None)  # save the reference
+        scores_df['number_of_mutations'] = \
+            pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
+        scores_df['percent_mutations'] = \
+            scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
+        # residue_indices_per_entity = self.pose.residue_indices_per_entity
+        is_thermophilic = []
+        for idx, (entity, entity_indices) in enumerate(zip(self.pose.entities, self.pose.residue_indices_per_entity), 1):
+            # entity_indices = residue_indices_per_entity[idx]
+            scores_df['entity_%d_number_of_mutations' % idx] = \
+                pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
+                           for design, mutations in all_mutations.items()})
+            scores_df['entity_%d_percent_mutations' % idx] = \
+                scores_df['entity_%d_number_of_mutations' % idx] / \
+                other_pose_metrics['entity_%d_number_of_residues' % idx]
+            is_thermophilic.append(getattr(other_pose_metrics, 'entity_%d_thermophile' % idx, 0))
 
-                    if msa_metrics:
-                        z_array = z_score(standardized_collapse,  # observed_collapse,
-                                          collapse_df[entity].loc['mean', :], collapse_df[entity].loc['std', :])
-                        # todo test for magnitude of the wt versus profile, remove subtraction?
-                        normalized_collapse_z = z_array - wt_collapse_z_score[entity]
-                        hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
-                        global_collapse_z = np.where(normalized_collapse_z > 0, normalized_collapse_z, 0)
-                        # offset inverse_residue_contact_order_z to center at 1 instead of 0. Todo deal with negatives
-                        contact_order_collapse_z_sum.append(
-                            sum((inverse_residue_contact_order_z[entity] + 1) * global_collapse_z))
-                        sequential_collapse_peaks_z_sum.append(sum(sequential_collapse_weights * global_collapse_z))
-                        sequential_collapse_z_sum.append(sum(sequential_weights * global_collapse_z))
-                        global_collapse_z_sum.append(global_collapse_z.sum())
+        other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
-                # add the total and concatenated metrics to analysis structures
-                folding_and_collapse['hydrophobicity_deviation_magnitude'][design] = sum(hydrophobicity_deviation_magnitude)
-                folding_and_collapse['new_collapse_islands'][design] = sum(new_collapse_islands)
-                # takes into account new collapse positions contact order and measures the deviation of collapse and
-                # contact order to indicate the potential effect to folding
-                folding_and_collapse['new_collapse_island_significance'][design] = sum(new_collapse_island_significance)
-                folding_and_collapse['contact_order_collapse_z_sum'][design] = sum(contact_order_collapse_z_sum)
-                folding_and_collapse['sequential_collapse_peaks_z_sum'][design] = sum(sequential_collapse_peaks_z_sum)
-                folding_and_collapse['sequential_collapse_z_sum'][design] = sum(sequential_collapse_z_sum)
-                folding_and_collapse['global_collapse_z_sum'][design] = sum(global_collapse_z_sum)
-                # collapse_concatenated = np.concatenate(collapse_concatenated)
-                collapse_concatenated = pd.Series(np.concatenate(collapse_concatenated), name=design)
-                per_residue_data['hydrophobic_collapse'][design] = collapse_concatenated
+        # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
+        interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
+        interior_residues = \
+            interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
+        interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residues)
+        # Todo remove this requirement? OR make this script interface_design_analysis
+        assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
+        if not self.design_residues:  # we should always get an empty set if we have got to this point
+            raise DesignError('No residues were found with your design criteria... Your flags may be too stringent '
+                              'or incorrect. If you are performing interface design, check that your input has an '
+                              'interface')
+        self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.design_residues))))
+        # interior_residues = self.design_residues.difference(interface_residues)
+        # if interface_residues != self.design_residues:
+        if interior_residues:
+            self.log.info('Residues %s are located in the interior' % ', '.join(map(str, interior_residues)))
 
-            pose_collapse_df = pd.DataFrame(folding_and_collapse)
-            # turn per_residue_data into a dataframe matching residue_df orientation
-            per_residue_df = \
-                pd.concat({measure: pd.DataFrame(data, index=residue_indices)
-                           for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
-            errat_df = \
-                per_residue_df.loc[:, idx_slice[:, per_residue_df.columns.get_level_values(1) == 'errat_deviation']].droplevel(-1, axis=1)
-            wt_errat_concat_s = pd.Series(np.concatenate(list(wt_errat.values())), name='wild_type')
-            wt_errat_concat_s.index += 1
-            # include if errat score is < 2 std devs and isn't 0.  TODO what about measuring wild-type when no design?
-            wt_errat_inclusion_boolean = np.logical_and(wt_errat_concat_s < errat_2_sigma, wt_errat_concat_s != 0.)
-            # print('SEPARATE', (wt_errat_concat_s < errat_2_sigma)[30:40], (wt_errat_concat_s != 0.)[30:40])
-            # print('LOGICAL AND\n', wt_errat_inclusion_boolean[30:40])
-            # errat_sig_df = (errat_df > errat_2_sigma)
-            # find where designs deviate above wild-type errat scores
-            # print('errat_df', errat_df.iloc[:5, 30:40])
-            # print('wt_errat_concat_s', wt_errat_concat_s[30:40])
-            # print('SUBTRACTION', errat_df.sub(wt_errat_concat_s, axis=1).iloc[:5, 30:40])
-            errat_sig_df = (errat_df.sub(wt_errat_concat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
-            # print('errat_sig_df', errat_sig_df.iloc[:5, 30:40])
-            # then select only those residues which are expressly important by the inclusion boolean
-            errat_design_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=1)
-            # print('SIGNIFICANCE', errat_design_significance)
-            errat_design_residue_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=0)
-            # print('RESIDUE SIGNIFICANCE', errat_design_residue_significance[errat_design_residue_significance].index.tolist())
-            pose_collapse_df['errat_deviation'] = errat_design_significance
-            # significant_errat_residues = \
-            #     per_residue_df.index[].remove_unused_levels().levels[0].to_list()
-            if figures:  # for plotting collapse profile, errat data, contact order
-                # Plot: Format the collapse data with residues as index and each design as column
-                # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
-                collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
-                wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='clean_asu')
-                collapse_graph_df['clean_asu'] = wt_collapse_concatenated_s
-                collapse_graph_df.index += 1  # offset index to residue numbering
-                # collapse_graph_df.sort_index(axis=1, inplace=True)
-                # graph_collapse = sns.lineplot(data=collapse_graph_df)
-                # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
-                # graph_collapse = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
+        # Add design residue information to scores_df such as how many core, rim, and support residues were measured
+        for r_class in residue_classificiation:
+            scores_df[r_class] = \
+                residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
 
-                # Set the base figure aspect ration for all sequence designs
-                figure_aspect_ratio = (pose_length / 25., 20)  # 20 is arbitrary size to fit all information in figure
-                color_cycler = cycler(color=large_color_array)
-                plt.rc('axes', prop_cycle=color_cycler)
-                fig = plt.figure(figsize=figure_aspect_ratio)
-                # legend_fill_value = int(15 * pose_length / 100)
+        scores_columns = scores_df.columns.to_list()
+        self.log.debug('Score columns present: %s' % scores_columns)
+        # Calculate new metrics from combinations of other metrics
+        # sum columns using list[0] + list[1] + list[n]
+        summation_pairs = \
+            {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+             'interface_energy_bound':
+                 list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             'interface_energy_unbound':
+                 list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             'solvation_energy_bound':
+                 list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             'solvation_energy_unbound':
+                 list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             'interface_connectivity':
+                 list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
 
-                # collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
-                collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
-                # add the contact order to a new plot
-                wt_contact_order_concatenated_s = \
-                    pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
-                contact_ax = collapse_ax.twinx()
-                contact_ax.plot(wt_contact_order_concatenated_s, label='Contact Order',
-                                color='#fbc0cb', lw=1, linestyle='-')  # pink
-                # contact_ax.scatter(residue_indices, wt_contact_order_concatenated_s, color='#fbc0cb', marker='o')  # pink
-                # wt_contact_order_concatenated_min_s = wt_contact_order_concatenated_s.min()
-                # wt_contact_order_concatenated_max_s = wt_contact_order_concatenated_s.max()
-                # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
-                # scaled_contact_order = ((wt_contact_order_concatenated_s - wt_contact_order_concatenated_min_s)
-                #                         / wt_contact_order_range)  # / wt_contact_order_range)
-                # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
-                # collapse_ax1.plot(scaled_contact_order)
-                # contact_ax.vlines(self.pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
-                #                   label='Entity Breaks', colors='#cccccc')  # , grey)
-                # contact_ax.vlines(design_residues_l, 0, 0.05, transform=contact_ax.get_xaxis_transform(),
-                #                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
-                contact_ax.set_ylabel('Contact Order')
-                # contact_ax.set_xlim(0, pose_length)
-                contact_ax.set_ylim(0, None)
-                # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
-                # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+             'sasa_hydrophobic_bound':
+                 list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
+             'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
+             'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
+        scores_df = columns_to_new_column(scores_df, summation_pairs)
+        scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
+        scores_df['total_interface_residues'] = len(interface_residues)  # add for div_pairs and int_comp_similarity
+        scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
+        scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
+        # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
+        scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True, errors='ignore')
+        if scores_df.get('repacking') is not None:
+            # set interface_bound_activation_energy = NaN where repacking is 0
+            # Currently is -1 for True (Rosetta Filter quirk...)
+            scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = \
+                np.nan
+            scores_df.drop('repacking', axis=1, inplace=True)
+        # Process dataframes for missing values and drop refine trajectory if present
+        scores_df[PUtils.groups] = protocol_s
+        # refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
+        # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+        # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+        # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
+        # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
+        residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
+        residue_df.fillna(0., inplace=True)
 
-                # Get the plot of each collapse profile into a matplotlib axes
-                # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
-                # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax)
-                collapse_ax.plot(collapse_graph_df.values, label=collapse_graph_df.columns)
-                # collapse_ax = collapse_graph_df.plot.line(ax=collapse_ax)
-                collapse_ax.xaxis.set_major_locator(MultipleLocator(20))
-                collapse_ax.xaxis.set_major_formatter('{x:.0f}')
-                # For the minor ticks, use no labels; default NullFormatter.
-                collapse_ax.xaxis.set_minor_locator(MultipleLocator(5))
-                collapse_ax.set_xlim(0, pose_length)
-                collapse_ax.set_ylim(0, 1)
-                # # CAN'T SET FacetGrid object for most matplotlib elements...
-                # ax = graph_collapse.axes
-                # ax = plt.gca()  # gca <- get current axis
-                # labels = [fill(column, legend_fill_value) for column in collapse_graph_df.columns]
-                # collapse_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1))
-                # collapse_ax.legend(loc='lower left', bbox_to_anchor=(0., 1))
-                # Plot the chain break(s) and design residues
-                # linestyles={'solid', 'dashed', 'dashdot', 'dotted'}
-                collapse_ax.vlines(self.pose.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
-                                   label='Entity Breaks', colors='#cccccc')  # , grey)
-                design_residues_l = list(self.design_residues)
-                collapse_ax.vlines(design_residues_l, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
-                                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
-                # Plot horizontal significance
-                collapse_ax.hlines([collapse_significance_threshold], 0, 1, transform=collapse_ax.get_yaxis_transform(),
-                                   label='Collapse Threshold', colors='#fc554f', linestyle='dotted')  # tomato
-                # collapse_ax.set_xlabel('Residue Number')
-                collapse_ax.set_ylabel('Hydrophobic Collapse Index')
-                # collapse_ax.set_prop_cycle(color_cycler)
-                # ax.autoscale(True)
-                # collapse_ax.figure.tight_layout()  # no standardization
-                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
+        # entity_alignment = multi_chain_alignment(entity_sequences)
+        pose_alignment = msa_from_dictionary(pose_sequences)
+        entity_alignments = {entity: msa_from_dictionary(design_sequences)
+                             for entity, design_sequences in entity_sequences.items()}
+        # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
+        dca_design_residues_concat = []
+        dca_succeed = True
+        # dca_background_energies, dca_design_energies = [], []
+        dca_background_energies, dca_design_energies = {}, {}
+        for entity in self.pose.entities:
+            try:
+                # TODO add these to the analysis
+                dca_background_residue_energies = entity.direct_coupling_analysis()
+                dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignments[entity])
+                dca_design_residues_concat.append(dca_design_residue_energies)
+                # dca_background_energies.append(dca_background_energies.sum(axis=1))
+                # dca_design_energies.append(dca_design_energies.sum(axis=1))
+                dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
+                dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
+            except AttributeError:
+                self.log.warning('For %s, no DCA analysis could be performed, missing required parameters files'
+                                 % entity.name)
+                dca_succeed = False
 
-                # Plot: Collapse description of total profile against each design
-                if msa_metrics:
-                    profile_mean_collapse_concatenated_s = \
-                        pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
-                    profile_std_collapse_concatenated_s = \
-                        pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
-                    profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
-                    profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
-                    collapse_graph_describe_df = pd.DataFrame({
-                        'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
-                        'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
-                    })
-                    collapse_graph_describe_df.index += 1  # offset index to residue numbering
-                    collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
-                    collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
-                                       color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
-                    # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
+        if dca_succeed:
+            # concatenate along columns, adding residue index to column, design name to row
+            dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
+                                               index=list(entity_sequences[entity].keys()), columns=residue_indices)
+            dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy']).swaplevel(0, 1, axis=1)
+            # merge with per_residue_df
+            per_residue_df = pd.merge(per_residue_df, dca_concatenated_df, left_index=True, right_index=True)
 
-                # Plot: Errat Accuracy
-                # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
-                # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-                errat_graph_df = errat_df
-                # wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='clean_asu')
-                errat_graph_df['clean_asu'] = wt_errat_concat_s
-                errat_graph_df.index += 1  # offset index to residue numbering
-                errat_graph_df.sort_index(axis=1, inplace=True)
-                # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
-                # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
-                # errat_ax = errat_graph_df.plot.line(ax=errat_ax)
-                errat_ax.plot(errat_graph_df.values, label=collapse_graph_df.columns)
-                errat_ax.xaxis.set_major_locator(MultipleLocator(20))
-                errat_ax.xaxis.set_major_formatter('{x:.0f}')
-                # For the minor ticks, use no labels; default NullFormatter.
-                errat_ax.xaxis.set_minor_locator(MultipleLocator(5))
-                # errat_ax.set_xlim(0, pose_length)
-                errat_ax.set_ylim(0, None)
-                # graph_errat = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
-                # Plot the chain break(s) and design residues
-                # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
-                # errat_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1.))
-                # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
-                errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
-                                label='Entity Breaks', colors='#cccccc')  # , grey)
-                errat_ax.vlines(design_residues_l, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
-                                label='Design Residues', colors='#f89938', lw=2)  # , orange)
-                # Plot horizontal significance
-                errat_ax.hlines([errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
-                                label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
-                errat_ax.set_xlabel('Residue Number')
-                errat_ax.set_ylabel('Errat Score')
-                # errat_ax.autoscale(True)
-                # errat_ax.figure.tight_layout()
-                # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
-                collapse_handles, collapse_labels = collapse_ax.get_legend_handles_labels()
-                contact_handles, contact_labels = contact_ax.get_legend_handles_labels()
-                # errat_handles, errat_labels = errat_ax.get_legend_handles_labels()
-                # print(handles, labels)
-                handles = collapse_handles + contact_handles
-                labels = collapse_labels + contact_labels
-                # handles = errat_handles + contact_handles
-                # labels = errat_labels + contact_labels
-                labels = [label.replace('%s_' % self.name, '') for label in labels]
-                # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))  #, ncol=3, mode='expand')
-                # print(labels)
-                # plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand'
-                # v Why the hell doesn't this work??
-                # fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.), ncol=3,  # , mode='expand')
-                # fig.subplots_adjust(bottom=0.1)
-                plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
-                #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
-                fig.tight_layout()
-                fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
+        residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
+                              left_index=True, right_index=True)
+        # Add local_density information to scores_df
+        # scores_df['interface_local_density'] = \
+        #     residue_df.loc[:, idx_slice[self.interface_residues,
+        #                                 residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
+        # Todo update with join like below
+        residue_df = pd.concat([residue_df,
+                                pd.concat(
+                                    [residue_df.loc[:, idx_slice[self.interface_residues,
+                                                                 'sasa_unbound_polar']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_polar']] -
+                                     residue_df.loc[:, idx_slice[self.interface_residues,
+                                                                 'sasa_complex_polar']]],
+                                    # residue_df.columns.get_level_values(-1) == 'sasa_complex_polar']]],
+                                    axis=1, keys=list(zip(self.interface_residues, repeat('bsa_polar'))))], axis=1)
 
-            # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
-            dca_design_residues_concat = []
-            dca_succeed = True
-            # dca_background_energies, dca_design_energies = [], []
-            dca_background_energies, dca_design_energies = {}, {}
-            for entity in self.pose.entities:
-                try:
-                    # TODO add these to the analysis
-                    dca_background_residue_energies = entity.direct_coupling_analysis()
-                    dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignments[entity])
-                    dca_design_residues_concat.append(dca_design_residue_energies)
-                    # dca_background_energies.append(dca_background_energies.sum(axis=1))
-                    # dca_design_energies.append(dca_design_energies.sum(axis=1))
-                    dca_background_energies[entity] = dca_background_residue_energies.sum(axis=1)  # turns data to 1D
-                    dca_design_energies[entity] = dca_design_residue_energies.sum(axis=1)
-                except AttributeError:
-                    self.log.warning('For %s, no DCA analysis could be performed, missing required parameters files'
-                                     % entity.name)
-                    dca_succeed = False
+        residue_df = pd.concat([residue_df,
+                                pd.concat(
+                                    [residue_df.loc[:, idx_slice[self.interface_residues,
+                                                                 'sasa_unbound_hydrophobic']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_hydrophobic']] -
+                                     residue_df.loc[:, idx_slice[self.interface_residues,
+                                                                 'sasa_complex_hydrophobic']]],
+                                    # residue_df.columns.get_level_values(-1) == 'sasa_complex_hydrophobic']]],
+                                    axis=1, keys=list(zip(self.interface_residues, repeat('bsa_hydrophobic'))))],
+                               axis=1)
+        # make sasa_complex_total columns
+        # residue_df = pd.concat([residue_df,
+        #                         pd.concat(
+        #                             [residue_df.loc[:, idx_slice[self.interface_residues,
+        #                                                          ['bsa_polar', 'bsa_hydrophobic']]].sum(axis=1,
+        #                                                                                                 level=0)],
+        #                             axis=1, keys=list(zip(self.interface_residues, repeat('bsa_total'))))], axis=1)
+        residue_df = residue_df.join(
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_hydrophobic']]
+            .rename(columns={'sasa_complex_hydrophobic': 'sasa_complex_total'}) +
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_polar']]
+            .rename(columns={'sasa_complex_polar': 'sasa_complex_total'}))
+        # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+        sasa_assembly_df = \
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex']].droplevel(-1, axis=1)
+        # make bsa_total columns
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']]
+                                     .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
+                                     residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']]
+                                     .rename(columns={'bsa_polar': 'bsa_total'}))
+        bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
+                                                      residue_df.columns.get_level_values(-1) == 'bsa_total']] \
+            .droplevel(-1, axis=1)
+        total_surface_area_df = sasa_assembly_df + bsa_assembly_df
+        # ratio_df = bsa_assembly_df / total_surface_area_df
+        scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
-            if dca_succeed:
-                # concatenate along columns, adding residue index to column, design name to row
-                dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
-                                                   index=list(entity_sequences[entity].keys()), columns=residue_indices)
-                dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy']).swaplevel(0, 1, axis=1)
-                # merge with per_residue_df
-                per_residue_df = pd.merge(per_residue_df, dca_concatenated_df, left_index=True, right_index=True)
+        # find the relative sasa of the complex and the unbound fraction
+        interface_residues = np.asarray(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']] > 0)
+        core_or_interior = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_relative']] < 0.25
+        support_not_rim_or_core = residue_df.loc[:,
+                                  idx_slice[self.interface_residues, 'sasa_unbound_relative']] < 0.25
+        core_residues = np.logical_and(core_or_interior, interface_residues).rename(
+            columns={'sasa_complex_relative': 'core'})
+        interior_residues = np.logical_and(core_or_interior, ~interface_residues).rename(
+            columns={'sasa_complex_relative': 'interior'})
+        support_residues = np.logical_and(support_not_rim_or_core, interface_residues).rename(
+            columns={'sasa_unbound_relative': 'support'})
+        rim_or_surface = np.logical_xor(~support_not_rim_or_core, core_residues)
+        rim_residues = np.logical_and(rim_or_surface, interface_residues).rename(
+            columns={'sasa_unbound_relative': 'rim'})
+        surface_residues = np.logical_xor(rim_or_surface, interface_residues).rename(
+            columns={'sasa_unbound_relative': 'surface'})
 
-            residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
-                                  left_index=True, right_index=True)
-            # Add local_density information to scores_df
-            # scores_df['interface_local_density'] = \
-            #     residue_df.loc[:, idx_slice[self.interface_residues,
-            #                                 residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
-            # Todo update with join like below
-            residue_df = pd.concat([residue_df,
-                                    pd.concat(
-                                        [residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                     'sasa_unbound_polar']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_polar']] -
-                                         residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                     'sasa_complex_polar']]],  # residue_df.columns.get_level_values(-1) == 'sasa_complex_polar']]],
-                                        axis=1, keys=list(zip(self.interface_residues, repeat('bsa_polar'))))], axis=1)
+        residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
+                                surface_residues], axis=1)
+        residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]  # Todo this isn't explict!!
 
-            residue_df = pd.concat([residue_df,
-                                    pd.concat(
-                                        [residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                     'sasa_unbound_hydrophobic']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_hydrophobic']] -
-                                         residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                     'sasa_complex_hydrophobic']]],  # residue_df.columns.get_level_values(-1) == 'sasa_complex_hydrophobic']]],
-                                        axis=1, keys=list(zip(self.interface_residues, repeat('bsa_hydrophobic'))))],
-                                   axis=1)
-            # make sasa_complex_total columns
-            # residue_df = pd.concat([residue_df,
-            #                         pd.concat(
-            #                             [residue_df.loc[:, idx_slice[self.interface_residues,
-            #                                                          ['bsa_polar', 'bsa_hydrophobic']]].sum(axis=1,
-            #                                                                                                 level=0)],
-            #                             axis=1, keys=list(zip(self.interface_residues, repeat('bsa_total'))))], axis=1)
-            residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_hydrophobic']]
-                                         .rename(columns={'sasa_complex_hydrophobic': 'sasa_complex_total'}) +
-                                         residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_polar']]
-                                         .rename(columns={'sasa_complex_polar': 'sasa_complex_total'}))
-            # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
-            sasa_assembly_df = \
-                residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex']].droplevel(-1, axis=1)
-            # make bsa_total columns
-            residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']]
-                                         .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
-                                         residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']]
-                                         .rename(columns={'bsa_polar': 'bsa_total'}))
-            bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
-                                                          residue_df.columns.get_level_values(-1) == 'bsa_total']] \
-                .droplevel(-1, axis=1)
-            total_surface_area_df = sasa_assembly_df + bsa_assembly_df
-            # ratio_df = bsa_assembly_df / total_surface_area_df
-            scores_df['interface_area_to_residue_surface_ratio'] = \
-                (bsa_assembly_df / total_surface_area_df).mean(axis=1)
+        # POSE ANALYSIS
+        # refine is not considered sequence design and destroys mean. remove v
+        # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
+        # consensus cst_weights are very large and destroy the mean.
+        # remove this step for consensus or refine if they are run multiple times
+        trajectory_df = scores_df.sort_index().drop([PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
+        # add all docking and pose information to each trajectory
+        pose_metrics_df = pd.concat([pd.Series(other_pose_metrics)] * len(trajectory_df), axis=1).T
+        pose_metrics_df.rename(index=dict(zip(range(len(trajectory_df)), trajectory_df.index)), inplace=True)
+        trajectory_df = pd.concat([pose_metrics_df, trajectory_df, pose_collapse_df], axis=1)
 
-            # find the relative sasa of the complex and the unbound fraction
-            interface_residues = np.asarray(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']] > 0)
-            core_or_interior = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_relative']] < 0.25
-            support_not_rim_or_core = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_unbound_relative']] < 0.25
-            core_residues = np.logical_and(core_or_interior, interface_residues).rename(columns={'sasa_complex_relative': 'core'})
-            interior_residues = np.logical_and(core_or_interior, ~interface_residues).rename(columns={'sasa_complex_relative': 'interior'})
-            support_residues = np.logical_and(support_not_rim_or_core, interface_residues).rename(columns={'sasa_unbound_relative': 'support'})
-            rim_or_surface = np.logical_xor(~support_not_rim_or_core, core_residues)
-            rim_residues = np.logical_and(rim_or_surface, interface_residues).rename(columns={'sasa_unbound_relative': 'rim'})
-            surface_residues = np.logical_xor(rim_or_surface, interface_residues).rename(columns={'sasa_unbound_relative': 'surface'})
+        # assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
 
-            residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
-                                    surface_residues], axis=1)
-            residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]  # Todo this isn't explict!!
+        # Get total design statistics for every sequence in the pose and every protocol specifically
+        protocol_groups = scores_df.groupby(PUtils.groups)
+        # protocol_groups = trajectory_df.groupby(groups)
+        designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
+                               for protocol, indices in protocol_groups.indices.items()}
+        designs_by_protocol.pop(PUtils.refine, None)  # remove refine if present
+        designs_by_protocol.pop(PUtils.stage[5], None)  # remove consensus if present
+        # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
+        #                        for protocol, indices in protocol_groups.indices.items()}
 
-            # POSE ANALYSIS
-            # refine is not considered sequence design and destroys mean. remove v
-            # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
-            # consensus cst_weights are very large and destroy the mean.
-            # remove this step for consensus or refine if they are run multiple times
-            trajectory_df = scores_df.sort_index().drop([PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
-            # add all docking and pose information to each trajectory
-            pose_metrics_df = pd.concat([pd.Series(other_pose_metrics)] * len(trajectory_df), axis=1).T
-            pose_metrics_df.rename(index=dict(zip(range(len(trajectory_df)), trajectory_df.index)), inplace=True)
-            trajectory_df = pd.concat([pose_metrics_df, trajectory_df, pose_collapse_df], axis=1)
-            # TODO v what about when run on consensus only?
-            # assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
+        # Get unique protocols
+        unique_protocols = list(designs_by_protocol.keys())
+        self.log.info('Unique Design Protocols: %s' % ', '.join(unique_protocols))
+        pose_stats, protocol_stats = [], []
+        for idx, stat in enumerate(stats_metrics):
+            pose_stats.append(getattr(trajectory_df, stat)().rename(stat))
+            protocol_stats.append(getattr(protocol_groups, stat)())
 
-            # Get total design statistics for every sequence in the pose and every protocol specifically
-            protocol_groups = scores_df.groupby(PUtils.groups)
-            # protocol_groups = trajectory_df.groupby(groups)
-            designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
-                                   for protocol, indices in protocol_groups.indices.items()}
-            designs_by_protocol.pop(PUtils.stage[5], None)  # remove consensus if present
-            # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
-            #                        for protocol, indices in protocol_groups.indices.items()}
+        protocol_stats[stats_metrics.index('mean')]['observations'] = protocol_groups.size()
+        protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
+        pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
+        stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
+        # change statistic names for all df that are not groupby means for the final trajectory dataframe
+        for idx, stat in enumerate(stats_metrics):
+            if stat != 'mean':
+                protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
+                    {protocol: '%s_%s' % (protocol, stat) for protocol in unique_protocols})
+        trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
+        # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
 
-            # Get unique protocols
-            unique_protocols = list(designs_by_protocol.keys())
-            self.log.info('Unique Design Protocols: %s' % ', '.join(unique_protocols))
-            pose_stats, protocol_stats = [], []
-            for idx, stat in enumerate(stats_metrics):
-                pose_stats.append(getattr(trajectory_df, stat)().rename(stat))
-                protocol_stats.append(getattr(protocol_groups, stat)())
+        # Calculate sequence statistics
+        # first for entire pose
+        mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, interface_residues)
+        # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
+        # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
+        #                                              both mut_freq and profile_background[profile] are one-indexed
+        divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
+                      for profile, background in profile_background.items()}
+        interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database))
+        if interface_bkgd:
+            divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
+        # Get pose sequence divergence
+        divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
+                            for divergence_type, stat in divergence.items()}
 
-            protocol_stats[stats_metrics.index('mean')]['observations'] = protocol_groups.size()
-            protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
-            pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
-            stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
-            # change statistic names for all df that are not groupby means for the final trajectory dataframe
-            for idx, stat in enumerate(stats_metrics):
-                if stat != 'mean':
-                    protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
-                        {protocol: '%s_%s' % (protocol, stat) for protocol in unique_protocols})
-            trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
-            # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
-
-            # Calculate sequence statistics
-            # first for entire pose
-            mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, interface_residues)
-            # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
-            # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
-            #                                              both mut_freq and profile_background[profile] are one-indexed
-            divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
-                          for profile, background in profile_background.items()}
-            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database))
+        # Next, for each protocol
+        divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
+        for protocol, designs in designs_by_protocol.items():
+            # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
+            protocol_alignment = msa_from_dictionary({design: pose_sequences[design] for design in designs})
+            # protocol_alignment = multi_chain_alignment({entity: {design: design_seqs[design] for design in designs}
+            #                                             for entity, design_seqs in entity_sequences.items()})
+            # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['frequencies'], interface_residues)
+            protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies, interface_residues)
+            protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
+                                 for profile, bkgnd in profile_background.items()}  # ^ both are 1-idx
             if interface_bkgd:
-                divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
-            # Get pose sequence divergence
-            divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
-                                for divergence_type, stat in divergence.items()}
+                protocol_res_dict['divergence_interface'] = \
+                    jensen_shannon_divergence(protocol_mutation_freq, interface_bkgd)
+            # Get per residue divergence metric by protocol
+            for divergence, sequence_info in protocol_res_dict.items():
+                divergence_by_protocol[protocol]['%s_per_residue' % divergence] = per_res_metric(sequence_info)
+                # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
+                # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
 
-            # Next, for each protocol
-            divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
-            for protocol, designs in designs_by_protocol.items():
-                # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
-                protocol_alignment = msa_from_dictionary({design: pose_sequences[design] for design in designs})
-                # protocol_alignment = multi_chain_alignment({entity: {design: design_seqs[design] for design in designs}
-                #                                             for entity, design_seqs in entity_sequences.items()})
-                # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['frequencies'], interface_residues)
-                protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies, interface_residues)
-                protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
-                                     for profile, bkgnd in profile_background.items()}  # ^ both are 1-idx
-                if interface_bkgd:
-                    protocol_res_dict['divergence_interface'] = \
-                        jensen_shannon_divergence(protocol_mutation_freq, interface_bkgd)
-                # Get per residue divergence metric by protocol
-                for divergence, sequence_info in protocol_res_dict.items():
-                    divergence_by_protocol[protocol]['%s_per_residue' % divergence] = per_res_metric(sequence_info)
-                    # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
-                    # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
-                # pose_res_dict['hydrophobic_collapse_index'] = hydrophobic_collapse_index()  # TODO HCI
+        protocol_divergence_s = pd.concat([pd.Series(divergence) for divergence in divergence_by_protocol.values()],
+                                          keys=list(zip(repeat('sequence_design'), divergence_by_protocol)))
+        pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
+        divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
 
-            protocol_divergence_s = pd.concat([pd.Series(divergence) for divergence in divergence_by_protocol.values()],
-                                              keys=list(zip(repeat('sequence_design'), divergence_by_protocol)))
-            pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
-            divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
-            # Todo end move outside comment
-            #  The below significance probably requires Rosetta as multiple designs need to be present given some
-            #  different sampling configurations
+        # Calculate protocol significance
+        pvalue_df = pd.DataFrame()
+        scout_protocols = filter(re.compile('.*scout').match, protocol_s.index.to_list())
+        similarity_protocols = set(unique_protocols).difference([PUtils.refine] + list(scout_protocols))
+        if background_protocol not in unique_protocols:
+            self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
+                             'for this pose' % background_protocol)
+        elif len(similarity_protocols) == 1:  # measure significance
+            self.log.info('Can\'t measure protocol significance, only one protocol of interest')
+        # missing_protocols = protocols_of_interest.difference(unique_protocols)
+        # if missing_protocols:
+        #     self.log.warning('Missing protocol%s \'%s\'. No protocol significance measurements for this design!'
+        #                      % ('s' if len(missing_protocols) > 1 else '', ', '.join(missing_protocols)))
+        # elif len(protocols_of_interest) == 1:
+        else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
+            # for prot1, prot2 in combinations(sorted(protocols_of_interest), 2):
+            for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
+                select_df = \
+                    trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2], significance_columns]
+                difference_s = trajectory_df.loc[prot1, :].sub(trajectory_df.loc[prot2, :])  # prot1/2 pull out mean
+                pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
+                                                                group1_size=len(designs_by_protocol[prot1]))
+            pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
+            trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
-            # Calculate protocol significance
-            pvalue_df = pd.DataFrame()
-            scout_protocols = filter(re.compile('.*scout').match, protocol_s.index.to_list())
-            similarity_protocols = set(unique_protocols).difference([PUtils.refine] + list(scout_protocols))
-            if background_protocol not in unique_protocols:
-                self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
-                                 'for this pose' % background_protocol)
-            elif len(similarity_protocols) == 1:  # measure significance
-                self.log.warning('Can\'t measure protocol significance, only one protocol of interest')
-            # missing_protocols = protocols_of_interest.difference(unique_protocols)
-            # if missing_protocols:
-            #     self.log.warning('Missing protocol%s \'%s\'. No protocol significance measurements for this design!'
-            #                      % ('s' if len(missing_protocols) > 1 else '', ', '.join(missing_protocols)))
-            # elif len(protocols_of_interest) == 1:
-            else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
-                # for prot1, prot2 in combinations(sorted(protocols_of_interest), 2):
-                for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
-                    select_df = \
-                        trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2], significance_columns]
-                    difference_s = trajectory_df.loc[prot1, :].sub(trajectory_df.loc[prot2, :])  # prot1/2 pull out mean
-                    pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
-                                                                    group1_size=len(designs_by_protocol[prot1]))
-                pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
-                trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
+            # Compute residue energy/sequence differences between each protocol
+            residue_energy_df = \
+                residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'energy_delta']]
 
-                # Compute residue energy/sequence differences between each protocol
-                residue_energy_df = \
-                    residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'energy_delta']]
+            scaler = StandardScaler()
+            res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
+            residue_energy_np = scaler.fit_transform(residue_energy_df.values)
+            residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
-                scaler = StandardScaler()
-                res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
-                residue_energy_np = scaler.fit_transform(residue_energy_df.values)
-                residue_energy_pc = res_pca.fit_transform(residue_energy_np)
+            seq_pca = PCA(PUtils.variance)
+            designed_residue_info = {design: {residue: info for residue, info in residues_info.items()
+                                              if residue in self.design_residues}
+                                     for design, residues_info in residue_info.items()}
+            pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_residue_info, sequence_difference))
+            seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
+            # Make principal components (PC) DataFrame
+            residue_energy_pc_df = \
+                pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
+                             columns=['pc%d' % idx for idx, _ in enumerate(res_pca.components_, 1)])
+            seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
+                                     columns=['pc%d' % idx for idx, _ in enumerate(seq_pca.components_, 1)])
+            # Compute the euclidean distance
+            # pairwise_pca_distance_np = pdist(seq_pc)
+            # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
 
-                seq_pca = PCA(PUtils.variance)
-                designed_residue_info = {design: {residue: info for residue, info in residues_info.items()
-                                                  if residue in self.design_residues}
-                                         for design, residues_info in residue_info.items()}
-                pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_residue_info, sequence_difference))
-                seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
-                # Make principal components (PC) DataFrame
-                residue_energy_pc_df = \
-                    pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
-                                 columns=['pc%d' % idx for idx, _ in enumerate(res_pca.components_, 1)])
-                seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
-                                         columns=['pc%d' % idx for idx, _ in enumerate(seq_pca.components_, 1)])
-                # Compute the euclidean distance
-                # pairwise_pca_distance_np = pdist(seq_pc)
-                # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
+            # Merge PC DataFrames with labels
+            seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+            residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
+            # Next group the labels
+            sequence_groups = seq_pc_df.groupby(PUtils.groups)
+            residue_energy_groups = residue_energy_pc_df.groupby(PUtils.groups)
+            # Measure statistics for each group
+            # All protocol means have pairwise distance measured to access similarity
+            # Gather protocol similarity/distance metrics
+            sim_measures = {'sequence_distance': {}, 'energy_distance': {}}
+            sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
+            # grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
+            for stat in stats_metrics:
+                grouped_pc_seq_df = getattr(sequence_groups, stat)()
+                grouped_pc_energy_df = getattr(residue_energy_groups, stat)()
+                similarity_stat = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
+                if stat == 'mean':
+                    # for each measurement in residue_energy_pc_df, need to take the distance between it and the
+                    # structure background mean (if structure background, is the mean is useful too?)
+                    background_distance = cdist(residue_energy_pc,
+                                                grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
+                    trajectory_df = \
+                        pd.concat([trajectory_df,
+                                   pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
+                                             name='energy_distance_from_%s_mean' % background_protocol)], axis=1)
 
-                # Merge PC DataFrames with labels
-                seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-                residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-                # Next group the labels
-                sequence_groups = seq_pc_df.groupby(PUtils.groups)
-                residue_energy_groups = residue_energy_pc_df.groupby(PUtils.groups)
-                # Measure statistics for each group
-                # All protocol means have pairwise distance measured to access similarity
-                # Gather protocol similarity/distance metrics
-                sim_measures = {'sequence_distance': {}, 'energy_distance': {}}
-                sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
-                # grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
-                for stat in stats_metrics:
-                    grouped_pc_seq_df = getattr(sequence_groups, stat)()
-                    grouped_pc_energy_df = getattr(residue_energy_groups, stat)()
-                    similarity_stat = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
-                    if stat == 'mean':
-                        # for each measurement in residue_energy_pc_df, need to take the distance between it and the
-                        # structure background mean (if structure background, is the mean is useful too?)
-                        background_distance = cdist(residue_energy_pc,
-                                                    grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
-                        trajectory_df = \
-                            pd.concat([trajectory_df,
-                                       pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
-                                                 name='energy_distance_from_%s_mean' % background_protocol)], axis=1)
+                    # if renaming is necessary
+                    # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
+                    #     {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
+                    # find the pairwise distance from every point to every other point
+                    seq_pca_mean_distance_vector = pdist(grouped_pc_seq_df)
+                    energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df)
+                    # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
+                    #                             for k in seq_pca_mean_distance_vector)
+                    # find similarity between each protocol by taking row average of all p-values for each metric
+                    # mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance Series
+                    # mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
+                    # sim_measures['similarity'] = mean_pvalue_s
+                    similarity_stat.index = pd.MultiIndex.from_tuples(similarity_stat.index)
+                    sim_measures['similarity'] = similarity_stat
 
-                        # if renaming is necessary
-                        # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
-                        #     {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
-                        # find the pairwise distance from every point to every other point
-                        seq_pca_mean_distance_vector = pdist(grouped_pc_seq_df)
-                        energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df)
-                        # protocol_indices_map = list(tuple(condensed_to_square(k, len(seq_pca_mean_distance_vector)))
-                        #                             for k in seq_pca_mean_distance_vector)
-                        # find similarity between each protocol by taking row average of all p-values for each metric
-                        # mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance Series
-                        # mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
-                        # sim_measures['similarity'] = mean_pvalue_s
-                        similarity_stat.index = pd.MultiIndex.from_tuples(similarity_stat.index)
-                        sim_measures['similarity'] = similarity_stat
+                    # for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
+                    #     i, j = condensed_to_square(vector_idx, len(grouped_pc_seq_df.index))
+                    #     sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
+                    #                                        grouped_pc_seq_df.index[j])] = seq_dist
 
-                        # for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
-                        #     i, j = condensed_to_square(vector_idx, len(grouped_pc_seq_df.index))
-                        #     sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
-                        #                                        grouped_pc_seq_df.index[j])] = seq_dist
+                    for vector_idx, (seq_dist, energy_dist) in enumerate(zip(seq_pca_mean_distance_vector,
+                                                                             energy_pca_mean_distance_vector)):
+                        i, j = condensed_to_square(vector_idx, len(grouped_pc_energy_df.index))
+                        sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
+                                                           grouped_pc_seq_df.index[j])] = seq_dist
+                        sim_measures['energy_distance'][(grouped_pc_energy_df.index[i],
+                                                         grouped_pc_energy_df.index[j])] = energy_dist
+                elif stat == 'std':
+                    # sim_stdev['similarity'] = similarity_stat_dict[stat]
+                    # Todo need to square each pc, add them up, divide by the group number, then take the sqrt
+                    sim_stdev['seq_distance'] = grouped_pc_seq_df
+                    sim_stdev['energy_distance'] = grouped_pc_energy_df
 
-                        for vector_idx, (seq_dist, energy_dist) in enumerate(zip(seq_pca_mean_distance_vector,
-                                                                                 energy_pca_mean_distance_vector)):
-                            i, j = condensed_to_square(vector_idx, len(grouped_pc_energy_df.index))
-                            sim_measures['sequence_distance'][(grouped_pc_seq_df.index[i],
-                                                               grouped_pc_seq_df.index[j])] = seq_dist
-                            sim_measures['energy_distance'][(grouped_pc_energy_df.index[i],
-                                                             grouped_pc_energy_df.index[j])] = energy_dist
-                    elif stat == 'std':
-                        # sim_stdev['similarity'] = similarity_stat_dict[stat]
-                        # Todo need to square each pc, add them up, divide by the group number, then take the sqrt
-                        sim_stdev['seq_distance'] = grouped_pc_seq_df
-                        sim_stdev['energy_distance'] = grouped_pc_energy_df
+            # Find the significance between each pair of protocols
+            protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
+                                       keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
+            # squeeze turns the column headers into series indices. Keys appends to make a multi-index
 
-                # Find the significance between each pair of protocols
-                protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
-                                           keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
-                # squeeze turns the column headers into series indices. Keys appends to make a multi-index
+            # Find total protocol similarity for different metrics
+            # for measure, values in sim_measures.items():
+            #     # measure_s = pd.Series({pair: similarity for pair, similarity in values.items()})
+            #     # measure_s = pd.Series(values)
+            #     similarity_sum['protocol_%s_sum' % measure] = pd.Series(values).sum()
+            similarity_sum = {'protocol_%s_sum' % measure: pd.Series(values).sum()
+                              for measure, values in sim_measures.items()}
+            similarity_sum_s = pd.concat([pd.Series(similarity_sum)], keys=[('sequence_design', 'pose')])
 
-                # Find total protocol similarity for different metrics
-                # for measure, values in sim_measures.items():
-                #     # measure_s = pd.Series({pair: similarity for pair, similarity in values.items()})
-                #     # measure_s = pd.Series(values)
-                #     similarity_sum['protocol_%s_sum' % measure] = pd.Series(values).sum()
-                similarity_sum = {'protocol_%s_sum' % measure: pd.Series(values).sum()
-                                  for measure, values in sim_measures.items()}
-                similarity_sum_s = pd.concat([pd.Series(similarity_sum)], keys=[('sequence_design', 'pose')])
+            # Process similarity between protocols
+            sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
+                                       keys=list(sim_measures.keys()))
+            # # Todo test
+            # sim_stdev_s = pd.concat(list(sim_stdev.values()),
+            #                         keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
+            # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
+            sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
-                # Process similarity between protocols
-                sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
-                                           keys=list(sim_measures.keys()))
-                # # Todo test
-                # sim_stdev_s = pd.concat(list(sim_stdev.values()),
-                #                         keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
-                # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
-                sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
+            # if figures:  # Todo ensure output is as expected then move below
+                # protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
+                #                        for design in designs}
+                # _path = os.path.join(self.all_scores, str(self))
+                # # Set up Labels & Plot the PC data
+                # protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
+                # integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
+                # pc_labels_group = [protocols_by_design[design] for design in residue_info]
+                # # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
+                # pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
+                # fig = plt.figure()
+                # # ax = fig.add_subplot(111, projection='3d')
+                # ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+                # # plt.cla()
+                #
+                # # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
+                # #     ax.scatter(seq_pc[pc_labels_group == label, 0],
+                # #                seq_pc[pc_labels_group == label, 1],
+                # #                seq_pc[pc_labels_group == label, 2],
+                # #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
+                # scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
+                #                      edgecolor='k')
+                # # handles, labels = scatter.legend_elements()
+                # # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
+                # # ax.legend(handles, labels, loc='upper right', title=groups)
+                # # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
+                # # # plt.axis('equal') # not possible with 3D graphs
+                # # plt.legend()  # No handles with labels found to put in legend.
+                # colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+                # custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
+                #                 for c in colors]
+                # ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+                #           bbox_to_anchor=(1.0, .5))
+                # # # Add group mean to the plot
+                # # for name, label in integer_map.items():
+                # #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
+                # #                seq_pc[pc_labels_group == label, 1].mean(),
+                # #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
+                # ax.set_xlabel('PC1')
+                # ax.set_ylabel('PC2')
+                # ax.set_zlabel('PC3')
+                # # plt.legend(pc_labels_group)
+                # plt.savefig('%s_seq_pca.png' % _path)
+                # plt.clf()
+                # # Residue PCA Figure to assay multiple interface states
+                # fig = plt.figure()
+                # # ax = fig.add_subplot(111, projection='3d')
+                # ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+                # scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
+                #                      c=pc_labels_int,
+                #                      cmap='Spectral', edgecolor='k')
+                # colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+                # custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
+                #                 colors]
+                # ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+                #           bbox_to_anchor=(1.0, .5))
+                # ax.set_xlabel('PC1')
+                # ax.set_ylabel('PC2')
+                # ax.set_zlabel('PC3')
+                # plt.savefig('%s_res_energy_pca.png' % _path)
 
-                # if figures:  # Todo ensure output is as expected
-                    # protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
-                    #                        for design in designs}
-                    # _path = os.path.join(self.all_scores, str(self))
-                    # # Set up Labels & Plot the PC data
-                    # protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
-                    # integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
-                    # pc_labels_group = [protocols_by_design[design] for design in residue_info]
-                    # # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
-                    # pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
-                    # fig = plt.figure()
-                    # # ax = fig.add_subplot(111, projection='3d')
-                    # ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-                    # # plt.cla()
-                    #
-                    # # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
-                    # #     ax.scatter(seq_pc[pc_labels_group == label, 0],
-                    # #                seq_pc[pc_labels_group == label, 1],
-                    # #                seq_pc[pc_labels_group == label, 2],
-                    # #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
-                    # scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
-                    #                      edgecolor='k')
-                    # # handles, labels = scatter.legend_elements()
-                    # # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
-                    # # ax.legend(handles, labels, loc='upper right', title=groups)
-                    # # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
-                    # # # plt.axis('equal') # not possible with 3D graphs
-                    # # plt.legend()  # No handles with labels found to put in legend.
-                    # colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-                    # custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
-                    #                 for c in colors]
-                    # ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
-                    #           bbox_to_anchor=(1.0, .5))
-                    # # # Add group mean to the plot
-                    # # for name, label in integer_map.items():
-                    # #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
-                    # #                seq_pc[pc_labels_group == label, 1].mean(),
-                    # #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
-                    # ax.set_xlabel('PC1')
-                    # ax.set_ylabel('PC2')
-                    # ax.set_zlabel('PC3')
-                    # # plt.legend(pc_labels_group)
-                    # plt.savefig('%s_seq_pca.png' % _path)
-                    # plt.clf()
-                    # # Residue PCA Figure to assay multiple interface states
-                    # fig = plt.figure()
-                    # # ax = fig.add_subplot(111, projection='3d')
-                    # ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-                    # scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
-                    #                      c=pc_labels_int,
-                    #                      cmap='Spectral', edgecolor='k')
-                    # colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-                    # custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
-                    #                 colors]
-                    # ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
-                    #           bbox_to_anchor=(1.0, .5))
-                    # ax.set_xlabel('PC1')
-                    # ax.set_ylabel('PC2')
-                    # ax.set_zlabel('PC3')
-                    # plt.savefig('%s_res_energy_pca.png' % _path)
+        # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
+        if save_trajectories:
+            trajectory_df.sort_index(inplace=True, axis=1)
+            residue_df.sort_index(inplace=True)
+            # Add wild-type residue information in metrics for sequence comparison
+            # find the solvent accessible surface area of the separated entities
+            for entity in self.pose.pdb.entities:
+                entity.get_sasa()
 
-            # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
-            if save_trajectories:
-                trajectory_df.sort_index(inplace=True, axis=1)
-                residue_df.sort_index(inplace=True)
-                # Add wild-type residue information in metrics for sequence comparison
-                # find the solvent accessible surface area of the separated entities
-                for entity in self.pose.pdb.entities:
-                    entity.get_sasa()
+            # todo simplify this mess...
+            errat_collapse_df = \
+                pd.concat([pd.concat(
+                    {'errat_deviation': pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
+                     'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
+                                                       index=residue_indices)})],
+                    keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
 
-                # todo simplify this mess...
-                errat_collapse_df = \
-                    pd.concat([pd.concat(
-                        {'errat_deviation': pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
-                         'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
-                                                           index=residue_indices)})],
-                        keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
+            wild_type_residue_info = {}
+            for res_number in residue_info[next(iter(residue_info))].keys():
+                # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
+                residue = self.pose.pdb.residue(res_number)
+                wild_type_residue_info[res_number] = \
+                    {'type': protein_letters_3to1.get(residue.type.title()), 'core': None, 'rim': None, 'support': None,
+                     # Todo implement wt energy metric during oligomer refinement?
+                     'interior': 0, 'hbond': None, 'energy_delta': None,
+                     'bsa_total': None, 'bsa_polar': None, 'bsa_hydrophobic': None, 'sasa_total': residue.sasa,
+                     'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
+                     'observed_evolution': None, 'observed_fragment': None}  # 'hot_spot': None}
+                if residue.relative_sasa < 0.25:
+                    wild_type_residue_info[res_number]['interior'] = 1
+                # if res_number in issm_residues and res_number not in residues_no_frags:
+                #     wild_type_residue_info[res_number]['observed_fragment'] = None
 
-                wild_type_residue_info = {}
-                for res_number in residue_info[next(iter(residue_info))].keys():
-                    # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
-                    residue = self.pose.pdb.residue(res_number)
-                    wild_type_residue_info[res_number] = \
-                        {'type': protein_letters_3to1.get(residue.type.title()), 'core': None, 'rim': None, 'support': None,
-                         # Todo implement wt energy metric during oligomer refinement?
-                         'interior': 0, 'hbond': None, 'energy_delta': None,
-                         'bsa_total': None, 'bsa_polar': None, 'bsa_hydrophobic': None, 'sasa_total': residue.sasa,
-                         'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
-                         'observed_evolution': None, 'observed_fragment': None}  # 'hot_spot': None}
-                    if residue.relative_sasa < 0.25:
-                        wild_type_residue_info[res_number]['interior'] = 1
-                    # if res_number in issm_residues and res_number not in residues_no_frags:
-                    #     wild_type_residue_info[res_number]['observed_fragment'] = None
+            wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
+            wt_df = pd.merge(wt_df, errat_collapse_df.loc[:, idx_slice[wt_df.columns.levels[0], :]],
+                             left_index=True, right_index=True)
+            wt_df.drop(residue_indices_no_frags, inplace=True, axis=1, errors='ignore')
+            # only sort once as residues are in same order
+            # wt_df.sort_index(level=0, inplace=True, axis=1, sort_remaining=False)
+            # residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+            residue_df = pd.concat([wt_df, residue_df], sort=False)
+            # residue_df.drop(residue_indices_no_frags, inplace=True, axis=1)
+            residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+            residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
+            # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
+            if merge_residue_data:
+                trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
+                trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
+            else:
+                residue_df.to_csv(self.residues)
+            trajectory_df.to_csv(self.trajectories)
+            pickle_object(entity_sequences, self.design_sequences, out_path='')
 
-                wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=['wild_type']).unstack()
-                wt_df = pd.merge(wt_df, errat_collapse_df.loc[:, idx_slice[wt_df.columns.levels[0], :]],
-                                 left_index=True, right_index=True)
-                wt_df.drop(residue_indices_no_frags, inplace=True, axis=1, errors='ignore')
-                # only sort once as residues are in same order
-                # wt_df.sort_index(level=0, inplace=True, axis=1, sort_remaining=False)
-                # residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-                residue_df = pd.concat([wt_df, residue_df], sort=False)
-                # residue_df.drop(residue_indices_no_frags, inplace=True, axis=1)
-                residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-                residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
-                # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
-                if merge_residue_data:
-                    trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
-                    trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
-                else:
-                    residue_df.to_csv(self.residues)
-                trajectory_df.to_csv(self.trajectories)
-                pickle_object(entity_sequences, self.design_sequences, out_path='')
+        # Create figures
+        if figures:  # for plotting collapse profile, errat data, contact order
+            # Plot: Format the collapse data with residues as index and each design as column
+            # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
+            collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
+            wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='clean_asu')
+            collapse_graph_df['clean_asu'] = wt_collapse_concatenated_s
+            collapse_graph_df.index += 1  # offset index to residue numbering
+            # collapse_graph_df.sort_index(axis=1, inplace=True)
+            # graph_collapse = sns.lineplot(data=collapse_graph_df)
+            # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
+            # graph_collapse = sns.relplot(data=collapse_graph_df, kind='line')  # x='Residue Number'
 
-            # Create figures
-            # if figures:  # Todo include relevant .ipynb figures
+            # Set the base figure aspect ration for all sequence designs
+            figure_aspect_ratio = (pose_length / 25., 20)  # 20 is arbitrary size to fit all information in figure
+            color_cycler = cycler(color=large_color_array)
+            plt.rc('axes', prop_cycle=color_cycler)
+            fig = plt.figure(figsize=figure_aspect_ratio)
+            # legend_fill_value = int(15 * pose_length / 100)
+
+            # collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
+            collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
+            # add the contact order to a new plot
+            wt_contact_order_concatenated_s = \
+                pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
+            contact_ax = collapse_ax.twinx()
+            contact_ax.plot(wt_contact_order_concatenated_s, label='Contact Order',
+                            color='#fbc0cb', lw=1, linestyle='-')  # pink
+            # contact_ax.scatter(residue_indices, wt_contact_order_concatenated_s, color='#fbc0cb', marker='o')  # pink
+            # wt_contact_order_concatenated_min_s = wt_contact_order_concatenated_s.min()
+            # wt_contact_order_concatenated_max_s = wt_contact_order_concatenated_s.max()
+            # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
+            # scaled_contact_order = ((wt_contact_order_concatenated_s - wt_contact_order_concatenated_min_s)
+            #                         / wt_contact_order_range)  # / wt_contact_order_range)
+            # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
+            # collapse_ax1.plot(scaled_contact_order)
+            # contact_ax.vlines(self.pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
+            #                   label='Entity Breaks', colors='#cccccc')  # , grey)
+            # contact_ax.vlines(design_residues_l, 0, 0.05, transform=contact_ax.get_xaxis_transform(),
+            #                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
+            contact_ax.set_ylabel('Contact Order')
+            # contact_ax.set_xlim(0, pose_length)
+            contact_ax.set_ylim(0, None)
+            # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+            # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+
+            # Get the plot of each collapse profile into a matplotlib axes
+            # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
+            # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax)
+            collapse_ax.plot(collapse_graph_df.values, label=collapse_graph_df.columns)
+            # collapse_ax = collapse_graph_df.plot.line(ax=collapse_ax)
+            collapse_ax.xaxis.set_major_locator(MultipleLocator(20))
+            collapse_ax.xaxis.set_major_formatter('{x:.0f}')
+            # For the minor ticks, use no labels; default NullFormatter.
+            collapse_ax.xaxis.set_minor_locator(MultipleLocator(5))
+            collapse_ax.set_xlim(0, pose_length)
+            collapse_ax.set_ylim(0, 1)
+            # # CAN'T SET FacetGrid object for most matplotlib elements...
+            # ax = graph_collapse.axes
+            # ax = plt.gca()  # gca <- get current axis
+            # labels = [fill(column, legend_fill_value) for column in collapse_graph_df.columns]
+            # collapse_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1))
+            # collapse_ax.legend(loc='lower left', bbox_to_anchor=(0., 1))
+            # Plot the chain break(s) and design residues
+            # linestyles={'solid', 'dashed', 'dashdot', 'dotted'}
+            collapse_ax.vlines(self.pose.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
+                               label='Entity Breaks', colors='#cccccc')  # , grey)
+            design_residues_l = list(self.design_residues)
+            collapse_ax.vlines(design_residues_l, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
+                               label='Design Residues', colors='#f89938', lw=2)  # , orange)
+            # Plot horizontal significance
+            collapse_ax.hlines([collapse_significance_threshold], 0, 1, transform=collapse_ax.get_yaxis_transform(),
+                               label='Collapse Threshold', colors='#fc554f', linestyle='dotted')  # tomato
+            # collapse_ax.set_xlabel('Residue Number')
+            collapse_ax.set_ylabel('Hydrophobic Collapse Index')
+            # collapse_ax.set_prop_cycle(color_cycler)
+            # ax.autoscale(True)
+            # collapse_ax.figure.tight_layout()  # no standardization
+            # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
+
+            # Plot: Collapse description of total profile against each design
+            if msa_metrics:
+                profile_mean_collapse_concatenated_s = \
+                    pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
+                profile_std_collapse_concatenated_s = \
+                    pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
+                profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
+                profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
+                collapse_graph_describe_df = pd.DataFrame({
+                    'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
+                    'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
+                })
+                collapse_graph_describe_df.index += 1  # offset index to residue numbering
+                collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
+                collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
+                                   color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
+                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
+
+            # Plot: Errat Accuracy
+            # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
+            # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+            errat_graph_df = errat_df
+            # wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='clean_asu')
+            errat_graph_df['clean_asu'] = wt_errat_concat_s
+            errat_graph_df.index += 1  # offset index to residue numbering
+            errat_graph_df.sort_index(axis=1, inplace=True)
+            # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
+            # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
+            # errat_ax = errat_graph_df.plot.line(ax=errat_ax)
+            errat_ax.plot(errat_graph_df.values, label=collapse_graph_df.columns)
+            errat_ax.xaxis.set_major_locator(MultipleLocator(20))
+            errat_ax.xaxis.set_major_formatter('{x:.0f}')
+            # For the minor ticks, use no labels; default NullFormatter.
+            errat_ax.xaxis.set_minor_locator(MultipleLocator(5))
+            # errat_ax.set_xlim(0, pose_length)
+            errat_ax.set_ylim(0, None)
+            # graph_errat = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
+            # Plot the chain break(s) and design residues
+            # labels = [fill(column, legend_fill_value) for column in errat_graph_df.columns]
+            # errat_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1.))
+            # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
+            errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
+                            label='Entity Breaks', colors='#cccccc')  # , grey)
+            errat_ax.vlines(design_residues_l, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
+                            label='Design Residues', colors='#f89938', lw=2)  # , orange)
+            # Plot horizontal significance
+            errat_ax.hlines([errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
+                            label='Significant Error', colors='#fc554f', linestyle='dotted')  # tomato
+            errat_ax.set_xlabel('Residue Number')
+            errat_ax.set_ylabel('Errat Score')
+            # errat_ax.autoscale(True)
+            # errat_ax.figure.tight_layout()
+            # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
+            collapse_handles, collapse_labels = collapse_ax.get_legend_handles_labels()
+            contact_handles, contact_labels = contact_ax.get_legend_handles_labels()
+            # errat_handles, errat_labels = errat_ax.get_legend_handles_labels()
+            # print(handles, labels)
+            handles = collapse_handles + contact_handles
+            labels = collapse_labels + contact_labels
+            # handles = errat_handles + contact_handles
+            # labels = errat_labels + contact_labels
+            labels = [label.replace('%s_' % self.name, '') for label in labels]
+            # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))  #, ncol=3, mode='expand')
+            # print(labels)
+            # plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand'
+            # v Why the hell doesn't this work??
+            # fig.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, 0.), ncol=3,  # , mode='expand')
+            # fig.subplots_adjust(bottom=0.1)
+            plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
+            #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
+            fig.tight_layout()
+            fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
 
         # After parsing data sources
         other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
