@@ -721,14 +721,12 @@ significance_columns = ['buried_unsatisfied_hbonds',
 multiple_sequence_alignment_dependent_metrics = \
     ['global_collapse_z_sum', 'hydrophobicity_deviation_magnitude', 'new_collapse_island_significance',
      'new_collapse_islands', 'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
-stats_metrics = ['mean', 'std']
-residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
 
-residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.},
-                    'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
-                             'hydrophobic': {'complex': 0., 'unbound': 0.}},
-                    'type': None, 'core': 0, 'rim': 0, 'support': 0, 'interior': 0, 'hbond': 0}  # , 'hot_spot': 0}
+residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.}, 'type': None, 'hbond': 0}
+                    # 'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
+                    #          'hydrophobic': {'complex': 0., 'unbound': 0.}},
+                    # 'core': 0, 'rim': 0, 'support': 0, 'interior': 0, # , 'hot_spot': 0}
 fragment_metric_template = {'center_residues': set(), 'total_residues': set(),
                             'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
                             'number_fragment_residues_total': 0, 'number_fragment_residues_center': 0,
@@ -821,19 +819,6 @@ def columns_to_new_column(df, column_dict, mode='add'):
                     pass
 
     return df
-
-
-# from table 1, theoretical values of Tien et al. 2013
-gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225, 'G': 104, 'H': 224, 'I': 197,
-            'L': 201, 'K': 236, 'M': 224, 'F': 240, 'P': 159, 'S': 155, 'T': 172, 'W': 285, 'Y': 263, 'V': 174,
-            'ALA': 129, 'ARG': 274, 'ASN': 195, 'ASP': 193, 'CYS': 167, 'GLU': 223, 'GLN': 225, 'GLY': 104, 'HIS': 224,
-            'ILE': 197, 'LEU': 201, 'LYS': 236, 'MET': 224, 'PHE': 240, 'PRO': 159, 'SER': 155, 'THR': 172, 'TRP': 285,
-            'TYR': 263, 'VAL': 174}  # from table 1, theoretical values of Tien et al. 2013
-
-
-def calc_relative_sa(aa, sa):
-    """Calculate relative surface area according to theoretical values of Tien et al. 2013"""
-    return round(sa / gxg_sasa[aa], 2)
 
 
 def hbond_processing(score_dict, columns, offset=None):
@@ -1021,15 +1006,15 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
             if residue_number not in residue_data:
                 residue_data[residue_number] = deepcopy(residue_template)
 
-            metric = metadata[2]  # energy or sasa
-            pose_state = metadata[-2]  # unbound or complex or fsp (favor_sequence_profile)  # cst (constraint)
-            if metric == 'sasa':
+            metric = metadata[2]  # energy [or sasa]
+            pose_state = metadata[-2]  # unbound or complex [fsp (favor_sequence_profile) or constrait (constraint)]
+            # if metric == 'sasa':
                 # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
-                polarity = metadata[3]
-                residue_data[residue_number][metric][polarity][pose_state] = scores.get(column, 0)
-            else:
+                # polarity = metadata[3]
+                # residue_data[residue_number][metric][polarity][pose_state] = scores.get(column, 0)
+            # else:
                 # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
-                residue_data[residue_number][metric][pose_state] += scores.get(column, 0)
+            residue_data[residue_number][metric][pose_state] += scores.get(column, 0)  # symmetrically related chains are added
 
         remove_residues = []
         for residue_number, data in residue_data.items():
@@ -1058,28 +1043,28 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
             data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
             #     - data['energy']['fsp'] - data['energy']['cst']
             # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
-            relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
-            relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
-            for polarity in data['sasa']:
-                # convert sasa measurements into bsa measurements
-                data['bsa_%s' % polarity] = data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex']
-
-            if data['bsa_total'] > 0:
-                if relative_oligomer_sasa < 0.25:
-                    data['support'] = 1
-                elif relative_complex_sasa < 0.25:
-                    data['core'] = 1
-                else:
-                    data['rim'] = 1
-            else:  # Todo remove residue from dict as no design should be done? keep interior residue constant?
-                if relative_complex_sasa < 0.25:
-                    data['interior'] = 1
-                # else:
-                #     residue_data[residue_number]['surface'] = 1
+            # relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
+            # relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
+            # for polarity in data['sasa']:
+            #     # convert sasa measurements into bsa measurements
+            #     data['bsa_%s' % polarity] = data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex']
+            #
+            # if data['bsa_total'] > 0:
+            #     if relative_oligomer_sasa < 0.25:
+            #         data['support'] = 1
+            #     elif relative_complex_sasa < 0.25:
+            #         data['core'] = 1
+            #     else:
+            #         data['rim'] = 1
+            # else:  # Todo remove residue from dict as no design should be done? keep interior residue constant?
+            #     if relative_complex_sasa < 0.25:
+            #         data['interior'] = 1
+            #     # else:
+            #     #     residue_data[residue_number]['surface'] = 1
             data['coordinate_constraint'] = data['energy']['cst']
             data['residue_favored'] = data['energy']['fsp']
             data.pop('energy')
-            data.pop('sasa')
+            # data.pop('sasa')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
         # clean up any incorrect residues
@@ -1134,15 +1119,15 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
                 if residue_number not in residue_data:
                     residue_data[residue_number] = deepcopy(residue_template)
 
-                metric = metadata[2]  # energy or sasa
-                pose_state = metadata[-2]  # unbound or complex
-                if metric == 'sasa':
+                metric = metadata[2]  # energy [or sasa]
+                pose_state = metadata[-2]  # unbound or complex [fsp (favor_sequence_profile) or constrait (constraint)]
+                # if metric == 'sasa':
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
-                    polarity = metadata[3]
-                    residue_data[residue_number][metric][polarity][pose_state] = value
-                else:
+                    # polarity = metadata[3]
+                    # residue_data[residue_number][metric][polarity][pose_state] = value
+                # else:
                     # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
-                    residue_data[residue_number][metric][pose_state] += value
+                residue_data[residue_number][metric][pose_state] += value  # symmetrically related chains are added
 
         remove_residues = []
         for residue_number, data in residue_data.items():
@@ -1171,28 +1156,28 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
             data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
             #     - data['energy']['fsp'] - data['energy']['cst']
             # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
-            relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
-            relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
-            for polarity in data['sasa']:
-                # convert sasa measurements into bsa measurements
-                data['bsa_%s' % polarity] = data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex']
-
-            if data['bsa_total'] > 0:
-                if relative_oligomer_sasa < 0.25:
-                    data['support'] = 1
-                elif relative_complex_sasa < 0.25:
-                    data['core'] = 1
-                else:
-                    data['rim'] = 1
-            else:  # Todo remove residue from dict as no design should be done? keep interior residue constant?
-                if relative_complex_sasa < 0.25:
-                    data['interior'] = 1
-                # else:
-                #     residue_data[residue_number]['surface'] = 1
+            # relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
+            # relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
+            # for polarity in data['sasa']:
+            #     # convert sasa measurements into bsa measurements
+            #     data['bsa_%s' % polarity] = data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex']
+            #
+            # if data['bsa_total'] > 0:
+            #     if relative_oligomer_sasa < 0.25:
+            #         data['support'] = 1
+            #     elif relative_complex_sasa < 0.25:
+            #         data['core'] = 1
+            #     else:
+            #         data['rim'] = 1
+            # else:  # Todo remove residue from dict as no design should be done? keep interior residue constant?
+            #     if relative_complex_sasa < 0.25:
+            #         data['interior'] = 1
+            #     # else:
+            #     #     residue_data[residue_number]['surface'] = 1
             data['coordinate_constraint'] = data['energy']['cst']
             data['residue_favored'] = data['energy']['fsp']
             data.pop('energy')
-            data.pop('sasa')
+            # data.pop('sasa')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
         # clean up any incorrect residues
@@ -1284,14 +1269,14 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
     return bool_df.mean()
 
 
-def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
-    total = len(final_metrics) * len(stats_metrics)
-    total += len(significance_columns) * num_groups * len(stats_metrics)
-    total += misc
-    total += sig  # for protocol pair mean similarity measure
-    total += sig * len(significance_columns)  # for protocol pair individual similarity measure
-
-    return total
+# def calculate_column_number(num_groups=1, misc=0, sig=0):  # UNUSED, DEPRECIATED
+#     total = len(final_metrics) * len(stats_metrics)
+#     total += len(significance_columns) * num_groups * len(stats_metrics)
+#     total += misc
+#     total += sig  # for protocol pair mean similarity measure
+#     total += sig * len(significance_columns)  # for protocol pair individual similarity measure
+#
+#     return total
 
 
 def filter_df_for_index_by_value(df, metrics):
