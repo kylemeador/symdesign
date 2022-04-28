@@ -2813,7 +2813,8 @@ class DesignDirectory:  # (JobResources):
             #     per_residue_df.index[].remove_unused_levels().levels[0].to_list()
             if figures:  # for plotting collapse profile, errat data, contact order
                 # Plot: Format the collapse data with residues as index and each design as column
-                collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
+                # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
+                collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
                 wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='clean_asu')
                 collapse_graph_df['clean_asu'] = wt_collapse_concatenated_s
                 collapse_graph_df.index += 1  # offset index to residue numbering
@@ -2908,7 +2909,9 @@ class DesignDirectory:  # (JobResources):
                     # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
 
                 # Plot: Errat Accuracy
-                errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
+                # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
+                # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+                errat_graph_df = errat_df
                 # wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='clean_asu')
                 errat_graph_df['clean_asu'] = wt_errat_concat_s
                 errat_graph_df.index += 1  # offset index to residue numbering
