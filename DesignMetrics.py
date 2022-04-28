@@ -1055,15 +1055,14 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
             if hbonds:
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
-            data['energy_delta'] = round(data['energy']['complex'] - data['energy']['unbound'], 2)
+            data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
             #     - data['energy']['fsp'] - data['energy']['cst']
             # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
             relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
             relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
             for polarity in data['sasa']:
                 # convert sasa measurements into bsa measurements
-                data['bsa_%s' % polarity] = \
-                    round(data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex'], 2)
+                data['bsa_%s' % polarity] = data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex']
 
             if data['bsa_total'] > 0:
                 if relative_oligomer_sasa < 0.25:
@@ -1077,8 +1076,8 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
                     data['interior'] = 1
                 # else:
                 #     residue_data[residue_number]['surface'] = 1
-            data['coordinate_constraint'] = round(data['energy']['cst'], 2)
-            data['residue_favored'] = round(data['energy']['fsp'], 2)
+            data['coordinate_constraint'] = data['energy']['cst']
+            data['residue_favored'] = data['energy']['fsp']
             data.pop('energy')
             data.pop('sasa')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
@@ -1169,15 +1168,14 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
             if hbonds:
                 if residue_number in hbonds[design]:
                     data['hbond'] = 1
-            data['energy_delta'] = round(data['energy']['complex'] - data['energy']['unbound'], 2)
+            data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
             #     - data['energy']['fsp'] - data['energy']['cst']
             # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
             relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
             relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
             for polarity in data['sasa']:
                 # convert sasa measurements into bsa measurements
-                data['bsa_%s' % polarity] = \
-                    round(data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex'], 2)
+                data['bsa_%s' % polarity] = data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex']
 
             if data['bsa_total'] > 0:
                 if relative_oligomer_sasa < 0.25:
@@ -1191,8 +1189,8 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
                     data['interior'] = 1
                 # else:
                 #     residue_data[residue_number]['surface'] = 1
-            data['coordinate_constraint'] = round(data['energy']['cst'], 2)
-            data['residue_favored'] = round(data['energy']['fsp'], 2)
+            data['coordinate_constraint'] = data['energy']['cst']
+            data['residue_favored'] = data['energy']['fsp']
             data.pop('energy')
             data.pop('sasa')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
