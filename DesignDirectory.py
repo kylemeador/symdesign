@@ -2545,10 +2545,17 @@ class DesignDirectory:  # (JobResources):
             for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
                 if structure.name not in viable_designs:
                     continue
-                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
-                                            design_selector=self.design_selector, log=self.log,
-                                            source_db=self.resources, frag_db=self.frag_db,
-                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+                if self.sym_entry:
+                    design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
+                                                design_selector=self.design_selector, log=self.log,
+                                                source_db=self.resources, frag_db=self.frag_db,
+                                                euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+                else:
+                    design_pose = Pose.from_pdb(structure, name='%s-asu' % structure.name,
+                                                design_selector=self.design_selector, log=self.log,
+                                                source_db=self.resources, frag_db=self.frag_db,
+                                                euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+
                 # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
                 #                                            ,symmetry=self.design_symmetry)
 
