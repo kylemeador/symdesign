@@ -676,12 +676,12 @@ unnecessary = ['int_area_asu_hydrophobic', 'int_area_asu_polar', 'int_area_asu_t
 #                      'int_energy_context_A_oligomer', 'int_energy_context_B_oligomer', 'int_energy_context_complex']
 
 # subtract columns using tuple [0] - [1] to make delta column
-delta_pairs = {'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),
-               'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),
+delta_pairs = {'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),  # Rosetta
+               'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),  # Rosetta
                # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
-               'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),
-               'solvation_energy': ('solvation_energy_unbound', 'solvation_energy_complex'),
-               'solvation_energy_activation': ('solvation_energy_unbound', 'solvation_energy_bound'),
+               'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),  # Rosetta
+               'solvation_energy': ('solvation_energy_unbound', 'solvation_energy_complex'),  # Rosetta
+               'solvation_energy_activation': ('solvation_energy_unbound', 'solvation_energy_bound'),  # Rosetta
                'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
                'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
                'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
@@ -697,8 +697,8 @@ division_pairs = {'percent_interface_area_hydrophobic': ('interface_area_hydroph
                   'percent_core': ('core', 'total_interface_residues'),
                   'percent_rim': ('rim', 'total_interface_residues'),
                   'percent_support': ('support', 'total_interface_residues'),
-                  'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),
-                  'interface_energy_density': ('interface_energy', 'interface_area_total')}
+                  'buried_unsatisfied_hbond_density': ('buried_unsatisfied_hbonds', 'interface_area_total'),  # Rosetta
+                  'interface_energy_density': ('interface_energy', 'interface_area_total')}  # Rosetta
 
 # All Rosetta based score terms ref is most useful to keep for whole pose to give "unfolded ground state"
 rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 'yhh_planarity', 'dslf_fa13',
@@ -928,7 +928,7 @@ def hot_spot(residue_dict, energy=-1.5):  # UNUSED
     return residue_dict
 
 
-def interface_residue_composition_similarity(series):
+def interface_composition_similarity(series):
     """Calculate the composition difference for pose residue classification
 
     Args:
