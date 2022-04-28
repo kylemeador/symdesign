@@ -339,7 +339,7 @@ class PDB(Structure):
             self.log.debug('Multimodel file found. Original Chains: %s' % ','.join(self.multimodel_chain_map.values()))
         if not atom_info:
             raise DesignError('The file %s has no atom records!' % self.filepath)
-        self.process_pdb(atoms=[Atom.from_info(*info) for info in atom_info], coords=coords,
+        self.process_pdb(atoms=[Atom(*info) for info in atom_info], coords=coords,
                          seqres=seq_res_lines, **kwargs)  # pose_format=pose_format,
 
     def process_pdb(self, atoms=None, residues=None, coords=None, chains=True, entities=True,
