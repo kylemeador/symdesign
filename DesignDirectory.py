@@ -36,8 +36,8 @@ from PDB import PDB
 from Pose import Pose, MultiModel, Models  # , Model
 from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_pairs, \
     columns_to_new_column, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
-    mutation_conserved, per_res_metric, residue_classificiation, interface_residue_composition_similarity, \
-    stats_metrics, significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
+    mutation_conserved, per_res_metric, interface_residue_composition_similarity, \
+    significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value, \
     residue_processing, multiple_sequence_alignment_dependent_metrics
 #   columns_to_rename, calc_relative_sa, join_columns,
@@ -54,6 +54,8 @@ logger = start_log(name=__name__)
 idx_offset = 1
 design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
+stats_metrics = ['mean', 'std']
+residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 
 
 class JobResources:
@@ -2564,11 +2566,26 @@ class DesignDirectory:  # (JobResources):
                 atomic_deviation[structure.name], per_residue_errat = \
                     assembly_minimally_contacting.errat(out_path=self.data)
                 per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
+                # perform SASA measurements
                 assembly_minimally_contacting.get_sasa()
                 # per_residue_sasa = [residue.sasa for residue in structure.residues
                 #                     if residue.number in self.design_residues]
-                per_residue_sasa = [residue.sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
-                per_residue_data['sasa_total'][structure.name] = per_residue_sasa[:pose_length]
+                per_residue_sasa_complex = \
+                    [residue.sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
+                per_residue_sasa_complex_relative = \
+                    [residue.relative_sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
+                per_residue_data['sasa_complex'][structure.name] = per_residue_sasa_complex
+                per_residue_data['sasa_complex_relative'][structure.name] = per_residue_sasa_complex_relative
+                per_residue_sasa_unbound, per_residue_sasa_unbound_relative = [], []
+                for idx, entity in enumerate(self.pose.entities, 1):
+                    entity.oligomer.get_sasa()
+                    per_residue_sasa_unbound.extend(
+                        [residue.sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
+                    per_residue_sasa_unbound_relative.extend(
+                        [residue.relative_sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
+                per_residue_data['sasa_unbound'][structure.name] = per_residue_sasa_unbound
+                per_residue_data['sasa_unbound_relative'][structure.name] = per_residue_sasa_unbound_relative
+
             scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
             scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
@@ -2970,10 +2987,42 @@ class DesignDirectory:  # (JobResources):
             # scores_df['interface_local_density'] = \
             #     residue_df.loc[:, idx_slice[self.interface_residues,
             #                                 residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
+            # Todo update with join like below
+            residue_df = pd.concat([residue_df,
+                                    pd.concat(
+                                        [residue_df.loc[:, idx_slice[self.interface_residues,
+                                                                     'sasa_unbound_polar']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_polar']] -
+                                         residue_df.loc[:, idx_slice[self.interface_residues,
+                                                                     'sasa_complex_polar']]],  # residue_df.columns.get_level_values(-1) == 'sasa_complex_polar']]],
+                                        axis=1, keys=list(zip(self.interface_residues, repeat('bsa_polar'))))], axis=1)
+
+            residue_df = pd.concat([residue_df,
+                                    pd.concat(
+                                        [residue_df.loc[:, idx_slice[self.interface_residues,
+                                                                     'sasa_unbound_hydrophobic']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_hydrophobic']] -
+                                         residue_df.loc[:, idx_slice[self.interface_residues,
+                                                                     'sasa_complex_hydrophobic']]],  # residue_df.columns.get_level_values(-1) == 'sasa_complex_hydrophobic']]],
+                                        axis=1, keys=list(zip(self.interface_residues, repeat('bsa_hydrophobic'))))],
+                                   axis=1)
+            # make sasa_complex_total columns
+            # residue_df = pd.concat([residue_df,
+            #                         pd.concat(
+            #                             [residue_df.loc[:, idx_slice[self.interface_residues,
+            #                                                          ['bsa_polar', 'bsa_hydrophobic']]].sum(axis=1,
+            #                                                                                                 level=0)],
+            #                             axis=1, keys=list(zip(self.interface_residues, repeat('bsa_total'))))], axis=1)
+            residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_hydrophobic']]
+                                         .rename(columns={'sasa_complex_hydrophobic': 'sasa_complex_total'}) +
+                                         residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_polar']]
+                                         .rename(columns={'sasa_complex_polar': 'sasa_complex_total'}))
             # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
-            sasa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
-                                                           residue_df.columns.get_level_values(-1) == 'sasa_total']] \
-                .droplevel(-1, axis=1)
+            sasa_assembly_df = \
+                residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex']].droplevel(-1, axis=1)
+            # make bsa_total columns
+            residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']]
+                                         .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
+                                         residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']]
+                                         .rename(columns={'bsa_polar': 'bsa_total'}))
             bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
                                                           residue_df.columns.get_level_values(-1) == 'bsa_total']] \
                 .droplevel(-1, axis=1)
@@ -2982,6 +3031,19 @@ class DesignDirectory:  # (JobResources):
             scores_df['interface_area_to_residue_surface_ratio'] = \
                 (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
+            # find the relative sasa of the complex and the unbound fraction
+            interface_residues = np.asarray(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']] > 0)
+            core_or_interior = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_relative']] < 0.25
+            support_not_rim_or_core = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_unbound_relative']] < 0.25
+            core_residues = np.logical_and(core_or_interior, interface_residues).rename(columns={'sasa_complex_relative': 'core'})
+            interior_residues = np.logical_and(core_or_interior, ~interface_residues).rename(columns={'sasa_complex_relative': 'interior'})
+            support_residues = np.logical_and(support_not_rim_or_core, interface_residues).rename(columns={'sasa_unbound_relative': 'support'})
+            rim_or_surface = np.logical_xor(~support_not_rim_or_core, core_residues)
+            rim_residues = np.logical_and(rim_or_surface, interface_residues).rename(columns={'sasa_unbound_relative': 'rim'})
+            surface_residues = np.logical_xor(rim_or_surface, interface_residues).rename(columns={'sasa_unbound_relative': 'surface'})
+
+            residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
+                                    surface_residues], axis=1)
             residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]  # Todo this isn't explict!!
 
             # POSE ANALYSIS
@@ -3288,7 +3350,7 @@ class DesignDirectory:  # (JobResources):
                         {'type': protein_letters_3to1.get(residue.type.title()), 'core': None, 'rim': None, 'support': None,
                          # Todo implement wt energy metric during oligomer refinement?
                          'interior': 0, 'hbond': None, 'energy_delta': None,
-                         'bsa_total': residue.sasa, 'bsa_polar': None, 'bsa_hydrophobic': None,
+                         'bsa_total': None, 'bsa_polar': None, 'bsa_hydrophobic': None, 'sasa_total': residue.sasa,
                          'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
                          'observed_evolution': None, 'observed_fragment': None}  # 'hot_spot': None}
                     if residue.relative_sasa < 0.25:
