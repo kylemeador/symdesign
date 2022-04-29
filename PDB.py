@@ -1033,6 +1033,7 @@ class PDB(Structure):
         """
         assert tolerance <= 1, '%s tolerance cannot be greater than 1!' % self.get_entity_info_from_atoms.__name__
         entity_idx = 1
+        self.entity_info.clear()  # get rid of any information already acquired
         self.entity_info.append({'chains': [self.chains[0]], 'sequence': self.chains[0].sequence, 'name': entity_idx})
         for chain in self.chains[1:]:
             self.log.debug('Searching for matching Entities for Chain %s' % chain.name)
