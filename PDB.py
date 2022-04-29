@@ -690,7 +690,7 @@ class PDB(Structure):
         # stderr = stderr.decode()  # turn from bytes to string 'utf-8' implied
         # stdout = pdb_file_name + stdout.decode()[28:]
         log.info(pdb_file_name + stdout.decode()[28:])
-        log.info(stderr.decode())
+        log.info(stderr.decode()) if stderr else None
         if not os.path.exists(orient_output) or os.stat(orient_output).st_size == 0:
             # orient_log = os.path.join(out_dir, orient_log_file)
             log_file = getattr(log.handlers[0], 'baseFilename', None)
