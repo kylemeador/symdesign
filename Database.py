@@ -199,10 +199,6 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         pdb.orient(symmetry=symmetry, log=orient_log)
                         orient_file = pdb.write(out_path=os.path.join(orient_dir, entry_entity_base))
                         orient_log.info('Oriented: %s' % orient_file)
-                        # orient_file = orient_pdb_file(file_path, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
-                        if not orient_file:  # code shouldn't be reachable
-                            logger.warning('No oriented file possible for %s. See the orient log' % entry_entity)
-                            continue
                     except (ValueError, RuntimeError) as err:
                         orient_log.error(str(err))
                         continue
