@@ -125,7 +125,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         stride_dir = self.stride.location
         os.makedirs(stride_dir, exist_ok=True)
         # orient_log = SDUtils.start_log(name='orient', handler=1)
-        orient_log = SDUtils.start_log(name='orient', propagate=True, handler=2,
+        orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
                                        location=os.path.join(orient_dir, PUtils.orient_log_file))
         orient_names = self.oriented.retrieve_names()
         orient_asu_names = self.oriented_asu.retrieve_names()
@@ -154,6 +154,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         assembly = 1
                         logger.warning('No confirmed biological assembly for entry %s, entity %s. '
                                        'Using PDB default assembly %d' % (entry, entity, assembly))
+                # get the specified filepath for the assembly state of interest
                 file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=pdbs_dir)
 
                 if not file_path:
@@ -166,24 +167,28 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     # Todo
                     # continue
                 pdb = PDB.from_file(file_path, pose_format=False)  # , log=None)
-                if entity:  # replace fetched_pdb with the entity pdb
+                if entity:  # replace pdb from fetched file with the entity pdb
                     # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
-                    entity_pdb = pdb.entity(entry_entity)
-                    if entity_pdb:  # ensure not none, otherwise, report
-                        # pdb = entity_pdb
-                        file_path = entity_pdb.write_oligomer(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
-                        pdb = PDB.from_chains(pdb.entities[0], pose_format=False)  # , log=None)
-                    else:
-                        # logger.warning('No entity with the name %s found in file %s'
-                        # % (entry_entity, pdb.filepath))
-                        raise ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
-                # else:
-                #     pdb = PDB.from_file(file_path, log=None, pose_format=False)
+                    entity = pdb.entity(entry_entity)
+                else:  # assume that there is only one entity and grab the first
+                    entity = pdb.entities[0]
+                    entry_entity = entity.name
+                entry_entity_base = '%s.pdb' % entry_entity
 
-                if symmetry == 'C1':  # translate the monomer to the origin for the database
+                if entity:  # ensure not none, otherwise, report
+                    if symmetry == 'C1':  # write out only entity
+                        entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, entry_entity_base))
+                    else:  # write out the entity as parsed. since this is assembly we should get the correct state
+                        entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, entry_entity_base))
+                    pdb = PDB.from_chains(pdb.entities[0], pose_format=False)  # , log=None)
+                else:
+                    raise ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
+
+                # write out file for the orient database
+                if symmetry == 'C1':  # translate the monomer to the origin
                     pdb.translate(-pdb.center_of_mass)
                     pdb.name = entry_entity
-                    orient_file = pdb.write(out_path=os.path.join(orient_dir, '%s.pdb' % entry_entity))
+                    orient_file = pdb.write(out_path=os.path.join(orient_dir, entry_entity_base))
                     pdb.symmetry = symmetry
                     pdb.filepath = pdb.write(out_path=self.oriented_asu.store(name=pdb.name))
                     pdb.stride(to_file=self.stride.store(name=pdb.name))
@@ -191,7 +196,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 else:
                     try:
                         pdb.orient(symmetry=symmetry, log=orient_log)
-                        orient_file = pdb.write(out_path=os.path.join(orient_dir, '%s.pdb' % entry_entity))
+                        orient_file = pdb.write(out_path=os.path.join(orient_dir, entry_entity_base))
                         orient_log.info('Oriented: %s' % orient_file)
                         # orient_file = orient_pdb_file(file_path, log=orient_log, symmetry=symmetry, out_dir=orient_dir)
                         if not orient_file:  # code shouldn't be reachable
