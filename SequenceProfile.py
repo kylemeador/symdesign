@@ -7,7 +7,7 @@ import subprocess
 import time
 from copy import deepcopy, copy
 # from glob import glob
-from typing import Dict, Union
+from typing import Dict, Union, Sequence
 
 import numpy as np
 import pandas as pd
@@ -1285,17 +1285,17 @@ class SequenceProfile:
         # mutated_pdb.write(consensus_pdb, cryst1=cryst)
 
     # @staticmethod
-    # def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
+    # def generate_mutations(query, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
     #                        only_gaps=False):
     #     """Create mutation data in a typical A5K format. One-indexed dictionary keys, mutation data accessed by 'from'
     #     and 'to' keywords. By default all gaped sequences are excluded from returned mutations
     #
-    #     For PDB file comparison, mutant should be crystal sequence (ATOM), reference should be expression sequence
+    #     For PDB file comparison, query should be crystal sequence (ATOM), reference should be expression sequence
     #     (SEQRES). only_gaps=True will return only the gaped area while blanks=True will return all differences between
     #     the alignment sequences. termini=True returns missing alignments at the termini
     #
     #     Args:
-    #         mutant (str): Mutant sequence. Will be in the 'to' key
+    #         query (str): Mutant sequence. Will be in the 'to' key
     #         reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
     #     Keyword Args:
     #         offset=True (bool): Whether sequences are different lengths. Creates a new alignment
@@ -1307,11 +1307,11 @@ class SequenceProfile:
     #         (dict): {index: {'from': 'A', 'to': 'K'}, ...}
     #     """
     #     if offset:
-    #         alignment = generate_alignment(mutant, reference)
+    #         alignment = generate_alignment(query, reference)
     #         align_seq_1 = alignment[0][0]
     #         align_seq_2 = alignment[0][1]
     #     else:
-    #         align_seq_1 = mutant
+    #         align_seq_1 = query
     #         align_seq_2 = reference
     #
     #     # Extract differences from the alignment
@@ -2511,65 +2511,65 @@ def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
     return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
-def generate_mutations(reference, mutant, offset=True, blanks=False, termini=False, reference_gaps=False,
-                       only_gaps=False):
+def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, blanks: bool = False,
+                       remove_termini: bool = True, remove_query_gaps: bool = True, only_gaps: bool = False,
+                       zero_index: bool = False, return_all: bool = True) -> Dict[int, Dict[str, str]]:
     """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
-     sequence index. Sequence mutations accessed by 'from' and 'to' keys. By default, all gaped sequences are excluded
+     sequence index. Sequence mutations accessed by "from" and "to" keys. By default, all gaped sequences are excluded
      from returned mutation dictionary
 
-    For PDB file comparison, mutant should be crystal sequence (ATOM), reference should be expression sequence (SEQRES).
-    only_gaps=True will return only the gaped area while blanks=True will return all differences between the alignment
-    sequences. termini=True returns missing alignments at the termini
+    For PDB comparison, reference should be expression sequence (SEQRES), query should be atomic sequence (ATOM)
 
     Args:
-        mutant (str): Mutant sequence. Will be in the 'to' key
-        reference (str): Wild-type sequence or sequence to reference mutations against. Will be in the 'from' key
-    Keyword Args:
-        offset=True (bool): Whether sequences are different lengths. Creates a new alignment
-        blanks=False (bool): Whether to include all indices that are outside the reference sequence or missing residues
-        termini=False (bool): Whether to include indices that are outside the reference sequence boundaries
-        reference_gaps=False (bool): Whether to include indices that are missing residues inside the reference sequence
-        only_gaps=False (bool): Whether to only include all indices that are missing residues
+        reference (str): Reference sequence to align mutations against. Character values are returned in the "from" key
+        query (str): Query sequence. Character values are returned in the "to" key
+        offset: Whether sequences are different lengths. Will create an alignment of the two sequences
+        blanks: Include all gaped indices, i.e. outside the reference sequence or missing characters in the sequence
+        remove_termini: Remove indices that are outside the reference sequence boundaries
+        remove_query_gaps: Remove indices where there are gaps present in the query sequence
+        only_gaps: Only include reference indices that are missing query residues. All "to" values will be a gap "-"
+        zero_index: Whether to return the indices zero-indexed (like python) or one-indexed
+        return_all: Whether to return all the indices and there corresponding mutational data
     Returns:
-        (dict): {index: {'from': 'A', 'to': 'K'}, ...}
+        (Dict[int, Dict[str, str]]): {1: {'from': 'A', 'to': 'K'}, ...}
     """
-    # TODO change function name/order of mutant and reference arguments to match logic with 'from' 37 'to' framework
     if offset:
-        align_seq_1, align_seq_2, *_ = generate_alignment(mutant, reference)[0]  # first alignment has highest score
+        align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)[0]  # first alignment has the highest score
     else:
-        align_seq_1, align_seq_2 = mutant, reference
+        align_seq_1, align_seq_2 = reference, query
+
+    if zero_index:
+        idx_offset = 0
+    else:
+        idx_offset = index_offset
 
     # Extract differences from the alignment
-    starting_index_of_seq2 = align_seq_2.find(reference[0])  # get the first matching index of the reference sequence
-    ending_index_of_seq2 = starting_index_of_seq2 + align_seq_2.rfind(reference[-1])  # find last index of reference
-    mutations = {}
-    for idx, (seq1_aa, seq2_aa) in enumerate(zip(align_seq_1, align_seq_2), -starting_index_of_seq2 + index_offset):
-        if seq1_aa != seq2_aa:
-            mutations[idx] = {'from': seq2_aa, 'to': seq1_aa}
+    starting_idx_of_seq1 = align_seq_1.find(reference[0])  # get the first matching index of the reference sequence
+    ending_index_of_seq1 = starting_idx_of_seq1 + align_seq_1.rfind(reference[-1])  # find last index of reference
+    if return_all:
+        mutations = \
+            {idx: {'from': seq1, 'to': seq2}  # always ensure sequence1/reference starts at idx 1    v
+             for idx, (seq1, seq2) in enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)}
+    else:
+        mutations = \
+            {idx: {'from': seq1, 'to': seq2}  # always ensure sequence1/reference starts at idx 1    v
+             for idx, (seq1, seq2) in enumerate(zip(align_seq_1, align_seq_2), -starting_idx_of_seq1 + idx_offset)
+             if seq1 != seq2}
 
     remove_mutation_list = []
-    if only_gaps:  # remove the actual mutations
-        for entry in mutations:
-            if entry > 0 or entry <= ending_index_of_seq2:
-                if mutations[entry]['to'] != '-':
-                    remove_mutation_list.append(entry)
+    if only_gaps:  # remove the actual mutations, keep internal and external gap indices and the reference sequence
         blanks = True
-    if blanks:  # if blanks is True, leave all types of blanks, if blanks is False check for requested types
-        termini, reference_gaps = True, True
-        # for entry in mutations:
-        #     for index in mutations[entry]:
-        #         if mutations[entry][index] == '-':
-        #             remove_mutation_list.append(entry)
-    if not termini:  # Remove indices outside of sequence 2
-        for entry in mutations:
-            if entry < 0 or entry > ending_index_of_seq2:
-                remove_mutation_list.append(entry)
-    if not reference_gaps:  # Remove indices inside sequence 2 where sequence 1 is gapped
-        for entry in mutations:
-            if entry > 0 or entry <= ending_index_of_seq2:
-                if mutations[entry]['to'] == '-':
-                    remove_mutation_list.append(entry)
+        remove_mutation_list.append([entry for entry, mutation in mutations.items()
+                                     if 0 < entry <= ending_index_of_seq1 and mutation['to'] != '-'])
+    if blanks:  # leave all types of blanks, otherwise check for each requested type
+        remove_termini, remove_query_gaps = False, False
 
+    if remove_termini:  # remove indices outside of sequence 1
+        remove_mutation_list.extend([entry for entry in mutations if entry < 0 or ending_index_of_seq1 < entry])
+
+    if remove_query_gaps:  # remove indices where sequence 2 is gaped
+        remove_mutation_list.extend([entry for entry, mutation in mutations.items()
+                                     if 0 < entry <= ending_index_of_seq1 and mutation['to'] == '-'])
     for entry in remove_mutation_list:
         mutations.pop(entry, None)
 
@@ -3134,51 +3134,19 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
     return mutations
 
 
-def generate_mutations_from_reference(reference, sequences) -> Dict[str, Dict[str, str]]:  # , pose_num=True):
-    """Extract mutation data from multiple sequence dictionaries with regard to a reference. Default is Pose numbering
+def generate_mutations_from_reference(reference: str, sequences: Dict[str, str]) -> \
+        Dict[str, Dict[int, Dict[str, str]]]:
+    """Generate mutation data from multiple sequences dictionaries with regard to a single reference
 
     Args:
-        reference (str): The reference sequence to compare sequences to
-        sequences (dict[mapping[str, str]]): {pdb_code: sequence, ...}
-    Keyword Args:
-        # pose_num=True (bool): Whether to return the mutations in Pose numbering with the first Entity as 1 and the
-        second Entity as Entity1 last residue + 1
+        reference: The reference sequence to compare each sequence against
+        sequences: {alias: sequence, ...}
     Returns:
-        (dict): {pdb_code: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
+        (dict): {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
-    # mutations = {'reference': {chain: {sequence_idx: {'from': aa, 'to': aa}
-    #                                    for sequence_idx, aa in enumerate(ref_sequence, 1)}
-    #                            for chain, ref_sequence in reference.items()}}
-    #                         returns {1: {'from': 'A', 'to': 'K'}, ...}
-    # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
-    #                    for chain, sequence in chain_sequences.items()}
-    #              for pdb, chain_sequences in pdb_sequences.items()}
-    mutations = {name: generate_mutations(reference, sequence, offset=False) for name, sequence in sequences.items()}
-    # try:
-    #     for pdb, chain_sequences in sequences.items():
-    #         mutations[pdb] = {}
-    #         for chain, sequence in chain_sequences.items():
-    #             mutations[pdb][chain] = generate_mutations(sequence, reference[chain], offset=False)
-    # except KeyError:
-    #     raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
-    #                       'reference' % chain)
+    mutations = {alias: generate_mutations(reference, sequence, offset=False) for alias, sequence in sequences.items()}
     # add reference sequence mutations
     mutations['reference'] = {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
-
-    # if pose_num:
-    #     offset_dict = pdb_to_pose_num(reference)
-    #     # pose_mutations = {}
-    #     # for chain, offset in offset_dict.items():
-    #     #     for pdb_code in mutations:
-    #     #         if pdb_code not in pose_mutations:
-    #     #             pose_mutations[pdb_code] = {}
-    #     #         pose_mutations[pdb_code][chain] = {}
-    #     #         for mutation_idx in mutations[pdb_code][chain]:
-    #     #             pose_mutations[pdb_code][chain][mutation_idx + offset] = mutations[pdb_code][chain][mutation_idx]
-    #     # mutations = pose_mutations
-    #     mutations = {pdb_code: {chain: {idx + offset: mutation for idx, mutation in chain_mutations[chain].iems()}
-    #                             for chain, offset in offset_dict.items()}
-    #                  for pdb_code, chain_mutations in mutations.items()}
 
     return mutations
 
