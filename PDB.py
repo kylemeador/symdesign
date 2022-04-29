@@ -15,12 +15,12 @@ from sklearn.neighbors import BallTree
 from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 
-from PathUtils import orient_exe_path, orient_dir, reference_aa_file, reference_residues_pkl, pdb_db
+from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio, reference_aa_file, reference_residues_pkl
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from SequenceProfile import generate_alignment_local
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, \
-    pickle_object
+    unpickle, pickle_object
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number
 
 logger = start_log(name=__name__)
@@ -506,7 +506,7 @@ class PDB(Structure):
         """
         if self.reference_sequence:
             formated_reference_sequence = \
-                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended[aa] for aa in sequence)))
+                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
                  for chain, sequence in self.reference_sequence.items()}
             chain_lengths = {chain: len(sequence) for chain, sequence in self.reference_sequence.items()}
             return '%s\n' \
@@ -641,12 +641,13 @@ class PDB(Structure):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
         # self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_ids}
 
-    def orient(self, symmetry=None):
-        """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axes defined by symmetry
+    def orient(self, symmetry: str = None, log: os.PathLike = None):
+        """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
         file. Automatically produces files in PDB numbering for proper orient execution
 
         Keyword Args:
             symmetry=None (str): What is the symmetry of the specified PDB?
+            log=None (os.PathLike): If there is a log specific for orienting
         """
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
@@ -660,6 +661,8 @@ class PDB(Structure):
         if not subunit_number:
             raise ValueError('Symmetry %s is not a valid symmetry. Please try one of: %s' %
                              (symmetry, ', '.join(valid_subunit_number.keys())))
+        if not log:
+            log = self.log
 
         if self.filepath:
             pdb_file_name = os.path.basename(self.filepath)
@@ -709,19 +712,18 @@ class PDB(Structure):
                              stderr=subprocess.PIPE, cwd=orient_dir)
         in_symm_file = os.path.join(orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        stderr = stderr.decode()  # turn from bytes to string 'utf-8' implied
-        stdout = pdb_file_name + stdout.decode()[28:]
-
-        self.log.info(stdout)
-        self.log.info('%s\n' % stderr)
+        # stderr = stderr.decode()  # turn from bytes to string 'utf-8' implied
+        # stdout = pdb_file_name + stdout.decode()[28:]
+        log.info(pdb_file_name + stdout.decode()[28:])
+        log.info(stderr.decode())
         if not os.path.exists(orient_output) or os.stat(orient_output).st_size == 0:
             # orient_log = os.path.join(out_dir, orient_log_file)
-            error_string = 'orient_oligomer could not orient %s. Check %s for more information\n' \
-                           % (pdb_file_name, self.log)
-            # Todo fix this to be more precise
+            log_file = getattr(log.handlers[0], 'baseFilename', None)
+            log_message = '. Check %s for more information' % log_file if log_file else ''
+            error_string = 'orient_oligomer could not orient %s%s' % (pdb_file_name, log_message)
             raise RuntimeError(error_string)
 
-        oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
+        oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
@@ -1031,6 +1033,7 @@ class PDB(Structure):
         """
         assert tolerance <= 1, '%s tolerance cannot be greater than 1!' % self.get_entity_info_from_atoms.__name__
         entity_idx = 1
+        self.entity_info.clear()  # get rid of any information already acquired
         self.entity_info.append({'chains': [self.chains[0]], 'sequence': self.chains[0].sequence, 'name': entity_idx})
         for chain in self.chains[1:]:
             self.log.debug('Searching for matching Entities for Chain %s' % chain.name)
@@ -1607,10 +1610,21 @@ def orient_pdb_file(pdb_path, log=logger, symmetry=None, out_dir=None):
             pdb.write(out_path=oriented_file_path)
             log.info('Oriented: %s' % pdb_filename)
             return oriented_file_path
-        except (ValueError, RuntimeError) as err:
-            log.error(str(err))
+        except (ValueError, RuntimeError) as error:
+            log.error(str(error))
 
 
+def query_qs_bio(pdb_entry_id: str) -> int:
+    qsbio_confirmed = unpickle(qs_bio)
+    biological_assemblies = qsbio_confirmed.get(pdb_entry_id)
+    if biological_assemblies:  # first   v   assembly in matching oligomers
+        assembly = biological_assemblies[0]
+    else:
+        assembly = 1
+        logger.warning('No confirmed biological assembly for entry %s'
+                       ' using PDB default assembly %d' % (pdb_entry_id, assembly))
+
+    return assembly
 # ref_aa = PDB.from_file(reference_aa_file, log=None, pose_format=False, entities=False)
 # from shutil import move
 # move(reference_residues_pkl, '%s.bak' % reference_residues_pkl)

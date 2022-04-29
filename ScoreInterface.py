@@ -109,7 +109,7 @@ if __name__ == '__main__':
         #     for interface_pdb, pdb_code_id_tuple in zip(interface_pdbs, pdb_code_id_tuples):
         #         interface_pdb.write(os.path.join(args.output_dir, '%s-%d.pdb' % pdb_code_id_tuple))
 
-        interface_filepaths = to_iterable(args.file)
+        interface_filepaths = to_iterable(args.file, ensure_file=True)
         interface_poses = [Pose.from_asu_file(interface_path, symmetry=os.path.basename(interface_path[0]))
                            for interface_path in interface_filepaths]
     else:

@@ -1118,7 +1118,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
-    all_poses, design_directories, location = None, None, None
+    all_poses, design_directories, location = None, [], None
     all_dock_directories, pdb_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
 
@@ -1431,7 +1431,7 @@ if __name__ == '__main__':
                 entities2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
             else:
                 if args.pdb_codes1:
-                    entities1 = set(SDUtils.to_iterable(args.pdb_codes1))
+                    entities1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
                     # all_entities.extend(master_db.orient_entities(entities1, symmetry=symmetry_map[0]))
                 else:
                     # args.oligomer1:
@@ -1444,10 +1444,9 @@ if __name__ == '__main__':
                         pdb1_filepaths = [args.oligomer1]
                     else:
                         pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.oligomer1)
-                    pdb1_oriented_filepaths = \
-                        [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
-                                         out_dir=master_db.oriented.location)
-                         for file in pdb1_filepaths]
+                    pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
+                                                               out_dir=master_db.oriented.location)
+                                               for file in pdb1_filepaths]
                     entities1 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
                     # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
@@ -1477,7 +1476,7 @@ if __name__ == '__main__':
                     entities2 = []
             elif args.pdb_codes2:
                 # Collect all entities required for processing the given commands
-                entities2 = set(SDUtils.to_iterable(args.pdb_codes2))
+                entities2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
                 # Select entities, orient them, then load each entity to all_entities for further database processing
                 # for symmetry, entities in zip(symmetry_map, required_entities):
                 #     if not entities:

@@ -477,6 +477,18 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     init_surf_frags2_guide_coords = surf_frags2_guide_coords[init_surf_frag_indices2]
     init_surf_frag2_residues = surf_frag2_residues[init_surf_frag_indices2]
 
+    # TODO write out frags
+    # guide_file_surf = '/home/kmeador/c1_overlap_files/4f47_surf_coords.txt'
+    # with open(guide_file_surf, 'w') as f:
+    #     for coord_group in surf_frags2_guide_coords.tolist():
+    #         f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
+    # guide_file_surf_idx = '/home/kmeador/c1_overlap_files/4f47_surf_coords_index.txt'
+    # with open(guide_file_surf_idx, 'w') as f:
+    #     f.write('%s\n' % '\n'.join(map(str, surf_frags2_i_indices.tolist())))
+    # guide_file_surf_res_num = '/home/kmeador/c1_overlap_files/4f47_surf_coords_residue_number.txt'
+    # with open(guide_file_surf_res_num, 'w') as f:
+    #     f.write('%s\n' % '\n'.join(map(str, surf_frag2_residues.tolist())))
+    #
     # log.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
     # log.debug('Found initial fragment type: %d' % initial_surf_type2)
     get_complete_surf_frags2_time_stop = time.time()
@@ -537,6 +549,18 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
     get_complete_ghost_frags1_time_stop = time.time()
     #################################
+    # TODO write out frags
+    # guide_file_ghost = '/home/kmeador/c1_overlap_files/1nu4_ghost_coords.txt'
+    # with open(guide_file_ghost, 'w') as f:
+    #     for coord_group in ghost_frag1_guide_coords.tolist():
+    #         f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
+    # guide_file_ghost_idx = '/home/kmeador/c1_overlap_files/1nu4_ghost_coords_index.txt'
+    # with open(guide_file_ghost_idx, 'w') as f:
+    #     f.write('%s\n' % '\n'.join(map(str, ghost_frag1_j_indices.tolist())))
+    # guide_file_ghost_res_num = '/home/kmeador/c1_overlap_files/1nu4_ghost_coords_residue_number.txt'
+    # with open(guide_file_ghost_res_num, 'w') as f:
+    #     f.write('%s\n' % '\n'.join(map(str, ghost_frag1_residues.tolist())))
+    #
     ij_type_match_lookup_table = compute_ij_type_lookup(ghost_frag1_j_indices, surf_frags2_i_indices)
     # ^ axis 0 is ghost frag, 1 is surface frag
     # ij_matching_ghost1_indices = \

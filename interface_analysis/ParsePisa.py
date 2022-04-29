@@ -421,7 +421,8 @@ def extract_pisa_files_and_pickle(root, pdb_code):
 def download_pisa(pdb, pisa_type, out_path=os.getcwd(), force_singles=False):
     """Downloads PISA .xml files from http://www.ebi.ac.uk/pdbe/pisa/cgi-bin/
     Args:
-        pdb (str,list): Either a single pdb code, a list of pdb codes, or a file with pdb codes, comma or newline delimited
+        pdb (str,list): Either a single pdb code, a list of pdb codes, or a file with pdb codes, comma or newline
+            delimited
         pisa_type (str): Either 'multimers', 'interfaces', or 'multimer' to designate the PISA File Source
     Keyword Args:
         out_path=os.getcwd() (str): Path to download PISA files
