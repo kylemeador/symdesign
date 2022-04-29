@@ -496,12 +496,15 @@ def io_save(data, file_name=None):
     return file_name
 
 
-def to_iterable(_obj, skip_comma=False):
+def to_iterable(_obj, ensure_file=False, skip_comma=False):
     """Take a file/object and return a list of individual objects splitting on newline or comma"""
     try:
         with open(_obj, 'r') as f:
             _list = f.readlines()
-    except (FileNotFoundError, TypeError):
+    except (FileNotFoundError, TypeError) as e:
+        if isinstance(e, FileNotFoundError) and ensure_file:
+            raise e
+            # logger.info('No file was found for %s:\n%s' % (_obj, e))
         if isinstance(_obj, list):
             _list = _obj
         else:  # assumes obj is a string
@@ -513,10 +516,15 @@ def to_iterable(_obj, skip_comma=False):
             it_list = [it]
         else:
             it_list = it.split(',')
-        clean_list.extend([_it.strip() for _it in it_list])
+        clean_list.extend(map(str.strip, it_list))
 
     # remove duplicates but keep the order
-    return remove_duplicates(clean_list)
+    clean_set = remove_duplicates(clean_list)
+    try:
+        clean_set.pop(clean_set.index(''))  # remove any missing values
+    except ValueError:
+        pass
+    return clean_set
 
 
 def remove_duplicates(_iter):

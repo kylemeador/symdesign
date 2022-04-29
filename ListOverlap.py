@@ -64,7 +64,7 @@ if __name__ == '__main__':
         exit('No list files found: %' % args.files)
     for i in range(num_lists):
         file[i] = args.files[i]
-        _list[i] = to_iterable(file[i], skip_comma=args.skip_commas)
+        _list[i] = to_iterable(file[i], ensure_file=True, skip_comma=args.skip_commas)
         # Uncomment below for use with ugly prefixes or suffixes
         # if i == 1:
         #     for j, _item in enumerate(_list[i]):

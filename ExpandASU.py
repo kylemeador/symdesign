@@ -47,7 +47,7 @@ if __name__ == '__main__':
                  '\n\t'.join([str(arg) + ':' + str(getattr(args, arg)) for arg in vars(args)])))
 
     # Get all possible input files
-    files = to_iterable(args.file)
+    files = to_iterable(args.file, ensure_file=True)
     logger.info('Found %d files in input.' % len(files))
     # Symmetrize the input asu(s)
     path_names = [expand_asu(file, args.symmetry, out_path=args.out_path) for file in files]
