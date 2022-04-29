@@ -329,7 +329,7 @@ if __name__ == '__main__':
     if args.query_web:
         pdbs_of_interest = qPDB.retrieve_pdb_entries_by_advanced_query()
     else:
-        pdbs_of_interest = to_iterable(all_protein_file)
+        pdbs_of_interest = to_iterable(all_protein_file, ensure_file=True)
 
     # Retrieve the verified set of biological assemblies
     # qsbio_file_name = qs_bio
@@ -340,7 +340,7 @@ if __name__ == '__main__':
     # qsbio_monomers = to_iterable(qsbio_monomers_file)
     # TODO add the list of QSBio confirmed hetero oligomers
     qsbio_confirmed_d = unpickle(qs_bio)  # Todo make each list of interface ids a set()
-    qsbio_monomers = to_iterable(qs_bio_monomers_file)  # Todo remove monomers from confirmed assemblies in source
+    qsbio_monomers = to_iterable(qs_bio_monomers_file, ensure_file=True)  # Todo remove monomers from confirmed assemblies in source
     qsbio_monomers_d = {}
     for pdb_assembly in qsbio_monomers:
         pdb, assembly = pdb_assembly.split('_')
