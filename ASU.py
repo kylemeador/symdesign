@@ -222,6 +222,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             asu.get_chain_sequences()  # 1/29/21 KM updated this function which might affect this routine
             downloaded_pdb.get_chain_sequences()
             oriented_pdb_seq_final = downloaded_pdb.atom_sequences[downloaded_pdb.chain_ids[0]]
+            # Todo I think that this is way wrong
             final_mutations = SequenceProfile.generate_mutations(asu.atom_sequences[chain_in_asu],
                                                                  oriented_pdb_seq_final, offset=False, blanks=True)
             logger.debug('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
