@@ -9,7 +9,7 @@ import numpy as np
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags
+from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
 from PDB import PDB, orient_pdb_file, fetch_pdb_file
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
@@ -300,7 +300,10 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     flags = copy(rosetta_flags) + relax_flags
                     flags.extend(['-out:path:pdb %s' % refine_dir, '-no_scorefile true'])
                     flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                    flags.extend(['dist=0'])  # Todo modify if not point groups used
+                    variables = copy(rosetta_variables)
+                    variables.append(('dist', 0))  # Todo modify if not point groups used
+                    flags.append('-parser:script_vars %s' % ' '.join(
+                        '%s=%s' % tuple(map(str, var_val)) for var_val in variables))
                     with open(flags_file, 'w') as f:
                         f.write('%s\n' % '\n'.join(flags))
 

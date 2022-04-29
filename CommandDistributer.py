@@ -6,10 +6,10 @@ import argparse
 import os
 import signal
 import subprocess
-from itertools import repeat
+from itertools import repeat, chain
 
 from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
-    program_name, interface_design, refine
+    program_name, interface_design, refine, rosetta_scripts, sym_weights, solvent_weights_sym, solvent_weights
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors, \
     calculate_mp_threads
 
@@ -52,10 +52,19 @@ rosetta_flags = extras_flags[rosetta_extras] + \
      'lys_dimethylated lys_monomethylated lys_trimethylated lys_acetylated glu_carboxylated MethylatedProteinCterm',
      '-mute all', '-unmute protocols.rosetta_scripts.ParsedProtocol protocols.jd2.JobDistributor']
 
-relax_flags = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints', 'false',
-               '-no_optH', 'false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev', '0.5',
-               '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate', 'true', '-no_nstruct_label', 'true',
-               '-relax:bb_move', 'false']
+relax_pairs = ['-relax:ramp_constraints false', '-no_optH false', '-relax:coord_cst_stdev 0.5',
+               '-nblist_autoupdate true', '-no_nstruct_label true', '-relax:bb_move false']  # Todo remove this one?
+relax_singles = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:coord_constrain_sidechains', '-flip_HNQ',
+                 '-no_his_his_pairE']
+relax_flags = relax_singles + relax_pairs
+relax_flags_cmdline = relax_singles + list(chain.from_iterable(map(str.split, relax_pairs)))
+# relax_flags_cmdline = ['-constrain_relax_to_start_coords', '-use_input_sc', '-relax:ramp_constraints', 'false',
+#                        '-no_optH', 'false', '-relax:coord_constrain_sidechains', '-relax:coord_cst_stdev', '0.5',
+#                        '-no_his_his_pairE', '-flip_HNQ', '-nblist_autoupdate', 'true', '-no_nstruct_label', 'true',
+#                        '-relax:bb_move', 'false']
+rosetta_variables = [('scripts', rosetta_scripts), ('sym_score_patch', sym_weights),
+                     ('solvent_sym_score_patch', solvent_weights_sym),
+                     ('solvent_score_patch', solvent_weights)]
 # Those jobs having a scale of 2 utilize two threads. Therefore two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
 process_scale = {refine: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
