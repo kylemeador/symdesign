@@ -170,19 +170,25 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 if entity:  # replace pdb from fetched file with the entity pdb
                     # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
                     entity = pdb.entity(entry_entity)
-                else:  # assume that there is only one entity and grab the first
-                    entity = pdb.entities[0]
-                    entry_entity = entity.name
-                entry_entity_base = '%s.pdb' % entry_entity
-
-                if entity:  # ensure not none, otherwise, report
                     if symmetry == 'C1':  # write out only entity
                         entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, entry_entity_base))
                     else:  # write out the entity as parsed. since this is assembly we should get the correct state
                         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, entry_entity_base))
-                    pdb = PDB.from_entities([entity], pose_format=False, entity_names=[entry_entity])  # , log=None)
-                else:
-                    raise ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
+                    # Todo make Entity object capable of orient() then don't need this
+                    pdb = PDB.from_chains(entity.chains, pose_format=False, entity_names=[entry_entity])  # , log=None)
+                else:  # orient the whole set of chains based on orient() multicomponent solution
+                    # entity = pdb.entities[0]  # assume that there is only one entity and grab the first
+                    entry_entity = pdb.entities[0].name
+                entry_entity_base = '%s.pdb' % entry_entity
+
+                # if entity:  # ensure not none, otherwise, report
+                #     if symmetry == 'C1':  # write out only entity
+                #         entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, entry_entity_base))
+                #     else:  # write out the entity as parsed. since this is assembly we should get the correct state
+                #         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, entry_entity_base))
+                #     pdb = PDB.from_chains(entity.chains, pose_format=False, entity_names=[entry_entity])  # , log=None)
+                # else:
+                #     raise ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
 
                 # write out file for the orient database
                 if symmetry == 'C1':  # translate the monomer to the origin
@@ -191,9 +197,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     # entity.name = entry_entity
                     orient_file = entity.write(out_path=os.path.join(orient_dir, entry_entity_base))
                     entity.symmetry = symmetry
-                    entity.filepath = entity.write(out_path=self.oriented_asu.store(name=pdb.name))
-                    entity.stride(to_file=self.stride.store(name=pdb.name))
-                    all_entities.append(pdb)  # .entities[0]
+                    entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
+                    entity.stride(to_file=self.stride.store(name=entity.name))
+                    all_entities.append(entity)  # .entities[0]
                 else:
                     try:
                         pdb.orient(symmetry=symmetry, log=orient_log)
@@ -203,6 +209,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         orient_log.error(str(err))
                         continue
                     # extract the asu from the oriented file for symmetric refinement
+                    # Todo include multiple entities if they are used...? Maybe these are coming from PDB
                     # all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
                     entity = pdb.entities[0]
                     # entity.name = pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
