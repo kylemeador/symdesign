@@ -2529,51 +2529,36 @@ class Entity(Chain, SequenceProfile):
                                      % (chain.name, self.name))
                     mutations = generate_mutations(self.sequence, chain.sequence, blanks=True, return_all=True)
                     # get only those indices where there is an aligned aa on the opposite chain
-                    # fixed_polymer_indices = \
-                    #     [idx for idx, mutation in enumerate(mutations.values()) if mutation['from'] != '-']
-                    # moving_polymer_indices = \
-                    #     [idx for idx, mutation in enumerate(mutations.values()) if mutation['to'] != '-']
                     fixed_polymer_indices, moving_polymer_indices = [], []
                     to_idx, from_idx = 0, 0
                     # from is moving, to is fixed
                     for mutation in mutations.values():
-                        # if mutation['from'] != '-':
-                        #     fixed_polymer_indices.append(to_idx)
-                        #     from_idx += 1
-                        # if mutation['to'] != '-':
-                        #     moving_polymer_indices.append(from_idx)
-                        #     to_idx += 1
-                        # ALTERNATIVE
                         if mutation['from'] == '-':  # increment to_idx/fixed_idx
                             to_idx += 1
-                            # if mutation['to'] == '-':  # increment from_idx/moving_idx
-                            #     from_idx += 1
-                            # continue
                         elif mutation['to'] == '-':  # increment from_idx/moving_idx
                             from_idx += 1
-                            # continue
                         else:
                             fixed_polymer_indices.append(to_idx)
                             to_idx += 1
                             moving_polymer_indices.append(from_idx)
                             from_idx += 1
-                    mov_indices_str, from_str, to_str, fix_indices_str = '', '', '', ''
-                    moving_polymer_indices_iter, fixed_polymer_indices_iter = iter(moving_polymer_indices), iter(fixed_polymer_indices)
-                    for idx, mutation in enumerate(mutations.values()):
-                        try:
-                            mov_indices_str += ('%2d' % next(moving_polymer_indices_iter) if mutation['from'] != '-' and mutation['to'] != '-' else ' -')
-                        except StopIteration:
-                            mov_indices_str += '-'
-                        try:
-                            fix_indices_str += ('%2d' % next(fixed_polymer_indices_iter) if mutation['from'] != '-' and mutation['to'] != '-' else ' -')
-                        except StopIteration:
-                            fix_indices_str += '-'
-                    print(mov_indices_str)
-                    # print(from_str)
-                    print(' '.join(mutation['from'] for mutation in mutations.values()))  # from_str
-                    # print(to_str)
-                    print(' '.join(mutation['to'] for mutation in mutations.values()))  # to_str
-                    print(fix_indices_str)
+                    # mov_indices_str, from_str, to_str, fix_indices_str = '', '', '', ''
+                    # moving_polymer_indices_iter, fixed_polymer_indices_iter = iter(moving_polymer_indices), iter(fixed_polymer_indices)
+                    # for idx, mutation in enumerate(mutations.values()):
+                    #     try:
+                    #         mov_indices_str += ('%2d' % next(moving_polymer_indices_iter) if mutation['from'] != '-' and mutation['to'] != '-' else ' -')
+                    #     except StopIteration:
+                    #         mov_indices_str += '-'
+                    #     try:
+                    #         fix_indices_str += ('%2d' % next(fixed_polymer_indices_iter) if mutation['from'] != '-' and mutation['to'] != '-' else ' -')
+                    #     except StopIteration:
+                    #         fix_indices_str += '-'
+                    # print(mov_indices_str)
+                    # # print(from_str)
+                    # print(' '.join(mutation['from'] for mutation in mutations.values()))  # from_str
+                    # # print(to_str)
+                    # print(' '.join(mutation['to'] for mutation in mutations.values()))  # to_str
+                    # print(fix_indices_str)
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords()[fixed_polymer_indices],
                                                     self.get_cb_coords()[moving_polymer_indices])
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
