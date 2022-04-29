@@ -130,14 +130,14 @@ def get_all_base_root_paths(directory):
     return dir_paths
 
 
-def get_all_pdb_file_paths(pdb_dir):
-    filepaths = []
-    for root, dirs, files in os.walk(pdb_dir, followlinks=True):
-        for file in files:
-            if file.endswith('.pdb'):
-                filepaths.append(os.path.join(root, file))
-
-    return filepaths
+# def get_all_pdb_file_paths(pdb_dir):
+#     filepaths = []
+#     for root, dirs, files in os.walk(pdb_dir, followlinks=True):
+#         for file in files:
+#             if file.endswith('.pdb'):
+#                 filepaths.append(os.path.join(root, file))
+#
+#     return filepaths
 
 
 def get_rmsd_atoms(filepaths, function):

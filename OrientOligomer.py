@@ -3,6 +3,7 @@ import sys
 
 from PDB import PDB
 from PathUtils import orient_dir
+from SymDesignUtils import get_all_file_paths
 
 
 def orient_oligomer(pdb_path, sym, out_dir=os.getcwd(), orient_dir=orient_dir):
@@ -26,7 +27,7 @@ if __name__ == '__main__':
         if '.pdb' in pdb_paths and type(pdb_paths) != list:
             all_pdb_paths = [pdb_paths, ]
         else:
-            all_pdb_paths = get_all_pdb_file_paths(pdb_paths)
+            all_pdb_paths = get_all_file_paths(pdb_paths, extension='.pdb')
 
         all_oriented_files = [orient_oligomer(file_path, sym, out_dir=out_dir) for file_path in all_pdb_paths]
         print('All files were \'attempted\' to be oriented.\nReturned filenames include:\n%s' % '\n'.join(all_oriented_files))

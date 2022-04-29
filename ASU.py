@@ -495,8 +495,8 @@ if __name__ == '__main__':
     #     logger.error('No file list specified. Please specify one of -d or -f to collect the list of files')
     #     exit()
     # elif args.directory:
-    #     file_list = SDUtils.get_all_pdb_file_paths(args.directory)
-    #     # location = SDUtils.get_all_pdb_file_paths(args.directory)
+    #     file_list = SDUtils.get_all_file_paths(args.directory, extension='.pdb')
+    #     # location = SDUtils.get_all_file_paths(args.directory, extension='.pdb')
     # else:  # args.file
     #     file_list = SDUtils.to_iterable(args.file)
     #     # location = args.file

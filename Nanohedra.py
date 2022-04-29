@@ -9,7 +9,7 @@ from FragDock import nanohedra_dock
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry
 from PDB import orient_pdb_file
-from SymDesignUtils import get_all_pdb_file_paths, start_log, unpickle, set_logging_to_debug
+from SymDesignUtils import get_all_file_paths, start_log, unpickle, set_logging_to_debug
 from utils.GeneralUtils import write_docking_parameters, get_rotation_step
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
 from utils.NanohedraManualUtils import print_usage
@@ -69,12 +69,12 @@ if __name__ == '__main__':
             if '.pdb' in pdb1_path:  # files are not in pdb_dir, for Nanohedra_wrap generated commands...
                 pdb1_filepaths = [pdb1_path]
             else:
-                pdb1_filepaths = get_all_pdb_file_paths(pdb1_path)
+                pdb1_filepaths = get_all_file_paths(pdb1_path, extension='.pdb')
 
             if '.pdb' in pdb2_path:
                 pdb2_filepaths = [pdb2_path]
             else:
-                pdb2_filepaths = get_all_pdb_file_paths(pdb2_path)
+                pdb2_filepaths = get_all_file_paths(pdb2_path, extension='.pdb')
 
             # Orient Input Oligomers to Canonical Orientation
             if sym_entry.group1 == sym_entry.group2:

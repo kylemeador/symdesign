@@ -9,8 +9,7 @@ sys.path.append(parent_dir)
 
 from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
-from SymDesignUtils import start_log, pickle_object, unpickle, get_all_pdb_file_paths, get_all_file_paths, to_iterable, \
-    ex_path
+from SymDesignUtils import start_log, pickle_object, unpickle, get_all_file_paths, to_iterable, ex_path
 from Database import FragmentDatabase
 import Query.PDB as qPDB
 # from PDB import extract_interface
@@ -364,7 +363,7 @@ if __name__ == '__main__':
 
     # Current, DEPRECIATE!
     interfaces_dir = '/yeates1/kmeador/fragment_database/all_interfaces'
-    all_interface_pdb_paths = get_all_pdb_file_paths(interfaces_dir)
+    all_interface_pdb_paths = get_all_file_paths(interfaces_dir, extension='.pdb')
     pdb_interface_codes = [file_ext_split[0] for file_ext_split in map(os.path.splitext,
                                                                        map(os.path.basename, all_interface_pdb_paths))]
     pdb_interface_d = set_up_interface_dict(pdb_interface_codes)
