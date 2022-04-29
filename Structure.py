@@ -2805,7 +2805,7 @@ class Entity(Chain, SequenceProfile):
         sequence with that of the structure sequence
 
         Returns:
-            (dict[mapping[int, dict[mapping[str, str]]]]): {1: {'from': 'A', 'to': 'K'}, ...}
+            (dict[int, dict[str, str]]): {1: {'from': 'A', 'to': 'K'}, ...}
         """
         try:
             return self._disorder
