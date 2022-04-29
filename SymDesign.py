@@ -1354,12 +1354,13 @@ if __name__ == '__main__':
             else:
                 bmdca_sbatch, reformat_sbatch = None, None
 
-            refine_loop_model_instructions, pre_refine, pre_loop_model = \
-                master_db.preprocess_entities_for_design(all_entities, script_outpath=job.sbatch_scripts,
-                                                         load_resources=load_resources)
-            if load_resources or pre_refine or pre_loop_model:
+            preprocess_instructions, pre_refine, pre_loop_model = \
+                master_db.preprocess_entities_for_design(all_entities, load_resources=load_resources,
+                                                         script_out_path=job.sbatch_scripts,
+                                                         batch_commands=not args.run_in_shell)
+            if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
                 logger.critical(sbatch_warning)
-                for message in info_messages + refine_loop_model_instructions:
+                for message in info_messages + preprocess_instructions:
                     logger.info(message)
                 print('\n')
                 logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
@@ -1420,8 +1421,6 @@ if __name__ == '__main__':
             load_resources = False
             orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
                                            location=os.path.join(master_db.oriented.location, PUtils.orient_log_file))
-                                           # location=os.path.join(os.path.dirname(args.oligomer1),
-
             if args.query_codes:
                 # raise SDUtils.DesignError('This functionality is not yet available. Just connect Query.PDB.__main__')
                 if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
@@ -1501,12 +1500,13 @@ if __name__ == '__main__':
             all_entities.extend(master_db.orient_entities(entities2, symmetry=symmetry_map[1]))
 
             info_messages = []
-            refine_loop_model_instructions, pre_refine, pre_loop_model = \
-                master_db.preprocess_entities_for_design(all_entities, script_outpath=job.sbatch_scripts,
-                                                         load_resources=load_resources)
-            if load_resources or pre_refine or pre_loop_model:
+            preprocess_instructions, pre_refine, pre_loop_model = \
+                master_db.preprocess_entities_for_design(all_entities, load_resources=load_resources,
+                                                         script_out_path=job.sbatch_scripts,
+                                                         batch_commands=not args.run_in_shell)
+            if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
                 logger.critical(sbatch_warning)
-                for message in info_messages + refine_loop_model_instructions:
+                for message in info_messages + preprocess_instructions:
                     logger.info(message)
                 print('\n')
                 logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'

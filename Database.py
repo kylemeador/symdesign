@@ -3,7 +3,7 @@ import math
 from glob import glob
 from copy import copy
 from subprocess import list2cmdline
-from typing import List
+from typing import List, Tuple
 
 import numpy as np
 
@@ -15,7 +15,7 @@ from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath,
     frag_directory
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
-from Structure import parse_stride
+from Structure import parse_stride, Entity
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
 from classes.SymEntry import sdf_lookup
 from utils.MysqlPython import Mysql
@@ -235,34 +235,30 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
         return all_entities
 
-    def preprocess_entities_for_design(self, all_entities, script_outpath=os.getcwd(), load_resources=False):
-        """Assess whether the design files of interest require any processing prior to design calculations.
-        Processing includes relaxation into the energy function and/or modelling of missing loops and segments
+    def preprocess_entities_for_design(self, entities: List[Entity], script_out_path: os.PathLike = os.getcwd(),
+                                       load_resources: bool = False, batch_commands: bool = True) -> \
+            Tuple[List, bool, bool]:
+        """Assess whether Entity objects require any processing prior to design calculations.
+        Processing includes relaxation into the energy function and/or modelling missing loops and segments
 
         Args:
-            all_entities (list[Entity]):
-        Keyword Args:
-            script_outpath=os.getcwd() (str): Where should entity processing commands be written?
-            load_resources=False (bool): Whether resources have already been specified to be loaded
+            entities: A collection of the Entity objects of interest
+            script_out_path: Where should Entity processing commands be written?
+            load_resources: Whether resources have been specified to be loaded already
+            batch_commands: Whether commands should be made for batch submission
         Returns:
             (Tuple[list, bool, bool]): Any instructions, then two booleans on whether designs are pre_refined, and whether
             they are pre_loop_modeled
         """
-        # oriented_asu_files = self.oriented_asu.retrieve_files()
-        # oriented_asu_files = os.listdir(orient_asu_dir)
         self.refined.make_path()
         refine_names = self.refined.retrieve_names()
         refine_dir = self.refined.location
-        # refine_dir = master_directory.refine_dir
-        # refine_files = os.listdir(refine_dir)
         self.full_models.make_path()
         full_model_names = self.full_models.retrieve_names()
         full_model_dir = self.full_models.location
-        # full_model_dir = master_directory.full_model_dir
-        # full_model_files = os.listdir(full_model_dir)
-        entities_to_refine, entities_to_loop_model, sym_def_files = [], [], {}
         # Identify thDe entities to refine and to model loops before proceeding
-        for entity in all_entities:  # if entity is here, the file should've been oriented...
+        entities_to_refine, entities_to_loop_model, sym_def_files = [], [], {}
+        for entity in entities:  # if entity is here, the file should've been oriented...
             # for entry_entity in entities:  # ex: 1ABC_1
             # symmetry = master_directory.sym_entry.sym_map[idx]
             if entity.symmetry == 'C1':
@@ -273,14 +269,14 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             #     entry = entry_entity.split('_')
             # for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
             #     base_pdb_code = os.path.splitext(orient_asu_file)[0]
-            #     if base_pdb_code in all_entities:
+            #     if base_pdb_code in entities:
             if entity.name not in refine_names:  # assumes oriented_asu entity name is the same
                 entities_to_refine.append(entity)
             if entity.name not in full_model_names:  # assumes oriented_asu entity name is the same
                 entities_to_loop_model.append(entity)
 
-        info_messages = []
         # query user and set up commands to perform refinement on missing entities
+        info_messages = []
         pre_refine = True
         if entities_to_refine:  # if files found unrefined, we should proceed
             logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
@@ -307,31 +303,25 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     with open(flags_file, 'w') as f:
                         f.write('%s\n' % '\n'.join(flags))
 
-                # if sym != 'C1':
                 refine_cmd = ['@%s' % flags_file, '-parser:protocol',
                               os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine)]
-                # else:
-                #     refine_cmd = ['@%s' % flags_file, '-parser:protocol',
-                #                   os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine),
-                #                   '-parser:script_vars']
                 refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
                                ['sdf=%s' % sym_def_files[entity.symmetry],
                                 'symmetry=%s' % 'make_point_group' if entity.symmetry != 'C1' else 'asymmetric']
                                for entity in entities_to_refine]
-                commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                                                       name='%s-refine_oligomers' % SDUtils.starttime)
-                refine_sbatch = distribute(file=commands_file, out_path=script_outpath, scale=PUtils.refine,
-                                           log_file=os.path.join(refine_dir, '%s.log' % PUtils.refine),
-                                           max_jobs=int(len(refine_cmds) / 2 + 0.5),
-                                           number_of_commands=len(refine_cmds))
-                print('\n' * 2)
-                refine_sbatch_message = \
-                    'Once you are satisfied%snter the following to distribute refine jobs:\n\tsbatch %s' \
-                    % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
-                # logger.info('Please follow the instructions below to refine your input files')
-                # logger.critical(sbatch_warning)
-                # logger.info(refine_sbatch_message)
-                info_messages.append(refine_sbatch_message)
+                if batch_commands:
+                    commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                                                           name='%s-refine_entities' % SDUtils.starttime)
+                    refine_sbatch = distribute(file=commands_file, out_path=script_out_path, scale=PUtils.refine,
+                                               log_file=os.path.join(refine_dir, '%s.log' % PUtils.refine),
+                                               max_jobs=int(len(refine_cmds) / 2 + 0.5),
+                                               number_of_commands=len(refine_cmds))
+                    refine_sbatch_message = \
+                        'Once you are satisfied%snter the following to distribute refine jobs:\n\tsbatch %s' \
+                        % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
+                    info_messages.append(refine_sbatch_message)
+                else:
+                    raise DesignError('Entity refine run_in_shell functionality hasn\'t been implemented yet')
                 load_resources = True
 
         # query user and set up commands to perform loop modelling on missing entities
@@ -356,7 +346,6 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     flags = copy(rosetta_flags) + loop_model_flags
                     # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                     flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
-                    # flags.remove('-output_only_asymmetric_unit true')  # NOT necessary -> want full oligomers
                     with open(flags_file, 'w') as f:
                         f.write('%s\n' % '\n'.join(flags))
 
@@ -388,24 +377,21 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     loop_model_cmds.append(
                         SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity.name, out_path=full_model_dir,
                                                    additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
-
-                loop_cmds_file = \
-                    SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % SDUtils.starttime,
-                                           out_path=full_model_dir)
-                loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_outpath,
-                                               scale='refine', log_file=os.path.join(full_model_dir, 'loop_model.log'),
-                                               max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
-                                               number_of_commands=len(loop_model_cmds))
-                print('\n' * 2)
-                loop_model_sbatch_message = \
-                    'Once you are satisfied%snter the following to distribute loop_modelling jobs:\n\tsbatch %s' \
-                    % (', run this script AFTER completion of the Entity refinement script. E' if load_resources
-                       else ', e', loop_model_sbatch)
-                # logger.info('Please follow the instructions below to model loops on your input files')
-                # logger.critical(sbatch_warning)
-                # logger.info(refine_sbatch_message)
-                info_messages.append(loop_model_sbatch_message)
-                # load_resources = True
+                if batch_commands:
+                    loop_cmds_file = \
+                        SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % SDUtils.starttime,
+                                               out_path=full_model_dir)
+                    loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_out_path, scale=PUtils.refine,
+                                                   log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                                   max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
+                                                   number_of_commands=len(loop_model_cmds))
+                    loop_model_sbatch_message = \
+                        'Once you are satisfied%snter the following to distribute loop_modeling jobs:\n\tsbatch %s' \
+                        % (', run this script AFTER completion of the Entity refinement script. E' if load_resources
+                           else ', e', loop_model_sbatch)
+                    info_messages.append(loop_model_sbatch_message)
+                else:
+                    raise DesignError('Entity refine run_in_shell functionality hasn\'t been implemented yet')
 
         return info_messages, pre_refine, pre_loop_model
 
