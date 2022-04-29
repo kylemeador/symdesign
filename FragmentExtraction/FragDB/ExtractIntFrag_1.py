@@ -5,6 +5,7 @@ import FragUtils as Frag
 
 from PDB import PDB
 from Structure import Atom
+from SymDesignUtils import get_all_file_paths
 
 # Globals
 module = 'Extract Interface Fragments:'

@@ -5,7 +5,7 @@ from itertools import repeat
 import pandas as pd
 
 from Pose import Pose
-from SymDesignUtils import start_log, unpickle, get_all_pdb_file_paths, to_iterable, mp_starmap, set_logging_to_debug
+from SymDesignUtils import start_log, unpickle, get_all_file_paths, to_iterable, mp_starmap, set_logging_to_debug
 # from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
 from classes.EulerLookup import EulerLookup
 from Database import FragmentDB
@@ -76,7 +76,7 @@ if __name__ == '__main__':
             interface_filepaths = [root % '%s/%s' % (path[1:3].lower(), path) for path in paths]
             # interface_filepaths = list(map(os.path.join, root, paths))
         else:
-            interface_filepaths = get_all_pdb_file_paths(args.directory)
+            interface_filepaths = get_all_file_paths(args.directory, extension='.pdb')
 
         # # Used for all biological interface scoring
         # missing_index = [i for i, file_path in enumerate(interface_filepaths)

@@ -2,7 +2,9 @@ import sys
 import os
 from itertools import combinations, repeat
 from random import shuffle
+
 import FragUtils as Frag
+from SymDesignUtils import get_all_file_paths
 
 # Globals
 module = 'Individual Fragment All to All RMSD:'
@@ -11,7 +13,7 @@ module = 'Individual Fragment All to All RMSD:'
 def main(directory, num_threads, cluster_size_limit, rmsd_thresh, rmsd_source=Frag.get_biopdb_ca):
     print('%s Beginning' % module)
 
-    all_paths = Frag.get_all_pdb_file_paths(directory)
+    all_paths = get_all_file_paths(directory, extension='.pdb')
     if len(all_paths) > cluster_size_limit:
         print('%s Number of Fragment: %d > %d (size limit). Sampled %d times instead.' % (module, len(all_paths),
                                                                                           cluster_size_limit,

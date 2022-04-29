@@ -882,17 +882,18 @@ def get_all_base_root_paths(directory):
     return [os.path.abspath(root) for root, dirs, files in os.walk(directory) if not dirs]
 
 
-def get_all_file_paths(pdb_dir, extension=None):
+def get_all_file_paths(dir, extension=None):
     if extension:
-        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files
-                if extension in file]
+        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(dir, followlinks=True)
+                for file in files if extension in file]
     else:
-        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files]
+        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(dir, followlinks=True)
+                for file in files]
 
 
-def get_all_pdb_file_paths(pdb_dir):  # Todo DEPRECIATE
-    return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files
-            if '.pdb' in file]
+# def get_all_pdb_file_paths(pdb_dir):
+#     return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files
+#             if '.pdb' in file]
 
 
 def collect_nanohedra_designs(files=None, directory=None, dock=False):

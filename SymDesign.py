@@ -1443,7 +1443,7 @@ if __name__ == '__main__':
                     if '.pdb' in args.oligomer1:
                         pdb1_filepaths = [args.oligomer1]
                     else:
-                        pdb1_filepaths = SDUtils.get_all_pdb_file_paths(args.oligomer1)
+                        pdb1_filepaths = SDUtils.get_all_file_paths(args.oligomer1, extension='.pdb')
                     pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
                                                                out_dir=master_db.oriented.location)
                                                for file in pdb1_filepaths]
@@ -1466,7 +1466,7 @@ if __name__ == '__main__':
                     if '.pdb' in args.oligomer2:
                         pdb2_filepaths = [args.oligomer2]
                     else:
-                        pdb2_filepaths = SDUtils.get_all_pdb_file_paths(args.oligomer2)
+                        pdb2_filepaths = SDUtils.get_all_file_paths(args.oligomer2, extension='.pdb')
                     pdb2_oriented_filepaths = \
                         [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
                                          out_dir=master_db.oriented.location)
@@ -1520,7 +1520,7 @@ if __name__ == '__main__':
             pdb_pairs = list(product(entities1, entities2))
             # pdb_pairs = list(combinations(entities1, 2))
             # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
-            # pdb_pairs = list(combinations(SDUtils.get_all_pdb_file_paths(oriented_pdb1_out_dir), 2))
+            # pdb_pairs = list(combinations(SDUtils.get_all_file_paths(oriented_pdb1_out_dir, extension='.pdb'), 2))
             location = args.oligomer1
             initial_iter = [False for _ in range(len(pdb_pairs))]
             initial_iter[0] = True
