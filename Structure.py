@@ -1031,8 +1031,11 @@ class Structure(StructureBase):
                 found_types, atom_indices = {atom.type}, [idx]
                 current_residue_number = atom.residue_number
         # ensure last residue is added after iteration is complete
-        new_residues.append(Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords, log=self._log))
-        #                           index=residue_idx,
+        if not required_types.difference(found_types):  # empty set if properly added
+            new_residues.append(Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords, log=self._log))
+            #                           index=residue_idx,
+        else:  # remove from atoms and coords
+            remove_atom_indices.extend(atom_indices)
         self.residue_indices = list(range(len(new_residues)))
         self.residues = new_residues
 
@@ -3615,12 +3618,13 @@ class Residue:
         self.number = atom.residue_number
         self.type = atom.residue_type
         self.chain = atom.chain
-        if not self.ca_index:  # this is likely a NH or a C=O so we don't have a full residue
-            self.log.error('Residue %d has no CA atom!' % self.number)
-            # Todo this residue should be built, but as of 4/28/22 it only could be deleted
-            self.ca_index = idx  # use the last found index as a rough guess
-            self.secondary_structure = 'C'  # just a placeholder since stride shouldn't work
-            # raise DesignError('Residue %d has no CA atom!' % self.number)
+        # if not self.ca_index:  # this is likely a NH or a C=O so we don't have a full residue
+        #     self.log.error('Residue %d has no CA atom!' % self.number)
+        #     # Todo this residue should be built, but as of 4/28/22 it only could be deleted
+        #     self.ca_index = idx  # use the last found index as a rough guess
+        #     self.secondary_structure = 'C'  # just a placeholder since stride shouldn't work
+        #     # raise DesignError('Residue %d has no CA atom!' % self.number)
+
     # # This is the setter for all atom properties available above
     # def set_atoms_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all atoms in the Residue"""
