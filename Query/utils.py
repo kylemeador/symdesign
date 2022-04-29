@@ -112,7 +112,9 @@ def connection_exception_handler(url: str, max_attempts: int = 5) -> Union[Any, 
             time.sleep(1)
             iteration += 1
 
-        if iteration > max_attempts:
+        if iteration == max_attempts:
+            time.sleep(10)  # try one really long sleep then go once more
+        elif iteration > max_attempts:
             raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
                               'Offending request %s' % getattr(query_response, 'url'))
     return
