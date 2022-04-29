@@ -1118,7 +1118,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
-    all_poses, design_directories, location = None, None, None
+    all_poses, design_directories, location = None, [], None
     all_dock_directories, pdb_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
 
