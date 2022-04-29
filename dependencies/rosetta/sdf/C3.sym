@@ -1,7 +1,8 @@
 symmetry_name C3
 subunits 3
 number_of_interfaces 2
-E = 2*S1  + 1*(S1:S2) + 1*(S1:S3)
+# E = 2*S1+1*(S1:S2)+1*(S1:S3)
+E = 3*S1+3*(S1:S2)+3*(S1:S3)
 anchor_residue COM
 virtual_coordinates_start
 xyz C1 0,0,1 +0.0000000,+1.0000000,0 0,0,0
