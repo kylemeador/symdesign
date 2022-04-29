@@ -186,12 +186,13 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
                 # write out file for the orient database
                 if symmetry == 'C1':  # translate the monomer to the origin
-                    pdb.translate(-pdb.center_of_mass)
-                    pdb.name = entry_entity
-                    orient_file = pdb.write(out_path=os.path.join(orient_dir, entry_entity_base))
-                    pdb.symmetry = symmetry
-                    pdb.filepath = pdb.write(out_path=self.oriented_asu.store(name=pdb.name))
-                    pdb.stride(to_file=self.stride.store(name=pdb.name))
+                    entity = pdb.entities[0]
+                    entity.translate(-entity.center_of_mass)
+                    # entity.name = entry_entity
+                    orient_file = entity.write(out_path=os.path.join(orient_dir, entry_entity_base))
+                    entity.symmetry = symmetry
+                    entity.filepath = entity.write(out_path=self.oriented_asu.store(name=pdb.name))
+                    entity.stride(to_file=self.stride.store(name=pdb.name))
                     all_entities.append(pdb)  # .entities[0]
                 else:
                     try:
@@ -207,7 +208,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         continue
                     # extract the asu from the oriented file for symmetric refinement
                     # all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
-                    # entity = pdb.entities[0]
+                    entity = pdb.entities[0]
                     # entity.name = pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
                     entity.symmetry = symmetry
                     entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
