@@ -916,16 +916,16 @@ def sdf_lookup(symmetry=None):
     """
     if not symmetry or symmetry == 'C1':
         return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
-    elif isinstance(symmetry, int):
+    elif isinstance(symmetry, int):  # this is probably a SymEntry
         symmetry_name = point_group_sdf_map[symmetry]
     else:
         symmetry_name = symmetry
 
-    for file in os.listdir(PUtils.symmetry_def_files):
-        if symmetry_name == os.path.splitext(file)[0]:
-            return os.path.join(PUtils.symmetry_def_files, file)
+    for file, ext in map(os.path.splitext, os.listdir(PUtils.symmetry_def_files)):
+        if symmetry_name == file:
+            return os.path.join(PUtils.symmetry_def_files, file + ext)
 
-    raise DesignError('Error locating specified symmetry entry: %s' % symmetry_name)
+    raise DesignError('Error locating symmetry definition file for symmetry: %s' % symmetry_name)
 
 
 header_format_string = '{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}'
