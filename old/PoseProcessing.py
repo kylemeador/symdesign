@@ -183,8 +183,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     logger.debug('Fragment Residue Object Dict: %s' % str(frag_residue_object_d))
     # TODO Make chain number independent. Low priority
     int_residues = Pose.find_interface_residues(oligomer[pdb_codes[0]], oligomer[pdb_codes[1]])
-    # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.get_uc_dimensions() is None
-    # symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.get_uc_dimensions()))
+    # Get full assembly coordinates. Works for every possible symmetry even if template_pdb.uc_dimensions is None
+    # symmetrized_model = Model(expand_asu(template_pdb, des_dir.design_symmetry, uc_dimensions=template_pdb.uc_dimensions))
     symmetrized_model_chain1 = symmetrized_model.select_chain(oligomer[pdb_codes[0]])
     symmetrized_model_chain1_coords = symmetrized_model_chain1.extract_cb_coords_chain(oligomer[pdb_codes[0]], InclGlyCA=True)
     symmetrized_model_chain2 = symmetrized_model.select_chain(oligomer[pdb_codes[1]])
