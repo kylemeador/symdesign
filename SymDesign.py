@@ -1415,14 +1415,13 @@ if __name__ == '__main__':
             job.docking_master_dir = os.path.join(job.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
             # sym_entry is required so this won't fail ^
 
-            # Getting PDB1 and PDB2 File paths
+            # Transform input oligomers to canonical orientation and return their ASU
             symmetry_map = sym_entry.groups
             all_entities = []
             load_resources = False
             orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
                                            location=os.path.join(master_db.oriented.location, PUtils.orient_log_file))
             if args.query_codes:
-                # raise SDUtils.DesignError('This functionality is not yet available. Just connect Query.PDB.__main__')
                 if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
                     args.save_query = True
                 else:
@@ -1433,13 +1432,9 @@ if __name__ == '__main__':
                 if args.pdb_codes1:
                     entities1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
                     # all_entities.extend(master_db.orient_entities(entities1, symmetry=symmetry_map[0]))
-                else:
-                    # args.oligomer1:
-                    # Orient Input Oligomers to Canonical Orientation
-                    # oriented_pdb1_out_dir = os.path.join(os.path.dirname(args.oligomer1), '%s_oriented_with_%s_symmetry'
-                    #                                      % (os.path.basename(args.oligomer1), oligomer_symmetry_1))
-                    # os.makedirs(oriented_pdb1_out_dir, exist_ok=True)
-
+                else:  # args.oligomer1:
+                    logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
+                                    % args.oligomer1)
                     if '.pdb' in args.oligomer1:
                         pdb1_filepaths = [args.oligomer1]
                     else:
@@ -1447,22 +1442,18 @@ if __name__ == '__main__':
                     pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
                                                                out_dir=master_db.oriented.location)
                                                for file in pdb1_filepaths]
-                    # pull out the entity names and use orient_entities to retrieve the entity alone
+                    # pull out the entity names and use master_db.orient_entities to retrieve the entity alone
                     entities1 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
                     # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
                     # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
-            # logger.info('Orienting PDB\'s for Nanohedra Docking')
             all_entities.extend(master_db.orient_entities(entities1, symmetry=symmetry_map[0]))
 
             single_component_design = False
             if args.oligomer2:
                 if args.oligomer1 != args.oligomer2:  # see if they are the same input
-                    # oriented_pdb2_out_dir = os.path.join(os.path.dirname(args.oligomer2),
-                    #                                      '%s_oriented_with_%s_symmetry'
-                    #                                      % (os.path.basename(args.oligomer2), oligomer_symmetry_2))
-                    # if not os.path.exists(oriented_pdb2_out_dir):
-                    #     os.makedirs(oriented_pdb2_out_dir)
+                    logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
+                                    % args.oligomer1)
                     if '.pdb' in args.oligomer2:
                         pdb2_filepaths = [args.oligomer2]
                     else:
@@ -1471,10 +1462,10 @@ if __name__ == '__main__':
                         [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
                                          out_dir=master_db.oriented.location)
                          for file in pdb2_filepaths]
-                    # pull out the entity names and use orient_entities to retrieve the entity alone
+                    # pull out the entity names and use master_db.orient_entities to retrieve the entity alone
                     entities2 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
-                else:  # the entities are the same symmetry or we have single component and bad input
+                else:  # the entities are the same symmetry, or we have single component and bad input
                     entities2 = []
             elif args.pdb_codes2:
                 # Collect all entities required for processing the given commands
