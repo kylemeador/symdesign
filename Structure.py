@@ -2434,7 +2434,7 @@ class Entity(Chain, SequenceProfile):
                 if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
                 else:
-                    self.log.warning('The Chain %s passed to %s doesn\'t have the same number of residues'
+                    self.log.warning('Chain %s passed to Entity %s doesn\'t have the same number of residues'
                                      % (chain.name, self.name))
                     # Todo perform a superposition with overlapping residues...
                     rot, tx = identity_matrix, origin  # Todo replace these place holders
@@ -2553,7 +2553,7 @@ class Entity(Chain, SequenceProfile):
         self._number_of_monomers = value
 
     @property
-    def chain_ids(self) -> List:
+    def chain_ids(self) -> List:  # Also used in PDB
         """The names of each Chain found in the Entity
 
         Returns:
@@ -3393,14 +3393,14 @@ class Residues:
 class Residue:
     def __init__(self, atom_indices=None, index=None, atoms=None, coords=None, log=None):
         # self.index = index
+        self.log = log
         self.atom_indices = atom_indices
         self.atoms = atoms
         if coords:
             self.coords = coords
-        self.secondary_structure = None
+        # self.secondary_structure = None
         self.local_density = 0
         self._contact_order = 0
-        self.log = log
 
     @property
     def log(self):
@@ -3487,6 +3487,12 @@ class Residue:
         self.number = atom.residue_number
         self.type = atom.residue_type
         self.chain = atom.chain
+        if not self.ca_index:  # this is likely a NH or a C=O so we don't have a full residue
+            self.log.error('Residue %d has no CA atom!' % self.number)
+            # Todo this residue should be built, but as of 4/28/22 it only could be deleted
+            self.ca_index = idx  # use the last found index as a rough guess
+            self.secondary_structure = 'C'  # just a placeholder since stride shouldn't work
+            # raise DesignError('Residue %d has no CA atom!' % self.number)
     # # This is the setter for all atom properties available above
     # def set_atoms_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all atoms in the Residue"""
