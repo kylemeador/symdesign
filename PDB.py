@@ -17,7 +17,7 @@ from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1t
 
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio, reference_aa_file, reference_residues_pkl
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
-from SequenceProfile import generate_alignment_local
+from SequenceProfile import generate_alignment
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, \
     unpickle, pickle_object
@@ -716,7 +716,7 @@ class PDB(Structure):
             #     try:
             # moving coords are from the pre-orient structure where orient may have removed residues
             # lets try to remove those residues by doing an alignment
-            align_orient_seq, align_moving_seq, *_ = generate_alignment_local(orient_fixed_seq, moving_seq)[0]
+            align_orient_seq, align_moving_seq, *_ = generate_alignment(orient_fixed_seq, moving_seq, local=True)
             # align_seq_1.replace('-', '')
             # orient_idx1 = moving_seq.find(align_orient_seq.replace('-', '')[0])
             for orient_idx1, aa in enumerate(align_orient_seq):
