@@ -2561,9 +2561,14 @@ class Entity(Chain, SequenceProfile):
                     mov_indices_str, from_str, to_str, fix_indices_str = '', '', '', ''
                     moving_polymer_indices_iter, fixed_polymer_indices_iter = iter(moving_polymer_indices), iter(fixed_polymer_indices)
                     for idx, mutation in enumerate(mutations.values()):
-                        mov_indices_str += (str(next(moving_polymer_indices_iter)) if mutation['from'] != '-' else '-')
-                        fix_indices_str += (str(next(fixed_polymer_indices_iter)) if mutation['to'] != '-' else '-')
-
+                        try:
+                            mov_indices_str += (str(next(moving_polymer_indices_iter)) if mutation['from'] != '-' else '-')
+                        except StopIteration:
+                            mov_indices_str += '-'
+                        try:
+                            fix_indices_str += (str(next(fixed_polymer_indices_iter)) if mutation['to'] != '-' else '-')
+                        except StopIteration:
+                            fix_indices_str += '-'
                     print(mov_indices_str)
                     # print(from_str)
                     print(''.join(mutation['from'] for mutation in mutations.values()))  # from_str
