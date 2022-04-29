@@ -1419,8 +1419,9 @@ if __name__ == '__main__':
             all_entities = []
             load_resources = False
             orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
-                                           location=os.path.join(os.path.dirname(args.oligomer1),
-                                                                 PUtils.orient_log_file))
+                                           location=os.path.join(master_db.oriented.location, PUtils.orient_log_file))
+                                           # location=os.path.join(os.path.dirname(args.oligomer1),
+
             if args.query_codes:
                 # raise SDUtils.DesignError('This functionality is not yet available. Just connect Query.PDB.__main__')
                 if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
@@ -1447,6 +1448,7 @@ if __name__ == '__main__':
                     pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
                                                                out_dir=master_db.oriented.location)
                                                for file in pdb1_filepaths]
+                    # pull out the entity names and use orient_entities to retrieve the entity alone
                     entities1 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
                     # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
@@ -1470,6 +1472,7 @@ if __name__ == '__main__':
                         [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
                                          out_dir=master_db.oriented.location)
                          for file in pdb2_filepaths]
+                    # pull out the entity names and use orient_entities to retrieve the entity alone
                     entities2 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
                 else:  # the entities are the same symmetry or we have single component and bad input
