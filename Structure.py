@@ -1038,7 +1038,7 @@ class Structure(StructureBase):
 
         # remove bad atom_indices
         atom_indices = self.atom_indices
-        for index in remove_atom_indices:
+        for index in remove_atom_indices[::-1]:  # ensure popping happens in reverse
             atom_indices.pop(index)
         self.atom_indices = atom_indices
 
