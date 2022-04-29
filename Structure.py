@@ -2557,7 +2557,6 @@ class Entity(Chain, SequenceProfile):
                             to_idx += 1
                             moving_polymer_indices.append(from_idx)
                             from_idx += 1
-                    print(mutations)
                     mov_indices_str, from_str, to_str, fix_indices_str = '', '', '', ''
                     moving_polymer_indices_iter, fixed_polymer_indices_iter = iter(moving_polymer_indices), iter(fixed_polymer_indices)
                     for idx, mutation in enumerate(mutations.values()):
