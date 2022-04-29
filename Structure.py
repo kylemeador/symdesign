@@ -2562,22 +2562,21 @@ class Entity(Chain, SequenceProfile):
                     moving_polymer_indices_iter, fixed_polymer_indices_iter = iter(moving_polymer_indices), iter(fixed_polymer_indices)
                     for idx, mutation in enumerate(mutations.values()):
                         try:
-                            mov_indices_str += (str(next(moving_polymer_indices_iter)) if mutation['from'] != '-' else '-')
+                            mov_indices_str += ('%2d' % next(moving_polymer_indices_iter) if mutation['from'] != '-' and mutation['to'] != '-' else ' -')
                         except StopIteration:
                             mov_indices_str += '-'
                         try:
-                            fix_indices_str += (str(next(fixed_polymer_indices_iter)) if mutation['to'] != '-' else '-')
+                            fix_indices_str += ('%2d' % next(fixed_polymer_indices_iter) if mutation['from'] != '-' and mutation['to'] != '-' else ' -')
                         except StopIteration:
                             fix_indices_str += '-'
                     print(mov_indices_str)
                     # print(from_str)
-                    print(''.join(mutation['from'] for mutation in mutations.values()))  # from_str
+                    print(' '.join(mutation['from'] for mutation in mutations.values()))  # from_str
                     # print(to_str)
-                    print(''.join(mutation['to'] for mutation in mutations.values()))  # to_str
+                    print(' '.join(mutation['to'] for mutation in mutations.values()))  # to_str
                     print(fix_indices_str)
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords()[fixed_polymer_indices],
                                                     self.get_cb_coords()[moving_polymer_indices])
-                    exit()
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 chain_ids.append(chain.name)
             self.number_of_monomers = len(chains)
