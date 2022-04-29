@@ -830,9 +830,13 @@ class Model:  # Todo (Structure)
             (str)
         """
         if self.pdb.reference_sequence:  # TODO DISCONNECT HERE
+            # formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
+            # formated_reference_sequence = \
+            #     {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
+            #      for chain, sequence in formated_reference_sequence.items()}
             formated_reference_sequence = \
-                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended[aa] for aa in sequence)))
-                 for chain, sequence in self.pdb.reference_sequence.items()}
+                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
+                 for chain, sequence in self.pdb.reference_sequence.items()}  # .reference_sequence doesn't have chains
             chain_lengths = {chain: len(sequence) for chain, sequence in self.pdb.reference_sequence.items()}
             return '%s\n' \
                    % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
@@ -3620,10 +3624,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """
         # if self.reference_sequence:
         formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
-        chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
         formated_reference_sequence = \
-            {chain: ' '.join(map(str.upper, map(protein_letters_1to3_extended.get, sequence)))
+            {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
              for chain, sequence in formated_reference_sequence.items()}
+        chain_lengths = {chain: len(sequence) for chain, sequence in formated_reference_sequence.items()}
         return '%s\n' \
                % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
                            % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]

@@ -2897,8 +2897,8 @@ class Entity(Chain, SequenceProfile):
         Returns:
             (str)
         """
-        formated_reference_sequence = ' '.join(map(str.upper, (protein_letters_1to3_extended[aa]
-                                                               for aa in self.reference_sequence)))
+        formated_reference_sequence = \
+            ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in self.reference_sequence)))
         chain_length = len(self.reference_sequence)
         asu_slice = 1 if asu else None
         # chains = self.chains if asu else None

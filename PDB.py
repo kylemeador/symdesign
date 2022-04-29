@@ -506,7 +506,7 @@ class PDB(Structure):
         """
         if self.reference_sequence:
             formated_reference_sequence = \
-                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended[aa] for aa in sequence)))
+                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
                  for chain, sequence in self.reference_sequence.items()}
             chain_lengths = {chain: len(sequence) for chain, sequence in self.reference_sequence.items()}
             return '%s\n' \
