@@ -1689,32 +1689,28 @@ class Structure(StructureBase):
         # ASG  GLN A    5    3    H    AlphaHelix    -61.99    -39.37      82.2      XXXX
 
         # ASG    Detailed secondary structure assignment
-        #    Format:  6-8  Residue name
-        #       10-10 Protein chain identifier
-        #       12-15 PDB	residue	number
-        #       17-20 Ordinal residue number
-        #       25-25 One	letter secondary structure code	**)
-        #       27-39 Full secondary structure name
-        #       43-49 Phi	angle
-        #       53-59 Psi	angle
-        #       65-69 Residue solvent accessible area
+        # Format:
+        #  5-8  Residue type
+        #  9-10 Protein chain identifier
+        #  11-15 PDB residue number
+        #  16-20 Ordinal residue number
+        #  24-25 One letter secondary structure code **)
+        #  26-39 Full secondary structure name
+        #  42-49 Phi angle
+        #  52-59 Psi angle
+        #  61-69 Residue solvent accessible area
         #
-        #   -rId1Id2..  Read only Chains Id1, Id2 ...
-        #   -cId1Id2..  Process only Chains Id1, Id2 ...
+        # -rId1Id2..  Read only Chains Id1, Id2 ...
+        # -cId1Id2..  Process only Chains Id1, Id2 ...
 
         # The Stride based secondary structure names of each unique element where possible values are
-        #   H:Alpha helix,
-        #   G:3-10 helix,
-        #   I:PI-helix,
-        #   E:Extended conformation,
-        #   B/b:Isolated bridge,
-        #   T:Turn,
-        #   C:Coil (none of the above)'
-
-        # if chain:
-        #     stride_cmd = [stride_exe_path, current_structure_file]
-        #     stride_cmd.append('-c%s' % chain)
-
+        #  H:Alpha helix,
+        #  G:3-10 helix,
+        #  I:PI-helix,
+        #  E:Extended conformation,
+        #  B/b:Isolated bridge,
+        #  T:Turn,
+        #  C:Coil (none of the above)'
         current_struc_file = self.write(out_path='stride_input-%s-%d.pdb' % (self.name, random() * 100000))
         p = subprocess.Popen([stride_exe_path, current_struc_file], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
