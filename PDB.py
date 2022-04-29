@@ -641,12 +641,13 @@ class PDB(Structure):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
         # self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_ids}
 
-    def orient(self, symmetry=None):
-        """Orient a symmetric PDB at the origin with it's symmetry axis canonically set on axes defined by symmetry
+    def orient(self, symmetry: str = None, log: os.PathLike = None):
+        """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
         file. Automatically produces files in PDB numbering for proper orient execution
 
         Keyword Args:
             symmetry=None (str): What is the symmetry of the specified PDB?
+            log=None (os.PathLike): If there is a log specific for orienting
         """
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
@@ -660,6 +661,8 @@ class PDB(Structure):
         if not subunit_number:
             raise ValueError('Symmetry %s is not a valid symmetry. Please try one of: %s' %
                              (symmetry, ', '.join(valid_subunit_number.keys())))
+        if not log:
+            log = self.log
 
         if self.filepath:
             pdb_file_name = os.path.basename(self.filepath)
@@ -709,19 +712,18 @@ class PDB(Structure):
                              stderr=subprocess.PIPE, cwd=orient_dir)
         in_symm_file = os.path.join(orient_dir, 'symm_files', symmetry)
         stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
-        stderr = stderr.decode()  # turn from bytes to string 'utf-8' implied
-        stdout = pdb_file_name + stdout.decode()[28:]
-
-        self.log.info(stdout)
-        self.log.info('%s\n' % stderr)
+        # stderr = stderr.decode()  # turn from bytes to string 'utf-8' implied
+        # stdout = pdb_file_name + stdout.decode()[28:]
+        log.info(pdb_file_name + stdout.decode()[28:])
+        log.info(stderr.decode())
         if not os.path.exists(orient_output) or os.stat(orient_output).st_size == 0:
             # orient_log = os.path.join(out_dir, orient_log_file)
-            error_string = 'orient_oligomer could not orient %s. Check %s for more information\n' \
-                           % (pdb_file_name, self.log)
-            # Todo fix this to be more precise
+            log_file = getattr(log.handlers[0], 'baseFilename', None)
+            log_message = '. Check %s for more information' % log_file if log_file else ''
+            error_string = 'orient_oligomer could not orient %s%s' % (pdb_file_name, log_message)
             raise RuntimeError(error_string)
 
-        oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=self.log)
+        oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
@@ -1607,8 +1609,8 @@ def orient_pdb_file(pdb_path, log=logger, symmetry=None, out_dir=None):
             pdb.write(out_path=oriented_file_path)
             log.info('Oriented: %s' % pdb_filename)
             return oriented_file_path
-        except (ValueError, RuntimeError) as err:
-            log.error(str(err))
+        except (ValueError, RuntimeError) as error:
+            log.error(str(error))
 
 
 # ref_aa = PDB.from_file(reference_aa_file, log=None, pose_format=False, entities=False)
