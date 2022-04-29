@@ -2511,7 +2511,7 @@ def generate_alignment(seq1, seq2, matrix='BLOSUM62'):
     return pairwise2.align.globalds(seq1, seq2, _matrix, gap_penalty, gap_ext_penalty)
 
 
-def generate_mutations(mutant, reference, offset=True, blanks=False, termini=False, reference_gaps=False,
+def generate_mutations(reference, mutant, offset=True, blanks=False, termini=False, reference_gaps=False,
                        only_gaps=False):
     """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
      sequence index. Sequence mutations accessed by 'from' and 'to' keys. By default, all gaped sequences are excluded
@@ -3114,7 +3114,7 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
         for name, chain_sequences in sequences.items():
             mutations[name] = {}
             for chain, sequence in chain_sequences.items():
-                mutations[name][chain] = generate_mutations(sequence, reference[chain], offset=False)
+                mutations[name][chain] = generate_mutations(reference[chain], sequence, offset=False)
     except KeyError:
         raise DesignError('The reference sequence and mutated_sequences have different chains! Chain %s isn\'t in the '
                           'reference' % chain)
@@ -3153,7 +3153,7 @@ def generate_mutations_from_reference(reference, sequences) -> Dict[str, Dict[st
     # mutations = {pdb: {chain: generate_mutations(sequence, reference[chain], offset=False)
     #                    for chain, sequence in chain_sequences.items()}
     #              for pdb, chain_sequences in pdb_sequences.items()}
-    mutations = {name: generate_mutations(sequence, reference, offset=False) for name, sequence in sequences.items()}
+    mutations = {name: generate_mutations(reference, sequence, offset=False) for name, sequence in sequences.items()}
     # try:
     #     for pdb, chain_sequences in sequences.items():
     #         mutations[pdb] = {}

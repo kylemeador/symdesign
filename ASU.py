@@ -175,10 +175,10 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a)
             logger.debug('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
             logger.debug('Orient\t: %s' % oriented_pdb_seq_a)
-            des_mutations_asu = SequenceProfile.generate_mutations(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu],
-                                                                   blanks=True)
-            des_mutations_orient = SequenceProfile.generate_mutations(asu.atom_sequences[chain_in_asu],
-                                                                      oriented_pdb_seq_a, blanks=True)
+            des_mutations_asu = \
+                SequenceProfile.generate_mutations(asu.atom_sequences[chain_in_asu], oriented_pdb_seq_a, blanks=True)
+            des_mutations_orient = \
+                SequenceProfile.generate_mutations(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu], blanks=True)
             logger.debug('ASU: %s' % des_mutations_asu)
             logger.debug('Orient: %s' % des_mutations_orient)
             # Ensure that the design mutations have the right index, must be adjusted for the offset of both sequences
@@ -222,9 +222,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             asu.get_chain_sequences()  # 1/29/21 KM updated this function which might affect this routine
             downloaded_pdb.get_chain_sequences()
             oriented_pdb_seq_final = downloaded_pdb.atom_sequences[downloaded_pdb.chain_ids[0]]
-            final_mutations = SequenceProfile.generate_mutations(oriented_pdb_seq_final,
-                                                                 asu.atom_sequences[chain_in_asu], offset=False,
-                                                                 blanks=True)
+            final_mutations = SequenceProfile.generate_mutations(asu.atom_sequences[chain_in_asu],
+                                                                 oriented_pdb_seq_final, offset=False, blanks=True)
             logger.debug('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
             logger.debug('Orient\t: %s' % oriented_pdb_seq_final)
             if final_mutations != dict():
