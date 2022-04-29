@@ -1,0 +1,48 @@
+symmetry_name D3
+subunits 6
+number_of_interfaces 5
+E = 6*B1_1+6*(B1_1:B1_3)+6*(B1_1:B2_1)+6*(B1_1:B2_2)+6*(B1_1:B2_3)
+anchor_residue COM
+virtual_coordinates_start  # cross product
+xyz ROOT 0,1,0 0,0,1 0,0,0  # z
+xyz C1 0,0,1 0,-1,0 0,0,0  # x
+xyz P1_1 1,0,0 0,1,0 0,0,0  # z
+xyz B1_1 1,0,0 0,1,0 0,0,0
+xyz P1_2 -0.5,0.8660254,0 -0.8660254,-0.5,0 0,0,0
+xyz B1_2 -0.5,0.8660254,0 -0.8660254,-0.5,0 0,0,0
+xyz P1_3 -0.5,-0.8660254,0 0.8660254,-0.5,0 0,0,0
+xyz B1_3 -0.5,-0.8660254,0 0.8660254,-0.5,0 0,0,0
+xyz C2 0,0,-1 0,1,0 0,0,0  # x
+xyz P2_1 1,0,0 0,1,0 0,0,0  # z
+xyz B2_1 1,0,0 0,1,0 0,0,0
+xyz P2_2 -0.5,-0.8660254,0 0.8660254,-0.5,0 0,0,0
+xyz B2_2 -0.5,-0.8660254,0 0.8660254,-0.5,0 0,0,0
+xyz P2_3 -0.5,0.8660254,0 -0.8660254,-0.5,0 0,0,0
+xyz B2_3 -0.5,0.8660254,0 -0.8660254,-0.5,0 0,0,0
+virtual_coordinates_stop
+connect_virtual JUMP1_1_to_com P1_1 B1_1
+connect_virtual JUMP1_1_to_subunit B1_1 SUBUNIT
+connect_virtual JUMP1_2_to_com P1_2 B1_2
+connect_virtual JUMP1_2_to_subunit B1_2 SUBUNIT
+connect_virtual JUMP1_3_to_com P1_3 B1_3
+connect_virtual JUMP1_3_to_subunit B1_3 SUBUNIT
+connect_virtual JUMP1_1 C1 P1_1
+connect_virtual JUMP1_2 P1_1 P1_2
+connect_virtual JUMP1_3 P1_1 P1_3
+connect_virtual JUMP2_1_to_com P2_1 B2_1
+connect_virtual JUMP2_1_to_subunit B2_1 SUBUNIT
+connect_virtual JUMP2_2_to_com P2_2 B2_2
+connect_virtual JUMP2_2_to_subunit B2_2 SUBUNIT
+connect_virtual JUMP2_3_to_com P2_3 B2_3
+connect_virtual JUMP2_3_to_subunit B2_3 SUBUNIT
+connect_virtual JUMP2_1 C2 P2_1
+connect_virtual JUMP2_2 P2_1 P2_2
+connect_virtual JUMP2_3 P2_1 P2_3
+connect_virtual JUMP1 ROOT C1
+connect_virtual JUMP2 C1 C2
+set_dof JUMP1_1_to_com x
+set_dof JUMP1_1_to_subunit angle_x angle_y angle_z
+set_dof JUMP1_1 x angle_x  # moves the COM C3 unit1 (C1) and the unit1 subunit1 (P1_1) along x, and rotates on x
+set_jump_group JUMPGROUP2 JUMP1_1 JUMP2_1
+set_jump_group JUMPGROUP3 JUMP1_1_to_com JUMP1_2_to_com JUMP1_3_to_com JUMP2_1_to_com JUMP2_2_to_com JUMP2_3_to_com
+set_jump_group JUMPGROUP4 JUMP2_1_to_subunit JUMP2_3_to_subunit JUMP1_2_to_subunit JUMP1_1_to_subunit JUMP1_3_to_subunit JUMP2_2_to_subunit
