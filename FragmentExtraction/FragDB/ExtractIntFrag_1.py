@@ -101,7 +101,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
          num_threads=4):
     print('%s Beginning' % module)
     # Get Natural Interface PDB File Paths
-    int_db_filepaths = Frag.get_all_pdb_file_paths(int_db_dir)
+    int_db_filepaths = get_all_file_paths(int_db_dir, extension='.pdb')
     lower_bound, upper_bound, index_offset = Frag.parameterize_frag_length(frag_length)
 
     print('%s Creating Neighbor CB Atom Trees at %d Angstroms Distance' % (module, interface_dist))
