@@ -30,8 +30,9 @@ from Structure import Structure  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, all_vs_all, \
     condensed_to_square, digit_translate_table, sym, index_intersection, z_score, large_color_array, starttime
-from Query import Flags
-from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, relax_flags
+# from Query import Flags
+from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
+    rosetta_variables, relax_flags_cmdline
 from PDB import PDB
 from Pose import Pose, MultiModel, Models  # , Model
 from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_pairs, \
@@ -39,11 +40,10 @@ from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_
     mutation_conserved, per_res_metric, interface_composition_similarity, \
     significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value, \
-    residue_processing, multiple_sequence_alignment_dependent_metrics
-#   columns_to_rename, calc_relative_sa, join_columns,
+    multiple_sequence_alignment_dependent_metrics, residue_processing
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
-    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, jensen_shannon_divergence, \
-    hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
+    simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
+    jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
 from classes.SymEntry import SymEntry, sdf_lookup, identity_matrix
 from Database import FragmentDatabase
 from utils.SymmetryUtils import valid_subunit_number
@@ -1301,11 +1301,8 @@ class DesignDirectory:  # (JobResources):
             constraint_percent = 0.5
             free_percent = 1 - constraint_percent
 
-        variables = [('scripts', PUtils.rosetta_scripts), ('sym_score_patch', PUtils.sym_weights),
-                     ('solvent_sym_score_patch', PUtils.solvent_weights_sym),
-                     ('solvent_score_patch', PUtils.solvent_weights),  # Todo put all above here in permanent flags
-                     ('dist', dist), ('repack', 'yes'),
-                     ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
+        variables = rosetta_variables + [('dist', dist), ('repack', 'yes'), ('constrained_percent', constraint_percent),
+                                         ('free_percent', free_percent)]
         # design_profile = self.info.get('design_profile')
         variables.extend([('design_profile', self.design_profile_file)] if self.design_profile else [])
         # fragment_profile = self.info.get('fragment_profile')
@@ -1561,7 +1558,7 @@ class DesignDirectory:  # (JobResources):
 
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
             if not self.no_term_constraint:  # design_with_fragments
-                consensus_cmd = main_cmd + relax_flags + \
+                consensus_cmd = main_cmd + relax_flags_cmdline + \
                     ['@%s' % self.flags, '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
                      '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[5]),
@@ -1966,7 +1963,7 @@ class DesignDirectory:  # (JobResources):
             self.log.debug('Pose flags written to: %s' % flags)
 
         # RELAX: Prepare command
-        relax_cmd = main_cmd + relax_flags + additional_flags + \
+        relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
             ['@%s' % flags, '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
              '-in:file:native', refine_pdb,  # native is here to block flag file version, not actually useful for refine
