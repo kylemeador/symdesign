@@ -2520,13 +2520,21 @@ class Entity(Chain, SequenceProfile):
         if len(chains) > 1:
             self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             for idx, chain in enumerate(chains[1:]):
-                if chain.number_of_residues == self.number_of_residues:  # v this won't work if they are different len
+                if chain.number_of_residues == self.number_of_residues and chain.sequence == self.sequence:
+                    # do an apples to apples comparison
+                    # length alone is inaccurate if chain is missing first residue and self is missing it's last...
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
-                else:
+                else:  # do an alignment, get selective indices, then follow with superposition
                     self.log.warning('Chain %s passed to Entity %s doesn\'t have the same number of residues'
                                      % (chain.name, self.name))
-                    # Todo perform a superposition with overlapping residues...
-                    rot, tx = identity_matrix, origin  # Todo replace these place holders
+                    mutations = generate_mutations(self.sequence, chain.sequence, blanks=True, return_all=True)
+                    # get only those indices where there is an aligned aa on the opposite chain
+                    fixed_polymer_indices = \
+                        [idx for idx, mutation in enumerate(mutations.values()) if mutation['to'] != '-']
+                    moving_polymer_indices = \
+                        [idx for idx, mutation in enumerate(mutations.values()) if mutation['from'] != '-']
+                    _, rot, tx, _ = superposition3d(chain.get_cb_coords()[fixed_polymer_indices],
+                                                    self.get_cb_coords()[moving_polymer_indices])
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
                 chain_ids.append(chain.name)
             self.number_of_monomers = len(chains)
@@ -2756,9 +2764,9 @@ class Entity(Chain, SequenceProfile):
         self._reference_sequence = sequence
 
     @property
-    def disorder(self):
-        """Return the Residue number keys where disordered residues are found by comparison of the construct sequence
-        with that of the structure sequence
+    def disorder(self) -> Dict[int, Dict[str, str]]:
+        """Return the Residue number keys where disordered residues are found by comparison of the genomic (construct)
+        sequence with that of the structure sequence
 
         Returns:
             (dict[mapping[int, dict[mapping[str, str]]]]): {1: {'from': 'A', 'to': 'K'}, ...}
@@ -2766,8 +2774,6 @@ class Entity(Chain, SequenceProfile):
         try:
             return self._disorder
         except AttributeError:
-            # if not self.reference_sequence:
-            #     self.retrieve_sequence_from_api()
             self._disorder = generate_mutations(self.reference_sequence, self.structure_sequence, only_gaps=True)
             return self._disorder
 
