@@ -161,7 +161,15 @@ class PDB(Structure):
 
     @property
     def uc_dimensions(self) -> List:
-        return list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
+        try:
+            return self._uc_dimensions
+        except AttributeError:
+            self._uc_dimensions = list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
+            return self._uc_dimensions
+
+    @uc_dimensions.setter
+    def uc_dimensions(self, dimensions):
+        self._uc_dimensions = dimensions
 
     def copy_metadata(self, other):
         temp_metadata = \
@@ -172,7 +180,7 @@ class PDB(Structure):
              'entity_info': other.__dict__['entity_info'],
              '_name': other.__dict__['_name'],
              'space_group': other.__dict__['space_group'],
-             'uc_dimensions': other.__dict__['uc_dimensions'],
+             '_uc_dimensions': other.__dict__['_uc_dimensions'],
              'header': other.__dict__['header'],
              # 'reference_aa': other.__dict__['reference_aa'],
              'resolution': other.__dict__['resolution'],
