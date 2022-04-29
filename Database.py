@@ -293,42 +293,43 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                       'with \'y\' to ensure this is what you want')
                 if boolean_choice():
                     pre_refine = False
-            # Generate sbatch refine command
-            flags_file = os.path.join(refine_dir, 'refine_flags')
-            if not os.path.exists(flags_file):
-                flags = copy(rosetta_flags) + relax_flags
-                flags.extend(['-out:path:pdb %s' % refine_dir, '-no_scorefile true'])
-                flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                flags.extend(['dist=0'])  # Todo modify if not point groups used
-                with open(flags_file, 'w') as f:
-                    f.write('%s\n' % '\n'.join(flags))
+            if pre_refine:
+                # Generate sbatch refine command
+                flags_file = os.path.join(refine_dir, 'refine_flags')
+                if not os.path.exists(flags_file):
+                    flags = copy(rosetta_flags) + relax_flags
+                    flags.extend(['-out:path:pdb %s' % refine_dir, '-no_scorefile true'])
+                    flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
+                    flags.extend(['dist=0'])  # Todo modify if not point groups used
+                    with open(flags_file, 'w') as f:
+                        f.write('%s\n' % '\n'.join(flags))
 
-            # if sym != 'C1':
-            refine_cmd = ['@%s' % flags_file, '-parser:protocol',
-                          os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine)]
-            # else:
-            #     refine_cmd = ['@%s' % flags_file, '-parser:protocol',
-            #                   os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine),
-            #                   '-parser:script_vars']
-            refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
-                           ['sdf=%s' % sym_def_files[entity.symmetry],
-                            'symmetry=%s' % 'make_point_group' if entity.symmetry != 'C1' else 'asymmetric']
-                           for entity in entities_to_refine]
-            commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds],
-                                                   name='%s-refine_oligomers' % SDUtils.starttime, out_path=refine_dir)
-            refine_sbatch = distribute(file=commands_file, out_path=script_outpath, scale=PUtils.refine,
-                                       log_file=os.path.join(refine_dir, '%s.log' % PUtils.refine),
-                                       max_jobs=int(len(refine_cmds) / 2 + 0.5),
-                                       number_of_commands=len(refine_cmds))
-            print('\n' * 2)
-            refine_sbatch_message = \
-                'Once you are satisfied%snter the following to distribute refine jobs:\n\tsbatch %s' \
-                % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
-            # logger.info('Please follow the instructions below to refine your input files')
-            # logger.critical(sbatch_warning)
-            # logger.info(refine_sbatch_message)
-            info_messages.append(refine_sbatch_message)
-            load_resources = True
+                # if sym != 'C1':
+                refine_cmd = ['@%s' % flags_file, '-parser:protocol',
+                              os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine)]
+                # else:
+                #     refine_cmd = ['@%s' % flags_file, '-parser:protocol',
+                #                   os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine),
+                #                   '-parser:script_vars']
+                refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
+                               ['sdf=%s' % sym_def_files[entity.symmetry],
+                                'symmetry=%s' % 'make_point_group' if entity.symmetry != 'C1' else 'asymmetric']
+                               for entity in entities_to_refine]
+                commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                                                       name='%s-refine_oligomers' % SDUtils.starttime)
+                refine_sbatch = distribute(file=commands_file, out_path=script_outpath, scale=PUtils.refine,
+                                           log_file=os.path.join(refine_dir, '%s.log' % PUtils.refine),
+                                           max_jobs=int(len(refine_cmds) / 2 + 0.5),
+                                           number_of_commands=len(refine_cmds))
+                print('\n' * 2)
+                refine_sbatch_message = \
+                    'Once you are satisfied%snter the following to distribute refine jobs:\n\tsbatch %s' \
+                    % (', you can run this script at any time. E' if load_resources else ', e', refine_sbatch)
+                # logger.info('Please follow the instructions below to refine your input files')
+                # logger.critical(sbatch_warning)
+                # logger.info(refine_sbatch_message)
+                info_messages.append(refine_sbatch_message)
+                load_resources = True
 
         # query user and set up commands to perform loop modelling on missing entities
         pre_loop_model = True
@@ -343,63 +344,65 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                       'with \'y\' to ensure this is what you want')
                 if boolean_choice():
                     pre_loop_model = False
-            # Generate sbatch refine command
-            flags_file = os.path.join(full_model_dir, 'loop_model_flags')
-            if not os.path.exists(flags_file):
-                loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
-                #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                flags = copy(rosetta_flags) + loop_model_flags
-                # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
-                flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
-                # flags.remove('-output_only_asymmetric_unit true')  # NOT necessary -> want full oligomers
-                with open(flags_file, 'w') as f:
-                    f.write('%s\n' % '\n'.join(flags))
+            if pre_loop_model:
+                # Generate sbatch refine command
+                flags_file = os.path.join(full_model_dir, 'loop_model_flags')
+                if not os.path.exists(flags_file):
+                    loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
+                    #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
+                    flags = copy(rosetta_flags) + loop_model_flags
+                    # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
+                    flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
+                    # flags.remove('-output_only_asymmetric_unit true')  # NOT necessary -> want full oligomers
+                    with open(flags_file, 'w') as f:
+                        f.write('%s\n' % '\n'.join(flags))
 
-            loop_model_cmd = ['@%s' % flags_file, '-parser:protocol',
-                              os.path.join(PUtils.rosetta_scripts, 'loop_model_ensemble.xml'),
-                              '-parser:script_vars']
-            # Make all output paths and files for each loop ensemble
-            logger.info('Preparing blueprint and loop files for entity:')
-            # out_paths, blueprints, loop_files = [], [], []
-            # for entity in entities_to_loop_model:
-            loop_model_cmds = []
-            for idx, entity in enumerate(entities_to_loop_model):
-                entity_out_path = os.path.join(full_model_dir, entity.name)
-                SDUtils.make_path(entity_out_path)  # make a new directory for each entity
-                # out_paths.append(entity_out_path)
-                entity_blueprint = entity.make_blueprint_file(out_path=full_model_dir)
-                entity_loop_file = entity.make_loop_file(out_path=full_model_dir)
+                loop_model_cmd = ['@%s' % flags_file, '-parser:protocol',
+                                  os.path.join(PUtils.rosetta_scripts, 'loop_model_ensemble.xml'),
+                                  '-parser:script_vars']
+                # Make all output paths and files for each loop ensemble
+                logger.info('Preparing blueprint and loop files for entity:')
+                # out_paths, blueprints, loop_files = [], [], []
+                # for entity in entities_to_loop_model:
+                loop_model_cmds = []
+                for idx, entity in enumerate(entities_to_loop_model):
+                    entity_out_path = os.path.join(full_model_dir, entity.name)
+                    SDUtils.make_path(entity_out_path)  # make a new directory for each entity
+                    # out_paths.append(entity_out_path)
+                    entity_blueprint = entity.make_blueprint_file(out_path=full_model_dir)
+                    entity_loop_file = entity.make_loop_file(out_path=full_model_dir)
 
-                entity_cmd = script_cmd + loop_model_cmd + \
-                             ['blueprint=%s' % entity_blueprint, 'loop_file=%s' % entity_loop_file,
-                              '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity.name), '-out:path:pdb',
-                              entity_out_path] + (['-symmetry:symmetry_definition',
-                                                  sym_def_files[entity.symmetry]] if entity.symmetry != 'C1' else [])
+                    entity_cmd = script_cmd + loop_model_cmd + \
+                        ['blueprint=%s' % entity_blueprint, 'loop_file=%s' % entity_loop_file,
+                         '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity.name), '-out:path:pdb',
+                         entity_out_path] + (['-symmetry:symmetry_definition', sym_def_files[entity.symmetry]]
+                                             if entity.symmetry != 'C1' else [])
 
-                multimodel_cmd = ['python', PUtils.models_to_multimodel_exe, '-d', entity_loop_file,
-                                  '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity)]
-                copy_cmd = ['scp', os.path.join(entity_out_path, '%s_0001.pdb' % entity),
-                            os.path.join(full_model_dir, '%s.pdb' % entity)]
-                loop_model_cmds.append(
-                    SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity.name, out_path=full_model_dir,
-                                               additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
+                    multimodel_cmd = ['python', PUtils.models_to_multimodel_exe, '-d', entity_loop_file,
+                                      '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity)]
+                    copy_cmd = ['scp', os.path.join(entity_out_path, '%s_0001.pdb' % entity),
+                                os.path.join(full_model_dir, '%s.pdb' % entity)]
+                    loop_model_cmds.append(
+                        SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity.name, out_path=full_model_dir,
+                                                   additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
 
-            loop_cmds_file = SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % SDUtils.starttime,
-                                                    out_path=full_model_dir)
-            loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_outpath,
-                                           scale='refine', log_file=os.path.join(full_model_dir, 'loop_model.log'),
-                                           max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
-                                           number_of_commands=len(loop_model_cmds))
-            print('\n' * 2)
-            loop_model_sbatch_message = \
-                'Once you are satisfied%snter the following to distribute loop_modelling jobs:\n\tsbatch %s' \
-                % (', run this script AFTER completion of the Entity refinement script. E' if load_resources else ', e',
-                   loop_model_sbatch)
-            # logger.info('Please follow the instructions below to model loops on your input files')
-            # logger.critical(sbatch_warning)
-            # logger.info(refine_sbatch_message)
-            info_messages.append(loop_model_sbatch_message)
-            # load_resources = True
+                loop_cmds_file = \
+                    SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % SDUtils.starttime,
+                                           out_path=full_model_dir)
+                loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_outpath,
+                                               scale='refine', log_file=os.path.join(full_model_dir, 'loop_model.log'),
+                                               max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
+                                               number_of_commands=len(loop_model_cmds))
+                print('\n' * 2)
+                loop_model_sbatch_message = \
+                    'Once you are satisfied%snter the following to distribute loop_modelling jobs:\n\tsbatch %s' \
+                    % (', run this script AFTER completion of the Entity refinement script. E' if load_resources
+                       else ', e', loop_model_sbatch)
+                # logger.info('Please follow the instructions below to model loops on your input files')
+                # logger.critical(sbatch_warning)
+                # logger.info(refine_sbatch_message)
+                info_messages.append(loop_model_sbatch_message)
+                # load_resources = True
 
         return info_messages, pre_refine, pre_loop_model
 
