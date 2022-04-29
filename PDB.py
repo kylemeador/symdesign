@@ -8,7 +8,7 @@ from glob import glob
 from itertools import chain as iter_chain  # repeat,
 # from random import randint
 # from time import sleep
-from typing import Union, Dict, Sequence
+from typing import Union, Dict, Sequence, List, Container
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -159,7 +159,8 @@ class PDB(Structure):
     #         for kwarg, value in kwargs.items():
     #             setattr(chain, kwarg, value)
 
-    def get_uc_dimensions(self):
+    @property
+    def uc_dimensions(self) -> List:
         return list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
 
     def copy_metadata(self, other):
@@ -570,7 +571,7 @@ class PDB(Structure):
         for chain in self.chains:
             chain.renumber_residues()
 
-    def create_chains(self, solve_discrepancy=True):
+    def create_chains(self, solve_discrepancy: bool = True):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues
 
         Sets:
@@ -607,7 +608,7 @@ class PDB(Structure):
                                                           if residue.chain == chain_id]))
         self.get_chain_sequences()  # Todo maybe depreciate in favor of entities?
 
-    def get_chains(self, names=None):
+    def get_chains(self, names: Container = None) -> List:
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
         returned"""
         if names and isinstance(names, Iterable):
@@ -615,7 +616,7 @@ class PDB(Structure):
         else:
             return self.chains
 
-    def chain(self, chain_name):
+    def chain(self, chain_name: str) -> Chain:
         """Return the Chain object specified by the passed chain ID. If not found, return None
         Returns:
             (Chain)
@@ -625,7 +626,7 @@ class PDB(Structure):
                 return chain
         return
 
-    def write(self, out_path=None, **kwargs):
+    def write(self, out_path: os.PathLike = None, **kwargs) -> str:
         """Write PDB Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
         one was written
 
@@ -1385,6 +1386,7 @@ class PDB(Structure):
     #
     # def copy_structures(self):
     #     super().copy_structures([self.entities, self.chains])
+
     def __len__(self):
         try:
             return self.number_of_residues
