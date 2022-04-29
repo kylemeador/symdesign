@@ -105,11 +105,11 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         Returns:
             (list[Entity]): The resulting Entity that has been oriented and desymmetrized
         """
-        def return_orient_asu(orient_file, entry_entity, symmetry):
-            oriented_pdb = PDB.from_file(orient_file, log=None, entity_names=[entry_entity])
+        def return_orient_asu(orient_file, symmetry):  # entry_entity,
+            oriented_pdb = PDB.from_file(orient_file)  # , log=None, entity_names=[entry_entity])
             entity = oriented_pdb.entities[0]
             # entity = oriented_asu.entities[0]
-            entity.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
+            # entity.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
             entity.symmetry = symmetry
             entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
             # save Stride results
@@ -180,7 +180,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, entry_entity_base))
                     else:  # write out the entity as parsed. since this is assembly we should get the correct state
                         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, entry_entity_base))
-                    pdb = PDB.from_chains(pdb.entities[0], pose_format=False)  # , log=None)
+                    pdb = PDB.from_entities([entity], pose_format=False, entity_names=[entry_entity])  # , log=None)
                 else:
                     raise ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
 
@@ -207,23 +207,24 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         continue
                     # extract the asu from the oriented file for symmetric refinement
                     # all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
-                    entity = pdb.entities[0]
-                    entity.name = pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
+                    # entity = pdb.entities[0]
+                    # entity.name = pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
                     entity.symmetry = symmetry
                     entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
                     # save Stride results
                     entity.stride(to_file=self.stride.store(name=entity.name))
                     all_entities.append(entity)
+            # for those below, entry_entity may not be the right format
             elif entry_entity not in orient_asu_names:  # orient file exists, but not asu or stride, create and load asu
                 orient_file = self.oriented.retrieve_file(name=entry_entity)
-                all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
+                all_entities.append(return_orient_asu(orient_file, symmetry))  # entry_entity,
             else:  # orient_asu file exists, so should stride, load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=entry_entity)
                 # all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
-                oriented_asu = PDB.from_file(orient_asu_file, entity_names=[entry_entity])  # , log=None)
+                oriented_asu = PDB.from_file(orient_asu_file)  #, entity_names=[entry_entity])  # , log=None)
                 # all_entities[oriented_asu.name] = oriented_asu.entities[0]
                 entity = oriented_asu.entities[0]
-                entity.name = entry_entity  # make explicit
+                # entity.name = entry_entity  # make explicit
                 entity.symmetry = symmetry
                 entity.filepath = oriented_asu.filepath
                 all_entities.append(entity)
