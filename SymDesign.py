@@ -2312,7 +2312,7 @@ if __name__ == '__main__':
                 prior_offset += len(disorder)  # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
                 # generate the source TO design mutations before any disorder handling
                 mutations = \
-                    generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence, offset=False)
+                    generate_mutations(design_entity.structure_sequence, source_entity.structure_sequence, offset=False)
                 # Insert the disordered residues into the design pose
                 for residue_number, mutation in indexed_disordered_residues.items():
                     logger.debug('Inserting %s into position %d on chain %s'
@@ -2540,7 +2540,7 @@ if __name__ == '__main__':
                 # and save to view where additions lie on sequence. Cross these additions with design structure to check
                 # if insertions are compatible
                 all_insertions = {residue: {'to': aa} for residue, aa in enumerate(design_sequence, 1)}
-                all_insertions.update(generate_mutations(designed_atom_sequences[idx], design_sequence, blanks=True))
+                all_insertions.update(generate_mutations(design_sequence, designed_atom_sequences[idx], blanks=True))
                 # Reduce to sequence only
                 inserted_sequences[design_string] = '%s\n%s' % (''.join([res['to'] for res in all_insertions.values()]),
                                                                 design_sequence)
