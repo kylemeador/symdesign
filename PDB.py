@@ -424,26 +424,7 @@ class PDB(Structure):
         if entities:
             if isinstance(entities, (list, Structures)):  # create the instance from existing entities
                 self.entities = copy(entities)  # copy the passed entities list
-                # self.log.info('Before copy')
-                # for idx, entity in enumerate(self.entities, 1):
-                #     entity.write_oligomer(out_path='%s%d_pre_copy_oligomer.pdb' % (entity.name, idx))
-                    # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
-                    # entity_dict.pop('_atom_indices')
-                    # entity_dict.pop('_residue_indices')
-                    # entity_dict.pop('_cb_indices')
-                    # entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
-                    # self.log.info(entity_dict)
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
-                # self.log.info('After copy')
-                # for idx, entity in enumerate(self.entities, 1):
-                #     entity.write_oligomer(out_path='%s%d_post_copy_oligomer.pdb' % (entity.name, idx))
-                # sleep(20)
-                    # entity_dict = {k: v for k, v in entity.__dict__.items() if v is not None}
-                    # entity_dict.pop('_atom_indices')
-                    # entity_dict.pop('_residue_indices')
-                    # entity_dict.pop('_cb_indices')
-                    # entity_dict['prior_ca_coords'] = entity_dict['prior_ca_coords'].flatten()
-                    # self.log.info(entity_dict)
                 # Reindex all residue and atom indices
                 self.entities[0].reset_indices_attributes()
                 self.entities[0].start_indices(dtype='residue', at=0)
@@ -454,36 +435,22 @@ class PDB(Structure):
                     entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
-                # for idx, entity in enumerate(self.entities, 1):
-                #     entity.write_oligomer(out_path='%s%d_post_update_attributes_oligomer.pdb' % (entity.name, idx))
-                # self.log.info('After update_attributes')
-                # sleep(20)
-                if rename_chains:
-                    # set each successive Entity to have an incrementally higher chain id
+                if rename_chains:  # set each successive Entity to have an incrementally higher chain id
                     available_chain_ids = self.return_chain_generator()
                     for idx, entity in enumerate(self.entities):
-                        # print('Entity %s update indices' % entity.name, entity.atom_indices)
                         entity.chain_id = next(available_chain_ids)
                         self.log.debug('Entity %s new chain identifier %s' % (entity.name, entity.chain_id))
-                # else:
-                #     pass
-                #     # because we don't care for chains attributes (YET) we update after everything is set
-                #     self.chains = chains
-                #     self.reorder_chains()
-                #     self.chain_ids = [chain.name for chain in self.chains]
-                #     self.chain_ids = [chain.name for chain in chains]
+                # update chains after everything is set
+                chains = []
+                for entity in self.entities:
+                    chains.extend(entity.chains)
+                self.chains = chains
+                self.chain_ids = [chain.name for chain in self.chains]
             else:  # create Entities from Chain.Residues
                 self.create_entities(**kwargs)
 
         if pose_format:
             self.renumber_structure()
-        # if self.design:  # Todo maybe??
-        #     self.process_symmetry()
-        # self.entities.make_oligomers()  # Todo institute if needed
-        # chains = self.find_max_chain_symmetry()
-        # if len(chains) > 1:
-        #     dihedral = True
-        # the highest order symmetry operation chain in a pdb plus any dihedral related chains
 
     # def format_header(self):
     #     return self.format_biomt() + self.format_seqres()
@@ -679,7 +646,6 @@ class PDB(Structure):
             pdb_file_name = '%s.pdb' % self.name
         # Todo change output to logger with potential for file and stdout
 
-        # with open(orient_log, 'a+') as log_f:
         number_of_subunits = len(self.chain_ids)
         if number_of_subunits > 1:
             if number_of_subunits != subunit_number:
@@ -692,7 +658,7 @@ class PDB(Structure):
             else:
                 multicomponent = False
         else:
-            raise ValueError('Cannot orient a file with only a single chain. No symmetry present!')
+            raise ValueError('%s: Cannot orient a Structure with only a single chain. No symmetry present!' % self.name)
 
         orient_input = os.path.join(orient_dir, 'input.pdb')
         orient_output = os.path.join(orient_dir, 'output.pdb')
