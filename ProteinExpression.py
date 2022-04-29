@@ -482,8 +482,8 @@ def select_tags_for_sequence(sequence_id, matching_pdb_tags, preferred=None, n=T
     # for idx, (tag1, tag2) in enumerate(combinations(all_matching_tags, 2)):
     #     alignment = SequenceProfile.generate_alignment(tag1, tag2)
     #     all_alignments.append(alignment)
-    #     # if max_len < alignment[0][4]:  # the length of alignment
-    #     max_len.append(alignment[0][4])
+    #     # if max_len < alignment[4]:  # the length of alignment
+    #     max_len.append(alignment[4])
     #     # have to find the alignment with the max length, then find which one of the sequences has the max length for
     #     # multiple alignments, then need to select all alignments to this sequence to generate the MSA
     #
@@ -510,15 +510,13 @@ def add_expression_tag(tag, sequence):
         return sequence
     alignment = SequenceProfile.generate_alignment(tag, sequence)
     # print('Expression TAG alignment:', alignment[0])
-    score = alignment[0][2]  # first alignment, grab score value
+    tag_seq, seq, score, *_ = alignment
+    # score = alignment[2]  # first alignment, grab score value
     # print('Expression TAG alignment score:', score)
     # if score == 0:  # TODO find the correct score for a bad alignment to indicate there was no productive alignment?
     #     # alignment[0][4]:  # the length of alignment
     #     # match_score = score / len(sequence)  # could also use which ever sequence is greater
     #     return sequence
-
-    tag_seq = alignment[0][0]
-    seq = alignment[0][1]
     # print(alignment[0])
     # print(tag_seq)
     # print(seq)
