@@ -15,12 +15,12 @@ from sklearn.neighbors import BallTree
 from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 
-from PathUtils import orient_exe_path, orient_dir, reference_aa_file, reference_residues_pkl, pdb_db
+from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio, reference_aa_file, reference_residues_pkl
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from SequenceProfile import generate_alignment_local
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, \
-    pickle_object
+    unpickle, pickle_object
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number
 
 logger = start_log(name=__name__)
@@ -1613,6 +1613,17 @@ def orient_pdb_file(pdb_path, log=logger, symmetry=None, out_dir=None):
             log.error(str(error))
 
 
+def query_qs_bio(pdb_entry_id: str) -> int:
+    qsbio_confirmed = unpickle(qs_bio)
+    biological_assemblies = qsbio_confirmed.get(pdb_entry_id)
+    if biological_assemblies:  # first   v   assembly in matching oligomers
+        assembly = biological_assemblies[0]
+    else:
+        assembly = 1
+        logger.warning('No confirmed biological assembly for entry %s'
+                       ' using PDB default assembly %d' % (pdb_entry_id, assembly))
+
+    return assembly
 # ref_aa = PDB.from_file(reference_aa_file, log=None, pose_format=False, entities=False)
 # from shutil import move
 # move(reference_residues_pkl, '%s.bak' % reference_residues_pkl)
