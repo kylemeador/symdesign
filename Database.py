@@ -3,7 +3,7 @@ import math
 from glob import glob
 from copy import copy
 from subprocess import list2cmdline
-from typing import List, Tuple
+from typing import List, Tuple, Iterable
 
 import numpy as np
 
@@ -94,16 +94,15 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
         return object_db.retrieve_file(name)
 
-    def orient_entities(self, entities, symmetry=None):
-        """Given the names of entities and their corresponding symmetry, retrieve .pdb files, orient and return
-        their ASU as a list of Entity(Structure)
+    def orient_entities(self, entity_ids: Iterable[str], symmetry: str = 'C1') -> List[Entity]:
+        """Given entity_ids and their corresponding symmetry, retrieve .pdb files, orient and save Database files then
+        return the ASU for each
 
         Args:
-            entities (Iterable[str]): The names of all entities requiring orientation
-        Keyword Args:
-            symmetry=None (str): The symmetry to treat each passed entity according to
+            entity_ids: The names of all entity_ids requiring orientation
+            symmetry: The symmetry to treat each passed Entity. Default assumes no symmetry
         Returns:
-            (list[Entity]): The resulting Entity that has been oriented and desymmetrized
+            The resulting Entity that has been oriented and desymmetrized
         """
         def return_orient_asu(orient_file, symmetry):  # entry_entity,
             oriented_pdb = PDB.from_file(orient_file)  # , log=None, entity_names=[entry_entity])
@@ -116,7 +115,6 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             entity.stride(to_file=self.stride.store(name=entity.name))
 
             return entity
-
         orient_dir = self.oriented.location
         os.makedirs(orient_dir, exist_ok=True)
         pdbs_dir = os.path.dirname(orient_dir)  # this is the case because it was specified this way, but not required
@@ -130,7 +128,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         orient_names = self.oriented.retrieve_names()
         orient_asu_names = self.oriented_asu.retrieve_names()
         all_entities = []
-        for entry_entity in entities:  # ex: 1ABC_1
+        logger.info('The requested files/IDs are being checked for proper orientation with symmetry %s: %s'
+                    % (symmetry, ', '.join(entity_ids)))
+        for entry_entity in entity_ids:  # ex: 1ABC_1
             if entry_entity not in orient_names:  # add the proper files
                 entry = entry_entity.split('_')
                 # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
@@ -165,7 +165,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                                               'canonical_pdb1/2 attribute of DesignDirectory to pull the'
                                               ' pdb file source.')
                     # Todo
-                    # continue
+
                 pdb = PDB.from_file(file_path, pose_format=False)  # , log=None)
                 if entity:  # replace pdb from fetched file with the entity pdb
                     # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
@@ -222,7 +222,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             elif entry_entity not in orient_asu_names:  # orient file exists, but not asu or stride, create and load asu
                 orient_file = self.oriented.retrieve_file(name=entry_entity)
                 all_entities.append(return_orient_asu(orient_file, symmetry))  # entry_entity,
-            else:  # orient_asu file exists, so should stride, load asu
+            else:  # orient_asu file exists, stride file should as well. load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=entry_entity)
                 # all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
                 oriented_asu = PDB.from_file(orient_asu_file)  #, entity_names=[entry_entity])  # , log=None)
@@ -256,7 +256,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         self.full_models.make_path()
         full_model_names = self.full_models.retrieve_names()
         full_model_dir = self.full_models.location
-        # Identify thDe entities to refine and to model loops before proceeding
+        # Identify the entities to refine and to model loops before proceeding
         entities_to_refine, entities_to_loop_model, sym_def_files = [], [], {}
         for entity in entities:  # if entity is here, the file should've been oriented...
             # for entry_entity in entities:  # ex: 1ABC_1
