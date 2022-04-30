@@ -1571,7 +1571,7 @@ class Structure(StructureBase):
             # coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
             atoms = self.atoms
             for idx, line_split in enumerate(map(str.split, sasa_output[5:-2])):
-                atoms[idx].sasa += line_split[-1]
+                atoms[idx].sasa = float(line_split[-1])
         else:
             residues = self.residues
             # idx = 0
@@ -4418,7 +4418,7 @@ class Atom:
     Structure coordinates for Keyword Arg coords=self.coords"""
     def __init__(self, index=None, number=None, atom_type=None, alt_location=None, residue_type=None, chain=None,
                  residue_number=None, code_for_insertion=None, occ=None, temp_fact=None, element_symbol=None,
-                 atom_charge=None, sasa=None):  # coords=None
+                 atom_charge=None):  # , sasa=None, sasa=0., coords=None
         self.index = index
         self.number = number
         self.type = atom_type
@@ -4432,7 +4432,7 @@ class Atom:
         self.temp_fact = temp_fact
         self.element_symbol = element_symbol
         self.atom_charge = atom_charge
-        self.sasa = sasa
+        # self.sasa = sasa
         # if coords:
         #     self.coords = coords
 
@@ -4443,6 +4443,16 @@ class Atom:
         """Initialize without coordinates"""
         return cls(*args)
 
+    @property
+    def sasa(self):
+        # try:  # let the Residue owner handle this error
+        return self._sasa
+        # except AttributeError:
+        #     raise AttributeError
+
+    @sasa.setter
+    def sasa(self, sasa):
+        self._sasa = sasa
     # @property
     # def coords(self):
     #     """This holds the atomic Coords which is a view from the Structure that created them"""
