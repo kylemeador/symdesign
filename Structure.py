@@ -1571,7 +1571,8 @@ class Structure(StructureBase):
             # coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
             atoms = self.atoms
             for idx, line_split in enumerate(map(str.split, sasa_output[5:-2])):
-                atoms[idx].sasa = float(line_split[-1])
+                if line_split[0] == 'ATOM':  # this seems necessary as MODEL can be added if MODEL is written
+                    atoms[idx].sasa = float(line_split[-1])
         else:
             residues = self.residues
             # idx = 0
