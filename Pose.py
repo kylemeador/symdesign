@@ -4,7 +4,7 @@ from ctypes import Union
 from pickle import load
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil
-from typing import Set, List, Iterable, Dict
+from typing import Set, List, Iterable, Dict, Optional, IO
 # from operator import itemgetter
 
 import numpy as np
@@ -462,18 +462,16 @@ class State(Structures):
     #         return self._ca_indices
     #
 
-    def write(self, increment_chains=False, **kwargs):  # out_path=os.getcwd(), file_handle=None, header=None,
+    def write(self, increment_chains: bool = False, **kwargs) -> Optional[str]:
         """Write Structures to a file specified by out_path or with a passed file_handle.
 
         Keyword Args:
-            out_path=os.getcwd() (str): The path to write the Models to
-            file_handle=None (io.TextIOWrapper): A file handle to write the Models to
-            header=None (str): If there is header information that should be included. Pass new lines with a \n
-            increment_chains=False (bool): Whether or not to write each Model with a new chain name.
-                Default (False) writes as a new MODEL for each Model
-            kwargs
+            out_path: The location where the Structure object should be written to disk
+            file_handle: Used to write Structure details to an open FileObject
+            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+            header: If there is header information that should be included. Pass new lines with a "\n"
         Returns:
-            (str): The filename if one was written
+            The name of the written file if out_path is used
         """
         self.log.warning('The ability to write States to file has not been thoroughly debugged. If your State consists '
                          'of various types of Structure containers (PDB, Structures, chains, or entities, check your '
@@ -569,18 +567,16 @@ class Models(Structures):
     #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
     #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    def write(self, increment_chains=False, **kwargs):  # out_path=os.getcwd(), file_handle=None, header=None,
+    def write(self, increment_chains: bool = False, **kwargs) -> Optional[str]:
         """Write Structures to a file specified by out_path or with a passed file_handle.
 
         Keyword Args:
-            out_path=os.getcwd() (str): The path to write the Models to
-            file_handle=None (io.TextIOWrapper): A file handle to write the Models to
-            header=None (str): If there is header information that should be included. Pass new lines with a \n
-            increment_chains=False (bool): Whether or not to write each Model with a new chain name.
-                Default (False) writes as a new MODEL for each Model
-            kwargs
+            out_path: The location where the Structure object should be written to disk
+            file_handle: Used to write Structure details to an open FileObject
+            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+            header: If there is header information that should be included. Pass new lines with a "\n"
         Returns:
-            (str): The filename if one was written
+            The name of the written file if out_path is used
         """
         return super().write(increment_chains=increment_chains, **kwargs)
         # if file_handle:  # Todo increment_chains compatibility
@@ -894,18 +890,22 @@ class Model:  # Todo (Structure)
         if _header != '':
             file_handle.write('%s' % _header)
 
-    def write(self, out_path=os.getcwd(), file_handle=None, assembly=False, increment_chains=False, **kwargs) -> str:
-        # header=None,
-        """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-        one was written
+    def return_atom_string(self, **kwargs):
+        """Provide the Model Atoms as a PDB file string"""
+        return '\n'.join(residue.__str__(**kwargs) for residue in self.residues)
 
-        Keyword Args:
-            file_handle=None (FileObject): An open file object where the header should be written
-            assembly=False (bool): Whether to write the full assembly to a file
-            surrounding_uc=True (bool): Whether to write the surrounding unit cell if assembly is true and
-                self.dimension > 1
+    def write(self, out_path: Union[bytes, str] = os.getcwd(), file_handle: IO = None, assembly: bool = False,
+              increment_chains: bool = False, **kwargs) -> Optional[str]:  # header=None,
+        """Write Model Atoms to a file specified by out_path or with a passed file_handle
+
+        Args:
+            out_path: The location where the Structure object should be written to disk
+            file_handle: Used to write Structure details to an open FileObject
+            assembly: Whether to write the full assembly
+            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+            surrounding_uc: Whether to write the surrounding unit cell if assembly is True and self.dimension > 1
         Returns:
-            (str)
+            The name of the written file if out_path is used
         """
         if file_handle:  # Todo handle with multiple Structure containers
             file_handle.write('%s\n' % self.return_atom_string(**kwargs))

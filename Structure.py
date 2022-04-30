@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from itertools import repeat
 from math import ceil
 from random import random  # , randint
-from typing import Union, List, Dict
+from typing import Union, List, Dict, IO, Optional
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
@@ -1932,15 +1932,15 @@ class Structure(StructureBase):
         if _header != '':
             file_handle.write('%s' % _header)
 
-    def write(self, out_path=None, file_handle=None, increment_chains=False, **kwargs) -> Union[None, str]:  # header=None,
+    def write(self, out_path: Union[bytes, str] = os.getcwd(), file_handle: IO = None, **kwargs) -> Optional[str]:
+        #     header: str = None, increment_chains: bool = False,
         """Write Structure Atoms to a file specified by out_path or with a passed file_handle
 
-        Keyword Args:
-            out_path=None (Union[None, str]): The location where the Structure object should be written to disk
-            file_handle=None (Union[None, FileObject]): Used to write Structure details to an open FileObject
-            header=None (str): The information which should be written to the Structure header
+        Args:
+            out_path: The location where the Structure object should be written to disk
+            file_handle: Used to write Structure details to an open FileObject
         Returns:
-            (Union[None, str]): The name of the written file if out_path is used
+            The name of the written file if out_path is used
         """
         if file_handle:
             file_handle.write('%s\n' % self.return_atom_string(**kwargs))
@@ -2428,18 +2428,17 @@ class Structures(Structure, UserList):
         return new_structures
         # return Structures(structures=[structure.return_transformed_copy(**kwargs) for structure in self.structures])
 
-    def write(self, out_path=os.getcwd(), file_handle=None, header=None, increment_chains=True, **kwargs):
-        """Write Structures to a file specified by out_path or with a passed file_handle.
+    def write(self, out_path: Union[bytes, str] = os.getcwd(), file_handle: IO = None, increment_chains: bool = True,
+              header: str = None, **kwargs) -> Optional[str]:
+        """Write Structures to a file specified by out_path or with a passed file_handle
 
-        Keyword Args:
-            out_path=os.getcwd() (str): The path to write the Structures to
-            file_handle=None (io.TextIOWrapper): A file handle to write the Structures to
-            header=None (str): If there is header information that should be included. Pass new lines with a \n
-            increment_chains=True (bool): Whether or not to write each Structure with a new chain name.
-                Default (True) writes as new chain name for each Structure
-            kwargs
+        Args:
+            out_path: The location where the Structure object should be written to disk
+            file_handle: Used to write Structure details to an open FileObject
+            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+            header: If there is header information that should be included. Pass new lines with a "\n"
         Returns:
-            (str): The filename if one was written
+            The name of the written file if out_path is used
         """
         if file_handle:  # Todo increment_chains compatibility
             file_handle.write('%s\n' % self.return_atom_string(**kwargs))
@@ -2469,6 +2468,8 @@ class Structures(Structure, UserList):
                                                                           c_term_residue.type, structure.chain_id,
                                                                           c_term_residue.number))
                     f.write('ENDMDL\n')
+
+        return out_path
 
     def __repr__(self):
         return '<Structure.Structures object at %s>' % id(self)
@@ -3039,17 +3040,16 @@ class Entity(Chain, SequenceProfile):
                         for chain in self.chains[:asu_slice]
                         for line_number in range(1, 1 + ceil(len(formated_reference_sequence)/seq_res_len)))
 
-    # Todo overwrite Structure.write() method...
-    def write_oligomer(self, out_path=None, file_handle=None, **kwargs) -> Union[None, str]:  # header=None,
+    # Todo overwrite Structure.write() method with oligomer=True flag?
+    def write_oligomer(self, out_path: Union[bytes, str] = os.getcwd(), file_handle: IO = None, **kwargs) \
+            -> Optional[str]:  # header=None,
         """Write oligomeric Structure Atoms to a file specified by out_path or with a passed file_handle
 
-        Keyword Args:
-            out_path=None (Union[None, str]): The location where the Structure object should be written to disk
-            file_handle=None (Union[None, FileObject]): Used to write Structure details to an open FileObject
-            header=None (Union[None, str]): The information which should be written to the Structure header
-            **kwargs
+        Args:
+            out_path: The location where the Structure object should be written to disk
+            file_handle: Used to write Structure details to an open FileObject
         Returns:
-            (Union[None, str]): The name of the written file if out_path is used
+            The name of the written file if out_path is used
         """
         offset = 0
         if file_handle:
@@ -3057,8 +3057,6 @@ class Entity(Chain, SequenceProfile):
                 for chain in self.chains:
                     file_handle.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
                     offset += chain.number_of_atoms
-            # else:
-            #     self.write(file_handle=file_handle, header=header)
 
         if out_path:
             if self.chains:
@@ -3067,8 +3065,6 @@ class Entity(Chain, SequenceProfile):
                     for idx, chain in enumerate(self.chains, 1):
                         outfile.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
                         offset += chain.number_of_atoms
-            # else:
-            #     self.write(out_path=out_path, header=header)
 
             return out_path
 
