@@ -1507,11 +1507,14 @@ class Structure(StructureBase):
                                  'Atom:\n\t%s' % (self.name, len(side_chain_clashes), sc_info))
             return False
 
-    def get_sasa(self, probe_radius=1.4, atom=False):
+    def get_sasa(self, probe_radius: float = 1.4, atom: bool = True):
         """Use FreeSASA to calculate the surface area of residues in the Structure object.
 
+        Args:
+            probe_radius: The radius which surface area should be generated
+            atom: Whether the output should be generated for each atom. If False, will be generated for each Residue
         Sets:
-            self.sasa (float)
+            self.sasa, self.residue(s).sasa
         """
         if atom:
             out_format = 'pdb'
