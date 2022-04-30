@@ -15,7 +15,6 @@ euler_lookup = EulerLookup()
 sym_entry = SymEntry(261)
 master_outdir = os.getcwd()
 entities1, entities2 = [], []
-
 for file in os.listdir(master_outdir):
     if file.startswith('1nu4'):
         entities1.append(file)
