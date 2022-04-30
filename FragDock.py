@@ -442,6 +442,7 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     #     resume = True if os.path.exists(log_file_path) else False
     #
     # log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
+    resume = False
     pdb1.log = log
     pdb2.log = log
 
