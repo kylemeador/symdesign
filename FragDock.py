@@ -404,7 +404,7 @@ def compute_ij_type_lookup(indices1, indices2):
 
 def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pdb2, rot_step_deg1=3, rot_step_deg2=3,
                    min_matched=3, high_quality_match_value=0.5, output_assembly=False, output_surrounding_uc=False,
-                   clash_dist=2.2, init_max_z_val=1., subseq_max_z_val=2., log=None, keep_time=True):  # resume=False,
+                   clash_dist=2.2, init_max_z_val=1., subseq_max_z_val=2., log=logger, keep_time=True):  # resume=False,
     """
 
     Keyword Args:
@@ -427,21 +427,21 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     for entity in pdb2.entities:
         entity.retrieve_sequence_from_api()
 
-    # Output Directory  # Todo DesignDirectory
-    building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
-    outdir = os.path.join(master_outdir, building_blocks)
-    os.makedirs(outdir, exist_ok=True)
-    if log is None:
-        log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-    else:
-        log_file_path = getattr(log.handlers[0], 'baseFilename', None)
-    if not log_file_path:
-        # we are probably logging to stream and we need to check another method to see if output exists
-        resume = False
-    else:  # it has been set. Does it exist?
-        resume = True if os.path.exists(log_file_path) else False
-
-    log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
+    # TODO reinstate # Output Directory  # Todo DesignDirectory
+    # building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
+    # outdir = os.path.join(master_outdir, building_blocks)
+    # os.makedirs(outdir, exist_ok=True)
+    # if log is None:
+    #     log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
+    # else:
+    #     log_file_path = getattr(log.handlers[0], 'baseFilename', None)
+    # if not log_file_path:
+    #     # we are probably logging to stream and we need to check another method to see if output exists
+    #     resume = False
+    # else:  # it has been set. Does it exist?
+    #     resume = True if os.path.exists(log_file_path) else False
+    #
+    # log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
     pdb1.log = log
     pdb2.log = log
 
