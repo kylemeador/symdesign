@@ -2420,7 +2420,10 @@ class DesignDirectory:  # (JobResources):
         # design_assemblies = []  # Todo use to store the poses generated below?
         interface_local_density, atomic_deviation = {}, {}
         # per residue data includes every residue in the pose
-        per_residue_data = {'errat_deviation': {}, 'sasa_total': {}}  # 'local_density': {},
+        per_residue_data = {'errat_deviation': {},
+                            'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
+                            'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
+        # 'local_density': {},
         for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
             if structure.name not in viable_designs:
                 continue
@@ -2456,21 +2459,28 @@ class DesignDirectory:  # (JobResources):
             assembly_minimally_contacting.get_sasa()
             # per_residue_sasa = [residue.sasa for residue in structure.residues
             #                     if residue.number in self.design_residues]
-            per_residue_sasa_complex = \
-                [residue.sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
+            per_residue_sasa_complex_apolar = \
+                [residue.sasa_apolar for residue in assembly_minimally_contacting.residues[:pose_length]]
+            per_residue_sasa_complex_polar = \
+                [residue.sasa_polar for residue in assembly_minimally_contacting.residues[:pose_length]]
             per_residue_sasa_complex_relative = \
                 [residue.relative_sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
-            per_residue_data['sasa_complex'][structure.name] = per_residue_sasa_complex
-            per_residue_data['sasa_complex_relative'][structure.name] = per_residue_sasa_complex_relative
-            per_residue_sasa_unbound, per_residue_sasa_unbound_relative = [], []
+            per_residue_data['sasa_hydrophobic_complex'][structure.name] = per_residue_sasa_complex_apolar
+            per_residue_data['sasa_polar_complex'][structure.name] = per_residue_sasa_complex_polar
+            per_residue_data['sasa_relative_complex'][structure.name] = per_residue_sasa_complex_relative
+            per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
+                [], [], []
             for idx, entity in enumerate(self.pose.entities, 1):
                 entity.oligomer.get_sasa()
-                per_residue_sasa_unbound.extend(
-                    [residue.sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
+                per_residue_sasa_unbound_apolar.extend(
+                    [residue.sasa_apolar for residue in entity.oligomer.residues[:entity.number_of_residues]])
+                per_residue_sasa_unbound_polar.extend(
+                    [residue.sasa_polar for residue in entity.oligomer.residues[:entity.number_of_residues]])
                 per_residue_sasa_unbound_relative.extend(
                     [residue.relative_sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
-            per_residue_data['sasa_unbound'][structure.name] = per_residue_sasa_unbound
-            per_residue_data['sasa_unbound_relative'][structure.name] = per_residue_sasa_unbound_relative
+            per_residue_data['sasa_hydrophobic_bound'][structure.name] = per_residue_sasa_unbound_apolar
+            per_residue_data['sasa_polar_bound'][structure.name] = per_residue_sasa_unbound_polar
+            per_residue_data['sasa_relative_bound'][structure.name] = per_residue_sasa_unbound_relative
 
         scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
         scores_df['interface_local_density'] = pd.Series(interface_local_density)
@@ -2841,18 +2851,18 @@ class DesignDirectory:  # (JobResources):
         residue_df = pd.concat([residue_df,
                                 pd.concat(
                                     [residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                 'sasa_unbound_polar']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_polar']] -
+                                                                 'sasa_polar_bound']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_polar']] -
                                      residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                 'sasa_complex_polar']]],
+                                                                 'sasa_polar_complex']]],
                                     # residue_df.columns.get_level_values(-1) == 'sasa_complex_polar']]],
                                     axis=1, keys=list(zip(self.interface_residues, repeat('bsa_polar'))))], axis=1)
 
         residue_df = pd.concat([residue_df,
                                 pd.concat(
                                     [residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                 'sasa_unbound_hydrophobic']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_hydrophobic']] -
+                                                                 'sasa_hydrophobic_bound']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_hydrophobic']] -
                                      residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                 'sasa_complex_hydrophobic']]],
+                                                                 'sasa_hydrophobic_complex']]],
                                     # residue_df.columns.get_level_values(-1) == 'sasa_complex_hydrophobic']]],
                                     axis=1, keys=list(zip(self.interface_residues, repeat('bsa_hydrophobic'))))],
                                axis=1)
@@ -2864,13 +2874,18 @@ class DesignDirectory:  # (JobResources):
         #                                                                                                 level=0)],
         #                             axis=1, keys=list(zip(self.interface_residues, repeat('bsa_total'))))], axis=1)
         residue_df = residue_df.join(
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_hydrophobic']]
-            .rename(columns={'sasa_complex_hydrophobic': 'sasa_complex_total'}) +
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_polar']]
-            .rename(columns={'sasa_complex_polar': 'sasa_complex_total'}))
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_bound']]
+            .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_bound']]
+            .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
+        residue_df = residue_df.join(
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_complex']]
+            .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
+            .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
         # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         sasa_assembly_df = \
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex']].droplevel(-1, axis=1)
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
         # make bsa_total columns
         residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']]
                                      .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
@@ -2885,20 +2900,19 @@ class DesignDirectory:  # (JobResources):
 
         # find the relative sasa of the complex and the unbound fraction
         interface_residues = np.asarray(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']] > 0)
-        core_or_interior = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_complex_relative']] < 0.25
-        support_not_rim_or_core = residue_df.loc[:,
-                                  idx_slice[self.interface_residues, 'sasa_unbound_relative']] < 0.25
+        core_or_interior = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_relative_complex']] < 0.25
+        support_not_rim_or_core = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_relative_bound']] < 0.25
         core_residues = np.logical_and(core_or_interior, interface_residues).rename(
-            columns={'sasa_complex_relative': 'core'})
+            columns={'sasa_relative_complex': 'core'})
         interior_residues = np.logical_and(core_or_interior, ~interface_residues).rename(
-            columns={'sasa_complex_relative': 'interior'})
+            columns={'sasa_relative_complex': 'interior'})
         support_residues = np.logical_and(support_not_rim_or_core, interface_residues).rename(
-            columns={'sasa_unbound_relative': 'support'})
+            columns={'sasa_relative_bound': 'support'})
         rim_or_surface = np.logical_xor(~support_not_rim_or_core, core_residues)
         rim_residues = np.logical_and(rim_or_surface, interface_residues).rename(
-            columns={'sasa_unbound_relative': 'rim'})
+            columns={'sasa_relative_bound': 'rim'})
         surface_residues = np.logical_xor(rim_or_surface, interface_residues).rename(
-            columns={'sasa_unbound_relative': 'surface'})
+            columns={'sasa_relative_bound': 'surface'})
 
         residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
                                 surface_residues], axis=1)
