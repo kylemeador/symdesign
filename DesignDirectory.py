@@ -2765,50 +2765,6 @@ class DesignDirectory:  # (JobResources):
             scores_df[r_class] = \
                 residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
 
-        scores_columns = scores_df.columns.to_list()
-        self.log.debug('Score columns present: %s' % scores_columns)
-        # Calculate new metrics from combinations of other metrics
-        # sum columns using list[0] + list[1] + list[n]
-        summation_pairs = \
-            {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
-             'interface_energy_bound':
-                 list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-             'interface_energy_unbound':
-                 list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-             'solvation_energy_bound':
-                 list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-             'solvation_energy_unbound':
-                 list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-             'interface_connectivity':
-                 list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
-
-             'sasa_hydrophobic_bound':
-                 list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
-             'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
-             'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
-        scores_df = columns_to_new_column(scores_df, summation_pairs)
-        scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
-        scores_df['total_interface_residues'] = len(interface_residues)  # add for div_pairs and int_comp_similarity
-        scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
-        scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
-        # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
-        scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True, errors='ignore')
-        if scores_df.get('repacking') is not None:
-            # set interface_bound_activation_energy = NaN where repacking is 0
-            # Currently is -1 for True (Rosetta Filter quirk...)
-            scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = \
-                np.nan
-            scores_df.drop('repacking', axis=1, inplace=True)
-        # Process dataframes for missing values and drop refine trajectory if present
-        scores_df[PUtils.groups] = protocol_s
-        # refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
-        # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-        # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
-        # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
-        # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
-        residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
-        residue_df.fillna(0., inplace=True)
-
         # entity_alignment = multi_chain_alignment(entity_sequences)
         pose_alignment = msa_from_dictionary(pose_sequences)
         entity_alignments = {entity: msa_from_dictionary(design_sequences)
@@ -2866,6 +2822,57 @@ class DesignDirectory:  # (JobResources):
                                     # residue_df.columns.get_level_values(-1) == 'sasa_complex_hydrophobic']]],
                                     axis=1, keys=list(zip(self.interface_residues, repeat('bsa_hydrophobic'))))],
                                axis=1)
+        scores_df['interface_area_polar'] = \
+            residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']].sum(axis=1)
+        scores_df['interface_area_hydrophobic'] = \
+            residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']].sum(axis=1)
+        # scores_df['interface_area_total'] = \
+        #     residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']].sum(axis=1)
+        scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+        scores_columns = scores_df.columns.to_list()
+        self.log.debug('Score columns present: %s' % scores_columns)
+        # Calculate new metrics from combinations of other metrics
+        # sum columns using list[0] + list[1] + list[n]
+        summation_pairs = \
+            {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+             'interface_energy_bound':
+                 list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             'interface_energy_unbound':
+                 list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             'solvation_energy_bound':
+                 list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             'solvation_energy_unbound':
+                 list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             'interface_connectivity':
+                 list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+             }
+        # 'sasa_hydrophobic_bound':
+        #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
+        # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
+        # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
+        scores_df = columns_to_new_column(scores_df, summation_pairs)
+        scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
+        scores_df['total_interface_residues'] = len(interface_residues)  # add for div_pairs and int_comp_similarity
+        scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
+        scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
+        # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
+        scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True,
+                       errors='ignore')
+        if scores_df.get('repacking') is not None:
+            # set interface_bound_activation_energy = NaN where repacking is 0
+            # Currently is -1 for True (Rosetta Filter quirk...)
+            scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = \
+                np.nan
+            scores_df.drop('repacking', axis=1, inplace=True)
+        # Process dataframes for missing values and drop refine trajectory if present
+        scores_df[PUtils.groups] = protocol_s
+        # refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
+        # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+        # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
+        # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
+        # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
+        residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
+        residue_df.fillna(0., inplace=True)
         # make sasa_complex_total columns
         # residue_df = pd.concat([residue_df,
         #                         pd.concat(
@@ -2891,9 +2898,7 @@ class DesignDirectory:  # (JobResources):
                                      .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
                                      residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']]
                                      .rename(columns={'bsa_polar': 'bsa_total'}))
-        bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues,
-                                                      residue_df.columns.get_level_values(-1) == 'bsa_total']] \
-            .droplevel(-1, axis=1)
+        bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']].droplevel(-1, axis=1)
         total_surface_area_df = sasa_assembly_df + bsa_assembly_df
         # ratio_df = bsa_assembly_df / total_surface_area_df
         scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
