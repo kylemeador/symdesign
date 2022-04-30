@@ -2196,7 +2196,7 @@ class Structures(Structure, UserList):
     #  The inheritance of both a Structure and UserClass may get sticky...
     #  As all the functions I have here overwrite Structure class functions, the inheritance may not be necessary
     """Keep track of groups of Structure objects"""
-    def __init__(self, structures=None, **kwargs):  # log=None,
+    def __init__(self, structures: List = None, **kwargs):  # log=None,
         super().__init__(**kwargs)
         # print('Initializing Structures')
         # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
@@ -2207,16 +2207,16 @@ class Structures(Structure, UserList):
         # else:  # When log is explicitly passed as False, use the module logger
         #     self.log = logger
 
-        if isinstance(structures, Iterable):
+        if isinstance(structures, List):
             if all([True if isinstance(structure, Structure) else False for structure in structures]):
                 # self.structures = structures
                 self.data = structures
-            else:
-                # self.structures = []
-                self.data = []
-        else:
-            # self.structures = []
-            self.data = []
+        #     else:
+        #         # self.structures = []
+        #         self.data = []
+        # else:
+        #     # self.structures = []
+        #     self.data = []
 
     # @classmethod
     # def from_file(cls, file, **kwargs):
@@ -2249,7 +2249,7 @@ class Structures(Structure, UserList):
         return len(self.data)
 
     @property
-    def coords(self):
+    def coords(self) -> np.ndarray:
         """Return a view of the Coords from the Structures"""
         try:
             return self._coords.coords
@@ -2261,7 +2261,7 @@ class Structures(Structure, UserList):
             #     coords.extend(structure.coords)
             self._coords = Coords(np.concatenate(coords))
 
-            return self._coords
+            return self._coords.coords
 
     @property
     def atoms(self):
@@ -3469,45 +3469,129 @@ class Entity(Chain, SequenceProfile):
     #     # return self.uniprot_id
 
 
-class Residues:
-    def __init__(self, residues):
-        self.residues = np.array(residues)
+class Atom:
+    """An Atom container with the full Structure coordinates and the Atom unique data. Pass a reference to the full
+    Structure coordinates for Keyword Arg coords=self.coords"""
+    def __init__(self, index=None, number=None, atom_type=None, alt_location=None, residue_type=None, chain=None,
+                 residue_number=None, code_for_insertion=None, occ=None, temp_fact=None, element_symbol=None,
+                 atom_charge=None):  # , sasa=None, sasa=0., coords=None
+        self.index = index
+        self.number = number
+        self.type = atom_type
+        self.alt_location = alt_location
+        self.residue_type = residue_type
+        self.chain = chain
+        self.pdb_residue_number = residue_number
+        self.residue_number = residue_number
+        self.code_for_insertion = code_for_insertion
+        self.occ = occ
+        self.temp_fact = temp_fact
+        self.element_symbol = element_symbol
+        self.atom_charge = atom_charge
+        # self.sasa = sasa
+        # if coords:
+        #     self.coords = coords
 
-    def reindex_residue_atoms(self, start_at=0):  # , offset=None):
-        """Set each member Residue indices according to incremental Atoms/Coords index"""
-        if start_at > 0:  # if not 0 or negative
-            if start_at < self.residues.shape[0]:  # if in the Residues index range
-                prior_residue = self.residues[start_at - 1]
-                # prior_residue.start_index = start_at
-                for residue in self.residues[start_at:].tolist():
-                    residue.start_index = prior_residue._atom_indices[-1] + 1
-                    prior_residue = residue
-            else:
-                # self.residues[-1].start_index = self.residues[-2]._atom_indices[-1] + 1
-                raise DesignError('%s: Starting index is outside of the allowable indices in the Residues object!'
-                                  % Residues.reindex_residue_atoms.__name__)
-        else:  # when start_at is 0 or less
-            prior_residue = self.residues[start_at]
-            prior_residue.start_index = start_at
-            for residue in self.residues[start_at + 1:].tolist():
-                residue.start_index = prior_residue._atom_indices[-1] + 1
-                prior_residue = residue
+    @classmethod
+    def from_info(cls, *args):
+        # number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, occ, temp_fact,
+        # element_symbol, atom_charge
+        """Initialize without coordinates"""
+        return cls(*args)
 
-    def insert(self, new_residues, at=None):
-        """Insert Residue(s) into the Residues object"""
-        self.residues = np.concatenate((self.residues[:at] if 0 <= at <= len(self.residues) else self.residues,
-                                        new_residues if isinstance(new_residues, Iterable) else [new_residues],
-                                        self.residues[at:] if at is not None else []))
+    @property
+    def sasa(self):
+        # try:  # let the Residue owner handle this error
+        return self._sasa
+        # except AttributeError:
+        #     raise AttributeError
 
-    def set_attributes(self, **kwargs):
-        """Set Residue attributes passed by keyword to their corresponding value"""
-        for residue in self.residues.tolist():
-            for key, value in kwargs.items():
-                setattr(residue, key, value)
+    @sasa.setter
+    def sasa(self, sasa):
+        self._sasa = sasa
+    # @property
+    # def coords(self):
+    #     """This holds the atomic Coords which is a view from the Structure that created them"""
+    #     # print(self._coords, len(self._coords.coords), self.index)
+    #     # returns self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
+    #     return self._coords.coords[self.index]  # [self.x, self.y, self.z]
+    #
+    # @coords.setter
+    # def coords(self, coords):
+    #     if isinstance(coords, Coords):
+    #         self._coords = coords
+    #     else:
+    #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+    #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
-    def set_attribute_from_array(self, **kwargs):
-        """For all Residues, set the Residue attribute passed by keyword to the value with the Residue index in the
-        passed array
+    def is_backbone(self):
+        """Check if the Atom is a backbone Atom
+         Returns:
+             (bool)"""
+        backbone_specific_atom_type = ['N', 'CA', 'C', 'O']
+        if self.type in backbone_specific_atom_type:
+            return True
+        else:
+            return False
+
+    def is_cb(self, gly_ca=True):
+        if gly_ca:
+            return self.type == 'CB' or (self.residue_type == 'GLY' and self.type == 'CA')
+        else:
+            #                                    When Rosetta assigns, it is this  v  but PDB assigns as this  v
+            return self.type == 'CB' or (self.residue_type == 'GLY' and (self.type == '2HA' or self.type == 'HA3'))
+
+    def is_ca(self):
+        return self.type == 'CA'
+
+    # def distance(self, atom, intra=False):
+    #     """returns distance (type float) between current instance of Atom and another instance of Atom"""
+    #     if self.chain == atom.chain and not intra:
+    #         # self.log.error('Atoms Are In The Same Chain')
+    #         return None
+    #     else:
+    #         distance = sqrt((self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2)
+    #         return distance
+
+    # def distance_squared(self, atom, intra=False):
+    #     """returns squared distance (type float) between current instance of Atom and another instance of Atom"""
+    #     if self.chain == atom.chain and not intra:
+    #         # self.log.error('Atoms Are In The Same Chain')
+    #         return None
+    #     else:
+    #         distance = (self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2
+    #         return distance
+
+    def __key(self):
+        return self.temp_fact, self.type  # self.index, self.type
+
+    def __str__(self, **kwargs):  # type=None, number=None, pdb=False, chain=None,
+        """Represent Atom in PDB format"""
+        # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
+        # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
+        # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
+        # return'{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'
+        return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+            .format('ATOM', self.type, self.alt_location, self.code_for_insertion, self.occ, self.temp_fact,
+                    self.element_symbol, self.atom_charge)
+        # ^ For future implement in residue writes
+        # v old atom writes
+        # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        #        .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, (chain or self.chain),
+        #                getattr(self, '%sresidue_number' % ('pdb_' if pdb else '')), self.code_for_insertion,
+        #                self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
+
+    def __eq__(self, other):
+        return (self.number == other.number and self.chain == other.chain and self.type == other.type and
+                self.residue_type == other.residue_type)
+
+    def __hash__(self):
+        return hash(self.__key())
+
+
+class Atoms:
+    def __init__(self, atoms):
+        self.atoms = np.array(atoms)
 
         Ex: residues.attribute_from_array(mutation_rate=residue_mutation_rate_array)
         """
@@ -3524,8 +3608,11 @@ class Residues:
 
         return other
 
-    def __iter__(self):
-        yield from self.residues.tolist()
+    def __len__(self):
+        return self.atoms.shape[0]
+
+    def __iter__(self) -> Atom:
+        yield from self.atoms.tolist()
 
 
 class Residue:
@@ -3541,8 +3628,8 @@ class Residue:
         self._contact_order = 0
 
     @property
-    def log(self):
-        """Returns: (logging.Logger)"""
+    def log(self) -> logging.Logger:
+        """Access to the Structure logger"""
         return self._log.log
 
     @log.setter
@@ -3550,7 +3637,8 @@ class Residue:
         self._log = log_object
 
     @property
-    def start_index(self):
+    def start_index(self) -> int:
+        """The first atomic index of the Residue"""
         return self._start_index
 
     @start_index.setter
@@ -3559,11 +3647,12 @@ class Residue:
         self._atom_indices = list(range(index, index + self.number_of_atoms))
 
     @property
-    def range(self):
+    def range(self) -> List[int]:
+        """The range of indices corresponding to the Residue atoms"""
         return list(range(self.number_of_atoms))
 
     @property
-    def atom_indices(self):
+    def atom_indices(self) -> List[int]:
         """The particular indices in which the Residue Atoms are located in the shared Atoms container
 
         Returns: (list[int])
@@ -3580,7 +3669,7 @@ class Residue:
             raise IndexError('The Residue wasn\'t passed any atom_indices which are required for initialization')
 
     @property
-    def atoms(self):
+    def atoms(self) -> List[Atom]:
         return self._atoms.atoms[self._atom_indices].tolist()
 
     @atoms.setter
@@ -3640,8 +3729,8 @@ class Residue:
     #             setattr(atom, kwarg, value)
 
     @property
-    def backbone_indices(self):
-        """Returns: (list[int])"""
+    def backbone_indices(self) -> List[int]:
+        """The atom indices that belong to the backbone atoms"""
         return [self._atom_indices[idx] for idx in self._bb_indices]
 
     @backbone_indices.setter
@@ -3650,8 +3739,8 @@ class Residue:
         self._bb_indices = [idx for idx in indices if idx]
 
     @property
-    def backbone_and_cb_indices(self):
-        """Returns: (list[int])"""
+    def backbone_and_cb_indices(self) -> List[int]:
+        """The atom indices that belong to the backbone and CB atoms"""
         return [self._atom_indices[idx] for idx in self._bb_cb_indices]
 
     @backbone_and_cb_indices.setter
@@ -3660,8 +3749,8 @@ class Residue:
         self._bb_cb_indices = self._bb_indices + ([cb_index] if cb_index else [])
 
     @property
-    def sidechain_indices(self):
-        """Returns: (list[int])"""
+    def sidechain_indices(self) -> List[int]:
+        """The atom indices that belong to the side chain atoms"""
         return [self._atom_indices[idx] for idx in self._sc_indices]
 
     @sidechain_indices.setter
@@ -3670,8 +3759,8 @@ class Residue:
         self._sc_indices = indices
 
     @property
-    def heavy_atom_indices(self):
-        """Returns: (list[int])"""
+    def heavy_atom_indices(self) -> List[int]:
+        """The atom indices that belong to the heavy atoms (non-hydrogen)"""
         return [self._atom_indices[idx] for idx in self._heavy_atom_indices]
 
     @heavy_atom_indices.setter
@@ -3685,29 +3774,29 @@ class Residue:
         return self._heavy_atom_indices == self._atom_indices
 
     @property
-    def coords(self):  # in structure too
+    def coords(self) -> np.ndarray:
         """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
-        return self._coords.coords[self._atom_indices]  # .tolist() Todo ?
+        return self._coords.coords[self._atom_indices]
 
     @property
-    def heavy_coords(self):
+    def heavy_coords(self) -> np.ndarray:
         """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
         return self._coords.coords[[self._atom_indices[idx] for idx in self._heavy_atom_indices]]
 
     @property
-    def backbone_coords(self):
+    def backbone_coords(self) -> np.ndarray:
         """The backbone atomic coords. Provides a view from the Structure that the Residue belongs too"""
         return self._coords.coords[[self._atom_indices[idx] for idx in self._bb_indices]]
 
     @property
-    def backbone_and_cb_coords(self):  # in structure too
+    def backbone_and_cb_coords(self) -> np.ndarray:
         """The backbone and CB atomic coords. Provides a view from the Structure that the Residue belongs too"""
         return self._coords.coords[[self._atom_indices[idx] for idx in self._bb_cb_indices]]
 
     @property
-    def sidechain_coords(self):
+    def sidechain_coords(self) -> np.ndarray:
         """The backbone and CB atomic coords. Provides a view from the Structure that the Residue belongs too"""
         return self._coords.coords[[self._atom_indices[index] for index in self._sc_indices]]
 
@@ -4191,6 +4280,65 @@ class Residue:
         return hash(self.__key())
 
 
+class Residues:
+    def __init__(self, residues: List[Residue]):
+        self.residues = np.array(residues)
+
+    def reindex_residue_atoms(self, start_at=0):  # , offset=None):
+        """Set each member Residue indices according to incremental Atoms/Coords index"""
+        if start_at > 0:  # if not 0 or negative
+            if start_at < self.residues.shape[0]:  # if in the Residues index range
+                prior_residue = self.residues[start_at - 1]
+                # prior_residue.start_index = start_at
+                for residue in self.residues[start_at:].tolist():
+                    residue.start_index = prior_residue._atom_indices[-1] + 1
+                    prior_residue = residue
+            else:
+                # self.residues[-1].start_index = self.residues[-2]._atom_indices[-1] + 1
+                raise DesignError('%s: Starting index is outside of the allowable indices in the Residues object!'
+                                  % Residues.reindex_residue_atoms.__name__)
+        else:  # when start_at is 0 or less
+            prior_residue = self.residues[start_at]
+            prior_residue.start_index = start_at
+            for residue in self.residues[start_at + 1:].tolist():
+                residue.start_index = prior_residue._atom_indices[-1] + 1
+                prior_residue = residue
+
+    def insert(self, new_residues, at=None):
+        """Insert Residue(s) into the Residues object"""
+        self.residues = np.concatenate((self.residues[:at] if 0 <= at <= len(self.residues) else self.residues,
+                                        new_residues if isinstance(new_residues, Iterable) else [new_residues],
+                                        self.residues[at:] if at is not None else []))
+
+    def set_attributes(self, **kwargs):
+        """Set Residue attributes passed by keyword to their corresponding value"""
+        for residue in self:
+            for key, value in kwargs.items():
+                setattr(residue, key, value)
+
+    def set_attribute_from_array(self, **kwargs):
+        """For all Residues, set the Residue attribute passed by keyword to the value with the Residue index in the
+        passed array
+
+        Ex: residues.attribute_from_array(mutation_rate=residue_mutation_rate_array)
+        """
+        for idx, residue in enumerate(self):
+            for key, value in kwargs.items():
+                setattr(residue, key, value[idx])
+
+    def __copy__(self):
+        other = self.__class__.__new__(self.__class__)
+        # other.__dict__ = self.__dict__.copy()
+        other.residues = self.residues.copy()
+        for idx, residue in enumerate(other.residues):
+            other.residues[idx] = copy(residue)
+
+        return other
+
+    def __iter__(self) -> Residue:
+        yield from self.residues.tolist()
+
+
 class GhostFragment:
     def __init__(self, guide_coords, i_type, j_type, k_type, ijk_rmsd, aligned_fragment):  # structure
         #        aligned_chain_residue_tuple, guide_coords=None):
@@ -4394,154 +4542,6 @@ class MonoFragment:
                 rmsd_array[~viable_indices].tolist(), repeat(self))
 
         return [GhostFragment(*info) for info in ghost_frag_info]
-
-
-class Atoms:
-    def __init__(self, atoms):
-        self.atoms = np.array(atoms)
-
-    def delete(self, indices):
-        self.atoms = np.delete(self.atoms, indices)
-
-    def insert(self, new_atoms, at=None):
-        self.atoms = np.concatenate((self.atoms[:at] if 0 <= at <= len(self.atoms) else self.atoms,
-                                     new_atoms if isinstance(new_atoms, Iterable) else [new_atoms],
-                                     self.atoms[at:] if at is not None else []))
-
-    def __copy__(self):
-        other = self.__class__.__new__(self.__class__)
-        # other.__dict__ = self.__dict__.copy()
-        other.atoms = self.atoms.copy()
-        # for idx, atom in enumerate(other.atoms):
-        #     other.atoms[idx] = copy(atom)
-
-        return other
-
-    def __len__(self):
-        return self.atoms.shape[0]
-
-    def __iter__(self):
-        yield from self.atoms.tolist()
-
-
-class Atom:
-    """An Atom container with the full Structure coordinates and the Atom unique data. Pass a reference to the full
-    Structure coordinates for Keyword Arg coords=self.coords"""
-    def __init__(self, index=None, number=None, atom_type=None, alt_location=None, residue_type=None, chain=None,
-                 residue_number=None, code_for_insertion=None, occ=None, temp_fact=None, element_symbol=None,
-                 atom_charge=None):  # , sasa=None, sasa=0., coords=None
-        self.index = index
-        self.number = number
-        self.type = atom_type
-        self.alt_location = alt_location
-        self.residue_type = residue_type
-        self.chain = chain
-        self.pdb_residue_number = residue_number
-        self.residue_number = residue_number
-        self.code_for_insertion = code_for_insertion
-        self.occ = occ
-        self.temp_fact = temp_fact
-        self.element_symbol = element_symbol
-        self.atom_charge = atom_charge
-        # self.sasa = sasa
-        # if coords:
-        #     self.coords = coords
-
-    @classmethod
-    def from_info(cls, *args):
-        # number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, occ, temp_fact,
-        # element_symbol, atom_charge
-        """Initialize without coordinates"""
-        return cls(*args)
-
-    @property
-    def sasa(self):
-        # try:  # let the Residue owner handle this error
-        return self._sasa
-        # except AttributeError:
-        #     raise AttributeError
-
-    @sasa.setter
-    def sasa(self, sasa):
-        self._sasa = sasa
-    # @property
-    # def coords(self):
-    #     """This holds the atomic Coords which is a view from the Structure that created them"""
-    #     # print(self._coords, len(self._coords.coords), self.index)
-    #     # returns self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
-    #     return self._coords.coords[self.index]  # [self.x, self.y, self.z]
-    #
-    # @coords.setter
-    # def coords(self, coords):
-    #     if isinstance(coords, Coords):
-    #         self._coords = coords
-    #     else:
-    #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
-
-    def is_backbone(self):
-        """Check if the Atom is a backbone Atom
-         Returns:
-             (bool)"""
-        backbone_specific_atom_type = ['N', 'CA', 'C', 'O']
-        if self.type in backbone_specific_atom_type:
-            return True
-        else:
-            return False
-
-    def is_cb(self, gly_ca=True):
-        if gly_ca:
-            return self.type == 'CB' or (self.residue_type == 'GLY' and self.type == 'CA')
-        else:
-            #                                    When Rosetta assigns, it is this  v  but PDB assigns as this  v
-            return self.type == 'CB' or (self.residue_type == 'GLY' and (self.type == '2HA' or self.type == 'HA3'))
-
-    def is_ca(self):
-        return self.type == 'CA'
-
-    # def distance(self, atom, intra=False):
-    #     """returns distance (type float) between current instance of Atom and another instance of Atom"""
-    #     if self.chain == atom.chain and not intra:
-    #         # self.log.error('Atoms Are In The Same Chain')
-    #         return None
-    #     else:
-    #         distance = sqrt((self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2)
-    #         return distance
-
-    # def distance_squared(self, atom, intra=False):
-    #     """returns squared distance (type float) between current instance of Atom and another instance of Atom"""
-    #     if self.chain == atom.chain and not intra:
-    #         # self.log.error('Atoms Are In The Same Chain')
-    #         return None
-    #     else:
-    #         distance = (self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2
-    #         return distance
-
-    def __key(self):
-        return self.temp_fact, self.type  # self.index, self.type
-
-    def __str__(self, **kwargs):  # type=None, number=None, pdb=False, chain=None,
-        """Represent Atom in PDB format"""
-        # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
-        # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
-        # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
-        # return'{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'
-        return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-            .format('ATOM', self.type, self.alt_location, self.code_for_insertion, self.occ, self.temp_fact,
-                    self.element_symbol, self.atom_charge)
-        # ^ For future implement in residue writes
-        # v old atom writes
-        # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        #        .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, (chain or self.chain),
-        #                getattr(self, '%sresidue_number' % ('pdb_' if pdb else '')), self.code_for_insertion,
-        #                self.occ, self.temp_fact, self.element_symbol, self.atom_charge)
-
-    def __eq__(self, other):
-        return (self.number == other.number and self.chain == other.chain and self.type == other.type and
-                self.residue_type == other.residue_type)
-
-    def __hash__(self):
-        return hash(self.__key())
 
 
 class Log:
