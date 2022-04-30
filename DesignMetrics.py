@@ -682,9 +682,9 @@ delta_pairs = {'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),  #
                'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),  # Rosetta
                'solvation_energy': ('solvation_energy_unbound', 'solvation_energy_complex'),  # Rosetta
                'solvation_energy_activation': ('solvation_energy_unbound', 'solvation_energy_bound'),  # Rosetta
-               'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
-               'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
-               'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
+               # 'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
+               # 'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
+               # 'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
                }
 #                'int_energy_context_delta': ('int_energy_context_complex', 'int_energy_context_oligomer'),
 #                'full_stability_delta': ('full_stability_complex', 'full_stability_oligomer')}

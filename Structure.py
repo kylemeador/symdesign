@@ -3593,18 +3593,20 @@ class Atoms:
     def __init__(self, atoms):
         self.atoms = np.array(atoms)
 
-        Ex: residues.attribute_from_array(mutation_rate=residue_mutation_rate_array)
-        """
-        for idx, residue in enumerate(self.residues.tolist()):
-            for key, value in kwargs.items():
-                setattr(residue, key, value[idx])
+    def delete(self, indices):
+        self.atoms = np.delete(self.atoms, indices)
+
+    def insert(self, new_atoms, at=None):
+        self.atoms = np.concatenate((self.atoms[:at] if 0 <= at <= len(self.atoms) else self.atoms,
+                                     new_atoms if isinstance(new_atoms, Iterable) else [new_atoms],
+                                     self.atoms[at:] if at is not None else []))
 
     def __copy__(self):
         other = self.__class__.__new__(self.__class__)
         # other.__dict__ = self.__dict__.copy()
-        other.residues = self.residues.copy()
-        for idx, residue in enumerate(other.residues):
-            other.residues[idx] = copy(residue)
+        other.atoms = self.atoms.copy()
+        # for idx, atom in enumerate(other.atoms):
+        #     other.atoms[idx] = copy(atom)
 
         return other
 
