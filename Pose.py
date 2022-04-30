@@ -1,10 +1,9 @@
 import os
 from copy import copy
-from ctypes import Union
 from pickle import load
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil
-from typing import Set, List, Iterable, Dict, Optional, IO
+from typing import Set, List, Iterable, Dict, Optional, IO, Union
 # from operator import itemgetter
 
 import numpy as np
