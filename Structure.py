@@ -2877,21 +2877,25 @@ class Entity(Chain, SequenceProfile):
     #         # for all use of these chains in the future, ensure the found transformations are applied to each chain
 
     @property
-    def oligomer(self):
-        """Access the oligomeric Structure
+    def oligomer(self) -> Structures:
+        """Access the oligomeric Structure which is a copy of the Entity plus any additional symmetric mate chains
 
         Returns:
-            (Structures[Structure]): Structures object with the underlying chains in the oligomer
-            (list[Structure]): The underlying chains in the oligomer
+            Structures object with the underlying chains in the oligomer
         """
-        if self.is_oligomeric:
-            # return Structures(self.chains)
-            return self.chains
-        else:
-            self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
-                             'instead' % self.name)
-            # return self
-            return [self]
+        try:
+            return self._oligomer
+        except AttributeError:
+            if not self.is_oligomeric:
+                # return Structures(self.chains)
+                # return self.chains
+            # else:
+                self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
+                                 'instead' % self.name)
+                # return Structures(self)
+                # return [self]
+            self._oligomer = Structures(self.chains)
+            return self._oligomer
 
     def remove_mate_chains(self):
         """Clear the Entity of all Chain and Oligomer information"""
