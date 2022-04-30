@@ -307,7 +307,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                               os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine)]
                 refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
                                ['sdf=%s' % sym_def_files[entity.symmetry],
-                                'symmetry=%s' % 'make_point_group' if entity.symmetry != 'C1' else 'asymmetric']
+                                'symmetry=%s' % ('make_point_group' if entity.symmetry != 'C1' else 'asymmetric')]
                                for entity in entities_to_refine]
                 if batch_commands:
                     commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
