@@ -896,32 +896,34 @@ def get_all_file_paths(dir, extension=None):
 #             if '.pdb' in file]
 
 
-def collect_nanohedra_designs(files=None, directory=None, dock=False):
+def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> Tuple[List, str]:
     """Grab all poses from an input Nanohedra output
 
-    Keyword Args:
-        files=None (iterable): Iterable with disk location of files containing design directories
-        directory=None (str): Disk location of the program directory
-        project=False (bool): Whether or not the designs are in a docking run
+    Args:
+        files: Iterable with disk location of files containing design directories
+        directory: Disk location of the program directory
+        dock: Whether the designs are in a docking run
     Returns:
-        (tuple[(list), (str)]): All pose directories found, The location where they are located
+        All pose directories found, the location where they are located
     """
     if files:
         all_paths = []
         for file in files:
-            _file = file
-            if not os.path.exists(_file):
-                _file = os.path.join(os.getcwd(), file)
-                if not os.path.exists(_file):
-                    logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
-                    exit()
-            with open(_file, 'r') as f:
-                paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
-                            repeat(os.sep))  # only strip the trailing '/' separator in case file names are passed
-            all_paths.extend(paths)
-            location = _file
+            if not os.path.exists(file):
+                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
+                exit()
+            if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
+                all_paths.append(file)
+            else:  # assume a file that specifies individual designs was passed and load all design names in that file
+                try:
+                    with open(file, 'r') as f:
+                        # only strip the trailing 'os.sep' in case file names are passed
+                        paths = map(str.rstrip, [location.strip() for location in f.readlines()
+                                                 if location.strip() != ''], repeat(os.sep))
+                except IsADirectoryError:
+                    raise DesignError('%s is a directory not a file. Did you mean to run with --file?' % file)
+                all_paths.extend(paths)
     elif directory:
-        location = directory
         if dock:
             all_paths = get_docked_directories(directory)
         else:
@@ -931,9 +933,9 @@ def collect_nanohedra_designs(files=None, directory=None, dock=False):
                 all_paths.extend(get_docked_dirs_from_base(base))
     else:  # this shouldn't happen
         all_paths = []
-        location = None
+    location = (files or directory)
 
-    return sorted(set(all_paths)), location
+    return sorted(set(all_paths)), location if isinstance(location, str) else location[0]
 
 
 def get_base_nanohedra_dirs(base_dir):
@@ -963,13 +965,13 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
         -> Tuple[List, str]:
     """Grab all poses from an input source
 
-    Keyword Args:
-        files=None (Sequence): Iterable with disk location of files containing design directories
-        directory=None (str): Disk location of the program directory
-        project=None (Sequence): Disk location of a project directory
-        single=None (Sequence): Disk location of a single design directory
+    Args:
+        files: Iterable with disk location of files containing design directories
+        directory: Disk location of the program directory
+        projects: Disk location of a project directory
+        singles: Disk location of a single design directory
     Returns:
-        (tuple[list, str]): All pose directories found, The location where they are located
+        All pose directories found, the location where they are located
     """
     if files:
         all_paths = []
@@ -982,14 +984,13 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
             else:  # assume a file that specifies individual designs was passed and load all design names in that file
                 try:
                     with open(file, 'r') as f:
-                        paths = map(str.rstrip, [location.strip() for location in f.readlines() if location.strip() != ''],
-                                    repeat(os.sep))  # only strip the trailing 'os.sep' in case file names are passed
+                        # only strip the trailing 'os.sep' in case file names are passed
+                        paths = map(str.rstrip, [location.strip() for location in f.readlines()
+                                                 if location.strip() != ''], repeat(os.sep))
                 except IsADirectoryError:
                     raise DesignError('%s is a directory not a file. Did you mean to run with --file?' % file)
                 all_paths.extend(paths)
-        # location = files[0]  # assigned to the first file even if there are multiple...
     else:
-        # if directory:
         base_directory = get_base_symdesign_dir(directory)
         # return all design directories within:
         #  base directory -> /base/Projects/project1, ... /base/Projects/projectN
@@ -1001,17 +1002,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
             all_paths = get_all_file_paths(directory, extension='.pdb')
         else:  # function was called with all set to None. This shouldn't happen
             raise RuntimeError('Can\'t collect_designs when no arguments were passed!')
-            # raise DesignError('There was no argument provided to %s! Which returns no designs...'
-            #                   % collect_designs.__name__)
-        # location = directory
-    # elif projects:
-    #     all_paths = get_symdesign_dirs(project=projects)
-    #     location = projects[0]  # assigned to the first path even if there are multiple...
-    # elif singles:
-    #     all_paths = get_symdesign_dirs(single=singles)
-    #     location = singles[0]  # assigned to the first path even if there are multiple...
-    # else:  # this shouldn't happen
-    #     all_paths = []
+
     location = (files or directory or projects or singles)
 
     return sorted(set(all_paths)), location if isinstance(location, str) else location[0]
@@ -1041,17 +1032,15 @@ def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Ite
     """
     paths = []
     if base:
-        paths = glob('%s%s%s' % (base, 3 * ('%s*' % os.sep), os.sep))  # base/*/*/*/
-        # return map(os.path.dirname, glob('%s%s%s' % (base, 3 * ('%s*' % os.sep), os.sep)))  # sorted(set())
+        # base/Projects/*/*/
+        paths = glob('%s%s%s%s' % (base, '%s%s' % (os.sep, PUtils.projects), 2 * ('%s*' % os.sep), os.sep))
     elif projects:
         for project in projects:
             paths.extend(glob('%s%s*%s' % (project, os.sep, os.sep)))  # project/*/
-        # return map(os.path.dirname, paths)  # sorted(set())
     else:  # if single:
         for single, extension in map(os.path.splitext, singles):
             paths.extend(glob('%s%s' % (single, os.sep)))  # single/
-        # return map(os.path.dirname, paths)  # sorted(set())
-    return map(os.path.dirname, paths)  # sorted(set())
+    return map(os.path.dirname, paths)
 
 
 class DesignSpecification(Dialect):
