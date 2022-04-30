@@ -1008,7 +1008,8 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
 
             metric = metadata[2]  # energy [or sasa]
             pose_state = metadata[-2]  # unbound or complex [fsp (favor_sequence_profile) or constrait (constraint)]
-            # if metric == 'sasa':
+            if metric == 'sasa':
+                continue
                 # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                 # polarity = metadata[3]
                 # residue_data[residue_number][metric][polarity][pose_state] = scores.get(column, 0)
@@ -1121,7 +1122,8 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
 
                 metric = metadata[2]  # energy [or sasa]
                 pose_state = metadata[-2]  # unbound or complex [fsp (favor_sequence_profile) or constrait (constraint)]
-                # if metric == 'sasa':
+                if metric == 'sasa':
+                    continue
                     # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
                     # polarity = metadata[3]
                     # residue_data[residue_number][metric][polarity][pose_state] = value
