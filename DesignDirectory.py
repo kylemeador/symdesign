@@ -178,8 +178,13 @@ class DesignDirectory:  # (JobResources):
         # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
         self.force_flags = kwargs.get(PUtils.force_flags, False)
         self.fuse_chains = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
+        self.ignore_clashes = kwargs.get('ignore_clashes', False)
+        self.increment_chains = kwargs.get('increment_chains', False)
+        self.mpi = kwargs.get('mpi', False)
         self.no_hbnet = kwargs.get(PUtils.no_hbnet, False)
         self.number_of_trajectories = kwargs.get(PUtils.number_of_trajectories, PUtils.nstruct)  # was False, notapparent why
+        self.output_assembly = kwargs.get('output_assembly', False)
+        self.run_in_shell = kwargs.get('run_in_shell', False)
         self.pre_refine = False  # True
         self.query_fragments = kwargs.get(PUtils.generate_fragments, False)
         self.scout = kwargs.get(PUtils.scout, False)
@@ -189,11 +194,6 @@ class DesignDirectory:  # (JobResources):
         self.structure_background = kwargs.get(PUtils.structure_background, False)
         self.write_frags = kwargs.get('write_fragments', True)
         self.write_oligomers = kwargs.get('write_oligomers', False)
-        self.run_in_shell = kwargs.get('run_in_shell', False)
-        self.mpi = kwargs.get('mpi', False)
-        self.output_assembly = kwargs.get('output_assembly', False)
-        self.increment_chains = kwargs.get('increment_chains', False)
-        self.ignore_clashes = kwargs.get('ignore_clashes', False)
         # Development Flags
         self.command_only = kwargs.get('command_only', False)  # Whether to reissue the commands, only works with run_in_shell = False
         self.development = kwargs.get('development', False)
