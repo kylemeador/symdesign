@@ -148,7 +148,7 @@ def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=Fa
                                                os.path.splitext(os.path.basename(path2))[0])
             name = 'nanohedra_%s' % building_block_string
             script_out_dir = os.path.join(nano_out_dir, building_block_string)
-            program = PUtils.nanohedra_dock
+            program = PUtils.nanohedra_dock_file
 
     if not os.path.exists(script_out_dir):
         os.makedirs(script_out_dir)

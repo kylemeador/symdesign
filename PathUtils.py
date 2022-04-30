@@ -108,7 +108,7 @@ dependency_dir = os.path.join(source, 'dependencies')
 sym_op_location = os.path.join(dependency_dir, 'symmetry_operators')
 # nanohedra_source = os.path.join(dependency_dir, nano)
 nanohedra_main = os.path.join(source, '%s.py' % nano.title())
-nanohedra_dock = os.path.join(source, 'FragDock.py')
+nanohedra_dock_file = os.path.join(source, 'FragDock.py')
 # nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
 # Nanohedra inheritance
 # Free SASA Executable Path
