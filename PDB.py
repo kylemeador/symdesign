@@ -1,4 +1,5 @@
 import copy
+import logging
 import math
 import os
 import subprocess
@@ -8,7 +9,7 @@ from glob import glob
 from itertools import chain as iter_chain  # repeat,
 # from random import randint
 # from time import sleep
-from typing import Union, Dict, Sequence, List, Container
+from typing import Union, Dict, Sequence, List, Container, Optional
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -601,17 +602,16 @@ class PDB(Structure):
                 return chain
         return
 
-    def write(self, out_path: os.PathLike = None, **kwargs) -> str:
-        """Write PDB Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-        one was written
+    def write(self, **kwargs) -> Optional[str]:
+        """Write PDB Atoms to a file specified by out_path or with a passed file_handle
 
         Returns:
-            (str): The name of the written file
+            The name of the written file if out_path is used
         """
         if not kwargs.get('header') and self.cryst_record:
             kwargs['header'] = self.cryst_record
 
-        return super().write(out_path=out_path, **kwargs)
+        return super().write(**kwargs)
 
     def get_chain_sequences(self):
         self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
@@ -1560,27 +1560,28 @@ def fetch_pdb_file(pdb_code, asu=True, location=pdb_db, **kwargs):  # assembly=N
         return pdb_file[0]  # we should only find one file, therefore, return the first
 
 
-def orient_pdb_file(pdb_path, log=logger, symmetry=None, out_dir=None):
+def orient_pdb_file(file: os.PathLike, log: logging.Logger = logger, symmetry: str = None,
+                    out_dir: os.PathLike = None) -> Optional[str]:
     """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
         resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis
         of symmetry along z, and additional axis along canonically defined vectors. If the symmetry is C1, then the monomer
         will be transformed so the center of mass resides at the origin
 
         Args:
-            pdb_path (str): The location of the .pdb file to be oriented
-        Keyword Args:
-            log=logger (logging.logger): A log handler to report on operation success
-            sym=None (str): The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
+            file: The location of the .pdb file to be oriented
+            log: A log to report on operation success
+            symmetry: The symmetry type to be oriented. Possible types in SymmetryUtils.valid_subunit_number
+            out_dir: The directory that should be used to output files
         Returns:
-            (Union[str, None]): Filepath of oriented PDB
+            Filepath of oriented PDB
         """
-    pdb_filename = os.path.basename(pdb_path)
+    pdb_filename = os.path.basename(file)
     oriented_file_path = os.path.join(out_dir, pdb_filename)
     if os.path.exists(oriented_file_path):
         return oriented_file_path
     # elif sym in valid_subunit_number:
     else:
-        pdb = PDB.from_file(pdb_path, log=log, pose_format=False)  #, entities=False)
+        pdb = PDB.from_file(file, log=log, pose_format=False)  #, entities=False)
         try:
             pdb.orient(symmetry=symmetry)
             pdb.write(out_path=oriented_file_path)
