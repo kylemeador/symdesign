@@ -1579,17 +1579,20 @@ class Structure(StructureBase):
                 # if line[:3] == 'SEQ':
                 residues[idx].sasa = float(line[16:])
                 # idx += 1
-        # Todo change the sasa property to call this automatically if AttributeError?
+        # Todo change to sasa property to call this automatically if AttributeError?
         self.sasa = sum([residue.sasa for residue in self.residues])
 
     def get_surface_residues(self, probe_radius=2.2, sasa_thresh=0):
         """Get the residues who reside on the surface of the molecule
 
+        Args:
+            probe_radius: The radius which surface area should be generated
+            sasa_thresh: The area threshold that the residue should have before it is considered "surface"
         Returns:
-            (list[int]): The surface residue numbers
+            The surface residue numbers
         """
         if not self.sasa:
-            self.get_sasa(probe_radius=probe_radius)  # , sasa_thresh=sasa_thresh)
+            self.get_sasa(probe_radius=probe_radius, atom=False)  # , sasa_thresh=sasa_thresh)
 
         # Todo make dynamic based on relative threshold seen with Levy 2010
         # return [residue.number for residue, sasa in zip(self.residues, self.sasa) if sasa > sasa_thresh]
