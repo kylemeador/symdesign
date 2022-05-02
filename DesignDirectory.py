@@ -2892,6 +2892,16 @@ class DesignDirectory:  # (JobResources):
             .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
             residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
             .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
+        residue_df = residue_df.join(
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_bound']]
+            .rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'}) -
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_complex']]
+            .rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
+        residue_df = residue_df.join(
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_bound']]
+            .rename(columns={'sasa_polar_bound': 'bsa_polar'}) -
+            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
+            .rename(columns={'sasa_polar_complex': 'bsa_polar'}))
         # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         sasa_assembly_df = \
             residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
