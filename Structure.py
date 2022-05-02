@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from itertools import repeat
 from math import ceil
 from random import random  # , randint
-from typing import Union, List, Dict, IO, Optional
+from typing import Union, List, Dict, IO, Optional, Sequence
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
@@ -2003,25 +2003,29 @@ class Structure(StructureBase):
         return fragments
 
     @property
-    def contact_order(self):
+    def contact_order(self) -> np.ndarray:
         """Return the contact order on a per Residue basis
 
         Returns:
-            (numpy.ndarray): The array representing the contact order for each residue in the Structure
+            The array representing the contact order for each residue in the Structure
         """
-        return self.contact_order_per_residue()  # np.array([residue.contact_order for residue in self.residues])
+        try:
+            return np.array([residue.contact_order for residue in self.residues])
+        except AttributeError:
+            self.contact_order_per_residue()
+            return np.array([residue.contact_order for residue in self.residues])
 
     @contact_order.setter
-    def contact_order(self, contact_order):
+    def contact_order(self, contact_order: Sequence):
         """Set the contact order for each Residue
 
         Args:
-            contact_order (Sequence)
+            contact_order: A zero-indexed per residue measure of the contact order
         """
         for idx, residue in enumerate(self.residues):
             residue.contact_order = contact_order[idx]
 
-    def contact_order_per_residue(self, sequence_distance_cutoff=2.0, distance=6.0):
+    def contact_order_per_residue(self, sequence_distance_cutoff: float = 2.0, distance: float = 6.0) -> np.ndarray:
         """Calculate the contact order on a per residue basis
 
         Keyword Args:
@@ -2888,14 +2892,10 @@ class Entity(Chain, SequenceProfile):
             return self._oligomer
         except AttributeError:
             if not self.is_oligomeric:
-                # return Structures(self.chains)
-                # return self.chains
-            # else:
                 self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
                                  'instead' % self.name)
-                # return Structures(self)
-                # return [self]
-            self._oligomer = Structures(self.chains)
+            self._oligomer = self.chains
+            # self._oligomer = Structures(self.chains)
             return self._oligomer
 
     def remove_mate_chains(self):
