@@ -1286,18 +1286,18 @@ class DesignDirectory:  # (JobResources):
 
         # Get ASU distance parameters
         if self.design_dimension:  # when greater than 0
-            max_com_dist = 0
-            for entity in self.pose.entities:
-                com_dist = np.linalg.norm(self.pose.pdb.center_of_mass - entity.center_of_mass)
-                # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
-                if com_dist > max_com_dist:
-                    max_com_dist = com_dist
-            dist = round(sqrt(ceil(max_com_dist)), 0)
-            # Todo re-examine this to set at a reasonable size that is slightly larger that what is present now.
-            #  No edge effects!
-            self.log.info('Expanding ASU into symmetry group by %f Angstroms' % dist)
+            # The furthest point from the ASU COM + the max individual Entity radius
+            distance = self.pose.pdb.radius + max([entity.radius for entity in self.pose.entities])  # all the radii
+            # max_com_dist = 0
+            # for entity in self.pose.entities:
+            #     com_dist = np.linalg.norm(self.pose.pdb.radius - entity.center_of_mass)
+            #     # need ASU COM -> self.pose.pdb.center_of_mass, not Sym Mates COM -> (self.pose.center_of_mass)
+            #     if com_dist > max_com_dist:
+            #         max_com_dist = com_dist
+            # dist = round(sqrt(ceil(max_com_dist)), 0)
+            self.log.info('Expanding ASU into symmetry group by %f Angstroms' % distance)
         else:
-            dist = 0
+            distance = 0
 
         if self.no_evolution_constraint:
             constraint_percent, free_percent = 0, 1
@@ -1305,8 +1305,8 @@ class DesignDirectory:  # (JobResources):
             constraint_percent = 0.5
             free_percent = 1 - constraint_percent
 
-        variables = rosetta_variables + [('dist', dist), ('repack', 'yes'), ('constrained_percent', constraint_percent),
-                                         ('free_percent', free_percent)]
+        variables = rosetta_variables + [('dist', distance), ('repack', 'yes'),
+                                         ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
         # design_profile = self.info.get('design_profile')
         variables.extend([('design_profile', self.design_profile_file)] if self.design_profile else [])
         # fragment_profile = self.info.get('fragment_profile')
@@ -1933,7 +1933,6 @@ class DesignDirectory:  # (JobResources):
             # assign designable residues to interface1/interface2 variables, not necessary for non complex PDB jobs
             self.identify_interface()
             if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
-                # mutated_pdb = copy.deepcopy(self.pose.pdb)  # this method is not implemented safely
                 # mutated_pdb = copy.copy(self.pose.pdb)  # copy method implemented, but incompatible!
                 # Have to use self.pose.pdb as Residue objects in entity_residues are from self.pose.pdb and not copy()!
                 for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
