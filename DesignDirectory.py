@@ -2840,7 +2840,7 @@ class DesignDirectory:  # (JobResources):
             columns={'sasa_relative_complex': 'interior'})
         support_residues = np.logical_and(support_not_rim_or_core, buried_interface_residues).rename(
             columns={'sasa_relative_bound': 'support'})
-        rim_or_surface = np.logical_xor(~support_not_rim_or_core, core_residues)
+        rim_or_surface = np.logical_xor(~support_not_rim_or_core, np.asarray(core_residues))
         rim_residues = np.logical_and(rim_or_surface, buried_interface_residues).rename(
             columns={'sasa_relative_bound': 'rim'})
         surface_residues = np.logical_xor(rim_or_surface, buried_interface_residues).rename(
@@ -2851,7 +2851,7 @@ class DesignDirectory:  # (JobResources):
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
         interior_residue_numbers = \
-            interior_residues[interior_residues.mean(axis=0) > 0.5].remove_unused_levels().levels[0].to_list()
+            interior_residues[interior_residues.mean(axis=1) > 0.5].remove_unused_levels().levels[0].to_list()
         if interior_residue_numbers:
             self.log.info('Design Residues %s are located in the interior' % ', '.join(map(str, interior_residue_numbers)))
 
