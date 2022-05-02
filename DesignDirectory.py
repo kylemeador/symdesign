@@ -57,6 +57,8 @@ cst_value = round(0.2 * reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
+errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
+collapse_significance_threshold = 0.43
 
 
 class JobResources:
@@ -2311,8 +2313,6 @@ class DesignDirectory:  # (JobResources):
 
         # initialize empty design dataframes
         idx_slice = pd.IndexSlice
-        errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
-        collapse_significance_threshold = 0.43
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(1, pose_length + 1))
         pose_sequences = {structure.name: structure.sequence for structure in design_structures}
