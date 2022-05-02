@@ -2470,14 +2470,15 @@ class DesignDirectory:  # (JobResources):
             per_residue_data['sasa_relative_complex'][structure.name] = per_residue_sasa_complex_relative
             per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
                 [], [], []
-            for idx, entity in enumerate(self.pose.entities, 1):
-                entity.oligomer.get_sasa()
+            for idx, entity in enumerate(structure.entities, 1):
+                # entity.oligomer.get_sasa()
+                entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
                 per_residue_sasa_unbound_apolar.extend(
-                    [residue.sasa_apolar for residue in entity.oligomer.residues[:entity.number_of_residues]])
+                    [residue.sasa_apolar for residue in entity_oligomer.residues[:entity.number_of_residues]])
                 per_residue_sasa_unbound_polar.extend(
-                    [residue.sasa_polar for residue in entity.oligomer.residues[:entity.number_of_residues]])
+                    [residue.sasa_polar for residue in entity_oligomer.residues[:entity.number_of_residues]])
                 per_residue_sasa_unbound_relative.extend(
-                    [residue.relative_sasa for residue in entity.oligomer.residues[:entity.number_of_residues]])
+                    [residue.relative_sasa for residue in entity_oligomer.residues[:entity.number_of_residues]])
             per_residue_data['sasa_hydrophobic_bound'][structure.name] = per_residue_sasa_unbound_apolar
             per_residue_data['sasa_polar_bound'][structure.name] = per_residue_sasa_unbound_polar
             per_residue_data['sasa_relative_bound'][structure.name] = per_residue_sasa_unbound_relative
@@ -2518,12 +2519,12 @@ class DesignDirectory:  # (JobResources):
         collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
         inverse_residue_contact_order_z, contact_order = {}, {}
         for entity in self.pose.entities:
-            # we must give a copy of coords_indexed_residues from the pose to each entity...
             # Todo clean this behavior up as it is not good if entity is used downstream
+            #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity...
             entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
             # we need to get the contact order, errat from the symmetric entity
             entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
-            residue_contact_order = entity_oligomer.contact_order_per_residue()[:entity.number_of_residues]
+            residue_contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
             contact_order[entity] = residue_contact_order
             _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
             wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
@@ -2594,7 +2595,7 @@ class DesignDirectory:  # (JobResources):
 
                 # # we must give a copy of coords_indexed_residues from the pose to each entity...
                 # entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
-                # residue_contact_order = entity.contact_order_per_residue()
+                # residue_contact_order = entity.contact_order
                 # contact_order_concatenated.append(residue_contact_order)
                 # inverse_residue_contact_order = max(residue_contact_order) - residue_contact_order
                 # residue_contact_order_mean, residue_contact_order_std = \
