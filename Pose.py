@@ -2972,14 +2972,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                             for entity1_idx in entity1_contacts]
         return contacting_pairs
 
-    def interface_local_density(self, distance=12.):
+    def interface_local_density(self, distance: float = 12.) -> float:
         """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
            value over each Residue
 
-        Keyword Args:
-            distance=12.0 (float): The cutoff distance with which Atoms should be included in local density
+        Args:
+            distance: The cutoff distance with which Atoms should be included in local density
         Returns:
-            (float): The local density around each interface
+            The local density around each interface
         """
         interface_indices1, interface_indices2 = [], []
         for entity1, entity2 in self.interface_residues:
