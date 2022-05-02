@@ -2301,21 +2301,6 @@ class DesignDirectory:  # (JobResources):
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
             design_structures.append(design)
 
-        # Get design information including: interface residues, SSM's, and wild_type/design files
-        profile_background = {}
-        if self.design_profile:
-            profile_background['design'] = self.design_profile
-        # else:
-        #     self.log.info('Design has no fragment information')
-        if self.evolutionary_profile:
-            profile_background['evolution'] = self.evolutionary_profile
-        else:
-            self.log.info('Design has no evolution information')
-        if self.fragment_data:
-            profile_background['fragment'] = self.fragment_data
-        else:
-            self.log.info('Design has no fragment information')
-
         # initialize empty design dataframes
         idx_slice = pd.IndexSlice
         pose_length = self.pose.number_of_residues
@@ -2335,7 +2320,7 @@ class DesignDirectory:  # (JobResources):
         # entity_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
         # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
         #                         for chain, named_sequences in entity_sequences.items()}
-        stat_s, divergence_s, sim_series = pd.Series(), pd.Series(), []
+        stat_s, sim_series = pd.Series(), []
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
             self.log.debug('Missing design scores file at %s' % self.scores_file)
             # Todo add relevant missing scores such as those specified as 0 below
@@ -2416,6 +2401,14 @@ class DesignDirectory:  # (JobResources):
             # residue_info = residue_processing(all_design_scores, simplify_mutation_dict(all_mutations), per_res_columns,
             #                                   hbonds=interface_hbonds)
 
+        # Next, for each protocol
+        designs_by_protocol = protocol_s.groupby(PUtils.groups).indices
+        # remove refine and consensus if present as there was no design done over multiple protocols
+        designs_by_protocol.pop(PUtils.refine, None)
+        designs_by_protocol.pop(PUtils.stage[5], None)
+        # Get unique protocols
+        unique_protocols = list(designs_by_protocol.keys())
+        self.log.info('Unique Design Protocols: %s' % ', '.join(unique_protocols))
         # Find designs where required data is present
         viable_designs = scores_df.index.to_list()
         assert viable_designs, 'No viable designs remain after processing!'
@@ -2710,16 +2703,80 @@ class DesignDirectory:  # (JobResources):
         pose_collapse_df['errat_deviation'] = errat_design_significance
         # significant_errat_residues = per_residue_df.index[].remove_unused_levels().levels[0].to_list()
 
-        # Calculate amino acid observation percent from residue dict and background SSM's
-        observation_d = {profile: {design: mutation_conserved(info, background)
-                                   for design, info in residue_info.items()}
-                         for profile, background in profile_background.items()}
+        # Get design information including: interface residues, SSM's, and wild_type/design files
+        profile_background = {}
+        if self.design_profile:
+            profile_background['design'] = self.design_profile
+        # else:
+        #     self.log.info('Design has no fragment information')
+        if self.evolutionary_profile:
+            profile_background['evolution'] = self.evolutionary_profile
+        else:
+            self.log.info('Design has no evolution information')
+        if self.fragment_data:
+            profile_background['fragment'] = self.fragment_data
+        else:
+            self.log.info('Design has no fragment information')
 
-        # Find the observed background for each profile, for each design in the pose
-        pose_observed_bkd = {profile: {design: per_res_metric(freq) for design, freq in design_obs_freqs.items()}
-                             for profile, design_obs_freqs in observation_d.items()}
-        for profile, observed_frequencies in pose_observed_bkd.items():
-            scores_df['observed_%s' % profile] = pd.Series(observed_frequencies)
+        if not profile_background:
+            divergence_s = pd.Series
+        else:
+            # Calculate amino acid observation percent from residue_info and background SSM's
+            observation_d = {profile: {design: mutation_conserved(info, background)
+                                       for design, info in residue_info.items()}
+                             for profile, background in profile_background.items()}
+            # Find the observed background for each profile, for each design in the pose
+            pose_observed_bkd = {profile: {design: per_res_metric(freq) for design, freq in design_obs_freqs.items()}
+                                 for profile, design_obs_freqs in observation_d.items()}
+            for profile, observed_frequencies in pose_observed_bkd.items():
+                scores_df['observed_%s' % profile] = pd.Series(observed_frequencies)
+            # Add observation information into the residue dictionary
+            for design, info in residue_info.items():
+                residue_info[design] = \
+                    weave_sequence_dict(base_dict=info, **{'observed_%s' % profile: design_obs_freqs[design]
+                                                           for profile, design_obs_freqs in observation_d.items()})
+            # Calculate sequence statistics
+            # first for entire pose
+            pose_alignment = msa_from_dictionary(pose_sequences)
+            mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, self.design_residues)
+            # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
+            # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
+            #                                              both mut_freq and profile_background[profile] are one-indexed
+            divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
+                          for profile, background in profile_background.items()}
+            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database))
+            if interface_bkgd:
+                divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
+            # Get pose sequence divergence
+            divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
+                                for divergence_type, stat in divergence.items()}
+            pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
+
+            if designs_by_protocol:  # were multiple designs generated with each protocol?
+                # find the divergence within each protocol
+                divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
+                for protocol, designs in designs_by_protocol.items():
+                    # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
+                    protocol_alignment = msa_from_dictionary({design: pose_sequences[design] for design in designs})
+                    protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
+                                                                    self.design_residues)
+                    protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
+                                         for profile, bkgnd in profile_background.items()}  # ^ both are 1-idx
+                    if interface_bkgd:
+                        protocol_res_dict['divergence_interface'] = \
+                            jensen_shannon_divergence(protocol_mutation_freq, interface_bkgd)
+                    # Get per residue divergence metric by protocol
+                    for divergence, sequence_info in protocol_res_dict.items():
+                        divergence_by_protocol[protocol]['%s_per_residue' % divergence] = per_res_metric(sequence_info)
+                        # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
+                        # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
+
+                protocol_divergence_s = pd.concat(
+                    [pd.Series(divergence) for divergence in divergence_by_protocol.values()],
+                    keys=list(zip(repeat('sequence_design'), divergence_by_protocol)))
+            else:
+                protocol_divergence_s = pd.Series()
+            divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
 
         # reference_mutations = cleaned_mutations.pop('reference', None)  # save the reference
         scores_df['number_of_mutations'] = \
@@ -2740,11 +2797,6 @@ class DesignDirectory:  # (JobResources):
 
         other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
-        # Add observation information into the residue dictionary
-        for design, info in residue_info.items():
-            residue_info[design] = \
-                weave_sequence_dict(base_dict=info, **{'observed_%s' % profile: design_obs_freqs[design]
-                                                       for profile, design_obs_freqs in observation_d.items()})
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
         residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
         # returns multi-index column with residue number as first (top) column index, metric as second index
@@ -2756,7 +2808,6 @@ class DesignDirectory:  # (JobResources):
                               left_index=True, right_index=True)
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
-        pose_alignment = msa_from_dictionary(pose_sequences)
         entity_alignments = {entity: msa_from_dictionary(design_sequences)
                              for entity, design_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
@@ -2924,17 +2975,14 @@ class DesignDirectory:  # (JobResources):
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         protocol_groups = scores_df.groupby(PUtils.groups)
-        # protocol_groups = trajectory_df.groupby(groups)
-        designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
-                               for protocol, indices in protocol_groups.indices.items()}
-        designs_by_protocol.pop(PUtils.refine, None)  # remove refine if present
-        designs_by_protocol.pop(PUtils.stage[5], None)  # remove consensus if present
-        # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
+        # # protocol_groups = trajectory_df.groupby(groups)
+        # designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
         #                        for protocol, indices in protocol_groups.indices.items()}
+        # designs_by_protocol.pop(PUtils.refine, None)  # remove refine if present
+        # designs_by_protocol.pop(PUtils.stage[5], None)  # remove consensus if present
+        # # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
+        # #                        for protocol, indices in protocol_groups.indices.items()}
 
-        # Get unique protocols
-        unique_protocols = list(designs_by_protocol.keys())
-        self.log.info('Unique Design Protocols: %s' % ', '.join(unique_protocols))
         pose_stats, protocol_stats = [], []
         for idx, stat in enumerate(stats_metrics):
             pose_stats.append(getattr(trajectory_df, stat)().rename(stat))
@@ -2951,46 +2999,6 @@ class DesignDirectory:  # (JobResources):
                     {protocol: '%s_%s' % (protocol, stat) for protocol in unique_protocols})
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
-
-        # Calculate sequence statistics
-        # first for entire pose
-        mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, self.design_residues)
-        # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
-        # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
-        #                                              both mut_freq and profile_background[profile] are one-indexed
-        divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
-                      for profile, background in profile_background.items()}
-        interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database))
-        if interface_bkgd:
-            divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
-        # Get pose sequence divergence
-        divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
-                            for divergence_type, stat in divergence.items()}
-
-        # Next, for each protocol
-        divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
-        for protocol, designs in designs_by_protocol.items():
-            # Todo select from pose_alignment the indices of each design then pass to MultipleSequenceAlignment?
-            protocol_alignment = msa_from_dictionary({design: pose_sequences[design] for design in designs})
-            # protocol_alignment = multi_chain_alignment({entity: {design: design_seqs[design] for design in designs}
-            #                                             for entity, design_seqs in entity_sequences.items()})
-            # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['frequencies'], interface_residues)
-            protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies, self.design_residues)
-            protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
-                                 for profile, bkgnd in profile_background.items()}  # ^ both are 1-idx
-            if interface_bkgd:
-                protocol_res_dict['divergence_interface'] = \
-                    jensen_shannon_divergence(protocol_mutation_freq, interface_bkgd)
-            # Get per residue divergence metric by protocol
-            for divergence, sequence_info in protocol_res_dict.items():
-                divergence_by_protocol[protocol]['%s_per_residue' % divergence] = per_res_metric(sequence_info)
-                # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
-                # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
-
-        protocol_divergence_s = pd.concat([pd.Series(divergence) for divergence in divergence_by_protocol.values()],
-                                          keys=list(zip(repeat('sequence_design'), divergence_by_protocol)))
-        pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
-        divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
