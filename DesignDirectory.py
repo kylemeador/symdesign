@@ -1355,10 +1355,14 @@ class DesignDirectory:  # (JobResources):
         # metrics_flags = 'repack=yes'
         main_cmd = copy.copy(script_cmd)
         # Need to initialize the pose so each entity can get sdf created
-        # Todo check for the necessity of function calls here by seeing if attributes
-        #  self.design_residues, self.fragment_observations, self.center_residue_numbers exist. Can remove <-$ if so
-        self.identify_interface()  # <-$ needed for prepare_rosetta_flags to load_pose, just replaced with above
-        # self.load_pose()  # Todo implement this
+        if self.interface_residues is False or self.design_residues is False:
+            self.identify_interface()
+            if not self.design_residues:  # we should always get an empty set if we have got to this point
+                raise DesignError('No residues were found with your design criteria... Your flags may be too stringent '
+                                  'or incorrect. If you are performing interface design, check that your input has an '
+                                  'interface')
+        else:
+            self.load_pose()
         # interface_secondary_structure
         if not os.path.exists(self.flags) or self.force_flags:
             self.prepare_symmetry_for_rosetta()
@@ -2114,8 +2118,7 @@ class DesignDirectory:  # (JobResources):
                 # residue = entity_oligomer.residue(residue_number)
                 # self.log.debug('Design residue: %d - SASA: %f' % (residue_number, residue.sasa))
                 # if residue:
-                # if residue.relative_sasa > 0:
-                if residue.sasa > 0:  # TODO this may be too lenient. Use .relative_sasa ?
+                if residue.sasa > 0:
                     self.interface_residues.append(residue.number)
 
         # # interface1, interface2 = \
@@ -2270,12 +2273,15 @@ class DesignDirectory:  # (JobResources):
         """
         # Gather miscellaneous pose specific metrics
         # ensure oligomers are present. If so pull pose metrics out
-        # Todo if the pose has already been initialized, self.design_residues, self.fragment_observations then we can
-        #  just load_pose()
-        # self.load_pose()
-        # ^ NOW using identify_interface instead due to interface residue requirement given new metrics
         if self.interface_residues is False or self.design_residues is False:
             self.identify_interface()
+            if not self.design_residues:  # we should always get an empty set if we have got to this point
+                raise DesignError('No residues were found with your design criteria... Your flags may be too stringent '
+                                  'or incorrect. If you are performing interface design, check that your input has an '
+                                  'interface')
+        else:
+            self.load_pose()
+        self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.design_residues))))
         if self.query_fragments:
             self.make_path(self.frags, condition=self.write_frags)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
@@ -2710,12 +2716,6 @@ class DesignDirectory:  # (JobResources):
                                    for design, info in residue_info.items()}
                          for profile, background in profile_background.items()}
 
-        # Add observation information into the residue dictionary
-        for design, info in residue_info.items():
-            residue_info[design] = \
-                weave_sequence_dict(base_dict=info, **{'observed_%s' % profile: design_obs_freqs[design]
-                                                       for profile, design_obs_freqs in observation_d.items()})
-
         # Find the observed background for each profile, for each design in the pose
         pose_observed_bkd = {profile: {design: per_res_metric(freq) for design, freq in design_obs_freqs.items()}
                              for profile, design_obs_freqs in observation_d.items()}
@@ -2741,7 +2741,12 @@ class DesignDirectory:  # (JobResources):
 
         other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
-        # Process H-bond and Residue metrics to dataframe
+        # Add observation information into the residue dictionary
+        for design, info in residue_info.items():
+            residue_info[design] = \
+                weave_sequence_dict(base_dict=info, **{'observed_%s' % profile: design_obs_freqs[design]
+                                                       for profile, design_obs_freqs in observation_d.items()})
+        # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
         residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
         # returns multi-index column with residue number as first (top) column index, metric as second index
         # during residue_df unstack, all residues with missing dicts are copied as nan
@@ -2750,28 +2755,6 @@ class DesignDirectory:  # (JobResources):
         #                       left_index=True, right_index=True)
         residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[self.design_residues, :]],
                               left_index=True, right_index=True)
-        # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
-        # Todo reconcile this with the state variable self.interface_residues
-        interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
-        interior_residues = \
-            interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
-        interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residues)
-        # Todo remove this requirement? OR make this script interface_design_analysis
-        assert len(interface_residues) > 0, 'No interface residues found! Design not considered'
-        if not self.design_residues:  # we should always get an empty set if we have got to this point
-            raise DesignError('No residues were found with your design criteria... Your flags may be too stringent '
-                              'or incorrect. If you are performing interface design, check that your input has an '
-                              'interface')
-        self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.design_residues))))
-        # interior_residues = self.design_residues.difference(interface_residues)
-        # if interface_residues != self.design_residues:
-        if interior_residues:
-            self.log.info('Residues %s are located in the interior' % ', '.join(map(str, interior_residues)))
-
-        # Add design residue information to scores_df such as how many core, rim, and support residues were measured
-        for r_class in residue_classificiation:
-            scores_df[r_class] = \
-                residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == r_class]].sum(axis=1)
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
         pose_alignment = msa_from_dictionary(pose_sequences)
@@ -2812,26 +2795,75 @@ class DesignDirectory:  # (JobResources):
         #     residue_df.loc[:, idx_slice[self.interface_residues,
         #                                 residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
 
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_bound']]
+        # Make buried surface area (bsa) columns
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.design_residues, 'sasa_hydrophobic_bound']]
                                      .rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'}) -
-                                     residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_complex']]
+                                     residue_df.loc[:, idx_slice[self.design_residues, 'sasa_hydrophobic_complex']]
                                      .rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_bound']]
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.design_residues, 'sasa_polar_bound']]
                                      .rename(columns={'sasa_polar_bound': 'bsa_polar'}) -
-                                     residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
+                                     residue_df.loc[:, idx_slice[self.design_residues, 'sasa_polar_complex']]
                                      .rename(columns={'sasa_polar_complex': 'bsa_polar'}))
-        # make bsa_total columns
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']]
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.design_residues, 'bsa_hydrophobic']]
                                      .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
-                                     residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']]
+                                     residue_df.loc[:, idx_slice[self.design_residues, 'bsa_polar']]
                                      .rename(columns={'bsa_polar': 'bsa_total'}))
-        scores_df['interface_area_polar'] = \
-            residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']].sum(axis=1)
+        scores_df['interface_area_polar'] = residue_df.loc[:, idx_slice[self.design_residues, 'bsa_polar']].sum(axis=1)
         scores_df['interface_area_hydrophobic'] = \
-            residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']].sum(axis=1)
+            residue_df.loc[:, idx_slice[self.design_residues, 'bsa_hydrophobic']].sum(axis=1)
         # scores_df['interface_area_total'] = \
-        #     residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']].sum(axis=1)
+        #     residue_df.loc[:, idx_slice[self.design_residues, 'bsa_total']].sum(axis=1)
         scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
+        # make sasa_complex_total columns
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.design_residues, 'sasa_hydrophobic_bound']]
+                                     .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
+                                     residue_df.loc[:, idx_slice[self.design_residues, 'sasa_polar_bound']]
+                                     .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.design_residues, 'sasa_hydrophobic_complex']]
+                                     .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
+                                     residue_df.loc[:, idx_slice[self.design_residues, 'sasa_polar_complex']]
+                                     .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
+        # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
+        sasa_assembly_df = \
+            residue_df.loc[:, idx_slice[self.design_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
+        bsa_assembly_df = residue_df.loc[:, idx_slice[self.design_residues, 'bsa_total']].droplevel(-1, axis=1)
+        total_surface_area_df = sasa_assembly_df + bsa_assembly_df
+        # ratio_df = bsa_assembly_df / total_surface_area_df
+        scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
+
+        # find the relative sasa of the complex and the unbound fraction
+        buried_interface_residues = np.asarray(residue_df.loc[:, idx_slice[self.design_residues, 'bsa_total']] > 0)
+        core_or_interior = residue_df.loc[:, idx_slice[self.design_residues, 'sasa_relative_complex']] < 0.25
+        support_not_rim_or_core = residue_df.loc[:, idx_slice[self.design_residues, 'sasa_relative_bound']] < 0.25
+        core_residues = np.logical_and(core_or_interior, buried_interface_residues).rename(
+            columns={'sasa_relative_complex': 'core'})  # .replace({False: 0, True: 1}) maybe... shouldn't be necessary
+        interior_residues = np.logical_and(core_or_interior, ~buried_interface_residues).rename(
+            columns={'sasa_relative_complex': 'interior'})
+        support_residues = np.logical_and(support_not_rim_or_core, buried_interface_residues).rename(
+            columns={'sasa_relative_bound': 'support'})
+        rim_or_surface = np.logical_xor(~support_not_rim_or_core, core_residues)
+        rim_residues = np.logical_and(rim_or_surface, buried_interface_residues).rename(
+            columns={'sasa_relative_bound': 'rim'})
+        surface_residues = np.logical_xor(rim_or_surface, buried_interface_residues).rename(
+            columns={'sasa_relative_bound': 'surface'})
+
+        residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
+                                surface_residues], axis=1)
+        # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
+        # interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
+        interior_residue_numbers = \
+            interior_residues[interior_residues.mean(axis=0) > 0.5].remove_unused_levels().levels[0].to_list()
+        if interior_residue_numbers:
+            self.log.info('Design Residues %s are located in the interior' % ', '.join(map(str, interior_residue_numbers)))
+
+        # This shouldn't be much different from the state variable self.interface_residues
+        # perhaps the use of residue neighbor energy metrics adds residues which contribute, but not directly
+        interface_residues = set(residue_df.columns.levels[0].unique()).difference(interior_residue_numbers)
+
+        # Add design residue information to scores_df such as how many core, rim, and support residues were measured
+        for r_class in residue_classificiation:
+            scores_df[r_class] = residue_df.loc[:, idx_slice[:, r_class]].sum(axis=1)
+
         scores_columns = scores_df.columns.to_list()
         self.log.debug('Score columns present: %s' % scores_columns)
         # Calculate new metrics from combinations of other metrics
@@ -2855,7 +2887,8 @@ class DesignDirectory:  # (JobResources):
         # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
         scores_df = columns_to_new_column(scores_df, summation_pairs)
         scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
-        scores_df['total_interface_residues'] = len(interface_residues)  # add for div_pairs and int_comp_similarity
+        # add total_interface_residues for div_pairs and int_comp_similarity
+        scores_df['total_interface_residues'] = other_pose_metrics['total_interface_residues']
         scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
         scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
         # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
@@ -2864,8 +2897,7 @@ class DesignDirectory:  # (JobResources):
         if scores_df.get('repacking') is not None:
             # set interface_bound_activation_energy = NaN where repacking is 0
             # Currently is -1 for True (Rosetta Filter quirk...)
-            scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = \
-                np.nan
+            scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = np.nan
             scores_df.drop('repacking', axis=1, inplace=True)
         # Process dataframes for missing values and drop refine trajectory if present
         scores_df[PUtils.groups] = protocol_s
@@ -2876,47 +2908,6 @@ class DesignDirectory:  # (JobResources):
         # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
         residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
         residue_df.fillna(0., inplace=True)
-        # make sasa_complex_total columns
-        # residue_df = pd.concat([residue_df,
-        #                         pd.concat(
-        #                             [residue_df.loc[:, idx_slice[self.interface_residues,
-        #                                                          ['bsa_polar', 'bsa_hydrophobic']]].sum(axis=1,
-        #                                                                                                 level=0)],
-        #                             axis=1, keys=list(zip(self.interface_residues, repeat('bsa_total'))))], axis=1)
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_bound']]
-                                     .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
-                                     residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_bound']]
-                                     .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_complex']]
-                                     .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
-                                     residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
-                                     .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
-        # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
-        sasa_assembly_df = \
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
-        bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']].droplevel(-1, axis=1)
-        total_surface_area_df = sasa_assembly_df + bsa_assembly_df
-        # ratio_df = bsa_assembly_df / total_surface_area_df
-        scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
-
-        # find the relative sasa of the complex and the unbound fraction
-        interface_residues = np.asarray(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']] > 0)
-        core_or_interior = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_relative_complex']] < 0.25
-        support_not_rim_or_core = residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_relative_bound']] < 0.25
-        core_residues = np.logical_and(core_or_interior, interface_residues).rename(
-            columns={'sasa_relative_complex': 'core'})
-        interior_residues = np.logical_and(core_or_interior, ~interface_residues).rename(
-            columns={'sasa_relative_complex': 'interior'})
-        support_residues = np.logical_and(support_not_rim_or_core, interface_residues).rename(
-            columns={'sasa_relative_bound': 'support'})
-        rim_or_surface = np.logical_xor(~support_not_rim_or_core, core_residues)
-        rim_residues = np.logical_and(rim_or_surface, interface_residues).rename(
-            columns={'sasa_relative_bound': 'rim'})
-        surface_residues = np.logical_xor(rim_or_surface, interface_residues).rename(
-            columns={'sasa_relative_bound': 'surface'})
-
-        residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
-                                surface_residues], axis=1)
         residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]  # Todo this isn't explict!!
 
         # POSE ANALYSIS
@@ -2964,7 +2955,7 @@ class DesignDirectory:  # (JobResources):
 
         # Calculate sequence statistics
         # first for entire pose
-        mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, interface_residues)
+        mutation_frequencies = filter_dictionary_keys(pose_alignment.frequencies, self.design_residues)
         # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
         # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
         #                                              both mut_freq and profile_background[profile] are one-indexed
@@ -2985,7 +2976,7 @@ class DesignDirectory:  # (JobResources):
             # protocol_alignment = multi_chain_alignment({entity: {design: design_seqs[design] for design in designs}
             #                                             for entity, design_seqs in entity_sequences.items()})
             # protocol_mutation_freq = filter_dictionary_keys(protocol_alignment['frequencies'], interface_residues)
-            protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies, interface_residues)
+            protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies, self.design_residues)
             protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
                                  for profile, bkgnd in profile_background.items()}  # ^ both are 1-idx
             if interface_bkgd:
