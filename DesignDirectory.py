@@ -2851,7 +2851,7 @@ class DesignDirectory:  # (JobResources):
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
         interior_residue_numbers = \
-            interior_residues[interior_residues.mean(axis=1) > 0.5].remove_unused_levels().levels[0].to_list()
+            interior_residues[interior_residues.mean(axis=1) > 0.5].columns.remove_unused_levels().levels[0].to_list()
         if interior_residue_numbers:
             self.log.info('Design Residues %s are located in the interior' % ', '.join(map(str, interior_residue_numbers)))
 
