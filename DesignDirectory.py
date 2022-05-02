@@ -2653,7 +2653,7 @@ class DesignDirectory:  # (JobResources):
 
                 if msa_metrics:
                     z_array = z_score(standardized_collapse,  # observed_collapse,
-                                      collapse_df[entity].loc['mean', :], collapse_df[entity].loc['std', :])
+                                      collapse_df[entity].loc[mean, :], collapse_df[entity].loc[std, :])
                     # todo test for magnitude of the wt versus profile, remove subtraction?
                     normalized_collapse_z = z_array - wt_collapse_z_score[entity]
                     hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
@@ -2726,11 +2726,6 @@ class DesignDirectory:  # (JobResources):
         for profile, observed_frequencies in pose_observed_bkd.items():
             scores_df['observed_%s' % profile] = pd.Series(observed_frequencies)
 
-        # Process H-bond and Residue metrics to dataframe
-        residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
-        # returns multi-index column with residue number as first (top) column index, metric as second index
-        # during residue_df unstack, all residues with missing dicts are copied as nan
-
         # reference_mutations = cleaned_mutations.pop('reference', None)  # save the reference
         scores_df['number_of_mutations'] = \
             pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
@@ -2750,7 +2745,14 @@ class DesignDirectory:  # (JobResources):
 
         other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
+        # Process H-bond and Residue metrics to dataframe
+        residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+        # returns multi-index column with residue number as first (top) column index, metric as second index
+        # during residue_df unstack, all residues with missing dicts are copied as nan
+        residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
+                              left_index=True, right_index=True)
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
+        # Todo reconcile this with the state variable self.interface_residues
         interior_residue_df = residue_df.loc[:, idx_slice[:, residue_df.columns.get_level_values(1) == 'interior']]
         interior_residues = \
             interior_residue_df.columns[interior_residue_df.mean() > 0.5].remove_unused_levels().levels[0].to_list()
@@ -2804,31 +2806,44 @@ class DesignDirectory:  # (JobResources):
             # merge with per_residue_df
             per_residue_df = pd.merge(per_residue_df, dca_concatenated_df, left_index=True, right_index=True)
 
-        residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
-                              left_index=True, right_index=True)
+        # residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
+        #                       left_index=True, right_index=True)
         # Add local_density information to scores_df
         # scores_df['interface_local_density'] = \
         #     residue_df.loc[:, idx_slice[self.interface_residues,
         #                                 residue_df.columns.get_level_values(1) == 'local_density']].mean(axis=1)
-        # Todo update with join like below
-        residue_df = pd.concat([residue_df,
-                                pd.concat(
-                                    [residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                 'sasa_polar_bound']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_polar']] -
-                                     residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                 'sasa_polar_complex']]],
-                                    # residue_df.columns.get_level_values(-1) == 'sasa_complex_polar']]],
-                                    axis=1, keys=list(zip(self.interface_residues, repeat('bsa_polar'))))], axis=1)
 
-        residue_df = pd.concat([residue_df,
-                                pd.concat(
-                                    [residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                 'sasa_hydrophobic_bound']] -  # residue_df.columns.get_level_values(-1) == 'sasa_unbound_hydrophobic']] -
-                                     residue_df.loc[:, idx_slice[self.interface_residues,
-                                                                 'sasa_hydrophobic_complex']]],
-                                    # residue_df.columns.get_level_values(-1) == 'sasa_complex_hydrophobic']]],
-                                    axis=1, keys=list(zip(self.interface_residues, repeat('bsa_hydrophobic'))))],
-                               axis=1)
+        # residue_df = pd.concat([residue_df,
+        #                         pd.concat(
+        #                             [residue_df.loc[:, idx_slice[self.interface_residues,
+        #                                                          'sasa_polar_bound']] -
+        #                              residue_df.loc[:, idx_slice[self.interface_residues,
+        #                                                          'sasa_polar_complex']]],
+        #                             # residue_df.columns.get_level_values(-1) == 'sasa_complex_polar']]],
+        #                             axis=1, keys=list(zip(self.interface_residues, repeat('bsa_polar'))))], axis=1)
+        #
+        # residue_df = pd.concat([residue_df,
+        #                         pd.concat(
+        #                             [residue_df.loc[:, idx_slice[self.interface_residues,
+        #                                                          'sasa_hydrophobic_bound']] -
+        #                              residue_df.loc[:, idx_slice[self.interface_residues,
+        #                                                          'sasa_hydrophobic_complex']]],
+        #                             # residue_df.columns.get_level_values(-1) == 'sasa_complex_hydrophobic']]],
+        #                             axis=1, keys=list(zip(self.interface_residues, repeat('bsa_hydrophobic'))))],
+        #                        axis=1)
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_bound']]
+                                     .rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'}) -
+                                     residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_complex']]
+                                     .rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_bound']]
+                                     .rename(columns={'sasa_polar_bound': 'bsa_polar'}) -
+                                     residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
+                                     .rename(columns={'sasa_polar_complex': 'bsa_polar'}))
+        # make bsa_total columns
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']]
+                                     .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
+                                     residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']]
+                                     .rename(columns={'bsa_polar': 'bsa_total'}))
         scores_df['interface_area_polar'] = \
             residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']].sum(axis=1)
         scores_df['interface_area_hydrophobic'] = \
@@ -2887,34 +2902,17 @@ class DesignDirectory:  # (JobResources):
         #                                                          ['bsa_polar', 'bsa_hydrophobic']]].sum(axis=1,
         #                                                                                                 level=0)],
         #                             axis=1, keys=list(zip(self.interface_residues, repeat('bsa_total'))))], axis=1)
-        residue_df = residue_df.join(
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_bound']]
-            .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_bound']]
-            .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
-        residue_df = residue_df.join(
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_complex']]
-            .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
-            .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
-        residue_df = residue_df.join(
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_bound']]
-            .rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'}) -
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_complex']]
-            .rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
-        residue_df = residue_df.join(
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_bound']]
-            .rename(columns={'sasa_polar_bound': 'bsa_polar'}) -
-            residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
-            .rename(columns={'sasa_polar_complex': 'bsa_polar'}))
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_bound']]
+                                     .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
+                                     residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_bound']]
+                                     .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_hydrophobic_complex']]
+                                     .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
+                                     residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_polar_complex']]
+                                     .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
         # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         sasa_assembly_df = \
             residue_df.loc[:, idx_slice[self.interface_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
-        # make bsa_total columns
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_hydrophobic']]
-                                     .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
-                                     residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_polar']]
-                                     .rename(columns={'bsa_polar': 'bsa_total'}))
         bsa_assembly_df = residue_df.loc[:, idx_slice[self.interface_residues, 'bsa_total']].droplevel(-1, axis=1)
         total_surface_area_df = sasa_assembly_df + bsa_assembly_df
         # ratio_df = bsa_assembly_df / total_surface_area_df
