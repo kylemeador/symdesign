@@ -2473,6 +2473,7 @@ class DesignDirectory:  # (JobResources):
             for idx, entity in enumerate(structure.entities, 1):
                 # entity.oligomer.get_sasa()
                 entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+                entity_oligomer.get_sasa()
                 per_residue_sasa_unbound_apolar.extend(
                     [residue.sasa_apolar for residue in entity_oligomer.residues[:entity.number_of_residues]])
                 per_residue_sasa_unbound_polar.extend(

@@ -3529,11 +3529,11 @@ class Atom:
         """Check if the Atom is a backbone Atom
          Returns:
              (bool)"""
-        backbone_specific_atom_type = ['N', 'CA', 'C', 'O']
-        if self.type in backbone_specific_atom_type:
-            return True
-        else:
-            return False
+        # backbone_specific_atom_type = ['N', 'CA', 'C', 'O']
+        return self.type in ['N', 'CA', 'C', 'O']
+        #     return True
+        # else:
+        #     return False
 
     def is_cb(self, gly_ca=True):
         if gly_ca:
@@ -4138,7 +4138,7 @@ class Residue:
 
     @property
     def relative_sasa(self):
-        return self._sasa / gxg_sasa[self._type]
+        return self.sasa / gxg_sasa[self._type]
 
     @property
     def contact_order(self):
