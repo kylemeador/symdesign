@@ -2402,6 +2402,7 @@ class DesignDirectory:  # (JobResources):
             #                                   hbonds=interface_hbonds)
 
         # Next, for each protocol
+        protocol_s.name = PUtils.groups
         designs_by_protocol = protocol_s.groupby(PUtils.groups).indices
         # remove refine and consensus if present as there was no design done over multiple protocols
         designs_by_protocol.pop(PUtils.refine, None)
