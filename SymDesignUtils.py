@@ -1169,21 +1169,22 @@ def match_score_from_z_value(z_value):
 
 
 # @njit
-def z_score(sample, mean, stdev):
+def z_score(sample: Union[float, np.ndarray], mean: Union[float, np.ndarray], stdev: Union[float, np.ndarray]) \
+        -> Union[float, np.ndarray]:
     """From a sample(s), calculate the positional z-score
 
     Args:
-        sample (Union[float, numpy.ndarray]): An array with the sample at every position
-        mean (Union[float, numpy.ndarray]): An array with the mean at every position
-        stdev (Union[float, numpy.ndarray]): An array with the standard deviation at every position
+        sample: An array with the sample at every position
+        mean: An array with the mean at every position
+        stdev: An array with the standard deviation at every position
     Returns:
-        (Union[float, numpy.ndarray]): An array with the z-score of every position
+        An array with the z-score of every position
     """
     try:
         return (sample - mean) / stdev
     except ZeroDivisionError:
         logger.error('The passed standard deviation was 0! Z-score calculation failed')
-        return
+
 
 ######################
 # Matrix Handling
@@ -1201,7 +1202,7 @@ def all_vs_all(iterable, func, symmetrize=True):
     Returns:
         (numpy.ndarray): Matrix with resulting calculations
     """
-    if type(iterable) == dict:
+    if isinstance(iterable, dict):
         # func(iterable[obj1], iterable[obj2])
         _dict = iterable
     else:
