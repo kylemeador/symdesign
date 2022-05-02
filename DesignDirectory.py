@@ -54,7 +54,8 @@ logger = start_log(name=__name__)
 idx_offset = 1
 design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
-stats_metrics = ['mean', 'std']
+mean, std = 'mean', 'std'
+stats_metrics = [mean, std]
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 
 
@@ -601,7 +602,7 @@ class DesignDirectory:  # (JobResources):
         """
         self.get_fragment_metrics()
         # Interface B Factor TODO ensure asu.pdb has B-factors for Nanohedra
-        int_b_factor = sum(self.pose.pdb.residue(residue).b_factor for residue in self.interface_residues)
+        int_b_factor = sum(self.pose.pdb.residue(residue_number).b_factor for residue_number in self.interface_residues)
         metrics = {
             'interface_b_factor_per_residue': round(int_b_factor / self.total_interface_residues, 2),
             'nanohedra_score': self.all_residue_score,
@@ -1062,8 +1063,9 @@ class DesignDirectory:  # (JobResources):
 
     def get_fragment_metrics(self):
         """Set, then get fragment metrics for all fragment observations in the design.
-        TODO Doesn't need an attached pose if fragments have been generated"""
-        if self.design_residues is False:  # no search yet, == False
+        """
+        # TODO Doesn't need an attached pose if fragments have been generated
+        if self.design_residues is False:  # no search yet, so = False
             self.identify_interface()  # sets self.design_residues and self.interface_residues
 
         self.log.debug('Starting fragment metric collection')
@@ -2082,7 +2084,7 @@ class DesignDirectory:  # (JobResources):
         Sets:
             self.design_residue_ids (dict[mapping[str,str]]):
                 Map each interface to the corresponding residue/chain pairs
-            self.design_residues (list[int]): The residues in proximity of the interface, including buired residues
+            self.design_residues (set[int]): The residues in proximity of the interface, including buried residues
             self.interface_residues (list[int]): The residues in contact across the interface
         """
         # self.expand_asu()  # can't use this as it is a stand in for SymDesign call which needs to catch Errors!
@@ -2099,18 +2101,20 @@ class DesignDirectory:  # (JobResources):
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.design_residue_ids['interface%d' % number] = \
                 ','.join('%d%s' % (residue.number, entity.chain_id) for residue, entity in residues_entities)
-            self.design_residues = self.design_residues.union([residue.number for residue, _ in residues_entities])
+            self.design_residues.update([residue.number for residue, _ in residues_entities])
 
         self.interface_residues = []  # update False to list or replace list and attempt addition of new residues
         for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
             entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, pose_format=False, entities=False)
             entity_oligomer.get_sasa()
-            for residue_number in self.design_residues:
-                residue = entity_oligomer.residue(residue_number)
+            # for residue_number in self.design_residues:
+            for residue in entity_oligomer.get_residues(self.design_residues):
+                # residue = entity_oligomer.residue(residue_number)
                 # self.log.debug('Design residue: %d - SASA: %f' % (residue_number, residue.sasa))
-                if residue:
-                    if residue.sasa > 0:  # TODO this may be too lenient. Use .relative_sasa ?
-                        self.interface_residues.append(residue_number)
+                # if residue:
+                # if residue.relative_sasa > 0:
+                if residue.sasa > 0:  # TODO this may be too lenient. Use .relative_sasa ?
+                    self.interface_residues.append(residue.number)
 
         # # interface1, interface2 = \
         # #     self.design_residue_ids.get('interface1'), self.design_residue_ids.get('interface2')
@@ -2268,7 +2272,8 @@ class DesignDirectory:  # (JobResources):
         #  just load_pose()
         # self.load_pose()
         # ^ NOW using identify_interface instead due to interface residue requirement given new metrics
-        self.identify_interface()
+        if self.interface_residues is False or self.design_residues is False:
+            self.identify_interface()
         if self.query_fragments:
             self.make_path(self.frags, condition=self.write_frags)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
