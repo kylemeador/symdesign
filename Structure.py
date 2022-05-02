@@ -111,7 +111,7 @@ hydrogens = {
     'GLN': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0, '1HE2': 1, '2HE2': 1,
             '1HE1': 1, '2HE1': 1},  # these are the alternative specification
     'GLU': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, '1HG': 0, '2HG': 0},
-    'GLY': {'2HA': 0, 'H': 1, '1HA': 0},
+    'GLY': {'2HA': 0, 'H': 1, '1HA': 0, 'HA3': 0},  # last entry is from PDB version
     'HIS': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 1, 'HD2': 0, 'HE1': 0, 'HE2': 1},  # this assumes HD1 is on ND1, HE2 is on NE2
     'ILE': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0, '1HD1': 0, '2HD1': 0, '3HD1': 0,
             '3HG1': 0},  # this is the alternative specification
