@@ -2406,7 +2406,7 @@ class DesignDirectory:  # (JobResources):
         assert viable_designs, 'No viable designs remain after processing!'
         self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
         # Find protocols for protocol specific data processing
-        unique_protocols = protocol_s.unique()
+        unique_protocols = protocol_s.unique().tolist()
         protocol_dict = {idx: protocol for idx, protocol in enumerate(unique_protocols)}
         designs_by_protocol = protocol_s.groupby(protocol_dict).indices
         # remove refine and consensus if present as there was no design done over multiple protocols
@@ -3005,8 +3005,8 @@ class DesignDirectory:  # (JobResources):
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
-        scout_protocols = filter(re.compile('.*scout').match, protocol_s.array.to_list())
-        similarity_protocols = unique_design_protocols.difference([PUtils.refine] + list(scout_protocols))
+        scout_protocols = list(filter(re.compile('.*scout').match, unique_protocols))
+        similarity_protocols = unique_design_protocols.difference([PUtils.refine] + scout_protocols)
         if background_protocol not in unique_design_protocols:
             self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
                              'for this pose' % background_protocol)
