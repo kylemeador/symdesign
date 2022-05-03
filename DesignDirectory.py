@@ -2025,14 +2025,20 @@ class DesignDirectory:  # (JobResources):
         the minimal unit of Entities that are in contact
         """
         if self.sym_entry:  # if the symmetry isn't known then this wouldn't be a great option
-            self.load_pose(source=self.assembly)
-            self.save_asu()
+            if os.path.exists(self.assembly):
+                self.load_pose(source=self.assembly)
+            else:
+                self.load_pose()
+            # self.save_asu()  # force saving the Pose.asu
         else:
-            pdb = PDB.from_file(self.assembly, log=self.log)
-            asu = pdb.return_asu()
+            self.load_pose()
+            raise DesignError('This might cause issues')
+            # pdb = PDB.from_file(self.source, log=self.log)
+            # asu = pdb.return_asu()
             # Todo ensure asu format matches pose.get_contacting_asu standard
-            asu.update_attributes_from_pdb(pdb)
-            asu.write(out_path=self.asu)
+            # asu.update_attributes_from_pdb(pdb)
+            # asu.write(out_path=self.asu)
+        self.save_asu()  # force saving the Pose.asu
 
     def symmetric_assembly_is_clash(self):
         """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Design level for clashes and raise
@@ -2293,10 +2299,7 @@ class DesignDirectory:  # (JobResources):
         for file in self.get_designs():
             decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
             # design_structures.append(PDB.from_file(file, name=decoy_name, log=self.log, entities=False))
-            try:
-                design = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
-            except IndexError:
-                raise IndexError('%s has entity_names of %s' % (str(self), ' '.join(self.entity_names)))
+            design = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
             #                        pass names if available ^
             if self.sym_entry:
                 for idx, entity in enumerate(design.entities):
@@ -2492,6 +2495,9 @@ class DesignDirectory:  # (JobResources):
             # entity.set_residues_attributes_from_array(collapse=wt_collapse[entity])
             # entity.set_b_factor_data(dtype='collapse')
             # entity.write_oligomer(out_path=os.path.join(self.path, '%s_collapse.pdb' % entity.name))
+            print(residue_contact_order)
+            print('mean', residue_contact_order.mean())
+            print('stdev', residue_contact_order.std())
             residue_contact_order_z = \
                 z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
             inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
