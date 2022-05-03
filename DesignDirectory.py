@@ -2324,7 +2324,7 @@ class DesignDirectory:  # (JobResources):
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
             self.log.debug('Missing design scores file at %s' % self.scores_file)
             # Todo add relevant missing scores such as those specified as 0 below
-            scores_df = pd.DataFrame({structure.name: {PUtils.groups: 'no_metrics'}  #'metric_keys': 'metric_values'}
+            scores_df = pd.DataFrame({structure.name: {PUtils.groups: 'no_metrics'}  # 'metric_keys': 'metric_values'}
                                       for structure in design_structures}).T
             design_info = {}
             for idx, entity in enumerate(self.pose.entities):
@@ -2334,7 +2334,7 @@ class DesignDirectory:  # (JobResources):
                 scores_df['solvation_energy_%d_bound' % idx] = 0
                 scores_df['solvation_energy_%d_unbound' % idx] = 0
                 scores_df['interface_connectivity_%d' % idx] = 0
-                # residue_info = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.}, 'type': None, 'hbond': 0}
+                # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
                 design_info.update({residue.number: {'energy_delta': 0., 'type': residue.type, 'hbond': 0}
                                     for residue in entity.residues})
             scores_df['number_hbonds'] = 0
@@ -2342,6 +2342,7 @@ class DesignDirectory:  # (JobResources):
             # Todo generate the per residue scores internally which matches output from dirty_residue_processing
             # interface_hbonds = dirty_hbond_processing(all_design_scores)
             residue_info = {structure_name: design_info for structure_name in scores_df.index.to_list()}
+            residue_info.update({'wild_type': design_info})
             # residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
             #                                             hbonds=interface_hbonds)
         else:  # Get the scores from the score file on design trajectory metrics
@@ -2397,6 +2398,12 @@ class DesignDirectory:  # (JobResources):
             scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
                                                     hbonds=interface_hbonds)
+            wt_design_info = {}
+            for idx, entity in enumerate(self.pose.entities):
+                # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
+                wt_design_info.update({residue.number: {'energy_delta': 0., 'type': residue.type, 'hbond': 0}
+                                       for residue in entity.residues})
+            residue_info.update({'wild_type': wt_design_info})
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info = residue_processing(all_design_scores, simplify_mutation_dict(all_mutations), per_res_columns,
             #                                   hbonds=interface_hbonds)
@@ -3312,7 +3319,7 @@ class DesignDirectory:  # (JobResources):
             collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
             # add the contact order to a new plot
             wt_contact_order_concatenated_s = \
-                pd.Series(np.concatenate(list(contact_order.values())), name='contact_order')
+                pd.Series(np.concatenate(list(contact_order.values())), index=residue_indices, name='contact_order')
             contact_ax = collapse_ax.twinx()
             contact_ax.plot(wt_contact_order_concatenated_s, label='Contact Order',
                             color='#fbc0cb', lw=1, linestyle='-')  # pink
