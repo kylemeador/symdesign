@@ -2401,19 +2401,21 @@ class DesignDirectory:  # (JobResources):
             # residue_info = residue_processing(all_design_scores, simplify_mutation_dict(all_mutations), per_res_columns,
             #                                   hbonds=interface_hbonds)
 
-        # Next, for each protocol
-        protocol_s.name = PUtils.groups
-        designs_by_protocol = protocol_s.groupby(PUtils.groups).indices
-        # remove refine and consensus if present as there was no design done over multiple protocols
-        designs_by_protocol.pop(PUtils.refine, None)
-        designs_by_protocol.pop(PUtils.stage[5], None)
-        # Get unique protocols
-        unique_protocols = list(designs_by_protocol.keys())
-        self.log.info('Unique Design Protocols: %s' % ', '.join(unique_protocols))
         # Find designs where required data is present
         viable_designs = scores_df.index.to_list()
         assert viable_designs, 'No viable designs remain after processing!'
         self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
+        # Find protocols for protocol specific data processing
+        unique_protocols = protocol_s.unique()
+        protocol_dict = {idx: protocol for idx, protocol in enumerate(unique_protocols)}
+        designs_by_protocol = protocol_s.groupby(protocol_dict).indices
+        # remove refine and consensus if present as there was no design done over multiple protocols
+        designs_by_protocol.pop(PUtils.refine, None)
+        designs_by_protocol.pop(PUtils.stage[5], None)
+        # Get unique protocols
+        unique_design_protocols = set(designs_by_protocol.keys())
+        self.log.info('Unique Design Protocols: %s' % ', '.join(unique_design_protocols))
+
         other_pose_metrics['observations'] = len(viable_designs)
         pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
         # Replace empty strings with numpy.notanumber (np.nan) and convert remaining to float
@@ -2997,20 +2999,20 @@ class DesignDirectory:  # (JobResources):
         for idx, stat in enumerate(stats_metrics):
             if stat != 'mean':
                 protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
-                    {protocol: '%s_%s' % (protocol, stat) for protocol in unique_protocols})
+                    {protocol: '%s_%s' % (protocol, stat) for protocol in unique_design_protocols})
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
-        scout_protocols = filter(re.compile('.*scout').match, protocol_s.index.to_list())
-        similarity_protocols = set(unique_protocols).difference([PUtils.refine] + list(scout_protocols))
-        if background_protocol not in unique_protocols:
+        scout_protocols = filter(re.compile('.*scout').match, protocol_s.array.to_list())
+        similarity_protocols = unique_design_protocols.difference([PUtils.refine] + list(scout_protocols))
+        if background_protocol not in unique_design_protocols:
             self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
                              'for this pose' % background_protocol)
         elif len(similarity_protocols) == 1:  # measure significance
             self.log.info('Can\'t measure protocol significance, only one protocol of interest')
-        # missing_protocols = protocols_of_interest.difference(unique_protocols)
+        # missing_protocols = protocols_of_interest.difference(unique_design_protocols)
         # if missing_protocols:
         #     self.log.warning('Missing protocol%s \'%s\'. No protocol significance measurements for this design!'
         #                      % ('s' if len(missing_protocols) > 1 else '', ', '.join(missing_protocols)))
@@ -3079,7 +3081,7 @@ class DesignDirectory:  # (JobResources):
 
                     # if renaming is necessary
                     # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
-                    #     {protocol: protocol + '_' + stat for protocol in sorted(unique_protocols)})
+                    #     {protocol: protocol + '_' + stat for protocol in sorted(unique_design_protocols)})
                     # find the pairwise distance from every point to every other point
                     seq_pca_mean_distance_vector = pdist(grouped_pc_seq_df)
                     energy_pca_mean_distance_vector = pdist(grouped_pc_energy_df)
