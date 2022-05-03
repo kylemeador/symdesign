@@ -1,12 +1,12 @@
 <ROSETTASCRIPTS>
 
 	<SCOREFXNS>
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
-		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
 		<ScoreFunction name="2015" weights="ref2015"/>
 		<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
-		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
 		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -49,21 +49,22 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="interface_hbond_residues"/>
 		# find the per residue energy of residues in a residue_selector
-		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+<!--		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>-->
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015"/>
+		# sasa is now measured with freesasa
 		# gather the per residue SASA of a residue selection
-		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="hydrophobic_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="polar_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="all_sasa"/>
+<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="hydrophobic_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="polar_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="all_sasa"/>-->
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum"/>
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
 		<ResidueSummaryMetric name="S_M_int_energy_total_unbound" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/>
 		<ResidueSummaryMetric name="M_int_energy_total_unbound" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/>
-		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_%%entity%%_unbound"/>
-		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_%%entity%%_unbound"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix
-		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum" use_cached_data="true" cache_suffix="_total_%%entity%%_unbound"/>
-		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano_solvation"/>
+<!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_%%entity%%_unbound"/>-->
+<!--		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_%%entity%%_unbound"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix-->
+<!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum" use_cached_data="true" cache_suffix="_total_%%entity%%_unbound"/>-->
+<!--		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano_solvation"/>-->
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors" scorefxn="2015_solvation"/>
 	</SIMPLE_METRICS>
 
@@ -84,7 +85,7 @@
 		<ReadPoseExtraScoreFilter name="read_repacking" term_name="repacking" threshold="-0.5"/>
 		# find the average degree of connectivity to residues surrounding specified residues
 		<AverageDegree name="interface_connectivity_%%entity%%" threshold="0" distance_threshold="10.0" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
-		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+<!--		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement-->
 		<BuriedUnsatHbonds name="buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		<Report name="R_interface_connectivity_%%entity%%" 				filter="interface_connectivity_%%entity%%"/>
 		<Report name="R_S_buns_%%entity%%_unbound" 						filter="S_buns_%%entity%%_unbound"/>
@@ -104,27 +105,24 @@
 		</AddConstraints>
 		# process metrics that are defined in the SimpleMetrics header above
 		# symmetric scorefunction metrics indicated by S_
-		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_bound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%entity%%_unbound" override="false"/> # unbound label on these is for residue_processing() although they represent bound state
-		<RunSimpleMetrics name="run_metrics_polar_sasa_bound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%entity%%_unbound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_sasa_bound" metrics="M_sasa_total_per_res" prefix="" suffix="_total_%%entity%%_unbound" override="false"/>
+<!--		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_bound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%entity%%_unbound" override="false"/> # unbound label on these is for residue_processing() although they represent bound state-->
+<!--		<RunSimpleMetrics name="run_metrics_polar_sasa_bound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%entity%%_unbound" override="false"/>-->
+<!--		<RunSimpleMetrics name="run_metrics_sasa_bound" metrics="M_sasa_total_per_res" prefix="" suffix="_total_%%entity%%_unbound" override="false"/>-->
 		<RunSimpleMetrics name="S_run_metrics_bound" metrics="M_int_hbonds_res_selector,S_M_int_energy_total,S_M_solvation_energy" prefix="" suffix="_%%entity%%_bound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%entity%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_%%entity%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_%%entity%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_%%entity%%_bound" override="false"/>
+<!--		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_%%entity%%_bound" override="false"/>-->
+<!--		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_%%entity%%_bound" override="false"/>-->
+<!--		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_%%entity%%_bound" override="false"/>-->
 		<RunSimpleMetrics name="S_run_metrics_unbound" metrics="S_M_int_energy_per_res,S_M_int_energy_total_unbound,S_M_solvation_energy" prefix="" suffix="_%%entity%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total_unbound,M_solvation_energy" prefix="" suffix="_%%entity%%_unbound" override="false"/>
-		<!-- <RunSimpleMetrics name="run_metrics_hydrophobic_sasa_unbound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_unbound" override="false"/>  -->
-		<!-- <RunSimpleMetrics name="run_metrics_polar_sasa_unbound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_unbound" override="false"/>  -->
-		<!-- <RunSimpleMetrics name="run_metrics_sasa_unbound" metrics="M_sasa_per_res" prefix="" suffix="_total_unbound" override="false"/>  -->
 		# remove selected regions from the pose
 <!--		<DeleteRegionMover name="measure_entity" residue_selector="not_entity"/>-->
 		<ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>
 		# sample all rotamers to find minimum
-        <SymRotamerTrialsMover name="S_RT" scorefxn="2015_nano_cst" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
+<!--        <SymRotamerTrialsMover name="S_RT" scorefxn="2015_nano_cst" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>-->
         <RotamerTrialsMover name="RT" scorefxn="2015_cst" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
         # minimize all residues in design_map (move map)
-        <SymMinMover name="S_min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
+<!--        <SymMinMover name="S_min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"-->
 		<MinMover name="min" scorefxn="2015_cst" movemap_factory="design_map"/> # bb="0" chi="1"
 		<ParsedProtocol name="S_rotamer_trials_min_mover">
 			<Add mover_name="S_RT"/>
@@ -144,12 +142,12 @@
 		# the main protocol to loop over for interface design
         <ParsedProtocol name="sym_metrics">
 			<Add mover_name="S_run_metrics_bound"/>
-			<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>
-			<Add mover_name="run_metrics_polar_sasa_bound"/>
-			<Add mover_name="run_metrics_sasa_bound"/>
-			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>
-			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
-			<Add mover_name="run_metrics_bound_sum_sasa_total"/>
+<!--			<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>-->
+<!--			<Add mover_name="run_metrics_polar_sasa_bound"/>-->
+<!--			<Add mover_name="run_metrics_sasa_bound"/>-->
+<!--			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>-->
+<!--			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>-->
+<!--			<Add mover_name="run_metrics_bound_sum_sasa_total"/>-->
 			<Add filter_name="R_S_buns_%%entity%%_unbound"/>
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_interface_connectivity_%%entity%%"/>
@@ -157,17 +155,25 @@
 		</ParsedProtocol>
         <ParsedProtocol name="asymmetric_metrics">
 			<Add mover_name="run_metrics_bound"/>
-			<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>
-			<Add mover_name="run_metrics_polar_sasa_bound"/>
-			<Add mover_name="run_metrics_sasa_bound"/>
-			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>
-			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>
-			<Add mover_name="run_metrics_bound_sum_sasa_total"/>
+<!--			<Add mover_name="run_metrics_hydrophobic_sasa_bound"/>-->
+<!--			<Add mover_name="run_metrics_polar_sasa_bound"/>-->
+<!--			<Add mover_name="run_metrics_sasa_bound"/>-->
+<!--			<Add mover_name="run_metrics_bound_sum_sasa_hydrophobic"/>-->
+<!--			<Add mover_name="run_metrics_bound_sum_sasa_polar"/>-->
+<!--			<Add mover_name="run_metrics_bound_sum_sasa_total"/>-->
 			<Add filter_name="R_buns_%%entity%%_unbound"/>
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_interface_connectivity_%%entity%%"/>
 			<Add mover_name="run_metrics_unbound"/>
 		</ParsedProtocol>
+<!-- Todo use when symmetric energy is fixed...-->
+<!--		<ParsedProtocol name="metrics">-->
+<!--			<Add mover_name="run_metrics_bound"/>-->
+<!--			<Add filter_name="R_buns_%%entity%%_unbound"/>-->
+<!--			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state-->
+<!--			<Add filter_name="R_interface_connectivity_%%entity%%"/>-->
+<!--			<Add mover_name="run_metrics_unbound"/>-->
+<!--		</ParsedProtocol>-->
 	</MOVERS>
 
     # Symmetry set up - generates symmetry for the system in question using %%sdf%% or %%dist%%

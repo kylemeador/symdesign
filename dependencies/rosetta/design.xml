@@ -1,15 +1,10 @@
 <ROSETTASCRIPTS>
 
 	<RESIDUE_SELECTORS>
-		# all residues
-		<True name="full_pose"/>
+		<True name="full_pose"/> # all residues
 	</RESIDUE_SELECTORS>
 
 	<MOVERS>
-		# generates symmetry for the system in question using %%sdf%% or %%dist%%
-		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
-		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
-		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
 		# add CoordinateConstraints to restrict design movement during trajectory
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
@@ -31,7 +26,6 @@
 <!--		<SwitchMover name="design_profile_hbnet_switch" movers="design_profile_hbnet" selected="design_profile_hbnet"/>-->
 <!--		<SwitchMover name="hbnet_design_profile_switch" movers="hbnet_design_profile" selected="hbnet_design_profile"/>-->
 <!--		<SwitchMover name="consensus_design_switch" movers="consensus_design" selected="consensus_design"/>-->
-		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
 		# random sub-protocol generator
 		<ParsedProtocol name="set_up_constraint_and_design" mode="single_random">
 <!--			<Add mover_name="design_profile_hbnet_switch" 	apply_probability="0"/>-->
@@ -43,14 +37,20 @@
 			<!-- <Add mover_name="consensus_design_switch" 		apply_probability="0.00"/> -->
 		</ParsedProtocol>
 	</MOVERS>
-
+	# Symmetry set up section
 	<FILTERS>
 		<Time name="time"/>
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
 	</FILTERS>
+	<MOVERS>
+		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
+<!--		<If name="" filter_name="read_sym" true_mover_name="sym_" false_mover_name="asymmetric_"/>-->
+	</MOVERS>
 
 	<PROTOCOLS>
 		<Add filter_name="time" report_at_end="false"/>
-		<Add mover_name="symmetry_switch"/>
+		<Add mover_name="symmetry"/>
+<!--		<Add mover_name="job_info"/>--> # added in sub-protocol
 		<Add mover_name="add_csts"/>
 		<Add mover_name="set_up_constraint_and_design"/>
 <!--		<Add mover_name="measure_interface_bound"/>-->

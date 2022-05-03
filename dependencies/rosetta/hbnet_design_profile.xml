@@ -1,8 +1,10 @@
 <ROSETTASCRIPTS>
 
 	<SCOREFXNS>
+<!--		<ScoreFunction name="2015" weights="ref2015"/>-->
+		<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
 		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
+<!--		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>-->
 		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
 	</SCOREFXNS>
 
@@ -87,6 +89,7 @@
 		</AddConstraints>
 		# the main routine to perform metropolis criteria monte carlo, uses full design space
 <!--					<FastDesign name="int_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--TODO 2015		<FastDesign name="int_design" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
 		<FastDesign name="int_design" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,hbnet_rtr,des_around_total" movemap_factory="design_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 		# sample all rotamers to find minimum
 <!--		<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>-->
