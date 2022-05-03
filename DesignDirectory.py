@@ -644,9 +644,8 @@ class DesignDirectory:  # (JobResources):
 
         if self.sym_entry:
             metrics['design_dimension'] = self.design_dimension
-            # Todo must clarify symmetry separation if non-nanohedra
-            for idx, name in enumerate(self.entity_names, 1):
-                metrics['symmetry_group_%d' % idx] = self.sym_entry.sym_map[idx]
+            for idx, group in enumerate(self.sym_entry.groups, 1):
+                metrics['symmetry_group_%d' % idx] = group
         else:
             metrics['design_dimension'] = 'asymmetric'
 
@@ -2294,7 +2293,10 @@ class DesignDirectory:  # (JobResources):
         for file in self.get_designs():
             decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
             # design_structures.append(PDB.from_file(file, name=decoy_name, log=self.log, entities=False))
-            design = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
+            try:
+                design = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
+            except IndexError:
+                raise IndexError('%s has entity_names of %s' % (str(self), ' '.join(self.entity_names)))
             #                        pass names if available ^
             if self.sym_entry:
                 for idx, entity in enumerate(design.entities):
