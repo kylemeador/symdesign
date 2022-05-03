@@ -7,24 +7,37 @@ import numpy as np
 from PathUtils import sym_op_location
 
 
-sg_cryst1_fmt_dict = {'F222': 'F 2 2 2', 'P6222': 'P 62 2 2', 'I4132': 'I 41 3 2', 'P432': 'P 4 3 2',
-                      'P6322': 'P 63 2 2', 'I4122': 'I 41 2 2', 'I213': 'I 21 3', 'I422': 'I 4 2 2',
-                      'I432': 'I 4 3 2', 'P4222': 'P 42 2 2', 'F23': 'F 2 3', 'P23': 'P 2 3', 'P213': 'P 21 3',
-                      'F432': 'F 4 3 2', 'P622': 'P 6 2 2', 'P4232': 'P 42 3 2', 'F4132': 'F 41 3 2',
-                      'P4132': 'P 41 3 2', 'P422': 'P 4 2 2', 'P312': 'P 3 1 2', 'R32': 'R 3 2'}
-sg_cryst1_to_hm_notation = {'F 2 2 2': 'F222', 'P 62 2 2': 'P6222', 'I 41 3 2': 'I4132', 'P 4 3 2': 'P432',
-                            'P 63 2 2': 'P6322', 'I 41 2 2': 'I4122', 'I 21 3': 'I213', 'I 4 2 2': 'I422',
-                            'I 4 3 2': 'I432', 'P 42 2 2': 'P4222', 'F 2 3': 'F23', 'P 2 3': 'P23', 'P 21 3': 'P213',
-                            'F 4 3 2': 'F432', 'P 6 2 2': 'P622', 'P 42 3 2': 'P4232', 'F 41 3 2': 'F4132',
-                            'P 41 3 2': 'P4132', 'P 4 2 2': 'P422', 'P 3 1 2': 'P312', 'R 3 2': 'R32'}
-pg_cryst1_fmt_dict = {'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': 'P 4', 'p222': 'P 2 2 2',
-                      'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
+sg_cryst1_fmt_dict = {
+    'P1': 'P 1',  # TRICLINIC
+    'P121': 'P 1 2 1', 'P1211': 'P 1 21 1', 'C121': 'C 1 2 1',  # MONOCLINIC
+    'P222': 'P 2 2 2', 'P2221': 'P 2 2 21', 'P21212': 'P 21 21 2', 'P212121': 'P 21 21 21', 'C2221': 'C 2 2 21',
+    'C222': 'C 2 2 2', 'F222': 'F 2 2 2', 'I222': 'I 2 2 2', 'I212121': 'I 21 21 21',  # ORTHORHOMBIC
+    'P4': 'P 4', 'P41': 'P 41', 'P42': 'P 42', 'P43': 'P 43', 'I4': 'I 4', 'I41': 'I 41', 'P422': 'P 4 2 2',
+    'P4212': 'P 4 21 2', 'P4122': 'P 41 2 2', 'P41212': 'P 41 21 2', 'P4222': 'P 42 2 2', 'P42212': 'P 42 21 2',
+    'P4322': 'P 43 2 2', 'P43212': 'P 43 21 2', 'I422': 'I 4 2 2', 'I4122': 'I 41 2 2',  # TETRAGONAL
+    'P3': 'P 3', 'P31': 'P 31', 'P32': 'P 32', 'R3': 'R 3', 'P312': 'P 3 1 2', 'P321': 'P 3 2 1', 'P3112': 'P 31 1 2',
+    'P3121': 'P 31 2 1', 'P3212': 'P 32 1 2', 'P3221': 'P 32 2 1', 'R32': 'R 3 2',  # TRIGONAL
+    'P6': 'P 6', 'P61': 'P 61', 'P65': 'P 65', 'P62': 'P 62', 'P64': 'P 64', 'P63': 'P 63',
+    'P622': 'P 6 2 2', 'P6122': 'P 61 2 2', 'P6522': 'P 65 2 2', 'P6222': 'P 62 2 2', 'P6422': 'P 64 2 2',
+    'P6322': 'P 63 2 2',  # HEXAGONAL
+    'P23': 'P 2 3', 'F23': 'F 2 3', 'I23': 'I 2 3', 'P213': 'P 21 3', 'I213': 'I 21 3', 'P432': 'P 4 3 2',
+    'P4232': 'P 42 3 2', 'F432': 'F 4 3 2', 'F4132': 'F 41 3 2', 'I432': 'I 4 3 2', 'P4332': 'P 43 3 2',
+    'P4132': 'P 41 3 2', 'I4132': 'I 41 3 2'}  # CUBIC
+
+pg_cryst1_fmt_dict = {  # MISSING 7 OF THESE
+    'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': 'P 4', 'p222': 'P 2 2 2',
+    'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
 pg_cryst1_to_hm_notation = {'P 3': 'p3', 'P 3 2 1': 'p321', 'P 6 2 2': 'p622', 'P 4': 'p4', 'P 2 2 2': 'p222',
                             'P 4 2 2': 'p422', 'P 4 21 2': 'p4212', 'P 6': 'p6', 'P 3 1 2': 'p312', 'C 2 2 2': 'c222'}
-sg_zvalues = {'P23': 12, 'P4222': 8, 'P321': 6, 'P6322': 12, 'P312': 12, 'P622': 12, 'F23': 48, 'F222': 16, 'P6222': 12,
-              'I422': 16, 'I213': 24, 'R32': 6, 'P4212': 8, 'I432': 48, 'P4132': 24, 'I4132': 48, 'P3': 3, 'P6': 6,
-              'I4122': 16, 'P4': 4, 'C222': 8, 'P222': 4, 'P213': 12, 'F4132': 96, 'P422': 8, 'P432': 24, 'F432': 96,
-              'P4232': 24}
+space_group_operation_number = \
+    {'P1': 1, 'P121': 2, 'P1211': 2, 'C121': 4, 'P2221': 4, 'P21212': 4, 'P212121': 4, 'C2221': 8, 'I222': 8,
+     'I212121': 8, 'P41': 4, 'P42': 4, 'P43': 4, 'I4': 8, 'I41': 8, 'P4122': 8, 'P41212': 8, 'P42212': 8, 'P4322': 8,
+     'P43212': 8, 'P31': 3, 'P32': 3, 'R3': 9, 'P3112': 6, 'P3121': 6, 'P3212': 6, 'P3221': 6, 'P61': 6, 'P65': 6,
+     'P62': 6, 'P64': 6, 'P63': 6, 'P6122': 12, 'P6522': 12, 'P6422': 12, 'I23': 24, 'P4332': 24,  # above added 5/3/22
+     'P23': 12, 'P4222': 8, 'P321': 6, 'P6322': 12, 'P312': 12, 'P622': 12, 'F23': 48, 'F222': 16, 'P6222': 12,
+     'I422': 16, 'I213': 24, 'R32': 6, 'P4212': 8, 'I432': 48, 'P4132': 24, 'I4132': 48, 'P3': 3, 'P6': 6,
+     'I4122': 16, 'P4': 4, 'C222': 8, 'P222': 4, 'P213': 12, 'F4132': 96, 'P422': 8, 'P432': 24, 'F432': 96,
+     'P4232': 24}
 valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
                         'D6': 12, 'T': 12, 'O': 24, 'I': 60}
 
@@ -63,7 +76,7 @@ def generate_cryst1_record(dimensions, space_group) -> str:
         raise ValueError('SPACEGROUP NOT SUPPORTED')
 
     return 'CRYST1{dim[0]:9.3f}{dim[1]:9.3f}{dim[2]:9.3f}{dim[3]:7.2f}{dim[4]:7.2f}{dim[5]:7.2f} {sg:<11s}{z:4d}\n'\
-        .format(dim=dimensions, sg=formatted_space_group, z=sg_zvalues[space_group])
+        .format(dim=dimensions, sg=formatted_space_group, z=space_group_operation_number[space_group])
 
 
 def cart_to_frac(cart_coords, dimensions):
@@ -177,12 +190,11 @@ def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, '
         (list[list])
     """
     expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
-    with open(expand_matrix_filepath, 'r') as expand_matrix_f:
-        # Todo pickle these to match SDUtils
+    with open(expand_matrix_filepath, 'r') as f:
         line_count = 0
         expand_matrices = []
         mat = []
-        for line in expand_matrix_f.readlines():
+        for line in f.readlines():
             line = line.split()
             if len(line) == 3:
                 line_float = [float(s) for s in line]
