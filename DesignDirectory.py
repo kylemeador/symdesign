@@ -2520,8 +2520,7 @@ class DesignDirectory:  # (JobResources):
                 collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
                 collapse_df[entity] = collapse
                 # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
-                wt_collapse_z_score[entity] = \
-                    z_score(wt_collapse[entity], collapse.loc['mean', :], collapse.loc['std', :])
+                wt_collapse_z_score[entity] = z_score(wt_collapse[entity], collapse.loc[mean, :], collapse.loc[std, :])
         per_residue_data['sasa_hydrophobic_bound']['wild_type'] = per_residue_sasa_unbound_apolar
         per_residue_data['sasa_polar_bound']['wild_type'] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound']['wild_type'] = per_residue_sasa_unbound_relative
@@ -2648,7 +2647,7 @@ class DesignDirectory:  # (JobResources):
                 # find collapse where: delta above standard collapse, collapsable boolean, and successive number
                 # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
                 # scale the collapse propensity by the standard collapse threshold and make z score
-                collapse_propensity_z = z_score(standardized_collapse, 0.43, 0.05)
+                collapse_propensity_z = z_score(standardized_collapse, collapse_significance_threshold, 0.05)
                 collapse_propensity_positive_z_only = np.where(collapse_propensity_z > 0, collapse_propensity_z, 0)
                 # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
                 # collapse_bool = np.where(standardized_collapse > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
