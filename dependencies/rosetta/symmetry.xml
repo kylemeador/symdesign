@@ -1,4 +1,5 @@
 <ROSETTASCRIPTS>
+
     <FILTERS>
 		<IfThenFilter name="report_true"> # This is to report a value that is lower than ReadPoseExtraScoreFilter threshold causing that filter to return true
     		<IF testfilter="true_filter" value="-1"/>
@@ -35,4 +36,5 @@
     <PROTOCOLS>
         <Add mover_name="symmetry_switch"/>
     </PROTOCOLS>
+
 </ROSETTASCRIPTS>

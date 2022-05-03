@@ -1,20 +1,14 @@
 <ROSETTASCRIPTS>
 
 	<RESIDUE_SELECTORS>
-		# all residues
-		<True name="full_pose"/>
+		<True name="full_pose"/> # all residues
 	</RESIDUE_SELECTORS>
 
 	<MOVERS>
-		# generates symmetry for the system in question using %%sdf%% or %%dist%%
-<!--		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>-->
-<!--		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>-->
-<!--		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>-->
 		# specify coordinate constraint for the pose
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
-<!--		<SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>-->
 		<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
 	</MOVERS>
 	# Symmetry set up section
@@ -28,7 +22,6 @@
 
 	<PROTOCOLS>
 		<Add mover_name="symmetry"/>
-<!--		<Add mover_name="symmetry_switch"/>-->
 		<Add mover_name="add_csts"/>
 		# switch point for interface_bound, interface_1, or interface_2
 		<Add mover_name="measure_interface_bound"/>

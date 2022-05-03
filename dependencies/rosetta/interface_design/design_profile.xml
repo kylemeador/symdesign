@@ -87,6 +87,7 @@
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>
+					<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
 					# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
 					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
 				</SCOREFXNS>
@@ -120,6 +121,7 @@
 				</TASKOPERATIONS>
 
 				<MOVERS>
+<!--TODO 2015					<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>-->
 					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
 				</MOVERS>
 
@@ -134,6 +136,7 @@
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>
+					<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
 					# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
 					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
 				</SCOREFXNS>
@@ -184,12 +187,16 @@
 				<MOVERS>
 <!--					<AddJobPairData name="job_info" key="protocol" value="design_profile" value_type="string"/>-->
 					# set all interface residues to GLY, leave everything else untouched
+<!--TODO 2015					<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>-->
 					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
 					# the main routine to perform metropolis criteria monte carlo
+<!--TODO 2015					<FastDesign name="int_design" scorefxn="2015_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
 					<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
 					# sample all rotamers to find minimum
+<!--TODO 2015					<SymRotamerTrialsMover name="RT" scorefxn="2015_cst" task_operations="init,rtr"/>-->
 					<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>
 					# minimize all residues in design_map (move map)
+<!--TODO 2015					<SymMinMover name="min" scorefxn="2015_cst" movemap_factory="design_map"/> # bb="0" chi="1"-->
 					<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
 					# the main protocol to loop over for interface design
 					<ParsedProtocol name="rotamer_trials_min_mover">

@@ -1,6 +1,11 @@
 <ROSETTASCRIPTS>
 
 	<SCOREFXNS>
+		# use when symmetric energy is fixed...
+		<ScoreFunction name="2015" weights="ref2015"/>
+		<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
+		<ScoreFunction name="2015_cst_fsp" weights="ref2015_cst"/>
+		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_score_patch%%"/>
 		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
 		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
 		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
@@ -9,7 +14,6 @@
 			<Reweight scoretype="res_type_constraint" weight="0.5"/> # patch doesn't work here
 		</ScoreFunction>
 		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
-		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/> # TODO
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -62,7 +66,7 @@
 		<SymmetricalResidue name="tot_interface_and_neighbor_sym" selector="tot_interface_and_neighbor"/>
 		<Not name="not_interface_or_neighbor_sym" selector="tot_interface_and_neighbor_sym"/>
 		# select all residues lower than energy 10 invloved in sidechain hydrogen bonding
-		<HBond name="hbond_residues_sym" residue_selector="tot_interface_sym" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015_nano"/>
+		<HBond name="hbond_residues_sym" residue_selector="tot_interface_sym" include_bb_bb="false" hbond_energy_cutoff="10" scorefxn="2015"/>
 <!--		<SymmetricalResidue name="hbond_residues" selector="hbond_residues_asu" />-->
 		<True name="full_pose"/>
 	</RESIDUE_SELECTORS>
@@ -102,14 +106,20 @@
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		<PerResidueEnergyMetric name="M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_nano_cst"/>
 		<PerResidueEnergyMetric name="M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_nano_cst_fsp"/>
-		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="polar_sasa"/>
-		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>
+<!-- TODO 2015	<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015"/>-->
+<!--		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>-->
+<!--		<PerResidueEnergyMetric name="M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_cst"/>-->
+<!--		<PerResidueEnergyMetric name="M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_cst_fsp"/>-->
+<!--		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_solvation"/>-->
+		# sasa is now measured with freesasa
+<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="polar_sasa"/>-->
+<!--		<PerResidueSasaMetric name="M_sasa_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="all_sasa"/>-->
 		# summarize the energy metrics from above
 		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
-		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_complex"/> # cache_prefix=""
-		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_complex"/> # cache_prefix=""
-		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="true" cache_suffix="_total_complex"/> # cache_prefix=""
+<!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_complex"/> # cache_prefix=""-->
+<!--		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_complex"/> # cache_prefix=""-->
+<!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="true" cache_suffix="_total_complex"/> # cache_prefix=""-->
 <!--		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>-->
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano_solvation"/>
 		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
@@ -121,26 +131,30 @@
 		<SavePoseMover name="save_nanohedra" restore_pose="0" reference_name="nanohedra"/>
 		<SavePoseMover name="restore_nanohedra" restore_pose="1" reference_name="nanohedra"/>
 		# process mertics that are defined in the SimpleMetrics header above
-		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_complex" override="false"/>
-		<RunSimpleMetrics name="run_metrics_polar_sasa" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_complex" override="false"/>
-		<RunSimpleMetrics name="run_metrics_sasa" metrics="M_sasa_per_res" prefix="" suffix="_total_complex" override="false"/>
+<!--		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_complex" override="false"/>-->
+<!--		<RunSimpleMetrics name="run_metrics_polar_sasa" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_complex" override="false"/>-->
+<!--		<RunSimpleMetrics name="run_metrics_sasa" metrics="M_sasa_per_res" prefix="" suffix="_total_complex" override="false"/>-->
 		<RunSimpleMetrics name="run_metrics_cst" metrics="M_int_energy_cst_per_res" prefix="" suffix="_cst" override="false"/>
 		<RunSimpleMetrics name="run_metrics_fsp" metrics="M_int_energy_fsp_per_res" prefix="" suffix="_fsp" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex" metrics="M_int_hbonds_res_selector,M_interaction_energy,M_int_energy_per_res,M_int_energy_total,M_solvation_energy,M_rmsd" prefix="" suffix="_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_sequence" metrics="M_sequence" prefix="final_" suffix="" override="false"/>
-		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_complex" override="false"/>
-		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_complex" override="false"/>
-		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_complex" override="false"/>
+<!--		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_complex" override="false"/>-->
+<!--		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_complex" override="false"/>-->
+<!--		<RunSimpleMetrics name="run_metrics_complex_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_complex" override="false"/>-->
 		# M_hbond_count,M_sasa,M_sasa_per_res,M_sasa_hydrophobic_per_res,M_sasa_polar_per_res,M_sasa_summary_hydrophobic,M_sasa_summary_polar,M_sasa_summary_total,M_tot_int_energy,M_int_hbonds
 	</MOVERS>
 
 	<FILTERS>
 		# Energy Filters
 		# report on the energy of particular scorefunctions and poses
-<!--		<ScoreType name="full_stability_complex" scorefxn="2015_nano" score_type="total_score" threshold="20000" confidence="1.0"/>-->
-<!--		<ScoreType name="fsp_total_stability" scorefxn="2015_nano_cst_fsp" score_type="total_score" threshold="100000" confidence="1.0"/>-->
+		<ScoreType name="full_stability_complex" scorefxn="2015_nano" score_type="total_score" threshold="100000" confidence="1.0"/>
+		<ScoreType name="fsp_total_stability" scorefxn="2015_nano_cst_fsp" score_type="total_score" threshold="100000" confidence="1.0"/>
 		<ScoreType name="favor_residue_energy" scorefxn="2015_nano_cst_fsp" score_type="res_type_constraint" threshold="100000" confidence="1.0"/>
 		<ScoreType name="coordinate_constraint" scorefxn="2015_nano_cst" score_type="coordinate_constraint" threshold="100000" confidence="1.0"/>
+<!-- TODO 2015	<ScoreType name="full_stability_complex" scorefxn="2015" score_type="total_score" threshold="100000" confidence="1.0"/>-->
+<!--		<ScoreType name="fsp_total_stability" scorefxn="2015_cst_fsp" score_type="total_score" threshold="100000" confidence="1.0"/>-->
+<!--		<ScoreType name="favor_residue_energy" scorefxn="2015_cst_fsp" score_type="res_type_constraint" threshold="100000" confidence="1.0"/>-->
+<!--		<ScoreType name="coordinate_constraint" scorefxn="2015_cst" score_type="coordinate_constraint" threshold="100000" confidence="1.0"/>-->
 		# find the score of the residues in residue_selector. This is different from the metric InteractionGraph as the values output are different and consider different score terms (no intra in InteractionGraph)
 			<!-- <ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_asu" in_context="1" residue_selector="tot_interface" scorefxn="2015" confidence="1.0"/> -->
 			<!-- <ScorePoseSegmentFromResidueSelectorFilter name="int_energy_context_unbound" in_context="1" residue_selector="tot_interface" scorefxn="2015" confidence="1.0"/> -->
@@ -178,7 +192,7 @@
         </CalculatorFilter>
 		# TODO test for RMSD and buns_nano on more than 2 chains
 		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
-		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
+		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 <!--		<BuriedUnsatHbonds name="buns_hpol" residue_selector="tot_interface" scorefxn="2015_nano" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true"/>-->
 <!--		<BuriedUnsatHbonds name="buns_asu" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_all_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/> # print_out_info_to_pdb="true"-->
 <!--		<BuriedUnsatHbonds name="buns_asu_hpol" residue_selector="tot_interface" scorefxn="2015_nano" use_ddG_style="true" report_nonheavy_unsats="true" confidence="1.0" ignore_surface_res="true" jump_number="1"/>-->
@@ -196,9 +210,9 @@
 			<!-- <Report name="R_int_energy_context_asu"			filter="int_energy_context_asu"/> -->
 			<!-- <Report name="R_int_energy_context_unbound"		filter="int_energy_context_unbound"/> -->
 		#  Nanohedra
-<!--		<Report name="R_full_stability_complex"			filter="full_stability_complex"/>-->
+		<Report name="R_full_stability_complex"				filter="full_stability_complex"/>
 		<Report name="R_favor_residue_energy" 				filter="favor_residue_energy"/>
-<!--		<Report name="R_fsp_total_stability" 			filter="fsp_total_stability"/>-->
+		<Report name="R_fsp_total_stability" 				filter="fsp_total_stability"/>
 		<Report name="R_coordinate_constraint" 				filter="coordinate_constraint"/>
 <!--		<Report name="R_int_energy_context_complex"		filter="int_energy_context_complex"/>-->
 <!--		<Report name="R_shape_complementarity_self_interface1" 				filter="shape_complementarity_self_interface1"/>-->
@@ -294,8 +308,8 @@
 			<!-- <Add filter_name="R_int_energy_context_unbound"/> -->
 		## Nanohedra analysis ##
 <!--		<Add mover_name="restore_nanohedra"/>-->
-<!--		<Add filter_name="R_full_stability_complex"/>-->
-<!--		<Add filter_name="R_fsp_total_stability"/>-->
+		<Add filter_name="R_full_stability_complex"/>
+		<Add filter_name="R_fsp_total_stability"/>
 <!--		<Add filter_name="R_count_interface1"/>-->
 <!--		<Add filter_name="R_count_interface1_sym"/>-->
 <!--		<Add filter_name="R_count_interface1_sc"/>-->
@@ -310,16 +324,16 @@
 <!--		<Add filter_name="R_shape_complementarity_neighbors"/>-->
 <!--		<Add filter_name="R_shape_complementarity_neighbors_sym"/>-->
 		<Add filter_name="R_contact_count"/>
-		<Add mover_name="run_metrics_hydrophobic_sasa"/>
-		<Add mover_name="run_metrics_polar_sasa"/>
-		<Add mover_name="run_metrics_sasa"/>
+<!--		<Add mover_name="run_metrics_hydrophobic_sasa"/>-->
+<!--		<Add mover_name="run_metrics_polar_sasa"/>-->
+<!--		<Add mover_name="run_metrics_sasa"/>-->
 		<Add mover_name="run_metrics_fsp"/>
 		<Add mover_name="run_metrics_cst"/>
 		<Add mover_name="run_metrics_complex"/>
 		<Add mover_name="run_metrics_sequence"/>
-		<Add mover_name="run_metrics_complex_sum_sasa_hydrophobic"/>
-		<Add mover_name="run_metrics_complex_sum_sasa_polar"/>
-		<Add mover_name="run_metrics_complex_sum_sasa_total"/>
+<!--		<Add mover_name="run_metrics_complex_sum_sasa_hydrophobic"/>-->
+<!--		<Add mover_name="run_metrics_complex_sum_sasa_polar"/>-->
+<!--		<Add mover_name="run_metrics_complex_sum_sasa_total"/>-->
 		<Add filter_name="R_interaction_energy_per_residue"/>
 <!--		<Add filter_name="R_buns_nano"/>-->
 <!--		<Add filter_name="R_buns_nano_hpol"/>-->
