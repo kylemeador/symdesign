@@ -2770,7 +2770,7 @@ class DesignDirectory:  # (JobResources):
             self.log.info('Design has no fragment information')
 
         if not profile_background:
-            divergence_s = pd.Series
+            divergence_s = pd.Series()
         else:
             # Calculate amino acid observation percent from residue_info and background SSM's
             observation_d = {profile: {design: mutation_conserved(info, background)
