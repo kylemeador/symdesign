@@ -1794,12 +1794,11 @@ class SymmetricModel(Model):
             coords = structure.get_backbone_and_cb_coords()
 
         sym_cart_coords = self.return_unit_cell_coords(coords)
-        coords_length = sym_cart_coords.shape[0]
+        coords_length = coords.shape[0]
         sym_mates = []
         for model_num in range(self.number_of_symmetry_mates):
             symmetry_mate_pdb = copy(structure)
-            symmetry_mate_pdb.replace_coords(sym_cart_coords[model_num * coords_length:
-                                                             (model_num + 1) * coords_length])
+            symmetry_mate_pdb.replace_coords(sym_cart_coords[model_num * coords_length:(model_num + 1) * coords_length])
             sym_mates.append(symmetry_mate_pdb)
 
         return sym_mates
@@ -1821,23 +1820,23 @@ class SymmetricModel(Model):
             # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
             coords = structure.get_backbone_and_cb_coords()
 
+        shift_3d = [0., 1., -1.]
         if self.dimension == 3:
-            z_shifts, uc_number = [0, 1, -1], 9
+            z_shifts, uc_number = shift_3d, 27
         elif self.dimension == 2:
-            z_shifts, uc_number = [0], 27
+            z_shifts, uc_number = [0.], 9
         else:
             return
 
         # pdb_coords = extract_pdb_atoms
         uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
-        surrounding_frac_coords = [uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0, 1, -1]
-                                   for y_shift in [0, 1, -1] for z_shift in z_shifts]
-
+        surrounding_frac_coords = np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d
+                                                  for z in z_shifts])
         surrounding_cart_coords = self.frac_to_cart(surrounding_frac_coords)
 
-        coords_length = len(uc_frac_coords)
+        coords_length = coords.shape[0]
         sym_mates = []
-        for coord_set in surrounding_cart_coords:
+        for coord_set in np.split(surrounding_cart_coords, uc_number):
             for model in range(self.number_of_uc_symmetry_mates):
                 symmetry_mate_pdb = copy(structure)
                 symmetry_mate_pdb.replace_coords(coord_set[(model * coords_length): ((model + 1) * coords_length)])
