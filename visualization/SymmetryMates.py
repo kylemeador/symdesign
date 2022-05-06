@@ -27,7 +27,8 @@ def expand(name=None, symmetry=None):
     symmetry_ = possible_symmetries.get(symmetry)
     if symmetry_:  # ['T', 'O', 'I']:
         expand_matrices = get_ptgrp_sym_op(symmetry_)
-        # if self.dimension == 0 else self.get_sg_sym_op(self.symmetry)  # ensure symmetry is Hermann–Mauguin notation
+        # _expand_matrices = point_group_symmetry_operators[self.symmetry]
+        # _expand_matrices = space_group_symmetry_operators[self.symmetry]
     else:
         print('No symmetry \'%s\' was found in the possible symmetries. Must be one of the following:\n%s'
               % (symmetry, ', '.join(possible_symmetries)))
