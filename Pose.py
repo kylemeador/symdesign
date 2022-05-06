@@ -19,10 +19,10 @@ from SymDesignUtils import pickle_object, DesignError, calculate_overlap, z_valu
     split_number_pairs_and_sort
 from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatrices, SymEntry, flip_x_matrix, \
     possible_symmetries, point_group_setting_matrix_members, setting_matrices, symmetry_combination_format, \
-    inv_setting_matrices
+    inv_setting_matrices, origin
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
-from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, sg_zvalues, \
-    get_ptgrp_sym_op, generate_cryst1_record
+from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, generate_cryst1_record, \
+    space_group_number_operations, point_group_symmetry_operators, space_group_symmetry_operators
 from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
@@ -979,11 +979,12 @@ class SymmetricModel(Model):
         # self.model_coords = [] <- designated as symmetric_coords
         self.assembly_tree = None  # stores a sklearn tree for coordinate searching
         self.asu_equivalent_model_idx = None
-        self.coords_type = None  # coords_type
-        self.dimension = None  # dimension
-        self.expand_matrices = None  # expand_matrices  # Todo make expand_matrices numpy
-        self.sym_entry = None
-        self.symmetry = None  # symmetry  # also defined in PDB as self.space_group
+        self.coords_type = None
+        # self.dimension = None
+        self.expand_matrices = None
+        self.expand_translations = None
+        # self.sym_entry = None
+        # self.symmetry = None  # also defined in PDB as self.space_group
         self.point_group_symmetry = None
         self.oligomeric_equivalent_model_idxs = {}
         # self.output_asu = True
@@ -1044,15 +1045,11 @@ class SymmetricModel(Model):
 
     @property
     def number_of_symmetry_mates(self) -> int:
-        """Describes the number of symmetry mates present in the Model
-
-        Returns:
-            (int)
-        """
+        """Describes the number of symmetry mates present"""
         try:
             return self._number_of_symmetry_mates
         except AttributeError:
-            self._number_of_symmetry_mates = 1
+            self._number_of_symmetry_mates = len(self.expand_matrices)
             return self._number_of_symmetry_mates
 
     @number_of_symmetry_mates.setter
@@ -1060,14 +1057,10 @@ class SymmetricModel(Model):
         self._number_of_symmetry_mates = number_of_symmetry_mates
 
     @property
-    def number_of_uc_symmetry_mates(self):
-        """Describes the number of symmetry mates present in the Model of the unit cell
-
-        Returns:
-            (int)
-        """
+    def number_of_uc_symmetry_mates(self) -> int:
+        """Describes the number of symmetry mates present in the unit cell"""
         try:
-            return sg_zvalues[self.symmetry]
+            return space_group_number_operations[self.symmetry]
         except KeyError:
             raise KeyError('The symmetry \'%s\' is not an available unit cell at this time. If this is a point group, '
                            'adjust your code, otherwise, help expand the code to include the symmetry operators for '
@@ -1299,10 +1292,16 @@ class SymmetricModel(Model):
             return  # no symmetry was provided
 
         if expand_matrices:
-            self.expand_matrices = expand_matrices
+            # ensure these are numpy.ndarray with isinstance()
+            # and each rot is transposed. might need to include a .swapaxes(-2, -1) call
+            # Todo rotation and translation separated
+            self.expand_matrices = \
+                np.ndarray(expand_matrices).T if not isinstance(expand_matrices, np.ndarray) else expand_matrices
         else:
-            self.expand_matrices = get_ptgrp_sym_op(self.symmetry) if self.dimension == 0 \
-                else self.get_sg_sym_op(self.symmetry)  # ensure Hermann–Mauguin notation w/ ''.join(symmetry.split())
+            if self.dimension == 0:
+                self.expand_matrices, self.expand_translations = point_group_symmetry_operators[self.symmetry], origin
+            else:  # ensure Hermann–Mauguin notation ex P23 not P 2 3
+                self.expand_matrices, self.expand_translations = space_group_symmetry_operators[self.symmetry]
 
         if self.asu and generate_assembly_coords:
             self.generate_symmetric_coords(**kwargs)
@@ -1410,13 +1409,15 @@ class SymmetricModel(Model):
             # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
             self.coords_type = 'bb_cb'
 
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        coords_length = len(self.coords)
         self.number_of_symmetry_mates = valid_subunit_number[self.symmetry]
-        model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
-        for idx, rot in enumerate(self.expand_matrices):
-            model_coords[idx * coords_length: (idx + 1) * coords_length] = np.matmul(self.coords, np.transpose(rot))
-        self.symmetric_coords = Coords(model_coords)
+        self.symmetric_coords = Coords((np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
+                                                  self.expand_matrices) + self.expand_translations).reshape(-1, 3))
+        # # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
+        # coords_len = len(self.coords)
+        # model_coords = np.empty((coords_len * self.number_of_symmetry_mates, 3), dtype=float)
+        # for idx, rotation in enumerate(self.expand_matrices):
+        #     model_coords[idx * coords_len: (idx + 1) * coords_len] = np.matmul(self.coords, np.transpose(rotation))
+        # self.symmetric_coords = Coords(model_coords)
 
     def get_unit_cell_coords(self, return_side_chains=True, surrounding_uc=True, **kwargs):
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell
@@ -1704,7 +1705,18 @@ class SymmetricModel(Model):
         Returns:
             (list[Structure]): The symmetric copies of the input structure
         """
-        return [structure.return_transformed_copy(rotation=rot) for rot in self.expand_matrices]
+        # return [structure.return_transformed_copy(rotation=self.expand_matrices[idx].T)  # transpose back to original
+        #         for idx in range(self.number_of_symmetry_mates)]
+        # Favoring this alternative way as it is more explicit
+        coord_set = (np.matmul(np.tile(structure.coords, (self.number_of_symmetry_mates, 1, 1)),
+                               self.expand_matrices) + self.expand_translations).reshape(-1, 3)
+        coords_length = coord_set.shape[1]
+        sym_mates = []
+        for model_num in range(self.number_of_symmetry_mates):
+            symmetry_mate_pdb = copy(structure)
+            symmetry_mate_pdb.replace_coords(coord_set[model_num * coords_length:(model_num + 1) * coords_length])
+            sym_mates.append(symmetry_mate_pdb)
+        return sym_mates
 
     def return_crystal_symmetry_mates(self, structure, surrounding_uc=True, **kwargs):
         """Expand the coordinates for every symmetric copy within the unit cell surrounding a asu
@@ -1728,13 +1740,13 @@ class SymmetricModel(Model):
             (numpy.ndarray): The symmetrized coordinates
         """
         if self.dimension == 0:
-            coords_length = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
-            model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
-            for idx, rot in enumerate(self.expand_matrices):
-                rot_coords = np.matmul(coords, np.transpose(rot))
-                model_coords[idx * coords_length: (idx + 1) * coords_length] = rot_coords
+            # coords_len = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
+            # model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
+            # for idx, rotation in enumerate(self.expand_matrices):
+            #     model_coords[idx * coords_len: (idx + 1) * coords_len] = np.matmul(coords, np.transpose(rotation))
 
-            return model_coords
+            return (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
+                              self.expand_matrices) + self.expand_translations).reshape(-1, 3)
         else:
             return self.return_unit_cell_coords(coords)
 
@@ -1749,14 +1761,14 @@ class SymmetricModel(Model):
             (numpy.ndarray): All unit cell coordinates
         """
         asu_frac_coords = self.cart_to_frac(coords)
-        coords_length = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
-        model_coords = np.empty((coords_length * self.number_of_uc_symmetry_mates, 3), dtype=float)
-        # model_coords = np.empty((coords_length * self.number_of_symmetry_mates, 3), dtype=float)
-        # Todo pickled operators don't have identity matrix (currently), so we add the asu
-        model_coords[:coords_length] = asu_frac_coords
-        for idx, (rot, tx) in enumerate(self.expand_matrices, 1):  # since no identity, start idx at 1
-            rt_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + tx
-            model_coords[idx * coords_length: (idx + 1) * coords_length] = rt_asu_frac_coords
+        model_coords = (np.matmul(np.tile(asu_frac_coords, (self.number_of_symmetry_mates, 1, 1)),
+                                  self.expand_matrices) + self.expand_translations).reshape(-1, 3)
+        # coords_length = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
+        # model_coords = np.empty((coords_length * self.number_of_uc_symmetry_mates, 3), dtype=float)
+        # model_coords[:coords_length] = asu_frac_coords
+        # for idx, (rotation, translation) in enumerate(self.expand_matrices, 1):  # since no identity, start idx at 1
+        #     model_coords[idx * coords_length: (idx + 1) * coords_length] = \
+        #         np.matmul(asu_frac_coords, np.transpose(rotation)) + translation
 
         if fractional:
             return model_coords
@@ -1893,7 +1905,7 @@ class SymmetricModel(Model):
                 assert self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates, \
                     'Cannot have more models (%d) than a single unit cell (%d)!' \
                     % (self.number_of_symmetry_mates, self.number_of_uc_symmetry_mates)
-                expand_matrices = get_ptgrp_sym_op(self.point_group_symmetry)
+                expand_matrices = point_group_symmetry_operators[self.point_group_symmetry]
             else:
                 expand_matrices = self.expand_matrices
             ext_tx = self.center_of_mass_symmetric  # only works for unit cell or point group NOT surrounding UC
@@ -2267,11 +2279,11 @@ class SymmetricModel(Model):
             (str)
         """
         if self.dimension == 0:
-            return '%s\n' \
-                   % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}'.format(v_idx, m_idx, *vec, 0.)
-                               for m_idx, rot in enumerate(self.expand_matrices, 1) for v_idx, vec in enumerate(rot, 1))
-        # for np expand_matrices for m_idx, matrix in enumerate(self.expand_matrices.tolist(), 1) for v_idx, vec in enumerate(matrix, 1))
-        else:  # TODO change this so that the oligomeric units are populated?
+            return '%s\n' % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}'
+                                      .format(v_idx, m_idx, *vec, 0.)
+                                      for m_idx, mat in enumerate(self.expand_matrices.swapaxes(-2, -1).tolist(), 1)
+                                      for v_idx, vec in enumerate(mat, 1))
+        else:  # TODO write so that the oligomeric units are populated?
             return ''
 
     # def write(self, out_path=os.getcwd(), header=None, increment_chains=False):  # , cryst1=None):  # Todo write symmetry, name, location
@@ -2302,13 +2314,13 @@ class SymmetricModel(Model):
     #
     #         return expand_matrices
 
-    @staticmethod  # Todo clean this pickle to match SDUtils
-    def get_sg_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS')):
-        sg_op_filepath = os.path.join(expand_matrix_dir, '%s.pickle' % sym_type)
-        with open(sg_op_filepath, 'rb') as sg_op_file:
-            sg_sym_op = load(sg_op_file)
-
-        return sg_sym_op
+    # @staticmethod
+    # def get_sg_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS')):
+    #     sg_op_filepath = os.path.join(expand_matrix_dir, '%s.pickle' % sym_type)
+    #     with open(sg_op_filepath, 'rb') as sg_op_file:
+    #         sg_sym_op = load(sg_op_file)
+    #
+    #     return sg_sym_op
 
 
 class Pose(SymmetricModel, SequenceProfile):  # Model

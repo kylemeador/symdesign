@@ -5,7 +5,7 @@ import numpy as np
 from PathUtils import sym_op_location
 from SymDesignUtils import pickle_object, unpickle
 from classes.SymEntry import identity_matrix, origin
-from utils.SymmetryUtils import get_ptgrp_sym_op, space_group_operation_number
+from utils.SymmetryUtils import get_ptgrp_sym_op, space_group_number_operations
 
 sg_op_filepath = os.path.join(sym_op_location, 'spacegroups_op.txt')  # missing identity operators for most part. P1 not
 with open(sg_op_filepath, "r") as f:
@@ -109,7 +109,7 @@ if __name__ =='__main__':
         rotations = np.array(rotations)
         translations = np.array(translations)
         number_of_rotations = len(rotations)
-        number_of_operators = space_group_operation_number.get(symmetry_group, None)
+        number_of_operators = space_group_number_operations.get(symmetry_group, None)
         if number_of_operators:
             if number_of_operators != number_of_rotations:  # insert the idenity matrix in the front
                 rotations = np.insert(rotations, 0, identity_matrix, axis=0)
