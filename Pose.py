@@ -622,6 +622,7 @@ class Model:  # Todo (Structure)
         # elif isinstance(pdb, PDB):
         # self.biomt_header = ''
         # self.biomt = []
+        self.symmetry = None
         self.name = kwargs.get('name')
         if log:
             self.log = log
@@ -1029,6 +1030,53 @@ class SymmetricModel(Model):
         #  self.oligomeric_equivalent_model_idxs
 
     @property
+    def sym_entry(self) -> SymEntry:
+        try:
+            return self._sym_entry
+        except AttributeError:
+            raise DesignError('No symmetry entry was specified!')
+
+    @sym_entry.setter
+    def sym_entry(self, sym_entry):
+        self._sym_entry = sym_entry
+
+    @property
+    def symmetry(self) -> str:
+        try:
+            return self._symmetry
+        except AttributeError:
+            self._symmetry = self.sym_entry.resulting_symmetry
+            return self._symmetry
+
+    @symmetry.setter
+    def symmetry(self, symmetry):
+        self._symmetry = symmetry
+
+    @property
+    def point_group_symmetry(self) -> str:
+        try:
+            return self._point_group_symmetry
+        except AttributeError:
+            self._point_group_symmetry = self.sym_entry.point_group_symmetry
+            return self._point_group_symmetry
+
+    @point_group_symmetry.setter
+    def point_group_symmetry(self, point_group_symmetry):
+        self._point_group_symmetry = point_group_symmetry
+
+    @property
+    def dimension(self) -> int:
+        try:
+            return self._dimension
+        except AttributeError:
+            self._dimension = self.sym_entry.dimension
+            return self._dimension
+
+    @dimension.setter
+    def dimension(self, dimension):
+        self._dimension = dimension
+
+    @property
     def cryst_record(self) -> str:
         """Return the symmetry parameters as a CRYST1 entry
 
@@ -1258,9 +1306,9 @@ class SymmetricModel(Model):
 
         if sym_entry and isinstance(sym_entry, SymEntry):
             self.sym_entry = sym_entry
-            self.symmetry = sym_entry.resulting_symmetry
-            self.dimension = sym_entry.dimension
-            self.point_group_symmetry = sym_entry.point_group_symmetry
+            # self.symmetry = sym_entry.resulting_symmetry
+            # self.dimension = sym_entry.dimension
+            # self.point_group_symmetry = sym_entry.point_group_symmetry
             if self.dimension > 0 and uc_dimensions is not None:
                 self.uc_dimensions = uc_dimensions
         elif symmetry:
