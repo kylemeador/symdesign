@@ -1741,6 +1741,7 @@ class SymmetricModel(Model):
         Returns:
             The symmetric copies of the input structure
         """
+        # Todo consolidate both to one
         if self.dimension == 0:
             return self.return_point_group_symmetry_mates(structure, **kwargs)
         else:
@@ -1778,13 +1779,48 @@ class SymmetricModel(Model):
         Returns:
             The symmetric copies of the input structure
         """
-        if surrounding_uc:
-            return self.return_surrounding_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
+        # Caution, this function will return poor if the number of atoms in the structure is 1!
+        if return_side_chains:  # get different function calls depending on the return type
+            # extract_pdb_atoms = getattr(PDB, 'atoms')  # Not using. The copy() versus PDB() changes residue objs
+            coords = structure.coords
         else:
-            return self.return_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
+            # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
+            coords = structure.get_backbone_and_cb_coords()
 
-    def return_symmetric_coords(self, coords) -> np.ndarray:
-        """Return the coordinates from a set of coordinates for the specified SymmetricModel
+        if surrounding_uc:
+            # return self.return_surrounding_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
+            shift_3d = [0., 1., -1.]
+            if self.dimension == 3:
+                z_shifts, uc_number = shift_3d, 27
+            elif self.dimension == 2:
+                z_shifts, uc_number = [0.], 9
+            else:
+                raise DesignError('The specified dimension "%d" is not crystalline' % self.dimension)
+
+            uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
+            surrounding_frac_coords = np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d
+                                                      for z in z_shifts])
+            sym_coords = self.frac_to_cart(surrounding_frac_coords)
+        else:
+            # return self.return_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
+            uc_number = 1
+            sym_coords = self.return_unit_cell_coords(coords)
+
+        coords_length = coords.shape[0]
+        sym_mates = []
+        for coord_set in np.split(sym_coords, uc_number):
+            for model_num in range(self.number_of_symmetry_mates):
+                symmetry_mate_pdb = copy(structure)
+                symmetry_mate_pdb.replace_coords(coord_set[model_num * coords_length:(model_num + 1) * coords_length])
+                sym_mates.append(symmetry_mate_pdb)
+
+        number_of_symmetry_mates = uc_number * self.number_of_uc_symmetry_mates
+        assert len(sym_mates) == number_of_symmetry_mates, \
+            'Number of models (%d) is incorrect! Should be %d' % (len(sym_mates), number_of_symmetry_mates)
+        return sym_mates
+
+    def return_symmetric_coords(self, coords: Union[np.ndarray, List]) -> np.ndarray:
+        """Provided an input set of coordinates, return the symmetrized coordinates corresponding to the SymmetricModel
 
         Args:
             coords: The coordinates to symmetrize
