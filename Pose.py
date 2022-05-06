@@ -617,7 +617,6 @@ class Model:  # Todo (Structure)
     If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
     """
     def __init__(self, pdb=None, models=None, log=None, **kwargs):
-        # super().__init__(**kwargs)
         super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
@@ -1069,6 +1068,7 @@ class SymmetricModel(Model):
     # @number_of_uc_symmetry_mates.setter
     # def number_of_uc_symmetry_mates(self, number_of_uc_symmetry_mates):
     #     self._number_of_uc_symmetry_mates = number_of_uc_symmetry_mates
+
     @property
     def atom_indices_per_entity_symmetric(self):
         # Todo make Structure .atom_indices a numpy array
@@ -1183,7 +1183,6 @@ class SymmetricModel(Model):
         for number_of_atoms, entity_coords in zip(self.number_of_atoms_per_entity, self.symmetric_coords_split_by_entity):
             self._center_of_mass_symmetric_entities.append(np.matmul(np.full(number_of_atoms, 1 / number_of_atoms),
                                                                      entity_coords))  # Todo test if works now
-
         return self._center_of_mass_symmetric_entities
         # Todo, all symmetry by expand_matrix anyway...
         #  return [np.matmul(entity.center_of_mass, self.expand_matrices) for entity in self.entities]
@@ -1226,11 +1225,11 @@ class SymmetricModel(Model):
         except AttributeError:
             if not self.models:
                 self.get_assembly_symmetry_mates()  # default to surrounding_uc generation, but only return contacting
-            selected_models = self.return_asu_interaction_models()
-            self.log.debug('Found selected models %s for assembly' % selected_models)
+            selected_model_indices = self.return_asu_interaction_models()
+            self.log.debug('Found selected models %s for assembly' % selected_model_indices)
 
             chains = []
-            for idx in selected_models:
+            for idx in selected_model_indices:
                 chains.extend(self.models[idx].chains)
             self._assembly_minimally_contacting = \
                 PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
@@ -1264,8 +1263,9 @@ class SymmetricModel(Model):
             self.point_group_symmetry = sym_entry.point_group_symmetry
             if self.dimension > 0 and uc_dimensions is not None:
                 self.uc_dimensions = uc_dimensions
-
         elif symmetry:
+            # Todo solve for SymEntry like in SymDesign.py main
+            #  self.sym_entry = SymEntry()
             if uc_dimensions:
                 self.uc_dimensions = uc_dimensions
                 self.symmetry = ''.join(symmetry.split())
@@ -1288,8 +1288,9 @@ class SymmetricModel(Model):
             else:  # when a point group besides T, O, or I is provided
                 raise DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s and add '
                                   'to the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
-        else:  # elif not symmetry:
-            return  # no symmetry was provided
+        else:  # no symmetry was provided
+            raise DesignError('A SymmetricModel was initiated without any symmetry! Ensure you specify the symmetry '
+                              'upon class initialization by passing symmetry=, or sym_entry=')
 
         if expand_matrices:
             # ensure these are numpy.ndarray with isinstance()
@@ -1420,14 +1421,14 @@ class SymmetricModel(Model):
         # self.symmetric_coords = Coords(model_coords)
 
     def get_unit_cell_coords(self, return_side_chains=True, surrounding_uc=True, **kwargs):
-        """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in a unit cell
+        """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in the unit cell
 
         Keyword Args:
             return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Sets:
             self.number_of_symmetry_mates (int)
-            self.symmetric_coords (numpy.ndarray)
+            self.symmetric_coords (np.ndarray)
         """
         if return_side_chains:  # get different function calls depending on the return type  # todo
             # get_pdb_coords = getattr(PDB, 'coords')
@@ -1437,17 +1438,17 @@ class SymmetricModel(Model):
             self.coords_type = 'bb_cb'
 
         if surrounding_uc:
+            shift_3d = [0., 1., -1.]
             if self.dimension == 3:
-                z_shifts, uc_number = [0., 1., -1.], 27
+                z_shifts, uc_number = shift_3d, 27
             elif self.dimension == 2:
                 z_shifts, uc_number = [0.], 9
             else:
                 return
 
             uc_frac_coords = self.return_unit_cell_coords(self.coords, fractional=True)
-            surrounding_frac_coords = \
-                np.concatenate([uc_frac_coords + [x_shift, y_shift, z_shift] for x_shift in [0., 1., -1.]
-                                for y_shift in [0., 1., -1.] for z_shift in z_shifts])
+            surrounding_frac_coords = np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d
+                                                      for z in z_shifts])
             model_coords = self.frac_to_cart(surrounding_frac_coords)
             self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
         else:
@@ -1497,7 +1498,7 @@ class SymmetricModel(Model):
             number_of_models = self.number_of_symmetry_mates
         else:  # layer or space group
             if surrounding_uc:
-                if self.number_of_symmetry_mates > self.number_of_uc_symmetry_mates:  # ensure surrounding coordinates exist
+                if self.number_of_symmetry_mates > self.number_of_uc_symmetry_mates:  # ensure surrounding coords exist
                     number_of_models = self.number_of_symmetry_mates
                 else:
                     raise ValueError('Cannot return the surrounding unit cells as no coordinates were generated for '
@@ -1680,30 +1681,30 @@ class SymmetricModel(Model):
 
         return interacting_indices
 
-    def return_symmetry_mates(self, structure, **kwargs):
+    def return_symmetry_mates(self, structure: Structure, **kwargs) -> List[Structure]:
         """Expand the asu using self.symmetry for the symmetry specification, and optional unit cell dimensions if
         self.dimension > 0. Expands assembly to complete point group, or the unit cell
 
         Args:
-            structure (Structure): A Structure containing some collection of Residues
+            A Structure containing some collection of Residues
         Keyword Args:
             return_side_chains=True (bool): Whether to return all side chain atoms. False gives backbone and CB atoms
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Returns:
-            (list[Structure]): The symmetric copies of the input structure
+            The symmetric copies of the input structure
         """
         if self.dimension == 0:
-            return self.return_point_group_symmetry_mates(structure)
+            return self.return_point_group_symmetry_mates(structure, **kwargs)
         else:
             return self.return_crystal_symmetry_mates(structure, **kwargs)
 
-    def return_point_group_symmetry_mates(self, structure):
+    def return_point_group_symmetry_mates(self, structure: Structure, **kwargs) -> List[Structure]:
         """Expand the coordinates for every symmetric copy within the point group assembly
 
         Args:
-            structure (Structure): A Structure containing some collection of Residues
+            structure: A Structure containing some collection of Residues
         Returns:
-            (list[Structure]): The symmetric copies of the input structure
+            The symmetric copies of the input structure
         """
         # return [structure.return_transformed_copy(rotation=self.expand_matrices[idx].T)  # transpose back to original
         #         for idx in range(self.number_of_symmetry_mates)]
@@ -1718,13 +1719,16 @@ class SymmetricModel(Model):
             sym_mates.append(symmetry_mate_pdb)
         return sym_mates
 
-    def return_crystal_symmetry_mates(self, structure, surrounding_uc=True, **kwargs):
-        """Expand the coordinates for every symmetric copy within the unit cell surrounding a asu
+    def return_crystal_symmetry_mates(self, structure: Structure, surrounding_uc: bool = True,
+                                      return_side_chains: bool = True, **kwargs) -> List[Structure]:
+        """Expand the coordinates for every symmetric copy within the unit cell
 
         Args:
-            structure (Structure): A Structure containing some collection of Residues
+            structure: A Structure containing some collection of Residues
+            surrounding_uc: Whether to return the surrounding unit cells along with the central unit cell
+            return_side_chains: Whether to make the structural copy with side chains
         Returns:
-            (list[Structure]): The symmetric copies of the input structure
+            The symmetric copies of the input structure
         """
         if surrounding_uc:
             return self.return_surrounding_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
@@ -1735,9 +1739,9 @@ class SymmetricModel(Model):
         """Return the coordinates from a set of coordinates for the specified SymmetricModel
 
         Args:
-            coords (Union[numpy.ndarray, list]): The coordinates to symmetrize
+            coords: The coordinates to symmetrize
         Returns:
-            (numpy.ndarray): The symmetrized coordinates
+            The symmetrized coordinates
         """
         if self.dimension == 0:
             # coords_len = 1 if not isinstance(coords[0], (list, np.ndarray)) else len(coords)
@@ -1775,15 +1779,14 @@ class SymmetricModel(Model):
         else:
             return self.frac_to_cart(model_coords)
 
-    def return_unit_cell_symmetry_mates(self, structure, return_side_chains=True):  # For returning PDB copies
-        """Expand the coordinates for the structure to every symmetry mate in the unit cell based on symmetry matrices
+    def return_unit_cell_symmetry_mates(self, structure: Structure, return_side_chains: bool = True) -> List[Structure]:
+        """Return Structures of every symmetry mates in the unit cell for the provided structure
 
         Args:
-            structure (Structure): A Structure containing some collection of Residues
-        Keyword Args:
-            return_side_chains=True (bool): Whether the return the side chain coordinates in addition to backbone
+            structure: A Structure containing some collection of Residues
+            return_side_chains: Whether the return the side chain coordinates in addition to backbone
         Returns:
-            (list[Structure]): The symmetric copies of the input structure
+            The symmetric copies of the input structure
         """
         # Caution, this function will return poor if the number of atoms in the structure is 1!
         if return_side_chains:  # get different function calls depending on the return type
@@ -2018,14 +2021,15 @@ class SymmetricModel(Model):
             raise DesignError('Must set a global symmetry to assign pose transformation!')
 
         # get optimal external translation
-        if self.dimension > 0:
-            optimal_external_shifts = self.sym_entry.get_optimal_shift_from_uc_dimensions(*self.uc_dimensions)
-            external_tx1 = optimal_external_shifts[:, None] * self.sym_entry.external_dof1
-            external_tx2 = optimal_external_shifts[:, None] * self.sym_entry.external_dof2
-            external_tx = [external_tx1, external_tx2]
-        else:
-            # external_tx1, external_tx2 = None, None
+        if self.dimension == 0:
             external_tx = [None for _ in self.sym_entry.groups]
+        else:
+            optimal_external_shifts = self.sym_entry.get_optimal_shift_from_uc_dimensions(*self.uc_dimensions)
+            # external_tx1 = optimal_external_shifts[:, None] * self.sym_entry.external_dof1
+            # external_tx2 = optimal_external_shifts[:, None] * self.sym_entry.external_dof2
+            # external_tx = [external_tx1, external_tx2]
+            external_tx = [optimal_external_shifts[:, None] * getattr(self.sym_entry, 'external_dof%d' % idx)
+                           for idx, group in enumerate(self.sym_entry.groups, 1)]
 
         center_of_mass_symmetric_entities = self.center_of_mass_symmetric_entities
         # self.log.critical('center_of_mass_symmetric_entities = %s' % center_of_mass_symmetric_entities)
