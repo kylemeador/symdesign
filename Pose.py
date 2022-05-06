@@ -622,7 +622,6 @@ class Model:  # Todo (Structure)
         # elif isinstance(pdb, PDB):
         # self.biomt_header = ''
         # self.biomt = []
-        self.symmetry = None
         self.name = kwargs.get('name')
         if log:
             self.log = log
@@ -633,9 +632,11 @@ class Model:  # Todo (Structure)
 
         if pdb and isinstance(pdb, Structure):
             self.pdb = pdb  # TODO DISCONNECT HERE
+            self.symmetry = None
 
         if models and isinstance(models, list):
             self.models = models
+            self.symmetry = None
         else:
             self.models = []
 
@@ -1307,9 +1308,7 @@ class SymmetricModel(Model):
 
         if sym_entry and isinstance(sym_entry, SymEntry):
             self.sym_entry = sym_entry
-            # self.symmetry = sym_entry.resulting_symmetry
-            # self.dimension = sym_entry.dimension
-            # self.point_group_symmetry = sym_entry.point_group_symmetry
+            # del self._symmetry  # remove any existing symmetry attr like None from Model init
             if self.dimension > 0 and uc_dimensions is not None:
                 self.uc_dimensions = uc_dimensions
         elif symmetry:
@@ -2447,7 +2446,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         elif pdb_file:  # TODO COMMENT OUT .pdb initialize Pose from Model?
             self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
 
-        super().__init__(**kwargs)  # will generate assembly coords if an ASU is present
+        # Model init will handle Structure set up if a PDB is present
+        # SymmetricModel init will handle if an ASU is present and generate assembly coords
+        super().__init__(**kwargs)
 
         frag_db = kwargs.get('frag_db')
         if frag_db:  # Attach existing FragmentDB to the Pose
