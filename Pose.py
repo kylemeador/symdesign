@@ -1284,20 +1284,21 @@ class SymmetricModel(Model):
                                 cryst_record=self.cryst_record, entities=False)
             return self._assembly_minimally_contacting
 
-    def set_symmetry(self, sym_entry=None, expand_matrices=None, symmetry=None, cryst1=None, uc_dimensions=None,
-                     generate_assembly_coords=True, generate_symmetry_mates=False, **kwargs):
+    def set_symmetry(self, sym_entry: SymEntry = None, symmetry: str = None, cryst1: str = None,
+                     uc_dimensions: List[float] = None,  expand_matrices: Union[np.ndarray, List] = None,
+                     generate_assembly_coords: bool = True, generate_symmetry_mates: bool = False, **kwargs):
         """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
         notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
         only the symmetry is required
 
         Keyword Args:
-            sym_entry=None (SymEntry):
-            expand_matrices=None (list[list[list]]]):
-            symmetry=None (str):
-            cryst1=None (str): The unit cell dimensions in PDB CRYST1 format
-            uc_dimensions=None (Iterable): # TODO
-            generate_assembly_coords=True (bool): Whether the symmetric coords should be generated from the ASU coords
-            generate_symmetry_mates=False (bool): Whether the symmetric models should be generated from the ASU model
+            sym_entry: The SymEntr which specifies all symmetry parameters
+            symmetry: The name of a symmetry to be searched against the existing compatible symmetries
+            cryst1: The unit cell dimensions in PDB CRYST1 format
+            uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
+            expand_matrices: A set of custom expansion matrices
+            generate_assembly_coords: Whether the symmetric coords should be generated from the ASU coords
+            generate_symmetry_mates: Whether the symmetric models should be generated from the ASU model
             return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
