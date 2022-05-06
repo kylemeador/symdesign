@@ -1,11 +1,11 @@
 import copy
 import os
-import pickle
+# import pickle
 
 import numpy as np
 
-from PathUtils import sym_op_location
-
+from PathUtils import sym_op_location, point_group_symmetry_operator_location, space_group_symmetry_operator_location
+from SymDesignUtils import unpickle
 
 sg_cryst1_fmt_dict = {
     'P1': 'P 1',  # TRICLINIC
@@ -29,7 +29,7 @@ pg_cryst1_fmt_dict = {  # MISSING 7 OF THESE
     'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
 pg_cryst1_to_hm_notation = {'P 3': 'p3', 'P 3 2 1': 'p321', 'P 6 2 2': 'p622', 'P 4': 'p4', 'P 2 2 2': 'p222',
                             'P 4 2 2': 'p422', 'P 4 21 2': 'p4212', 'P 6': 'p6', 'P 3 1 2': 'p312', 'C 2 2 2': 'c222'}
-space_group_operation_number = \
+space_group_number_operations = \
     {'P1': 1, 'P121': 2, 'P1211': 2, 'C121': 4, 'P2221': 4, 'P21212': 4, 'P212121': 4, 'C2221': 8, 'I222': 8,
      'I212121': 8, 'P41': 4, 'P42': 4, 'P43': 4, 'I4': 8, 'I41': 8, 'P4122': 8, 'P41212': 8, 'P42212': 8, 'P4322': 8,
      'P43212': 8, 'P31': 3, 'P32': 3, 'R3': 9, 'P3112': 6, 'P3121': 6, 'P3212': 6, 'P3221': 6, 'P61': 6, 'P65': 6,
@@ -76,7 +76,7 @@ def generate_cryst1_record(dimensions, space_group) -> str:
         raise ValueError('SPACEGROUP NOT SUPPORTED')
 
     return 'CRYST1{dim[0]:9.3f}{dim[1]:9.3f}{dim[2]:9.3f}{dim[3]:7.2f}{dim[4]:7.2f}{dim[5]:7.2f} {sg:<11s}{z:4d}\n'\
-        .format(dim=dimensions, sg=formatted_space_group, z=space_group_operation_number[space_group])
+        .format(dim=dimensions, sg=formatted_space_group, z=space_group_number_operations[space_group])
 
 
 def cart_to_frac(cart_coords, dimensions):
@@ -238,16 +238,18 @@ def get_expanded_ptgrp_pdb(pdb_asu, expand_matrices):
     return asu_symm_mates
 
 
-def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(sym_op_location, "SPACE_GROUP_SYMM_OPERATORS")):
-    """Get the symmetry operations for a specified space group oriented in the canonical orientation
-    Returns:
-        (list[tuple[list[list], list]])
-    """
-    sg_op_filepath = os.path.join(space_group_operator_dir, '%s.pickle' % sym_type.upper())
-    with open(sg_op_filepath, 'rb') as sg_op_file:
-        sg_sym_op = pickle.load(sg_op_file)
-
-    return sg_sym_op
+point_group_symmetry_operators = unpickle(point_group_symmetry_operator_location)
+space_group_symmetry_operators = unpickle(space_group_symmetry_operator_location)
+# def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(sym_op_location, "SPACE_GROUP_SYMM_OPERATORS")):
+#     """Get the symmetry operations for a specified space group oriented in the canonical orientation
+#     Returns:
+#         (list[tuple[list[list], list]])
+#     """
+#     sg_op_filepath = os.path.join(space_group_operator_dir, '%s.pickle' % sym_type.upper())
+#     with open(sg_op_filepath, 'rb') as sg_op_file:
+#         sg_sym_op = pickle.load(sg_op_file)
+#
+#     return sg_sym_op
 
 
 def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
@@ -366,7 +368,7 @@ def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):  # 
         (list(PDB)): Expanded to entire point group, 3x3 layer group, or 3x3x3 space group
     """
     if symmetry.upper() in ['T', 'O', 'I']:
-        expand_matrices = get_ptgrp_sym_op(symmetry.upper())
+        expand_matrices = point_group_symmetry_operators[symmetry.upper()]
         return get_expanded_ptgrp_pdb(asu, expand_matrices)
     else:
         if symmetry in pg_cryst1_fmt_dict:
@@ -374,8 +376,8 @@ def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):  # 
         elif symmetry in sg_cryst1_fmt_dict:
             dimension = 3
         else:
-            return None
-        expand_matrices = get_sg_sym_op(symmetry)
+            return
+        expand_matrices = space_group_symmetry_operators[symmetry.upper()]
 
         return expand_uc(asu, expand_matrices, uc_dimensions, dimension, return_side_chains=return_side_chains)
 

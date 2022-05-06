@@ -8,7 +8,7 @@ import numpy as np
 import PathUtils as PUtils
 from SymDesignUtils import start_log, dictionary_lookup, DesignError
 
-from utils.SymmetryUtils import valid_subunit_number, get_ptgrp_sym_op, get_sg_sym_op
+from utils.SymmetryUtils import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
@@ -350,9 +350,9 @@ class SymEntry:
             [dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
 
         if self.dimension == 0:
-            self.expand_matrices = get_ptgrp_sym_op(self.resulting_symmetry)
+            self.expand_matrices = point_group_symmetry_operators[self.resulting_symmetry]
         elif self.dimension in [2, 3]:
-            self.expand_matrices = get_sg_sym_op(self.resulting_symmetry)
+            self.expand_matrices = space_group_symmetry_operators[self.resulting_symmetry]
         else:
             raise ValueError('\nINVALID SYMMETRY ENTRY. SUPPORTED DESIGN DIMENSIONS: %s\n'
                              % ', '.join(map(str, [0, 2, 3])))
