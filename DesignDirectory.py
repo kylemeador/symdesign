@@ -2462,9 +2462,6 @@ class DesignDirectory:  # (JobResources):
         collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
         inverse_residue_contact_order_z, contact_order = {}, {}
         for entity in self.pose.entities:
-            # Todo clean this behavior up as it is not good if entity is used downstream
-            #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity...
-            entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
             # we need to get the contact order, errat from the symmetric entity
             # entity.oligomer.get_sasa()
             entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
@@ -2478,7 +2475,11 @@ class DesignDirectory:  # (JobResources):
         # for entity in self.pose.entities:
             # entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
             # Contact order is the same for every design in the Pose
-            residue_contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
+            # Todo clean this behavior up as it is not good if entity is used downstream...
+            #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity...
+            entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
+            residue_contact_order = entity.contact_order
+            # residue_contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
             contact_order[entity] = residue_contact_order  # save the contact order for plotting
             _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
             wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
