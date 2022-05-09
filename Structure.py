@@ -1953,6 +1953,7 @@ class Structure(StructureBase):
         """
         if file_handle:
             file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+            return
 
         if out_path:
             with open(out_path, 'w') as outfile:
