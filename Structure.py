@@ -3289,7 +3289,7 @@ class Structure(StructureBase):
         #         for second in getattr(Structure.available_letters, modification)())
 
     def __key(self):
-        return self.name, (*self._residue_indices)
+        return (self.name, *self._residue_indices)
         # return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
 
     def __copy__(self):
