@@ -18,16 +18,16 @@ from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_le
     protein_letters_1to3_extended
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
-    reference_residues_pkl, free_sasa_configuration_path
+    reference_residues_pkl, free_sasa_configuration_path, orient_dir, orient_exe_path
 # from ProteinExpression import find_expression_tags, remove_expression_tags
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
     retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
-from SequenceProfile import SequenceProfile, generate_mutations
+from SequenceProfile import SequenceProfile, generate_mutations, generate_alignment
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
     cubic_point_groups, origin
 from utils.GeneralUtils import transform_coordinate_sets
-from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number
+from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number, multicomponent_valid_subunit_number
 
 # globals
 logger = start_log(name=__name__)
@@ -3079,6 +3079,102 @@ class Entity(Chain, SequenceProfile):
                         offset += chain.number_of_atoms
 
             return out_path
+
+    # def orient(self, symmetry: str = None, log: os.PathLike = None):
+    #     """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
+    #     file. Automatically produces files in PDB numbering for proper orient execution
+    #
+    #     Keyword Args:
+    #         symmetry=None (str): What is the symmetry of the specified PDB?
+    #         log=None (os.PathLike): If there is a log specific for orienting
+    #     """
+    #     # orient_oligomer.f program notes
+    #     # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
+    #     # C		in ways such as but not limited to:
+    #     # C     equivalent residues in different chains don't have the same numbering; different subunits
+    #     # C		are all listed with the same chain ID (e.g. with incremental residue numbering) instead
+    #     # C		of separate IDs; multiple conformations are written out for the same subunit structure
+    #     # C		(as in an NMR ensemble), negative residue numbers, etc. etc.
+    #     # must format the input.pdb in an acceptable manner
+    #     subunit_number = valid_subunit_number.get(symmetry, None)
+    #     if not subunit_number:
+    #         raise ValueError('Symmetry %s is not a valid symmetry. Please try one of: %s' %
+    #                          (symmetry, ', '.join(valid_subunit_number.keys())))
+    #     if not log:
+    #         log = self.log
+    #
+    #     if self.filepath:
+    #         pdb_file_name = os.path.basename(self.filepath)
+    #     else:
+    #         pdb_file_name = '%s.pdb' % self.name
+    #     # Todo change output to logger with potential for file and stdout
+    #
+    #     if self.number_of_monomers < 2:
+    #         raise ValueError('Cannot orient a file with only a single chain. No symmetry present!')
+    #     elif self.number_of_monomers != subunit_number:
+    #         raise ValueError('%s\n Oligomer could not be oriented: It has %d subunits while %d '
+    #                          'are expected for %s symmetry\n\n'
+    #                          % (pdb_file_name, self.number_of_monomers, subunit_number, symmetry))
+    #
+    #     orient_input = os.path.join(orient_dir, 'input.pdb')
+    #     orient_output = os.path.join(orient_dir, 'output.pdb')
+    #
+    #     def clean_orient_input_output():
+    #         if os.path.exists(orient_input):
+    #             os.remove(orient_input)
+    #         if os.path.exists(orient_output):
+    #             os.remove(orient_output)
+    #
+    #     clean_orient_input_output()
+    #     # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps
+    #     # have to change residue numbering to PDB numbering
+    #     self.write_oligomer(orient_input, pdb_number=True)
+    #     # self.renumber_residues_by_chain()
+    #
+    #     p = subprocess.Popen([orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
+    #                          stderr=subprocess.PIPE, cwd=orient_dir)
+    #     in_symm_file = os.path.join(orient_dir, 'symm_files', symmetry)
+    #     stdout, stderr = p.communicate(input=in_symm_file.encode('utf-8'))
+    #     # stderr = stderr.decode()  # turn from bytes to string 'utf-8' implied
+    #     # stdout = pdb_file_name + stdout.decode()[28:]
+    #     log.info(pdb_file_name + stdout.decode()[28:])
+    #     log.info(stderr.decode())
+    #     if not os.path.exists(orient_output) or os.stat(orient_output).st_size == 0:
+    #         # orient_log = os.path.join(out_dir, orient_log_file)
+    #         log_file = getattr(log.handlers[0], 'baseFilename', None)
+    #         log_message = '. Check %s for more information' % log_file if log_file else ''
+    #         error_string = 'orient_oligomer could not orient %s%s' % (pdb_file_name, log_message)
+    #         raise RuntimeError(error_string)
+    #
+    #     oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=log)
+    #     orient_fixed_struct = oriented_pdb.chains[0]
+    #     moving_struct = self.chains[0]
+    #     try:
+    #         _, rot, tx, _ = superposition3d(orient_fixed_struct.get_cb_coords(), moving_struct.get_cb_coords())
+    #     except ValueError:  # we have the wrong lengths, lets subtract a certain amount by performing a seq alignment
+    #         # rot, tx = None, None
+    #         orient_fixed_seq = orient_fixed_struct.sequence
+    #         moving_seq = moving_struct.sequence
+    #         # while not rot:
+    #         #     try:
+    #         # moving coords are from the pre-orient structure where orient may have removed residues
+    #         # lets try to remove those residues by doing an alignment
+    #         align_orient_seq, align_moving_seq, *_ = generate_alignment(orient_fixed_seq, moving_seq, local=True)
+    #         # align_seq_1.replace('-', '')
+    #         # orient_idx1 = moving_seq.find(align_orient_seq.replace('-', '')[0])
+    #         for orient_idx1, aa in enumerate(align_orient_seq):
+    #             if aa != '-':  # we found the first aligned residue
+    #                 break
+    #         orient_idx2 = orient_idx1 + len(align_orient_seq.replace('-', ''))
+    #         # starting_index_of_seq2 = moving_seq.find(align_moving_seq.replace('-', '')[0])
+    #         # # get the first matching index of the moving_seq from the first aligned residue
+    #         # ending_index_of_seq2 = starting_index_of_seq2 + align_moving_seq.rfind(moving_seq[-1])  # find last index of reference
+    #         _, rot, tx, _ = superposition3d(orient_fixed_struct.get_cb_coords(),
+    #                                         moving_struct.get_cb_coords()[orient_idx1:orient_idx2])
+    #         # except ValueError:
+    #         #     rot, tx = None, None
+    #     self.transform(rotation=rot, translation=tx)
+    #     clean_orient_input_output()
 
     def find_chain_symmetry(self, struct_file=None):
         """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
