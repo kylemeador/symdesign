@@ -1623,22 +1623,21 @@ class SymmetricModel(Model):
             # The furthest point from the ASU COM + the max individual Entity radius
             distance = self.asu.radius + max([entity.radius for entity in self.entities])  # all the radii
 
-        if calculate_contacts:
-            self.generate_assembly_tree()
+        if calculate_contacts:  # Todo need to verify this is proper
             # Need to select only coords that are BB or CB from the model coords
-            asu_indices = self.asu.backbone_and_cb_indices if self.coords_type != 'bb_cb' else None
-            asu_query = self.assembly_tree.query_radius(self.coords[asu_indices], distance)
-            # coords_length = len(asu_indices)
+            bb_cb_indices = None if self.coords_type == 'bb_cb' else self.pdb.backbone_and_cb_indices
+            self.generate_assembly_tree()
+            asu_query = self.assembly_tree.query_radius(self.coords[bb_cb_indices], distance)
+            # coords_length = len(bb_cb_indices)
             # contacting_model_indices = [assembly_idx // coords_length
             #                             for asu_idx, assembly_contacts in enumerate(asu_query)
             #                             for assembly_idx in assembly_contacts]
             # interacting_models = sorted(set(contacting_model_indices))
-            # interacting_models = np.unique(asu_query // coords_length).tolist()
-            interacting_models = np.unique(asu_query // len(asu_query)).tolist()
+            interacting_models = np.unique(np.concatenate(asu_query) // len(asu_query)).tolist()
         else:
             center_of_mass = self.center_of_mass
-            interacting_models = [model_idx for model_idx, sym_model_com in enumerate(self.center_of_mass_symmetric_models)
-                                  if np.linalg.norm(center_of_mass - sym_model_com) < distance]
+            interacting_models = [idx for idx, sym_model_com in enumerate(self.center_of_mass_symmetric_models)
+                                  if np.linalg.norm(center_of_mass - sym_model_com) <= distance]
             # print('interacting_models com', self.center_of_mass_symmetric_models[interacting_models])
 
         return interacting_models
