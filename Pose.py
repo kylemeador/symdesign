@@ -611,8 +611,8 @@ class Models(Structures):
 # (BaseModel)?
 class Model:  # Todo (Structure)
     """Keep track of different variations of the same Structure object such as altered coordinates (different decoy's or
-     symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
-     but could be multiple PDB's with some common element.
+    symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
+    but could be multiple PDB's with some common element.
 
     If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
     """
@@ -791,12 +791,8 @@ class Model:  # Todo (Structure)
     #         return self._coords_indexed_residue_atoms
 
     @property
-    def center_of_mass(self):  # TODO COMMENT OUT ONCE Structure SUBCLASSED
-        """The center of mass for the model Structure, either an asu, or other pdb
-
-        Returns:
-            (numpy.ndarray)
-        """
+    def center_of_mass(self) -> np.ndarray:  # TODO COMMENT OUT ONCE Structure SUBCLASSED
+        """The center of mass for the model Structure, either an asu, or other pdb"""
         # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
         number_of_atoms = len(self.coords)
         return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.coords)
@@ -1133,7 +1129,7 @@ class SymmetricModel(Model):
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
     @property
-    def symmetric_coords(self):
+    def symmetric_coords(self) -> np.ndarray:
         """Return a view of the symmetric Coords"""
         return self._model_coords.coords
 
@@ -1142,12 +1138,8 @@ class SymmetricModel(Model):
         self.model_coords = coords
 
     @property
-    def symmetric_coords_split(self):
-        """A view of the symmetric coords split at different symmetric models
-
-        Returns:
-            (list[numpy.ndarray])
-        """
+    def symmetric_coords_split(self) -> List[np.ndarray]:
+        """A view of the symmetric coords split at different symmetric models"""
         try:
             return self._symmetric_coords_split
         except AttributeError:
@@ -1156,12 +1148,8 @@ class SymmetricModel(Model):
             return self._symmetric_coords_split
 
     @property
-    def symmetric_coords_split_by_entity(self):
-        """A view of the symmetric coords split by Entity indices
-
-        Returns:
-            (list[list[numpy.ndarray]])
-        """
+    def symmetric_coords_split_by_entity(self) -> List[List[np.ndarray]]:
+        """A view of the symmetric coords split for each symmetric model by the Pose Entity indices"""
         try:
             return self._symmetric_coords_split_by_entity
         except AttributeError:
@@ -1175,12 +1163,8 @@ class SymmetricModel(Model):
             return self._symmetric_coords_split_by_entity
 
     @property
-    def symmetric_coords_by_entity(self):
-        """A view of the symmetric coords by Entity indices
-
-        Returns:
-            (list[numpy.ndarray])
-        """
+    def symmetric_coords_by_entity(self) -> List[np.ndarray]:
+        """A view of the symmetric coords for each Entity in order of the Pose Entity indices"""
         try:
             return self._symmetric_coords_by_entity
         except AttributeError:
@@ -1221,12 +1205,8 @@ class SymmetricModel(Model):
         #  return np.matmul(self.center_of_mass, self.expand_matrices)
 
     @property
-    def center_of_mass_symmetric_entities(self):
-        """The individual centers of mass for each Entity in the symmetric system
-
-        Returns:
-            (numpy.ndarray)
-        """
+    def center_of_mass_symmetric_entities(self) -> np.ndarray:
+        """The individual centers of mass for each Entity in the symmetric system"""
         # if self.symmetry:
         self._center_of_mass_symmetric_entities = []
         for number_of_atoms, entity_coords in zip(self.number_of_atoms_per_entity, self.symmetric_coords_split_by_entity):
@@ -1239,11 +1219,7 @@ class SymmetricModel(Model):
     @property
     def assembly(self) -> Structure:
         """Provides the Structure object containing all symmetric chains in the assembly unless the design is 2- or 3-D
-        then the assembly only contains the contacting models
-
-        Returns:
-            (Structure)
-        """
+        then the assembly only contains the contacting models"""
         try:
             return self._assembly
         except AttributeError:
@@ -1263,12 +1239,8 @@ class SymmetricModel(Model):
             return self._assembly
 
     @property
-    def assembly_minimally_contacting(self) -> Structure:
-        """Provides the Structure object only containing the contacting models
-
-        Returns:
-            (Structure)
-        """
+    def assembly_minimally_contacting(self) -> Structure:  # Todo reconcile mechanism with Entity.oligomer
+        """Provides the Structure object only containing the Symmetric Models contacting the ASU"""
         try:
             return self._assembly_minimally_contacting
         except AttributeError:
@@ -1634,16 +1606,17 @@ class SymmetricModel(Model):
 
         self.oligomeric_equivalent_model_idxs[entity] = equivalent_models
 
-    def return_asu_interaction_models(self, calculate_contacts: bool = False, distance: float = 8., **kwargs) -> List:
-        """From an asu, find the SymmetricModel equivalent models that immediately surround the asu
+    def return_asu_interaction_models(self, calculate_contacts: bool = False, distance: float = 8., **kwargs) -> \
+            List[int]:
+        """From an ASU, find the symmetric models that immediately surround the ASU
 
-        Keyword Args:
-            calculate_contacts=False (bool): Whether to calculate interacting models by atomic contacts. If this
-                argument is True, the value passed to distance will be the contact distance
-            distance=8.0 (float): The distance within which nearby symmetric models should be found. When
-                    calculate_contacts is True, uses the default, otherwise, uses the ASU radius plus max Entity radius
+        Args:
+            calculate_contacts: Whether to calculate interacting models by atomic contacts. If this argument is True,
+                the value passed to distance will be the contact distance
+            distance: The distance within which nearby symmetric models should be found. When calculate_contacts is
+                True, uses the default, otherwise, uses the ASU radius plus the maximum Entity radius
         Returns:
-            (list): The indices of the models that contact the asu
+            The indices of the models that contact the asu
         """
         if not calculate_contacts:
             # distance = self.asu.radius * 2  # value too large self.pdb.radius * 2
@@ -2429,11 +2402,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.split_interface_ss_elements = {}  # {1: [0,1,2] , 2: [9,13,19]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
-        # self.handle_flags(**kwargs)
-        # self.ignore_clashes = False
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
-        # self.design_selector = {}
-        # if kwargs.get('design_selector'):
         self.design_selector = kwargs.get('design_selector', {})
         # else:
         #     self.design_selector = {}
@@ -2446,8 +2415,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         elif pdb_file:  # TODO COMMENT OUT .pdb initialize Pose from Model?
             self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
 
-        # Model init will handle Structure set up if a PDB is present
-        # SymmetricModel init will handle if an ASU is present and generate assembly coords
+        # Model init will handle Structure set up if a PDB/PDB_file is present
+        # SymmetricModel init will handle if an ASU/ASU_file is present and generate assembly coords
         super().__init__(**kwargs)
 
         frag_db = kwargs.get('frag_db')
