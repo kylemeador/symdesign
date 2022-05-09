@@ -4,7 +4,7 @@ import time
 from copy import deepcopy
 from json import dumps, load
 import sys
-from typing import Union, List, Dict
+from typing import Union, List, Dict, Optional
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -164,8 +164,11 @@ def query_pdb(_query):
             iteration += 1
 
         if iteration > 5:
-            raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
-                              'Offending request %s' % getattr(query_response, 'url'))
+            logger.error('The maximum number of resource fetch attempts was made with no resolution. '
+                         'Offending request %s' % getattr(query_response, 'url', pdb_query_url))  # todo format url
+            break
+            # raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
+            #                   'Offending request %s' % getattr(query_response, 'url', pdb_query_url))
     return
 
 
@@ -784,7 +787,7 @@ def get_pdb_info_by_entity(entity_id) -> Dict:
         return {}
 
 
-def query_entity_id(entity_id: str) -> Union[Dict, None]:
+def query_entity_id(entity_id: str) -> Optional[Dict]:
     """Fetches the JSON object for the entity_id from the PDB API
      
     For all method types the following keys are available:
@@ -797,9 +800,9 @@ def query_entity_id(entity_id: str) -> Union[Dict, None]:
     X-ray_only_keys - {'rcsb_cluster_flexibility'}
     
     Args:
-        entity_id (str): The entity_id with the format PDBentryID_entityID. Ex: 1abc_1
+        entity_id: The entity_id with the format PDBentryID_entityID. Ex: 1abc_1
     Returns:
-        (Union[dict, None])
+        The entity information according to the PDB
     """
     # Todo change data retrieval to POST
     entity_split = entity_id.split('_')
@@ -819,7 +822,7 @@ def get_entity_uniprot_id(entity_id=None, pdb=None, entity=None, chain=None):
         chain=None (str): The chain from the PDBCode of interest
         entity=None (str): The entity integer from the PDBCode of interest
     Returns:
-        (str): The UniProtID
+        The UniProt ID
     """
     if pdb:
         if entity:
@@ -843,11 +846,17 @@ def get_entity_uniprot_id(entity_id=None, pdb=None, entity=None, chain=None):
     return entity_json.get('rcsb_polymer_entity_container_identifiers')['uniprot_id'][0]  # return the first entry
 
 
-def get_entity_reference_sequence(entity_id=None, pdb=None, entity=None, chain=None):
+def get_entity_reference_sequence(entity_id: str = None, pdb: str = None, entity: int = None, chain: str = None) -> \
+        Optional[str]:
     """Query the PDB API for the reference amino acid sequence for a specified entity ID (PDB EntryID_Entity_ID)
 
+    Args:
+        entity_id: The formatted entity id which takes the form of PDBentry#_entity#
+        pdb: The 4 character PDB code
+        entity: The integer
+        chain: The polymer "chain" identifier otherwise known as the "asym_id"
     Returns:
-        (str): One letter amino acid sequence
+        One letter amino acid sequence
     """
     if pdb:
         if entity:
@@ -868,7 +877,10 @@ def get_entity_reference_sequence(entity_id=None, pdb=None, entity=None, chain=N
                                % (get_entity_reference_sequence.__name__, all_entities[0]))
     entity_json = query_entity_id(entity_id)
     # return entity_json.get('entity_poly')['pdbx_seq_one_letter_code']  # returns non-cannonical amino acids
-    return entity_json.get('entity_poly')['pdbx_seq_one_letter_code_can']  # returns non-cannonical as 'X'
+    if entity_json:
+        return entity_json.get('entity_poly')['pdbx_seq_one_letter_code_can']  # returns non-cannonical as 'X'
+    else:
+        return
 
 
 def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True, force_update=False):

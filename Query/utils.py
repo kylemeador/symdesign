@@ -1,5 +1,5 @@
 import time
-from typing import Union, Any
+from typing import Any, Optional
 
 import requests
 
@@ -82,16 +82,15 @@ def verify_choice():
     #     return False
 
 
-def connection_exception_handler(url: str, max_attempts: int = 5) -> Union[Any, None]:
-    """Wrap requests GET commands in an exception handler which attempts to aquire the data multiple times if the
+def connection_exception_handler(url: str, max_attempts: int = 5) -> Optional[Any]:
+    """Wrap requests GET commands in an exception handler which attempts to aqcuire the data multiple times if the
     connection is refused due to a high volume of requests
 
     Args:
-        url (str): The url to GET information from
-    Keyword Args:
-        max_attempts=5 (int): The number of queries that should be attempts without successful return
+        url: The url to GET information from
+        max_attempts: The number of queries that should be attempts without successful return
     Returns:
-        (union[dict, None]): The json formatted response to the url GET or None
+        The json formatted response to the url GET or None
     """
     query_response = None
     iteration = 1
@@ -115,6 +114,9 @@ def connection_exception_handler(url: str, max_attempts: int = 5) -> Union[Any, 
         if iteration == max_attempts:
             time.sleep(10)  # try one really long sleep then go once more
         elif iteration > max_attempts:
-            raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
-                              'Offending request %s' % getattr(query_response, 'url'))
+            logger.error('The maximum number of resource fetch attempts was made with no resolution. '
+                         'Offending request %s' % url)
+            break
+            # raise DesignError('The maximum number of resource fetch attempts was made with no resolution. '
+            #                   'Offending request %s' % url)
     return
