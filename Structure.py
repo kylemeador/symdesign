@@ -1571,16 +1571,16 @@ class Structure(StructureBase):
             # coords_indexed_residues = self.coords_indexed_residues
             # coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
             atoms = self.atoms
-            for idx, line_split in enumerate(map(str.split, sasa_output[5:-2])):  # slice could remove need for if ATOM
+            for line_split in map(str.split, sasa_output[5:-2]):  # slice could remove need for if ATOM
                 if line_split[0] == 'ATOM':  # this seems necessary as MODEL can be added if MODEL is written
-                    atoms[idx].sasa = float(line_split[-1])
+                    atoms[if_idx].sasa = float(line_split[-1])
+                    if_idx += 1
         else:
             residues = self.residues
-            # idx = 0
             for idx, line in enumerate(sasa_output[1:-1]):  # slice removes need for if == 'SEQ'
                 if line[:3] == 'SEQ':  # doesn't seem to be the case that we can do this ^
-                    residues[idx].sasa = float(line[16:])
-                # idx += 1
+                    residues[if_idx].sasa = float(line[16:])
+                    if_idx += 1
         # Todo change to sasa property to call this automatically if AttributeError?
         self.sasa = sum([residue.sasa for residue in self.residues])
 
