@@ -2856,7 +2856,8 @@ class DesignDirectory:  # (JobResources):
         # Merge interface design specific residue metrics with total per residue metrics
         # residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
         #                       left_index=True, right_index=True)
-        residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[self.design_residues, :]],
+        residue_df = pd.merge(residue_df.loc[:, idx_slice[self.design_residues, :]],
+                              per_residue_df.loc[:, idx_slice[self.design_residues, :]],
                               left_index=True, right_index=True)
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
