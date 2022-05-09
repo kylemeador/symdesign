@@ -4116,6 +4116,8 @@ class Residue:
                     polarity_list[residue_atom_polarity.get(atom.type)].append(atom.sasa)
 
                 self._sasa_apolar, self._sasa_polar, _ = map(sum, polarity_list)
+                # if _ > 0:
+                #     print('Found %f unknown surface area' % _)
                 return self._sasa_apolar
             except AttributeError:  # missing atom.sasa
                 raise DesignError('Residue %d%s has no ".sasa_apolar" attribute! Ensure you call Structure.get_sasa() '
