@@ -1564,6 +1564,7 @@ class Structure(StructureBase):
         # if err:  # usually results from Hydrogen atoms, silencing
         #     self.log.warning('\n%s' % err.decode('utf-8'))
         sasa_output = out.decode('utf-8').split('\n')
+        if_idx = 0
         if atom:
             # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
             # since return_atom_string doesn't have models, these won't be present and no option to freesasa about model
