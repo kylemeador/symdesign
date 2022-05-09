@@ -1190,46 +1190,31 @@ class SymmetricModel(Model):
             return self._symmetric_coords_by_entity
 
     @property
-    def center_of_mass_symmetric(self):
-        """The center of mass for the entire symmetric system
-
-        Returns:
-            (numpy.ndarray)
-        """
-        # if self.symmetry:
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
-        number_of_symmetry_mates = self.number_of_symmetry_mates
-        return np.matmul(np.full(number_of_atoms * number_of_symmetry_mates,
-                                 1 / number_of_atoms * number_of_symmetry_mates), self.symmetric_coords)
+    def center_of_mass_symmetric(self) -> np.ndarray:
+        """The center of mass for the entire symmetric system"""
+        number_of_symmetry_atoms = len(self.symmetric_coords)
+        return np.matmul(np.full(number_of_symmetry_atoms, 1 / number_of_symmetry_atoms), self.symmetric_coords)
         # Todo, since all symmetry by expand_matrix anyway?
         #  return self.center_of_mass_symmetric_models.mean(axis=-2)
 
     @property
-    def center_of_mass_symmetric_models(self):
-        """The individual centers of mass for each model in the symmetric system
-
-        Returns:
-            (numpy.ndarray)
-        """
-        # if self.symmetry:
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
-        return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.symmetric_coords_split)
-        # Todo, all symmetry by expand_matrix anyway...
-        #  return np.matmul(self.center_of_mass, self.expand_matrices)
+    def center_of_mass_symmetric_models(self) -> np.ndarray:
+        """The individual centers of mass for each model in the symmetric system"""
+        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this version
+        # number_of_atoms = len(self.coords)
+        # return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.symmetric_coords_split)
+        return np.matmul(self.center_of_mass, self.expand_matrices)
 
     @property
     def center_of_mass_symmetric_entities(self) -> np.ndarray:
         """The individual centers of mass for each Entity in the symmetric system"""
         # if self.symmetry:
-        self._center_of_mass_symmetric_entities = []
-        for number_of_atoms, entity_coords in zip(self.number_of_atoms_per_entity, self.symmetric_coords_split_by_entity):
-            self._center_of_mass_symmetric_entities.append(np.matmul(np.full(number_of_atoms, 1 / number_of_atoms),
-                                                                     entity_coords))  # Todo test if works now
-        return self._center_of_mass_symmetric_entities
-        # Todo, all symmetry by expand_matrix anyway...
-        #  return [np.matmul(entity.center_of_mass, self.expand_matrices) for entity in self.entities]
+        # self._center_of_mass_symmetric_entities = []
+        # for num_atoms, entity_coords in zip(self.number_of_atoms_per_entity, self.symmetric_coords_split_by_entity):
+        #     self._center_of_mass_symmetric_entities.append(np.matmul(np.full(num_atoms, 1 / num_atoms),
+        #                                                              entity_coords))
+        # return self._center_of_mass_symmetric_entities
+        return [np.matmul(entity.center_of_mass, self.expand_matrices) for entity in self.entities]
 
     @property
     def assembly(self) -> Structure:
