@@ -1,3 +1,4 @@
+import logging
 import os
 from copy import copy
 from pickle import load
@@ -616,7 +617,9 @@ class Model:  # Todo (Structure)
 
     If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
     """
-    def __init__(self, pdb=None, models=None, log=None, **kwargs):
+    def __init__(self, pdb: Structure = None, pdb_file: str = None, models: List[Structure] = None,
+                 log: logging.Logger = None, **kwargs):
+        # Todo kwarg collector to protect Object while passing to subclasses. Useful for SymmetricModel asu_file
         super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
@@ -633,6 +636,8 @@ class Model:  # Todo (Structure)
         if pdb and isinstance(pdb, Structure):
             self.pdb = pdb  # TODO DISCONNECT HERE
             self.symmetry = None
+        elif pdb_file:
+            self.pdb = PDB.from_file(pdb_file, log=self.log, **kwargs)
 
         if models and isinstance(models, list):
             self.models = models
@@ -886,7 +891,7 @@ class Model:  # Todo (Structure)
         if _header != '':
             file_handle.write('%s' % _header)
 
-    def return_atom_string(self, **kwargs):
+    def return_atom_string(self, **kwargs):  # Todo remove once Structure attached
         """Provide the Model Atoms as a PDB file string"""
         return '\n'.join(residue.__str__(**kwargs) for residue in self.residues)
 
@@ -966,10 +971,16 @@ class Model:  # Todo (Structure)
 
 
 class SymmetricModel(Model):
-    def __init__(self, asu=None, **kwargs):
+    def __init__(self, asu: Structure = None, asu_file: str = None, sym_entry: SymEntry = None, symmetry: str = None,
+                 **kwargs):
         super().__init__(**kwargs)  # log=log,
         if asu and isinstance(asu, Structure):
             self.asu = asu  # the pose specific asu
+        elif asu_file:
+            self.asu = PDB.from_file(asu_file, log=self.log, **kwargs)
+        # add stripped kwargs back
+        kwargs['symmetry'] = symmetry
+        kwargs['sym_entry'] = sym_entry
         # self.pdb = pdb
         # self.models = []
         # self.coords = []
@@ -1008,6 +1019,10 @@ class SymmetricModel(Model):
             (SymmetricModel)
         """
         return cls(asu=asu, **kwargs)  # generate_symmetry_mates=generate_symmetry_mates,
+
+    @classmethod
+    def from_asu_file(cls, asu_file, **kwargs):
+        return cls(asu_file=asu_file, **kwargs)
 
     @property
     def asu(self):
@@ -2388,7 +2403,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
-    def __init__(self, asu_file=None, pdb_file=None, **kwargs):  # asu=None, pdb=None,
+    def __init__(self, **kwargs):  # asu=None, pdb=None,
         # self.pdbs_d = {}
         self.fragment_pairs = []
         self.fragment_metrics = {}
@@ -2404,16 +2419,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
         self.design_selector = kwargs.get('design_selector', {})
-        # else:
-        #     self.design_selector = {}
-        # if asu and isinstance(asu, Structure):
-        #     self.asu = asu
-        if asu_file:  # TODO COMMENT OUT .asu initialize Pose from SymmetricModel?
-            self.asu = PDB.from_file(asu_file, log=self.log)  # **kwargs todo create kwarg collector to protect Object
-        # elif pdb and isinstance(pdb, Structure):
-        #     self.pdb = pdb
-        elif pdb_file:  # TODO COMMENT OUT .pdb initialize Pose from Model?
-            self.pdb = PDB.from_file(pdb_file, log=self.log)  # **kwargs
 
         # Model init will handle Structure set up if a PDB/PDB_file is present
         # SymmetricModel init will handle if an ASU/ASU_file is present and generate assembly coords
@@ -2442,9 +2447,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     # def from_asu(cls, asu, **kwargs):
     #     return cls(asu=asu, **kwargs)
 
-    @classmethod
-    def from_asu_file(cls, asu_file, **kwargs):
-        return cls(asu_file=asu_file, **kwargs)
+    # @classmethod
+    # def from_asu_file(cls, asu_file, **kwargs):
+    #     return cls(asu_file=asu_file, **kwargs)
 
     # @property
     # def asu(self):
