@@ -2012,10 +2012,10 @@ class Structure(StructureBase):
             The array representing the contact order for each residue in the Structure
         """
         try:
-            return np.array([residue.contact_order for residue in self.residues])
+            return self._contact_order
         except AttributeError:
-            self.contact_order_per_residue()
-            return np.array([residue.contact_order for residue in self.residues])
+            self._contact_order = self.contact_order_per_residue()
+            return self._contact_order
 
     @contact_order.setter
     def contact_order(self, contact_order: Sequence):
@@ -2050,9 +2050,8 @@ class Structure(StructureBase):
                                for idx2, contacts in enumerate(query) for idx1 in contacts)
         for residue1, residue2 in contacting_pairs:
             residue_distance = abs(residue1.number - residue2.number)
-            if residue_distance < sequence_distance_cutoff:
-                continue
-            residue1.contact_order += residue_distance
+            if residue_distance >= sequence_distance_cutoff:
+                residue1.contact_order += residue_distance
 
         number_residues = self.number_of_residues
         for residue in self.residues:
