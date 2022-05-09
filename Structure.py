@@ -8,7 +8,7 @@ from collections.abc import Iterable
 from itertools import repeat
 from math import ceil
 from random import random  # , randint
-from typing import Union, List, Dict, IO, Optional, Sequence
+from typing import Union, List, Dict, IO, Optional, Sequence, Container
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
@@ -961,18 +961,15 @@ class Structure(StructureBase):
     #         atom.coords = coords[idx]
     #         # atom.x, atom.y, atom.z = coords[idx][0], coords[idx][1], coords[idx][2]
 
-    def get_residues(self, numbers=None, pdb=False, **kwargs):
-        """Retrieve Residues in Structure. Returns all by default. If a list of numbers is provided, the selected
+    def get_residues(self, numbers: Container = None, pdb: bool = False, **kwargs) -> List[Residue]:
+        """Retrieve Residue objects in Structure. Returns all by default. If a list of numbers is provided, the selected
         Residues numbers are returned
 
         Returns:
-            (list[Residue])
+            The requested Residue objects
         """
-        if numbers and isinstance(numbers, Iterable):
-            if pdb:
-                number_source = 'number_pdb'
-            else:
-                number_source = 'number'
+        if numbers and isinstance(numbers, Container):
+            number_source = 'number_pdb' if pdb else 'number'
             return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
         else:
             return self.residues
