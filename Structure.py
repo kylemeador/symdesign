@@ -3592,6 +3592,8 @@ class Atom:
 
 
 class Atoms:
+    # residue_specific_attributes = ['_sasa', '']
+
     def __init__(self, atoms):
         self.atoms = np.array(atoms)
 
@@ -3607,8 +3609,17 @@ class Atoms:
         other = self.__class__.__new__(self.__class__)
         # other.__dict__ = self.__dict__.copy()
         other.atoms = self.atoms.copy()
-        # for idx, atom in enumerate(other.atoms):
-        #     other.atoms[idx] = copy(atom)
+        # copy all Atom
+        for idx, atom in enumerate(other.atoms):
+            other.atoms[idx] = copy(atom)
+        # copy all attributes. No! most are unchanged...
+        # # must copy any residue specific attributes
+        # for attr in Atoms.residue_specific_attributes:
+        #     try:
+        #         for idx, atom in enumerate(other):
+        #             setattr(other.atoms[idx], attr, copy(getattr(other.atoms[idx], attr)))
+        #     except AttributeError:  # the attribute may not be set yet, so we should ignore all and move on
+        #         continue
 
         return other
 
