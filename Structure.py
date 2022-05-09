@@ -3773,7 +3773,7 @@ class Residue:
     @property
     def contains_hydrogen(self) -> bool:
         """Returns whether the Residue contains hydrogen atoms"""
-        return self._heavy_atom_indices == self._atom_indices
+        return self._heavy_atom_indices != self._atom_indices
 
     @property
     def coords(self) -> np.ndarray:
