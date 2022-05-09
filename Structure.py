@@ -128,9 +128,9 @@ hydrogens = {
     'TYR': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HH': 1},
     'VAL': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '3HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0}}
 termini = {'1H': 1, '2H': 1, '3H': 1, 'OXT': 1}
-for residue, residue_atoms in atomic_polarity_table.items():
+for residue_type, residue_atoms in atomic_polarity_table.items():
     residue_atoms.update(termini)
-    residue_atoms.update(hydrogens[residue])
+    residue_atoms.update(hydrogens[residue_type])
 
 
 class StructureBase:
