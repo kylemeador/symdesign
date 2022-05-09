@@ -2325,13 +2325,15 @@ class DesignDirectory:  # (JobResources):
         # entity_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
         # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
         #                         for chain, named_sequences in entity_sequences.items()}
+        wt_design_info = {residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
+                                           'hbond': 0} for entity in self.pose.entities for residue in entity.residues}
+        residue_info = {'wild_type': wt_design_info}
         stat_s, sim_series = pd.Series(), []
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
             self.log.debug('Missing design scores file at %s' % self.scores_file)
             # Todo add relevant missing scores such as those specified as 0 below
             scores_df = pd.DataFrame({structure.name: {PUtils.groups: 'no_metrics'}  # 'metric_keys': 'metric_values'}
                                       for structure in design_structures}).T
-            design_info = {}
             for idx, entity in enumerate(self.pose.entities):
                 scores_df['buns_%d_unbound' % idx] = 0
                 scores_df['interface_energy_%d_bound' % idx] = 0
@@ -2340,14 +2342,13 @@ class DesignDirectory:  # (JobResources):
                 scores_df['solvation_energy_%d_unbound' % idx] = 0
                 scores_df['interface_connectivity_%d' % idx] = 0
                 # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-                design_info.update({residue.number: {'energy_delta': 0., 'type': residue.type, 'hbond': 0}
-                                    for residue in entity.residues})
+                # design_info.update({residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
+                #                          'hbond': 0} for residue in entity.residues})
             scores_df['number_hbonds'] = 0
             protocol_s = scores_df[PUtils.groups]
             # Todo generate the per residue scores internally which matches output from dirty_residue_processing
             # interface_hbonds = dirty_hbond_processing(all_design_scores)
-            residue_info = {structure_name: design_info for structure_name in scores_df.index.to_list()}
-            residue_info.update({'wild_type': design_info})
+            residue_info.update({structure_name: wt_design_info for structure_name in scores_df.index.to_list()})
             # residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
             #                                             hbonds=interface_hbonds)
         else:  # Get the scores from the score file on design trajectory metrics
@@ -2401,17 +2402,12 @@ class DesignDirectory:  # (JobResources):
                 pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
             # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
             scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
-            residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
-                                                    hbonds=interface_hbonds)
-            wt_design_info = {}
-            for idx, entity in enumerate(self.pose.entities):
-                # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-                wt_design_info.update({residue.number: {'energy_delta': 0., 'type': residue.type, 'hbond': 0}
-                                       for residue in entity.residues})
-            residue_info.update({'wild_type': wt_design_info})
+            # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
+            residue_info.update(dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
+                                                         hbonds=interface_hbonds))
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
-            # residue_info = residue_processing(all_design_scores, simplify_mutation_dict(all_mutations), per_res_columns,
-            #                                   hbonds=interface_hbonds)
+            # residue_info.update(residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
+            #                                        per_res_columns, hbonds=interface_hbonds))
 
         # Find designs where required data is present
         viable_designs = scores_df.index.to_list()
@@ -2507,12 +2503,12 @@ class DesignDirectory:  # (JobResources):
             # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
             if msa_metrics:
                 if not entity.msa:
-                    msa_metrics = False
                     self.log.info('Metrics relying on a multiple sequence alignment are not being collected as '
                                   'there is no MSA found. These include: %s'
                                   % ', '.join(multiple_sequence_alignment_dependent_metrics))
                     # set anything found to null values
                     collapse_df, wt_collapse_z_score = {}, {}
+                    msa_metrics = False
                     continue
                 collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
                 collapse_df[entity] = collapse
