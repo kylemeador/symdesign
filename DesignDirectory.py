@@ -2294,7 +2294,7 @@ class DesignDirectory:  # (JobResources):
         if not other_pose_metrics:
             raise DesignError('Design hit a snag that shouldn\'t have happened. Please report this')
 
-        # Find all designs files Todo fold these into Model(s) and attack metrics from Pose
+        # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
         design_structures = []
         for file in self.get_designs():
             decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
@@ -2495,9 +2495,6 @@ class DesignDirectory:  # (JobResources):
             # entity.set_residues_attributes_from_array(collapse=wt_collapse[entity])
             # entity.set_b_factor_data(dtype='collapse')
             # entity.write_oligomer(out_path=os.path.join(self.path, '%s_collapse.pdb' % entity.name))
-            print(residue_contact_order)
-            print('mean', residue_contact_order.mean())
-            print('stdev', residue_contact_order.std())
             residue_contact_order_z = \
                 z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
             inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
@@ -2529,10 +2526,10 @@ class DesignDirectory:  # (JobResources):
         wt_collapse_concat_s = pd.Series(np.concatenate(list(wt_collapse.values())), index=residue_indices)
         per_residue_data['errat_deviation']['wild_type'] = wt_errat_concat_s
         per_residue_data['hydrophobic_collapse']['wild_type'] = wt_collapse_concat_s
-        # TODO now that wildtype is included, don't need this anymore...
-        errat_collapse_df = \
-            pd.concat([pd.concat(dict(errat_deviation=wt_errat_concat_s, hydrophobic_collapse=wt_collapse_concat_s))],
-                      keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
+        # now that wildtype is included, don't need this anymore...
+        # errat_collapse_df = \
+        #     pd.concat([pd.concat(dict(errat_deviation=wt_errat_concat_s, hydrophobic_collapse=wt_collapse_concat_s))],
+        #               keys=['wild_type']).unstack().unstack()  # .swaplevel(0, 1, axis=1)
 
         interface_local_density, atomic_deviation = {}, {}
         for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
@@ -2661,7 +2658,7 @@ class DesignDirectory:  # (JobResources):
                 # new_collapse are sites where a new collapse is formed compared to wild-type
 
                 # # we must give a copy of coords_indexed_residues from the pose to each entity...
-                # entity.coords_indexed_residues = self.pose.pdb._coords_residue_index
+                # entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
                 # residue_contact_order = entity.contact_order
                 # contact_order_concatenated.append(residue_contact_order)
                 # inverse_residue_contact_order = max(residue_contact_order) - residue_contact_order

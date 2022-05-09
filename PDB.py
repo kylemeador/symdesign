@@ -846,7 +846,7 @@ class PDB(Structure):
     #     for atom in reversed(insert_atoms):  # essentially a push
     #         atom.chain = chain_id
     #         atom.residue_number = residue_number
-    #         atom.occ = 0
+    #         atom.occupancy = 0
     #         self.atoms = np.concatenate((self.atoms[:insert_atom_idx], insert_atoms, self.atoms[insert_atom_idx:]))
     #
     #     self.renumber_structure()
