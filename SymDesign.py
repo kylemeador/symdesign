@@ -1220,6 +1220,7 @@ if __name__ == '__main__':
         #  directories/resources that haven't been made
         # check to see that proper files have been created if doing design
         # including orientation, refinement, loop modeling, hhblits, bmdca?
+        example_directory.initialized = True  # Todo remove this
         if not example_directory.initialized and args.module in initialize_modules \
                 or args.nanohedra_output or args.load_database:  # or args.module == PUtils.nano
             # job.make_path(job.protein_data)
@@ -1379,6 +1380,7 @@ if __name__ == '__main__':
         # else:  # for now just do in series
         for design in design_directories:
             # design.link_database(resource_db=master_db)
+            sys.modules['Database'] = Database  # Todo remove this
             design.set_up_design_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
         logger.info('%d unique poses found in "%s"' % (len(design_directories), location))
