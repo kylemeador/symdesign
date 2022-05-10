@@ -1,7 +1,7 @@
 import os
 import subprocess
 from itertools import combinations
-from typing import List, Tuple
+from typing import List, Tuple, Dict, Union
 from warnings import catch_warnings, simplefilter
 
 import numpy
@@ -16,9 +16,10 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 import pandas as pd
 
+from DesignDirectory import DesignDirectory
 from PathUtils import ialign_exe_path
-from SymDesignUtils import handle_design_errors, DesignError, index_intersection, mp_map, sym, rmsd_threshold, \
-    digit_translate_table, start_log
+from SymDesignUtils import index_intersection, mp_map, sym, rmsd_threshold, digit_translate_table, start_log
+#     handle_design_errors, DesignError
 from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
 from Structure import superposition3d
 from utils.GeneralUtils import transform_coordinate_sets
@@ -460,16 +461,18 @@ def find_cluster_representatives(transform_tree, cluster) -> Tuple[List, numpy.n
     return representative_transformation_indices, cluster.labels_
 
 
-@handle_design_errors(errors=(DesignError, AssertionError))
-def cluster_designs(composition_designs, return_pose_id=True):
+# @handle_design_errors(errors=(DesignError, AssertionError))
+# @handle_errors(errors=(DesignError, ))
+def cluster_designs(composition_designs: List[DesignDirectory], return_pose_id: bool = True) -> \
+        Dict[Union[str, DesignDirectory], List[Union[str, DesignDirectory]]]:
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
     Args:
-        (iterable[DesignDirectory]): The group of DesignDirectory objects to pull transformation data from
+        composition_designs: The group of DesignDirectory objects to pull transformation data from
+        return_pose_id: Whether the DesignDirectory object should be returned instead of its name
     Returns:
-        (dict[mapping[DesignDirectoryID, list[DesignDirectoryID]]): Cluster with representative as the key and
-        matching poses as the values
+        Cluster with representative pose as the key and matching poses as the values
     """
     # format all transforms for the selected compositions
     stacked_transforms = [design_directory.pose_transformation for design_directory in composition_designs]
@@ -494,7 +497,7 @@ def cluster_designs(composition_designs, return_pose_id=True):
         # don't add the outliers now (-1 labels)
         composition_map = \
             {str(composition_designs[rep_idx]):
-                 [str(composition_designs[idx]) for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+                [str(composition_designs[idx]) for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
              for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
         # add the outliers as separate occurrences
         composition_map.update({str(composition_designs[idx]): []
