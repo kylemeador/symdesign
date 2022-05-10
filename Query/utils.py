@@ -101,7 +101,9 @@ def connection_exception_handler(url: str, max_attempts: int = 5) -> Optional[An
                 return query_response.json()
             elif query_response.status_code == 204:
                 logger.warning('No response was returned. Your query likely found no matches!')
-                break
+            elif query_response.status_code == 429:
+                logger.debug('Too many requests, pausing momentarily')
+                time.sleep(2)
             else:
                 logger.debug('Your query returned an unrecognized status code (%d)' % query_response.status_code)
                 time.sleep(1)
