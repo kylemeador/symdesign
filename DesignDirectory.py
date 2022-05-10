@@ -967,6 +967,8 @@ class DesignDirectory:  # (JobResources):
                 self._info = self.info.copy()  # create a copy of the state upon initialization
                 # if self.info.get('nanohedra'):
                 self._pose_transformation = self.info.get('pose_transformation', None)
+                if isinstance(self._pose_transformation, dict):  # old format
+                    del self._pose_transformation
                 if not self.sym_entry:
                     self.sym_entry = self.info.get('sym_entry', None)
                 else:
