@@ -524,47 +524,54 @@ class DesignDirectory:  # (JobResources):
             return 0.
 
     @property
-    def design_background(self):
+    def design_background(self) -> Dict:
+        """Return the amino acid frequencies utilized as the DesignDirectory background frequencies"""
         try:
             return getattr(self, self._design_background)
         except AttributeError:
+            self.log.error('For the design_background, couldn\'t locate the background profile "%s". '
+                           'By default, using design_profile instead' % self._design_background)
             return self.design_profile
 
     @design_background.setter
-    def design_background(self, background):
+    def design_background(self, background: str):
         self._design_background = background
 
     @property
-    def design_profile(self) -> Optional[Dict]:
+    def design_profile(self) -> Dict:
+        """Returns the amino acid frequencies observed for each residue's design profile which is a specific mix of
+        evolution and fragment frequency information"""
         try:
             return self._design_profile
         except AttributeError:
             try:
                 self._design_profile = parse_pssm(self.design_profile_file)
             except FileNotFoundError:
-                self._design_profile = None
+                self._design_profile = {}
             return self._design_profile
 
     @property
-    def evolutionary_profile(self) -> Optional[Dict]:
+    def evolutionary_profile(self) -> Dict:
+        """Returns the amino acid frequencies observed for each residue's evolutionary alignment"""
         try:
             return self._evolutionary_profile
         except AttributeError:
             try:
                 self._evolutionary_profile = parse_pssm(self.evolutionary_profile_file)
             except FileNotFoundError:
-                self._evolutionary_profile = None
+                self._evolutionary_profile = {}
             return self._evolutionary_profile
 
     @property
-    def fragment_profile(self) -> Optional[Dict]:
+    def fragment_profile(self) -> Dict:
+        """Returns the amino acid frequencies observed for each residue's fragment observations"""
         try:
             return self._fragment_profile
         except AttributeError:
             try:
                 self._fragment_profile = parse_pssm(self.fragment_profile_file)
             except FileNotFoundError:
-                self._fragment_profile = None
+                self._fragment_profile = {}
             return self._fragment_profile
 
     @property
@@ -588,7 +595,7 @@ class DesignDirectory:  # (JobResources):
             return self._fragment_database
 
     def pose_score(self) -> float:  # Todo merge with above
-        """The Nanohedra score as reported in Laniado, Meador, Yeates 2021"""
+        """The Nanohedra score as reported in Laniado, Meador, & Yeates, PEDS. 2021"""
         return self.all_residue_score
 
     def pose_metrics(self) -> Dict:
@@ -839,7 +846,7 @@ class DesignDirectory:  # (JobResources):
         return wrapper
 
     def close_logs(func):
-        """Decorator to close the log files after use in a protocol"""
+        """Decorator to close the instance log file after use in an instance method (protocol)"""
         # def wrapper(func):
         @wraps(func)
         def wrapped(self, *args, **kwargs):
@@ -851,7 +858,7 @@ class DesignDirectory:  # (JobResources):
         return wrapped
         # return wrapper
 
-    def start_log(self, level=2):
+    def start_log(self, level: int = 2):
         if self.log:
             return
 
@@ -924,9 +931,9 @@ class DesignDirectory:  # (JobResources):
     #         self.frag_db = frag_db
     #         if self.pose:
     #             self.pose.frag_db = frag_db
-    #     # if design_db and isinstance(design_db, FragmentDatabase):  # Todo DesignDatabase
+    #     # if design_db and isinstance(design_db, FragmentDatabase):
     #     #     self.design_db = design_db
-    #     # if score_db and isinstance(score_db, FragmentDatabase):  # Todo ScoreDatabase
+    #     # if score_db and isinstance(score_db, FragmentDatabase):
     #     #     self.score_db = score_db
 
     @handle_design_errors(errors=(DesignError, ))
@@ -1076,7 +1083,7 @@ class DesignDirectory:  # (JobResources):
         self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
         self.evolutionary_profile_file = os.path.join(self.data, 'evolutionary.pssm')
         self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
-        self.fragment_data_pkl = os.path.join(self.data, '%s_fragment_profile.pkl' % self.fragment_database)
+        self.fragment_data_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.frag_profile))
 
     def get_wildtype_file(self) -> Union[str, bytes]:
         """Retrieve the wild-type file name from Design Directory"""
@@ -1114,7 +1121,24 @@ class DesignDirectory:  # (JobResources):
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
     def get_fragment_metrics(self):
-        """Set, then get fragment metrics for all fragment observations in the design.
+        """Calculate fragment metrics for all fragment observations in the design
+
+        Sets:
+            self.center_residue_numbers (int)
+            self.total_residue_numbers (int)
+            self.fragment_residues_total (int)
+            self.central_residues_with_fragment_overlap (int)
+            self.total_interface_residues (int)
+            self.all_residue_score (float)
+            self.center_residue_score (float)
+            self.multiple_frag_ratio (float)
+            self.helical_fragment_content (float)
+            self.strand_fragment_content (float)
+            self.coil_fragment_content (float)
+            self.total_non_fragment_interface_residues (int)
+            self.percent_residues_fragment_center (int)
+            self.percent_residues_fragment_total (int)
+            self.interface_ss_fragment_topology (Dict[int, str])
         """
         # TODO Doesn't need an attached pose if fragments have been generated
         if self.design_residues is False:  # no search yet, so = False
@@ -1530,10 +1554,11 @@ class DesignDirectory:  # (JobResources):
     def prepare_symmetry_for_rosetta(self):
         """For the specified design, locate/make the symmetry files necessary for Rosetta input
 
-        Returns:
-            (tuple[str, str]): The protocol to generate symmetry, and the location of the symmetry definition file
+        Sets:
+            self.symmetry_protocol (str)
+            self.sym_def_file (Union[str, bytes])
         """
-        if self.design_dimension is not None:  # can be 0
+        if self.design_dimension is not None:  # symmetric, could be 0
             self.symmetry_protocol = PUtils.protocol[self.design_dimension]
             self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
             self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
@@ -2204,7 +2229,7 @@ class DesignDirectory:  # (JobResources):
     @close_logs
     def interface_design(self):
         """For the design info given by a DesignDirectory source, initialize the Pose then prepare all parameters for
-        interfacial redesign between between Pose Entities. Aware of symmetry, design_selectors, fragments, and
+        interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
         self.identify_interface()
@@ -2222,6 +2247,7 @@ class DesignDirectory:  # (JobResources):
                                   'generated for this Design! Try with the flag --generate_fragments or run %s'
                                   % PUtils.generate_fragments)
             self.make_path(self.data)
+            # creates all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             self.pose.interface_design(evolution=not self.no_evolution_constraint,
                                        fragments=not self.no_term_constraint,
                                        query_fragments=self.query_fragments, fragment_source=self.fragment_observations,

@@ -3314,7 +3314,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         This process identifies the ASU (if one is not explicitly provided, enables Pose symmetry,
 
         Sets:
-            design_dir.info['fragments'] to True is fragments are queried
+            design_dir.info['fragments'] to True if fragments are queried
         """
         # Ensure ASU. This should be done on loading from PDB file with Pose.from_asu()/Pose.from_pdb()
         # save self.asu to design_dir.asu now that we have cleaned any chain issues and renumbered residues
@@ -3608,13 +3608,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.frag_db = FragmentDatabase(source=source, init_db=init)
         #                               source=source, init_db=init_db)
 
-    def generate_interface_fragments(self, write_fragments=True, out_path=None, new_db=False):
+    def generate_interface_fragments(self, write_fragments: bool = True, out_path: Union[str, bytes] = None):
+        #                            new_db: bool = False):
         """Using the attached fragment database, generate interface fragments between the Pose interfaces
 
-        Keyword Args:
-            write_fragments=True (bool): Whether or not to write the located fragments
-            out_path=None (str): The location to write each fragment file
-            new_db=False (bool): Whether a fragment database should be initialized for the interface fragment search
+        Args:
+            write_fragments: Whether to write the located fragments
+            out_path: The location to write each fragment file
+            # new_db: Whether a fragment database should be initialized for the interface fragment search
         """
         if not self.frag_db:  # There is no fragment database connected
             # Connect to a new DB, Todo parameterize which one should be used with source=

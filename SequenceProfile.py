@@ -1541,13 +1541,13 @@ def overlap_consensus(issm, aa_set):
     return consensus
 
 
-def get_db_statistics(database: os.PathLike) -> Dict:
+def get_db_statistics(database: Union[str, bytes]) -> Dict:
     """Retrieve summary statistics for a specific fragment database
 
     Args:
-        database (str): Disk location of a fragment database
+        database: Disk location of a fragment database
     Returns:
-        stats (dict): {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
+        {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
             ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
     """
     for file in os.listdir(database):
@@ -1557,13 +1557,13 @@ def get_db_statistics(database: os.PathLike) -> Dict:
     return {}
 
 
-def get_db_aa_frequencies(database: os.PathLike) -> Dict:
+def get_db_aa_frequencies(database: Union[str, bytes]) -> Dict[protein_letters, float]:
     """Retrieve database specific interface background AA frequencies
 
     Args:
-        database (str): Location of database on disk
+        database: Location of database on disk
     Returns:
-        (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
+        {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
     """
     return get_db_statistics(database).get('frequencies', {})
 
