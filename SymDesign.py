@@ -777,8 +777,9 @@ if __name__ == '__main__':
                                                     help='Optimize and touch up designs after running interface design.'
                                                          ' Useful for reverting excess mutations to wild-type, or '
                                                          'directing targeted exploration of specific troublesome areas')
-    parser_optimize_designs.add_argument('-bg', '--design_background', type=str, default='design_profile',
-                                         choices=['design_profile', 'evolutionary_profile', PUtils.frag_profile],
+    parser_optimize_designs.add_argument('-bg', '--design_background', type=str, default=PUtils.design_profile,
+                                         choices=[PUtils.design_profile, PUtils.evolutionary_profile,
+                                                  PUtils.fragment_profile],
                                          help='Which of the current design profiles should be used as the background '
                                               '(i.e. amino acids possible for substitution) during optimization')
     # ---------------------------------------------------

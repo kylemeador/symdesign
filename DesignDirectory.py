@@ -209,7 +209,7 @@ class DesignDirectory:  # (JobResources):
 
         # Design attributes
         self.composition = None  # building_blocks (4ftd_5tch)
-        self.design_background = kwargs.get('design_background', 'design_profile')  # by default, grab design profile
+        self.design_background = kwargs.get('design_background', PUtils.design_profile)  # by default, grab design profile
         self.design_db = None
         self.design_residue_ids = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self.design_selector = kwargs.get('design_selector', None)
@@ -1083,7 +1083,7 @@ class DesignDirectory:  # (JobResources):
         self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
         self.evolutionary_profile_file = os.path.join(self.data, 'evolutionary.pssm')
         self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
-        self.fragment_data_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.frag_profile))
+        self.fragment_data_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
 
     def get_wildtype_file(self) -> Union[str, bytes]:
         """Retrieve the wild-type file name from Design Directory"""
@@ -1381,10 +1381,8 @@ class DesignDirectory:  # (JobResources):
 
         variables = rosetta_variables + [('dist', distance), ('repack', 'yes'),
                                          ('constrained_percent', constraint_percent), ('free_percent', free_percent)]
-        # design_profile = self.info.get('design_profile')
-        variables.extend([('design_profile', self.design_profile_file)] if self.design_profile else [])
-        # fragment_profile = self.info.get('fragment_profile')
-        variables.extend([('fragment_profile', self.fragment_profile_file)] if self.fragment_profile else [])
+        variables.extend([(PUtils.design_profile, self.design_profile_file)] if self.design_profile else [])
+        variables.extend([(PUtils.fragment_profile, self.fragment_profile_file)] if self.fragment_profile else [])
 
         if not symmetry_protocol:
             symmetry_protocol = self.symmetry_protocol
@@ -1658,7 +1656,6 @@ class DesignDirectory:  # (JobResources):
                                   ' Did you mean to design with -generate_fragments False? You will need to run with'
                                   '\'True\' if you want to use fragments')
         # DESIGN: Prepare command and flags file
-        # evolutionary_profile = self.info.get('design_profile')
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
             ['@%s' % self.flags, '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
@@ -2471,7 +2468,7 @@ class DesignDirectory:  # (JobResources):
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
             # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
             protocol_s = scores_df[PUtils.groups]
-            # protocol_s.replace({'combo_profile': 'design_profile'}, inplace=True)  # ensure proper profile name
+            # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...

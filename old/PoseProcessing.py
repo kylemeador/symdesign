@@ -442,7 +442,7 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
     cluster_dicts = SequenceProfile.get_cluster_dicts(db=frag_db, id_list=[j for j in cluster_residue_d])
     full_cluster_dict = SequenceProfile.deconvolve_clusters(cluster_dicts, full_design_dict, residue_cluster_map)
     final_issm = SequenceProfile.flatten_for_issm(full_cluster_dict, keep_extras=False)  # =False added for pickling 6/14/20
-    interface_data_file = SDUtils.pickle_object(final_issm, frag_db + PUtils.frag_profile, out_path=des_dir.data)
+    interface_data_file = SDUtils.pickle_object(final_issm, frag_db + '_' + PUtils.fragment_profile, out_path=des_dir.data)
     logger.debug('Fragment Specific Scoring Matrix: %s' % str(final_issm))
 
     # Make DSSM by combining fragment and evolutionary profile
