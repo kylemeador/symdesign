@@ -1608,10 +1608,10 @@ class DesignDirectory:  # (JobResources):
 
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        self.prepare_symmetry_for_rosetta()
-        self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
-        self.make_path(self.scripts)
         if not os.path.exists(self.flags) or self.force_flags:
+            self.prepare_symmetry_for_rosetta()
+            self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
+            self.make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug('Pose flags written to: %s' % self.flags)
 
@@ -2275,10 +2275,10 @@ class DesignDirectory:  # (JobResources):
 
         main_cmd = copy.copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        self.prepare_symmetry_for_rosetta()
-        self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
-        self.make_path(self.scripts)
         if not os.path.exists(self.flags) or self.force_flags:
+            self.prepare_symmetry_for_rosetta()
+            self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
+            self.make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug('Pose flags written to: %s' % self.flags)
 
