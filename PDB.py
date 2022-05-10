@@ -252,15 +252,15 @@ class PDB(Structure):
                         atom_type = 'SD'  # change type from Selenium to Sulfur delta
                 else:
                     residue_type = line[17:20].strip()
-                if self.multimodel:
-                    if start_of_new_model or line[21:22] != curr_chain_id:
+                if start_of_new_model:  # if self.multimodel:
+                    start_of_new_model = False
+                    if line[21:22] == curr_chain_id:  # chain naming is not incremental
                         curr_chain_id = line[21:22]
                         chain = next(available_chain_ids)
-                        start_of_new_model = False
-                        # self.multimodel_chain_map[model_number] = [model_chain_id]
-                        # self.multimodel_chain_map[model_number][chain] = curr_chain_id
-                        self.multimodel_chain_map[chain] = curr_chain_id
-                    # chain = model_chain_id
+                    else:  # line[21:22] != curr_chain_id  Chain naming IS incremental
+                        curr_chain_id, chain = line[21:22], line[21:22]
+                        discard = next(available_chain_ids)  # getting rid of a chain is prudent
+                    self.multimodel_chain_map[chain] = curr_chain_id
                 else:
                     chain = line[21:22]
                 residue_number = int(line[22:26])
@@ -555,19 +555,19 @@ class PDB(Structure):
         """
         if solve_discrepancy:
             chain_idx = 0
-            chain_residues = {chain_idx: [0]}  # self.residues[0].index]}  <- should always be zero
+            chain_residues = [[0]]  # self.residues[0].index]}  <- should always be zero
             for prior_idx, residue in enumerate(self.residues[1:]):  # start at the second index to avoid off by one
                 if residue.number_pdb < self.residues[prior_idx].number_pdb \
                         or residue.chain != self.residues[prior_idx].chain:
                     # Decreased number should only happen with new chain therefore this SHOULD satisfy a malformed PDB
                     chain_idx += 1
-                    chain_residues[chain_idx] = [prior_idx + 1]  # residue.index]
+                    chain_residues.append([prior_idx + 1])  # residue.index]
                     # chain_residues[chain_idx] = [residue]
                 else:
                     chain_residues[chain_idx].append(prior_idx + 1)  # residue.index)
                     # chain_residues[chain_idx].append(residue)
             available_chain_ids = self.return_chain_generator()
-            for idx, (chain_idx, residue_indices) in enumerate(chain_residues.items()):
+            for chain_idx, residue_indices in enumerate(chain_residues):
                 if chain_idx < len(self.chain_ids):  # Todo this logic is flawed when chains come in out of order
                     chain_id = self.chain_ids[chain_idx]
                     discard_chain = next(available_chain_ids)
