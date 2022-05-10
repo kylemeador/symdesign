@@ -13,7 +13,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
-from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable
+from typing import List, Union, Iterable, Iterator, Tuple, Sequence
 
 import numpy as np
 # from numba import njit
@@ -69,29 +69,6 @@ def set_dictionary_by_path(root, items, value):
 ##########
 # ERRORS
 ##########
-
-
-def handle_design_errors(errors: Tuple = (Exception,)) -> Callable:
-    """Decorator to wrap a function with try: ... except errors: and log errors to a DesignDirectory
-
-    Args:
-        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
-    Returns:
-        Function return upon proper execution, else is error if exception raised, else None
-    """
-    def wrapper(func: Callable) -> Any:
-        @wraps(func)
-        def wrapped(*args, **kwargs):
-            try:
-                return func(*args, **kwargs)
-            except errors as error:
-                design_directory = args[0]
-                design_directory.log.error(error)  # Allows exception reporting using DesignDirectory
-                design_directory.info['error'] = error  # include the error code in the design state
-
-                return error
-        return wrapped
-    return wrapper
 
 
 def handle_errors(errors=(Exception,)):
