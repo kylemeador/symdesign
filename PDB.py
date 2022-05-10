@@ -345,8 +345,15 @@ class PDB(Structure):
                 a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
                 self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
-        if self.multimodel:
-            self.log.debug('Multimodel file found. Original Chains: %s' % ','.join(self.multimodel_chain_map.values()))
+        if self.multimodel:  # ensure we have a multimodel file, not just one with MODEL record
+            self.multimodel = False
+            for new_chain, old_chain in self.multimodel_chain_map.items():
+                if new_chain != old_chain:
+                    self.multimodel = True
+                    self.log.debug('Multimodel file found. Original Chains: %s' % ','.join(self.multimodel_chain_map.values()))
+                    break
+            if self.multimodel:
+                self.log.debug('Multimodel file not respected, chains are all different')
         if not atom_info:
             raise DesignError('The file %s has no atom records!' % self.filepath)
         self.process_pdb(atoms=[Atom(*info) for info in atom_info], coords=coords,
