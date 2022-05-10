@@ -1241,19 +1241,18 @@ def per_res_metric(sequence_metrics, key=None):
         return round(s / total, 3)
 
 
-def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permutations=1000):  # TODO SDUtils
+def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size: int = 0, compare: str = 'mean',
+                        permutations: int = 1000) -> pd.Series:  # TODO SDUtils
     """Run a permutation test on a dataframe with two categorical groups. Default uses mean to compare significance
 
     Args:
-        grouped_df (pandas.DataFrame): The features of interest in samples from two groups of interest.
-            Doesn't need to be sorted
-        diff_s (pandas.Series): The differences in each feature in the two groups after evaluating the 'compare' stat
-    Keyword Args:
-        group1_size=0 (int): Size of the observations in group1
-        compare='mean' (str): Choose from any pandas.DataFrame attribute that collapses along a column
-            Other options might be median.
+        grouped_df: The features of interest in samples from two groups of interest. Doesn't need to be sorted
+        diff_s: The differences in each feature in the two groups after evaluating the 'compare' stat
+        group1_size: Size of the observations in group1
+        compare: Choose from any pandas.DataFrame attribute that collapses along a column. Other options might be median
+        permutations: The number of permutations to perform
     Returns:
-        (Series): Contains the p-value(s) of the permutation test using the 'compare' statistic against diff_s
+        Contains the p-value(s) of the permutation test using the 'compare' statistic against diff_s
     """
     permut_s_array = []
     df_length = len(grouped_df)
@@ -1266,7 +1265,7 @@ def df_permutation_test(grouped_df, diff_s, group1_size=0, compare='mean', permu
     # (more than/equal to the difference set) is 0.
     # Essentially, the returned mean is the p-value, which indicates how significant the permutation test results are
     abs_s = diff_s.abs()
-    bool_df = pd.DataFrame([permut_s.abs().lt(abs_s) for permut_s in permut_s_array])
+    bool_df = pd.DataFrame([permut_s.abs().gt(abs_s) for permut_s in permut_s_array])
 
     return bool_df.mean()
 
