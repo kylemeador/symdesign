@@ -478,50 +478,50 @@ class DesignDirectory:  # (JobResources):
     #     return self.job_resources.trajectories  # program_root/AllScores/str(self)_Trajectories.csv
 
     @property
-    def design_symmetry(self):
+    def design_symmetry(self) -> Optional[str]:
         try:
             return self.sym_entry.resulting_symmetry
         except AttributeError:
             return
 
     @property
-    def sym_entry_number(self):
+    def sym_entry_number(self) -> Optional[int]:
         try:
             return self.sym_entry.entry_number
         except AttributeError:
             return
 
     @property
-    def design_dimension(self):
+    def design_dimension(self) -> Optional[int]:
         try:
             return self.sym_entry.dimension
         except AttributeError:
             return
 
     @property
-    def trajectories(self):
+    def trajectories(self) -> Union[str, bytes]:
         return os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
 
     @property
-    def residues(self):
+    def residues(self) -> Union[str, bytes]:
         return os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
 
     @property
-    def design_sequences(self):
+    def design_sequences(self) -> Union[str, bytes]:
         return os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
 
     @property
-    def number_of_fragments(self):
+    def number_of_fragments(self) -> int:
         return len(self.fragment_observations) if self.fragment_observations else 0
 
     @property
-    def score(self):
+    def score(self) -> float:
         try:
             self.get_fragment_metrics()
             return self.center_residue_score / self.central_residues_with_fragment_overlap
         except ZeroDivisionError:
             self.log.error('No fragment information found! Fragment scoring unavailable.')
-            return 0.0
+            return 0.
 
     @property
     def design_background(self):
@@ -535,7 +535,7 @@ class DesignDirectory:  # (JobResources):
         self._design_background = background
 
     @property
-    def design_profile(self):
+    def design_profile(self) -> Optional[Dict]:
         try:
             return self._design_profile
         except AttributeError:
@@ -546,7 +546,7 @@ class DesignDirectory:  # (JobResources):
             return self._design_profile
 
     @property
-    def evolutionary_profile(self):
+    def evolutionary_profile(self) -> Optional[Dict]:
         try:
             return self._evolutionary_profile
         except AttributeError:
@@ -557,7 +557,7 @@ class DesignDirectory:  # (JobResources):
             return self._evolutionary_profile
 
     @property
-    def fragment_profile(self):
+    def fragment_profile(self) -> Optional[Dict]:
         try:
             return self._fragment_profile
         except AttributeError:
@@ -568,7 +568,7 @@ class DesignDirectory:  # (JobResources):
             return self._fragment_profile
 
     @property
-    def fragment_data(self):  # Todo associate fragment_data into info.pkl state as it is a separate I/O operation
+    def fragment_data(self) -> Optional[Dict]:  # Todo associate fragment_data into info.pkl state as it is a separate I/O operation
         try:
             return self._fragment_data
         except AttributeError:
@@ -579,29 +579,28 @@ class DesignDirectory:  # (JobResources):
             return self._fragment_data
 
     @property
-    def fragment_database(self):
+    def fragment_database(self) -> str:
+        """The identity of the fragment database used in design fragment decoration"""
         try:
             return self._fragment_database
         except AttributeError:
             self._fragment_database = self.info.get('fragment_database')
             return self._fragment_database
 
-    def pose_score(self):  # Todo merge with above
-        """Returns:
-            (float): The Nanohedra score as reported in Laniado, Meador, Yeates 2021
-        """
+    def pose_score(self) -> float:  # Todo merge with above
+        """The Nanohedra score as reported in Laniado, Meador, Yeates 2021"""
         return self.all_residue_score
 
-    def pose_metrics(self):
+    def pose_metrics(self) -> Dict:
         """Gather all metrics relating to the Pose and the interfaces within the Pose
 
         Returns:
-            (dict): {'nanohedra_score_normalized': , 'nanohedra_score_center_normalized':,
-                     'nanohedra_score': , 'nanohedra_score_center': , 'number_fragment_residues_total': ,
-                     'number_fragment_residues_center': , 'multiple_fragment_ratio': ,
-                     'percent_fragment_helix': , 'percent_fragment_strand': ,
-                     'percent_fragment_coil': , 'number_of_fragments': , 'total_interface_residues': ,
-                     'percent_residues_fragment_total': , 'percent_residues_fragment_center': }
+            {'nanohedra_score_normalized': , 'nanohedra_score_center_normalized':,
+             'nanohedra_score': , 'nanohedra_score_center': , 'number_fragment_residues_total': ,
+             'number_fragment_residues_center': , 'multiple_fragment_ratio': ,
+             'percent_fragment_helix': , 'percent_fragment_strand': ,
+             'percent_fragment_coil': , 'number_of_fragments': , 'total_interface_residues': ,
+             'percent_residues_fragment_total': , 'percent_residues_fragment_center': }
         """
         self.get_fragment_metrics()
         # Interface B Factor TODO ensure asu.pdb has B-factors for Nanohedra
@@ -759,12 +758,12 @@ class DesignDirectory:  # (JobResources):
     #         pass
 
     @property
-    def pose_transformation(self):
+    def pose_transformation(self) -> List[Dict[str, np.ndarray]]:
         """Provide the transformation parameters for the design in question
 
         Returns:
-            (list[dict]): [{'rotation': numpy.ndarray, 'translation': numpy.ndarray, 'rotation2': numpy.ndarray,
-                            'translation2': numpy.ndarray}, ...]
+            [{'rotation': numpy.ndarray, 'translation': numpy.ndarray, 'rotation2': numpy.ndarray,
+              'translation2': numpy.ndarray}, ...]
         """
         try:
             return self._pose_transformation
@@ -1082,9 +1081,10 @@ class DesignDirectory:  # (JobResources):
 
         return wt_file[0]
 
-    def get_designs(self) -> List[Union[str, bytes]]:  # design_type=PUtils.interface_design
+    def get_designs(self) -> List[Union[str, bytes]]:  # design_type: str = PUtils.interface_design
         """Return the paths of all design files in a DesignDirectory"""
         return sorted(glob(os.path.join(self.designs, '*.pdb')))
+        # return sorted(glob(os.path.join(self.designs, '*%s*.pdb' % design_type)))
 
     # TODO generators for the various directory levels using the stored directory pieces
     def get_building_block_dir(self, building_block):
@@ -3674,7 +3674,7 @@ class DesignDirectory:  # (JobResources):
     def __hash__(self):
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self) -> str:
         if self.nanohedra_output:
             return self.source_path.replace(self.nanohedra_root + os.sep, '').replace(os.sep, '-')
         elif self.output_directory:
