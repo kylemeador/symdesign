@@ -829,7 +829,9 @@ class DesignDirectory:  # (JobResources):
             propagate, no_log_name = True, True
 
         if self.skip_logging:  # set up null_logger
-            self.log = null_log
+            # self.log = null_log
+            self.log = start_log(name=str(self), handler=1, level=level, propagate=propagate,
+                                 no_log_name=no_log_name)
         elif self.nanohedra_output and not self.construct_pose:
             # self.log = start_log(name=str(self), handler=handler, level=level, propagate=propagate)
             self.log = start_log(name=str(self), handler=3, propagate=True, no_log_name=no_log_name)
