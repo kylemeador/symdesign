@@ -8,7 +8,7 @@ from itertools import repeat
 
 import SymDesignUtils as SDUtils
 
-logger = SDUtils.start_log(set_logger_level=True)
+logger = SDUtils.start_log(name=os.path.basename(__file__))
 
 
 def find_list_indices(reference_cmds, query_ids):

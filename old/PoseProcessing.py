@@ -55,8 +55,8 @@ def initialization(des_dir, frag_db, sym, script=False, mpi=False, suspend=False
         logger = SDUtils.start_log(name=__name__, handler=2, level=1,
                                    location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
     else:
-        logger = SDUtils.start_log(name=__name__, handler=2, propagate=True,
-                                   location=os.path.join(des_dir.path, os.path.basename(des_dir.path)))
+        logger = SDUtils.start_log(name=__name__, handler=2,
+                                   location=os.path.join(des_dir.path, os.path.basename(des_dir.path)), propagate=True)
     logger.info('Processing directory \'%s\'' % des_dir.path)
 
     # Set up Rosetta command, files
