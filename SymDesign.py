@@ -632,6 +632,8 @@ if __name__ == '__main__':
                         help='If you wish to operate on designs specified by a single pose, which pose(s) to use?')
     parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
                         help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
+    parser.add_argument('--skip_logging', action='store_true',
+                        help='This will skip logging output to files and direct all logging to stream')
     parser.add_argument('-S', '--symmetry', type=str, default=None,
                         help='The specific symmetry of the designs of interest. Preferably in a composition formula'
                              'such as T:{C3}{C3}...')
