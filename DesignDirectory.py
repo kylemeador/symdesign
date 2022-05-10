@@ -947,11 +947,11 @@ class DesignDirectory:  # (JobResources):
                 try:
                     self.info = unpickle(self.serialized_info)
                 except UnpicklingError as error:  # pickle.UnpicklingError:
-                    self.log('%s: There was an issue retrieving design state from binary file...' % self.name)
+                    self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
                     raise error
                     # raise DesignError('There was an issue retrieving design state from binary file...')
                 except ModuleNotFoundError as error:
-                    self.log('%s: There was an issue retrieving design state from binary file...' % self.name)
+                    self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
                     raise error
                     # raise DesignError('There was an issue retrieving design state from binary file...')
                 # if os.stat(self.serialized_info).st_size > 10000:
