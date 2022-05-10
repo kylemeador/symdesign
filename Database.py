@@ -3,9 +3,10 @@ import math
 from glob import glob
 from copy import copy
 from subprocess import list2cmdline
-from typing import List, Tuple, Iterable
+from typing import List, Tuple, Iterable, Dict
 
 import numpy as np
+from Bio.Data.IUPACData import protein_letters
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
@@ -702,11 +703,11 @@ class FragmentDatabase(FragmentDB):
             #         self.statistics = unpickle(os.path.join(self.location, file))
             #         return
 
-    def get_db_aa_frequencies(self):
-        """Retrieve database specific interface background AA frequencies
+    def get_db_aa_frequencies(self) -> Dict[protein_letters, float]:
+        """Retrieve database specific amino acid representation frequencies
 
         Returns:
-            (dict): {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
+            {'A': 0.11, 'C': 0.03, 'D': 0.53, ...}
         """
         return self.statistics.get('frequencies', {})
 
