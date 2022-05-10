@@ -18,7 +18,7 @@ constant_files = \
     ['stat_align_2p.bin', 'stat_align_1p.bin', 'msa_numerical.txt', 'sequence_weights.txt', 'bmdca_params.conf',
      'rel_ent_grad_align_1p.bin', 'bmdca_run.log']
 # 'parameters_final.txt',
-logger = start_log(name=os.path.basename(__file__).split('.')[0], set_logger_level=True)
+logger = start_log(name=os.path.basename(__file__).split('.')[0])
 
 
 def clean_bmdca_directory(bmdca_dir):

@@ -130,30 +130,29 @@ def timestamp():
 starttime = timestamp()
 
 
-def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=False, format_log=True, no_log_name=False,
-              set_logger_level=False):
+def start_log(name: str = '', handler: int = 1, level: int = 2, location: os.PathLike = os.getcwd(),
+              propagate: bool = False, format_log: bool = True, no_log_name: bool = False,
+              set_handler_level: bool = False) -> logging.Logger:
     """Create a logger to handle program messages
 
-    Keyword Args:
-        name='' (str): The name of the logger. By default the root logger is returned
-        handler=1 (int): Whether to handle to stream (1-default) or a file (2)
-        level=2 (int): What level of messages to emit (1-debug, 2-info (default), 3-warning, 4-error, 5-critical)
-        location=os.getcwd() (str): If a FileHandler is used (handler=2) where should file be written?
-            .log is appended to file
-        propagate=True (bool): Whether to propagate messages to parent loggers (such as root or parent.current_logger)
-        format_log=True (bool): Whether to format the log with logger specific formatting otherwise use message format
-        no_log_name=False (bool): Whether to omit the logger name from the output
-        set_logger_level=False (bool): Whether to set the level for the logger overall in addition to the logHandler
+    Args:
+        name: The name of the logger. By default the root logger is returned
+        handler: Whether to handle to stream (1-default) or a file (2)
+        level: What level of messages to emit (1-debug, 2-info (default), 3-warning, 4-error, 5-critical)
+        location: If a FileHandler is used (handler=2) where should file be written? .log is appended to the filename
+        propagate: Whether to propagate messages to parent loggers (such as root or parent.current_logger)
+        format_log: Whether to format the log with logger specific formatting otherwise use message format
+        no_log_name: Whether to omit the logger name from the output
+        set_handler_level: Whether to set the level for the logger overall in addition to the logHandler
     Returns:
-        (logging.Logger): Logger object to handle messages
+        Logger object to handle messages
     """
     # Todo make a mechanism to only emit warning or higher if propagate=True
     # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
     log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
 
     _logger = logging.getLogger(name)
-    if set_logger_level:
-        _logger.setLevel(log_level[level])
+    _logger.setLevel(log_level[level])
     if not propagate:
         _logger.propagate = False
     # lh = log_handler[handler]
@@ -167,7 +166,8 @@ def start_log(name='', handler=1, level=2, location=os.getcwd(), propagate=False
     else:  # handler == 3:
         lh = logging.NullHandler()
         # return _logger
-    lh.setLevel(log_level[level])
+    if set_handler_level:
+        lh.setLevel(log_level[level])
     _logger.addHandler(lh)
 
     if format_log:

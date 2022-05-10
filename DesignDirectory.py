@@ -834,8 +834,9 @@ class DesignDirectory:  # (JobResources):
             # self.log = start_log(name=str(self), handler=handler, level=level, propagate=propagate)
             self.log = start_log(name=str(self), handler=3, propagate=True, no_log_name=no_log_name)
         else:
-            self.log = start_log(name=str(self), handler=handler, level=level, no_log_name=no_log_name,
-                                 location=os.path.join(self.path, self.name), propagate=propagate)
+            self.log = start_log(name=str(self), handler=handler, level=level,
+                                 location=os.path.join(self.path, self.name), propagate=propagate,
+                                 no_log_name=no_log_name)
 
     def directory_string_to_path(self, root, pose_id):
         """Set the DesignDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to

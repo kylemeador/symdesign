@@ -39,13 +39,13 @@ if __name__ == '__main__':
         master_log_filepath = os.path.join(master_outdir, PUtils.master_log)
         if debug:
             # Root logs to stream with level debug
-            logger = start_log(level=1, set_logger_level=True)
+            logger = start_log(level=1)
             set_logging_to_debug()
             master_logger, bb_logger = logger, logger
             logger.debug('Debug mode. Produces verbose output and not written to any .log files')
         else:
-            master_logger = start_log(name=os.path.basename(__file__), propagate=True,
-                                      handler=2, location=master_log_filepath)
+            master_logger = start_log(name=os.path.basename(__file__), handler=2, location=master_log_filepath,
+                                      propagate=True)
         master_logger.info('Nanohedra\nMODE: DOCK\n')
 
         try:

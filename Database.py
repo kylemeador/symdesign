@@ -123,8 +123,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         stride_dir = self.stride.location
         os.makedirs(stride_dir, exist_ok=True)
         # orient_log = SDUtils.start_log(name='orient', handler=1)
-        orient_log = SDUtils.start_log(name='orient', handler=2, propagate=True,
-                                       location=os.path.join(orient_dir, PUtils.orient_log_file))
+        orient_log = SDUtils.start_log(name='orient', handler=2,
+                                       location=os.path.join(orient_dir, PUtils.orient_log_file), propagate=True)
         orient_names = self.oriented.retrieve_names()
         orient_asu_names = self.oriented_asu.retrieve_names()
         all_entities = []
