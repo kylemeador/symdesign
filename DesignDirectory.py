@@ -1,12 +1,13 @@
 import os
 import copy
 import re
-from math import ceil, sqrt
+from functools import wraps
+# from math import ceil, sqrt
 import shutil
 from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
-from typing import Union, Dict, List
+from typing import Union, Dict, List, Optional, Tuple, Callable, Any
 # from textwrap import fill
 
 import matplotlib.pyplot as plt
@@ -28,7 +29,7 @@ import PathUtils as PUtils
 from Query.UniProt import is_uniprot_thermophilic
 from Structure import Structure  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
-    match_score_from_z_value, handle_design_errors, pickle_object, filter_dictionary_keys, all_vs_all, \
+    match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, \
     condensed_to_square, digit_translate_table, sym, index_intersection, z_score, large_color_array, starttime
 # from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
@@ -817,6 +818,40 @@ class DesignDirectory:  # (JobResources):
         return dict(symmetry=self.design_symmetry, design_dimension=self.design_dimension,
                     uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
+    # Decorator Staticmethods: These must be declared above usage, but made static after declaration
+    def handle_design_errors(errors: Tuple = (Exception,)) -> Callable:
+        """Decorator to wrap a method with try: ... except errors: and log errors to the DesignDirectory
+
+        Args:
+            errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
+        Returns:
+            Function return upon proper execution, else is error if exception raised, else None
+        """
+        def wrapper(func: Callable) -> Any:
+            @wraps(func)
+            def wrapped(self, *args, **kwargs):
+                try:
+                    return func(self, *args, **kwargs)
+                except errors as error:
+                    self.log.error(error)  # Allows exception reporting using self.log
+                    # self.info['error'] = error  # include the error code in the design state
+                    return error
+            return wrapped
+        return wrapper
+
+    def close_logs(func):
+        """Decorator to close the log files after use in a protocol"""
+        # def wrapper(func):
+        @wraps(func)
+        def wrapped(self, *args, **kwargs):
+            func_return = func(self, *args, **kwargs)
+            # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
+            for handler in self.log.handlers:
+                handler.close()
+            return func_return
+        return wrapped
+        # return wrapper
+
     def start_log(self, level=2):
         if self.log:
             return
@@ -829,8 +864,8 @@ class DesignDirectory:  # (JobResources):
             propagate, no_log_name = True, True
 
         if self.skip_logging:  # set up null_logger
-            # self.log = null_log
-            self.log = start_log(name=str(self), handler=1, level=level, propagate=propagate)
+            self.log = null_log
+            # self.log = start_log(name=str(self), handler=1, level=level, propagate=propagate)
         elif self.nanohedra_output and not self.construct_pose:
             # self.log = start_log(name=str(self), handler=handler, level=level, propagate=propagate)
             self.log = start_log(name=str(self), handler=3, propagate=True, no_log_name=no_log_name)
@@ -896,6 +931,7 @@ class DesignDirectory:  # (JobResources):
     #     #     self.score_db = score_db
 
     @handle_design_errors(errors=(DesignError, ))
+    @close_logs
     def set_up_design_directory(self, pre_refine=None, pre_loop_model=None):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format
 
@@ -1360,7 +1396,8 @@ class DesignDirectory:  # (JobResources):
         return out_file
 
     @handle_design_errors(errors=(DesignError, AssertionError))
-    def rosetta_interface_metrics(self):
+    @close_logs
+    def interface_metrics(self):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
         main_cmd = copy.copy(script_cmd)
@@ -1871,6 +1908,7 @@ class DesignDirectory:  # (JobResources):
         self.log.info('Cleaned PDB: \'%s\'' % self.asu)
 
     @handle_design_errors(errors=(DesignError,))
+    @close_logs
     def check_clashes(self, clashing_threshold=0.75):
         """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
         models = [Models.from_PDB(self.resources.full_models.retrieve_data(name=entity), log=self.log)
@@ -1895,6 +1933,7 @@ class DesignDirectory:  # (JobResources):
                               % (clashes/float(len(multimodel)), clashing_threshold))
 
     @handle_design_errors(errors=(DesignError,))
+    @close_logs
     def rename_chains(self):
         """Standardize the chain names in incremental order found in the design source file"""
         pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
@@ -1902,6 +1941,7 @@ class DesignDirectory:  # (JobResources):
         pdb.write(out_path=self.asu)
 
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
+    @close_logs
     def orient(self, to_design_directory=False):
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         self.symmetry is used to specify the orientation
@@ -1931,6 +1971,7 @@ class DesignDirectory:  # (JobResources):
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
     def refine(self, to_design_directory=False, interface_to_alanine=True, gather_metrics=False):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         main_cmd = copy.copy(script_cmd)
@@ -2030,6 +2071,7 @@ class DesignDirectory:  # (JobResources):
                     metrics_process.communicate()
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
+    @close_logs
     def find_asu(self):
         """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
         ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
@@ -2064,6 +2106,7 @@ class DesignDirectory:  # (JobResources):
                                   '--ignore_clashes')
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
     def expand_asu(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, and self.log objects then expand the design given the provided symmetry operators and write to a
@@ -2082,6 +2125,7 @@ class DesignDirectory:  # (JobResources):
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
     def generate_interface_fragments(self):
         """For the design info given by a DesignDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
@@ -2152,6 +2196,7 @@ class DesignDirectory:  # (JobResources):
         self.info['design_residue_ids'] = self.design_residue_ids
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
     def interface_design(self):
         """For the design info given by a DesignDirectory source, initialize the Pose then prepare all parameters for
         interfacial redesign between between Pose Entities. Aware of symmetry, design_selectors, fragments, and
@@ -2193,6 +2238,7 @@ class DesignDirectory:  # (JobResources):
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
     def optimize_designs(self, threshold=0.):
         """To touch up and optimize a design, provide a list of optional directives to view mutational landscape around
         certain residues in the design as well as perform wild-type amino acid reversion to mutated residues
@@ -2276,6 +2322,7 @@ class DesignDirectory:  # (JobResources):
                                           [list2cmdline(command) for command in metric_cmds])
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
     def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=False):
         """Retrieve all score information from a DesignDirectory and write results to .csv file
 
@@ -3476,6 +3523,7 @@ class DesignDirectory:  # (JobResources):
         return pose_s
 
     @handle_design_errors(errors=(DesignError, AssertionError))
+    @close_logs
     def select_sequences(self, filters=None, weights=None, number=1, protocols=None, **kwargs):
         """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
         sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
@@ -3611,6 +3659,9 @@ class DesignDirectory:  # (JobResources):
         """
         if condition:
             os.makedirs(path, exist_ok=True)
+
+    handle_design_errors = staticmethod(handle_design_errors)
+    close_logs = staticmethod(close_logs)
 
     def __key(self):
         return self.name
