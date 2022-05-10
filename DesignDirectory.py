@@ -579,7 +579,7 @@ class DesignDirectory:  # (JobResources):
             return self._fragment_data
 
     @property
-    def fragment_database(self) -> str:
+    def fragment_source(self) -> str:
         """The identity of the fragment database used in design fragment decoration"""
         try:
             return self._fragment_database
@@ -2143,6 +2143,7 @@ class DesignDirectory:  # (JobResources):
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
         self.fragment_observations = self.pose.return_fragment_observations()
         self.info['fragments'] = self.fragment_observations
+        self.info['fragment_source'] = self.fragment_source
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     # @handle_design_errors(errors=(DesignError, AssertionError))  # Todo this may be called too many places to use here
@@ -2228,12 +2229,7 @@ class DesignDirectory:  # (JobResources):
             self.make_path(self.designs)
             self.fragment_observations = self.pose.return_fragment_observations()
             self.info['fragments'] = self.fragment_observations
-            # Todo edit each of these files to be relative paths?
-            self.info['design_profile'] = self.pose.design_pssm_file
-            self.info['evolutionary_profile'] = self.pose.pssm_file
-            self.info['fragment_data'] = self.pose.interface_data_file
-            self.info['fragment_profile'] = self.pose.fragment_pssm_file
-            self.info['fragment_database'] = self.pose.frag_db.source
+            self.info['fragment_source'] = self.fragment_source
 
         if not self.pre_refine and not os.path.exists(self.refined_pdb):
             self.refine(to_design_directory=True)
