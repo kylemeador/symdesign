@@ -181,7 +181,7 @@ class SequenceProfile:
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self.evolutionary_profile = {}  # position specific scoring matrix
-        self.design_pssm_file = None
+        # self.design_pssm_file = None
         self.profile = {}  # design specific scoring matrix
         self.frag_db = None
         self.fragment_queries = {}
@@ -189,8 +189,8 @@ class SequenceProfile:
         self.fragment_map = None  # {}
         self.alpha = {}
         self.fragment_profile = {}
-        self.fragment_pssm_file = None
-        self.interface_data_file = None
+        # self.fragment_pssm_file = None
+        # self.interface_data_file = None
         self.a3m_file = None
         self.h_fields = None
         self.j_couplings = None

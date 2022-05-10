@@ -3423,27 +3423,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
             self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
-            self.fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=des_dir.data)
-            # design_dir.info['fragment_profile'] = self.fragment_pssm_file
-            # design_dir.info['fragment_database'] = frag_db
-            # self.log.debug('Fragment Specific Scoring Matrix: %s' % str(self.fragment_profile))
-            # this dictionary is removed of all entries that are not fragment populated.
-            clean_fragment_profile = dict((residue, data) for residue, data in self.fragment_profile.items()
-                                          if data.get('stats', (None,))[0])  # [0] must contain a fragment observation
-            self.interface_data_file = \
-                pickle_object(clean_fragment_profile, '%s_fragment_profile' % self.frag_db.source,
-                              out_path=des_dir.data)
-            # design_dir.info['fragment_data'] = self.interface_data_file
+            fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=des_dir.data)
 
         if evolution:  # set pose.evolutionary_profile by combining entity evo profile into single profile
             self.combine_pssm([entity.evolutionary_profile for entity in self.entities])
-            # self.log.debug('Position Specific Scoring Matrix: %s' % str(self.evolutionary_profile))
             self.pssm_file = self.write_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=des_dir.data)
-            # design_dir.info['evolutionary_profile'] = self.pssm_file
 
         self.combine_profile([entity.profile for entity in self.entities])
         # self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
-        self.design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=des_dir.data)
+        design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=des_dir.data)
         # design_dir.info['design_profile'] = self.design_pssm_file
         # -------------------------------------------------------------------------
         # self.solve_consensus()
