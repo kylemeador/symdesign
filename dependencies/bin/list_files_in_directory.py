@@ -6,8 +6,8 @@ import argparse
 def get_all_file_paths(dir, suffix='', extension=None):
     if not extension:
         extension = '.pdb'
-    return [os.path.join(os.path.abspath(dir), file)
-            for file in glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension)))]
+    return sorted(os.path.join(os.path.abspath(dir), file)
+                  for file in glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension))))
 
 
 if __name__ == '__main__':
