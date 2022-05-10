@@ -1046,14 +1046,18 @@ class DesignDirectory:  # (JobResources):
         if self.specific_design:
             matching_designs = sorted(glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design)))
             self.specific_design = self.name + '_' + self.specific_design
-            if matching_designs and os.path.exists(matching_designs[0]):
-                self.specific_design_path = matching_designs[0]
+            if matching_designs:
+                for matching_design in matching_designs:
+                    if os.path.exists(matching_design):
+                        self.specific_design_path = matching_design
+                        break
+                if len(matching_designs) > 1:
+                    self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
+                                     % (len(matching_designs), matching_designs[0]))
             else:
                 raise DesignError('Couldn\'t locate a design matching the specific_design name %s'
                                   % self.specific_design)
-            if len(matching_designs) > 1:
-                self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
-                                 % (len(matching_designs), matching_designs[0]))
+
             self.source = self.specific_design_path
         elif not self.source:
             if os.path.exists(self.asu):  # standard mechanism of loading the pose
