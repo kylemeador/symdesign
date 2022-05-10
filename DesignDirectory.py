@@ -2239,27 +2239,27 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
-    def optimize_designs(self, threshold=0.):
+    def optimize_designs(self, threshold: float = 0.):
         """To touch up and optimize a design, provide a list of optional directives to view mutational landscape around
         certain residues in the design as well as perform wild-type amino acid reversion to mutated residues
 
-        Keyword Args:
-            residue_directives=None (dict[mapping[Union[Residue,int],str]]):
-                {Residue object: 'mutational_directive', ...}
-            design_file=None (str): The name of a particular design file present in the designs output
-            threshold=0.0 (float): The threshold above which background amino acid frequencies are allowed for mutation
-         """
+        Args:
+            # residue_directives=None (dict[mapping[Union[Residue,int],str]]):
+            #     {Residue object: 'mutational_directive', ...}
+            # design_file=None (str): The name of a particular design file present in the designs output
+            threshold: The threshold above which background amino acid frequencies are allowed for mutation
+        """
         self.load_pose()
-        # format all provided amino acids with representation above threshold to set
+        # format all amino acids in self.design_residues with frequencies above the threshold to a set
         # Todo, make threshold and return set of strings a property of a profile object
         background = \
             {self.pose.pdb.residue(residue_number):
              {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
              for residue_number, fields in self.design_background.items() if residue_number in self.design_residues}
-        # include the wild-type residue and the current residue
+        # include the wild-type residue from DesignDirectory Pose source and the residue identity of the selected design
         wt = {residue: {self.design_background[residue.number].get('type'), protein_letters_3to1[residue.type.title()]}
               for residue in background}
-        directives = dict(zip(wt.keys(), repeat(None)))
+        directives = dict(zip(background.keys(), repeat(None)))
         directives.update({self.pose.pdb.residue(residue_number): directive
                            for residue_number, directive in self.directives.items()})
 
