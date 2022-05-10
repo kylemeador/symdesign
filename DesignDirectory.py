@@ -999,7 +999,7 @@ class DesignDirectory:  # (JobResources):
 
         # configure standard pose loading mechanism with self.source
         if self.specific_design:
-            matching_designs = glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design))
+            matching_designs = sorted(glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design)))
             self.specific_design = self.name + '_' + self.specific_design
             if matching_designs and os.path.exists(matching_designs[0]):
                 self.specific_design_path = matching_designs[0]
@@ -1015,7 +1015,7 @@ class DesignDirectory:  # (JobResources):
                 self.source = self.asu
             else:
                 try:
-                    self.source = glob(os.path.join(self.path, '%s.pdb' % self.name))[0]
+                    self.source = sorted(glob(os.path.join(self.path, '%s.pdb' % self.name)))[0]
                 except IndexError:  # glob found no files
                     self.source = None
         else:
@@ -1029,14 +1029,14 @@ class DesignDirectory:  # (JobResources):
         self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
         self.fragment_data_pkl = os.path.join(self.data, '%s_fragment_profile.pkl' % self.fragment_database)
 
-    def get_wildtype_file(self):
+    def get_wildtype_file(self) -> Union[str, bytes]:
         """Retrieve the wild-type file name from Design Directory"""
         wt_file = glob(self.asu)
         assert len(wt_file) == 1, 'More than one matching file found during search %s' % self.asu
 
         return wt_file[0]
 
-    def get_designs(self):  # design_type=PUtils.interface_design
+    def get_designs(self) -> List[Union[str, bytes]]:  # design_type=PUtils.interface_design
         """Return the paths of all design files in a DesignDirectory"""
         return sorted(glob(os.path.join(self.designs, '*.pdb')))
 
@@ -1752,7 +1752,7 @@ class DesignDirectory:  # (JobResources):
             idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
             oligomer_files = []
             for idx, name in enumerate(self.entity_names, 1):
-                oligomer_files.extend(glob(os.path.join(path, '%s*.pdb*' % name)))  # first * is for DesignDirectory
+                oligomer_files.extend(sorted(glob(os.path.join(path, '%s*.pdb*' % name))))  # first * is DesignDirectory
             assert len(oligomer_files) == idx, \
                 'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
                 % (idx, len(oligomer_files), os.path.join(path, '*.pdb*'), oligomer_files)

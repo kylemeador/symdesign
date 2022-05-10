@@ -437,7 +437,7 @@ class DataStore:
     def retrieve_file(self, name):
         """Returns the actual location by combining the requested name with the stored .location"""
         path = os.path.join(self.location, '%s%s' % (name, self.extension))
-        files = glob(path)
+        files = sorted(glob(path))
         if files:
             if len(files) > 1:
                 self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, files[0]))
@@ -448,7 +448,7 @@ class DataStore:
     def retrieve_files(self) -> List:
         """Returns the actual location of all files in the stored .location"""
         path = os.path.join(self.location, '*%s' % self.extension)
-        files = glob(path)
+        files = sorted(glob(path))
         if not files:
             self.log.warning('No files found for "%s"' % path)
         return files
@@ -456,7 +456,7 @@ class DataStore:
     def retrieve_names(self) -> List:
         """Returns the names of all objects in the stored .location"""
         path = os.path.join(self.location, '*%s' % self.extension)
-        names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in glob(path)]))
+        names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in sorted(glob(path))]))
         if not names:
             self.log.warning('No files found for "%s"' % path)
         return names
@@ -500,7 +500,7 @@ class DataStore:
         if self.sql:
             dummy = True
         else:
-            for file in glob(os.path.join(self.location, '*%s' % self.extension)):
+            for file in sorted(glob(os.path.join(self.location, '*%s' % self.extension))):
                 # self.log.debug('Fetching %s' % file)
                 data = self.load_file(file)
                 setattr(self, os.path.splitext(os.path.basename(file))[0], data)
@@ -692,7 +692,7 @@ class FragmentDatabase(FragmentDB):
             logger.warning('No SQL DB connected yet!')  # Todo
             raise DesignError('Can\'t connect to MySQL database yet')
         else:
-            stats_file = glob(os.path.join(self.location, 'statistics.pkl'))
+            stats_file = sorted(glob(os.path.join(self.location, 'statistics.pkl')))
             if len(stats_file) == 1:
                 self.statistics = unpickle(stats_file[0])
             else:

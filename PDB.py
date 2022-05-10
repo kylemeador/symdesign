@@ -1500,7 +1500,7 @@ def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
 
         # clean_pdb = '%s.pdb%d' % (clean_pdb, assembly)
         file_name = os.path.join(out_dir, clean_pdb)
-        current_file = glob(file_name)
+        current_file = sorted(glob(file_name))
         # print('Found the files %s' % current_file)
         # current_files = os.listdir(location)
         # if clean_pdb not in current_files:
@@ -1543,7 +1543,7 @@ def fetch_pdb_file(pdb_code, asu=True, location=pdb_db, **kwargs):  # assembly=N
     # if location == pdb_db and asu:
     if os.path.exists(location) and asu:
         get_pdb = (lambda pdb_code, location=None, **kwargs:  # asu=None, assembly=None, out_dir=None
-                   glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower())))
+                   sorted(glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))))
         logger.debug('Searching for PDB file at \'%s\'' % os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:

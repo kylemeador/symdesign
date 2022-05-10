@@ -194,12 +194,12 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
             rmsd_file, all_to_all_file, final_clustering_file = None, None, None
             rmsd_dir = _rmsd_dir(des_dir.program_root[0])
             try:
-                rmsd_file = glob(os.path.join(rmsd_dir, 'crystal_vs_docked_irmsd.txt'))[0]
+                rmsd_file = sorted(glob(os.path.join(rmsd_dir, 'crystal_vs_docked_irmsd.txt')))[0]
                 # ensure that RMSD files were created for the most recent set of results using 'start'
                 if int(time.time()) - int(os.path.getmtime(rmsd_file)) > start.now().timestamp() - start.timestamp():
                     rmsd_file = None
-                all_to_all_file = glob(os.path.join(rmsd_dir, 'top*_all_to_all_docked_poses_irmsd.txt'))[0]
-                final_clustering_file = glob(os.path.join(rmsd_dir, '*_clustered.txt'))[0]
+                all_to_all_file = sorted(glob(os.path.join(rmsd_dir, 'top*_all_to_all_docked_poses_irmsd.txt')))[0]
+                final_clustering_file = sorted(glob(os.path.join(rmsd_dir, '*_clustered.txt')))[0]
                 if int(time.time()) - int(os.path.getmtime(final_clustering_file)) > \
                         all_to_all_start.now().timestamp() - all_to_all_start.timestamp():
                     final_clustering_file = None
@@ -220,9 +220,10 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
                     running.append(os.path.join(_rmsd_dir(design_directories[k].symmetry[0]), outcome_strings_d[r]))
                     break
             if _status:
-                complete.append(glob(os.path.join(_rmsd_dir(all_design_directories[k].program_root[0]), '*_clustered.txt'))[0])
+                complete.append(sorted(glob(os.path.join(_rmsd_dir(all_design_directories[k].program_root[0]),
+                                                         '*_clustered.txt')))[0])
 
-    elif _stage == 'nanohedra':
+    elif _stage == PUtils.nano:
         from classes import get_last_sampling_state
         # observed_building_blocks = []
         for des_dir in all_design_directories:
@@ -2190,7 +2191,7 @@ if __name__ == '__main__':
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
         for des_dir, design in results:
             file_path = os.path.join(des_dir.designs, '*%s*' % design)
-            file = glob(file_path)
+            file = sorted(glob(file_path))
             if not file:  # add to exceptions
                 exceptions.append((des_dir.path, 'No file found for "%s"' % file_path))
                 continue
@@ -2257,7 +2258,7 @@ if __name__ == '__main__':
         tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
         codon_optimization_errors = {}
         for des_dir, design in results:
-            file = glob('%s/*%s*' % (des_dir.designs, design))
+            file = sorted(glob('%s/*%s*' % (des_dir.designs, design)))
             if not file:
                 logger.error('No file found for %s' % '%s/*%s*' % (des_dir.designs, design))
                 continue
@@ -2686,7 +2687,7 @@ if __name__ == '__main__':
             # files = ordered_files
         elif args.order == 'dataframe':
             if not args.dataframe:
-                df_glob = glob(os.path.join(file_dir, 'TrajectoryMetrics.csv'))
+                df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
                 try:
                     args.dataframe = df_glob[0]
                 except IndexError:

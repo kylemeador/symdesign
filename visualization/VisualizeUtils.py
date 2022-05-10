@@ -205,7 +205,7 @@ if __name__ == '__main__':
         file_dir = sys.argv[1]
     files = get_all_file_paths(file_dir, extension='.pdb', sort=not original_order)
 
-    df_glob = glob(os.path.join(file_dir, 'TrajectoryMetrics.csv'))
+    df_glob = sorted(glob(os.path.join(file_dir, 'TrajectoryMetrics.csv')))
     if ranked_order and df_glob:
         df = pd.read_csv(df_glob[0], index_col=0, header=[0])
         ordered_files = []
