@@ -5,7 +5,7 @@ import os
 import subprocess
 
 import PathUtils as PUtils
-from SymDesignUtils import DesignError, handle_design_errors, write_shell_script, unpickle
+from SymDesignUtils import DesignError, write_shell_script, unpickle, handle_errors
 
 
 # @handle_design_errors(errors=(DesignError, AssertionError))
@@ -21,7 +21,7 @@ from SymDesignUtils import DesignError, handle_design_errors, write_shell_script
 #         return None, (dock_dir, e)
 
 
-@handle_design_errors(errors=(DesignError, AssertionError))
+@handle_errors(errors=(DesignError, ))
 def nanohedra_design_recap(dock_dir, suffix=None):
     """From a directory set up for docking, a '_dock.pkl' file specifies the arguments passed to nanohedra commands"""
 
@@ -114,7 +114,6 @@ def nanohedra_design_recap(dock_dir, suffix=None):
 #         return None, ((path1, path2), e)
 
 
-@handle_design_errors(errors=(DesignError, AssertionError))
 def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=False):
     """Write out Nanohedra commands to shell scripts for processing by computational clusters
 
