@@ -952,7 +952,9 @@ class DesignDirectory:  # (JobResources):
                     # raise DesignError('There was an issue retrieving design state from binary file...')
                 except ModuleNotFoundError as error:
                     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
-                    raise error
+                    self.log.critical('Removing %s' % self.serialized_info)
+                    # raise error
+                    os.remove(self.serialized_info)
                     # raise DesignError('There was an issue retrieving design state from binary file...')
                 # if os.stat(self.serialized_info).st_size > 10000:
                 #     print('Found pickled file with huge size %d. fragmentdatabase being removed'
