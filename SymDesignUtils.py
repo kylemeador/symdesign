@@ -13,7 +13,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
-from typing import List, Union, Iterable, Iterator, Tuple, Sequence
+from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable
 
 import numpy as np
 # from numba import njit
@@ -71,15 +71,15 @@ def set_dictionary_by_path(root, items, value):
 ##########
 
 
-def handle_design_errors(errors=(Exception,)):
+def handle_design_errors(errors: Tuple = (Exception,)) -> Callable:
     """Decorator to wrap a function with try: ... except errors: and log errors to a DesignDirectory
 
-    Keyword Args:
-        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
+    Args:
+        errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
     Returns:
-        (function): Function return upon proper execution, else is error if exception raised, else None
+        Function return upon proper execution, else is error if exception raised, else None
     """
-    def wrapper(func):
+    def wrapper(func: Callable) -> Any:
         @wraps(func)
         def wrapped(*args, **kwargs):
             try:
@@ -130,7 +130,7 @@ def timestamp():
 starttime = timestamp()
 
 
-def start_log(name: str = '', handler: int = 1, level: int = 2, location: os.PathLike = os.getcwd(),
+def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[str, bytes] = os.getcwd(),
               propagate: bool = False, format_log: bool = True, no_log_name: bool = False,
               set_handler_level: bool = False) -> logging.Logger:
     """Create a logger to handle program messages
