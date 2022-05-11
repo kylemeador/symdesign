@@ -576,24 +576,31 @@ class DesignDirectory:  # (JobResources):
             return self._fragment_profile
 
     @property
-    def fragment_data(self) -> Optional[Dict]:  # Todo associate fragment_data into info.pkl state as it is a separate I/O operation
+    def fragment_data(self) -> Dict:
+        """Returns only the entries in the fragment_profile which are populated"""
         try:
             return self._fragment_data
         except AttributeError:
             try:
-                self._fragment_data = unpickle(self.fragment_data_pkl)
+                self._fragment_data = self.info['fragment_data'] if 'fragment_data' in self.info \
+                    else unpickle(self.fragment_data_pkl)
             except FileNotFoundError:
-                self._fragment_data = None
+                # fragment_profile is removed of all entries that are not fragment populated.
+                self._fragment_data = {residue: data for residue, data in self.fragment_profile.items()
+                                       if data.get('stats', (None,))[0]}  # [0] must contain a fragment observation
+                # self._fragment_data = None
             return self._fragment_data
 
     @property
     def fragment_source(self) -> str:
         """The identity of the fragment database used in design fragment decoration"""
         try:
-            return self._fragment_database
+            return self._fragment_source
         except AttributeError:
-            self._fragment_database = self.info.get('fragment_database')
-            return self._fragment_database
+            # self._fragment_database = self.info.get('fragment_database')
+            self._fragment_source = self.info['fragment_source'] if 'fragment_source' in self.info \
+                else self.fragment_db.source
+            return self._fragment_source
 
     def pose_score(self) -> float:  # Todo merge with above
         """The Nanohedra score as reported in Laniado, Meador, & Yeates, PEDS. 2021"""
