@@ -169,7 +169,7 @@ class DesignDirectory:  # (JobResources):
         self.pdb_list = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
         self.design_profile_file = None  # /program_root/Projects/project_Designs/design/data/design.pssm
         self.evolutionary_profile_file = None  # /program_root/Projects/project_Designs/design/data/evolutionary.pssm
-        self.fragment_data_pkl = None  # /program_root/Projects/project_Designs/design/data/%s_fragment_profile.pkl
+        # self.fragment_data_pkl = None  # /program_root/Projects/project_Designs/design/data/%s_fragment_profile.pkl
 
         # Design flags
         self.consensus = kwargs.get('consensus', None)  # Whether to run consensus or not
@@ -584,8 +584,8 @@ class DesignDirectory:  # (JobResources):
             return self._fragment_data
         except AttributeError:
             try:
-                self._fragment_data = self.info['fragment_data'] if 'fragment_data' in self.info \
-                    else unpickle(self.fragment_data_pkl)
+                frag_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
+                self._fragment_data = self.info['fragment_data'] if 'fragment_data' in self.info else unpickle(frag_pkl)
             except FileNotFoundError:
                 # fragment_profile is removed of all entries that are not fragment populated.
                 self._fragment_data = {residue: data for residue, data in self.fragment_profile.items()
@@ -600,8 +600,11 @@ class DesignDirectory:  # (JobResources):
             return self._fragment_source
         except AttributeError:
             # self._fragment_database = self.info.get('fragment_database')
-            self._fragment_source = self.info['fragment_source'] if 'fragment_source' in self.info \
-                else self.fragment_db.source
+            try:
+                self._fragment_source = self.info['fragment_source'] if 'fragment_source' in self.info \
+                    else self.fragment_db.source
+            except AttributeError:  # there is not fragment_db attached
+                self._fragment_source = None
             return self._fragment_source
 
     def pose_score(self) -> float:  # Todo merge with above
@@ -1100,7 +1103,7 @@ class DesignDirectory:  # (JobResources):
         self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
         self.evolutionary_profile_file = os.path.join(self.data, 'evolutionary.pssm')
         self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
-        self.fragment_data_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
+        # self.fragment_data_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
 
     def get_wildtype_file(self) -> Union[str, bytes]:
         """Retrieve the wild-type file name from Design Directory"""
