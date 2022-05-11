@@ -999,36 +999,44 @@ class DesignDirectory:  # (JobResources):
                     self.log.critical('Removing %s' % self.serialized_info)
                     # raise error
                     os.remove(self.serialized_info)
-                    # raise DesignError('There was an issue retrieving design state from binary file...')
-                # if os.stat(self.serialized_info).st_size > 10000:
-                #     print('Found pickled file with huge size %d. fragmentdatabase being removed'
-                #           % os.stat(self.serialized_info).st_size)
-                #     self.info['fragment_database'] = \
-                #         getattr(self.info.get('fragment_database'), 'source', 'biological_interfaces')
-                #     self.pickle_info()  # save this info so that we don't have this issue again!
+                if os.stat(self.serialized_info).st_size > 10000:
+                    print('Found pickled file with huge size %d. fragment_database being removed'
+                          % os.stat(self.serialized_info).st_size)
+                    self.info['fragment_source'] = \
+                        getattr(self.info.get('fragment_database'), 'source', 'biological_interfaces')
+                    self.pickle_info()  # save immediately so we don't have this issue with reading again!
                 self._info = self.info.copy()  # create a copy of the state upon initialization
-                # if self.info.get('nanohedra'):
-                self._pose_transformation = self.info.get('pose_transformation', None)
-                if isinstance(self._pose_transformation, dict):  # old format
-                    del self._pose_transformation
                 if not self.sym_entry:
                     self.sym_entry = self.info.get('sym_entry', None)
                 else:
                     self.info['sym_entry'] = self.sym_entry
-                self.oligomer_names = self.info.get('oligomer_names', [])
-                # self.oligomer_names = self.info.get('entity_names', list())  # Todo TEMP addition
-                self.entity_names = self.info.get('entity_names', [])
                 self.pre_refine = self.info.get('pre_refine', False)  # default value is False unless set to True
-                # self._info = self.info.copy()  # create a copy of the state upon initialization
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-                # Todo v temporary patch, remove if and else statements once active designs are converted
-                self.design_residue_ids = self.info.get('design_residue_ids')
-                if self.design_residue_ids:
+                self.entity_names = self.info.get('entity_names', [])
+                self.oligomer_names = self.info.get('oligomer_names', [])
+                # These statements are a temporary patch Todo remove for SymDesign master
+                if not self.oligomer_names:
+                    self.oligomer_names = self.info.get('entity_names', [])
+                if 'design_residue_ids' in self.info:  # format is modern
                     self.design_residue_ids = self.info.get('design_residue_ids', {})
                     self.interface_residues = self.info.get('interface_residues', False)
-                else:
+                else:  # format is old, convert
                     self.design_residue_ids = self.info.get('interface_residues', {})
                     self.interface_residues = self.info.get('interface_residues', False)
+                if 'fragment_database' in self.info:
+                    self.info['fragment_source'] = self.info.get('fragment_database')
+                    self.info.pop('fragment_database')
+                fragment_data = self.info.get('fragment_data')
+                if fragment_data and not isinstance(fragment_data, dict):  # this is a .pkl file
+                    try:
+                        self.info['fragment_data'] = unpickle(fragment_data)
+                        os.remove(fragment_data)
+                    except FileNotFoundError:
+                        self.info.pop('fragment_data')
+                self._pose_transformation = self.info.get('pose_transformation', None)
+                if isinstance(self._pose_transformation, dict):  # old format
+                    del self._pose_transformation
+                # End temporary patch
                 self.design_residues = self.info.get('design_residues', False)  # (set[int])
                 if isinstance(self.design_residues, str):  # Todo remove as this conversion updates old directories
                     # 'design_residues' coming in as 234B (residue_number|chain), remove chain, change type to int
