@@ -1543,13 +1543,13 @@ if __name__ == '__main__':
         logger.info('Initializing %s FragmentDatabase\n' % interface_type)
         fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
         # fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)  # has since been depreciated
-        # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.frag_db
+        # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.fragment_db
         euler_lookup = EulerLookup()
     else:
         fragment_db, euler_lookup = None, None
 
     # for design in design_directories:
-    #     design.link_database(frag_db=fragment_db, resource_db=master_db)
+    #     design.link_database(fragment_db=fragment_db, resource_db=master_db)
     #     design.euler_lookup = euler_lookup
     job.fragment_db = fragment_db
     job.resources = master_db

@@ -122,7 +122,7 @@ class JobResources:
 
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 class DesignDirectory:  # (JobResources):
-    frag_db: Union[FragmentDatabase, None]
+    fragment_db: Optional[FragmentDatabase]
 
     def __init__(self, design_path, pose_id=None, root=None, **kwargs):
         #        project=None, specific_design=None, dock=False, construct_pose=False,
@@ -179,7 +179,7 @@ class DesignDirectory:  # (JobResources):
         self.directives = kwargs.get('directives', {})
         self.no_evolution_constraint = kwargs.get(PUtils.no_evolution_constraint, True)
         # self.fragment_file = None
-        # self.fragment_type = 'biological_interfaces'  # default for now, can be found in frag_db
+        # self.fragment_type = 'biological_interfaces'  # default for now, can be found in fragment_db
         self.force_flags = kwargs.get(PUtils.force_flags, False)
         self.fuse_chains = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
@@ -406,7 +406,8 @@ class DesignDirectory:  # (JobResources):
         return self.job_resources.all_scores  # program_root/AllScores
 
     @property
-    def frag_db(self):
+    def fragment_db(self) -> FragmentDatabase:
+        """Returns the JobResource FragmentDatabase"""
         return self.job_resources.fragment_db
 
     @property
@@ -921,16 +922,16 @@ class DesignDirectory:  # (JobResources):
     #         self.sbatch_scripts = self.master_db.sbatch_scripts
     #         self.all_scores = self.master_db.all_scores
     #
-    # def link_database(self, resource_db=None, frag_db=None, design_db=None, score_db=None):
+    # def link_database(self, resource_db=None, fragment_db=None, design_db=None, score_db=None):
     #     """Connect the design to the master Database object to fetch shared resources"""
     #     if resource_db:
     #         self.resources = resource_db
     #         if self.pose:
     #             self.pose.source_db = resource_db
-    #     if frag_db:
-    #         self.frag_db = frag_db
+    #     if fragment_db:
+    #         self.fragment_db = fragment_db
     #         if self.pose:
-    #             self.pose.frag_db = frag_db
+    #             self.pose.fragment_db = fragment_db
     #     # if design_db and isinstance(design_db, FragmentDatabase):
     #     #     self.design_db = design_db
     #     # if score_db and isinstance(score_db, FragmentDatabase):
@@ -1876,8 +1877,8 @@ class DesignDirectory:  # (JobResources):
         if self.sym_entry:
             self.pose = Pose.from_asu(pdb, sym_entry=self.sym_entry, name='%s-asu' % str(self),
                                       design_selector=self.design_selector, log=self.log,
-                                      source_db=self.resources, frag_db=self.frag_db, euler_lookup=self.euler_lookup,
-                                      ignore_clashes=self.ignore_clashes)
+                                      source_db=self.resources, fragment_db=self.fragment_db,
+                                      euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
             # generate oligomers for each entity in the pose
             for idx, entity in enumerate(self.pose.entities):
                 if entity.number_of_monomers != self.sym_entry.group_subunit_numbers[idx]:
@@ -1888,8 +1889,8 @@ class DesignDirectory:  # (JobResources):
         else:
             self.pose = Pose.from_pdb(pdb, name=str(self),
                                       design_selector=self.design_selector, log=self.log,
-                                      source_db=self.resources, frag_db=self.frag_db, euler_lookup=self.euler_lookup,
-                                      ignore_clashes=self.ignore_clashes)
+                                      source_db=self.resources, fragment_db=self.fragment_db,
+                                      euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
         if not self.entity_names:  # store the entity names if they were never generated
             self.entity_names = [entity.name for entity in self.pose.entities]
             self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
@@ -2156,7 +2157,7 @@ class DesignDirectory:  # (JobResources):
         """For the design info given by a DesignDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
-        if not self.frag_db:
+        if not self.fragment_db:
             self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
                              'requested. Each design is loading a separate FragmentDatabase instance. To maximize '
                              'efficiency, pass --%s' % PUtils.generate_fragments)
@@ -2616,12 +2617,12 @@ class DesignDirectory:  # (JobResources):
             if self.sym_entry:
                 design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
                                             design_selector=self.design_selector, log=self.log,
-                                            source_db=self.resources, frag_db=self.frag_db,
+                                            source_db=self.resources, fragment_db=self.fragment_db,
                                             euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
             else:
                 design_pose = Pose.from_pdb(structure, name='%s-asu' % structure.name,
                                             design_selector=self.design_selector, log=self.log,
-                                            source_db=self.resources, frag_db=self.frag_db,
+                                            source_db=self.resources, fragment_db=self.fragment_db,
                                             euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
 
             # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly

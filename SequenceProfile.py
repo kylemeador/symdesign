@@ -8,7 +8,7 @@ import subprocess
 import time
 from copy import deepcopy, copy
 # from glob import glob
-from typing import Dict, Union, Sequence, List
+from typing import Dict, Union, Sequence, List, Any
 
 import numpy as np
 import pandas as pd
@@ -183,7 +183,7 @@ class SequenceProfile:
         self.evolutionary_profile = {}  # position specific scoring matrix
         # self.design_pssm_file = None
         self.profile = {}  # design specific scoring matrix
-        self.frag_db = None
+        self.fragment_db = None
         self.fragment_queries = {}
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
         self.fragment_map = None  # {}
@@ -241,7 +241,7 @@ class SequenceProfile:
     def attach_fragment_database(self, db=None):
         """Attach an existing Fragment Database to the SequenceProfile"""
         if db:
-            self.frag_db = db
+            self.fragment_db = db
         else:
             raise DesignError('%s: No fragment database connection was passed!'
                               % self.attach_fragment_database.__name__)
@@ -303,14 +303,14 @@ class SequenceProfile:
             if self.fragment_map is None:
                 raise DesignError('Fragments were specified but have not been added to the SequenceProfile! '
                                   'The Pose/Entity must call assign_fragments() with fragment information')
-            elif self.frag_db:  # fragments have already been added, connect DB info
+            elif self.fragment_db:  # fragments have already been added, connect DB info
                 retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
                                       for fragments in idx_d.values() for fragment in fragments
-                                      if fragment['cluster'] not in self.frag_db.cluster_info]
-                self.frag_db.get_cluster_info(ids=retrieve_fragments)
+                                      if fragment['cluster'] not in self.fragment_db.cluster_info]
+                self.fragment_db.get_cluster_info(ids=retrieve_fragments)
             else:
                 raise DesignError('Fragments were specified but there is no fragment database attached to the '
-                                  'SequenceProfile. Ensure frag_db is set before requesting fragment information')
+                                  'SequenceProfile. Ensure fragment_db is set before requesting fragment information')
 
             # process fragment profile from self.fragment_map or self.fragment_query
             self.add_fragment_profile()
@@ -887,7 +887,7 @@ class SequenceProfile:
 
         if not self.fragment_map:
             self.fragment_map = self.populate_design_dictionary(self.profile_length,
-                                                                [j for j in range(*self.frag_db.fragment_range)],
+                                                                [j for j in range(*self.fragment_db.fragment_range)],
                                                                 dtype=list)
         if not fragments:
             # self.fragment_map = {}
@@ -898,7 +898,7 @@ class SequenceProfile:
         # print(self.offset)
         for fragment in fragments:
             residue_number = fragment[alignment_type] - self.offset
-            for j in range(*self.frag_db.fragment_range):  # lower_bound, upper_bound
+            for j in range(*self.fragment_db.fragment_range):  # lower_bound, upper_bound
                 self.fragment_map[residue_number + j][j].append({'chain': alignment_type,
                                                                  'cluster': fragment['cluster'],
                                                                  'match': fragment['match']})
@@ -938,7 +938,7 @@ class SequenceProfile:
                 for observation_idx, fragment in enumerate(fragments):
                     cluster_id = fragment['cluster']
                     freq_type = fragment['chain']
-                    aa_freq = self.frag_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_idx)
+                    aa_freq = self.fragment_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_idx)
                     # {1_1_54: {'mapped': {aa_freq}, 'paired': {aa_freq}}, ...}
                     #  mapped/paired aa_freq = {-2: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37]}, -1: {}, ...}
                     #  Where 'stats'[0] is total fragments in cluster, and 'stats'[1] is weight of fragment index
@@ -969,7 +969,7 @@ class SequenceProfile:
             keep_extras=True (bool): If true, keep values for all design dictionary positions that are missing data
         """
         # self.log.debug(self.fragment_profile.items())
-        database_bkgnd_aa_freq = self.frag_db.get_db_aa_frequencies()
+        database_bkgnd_aa_freq = self.fragment_db.get_db_aa_frequencies()
         # Fragment profile is correct size for indexing all STRUCTURAL residues
         #  self.reference_sequence is not used for this. Instead, self.structure_sequence is used in place since the use
         #  of a disorder indicator that removes any disordered residues from input evolutionary profiles is calculated
@@ -1061,14 +1061,14 @@ class SequenceProfile:
         Keyword Args:
             alpha=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
         """
-        if not self.frag_db:
+        if not self.fragment_db:
             raise DesignError('%s: No fragment database connected! Cannot calculate optimal fragment contribution '
                               'without this.' % self.find_alpha.__name__)
         assert 0 <= alpha <= 1, '%s: Alpha parameter must be between 0 and 1' % self.find_alpha.__name__
         alignment_type_to_idx = {'mapped': 0, 'paired': 1}  # could move to class, but not used elsewhere
         match_score_average = 0.5  # when fragment pair rmsd equal to the mean cluster rmsd
         bounded_floor = 0.2
-        fragment_stats = self.frag_db.statistics
+        fragment_stats = self.fragment_db.statistics
         for entry in self.fragment_profile:
             # can't use the match count as the fragment index may have no useful residue information
             # count = len([1 for obs in self.fragment_map[entry][index] for index in self.fragment_map[entry]]) or 1
@@ -1090,7 +1090,7 @@ class SequenceProfile:
                 match_modifier = 1  # match_score_average / match_score_average  # 1 is the maximum bound
 
             # find the total contribution from a typical fragment of this type
-            contribution_total = sum(fragment_stats[self.frag_db.get_cluster_id(obs['cluster'], index=2)][0]
+            contribution_total = sum(fragment_stats[self.fragment_db.get_cluster_id(obs['cluster'], index=2)][0]
                                      [alignment_type_to_idx[obs['chain']]]
                                      for index_values in self.fragment_map[entry].values() for obs in index_values)
             # contribution_total = 0.0
@@ -1157,7 +1157,7 @@ class SequenceProfile:
             # Used to weight fragments higher in design
             boltzman_energy = 1
             favor_seqprofile_score_modifier = 0.2 * CommandDistributer.reference_average_residue_weight
-            database_bkgnd_aa_freq = self.frag_db.get_db_aa_frequencies()
+            database_bkgnd_aa_freq = self.fragment_db.get_db_aa_frequencies()
 
             null_residue = self.get_lod(database_bkgnd_aa_freq, database_bkgnd_aa_freq)
             null_residue = {aa: float(frequency) for aa, frequency in null_residue.items()}
