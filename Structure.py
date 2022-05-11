@@ -25,9 +25,10 @@ from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
     retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations, generate_alignment
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
-    cubic_point_groups, origin
+    origin
 from utils.GeneralUtils import transform_coordinate_sets
-from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number, multicomponent_valid_subunit_number
+from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number, multicomponent_valid_subunit_number, \
+    cubic_point_groups
 
 # globals
 logger = start_log(name=__name__)
@@ -4405,7 +4406,7 @@ class Entity(Chain, SequenceProfile):
         # if self.symmetry == 'C1':
         #     return
         # el
-        if self.symmetry in ['T', 'O', 'I']:
+        if self.symmetry in cubic_point_groups:
             if not struct_file:
                 struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
             sdf_mode = 'PSEUDO'

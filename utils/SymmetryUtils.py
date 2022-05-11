@@ -40,6 +40,7 @@ space_group_number_operations = \
      'P4232': 24}
 valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
                         'D6': 12, 'T': 12, 'O': 24, 'I': 60}
+cubic_point_groups = ['T', 'O', 'I']
 
 
 def multicomponent_by_number(number):
@@ -367,7 +368,7 @@ def expand_asu(asu, symmetry, uc_dimensions=None, return_side_chains=False):  # 
     Returns:
         (list(PDB)): Expanded to entire point group, 3x3 layer group, or 3x3x3 space group
     """
-    if symmetry.upper() in ['T', 'O', 'I']:
+    if symmetry.upper() in cubic_point_groups:
         expand_matrices = point_group_symmetry_operators[symmetry.upper()]
         return get_expanded_ptgrp_pdb(asu, expand_matrices)
     else:

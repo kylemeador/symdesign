@@ -3,7 +3,7 @@ import os
 
 from PDB import PDB
 from SymDesignUtils import start_log, to_iterable, set_logging_to_debug
-from utils.SymmetryUtils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb  #, write_expanded_ptgrp
+from utils.SymmetryUtils import get_ptgrp_sym_op, get_expanded_ptgrp_pdb, cubic_point_groups  # , write_expanded_ptgrp
 
 
 def expand_asu(file, symmetry, out_path=None):
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--file', type=str, help='A single .pdb file or file with list of .pdb files you wish to '
                                                        'expand', required=True)
     parser.add_argument('-o', '--out_path', type=str, help='The output path of the expanded pdb')
-    parser.add_argument('-s', '--symmetry', type=str, choices=['T', 'O', 'I'], help='What symmetry to be expanded?',
+    parser.add_argument('-s', '--symmetry', type=str, choices=cubic_point_groups, help='What symmetry to be expanded?',
                         required=True)
 
     args, additional_flags = parser.parse_known_args()

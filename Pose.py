@@ -1296,7 +1296,7 @@ class SymmetricModel(Model):
             elif symmetry in sg_cryst1_fmt_dict:  # not available yet for non-Nanohedra SG's
                 self.dimension = 3
                 self.symmetry = symmetry
-            elif symmetry in possible_symmetries:  # ['T', 'O', 'I']:
+            elif symmetry in possible_symmetries:
                 self.symmetry = possible_symmetries[symmetry]
                 self.point_group_symmetry = possible_symmetries[symmetry]
                 self.dimension = 0
