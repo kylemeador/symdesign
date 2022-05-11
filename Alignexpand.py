@@ -1,7 +1,7 @@
 import sys
 
 from Align import align
-from utils.SymmetryUtils import expand_asu
+from tools.ExpandASU import expand_asu
 
 # sys.argv = list
 # python rogers_magic.py file darpin start2 end2 chain2
@@ -23,6 +23,3 @@ for i in range(15):
     newfile = "../Expandedfiles/aligned"+str(i)+".pdb"
     out.write(newfile)
     expand_asu(newfile, "T", out_path="../Expandedfiles/")
-    
-
-
