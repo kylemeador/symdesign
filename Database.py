@@ -248,8 +248,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             load_resources: Whether resources have been specified to be loaded already
             batch_commands: Whether commands should be made for batch submission
         Returns:
-            (Tuple[list, bool, bool]): Any instructions, then two booleans on whether designs are pre_refined, and whether
-            they are pre_loop_modeled
+            Any instructions, then booleans for whether designs are pre_refined and whether they are pre_loop_modeled
         """
         self.refined.make_path()
         refine_names = self.refined.retrieve_names()
@@ -311,8 +310,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                                 'symmetry=%s' % ('make_point_group' if entity.symmetry != 'C1' else 'asymmetric')]
                                for entity in entities_to_refine]
                 if batch_commands:
-                    commands_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                                                           name='%s-refine_entities' % SDUtils.starttime)
+                    commands_file = \
+                        SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
+                                               name='%s-refine_entities' % SDUtils.starttime)
                     refine_sbatch = distribute(file=commands_file, out_path=script_out_path, scale=PUtils.refine,
                                                log_file=os.path.join(refine_dir, '%s.log' % PUtils.refine),
                                                max_jobs=int(len(refine_cmds) / 2 + 0.5),

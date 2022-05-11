@@ -4296,11 +4296,9 @@ class Entity(Chain, SequenceProfile):
     #     self.transform(rotation=rot, translation=tx)
     #     clean_orient_input_output()
 
-    def find_chain_symmetry(self, struct_file=None):
+    def find_chain_symmetry(self, struct_file: Union[str, bytes] = None) -> Union[str, bytes]:
         """Search for the chains involved in a complex using a truncated make_symmdef_file.pl script
 
-        Keyword Args:
-            struct_file=None (str): The location of the input .pdb file
         Requirements - all chains are the same length
         This script translates the PDB center of mass to the origin then uses quaternion geometry to solve for the
         rotations which superimpose chains provided by -i onto a designated chain (usually A). It returns the order of
@@ -4310,9 +4308,12 @@ class Entity(Chain, SequenceProfile):
         perl symdesign/dependencies/rosetta/sdf/scout_symmdef_file.pl -p 1ho1_tx_4.pdb -i B C D E F G H
         >B:3-fold axis: -0.00800197 -0.01160998 0.99990058
         >C:3-fold axis: 0.00000136 -0.00000509 1.00000000
-
+        Args:
+            struct_file: The location of the input .pdb file
+        Sets:
+            self.rotation_d (Dict[str, Dict[str, Union[int, np.ndarray]]])
         Returns:
-            (str): The name of the file written for symmetry definition file creation
+            The name of the file written for symmetry definition file creation
         """
         if not struct_file:
             struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
@@ -4345,8 +4346,15 @@ class Entity(Chain, SequenceProfile):
 
         self.max_symmetry = max_chain
 
-    def scout_symmetry(self, **kwargs):
-        """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file"""
+    def scout_symmetry(self, **kwargs) -> Union[str, bytes]:
+        """Check the PDB for the required symmetry parameters to generate a proper symmetry definition file
+
+        Sets:
+            self.rotation_d (Dict[str, Dict[str, Union[int, np.ndarray]]])
+            self.max_symmetry (str)
+        Returns:
+            The location of the oligomeric Structure
+        """
         struct_file = self.find_chain_symmetry(**kwargs)
         self.find_max_chain_symmetry()
 
@@ -4356,9 +4364,11 @@ class Entity(Chain, SequenceProfile):
         """Report whether a structure is dihedral or not
 
         Sets:
+            self.rotation_d (Dict[str, Dict[str, Union[int, np.ndarray]]])
+            self.max_symmetry (str)
             self.dihedral_chain (str): The name of the chain that is dihedral
         Returns:
-            (bool): True if the Structure is dihedral, False if not
+            True if the Structure is dihedral, False if not
         """
         if not self.max_symmetry:
             self.scout_symmetry()
@@ -4383,24 +4393,24 @@ class Entity(Chain, SequenceProfile):
 
         return False
 
-    def make_sdf(self, struct_file=None, out_path=os.getcwd(), **kwargs):
+    def make_sdf(self, struct_file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.getcwd(), **kwargs) -> \
+            Union[str, bytes]:
         """Use the make_symmdef_file.pl script from Rosetta to make a symmetry definition file on the Structure
 
         perl $ROSETTA/source/src/apps/public/symmetry/make_symmdef_file.pl -p filepath/to/pdb.pdb -i B -q
 
-        Keyword Args:
-            struct_file=None (str): The location of the input .pdb file
-            out_path=os.getcwd() (str): The location the symmetry definition file should be written
+        Args:
+            struct_file: The location of the input .pdb file
+            out_path: The location the symmetry definition file should be written
             # dihedral=False (bool): Whether the assembly is in dihedral symmetry
             # modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
             # energy=2 (int): Scalar to modify the Rosetta energy by
         Returns:
-            (str): Symmetry definition filename
+            Symmetry definition filename
         """
         out_file = os.path.join(out_path, '%s.sdf' % self.name)
-        # Todo reinstate after patch
-        # if os.path.exists(out_file):
-        #     return out_file
+        if os.path.exists(out_file):
+            return out_file
 
         # if self.symmetry == 'C1':
         #     return
@@ -4421,8 +4431,6 @@ class Entity(Chain, SequenceProfile):
         else:
             chains = [self.max_symmetry]
 
-        # if not struct_file:
-        #     struct_file = self.write(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
         sdf_cmd = \
             ['perl', make_symmdef, '-m', sdf_mode, '-q', '-p', struct_file, '-a', self.chain_ids[0], '-i'] + chains
         self.log.info('Creating symmetry definition file: %s' % subprocess.list2cmdline(sdf_cmd))
@@ -4438,7 +4446,7 @@ class Entity(Chain, SequenceProfile):
 
         return out_file
 
-    def format_sdf(self, lines, to_file=None, out_path=os.getcwd(), dihedral=False, modify_sym_energy=False, energy=2):
+    def format_sdf(self, lines, to_file=None, out_path=os.getcwd(), dihedral=False, modify_sym_energy=False, energy=2) -> Union[str, bytes]:
         """Ensure proper sdf formatting before proceeding
 
         Keyword Args:
@@ -4448,7 +4456,7 @@ class Entity(Chain, SequenceProfile):
             modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
             energy=2 (int): Scalar to modify the Rosetta energy by
         Returns:
-            (str): The location the symmetry definition file was written
+            The location the symmetry definition file was written
         """
         subunits, virtuals, jumps_com, jumps_subunit, trunk = [], [], [], [], []
         for idx, line in enumerate(lines, 1):
