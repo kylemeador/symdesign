@@ -1,7 +1,7 @@
 import math
 import os
 import warnings
-from typing import List
+from typing import List, Union, Iterable, Optional
 
 import numpy as np
 
@@ -219,8 +219,8 @@ all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200
 point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7: 'O32', 13: 'O42', 56: 'O43',
                        200: 'T', 210: 'O', 211: 'O', 220: 'I'}
 
-rotation_range = {'C1': 360, 'C2': 180, 'C3': 120, 'C4': 90, 'C5': 72, 'C6': 60}
-cubic_point_groups = ['T', 'O', 'I']
+max_sym = 6
+rotation_range = {'C%d' % i: 360 / i for i in map(float, range(1, max_sym + 1))}
 # ROTATION SETTING MATRICES - All descriptions are with view on the positive side of respective axis
 setting_matrices = {
     1: np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
@@ -257,7 +257,6 @@ flip_x_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]]) 
 flip_y_matrix = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180y
 point_group_degeneracy_matrices = {
     'T': 6,
-
 }
 # These specify combinations of symmetric point groups which can be used to construct a larger point group
 sub_symmetries = {'C1': ['C1'],
@@ -292,9 +291,9 @@ point_group_setting_matrix_members = {
     # 'O': {'C2': {3}, 'C3': {4, 12}, 'C4': {1}},
     # 'I': {'C2': {1}, 'C3': {7}, 'C5': {9}},
 }
-for entry_number, entry in symmetry_combinations.items():
+for entry_number, ent in symmetry_combinations.items():
     group1, int_dof_group1, setting1, ref_frame_tx_dof_group1, group2, int_dof_group2, setting2, \
-        ref_frame_tx_dof_group2, point_group, result, dimension, _, _, _ = entry
+        ref_frame_tx_dof_group2, point_group, result, dimension, _, _, _ = ent
     result_entry = point_group_setting_matrix_members.get(point_group, None)
     if result_entry:
         if group1 in result_entry:
@@ -311,7 +310,7 @@ for entry_number, entry in symmetry_combinations.items():
 
 
 class SymEntry:
-    def __init__(self, entry, sym_map=None):
+    def __init__(self, entry: int, sym_map: Iterable = None):
         sym_entry = symmetry_combinations.get(entry)
         try:
             self.group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
@@ -386,6 +385,10 @@ class SymEntry:
     @property
     def combination_string(self) -> str:
         return '%s:{%s}' % (self.resulting_symmetry, '}{'.join(self.groups))
+
+    @property
+    def simple_combination_string(self) -> str:
+        return '%s%s' % (self.resulting_symmetry, ''.join(self.groups))
 
     # @property
     # def point_group_symmetry(self):
@@ -662,6 +665,23 @@ class SymEntry:
 
         return external_translation_shifts  # [e, f, g]
 
+    def sdf_lookup(self) -> Union[str, bytes]:
+        """Locate the proper symmetry definition file depending on the specified symmetry
+
+        Returns:
+            The location of the symmetry definition file on disk
+        """
+        if self.dimension > 0:
+            return os.path.join(PUtils.symmetry_def_files, 'C1.sym')
+
+        symmetry = self.simple_combination_string
+        for file, ext in map(os.path.splitext, os.listdir(PUtils.symmetry_def_files)):
+            if symmetry == file:
+                return os.path.join(PUtils.symmetry_def_files, file + ext)
+
+        raise DesignError('Error locating symmetry definition file at "%s" for SymEntry: %s'
+                          % (PUtils.symmetry_def_files, self.entry_number))
+
 
 def construct_uc_matrix(string_vector):
     """
@@ -895,38 +915,26 @@ def parse_symmetry_to_sym_entry(symmetry_string, sym_entry=None):
     return SymEntry(sym_entry, sym_map=clean_split[1:])  # remove the result
 
 
-def handle_symmetry(symmetry_entry_number):
-    # group = cryst1_record.split()[-1]/
-    if symmetry_entry_number not in point_group_sdf_map.keys():
-        if symmetry_entry_number in layer_groups:  # .keys():
-            return 2
-        else:
-            return 3
-    else:
-        return 0
-
-
-def sdf_lookup(symmetry=None):
+def sdf_lookup(symmetry: Optional[str] = None) -> Union[str, bytes]:
     """From the set of possible point groups, locate the proper symmetry definition file depending on the specified
-    symmetry. If none specified (default) a viable, but completely garbage symmetry definition file will be returned
+    symmetry. If none is specified, a C1 symmetry will be returned (this doesn't make sense but is completely viable)
 
-    Keyword Args:
-        symmetry=None (Union[str, int, None]): Can be a valid_point_group, a point group SymmetryEntry number, or None
+    Args:
+        symmetry: Can be a valid_point_group, or None
     Returns:
-        (str): The location of the symmetry definition file on disk
+        The location of the symmetry definition file on disk
     """
-    if not symmetry or symmetry == 'C1':
-        return os.path.join(PUtils.symmetry_def_files, 'dummy.sym')
-    elif isinstance(symmetry, int):  # this is probably a SymEntry
-        symmetry_name = point_group_sdf_map[symmetry]
+    if not symmetry:
+        return os.path.join(PUtils.symmetry_def_files, 'C1.sym')
     else:
-        symmetry_name = symmetry
+        symmetry = symmetry.upper()
 
     for file, ext in map(os.path.splitext, os.listdir(PUtils.symmetry_def_files)):
-        if symmetry_name == file:
+        if symmetry == file:
             return os.path.join(PUtils.symmetry_def_files, file + ext)
 
-    raise DesignError('Error locating symmetry definition file for symmetry: %s' % symmetry_name)
+    raise DesignError('Error locating symmetry definition file at "%s" for symmetry: %s'
+                      % (PUtils.symmetry_def_files, symmetry))
 
 
 header_format_string = '{:5s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}  {:10s}  {:9s}  {:^20s}  {:6s}'

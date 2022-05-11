@@ -1574,20 +1574,10 @@ class DesignDirectory:  # (JobResources):
             self.symmetry_protocol = PUtils.protocol[self.design_dimension]
             self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
             self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
-            if self.design_dimension == 0:  # point
-                if self.design_symmetry in ['T', 'O', 'I']:
-                    self.sym_def_file = sdf_lookup(self.sym_entry_number)
-                elif self.design_symmetry in valid_subunit_number.keys():  # todo standardize oriented versions of these
-                    # self.make_path(self.sdf_dir)
-                    self.make_path(self.data)
-                    self.sym_def_file = self.pose.pdb.make_sdf(out_path=self.data)
-                else:
-                    raise ValueError('The symmetry %s is unavailable at this time!')
-            else:  # layer or space
-                self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
+            self.sym_def_file = self.sym_entry.sdf_lookup()
         else:  # asymmetric
             self.symmetry_protocol = 'asymmetric'
-            self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
+            self.sym_def_file = sdf_lookup()  # grabs C1.sym
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
 
