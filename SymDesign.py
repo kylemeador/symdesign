@@ -240,7 +240,7 @@ def status(all_design_directories, _stage, number=None, active=True, inactive_ti
             # dock_dir.composition = [next(os.walk(dir))[1] for dir in dock_dir.program_root]
             # dock_dir.log = [os.path.join(_sym, 'master_log.txt') for _sym in dock_dir.program_root]
             # dock_dir.building_block_logs = [os.path.join(_sym, bb_dir, 'bb_dir_log.txt') for sym in dock_dir.composition
-            #                                 for bb_dir in sym] # TODO change to PUtils
+            #                                 for bb_dir in sym]
 
             # docking_file = glob(
             #     os.path.join(des_dir + '_flipped_180y', '%s*_log.txt' % os.path.basename(des_dir)))
@@ -437,7 +437,7 @@ def terminate(results=None, output=True):
         print('\n')
         # exit_code = 1
 
-    if success and output:  # and (all_poses and design_directories and not args.file):  # Todo
+    if success and output:
         # job = next(iter(design_directories))
         job_paths = job.job_paths
         job.make_path(job_paths)
@@ -988,7 +988,6 @@ if __name__ == '__main__':
     # parser.parse_known_intermixed_args
     unknown_args = None
     args, additional_args = parser.parse_known_args()
-    # TODO work this into the flags parsing to grab module if included first and program flags if included after
     while len(additional_args) and additional_args != unknown_args:
         args, additional_args = parser.parse_known_args(additional_args, args)
         unknown_args = additional_args
@@ -1148,6 +1147,22 @@ if __name__ == '__main__':
         job = JobResources(symdesign_directory)
     queried_flags['job_resources'] = job
 
+    if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
+            or args.module in [PUtils.nano, PUtils.generate_fragments]:
+        interface_type = 'biological_interfaces'  # Todo parameterize
+        logger.info('Initializing %s FragmentDatabase\n' % interface_type)
+        fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
+        # fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)  # has since been depreciated
+        # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.fragment_db
+        euler_lookup = EulerLookup()
+    else:
+        fragment_db, euler_lookup = None, None
+
+    # job.resources = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
+    #                          job.sequences, job.profiles, sql=None)  # , log=logger)
+    job.fragment_db = fragment_db
+    job.euler_lookup = euler_lookup
+
     initial_iter = None
     if initialize:
         if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
@@ -1219,8 +1234,8 @@ if __name__ == '__main__':
             else:
                 designs_directory = args.output_directory
             os.makedirs(designs_directory, exist_ok=True)
-        master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
-                             job.sequences, job.profiles, sql=None)  # , log=logger)
+        # job.resources = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
+        #                      job.sequences, job.profiles, sql=None)  # , log=logger)
         logger.info('Using design resources from Database located at "%s"' % job.protein_data)
 
         # Todo logic error when initialization occurs with module that doens't call this, subsequent runs are missing
@@ -1280,7 +1295,7 @@ if __name__ == '__main__':
                 else:
                     logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
                                 % (symmetry, orient_dir, ', '.join(entities)))
-                all_entities.extend(master_db.orient_entities(entities, symmetry=symmetry))
+                all_entities.extend(job.resources.orient_entities(entities, symmetry=symmetry))
 
             info_messages = []
             # set up the hhblits and profile bmdca for each input entity
@@ -1290,17 +1305,17 @@ if __name__ == '__main__':
             job.make_path(sequences_dir)
             hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities:
-                entity.sequence_file = master_db.sequences.retrieve_file(name=entity.name)
+                entity.sequence_file = job.resources.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:  # Todo reference_sequence source accuracy throughout protocol
                     entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=sequences_dir)
-                    # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
+                    # entity.add_evolutionary_profile(out_path=job.resources.hhblits_profiles.location)
                 else:
-                    entity.evolutionary_profile = master_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    # entity.h_fields = master_db.bmdca_fields.retrieve_data(name=entity.name)
-                    # TODO reinstate entity.j_couplings = master_db.bmdca_couplings.retrieve_data(name=entity.name)
+                    entity.evolutionary_profile = job.resources.hhblits_profiles.retrieve_data(name=entity.name)
+                    # entity.h_fields = job.resources.bmdca_fields.retrieve_data(name=entity.name)
+                    # TODO reinstate entity.j_couplings = job.resources.bmdca_couplings.retrieve_data(name=entity.name)
                 if not entity.evolutionary_profile:
                     # to generate in current runtime
-                    # entity.add_evolutionary_profile(out_path=master_db.hhblits_profiles.location)
+                    # entity.add_evolutionary_profile(out_path=job.resources.hhblits_profiles.location)
                     # to generate in a sbatch script
                     # profile_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
                     hhblits_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
@@ -1362,9 +1377,9 @@ if __name__ == '__main__':
                 bmdca_sbatch, reformat_sbatch = None, None
 
             preprocess_instructions, pre_refine, pre_loop_model = \
-                master_db.preprocess_entities_for_design(all_entities, load_resources=load_resources,
-                                                         script_out_path=job.sbatch_scripts,
-                                                         batch_commands=not args.run_in_shell)
+                job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
+                                                             script_out_path=job.sbatch_scripts,
+                                                             batch_commands=not args.run_in_shell)
             if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
                 logger.critical(sbatch_warning)
                 for message in info_messages + preprocess_instructions:
@@ -1380,14 +1395,12 @@ if __name__ == '__main__':
             pre_loop_model = None  # False
 
         if args.multi_processing:  # and not args.skip_master_db:
+            job.resources.load_all_data()
             # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
-            master_db.load_all_data()
             # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
             # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, threads=threads)
         # else:  # for now just do in series
         for design in design_directories:
-            # design.link_database(resource_db=master_db)
-            # sys.modules['Database'] = Database  # Todo remove this
             design.set_up_design_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
         logger.info('%d unique poses found in "%s"' % (len(design_directories), location))
@@ -1398,8 +1411,8 @@ if __name__ == '__main__':
                             % example_log)
 
     elif args.module == PUtils.nano:
-        master_db = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
-                             job.sequences, job.profiles, sql=None)  # , log=logger)
+        # job.resources = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
+        #                      job.sequences, job.profiles, sql=None)  # , log=logger)
         logger.info('Using design resources from Database located at "%s"' % job.protein_data)
         if args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
@@ -1428,7 +1441,7 @@ if __name__ == '__main__':
             all_entities = []
             load_resources = False
             orient_log = SDUtils.start_log(name='orient', handler=2,
-                                           location=os.path.join(master_db.oriented.location, PUtils.orient_log_file),
+                                           location=os.path.join(job.resources.oriented.location, PUtils.orient_log_file),
                                            propagate=True)
             if args.query_codes:
                 if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
@@ -1440,7 +1453,7 @@ if __name__ == '__main__':
             else:
                 if args.pdb_codes1:
                     entities1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
-                    # all_entities.extend(master_db.orient_entities(entities1, symmetry=symmetry_map[0]))
+                    # all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
                 else:  # args.oligomer1:
                     logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
                                     % args.oligomer1)
@@ -1449,14 +1462,14 @@ if __name__ == '__main__':
                     else:
                         pdb1_filepaths = SDUtils.get_all_file_paths(args.oligomer1, extension='.pdb')
                     pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
-                                                               out_dir=master_db.oriented.location)
+                                                               out_dir=job.resources.oriented.location)
                                                for file in pdb1_filepaths]
-                    # pull out the entity names and use master_db.orient_entities to retrieve the entity alone
+                    # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
                     entities1 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
                     # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
                     # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
-            all_entities.extend(master_db.orient_entities(entities1, symmetry=symmetry_map[0]))
+            all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
 
             single_component_design = False
             if args.oligomer2:
@@ -1469,9 +1482,9 @@ if __name__ == '__main__':
                         pdb2_filepaths = SDUtils.get_all_file_paths(args.oligomer2, extension='.pdb')
                     pdb2_oriented_filepaths = \
                         [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
-                                         out_dir=master_db.oriented.location)
+                                         out_dir=job.resources.oriented.location)
                          for file in pdb2_filepaths]
-                    # pull out the entity names and use master_db.orient_entities to retrieve the entity alone
+                    # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
                     entities2 = list(map(os.path.basename,
                                          [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
                 else:  # the entities are the same symmetry, or we have single component and bad input
@@ -1497,13 +1510,13 @@ if __name__ == '__main__':
                 # if not entities2:
                 logger.info('No additional entities requested for docking, treating as single component')
                 single_component_design = True
-            all_entities.extend(master_db.orient_entities(entities2, symmetry=symmetry_map[1]))
+            all_entities.extend(job.resources.orient_entities(entities2, symmetry=symmetry_map[1]))
 
             info_messages = []
             preprocess_instructions, pre_refine, pre_loop_model = \
-                master_db.preprocess_entities_for_design(all_entities, load_resources=load_resources,
-                                                         script_out_path=job.sbatch_scripts,
-                                                         batch_commands=not args.run_in_shell)
+                job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
+                                                             script_out_path=job.sbatch_scripts,
+                                                             batch_commands=not args.run_in_shell)
             if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
                 logger.critical(sbatch_warning)
                 for message in info_messages + preprocess_instructions:
@@ -1526,7 +1539,7 @@ if __name__ == '__main__':
             initial_iter[0] = True
         design_source = os.path.splitext(os.path.basename(location))[0]
     else:  # this logic is possible with select_designs without --metric
-        master_db = None
+        # job.resources = None
         # design_source = os.path.basename(example_directory.project_designs)
         # job = JobResources(queried_flags['output_directory'])
         pass
@@ -1536,24 +1549,6 @@ if __name__ == '__main__':
             logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
         else:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
-
-    if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
-            or args.module in [PUtils.nano, PUtils.generate_fragments]:
-        interface_type = 'biological_interfaces'  # Todo parameterize
-        logger.info('Initializing %s FragmentDatabase\n' % interface_type)
-        fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
-        # fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)  # has since been depreciated
-        # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.fragment_db
-        euler_lookup = EulerLookup()
-    else:
-        fragment_db, euler_lookup = None, None
-
-    # for design in design_directories:
-    #     design.link_database(fragment_db=fragment_db, resource_db=master_db)
-    #     design.euler_lookup = euler_lookup
-    job.fragment_db = fragment_db
-    job.resources = master_db
-    job.euler_lookup = euler_lookup
     # -----------------------------------------------------------------------------------------------------------------
     # Ensure all Nanohedra Directories are set up by performing required transformation, then saving the pose
     # if nanohedra_initialization:
@@ -1899,7 +1894,7 @@ if __name__ == '__main__':
                 selected_poses_df.to_csv(new_dataframe)
                 logger.info('New DataFrame was written to %s' % new_dataframe)
 
-            # Sort results according to clustered poses if clustering exists  # Todo parameterize name
+            # Sort results according to clustered poses if clustering exists
             if args.cluster_map:
                 cluster_map = args.cluster_map
             else:

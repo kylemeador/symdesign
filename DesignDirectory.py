@@ -46,8 +46,7 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
 from classes.SymEntry import SymEntry, sdf_lookup, identity_matrix
-from Database import FragmentDatabase
-
+from Database import FragmentDatabase, Database
 
 # Globals
 logger = start_log(name=__name__)
@@ -78,7 +77,6 @@ class JobResources:
         self.refine_dir = os.path.join(self.pdbs, 'refined')
         self.full_model_dir = os.path.join(self.pdbs, 'full_models')
         self.stride_dir = os.path.join(self.pdbs, 'stride')
-        # self.sdf_dir = os.path.join(self.pdbs, PUtils.symmetry_def_file_dir)
         self.sequence_info = os.path.join(self.protein_data, PUtils.sequence_info)
         self.sequences = os.path.join(self.sequence_info, 'sequences')
         self.profiles = os.path.join(self.sequence_info, 'profiles')
@@ -91,8 +89,6 @@ class JobResources:
         self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
         self.job_paths = os.path.join(self.program_root, 'JobPaths')
         self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
-        self.fragment_db = None
-        self.resources = None
         self.all_scores = os.path.join(self.program_root, PUtils.all_scores)  # TODO ScoreDatabase integration
         self.make_path(self.protein_data)
         self.make_path(self.job_paths)
@@ -107,6 +103,9 @@ class JobResources:
         self.make_path(self.orient_asu_dir)
         self.make_path(self.stride_dir)
         self.make_path(self.full_model_dir)
+        self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
+                                  self.stride_dir, self.sequences, self.profiles, sql=None)  # , log=logger)
+        self.fragment_db = None
 
     @staticmethod
     def make_path(path, condition=True):
@@ -133,7 +132,7 @@ class DesignDirectory:  # (JobResources):
         self.dock = kwargs.get('dock', False)
         self.initialized = None
         self.log = None
-        self.master_db = kwargs.get('master_db', None)
+        # self.master_db = kwargs.get('master_db', None)
         self.nanohedra_output = kwargs.get('nanohedra_output', False)
         if pose_id:
             self.directory_string_to_path(root, design_path)  # sets self.path
