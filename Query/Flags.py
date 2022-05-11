@@ -21,13 +21,13 @@ global_flags = {
     #                                                 % (terminal_formatter, nano.title(), terminal_formatter,
     #                                                    program_name, terminal_formatter, nano.title(),
     #                                                    terminal_formatter, program_name)},
-                'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
-                # 'design_range': {'type': str, 'default': None,
-                #                  'description': 'Whether to subset selected designs by a range of percentage values'},
-                'mpi': {'type': int, 'default': None,
-                        'description': 'If commands should be run as MPI parallel processes, how many processes should '
-                                       'be invoked for each job?'},
-                }
+    #             'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
+    #             'design_range': {'type': str, 'default': None,
+    #                              'description': 'Whether to subset selected designs by a range of percentage values'},
+    'mpi': {'type': int, 'default': None,
+            'description': 'If commands should be run as MPI parallel processes, how many processes should '
+                           'be invoked for each job?'},
+    }
 design_flags = {
     # 'design_with_evolution': {'type': bool, 'default': True,
     #                           'description': 'Whether to design with evolutionary amino acid frequency info'},

@@ -21,11 +21,9 @@ import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Data.IUPACData import protein_letters
-
-from FragDock import nanohedra_dock
-from SymDesignUtils import ex_path
 from dependencies.DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
+from FragDock import nanohedra_dock
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from Query.PDB import retrieve_pdb_entries_by_advanced_query
@@ -34,10 +32,9 @@ from utils.CmdLineArgParseUtils import query_mode
 from Query import Flags
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from classes.EulerLookup import EulerLookup
-from Database import Database  # FragmentDatabase,
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
 from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, JobResources
-from NanohedraWrap import nanohedra_command, nanohedra_design_recap
+from NanohedraWrap import nanohedra_command
 from PDB import PDB, orient_pdb_file
 from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
@@ -1411,8 +1408,6 @@ if __name__ == '__main__':
                             % example_log)
 
     elif args.module == PUtils.nano:
-        # job.resources = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
-        #                      job.sequences, job.profiles, sql=None)  # , log=logger)
         logger.info('Using design resources from Database located at "%s"' % job.protein_data)
         if args.directory or args.file:
             all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
@@ -1549,14 +1544,6 @@ if __name__ == '__main__':
             logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
         else:
             logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
-    # -----------------------------------------------------------------------------------------------------------------
-    # Ensure all Nanohedra Directories are set up by performing required transformation, then saving the pose
-    # if nanohedra_initialization:
-    #     if args.multi_processing:
-    #         results = SDUtils.mp_map(DesignDirectory.load_pose, design_directories, threads=threads)
-    #     else:
-    #         for design in design_directories:
-    #             design.load_pose()
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands
     # -----------------------------------------------------------------------------------------------------------------
