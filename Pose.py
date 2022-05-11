@@ -2408,12 +2408,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # SymmetricModel init will handle if an ASU/ASU_file is present and generate assembly coords
         super().__init__(**kwargs)
 
-        frag_db = kwargs.get('frag_db')
-        if frag_db:  # Attach existing FragmentDB to the Pose
-            self.attach_fragment_database(db=frag_db)
-            # self.frag_db = frag_db  # Todo property
+        fragment_db = kwargs.get('fragment_db')
+        if fragment_db:  # Attach existing FragmentDB to the Pose
+            self.attach_fragment_database(fragment_db)
+            # self.fragment_db = fragment_db  # Todo property
             for entity in self.entities:
-                entity.attach_fragment_database(db=frag_db)
+                entity.attach_fragment_database(fragment_db)
 
         self.euler_lookup = kwargs.get('euler_lookup', None)
         # for entity in self.entities:  # No need to attach to entities
@@ -2631,7 +2631,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         entities = self.find_contacting_asu(**kwargs)
         self._pdb = PDB.from_entities(entities, name='asu', log=self.log, pose_format=False, **kwargs)
 
-    # def handle_flags(self, design_selector=None, frag_db=None, ignore_clashes=False, **kwargs):
+    # def handle_flags(self, design_selector=None, fragment_db=None, ignore_clashes=False, **kwargs):
     #     self.ignore_clashes = ignore_clashes
     #     if design_selector:
     #         self.design_selector = design_selector
@@ -2643,11 +2643,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #     #     # self.create_design_selector(selection={}, mask={}, required={})
     #     #     self.design_selector_entities = self.design_selector_entities.union(set(self.entities))
     #     #     self.design_selector_indices = self.design_selector_indices.union(set(self.pdb.atom_indices))
-    #     if frag_db:
+    #     if fragment_db:
     #         # Attach an existing FragmentDB to the Pose
-    #         self.attach_fragment_database(db=frag_db)
+    #         self.attach_fragment_database(db=fragment_db)
     #         for entity in self.entities:
-    #             entity.attach_fragment_database(db=frag_db)
+    #             entity.attach_fragment_database(db=fragment_db)
 
     def create_design_selector(self):  # , selection=None, mask=None, required=None):
         """Set up a design selector for the Pose including selections, masks, and required Entities and Atoms
@@ -3079,15 +3079,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # else:
         #     _entity1_residues, _entity2_residues = entity1_residues, entity2_residues
         # Todo make so that the residue objects support fragments instead of converting back
-        entity1_res_numbers = sorted(residue.number for residue in entity1_residues)
-        entity2_res_numbers = sorted(residue.number for residue in entity2_residues)
+        residue_numbers1 = sorted(residue.number for residue in entity1_residues)
+        residue_numbers2 = sorted(residue.number for residue in entity2_residues)
         self.log.debug('At Entity %s | Entity %s interface, searching for fragments at the surface of:%s%s'
                        % (entity1.name, entity2.name,
-                          '\n\tEntity %s: Residues %s' % (entity1.name, ', '.join(map(str, entity1_res_numbers))),
-                          '\n\tEntity %s: Residues %s' % (entity2.name, ', '.join(map(str, entity2_res_numbers)))))
+                          '\n\tEntity %s: Residues %s' % (entity1.name, ', '.join(map(str, residue_numbers1))),
+                          '\n\tEntity %s: Residues %s' % (entity2.name, ', '.join(map(str, residue_numbers2)))))
 
-        surface_frags1 = entity1.get_fragments(residue_numbers=entity1_res_numbers, representatives=self.frag_db.reps)
-        surface_frags2 = entity2.get_fragments(residue_numbers=entity2_res_numbers, representatives=self.frag_db.reps)
+        surface_frags1 = entity1.get_fragments(residue_numbers=residue_numbers1, representatives=self.fragment_db.reps)
+        surface_frags2 = entity2.get_fragments(residue_numbers=residue_numbers2, representatives=self.fragment_db.reps)
 
         if not surface_frags1 or not surface_frags2:
             self.log.info('No fragments found at the %s | %s interface' % (entity1.name, entity2.name))
@@ -3114,7 +3114,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = \
-            find_fragment_overlap_at_interface(entity1_coords, surface_frags1, surface_frags2, fragdb=self.frag_db,
+            find_fragment_overlap_at_interface(entity1_coords, surface_frags1, surface_frags2, fragdb=self.fragment_db,
                                                euler_lookup=self.euler_lookup)
         self.log.info('Found %d overlapping fragment pairs at the %s | %s interface.'
                       % (len(ghostfrag_surfacefrag_pairs), entity1.name, entity2.name))
@@ -3308,13 +3308,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.log.debug('Found interface secondary structure: %s' % self.split_interface_ss_elements)
 
     def interface_design(self, evolution=True, fragments=True, query_fragments=False, fragment_source=None,
-                         write_fragments=True, frag_db='biological_interfaces', des_dir=None):  # Todo deprec. des_dir
-        """Take the provided PDB, and use the ASU to compute calculations relevant to interface design.
-
-        This process identifies the ASU (if one is not explicitly provided, enables Pose symmetry,
+                         write_fragments=True, fragment_db='biological_interfaces', des_dir=None):  # Todo deprec. des_dir
+        """Compute calculations relevant to interface design.
 
         Sets:
-            design_dir.info['fragments'] to True if fragments are queried
+            self.pssm_file (Union[str, bytes]
         """
         # Ensure ASU. This should be done on loading from PDB file with Pose.from_asu()/Pose.from_pdb()
         # save self.asu to design_dir.asu now that we have cleaned any chain issues and renumbered residues
@@ -3356,12 +3354,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             if query_fragments:  # search for new fragment information
                 self.generate_interface_fragments(out_path=des_dir.frags, write_fragments=write_fragments)
             else:  # No fragment query, add existing fragment information to the pose
-                if not self.frag_db:
-                    self.connect_fragment_database(source=frag_db, init=False)  # no need to initialize
+                if not self.fragment_db:
+                    self.connect_fragment_database(source=fragment_db, init=False)  # no need to initialize
                     # Attach an existing FragmentDB to the Pose
-                    self.attach_fragment_database(db=self.frag_db)
+                    self.attach_fragment_database(db=self.fragment_db)
                     for entity in self.entities:
-                        entity.attach_fragment_database(db=self.frag_db)
+                        entity.attach_fragment_database(db=self.fragment_db)
 
                 if fragment_source is None:
                     raise DesignError('Fragments were set for design but there were none found! Try including '
@@ -3390,8 +3388,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                                                            fragment_info))
                 for query_idx, entity in enumerate(query_pair):
                     # # Attach an existing FragmentDB to the Pose
-                    # entity.connect_fragment_database(location=frag_db, db=design_dir.frag_db)
-                    entity.attach_fragment_database(db=self.frag_db)
+                    # entity.connect_fragment_database(location=fragment_db, db=design_dir.fragment_db)
+                    entity.attach_fragment_database(db=self.fragment_db)
                     entity.assign_fragments(fragments=fragment_info,
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
         for entity in self.entities:
@@ -3605,7 +3603,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """Generate a new connection. Initialize the representative library by passing init=True"""
         if not source:  # Todo fix once multiple are available
             source = 'biological_interfaces'
-        self.frag_db = FragmentDatabase(source=source, init_db=init)
+        self.fragment_db = FragmentDatabase(source=source, init_db=init)
         #                               source=source, init_db=init_db)
 
     def generate_interface_fragments(self, write_fragments: bool = True, out_path: Union[str, bytes] = None):
@@ -3617,7 +3615,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             out_path: The location to write each fragment file
             # new_db: Whether a fragment database should be initialized for the interface fragment search
         """
-        if not self.frag_db:  # There is no fragment database connected
+        if not self.fragment_db:  # There is no fragment database connected
             # Connect to a new DB, Todo parameterize which one should be used with source=
             self.connect_fragment_database(init=True)  # default init=False, we need an initiated one to generate frags
 
@@ -3643,7 +3641,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def write_fragment_pairs(self, ghostfrag_surffrag_pairs, out_path=os.getcwd()):
         for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
-            fragment, _ = dictionary_lookup(self.frag_db.paired_frags, interface_ghost_frag.get_ijk())
+            fragment, _ = dictionary_lookup(self.fragment_db.paired_frags, interface_ghost_frag.get_ijk())
             trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_fragment.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_match_%d.pdb'
                                                          % (*interface_ghost_frag.get_ijk(), idx)))
