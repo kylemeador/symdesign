@@ -2,8 +2,8 @@ from logging import Logger
 import os
 import sys
 import time
-from itertools import repeat
-from math import ceil, floor
+from math import floor
+from typing import Union
 
 import numpy as np
 from sklearn.neighbors import BallTree
@@ -15,7 +15,7 @@ from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_lo
     calculate_match, z_value_from_match_score, unpickle, set_logging_to_debug
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
-    transform_coordinate_sets, get_rotation_step, write_docking_parameters, transform_coordinates
+    transform_coordinate_sets, get_rotation_step, write_docking_parameters
 from utils.PDBUtils import get_contacting_asu, get_interface_residues
 from utils.SymmetryUtils import generate_cryst1_record, get_central_asu
 from classes.EulerLookup import EulerLookup
@@ -426,22 +426,21 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     for entity in pdb2.entities:
         entity.retrieve_sequence_from_api()
 
-    # TODO reinstate # Output Directory  # Todo DesignDirectory
-    # building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
-    # outdir = os.path.join(master_outdir, building_blocks)
-    # os.makedirs(outdir, exist_ok=True)
-    # if log is None:
-    #     log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
-    # else:
-    #     log_file_path = getattr(log.handlers[0], 'baseFilename', None)
-    # if not log_file_path:
-    #     # we are probably logging to stream and we need to check another method to see if output exists
-    #     resume = False
-    # else:  # it has been set. Does it exist?
-    #     resume = True if os.path.exists(log_file_path) else False
-    #
-    # log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
-    resume = False
+    # Output Directory  # Todo DesignDirectory
+    building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
+    outdir = os.path.join(master_outdir, building_blocks)
+    os.makedirs(outdir, exist_ok=True)
+    if log is None:
+        log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
+    else:
+        log_file_path = getattr(log.handlers[0], 'baseFilename', None)
+    if not log_file_path:
+        # we are probably logging to stream and we need to check another method to see if output exists
+        resume = False
+    else:  # it has been set. Does it exist?
+        resume = True if os.path.exists(log_file_path) else False
+
+    log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
     pdb1.log = log
     pdb2.log = log
 
@@ -537,30 +536,31 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
 
     get_complete_ghost_frags1_time_stop = time.time()
     #################################
-    # TODO REMOVE write out frags
-    guide_file_ghost = os.path.join(os.getcwd(), '%s_ghost_coords.txt' % pdb1.name)
-    with open(guide_file_ghost, 'w') as f:
-        for coord_group in ghost_frag1_guide_coords.tolist():
-            f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
-    guide_file_ghost_idx = os.path.join(os.getcwd(), '%s_ghost_coords_index.txt' % pdb1.name)
-    with open(guide_file_ghost_idx, 'w') as f:
-        f.write('%s\n' % '\n'.join(map(str, ghost_frag1_j_indices.tolist())))
-    guide_file_ghost_res_num = os.path.join(os.getcwd(), '%s_ghost_coords_residue_number.txt' % pdb1.name)
-    with open(guide_file_ghost_res_num, 'w') as f:
-        f.write('%s\n' % '\n'.join(map(str, ghost_frag1_residues.tolist())))
+    write_frags = False
+    if write_frags:  # implemented for Todd to work on C1 instances
+        guide_file_ghost = os.path.join(os.getcwd(), '%s_ghost_coords.txt' % pdb1.name)
+        with open(guide_file_ghost, 'w') as f:
+            for coord_group in ghost_frag1_guide_coords.tolist():
+                f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
+        guide_file_ghost_idx = os.path.join(os.getcwd(), '%s_ghost_coords_index.txt' % pdb1.name)
+        with open(guide_file_ghost_idx, 'w') as f:
+            f.write('%s\n' % '\n'.join(map(str, ghost_frag1_j_indices.tolist())))
+        guide_file_ghost_res_num = os.path.join(os.getcwd(), '%s_ghost_coords_residue_number.txt' % pdb1.name)
+        with open(guide_file_ghost_res_num, 'w') as f:
+            f.write('%s\n' % '\n'.join(map(str, ghost_frag1_residues.tolist())))
 
-    guide_file_surf = os.path.join(os.getcwd(), '%s_surf_coords.txt' % pdb2.name)
-    with open(guide_file_surf, 'w') as f:
-        for coord_group in surf_frags2_guide_coords.tolist():
-            f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
-    guide_file_surf_idx = os.path.join(os.getcwd(), '%s_surf_coords_index.txt' % pdb2.name)
-    with open(guide_file_surf_idx, 'w') as f:
-        f.write('%s\n' % '\n'.join(map(str, surf_frags2_i_indices.tolist())))
-    guide_file_surf_res_num = os.path.join(os.getcwd(), '%s_surf_coords_residue_number.txt' % pdb2.name)
-    with open(guide_file_surf_res_num, 'w') as f:
-        f.write('%s\n' % '\n'.join(map(str, surf_frag2_residues.tolist())))
+        guide_file_surf = os.path.join(os.getcwd(), '%s_surf_coords.txt' % pdb2.name)
+        with open(guide_file_surf, 'w') as f:
+            for coord_group in surf_frags2_guide_coords.tolist():
+                f.write('%s\n' % ' '.join('%f,%f,%f' % tuple(coords) for coords in coord_group))
+        guide_file_surf_idx = os.path.join(os.getcwd(), '%s_surf_coords_index.txt' % pdb2.name)
+        with open(guide_file_surf_idx, 'w') as f:
+            f.write('%s\n' % '\n'.join(map(str, surf_frags2_i_indices.tolist())))
+        guide_file_surf_res_num = os.path.join(os.getcwd(), '%s_surf_coords_residue_number.txt' % pdb2.name)
+        with open(guide_file_surf_res_num, 'w') as f:
+            f.write('%s\n' % '\n'.join(map(str, surf_frag2_residues.tolist())))
 
-    raise RuntimeError('Suspending operation of %s/%s after write' % (pdb1.name, pdb2.name))
+        raise RuntimeError('Suspending operation of %s/%s after write' % (pdb1.name, pdb2.name))
 
     ij_type_match_lookup_table = compute_ij_type_lookup(ghost_frag1_j_indices, surf_frags2_i_indices)
     # ^ axis 0 is ghost frag, 1 is surface frag
