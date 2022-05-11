@@ -1,7 +1,7 @@
 symmetry_name T23
 subunits 12
 number_of_interfaces 11
-E = 2*DB11+1*(DB11:DB21)+1*(DB11:DB31)+1*(DB11:DB12)+1*(DB11:DB41)+1*(DB11:DB51)+1*(DB11:DB22)+1*(DB11:DB42)+1*(DB11:DB61)+1*(DB11:DB32)+1*(DB11:DB52)+1*(DB11:DB62)
+E = 12*DB11+6*(DB11:DB21)+6*(DB11:DB31)+6*(DB11:DB12)+6*(DB11:DB41)+6*(DB11:DB51)+6*(DB11:DB22)+6*(DB11:DB42)+6*(DB11:DB61)+6*(DB11:DB32)+6*(DB11:DB52)+6*(DB11:DB62)
 anchor_residue COM
 #
 virtual_coordinates_start
