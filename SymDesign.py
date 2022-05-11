@@ -566,7 +566,7 @@ if __name__ == '__main__':
                         help='Number of cores to use with --multiprocessing. If -mp is run in a cluster environment, '
                              'the number of cores will reflect the allocation provided by the cluster, otherwise, '
                              'specify the number of cores\nDefault=#ofCores - 1')
-    parser.add_argument('-d', '--directory', type=os.path.abspath, metavar=ex_path('your_pdb_files'),
+    parser.add_argument('-d', '--directory', type=os.path.abspath, metavar=SDUtils.ex_path('your_pdb_files'),
                         help='Master directory where poses to be designed with %s are located. This may be the output '
                              'directory from %s.py, a random directory with poses requiring interface design, or the '
                              'output from %s. If the directory lives in a %sOutput directory, all projects within the '
@@ -577,13 +577,13 @@ if __name__ == '__main__':
                         help='The range of designs to consider from a larger chunk of work to complete. The argument '
                              'should specify a percentage of work from 0-100 and should separate two numbers by a '
                              'single "-". Ex: 25-50', default=None)
-    parser.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=ex_path('Metrics.csv'),
+    parser.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=SDUtils.ex_path('Metrics.csv'),
                         help='A DataFrame created by %s analysis containing pose info. File is .csv, named such as '
                              'Metrics.csv' % PUtils.program_name)
     parser.add_argument('-fc', '--fuse_chains', type=str, nargs='*', default=[],
                         help='The name of a pair of chains to fuse during design. Pairs should be separated by a colon,'
                              ' new instances by a space. Ex --fuse_chains A:B C:D')
-    parser.add_argument('-f', '--file', type=os.path.abspath, metavar=ex_path('file_with_directory_names.txt'),
+    parser.add_argument('-f', '--file', type=os.path.abspath, metavar=SDUtils.ex_path('file_with_directory_names.txt'),
                         help='File with location(s) of %s designs. For each run of %s, a file will be created '
                              'specifying the specific directories to use in subsequent %s commands of the same designs.'
                              ' If pose-IDs are specified in a file, say as the result of %s or %s, in addition to the '
@@ -591,7 +591,8 @@ if __name__ == '__main__':
                              % (PUtils.program_name, PUtils.program_name, PUtils.program_name, PUtils.analysis,
                                 PUtils.select_designs, PUtils.program_name),
                         default=None, nargs='*')
-    parser.add_argument('-sf', '--specification_file', type=str, metavar=ex_path('pose_design_specifications.csv'),
+    parser.add_argument('-sf', '--specification_file', type=str,
+                        metavar=SDUtils.ex_path('pose_design_specifications.csv'),
                         help='Name of comma separated file with each line formatted:\n'
                              'poseID, [designID], [residue_number:design_directive '
                              'residue_number2-residue_number9:directive ...]')
@@ -618,14 +619,14 @@ if __name__ == '__main__':
                         help='If provided, the name of the output designs file. If blank, one will be automatically '
                              'generated based off input_location, module, and the time.')
     parser.add_argument('-p', '--project', type=os.path.abspath, nargs='*',
-                        metavar=ex_path('SymDesignOutput', 'Projects', 'your_project(s)'),
+                        metavar=SDUtils.ex_path('SymDesignOutput', 'Projects', 'your_project(s)'),
                         help='If you wish to operate on designs specified by a whole project, which project(s) to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
                         help='Should commands be executed at %s runtime? In most cases, it won\'t maximize cassini\'s '
                              'computational resources. Additionally, all computation may fail on a single trajectory '
                              'mistake.\nDefault=False' % PUtils.program_name)
     parser.add_argument('-s', '--single', type=os.path.abspath, nargs='*',
-                        metavar=ex_path('SymDesignOutput', 'Projects', 'your_project', 'single_design(s)[.pdb]'),
+                        metavar=SDUtils.ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design(s)[.pdb]'),
                         help='If you wish to operate on designs specified by a single pose, which pose(s) to use?')
     parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
                         help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
@@ -693,8 +694,8 @@ if __name__ == '__main__':
     parser_dock.add_argument('-o', '--outdir', type=str, dest='output_directory', default=None,
                              # default=os.path.join(os.getcwd(), PUtils.program_output, PUtils.data.title()),
                              help='Where should the output from commands be written?\n'
-                                  'Default=%s' % ex_path(PUtils.program_output, PUtils.data.title(),
-                                                         'NanohedraEntry[ENTRYNUMBER]DockedPoses'))
+                                  'Default=%s' % SDUtils.ex_path(PUtils.program_output, PUtils.data.title(),
+                                                                 'NanohedraEntry[ENTRYNUMBER]DockedPoses'))
     dock1_group = parser_dock.add_mutually_exclusive_group(required=True)
     dock2_group = parser_dock.add_mutually_exclusive_group()
     dock1_group.add_argument('-c1', '--pdb_codes1', type=os.path.abspath,
@@ -827,12 +828,12 @@ if __name__ == '__main__':
                                                'prioritized' % PUtils.analysis)
     filter_required = parser_filter.add_mutually_exclusive_group(required=True)
     # filter_required.add_argument('-df', '--dataframe', type=os.path.abspath,
-    #                              metavar=ex_path('AllPoseDesignMetrics.csv'),
+    #                              metavar=SDUtils.ex_path('AllPoseDesignMetrics.csv'),
     #                              help='Dataframe.csv from analysis containing pose info.')
     filter_required.add_argument('-m', '--metric', type=str,
                                  help='If a simple metric filter is required, what metric would you like to sort '
                                       'Designs by?', choices=['score', 'fragments_matched'])
-    filter_required.add_argument('-pf', '--pose_design_file', type=str, metavar=ex_path('pose_design.csv'),
+    filter_required.add_argument('-pf', '--pose_design_file', type=str, metavar=SDUtils.ex_path('pose_design.csv'),
                                  help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_filter.add_argument('--filter', action='store_true',
                                help='Whether to filter sequence selection using metrics from DataFrame')
@@ -1037,8 +1038,9 @@ if __name__ == '__main__':
             logger.info()
         elif args.module == 'visualize':
             logger.info('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --design_range 0-10'
-                        % (ex_path('pymol'), PUtils.program_command.replace('python ', ''), ex_path('design_directory'),
-                           ex_path('DataFrame.csv'), ex_path('design.paths')))
+                        % (SDUtils.ex_path('pymol'), PUtils.program_command.replace('python ', ''),
+                           SDUtils.ex_path('design_directory'), SDUtils.ex_path('DataFrame.csv'),
+                           SDUtils.ex_path('design.paths')))
         exit()
     # -----------------------------------------------------------------------------------------------------------------
     # Process arguments for program initialization
