@@ -263,7 +263,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             # for entry_entity in entities:  # ex: 1ABC_1
             # symmetry = master_directory.sym_entry.sym_map[idx]
             if entity.symmetry == 'C1':
-                sym_def_files[entity.symmetry] = sdf_lookup(None)
+                sym_def_files[entity.symmetry] = sdf_lookup()
             else:
                 sym_def_files[entity.symmetry] = sdf_lookup(entity.symmetry)
             # for entry_entity in entities:

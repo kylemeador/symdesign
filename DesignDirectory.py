@@ -47,7 +47,6 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
 from classes.SymEntry import SymEntry, sdf_lookup, identity_matrix
 from Database import FragmentDatabase
-from utils.SymmetryUtils import valid_subunit_number
 
 
 # Globals
