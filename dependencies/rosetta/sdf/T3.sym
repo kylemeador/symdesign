@@ -1,7 +1,7 @@
 symmetry_name T3
 subunits 12
 number_of_interfaces 11
-E = 2*B1_1+1*(B1_1:B1_2)+1*(B1_1:B1_3)+1*(B1_1:B2_1)+1*(B1_1:B2_2)+1*(B1_1:B2_3)+1*(B1_1:B3_1)+1*(B1_1:B3_2)+1*(B1_1:B3_3)+1*(B1_1:B4_1)+1*(B1_1:B4_2)+1*(B1_1:B4_3)
+E = 12*B114*(B11:B12)4*(B11:B13)4*(B11:B21)4*(B11:B22)4*(B11:B23)4*(B11:B31)4*(B11:B32)4*(B11:B33)4*(B11:B41)4*(B11:B42)4*(B11:B43)
 anchor_residue COM
 #
 virtual_coordinates_start

@@ -1,7 +1,7 @@
 symmetry_name O
 subunits 24
 number_of_interfaces 23
-E = 2*VRT_0_base + 1*(VRT_0_base:VRT_1_base) + 1*(VRT_0_base:VRT_2_base) + 1*(VRT_0_base:VRT_3_base) + 1*(VRT_0_base:VRT_4_base) + 1*(VRT_0_base:VRT_5_base) + 1*(VRT_0_base:VRT_6_base) + 1*(VRT_0_base:VRT_7_base) + 1*(VRT_0_base:VRT_8_base) + 1*(VRT_0_base:VRT_9_base) + 1*(VRT_0_base:VRT_10_base) + 1*(VRT_0_base:VRT_11_base) + 1*(VRT_0_base:VRT_12_base) + 1*(VRT_0_base:VRT_13_base) + 1*(VRT_0_base:VRT_14_base) + 1*(VRT_0_base:VRT_15_base) + 1*(VRT_0_base:VRT_16_base) + 1*(VRT_0_base:VRT_17_base) + 1*(VRT_0_base:VRT_18_base) + 1*(VRT_0_base:VRT_19_base) + 1*(VRT_0_base:VRT_20_base) + 1*(VRT_0_base:VRT_21_base) + 1*(VRT_0_base:VRT_22_base) + 1*(VRT_0_base:VRT_23_base)
+E = 24*B1+24*(B1:B2)+24*(B1:B3)+24*(B1:B4)+24*(B1:B5)+24*(B1:B6)+24*(B1:B7)+24*(B1:B8)+24*(B1:B9)+24*(B1:B10)+24*(B1:B11)+24*(B1:B12)+24*(B1:B13)+24*(B1:B14)+24*(B1:B15)+24*(B1:B16)+24*(B1:B17)+24*(B1:B18)+24*(B1:B19)+24*(B1:B20)+24*(B1:B21)+24*(B1:B22)+24*(B1:B23)+24*(B1:B24)
 anchor_residue COM
 virtual_coordinates_start
 # NEW ACCORDING TO T33.sym # OLD
