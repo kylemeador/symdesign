@@ -263,33 +263,42 @@ def rand_perturb(pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matri
 
 
 def sample_rot_tx_dof_coords(pdb, rot_step_deg=1, rot_range_deg=0, tx_step=1, start_tx_range=0, end_tx_range=0, axis="z", rotational_setting_matrix=None, degeneracy=None):
+    def get_rot_matrices(step_deg, axis='z', rot_range_deg=360):
+        """Return a group of rotation matrices to rotate coordinates about a specified axis in set step increments
 
-    def get_rot_matrices(step_deg, axis, rot_range_deg):
+        Args:
+            step_deg (int): The number of degrees for each rotation step
+        Keyword Args:
+            axis='z' (str): The axis about which to rotate
+            rot_range_deg=360 (int): The range with which rotation is possible
+        Returns:
+            (numpy.ndarray): The rotation matrices with shape (rotations, 3, 3) # list[list[list]])
+        """
+        if rot_range_deg == 0:
+            return
+
         rot_matrices = []
+        axis = axis.lower()
         if axis == 'x':
             for angle_deg in range(0, rot_range_deg, step_deg):
                 rad = math.radians(float(angle_deg))
-                rotmatrix = [[1, 0, 0], [0, math.cos(rad), -1 * math.sin(rad)], [0, math.sin(rad), math.cos(rad)]]
-                rot_matrices.append(rotmatrix)
-            return rot_matrices
-
+                rot_matrices.append(
+                    [[1, 0, 0], [0, math.cos(rad), -1 * math.sin(rad)], [0, math.sin(rad), math.cos(rad)]])
         elif axis == 'y':
             for angle_deg in range(0, rot_range_deg, step_deg):
                 rad = math.radians(float(angle_deg))
-                rotmatrix = [[math.cos(rad), 0, math.sin(rad)], [0, 1, 0], [-1 * math.sin(rad), 0, math.cos(rad)]]
-                rot_matrices.append(rotmatrix)
-            return rot_matrices
-
+                rot_matrices.append(
+                    [[math.cos(rad), 0, math.sin(rad)], [0, 1, 0], [-1 * math.sin(rad), 0, math.cos(rad)]])
         elif axis == 'z':
             for angle_deg in range(0, rot_range_deg, step_deg):
                 rad = math.radians(float(angle_deg))
-                rotmatrix = [[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]]
-                rot_matrices.append(rotmatrix)
-            return rot_matrices
-
+                rot_matrices.append(
+                    [[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]])
         else:
-            pdb.log.error('Axis selected for sampling is not supported!')
+            print('Axis \'%s\' is not supported' % axis)
             return
+
+        return np.array(rot_matrices)
 
     def get_tx_matrices(step, axis, start_range, end_range):
         if axis == "x":
