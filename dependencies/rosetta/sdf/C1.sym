@@ -1,0 +1,15 @@
+symmetry_name C1
+E = 1*VRT0_base
+anchor_residue COM
+virtual_coordinates_start
+xyz VRT 1,0,0 0,1,0 0,0,0
+xyz VRT0 1,0,0 0,1,0 0,0,0
+xyz VRT0_base 1,0,0 0,1,0 0,0,0
+virtual_coordinates_stop
+connect_virtual JUMP0 VRT VRT0
+connect_virtual JUMP0_to_com VRT0 VRT0_base
+connect_virtual JUMP0_to_subunit VRT0_base SUBUNIT
+set_dof JUMP0_to_com x y z
+set_dof JUMP0_to_subunit angle_x angle_y angle_z
+set_jump_group JUMPGROUP1 JUMP0_to_com
+set_jump_group JUMPGROUP2 JUMP0_to_subunit
