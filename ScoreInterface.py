@@ -5,23 +5,18 @@ from itertools import repeat
 import pandas as pd
 
 from Pose import Pose
+import PathUtils as PUtils
 from SymDesignUtils import start_log, unpickle, get_all_file_paths, to_iterable, mp_starmap, set_logging_to_debug
-# from symdesign.interface_analysis.InterfaceSorting import return_pdb_interface
 from classes.EulerLookup import EulerLookup
-from Database import FragmentDB
 
 # Globals
-# Nanohedra.py Path
-main_script_path = os.path.dirname(os.path.realpath(__file__))
-
 # Create fragment database for all ijk cluster representatives
-ijk_frag_db = FragmentDB()
-# Get complete IJK fragment representatives database dictionaries
-ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
-ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
-ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
-if not ijk_intfrag_cluster_rep_dict:
-    print('No reps found!')
+ijk_frag_db = unpickle(PUtils.biological_fragment_db_pickle)
+# ijk_frag_db = FragmentDB()
+# # Get complete IJK fragment representatives database dictionaries
+# ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
+# ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
+# ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
 
 # Initialize Euler Lookup Class
 eul_lookup = EulerLookup()
