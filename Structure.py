@@ -26,8 +26,7 @@ from SequenceProfile import SequenceProfile, generate_mutations, generate_alignm
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
     origin
 from utils.GeneralUtils import transform_coordinate_sets
-from utils.SymmetryUtils import get_ptgrp_sym_op, valid_subunit_number, multicomponent_valid_subunit_number, \
-    cubic_point_groups
+from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators
 
 # globals
 logger = start_log(name=__name__)
@@ -4049,10 +4048,9 @@ class Entity(Chain, SequenceProfile):
             if symmetry == 'C1':  # not symmetric
                 return
             elif symmetry in cubic_point_groups:
-                # self.symmetry = possible_symmetries.get(symmetry, None)
-                rotation_matrices = get_ptgrp_sym_op(symmetry)
-                # Todo may need to add T degeneracy here!
-                degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
+                # must transpose these along last axis as they are pre-transposed upon creation
+                rotation_matrices = point_group_symmetry_operators[symmetry].swapaxes(-2, -1)
+                degeneracy_matrices = None  # Todo may need to add T degeneracy here!
             elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
                 rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
                 degeneracy_rotation_matrices = \
