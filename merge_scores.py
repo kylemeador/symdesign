@@ -35,7 +35,7 @@ if __name__ == '__main__':
                         , default=None)
     parser.add_argument('-m', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
     args = parser.parse_args()
 
     # Start logging output

@@ -136,7 +136,7 @@ if __name__ == '__main__':
     parser.add_argument('-w', '--wildtype', type=str, help='Where is the wild-type PDB located?', default=None)
     parser.add_argument('-p', '--print', action='store_true', help='Print the output the the console? Default=False')
     parser.add_argument('-s', '--score', type=str, help='Where is the score file located?', default=None)
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out? Default=False')
+    parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out? Default=False')
 
     args = parser.parse_args()
     # Start logging output

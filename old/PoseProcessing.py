@@ -698,7 +698,7 @@ if __name__ == '__main__':
                                                                      'Default=False')
     parser.add_argument('-p', '--mpi', action='store_true', help='Should job be set up for cluster submission?\n'
                                                                  'Default=False')
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
     args = parser.parse_args()
     extras = ''
 

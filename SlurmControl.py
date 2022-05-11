@@ -161,7 +161,7 @@ if __name__ == '__main__':
                         default=None, required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
     parser.add_argument('-e', '--exclude', action='store_true',
                         help='Whether to exclude ID\'s identified through job search')
     subparsers = parser.add_subparsers(title='SubModules', dest='sub_module',

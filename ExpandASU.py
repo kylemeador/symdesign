@@ -26,7 +26,7 @@ if __name__ == '__main__':
                                                  '0, 0, 0) and if multiple files are specified, all have the same '
                                                  'symmetry. Garbage in, garbage out,')
     # ---------------------------------------------------
-    parser.add_argument('-b', '--debug', action='store_true', help='Whether to run in debug mode')
+    parser.add_argument('--debug', action='store_true', help='Whether to run in debug mode')
     parser.add_argument('-f', '--file', type=str, help='A single .pdb file or file with list of .pdb files you wish to '
                                                        'expand', required=True)
     parser.add_argument('-o', '--out_path', type=str, help='The output path of the expanded pdb')
