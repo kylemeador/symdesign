@@ -17,12 +17,12 @@ from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_le
     protein_letters_1to3_extended
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
-    reference_residues_pkl, free_sasa_configuration_path, orient_dir, orient_exe_path
+    reference_residues_pkl, free_sasa_configuration_path
 # from ProteinExpression import find_expression_tags, remove_expression_tags
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
     retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
-from SequenceProfile import SequenceProfile, generate_mutations, generate_alignment
+from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
     origin
 from utils.GeneralUtils import transform_coordinate_sets
@@ -4053,15 +4053,15 @@ class Entity(Chain, SequenceProfile):
                 degeneracy_matrices = None  # Todo may need to add T degeneracy here!
             elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
                 rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
-                degeneracy_rotation_matrices = \
-                    get_degen_rotmatrices(degeneracy_matrices=flip_x_matrix, rotation_matrices=rotation_matrices)
-            else:
+                degeneracy_matrices = flip_x_matrix
+            else:  # symmetry is cyclic
                 rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
-                degeneracy_rotation_matrices = get_degen_rotmatrices(rotation_matrices=rotation_matrices)
+                degeneracy_matrices = None
+            degeneracy_rotation_matrices = get_degen_rotmatrices(degeneracy_matrices=degeneracy_matrices,
+                                                                 rotation_matrices=rotation_matrices)
         except KeyError:
             raise ValueError('The symmetry %s is not a viable symmetry! You should try to add compatibility for it'
                              ' if you believe this is a mistake' % symmetry)
-
         self.symmetry = symmetry
         self.is_oligomeric = True
         if rotation is None:
@@ -4074,7 +4074,7 @@ class Entity(Chain, SequenceProfile):
         if rotation2 is None:
             rotation2, inv_rotation2 = identity_matrix, identity_matrix
         else:
-            inv_setting = np.linalg.inv(rotation2)
+            inv_rotation2 = np.linalg.inv(rotation2)
         if translation2 is None:
             translation2 = origin
         # this is helpful for dihedral symmetry as entity must be transformed to origin to get canonical dihedral
@@ -4086,7 +4086,7 @@ class Entity(Chain, SequenceProfile):
         cb_coords = self.get_cb_coords()
         centered_coords = transform_coordinate_sets(cb_coords, translation=-translation2)
 
-        centered_coords_inv = transform_coordinate_sets(centered_coords, rotation=inv_setting,
+        centered_coords_inv = transform_coordinate_sets(centered_coords, rotation=inv_rotation2,
                                                         translation=-translation, rotation2=inv_rotation)
         # debug_pdb = self.chain_representative.__copy__()
         # debug_pdb.replace_coords(centered_coords_inv)
@@ -4111,7 +4111,7 @@ class Entity(Chain, SequenceProfile):
         for degeneracy_matrices in degeneracy_rotation_matrices:
             for rotation_matrix in degeneracy_matrices:
                 number_of_monomers += 1
-                rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=np.array(rotation_matrix))
+                rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
                 # debug_pdb2 = self.chain_representative.__copy__()
                 # debug_pdb2.replace_coords(rot_centered_coords)
                 # debug_pdb2.write(out_path='invert_set_invert_rot_ROT-%d%s.pdb' % (idx, self.name))
