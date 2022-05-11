@@ -870,7 +870,8 @@ class DesignDirectory:  # (JobResources):
         return wrapped
         # return wrapper
 
-    def start_log(self, level: int = 2):
+    def start_log(self, level: int = 2) -> None:
+        """Initialize the logger for the Pose"""
         if self.log:
             return
 
@@ -883,27 +884,22 @@ class DesignDirectory:  # (JobResources):
 
         if self.skip_logging:  # set up null_logger
             self.log = null_log
-            # self.log = start_log(name=str(self), handler=1, level=level, propagate=propagate)
         elif self.nanohedra_output and not self.construct_pose:
-            # self.log = start_log(name=str(self), handler=handler, level=level, propagate=propagate)
             self.log = start_log(name=str(self), handler=3, propagate=True, no_log_name=no_log_name)
         else:
             self.log = start_log(name=str(self), handler=handler, level=level,
                                  location=os.path.join(self.path, self.name), propagate=propagate,
                                  no_log_name=no_log_name)
 
-    def directory_string_to_path(self, root, pose_id):
+    def directory_string_to_path(self, root: Union[str, bytes], pose_id: str):
         """Set the DesignDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
          path separators"""
         assert root, 'No program directory attribute set! Cannot create a path from a pose_id without a root directory!' \
                      ' Pass both -f with the pose_id\'s and -d with the specified directory'
-        # assert self.program_root, 'No program_root attribute set! Cannot create a path from a pose_id without a ' \
-        #                           'program_root!'
         if self.nanohedra_output:
             self.path = os.path.join(root, pose_id.replace('-', os.sep))
         else:
             self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
-        # .replace('Projects-', 'Projects%s' % os.sep)  .replace('-', os.sep))
 
     # def link_master_directory(self, master_db=None):  # UNUSED. Could be useful in case where root is unknown
     #     """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes
@@ -1093,8 +1089,7 @@ class DesignDirectory:  # (JobResources):
                     self.source = sorted(glob(os.path.join(self.path, '%s.pdb' % self.name)))[0]
                 except IndexError:  # glob found no files
                     self.source = None
-        else:
-            # if the DesignDirectory is loaded as .pdb, the source should be loaded already
+        else:  # if the DesignDirectory is loaded as .pdb, the source should be loaded already
             # self.source = self.init_pdb
             pass
 
@@ -1767,14 +1762,13 @@ class DesignDirectory:  # (JobResources):
             raise DesignError('The design could not be transformed as it is missing the required transformation '
                               'parameters. Were they generated properly?')
 
-    def get_oligomers(self, refined=True, oriented=False):
+    def get_oligomers(self, refined: bool = True, oriented: bool = False):
         """Retrieve oligomeric files from either the design Database, the oriented directory, or the refined directory,
         or the design directory, and load them into job for further processing
 
-        Keyword Args:
-            master_db=None (Database): The Database object which stores relevant files
-            refined=False (bool): Whether to use the refined oligomeric directory
-            oriented=False (bool): Whether to use the oriented oligomeric directory
+        Args:
+            refined: Whether to use the refined oligomeric directory
+            oriented: Whether to use the oriented oligomeric directory
         Sets:
             self.oligomers (list[PDB])
         """
@@ -1846,15 +1840,15 @@ class DesignDirectory:  # (JobResources):
         assert len(self.oligomers) == len(self.entity_names), \
             'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.entity_names))
 
-    def load_pose(self, source=None, entities=None):
+    def load_pose(self, source: str = None, entities: List[Structure] = None):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
 
         Handles clash testing and writing the assembly if those options are True
 
-        Keyword Args:
-            source=None (str): The file path to a source file
-            entities=None (list[Structure]): The Entities desired in the Pose
+        Args:
+            source: The file path to a source file
+            entities: The Entities desired in the Pose
         """
         if self.pose and not source and not entities:  # pose is already loaded and nothing new provided
             return
@@ -1876,8 +1870,6 @@ class DesignDirectory:  # (JobResources):
         elif self.init_pdb:  # this is a fresh pose, and we already loaded so reuse
             # careful, if some processing to the pdb has since occurred then this will be wrong!
             pdb = self.init_pdb
-            # for entity in pdb.entities:
-            #     print('init', entity.name, entity.chain)
         else:
             pdb = PDB.from_file(source if source else self.source, entity_names=self.entity_names, log=self.log)
             #                              pass names if available ^

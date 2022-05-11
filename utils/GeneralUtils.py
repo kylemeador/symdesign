@@ -42,20 +42,19 @@ def transform_coordinates(coords, rotation=None, translation=None, rotation2=Non
 
 
 # @njit
-def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotation2=None, translation2=None) \
-        -> numpy.ndarray:
+def transform_coordinate_sets(coord_sets: np.ndarray, rotation: np.ndarray = None, translation: np.ndarray = None,
+                              rotation2: np.ndarray = None, translation2: np.ndarray = None) -> np.ndarray:
     """Take multiple sets of x,y,z coordinates and transform. Transformation proceeds by matrix multiplication with the
     order of operations as: rotation, translation, rotation2, translation2
 
     Args:
-        coord_sets (union[numpy.ndarray,list]): The coordinates to transform, can be shape (number of coordinates, 3, 3)
-    Keyword Args:
-        rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
-        translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
-        rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
-        translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
+        coord_sets: The coordinates to transform, can be shape (number of sets, number of coordinates, 3)
+        rotation: The first rotation to apply, expected general rotation matrix shape (number of sets, 3, 3)
+        translation: The first translation to apply, expected shape (number of sets, 3)
+        rotation2: The second rotation to apply, expected general rotation matrix shape (number of sets, 3, 3)
+        translation2: The second translation to apply, expected shape (number of sets, 3)
     Returns:
-        (numpy.ndarray): The transformed coordinate set with the same shape as the original
+        The transformed coordinate set with the same shape as the original
     """
     # in general, the np.tensordot module accomplishes this coordinate set multiplication without stacking
     # np.tensordot(a, b, axes=1)  <-- axes=1 performs the correct multiplication with a 3d (3,3,N) by 2d (3,3) matrix
@@ -65,14 +64,12 @@ def transform_coordinate_sets(coord_sets, rotation=None, translation=None, rotat
         return coord_sets
 
     if rotation is not None:
-        # coord_sets = np.tensordot(coord_sets, np.transpose(rot_mat), axes=1)
         coord_sets = np.matmul(coord_sets, rotation.swapaxes(-2, -1))
 
     if translation is not None:
         coord_sets += translation
 
     if rotation2 is not None:
-        # coord_sets = np.tensordot(coord_sets, np.transpose(set_mat), axes=1)
         coord_sets = np.matmul(coord_sets, rotation2.swapaxes(-2, -1))
 
     if translation2 is not None:

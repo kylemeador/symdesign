@@ -14,7 +14,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
-from typing import List, Union, Iterable, Iterator, Tuple, Sequence
+from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any
 
 import numpy as np
 # from numba import njit
@@ -257,21 +257,26 @@ def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
     return new_object
 
 
-def pickle_object(target_object, name, out_path=os.getcwd(), protocol=pickle.HIGHEST_PROTOCOL):
+def pickle_object(target_object: Any, name: str = None, out_path: Union[str, bytes] = os.getcwd(),
+                  protocol: int = pickle.HIGHEST_PROTOCOL) -> Union[str, bytes]:
     """Pickle (serialize) an object into a file named 'out_path/name.pkl'
 
     Args:
-        target_object (any): Any python object
-        name (str): The name of the pickled file
-    Keyword Args:
-        out_path=os.getcwd() (str): Where the file should be written
+        target_object: Any python object
+        name: The name of the pickled file
+        out_path: Where the file should be written
+        protocol: The pickling protocol to use
     Returns:
-        (str): The pickled filename
+        The pickled filename
     """
-    if '.pkl' not in name:
-        name = '%s.pkl' % name
+    if name:
+        file_name = os.path.join(out_path, name)
+    else:
+        file_name = out_path
 
-    file_name = os.path.join(out_path, name)
+    if not file_name.endswith('.pkl'):
+        file_name = '%s.pkl' % file_name
+
     with open(file_name, 'wb') as f:
         pickle.dump(target_object, f, protocol)
 
