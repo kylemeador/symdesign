@@ -75,7 +75,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             self.query = aligned_sequence.replace('-', '')
             self.query_length = len(self.query)
             self.query_with_gaps = aligned_sequence
-            self.counts = SequenceProfile.populate_design_dictionary(self.length, alphabet, dtype=int)
+            self.counts = SequenceProfile.populate_design_dictionary(self.length, alphabet)
             for record in self.alignment:
                 for i, aa in enumerate(record.seq, 1):
                     self.counts[i][aa] += 1
@@ -434,7 +434,7 @@ class SequenceProfile:
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa, dtype=int)
+        self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa)
         structure_sequence = self.structure_sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
@@ -888,7 +888,7 @@ class SequenceProfile:
         if not self.fragment_map:
             self.fragment_map = self.populate_design_dictionary(self.profile_length,
                                                                 [j for j in range(*self.fragment_db.fragment_range)],
-                                                                dtype=list)
+                                                                dtype='list')
         if not fragments:
             # self.fragment_map = {}
             return
@@ -1381,26 +1381,33 @@ class SequenceProfile:
     #     # return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
 
     @staticmethod
-    def populate_design_dictionary(n, alphabet, dtype=dict, zero_index=False):
+    def populate_design_dictionary(n: int, alphabet: Sequence, dtype: str = 'int', zero_index: bool = False) -> \
+            Dict[int, Dict[str, Any]]:
         """Return a dictionary with n elements, each integer key containing another dictionary with the items in
         alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is a dictionary.
-        Set dtype as any viable container type [list, set, tuple, int, etc.]. If dtype is int, 0 will be added to use
-        for counting
+        dtype can be any viable type [list, set, tuple, int, etc.]. If dtype is int or float, 0 will be initial value
 
         Args:
-            n (int): number of residues in a design
-            alphabet (iter): alphabet of interest
-        Keyword Args:
-            dtype=object (object): The type of object present in the interior dictionary
-            zero_index=False (bool): If True, return the dictionary with zero indexing
+            n: number of entries in the dictionary
+            alphabet: alphabet of interest
+            dtype: The type of object present in the interior dictionary
+            zero_index: If True, return the dictionary with zero indexing
          Returns:
-             (dict[mapping[int, dict[mapping[str, Any]]]): {1: {alph1: {}, alph2: {}, ...}, 2: {}, ...}
-                Custom length, 0 indexed dictionary with residue number keys
+             N length, one indexed dictionary with entry number keys
+                ex: {1: {alphabet[0]: dtype, alphabet[1]: dtype, ...}, 2: {}, ...}
          """
-        if zero_index:
-            offset = 0
-        else:
-            offset = index_offset
+        offset = 0 if zero_index else index_offset
+
+        if dtype == 'int':
+            dtype = int
+        elif dtype == 'dict':
+            dtype = dict
+        elif dtype == 'list':
+            dtype = list
+        elif dtype == 'set':
+            dtype = set
+        elif dtype == 'float':
+            dtype = float
 
         return {residue + offset: {character: dtype() for character in alphabet} for residue in range(n)}
 
