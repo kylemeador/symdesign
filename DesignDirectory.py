@@ -42,7 +42,7 @@ from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_
     significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value, \
     multiple_sequence_alignment_dependent_metrics, residue_processing
-from SequenceProfile import parse_pssm, generate_mutations_from_reference, get_db_aa_frequencies, \
+from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
 from classes.SymEntry import SymEntry, sdf_lookup, identity_matrix
@@ -2878,7 +2878,7 @@ class DesignDirectory:  # (JobResources):
             #                                              both mut_freq and profile_background[profile] are one-indexed
             divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
                           for profile, background in profile_background.items()}
-            interface_bkgd = get_db_aa_frequencies(PUtils.frag_directory.get(self.fragment_database))
+            interface_bkgd = self.fragment_db.get_db_aa_frequencies()
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
