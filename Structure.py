@@ -4360,7 +4360,7 @@ class Entity(Chain, SequenceProfile):
 
         return struct_file
 
-    def is_dihedral(self):
+    def is_dihedral(self, **kwargs) -> bool:
         """Report whether a structure is dihedral or not
 
         Sets:
@@ -4371,7 +4371,7 @@ class Entity(Chain, SequenceProfile):
             True if the Structure is dihedral, False if not
         """
         if not self.max_symmetry:
-            self.scout_symmetry()
+            self.scout_symmetry(**kwargs)
         # ensure if the structure is dihedral a selected dihedral_chain is orthogonal to the maximum symmetry axis
         max_symmetry_data = self.rotation_d[self.max_symmetry]
         if self.number_of_monomers / max_symmetry_data['sym'] == 2:
@@ -4416,16 +4416,19 @@ class Entity(Chain, SequenceProfile):
         #     return
         # el
         if self.symmetry in cubic_point_groups:
-            if not struct_file:
-                struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
+            # if not struct_file:
+            #     struct_file = self.write_oligomer(out_path='make_sdf_input-%s-%d.pdb' % (self.name, random() * 100000))
             sdf_mode = 'PSEUDO'
             self.log.warning('Using experimental symmetry definition file generation, proceed with caution as Rosetta '
                              'runs may fail due to improper set up')
         else:
+            # if not struct_file:
+            #     struct_file = self.scout_symmetry(struct_file=struct_file)
             sdf_mode = 'NCS'
-            struct_file = self.scout_symmetry(struct_file=struct_file)
 
-        dihedral = self.is_dihedral()
+        if not struct_file:
+            struct_file = self.scout_symmetry(struct_file=struct_file)
+        dihedral = self.is_dihedral(struct_file=struct_file)  # include so we don't write another struct_file
         if dihedral:  # dihedral_chain will be set
             chains = [self.max_symmetry, self.dihedral_chain]
         else:
