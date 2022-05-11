@@ -110,7 +110,7 @@ def generate_symmetry_mates_pymol(name, expand_matrices):
 
 def expand(name=None, symmetry=None):
     symmetry_ = possible_symmetries.get(symmetry)
-    if symmetry_:  # ['T', 'O', 'I']:
+    if symmetry_:
         # expand_matrices = Pose.get_ptgrp_sym_op(symmetry_)
         _expand_matrices = expand_matrices[symmetry_]
         # _expand_matrices = point_group_symmetry_operators[self.symmetry]

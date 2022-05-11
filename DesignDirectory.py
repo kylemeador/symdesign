@@ -479,6 +479,7 @@ class DesignDirectory:  # (JobResources):
 
     @property
     def design_symmetry(self) -> Optional[str]:
+        """The result of the SymEntry"""
         try:
             return self.sym_entry.resulting_symmetry
         except AttributeError:
@@ -486,6 +487,7 @@ class DesignDirectory:  # (JobResources):
 
     @property
     def sym_entry_number(self) -> Optional[int]:
+        """The entry number of the SymEntry"""
         try:
             return self.sym_entry.entry_number
         except AttributeError:
@@ -493,6 +495,7 @@ class DesignDirectory:  # (JobResources):
 
     @property
     def design_dimension(self) -> Optional[int]:
+        """The dimension of the SymEntry"""
         try:
             return self.sym_entry.dimension
         except AttributeError:

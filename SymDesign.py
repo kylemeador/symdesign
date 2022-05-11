@@ -1267,7 +1267,7 @@ if __name__ == '__main__':
             # orient_files = [os.path.splitext(file)[0] for file in os.listdir(orient_dir)]
             # qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
             # Select entities, orient them, then load each entity to all_entities for further database processing
-            symmetry_map = example_directory.sym_entry.sym_map.values() if example_directory.sym_entry else repeat(None)
+            symmetry_map = example_directory.sym_entry.groups if example_directory.sym_entry else repeat(None)
             for symmetry, entities in zip(symmetry_map, required_entities):
                 if not entities:
                     continue
