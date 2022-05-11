@@ -21,20 +21,20 @@ xyz P2_3 -0.5,0.8660254,0 -0.8660254,-0.5,0 0,0,0
 xyz B2_3 -0.5,0.8660254,0 -0.8660254,-0.5,0 0,0,0
 virtual_coordinates_stop
 connect_virtual JUMP1_1_to_com P1_1 B1_1
-connect_virtual JUMP1_1_to_subunit B1_1 SUBUNIT
+connect_virtual JUMP1_1_to_subunit B1_1 SUBUNIT COM
 connect_virtual JUMP1_2_to_com P1_2 B1_2
-connect_virtual JUMP1_2_to_subunit B1_2 SUBUNIT
+connect_virtual JUMP1_2_to_subunit B1_2 SUBUNIT COM
 connect_virtual JUMP1_3_to_com P1_3 B1_3
-connect_virtual JUMP1_3_to_subunit B1_3 SUBUNIT
+connect_virtual JUMP1_3_to_subunit B1_3 SUBUNIT COM
 connect_virtual JUMP1_1 C1 P1_1
 connect_virtual JUMP1_2 P1_1 P1_2
 connect_virtual JUMP1_3 P1_1 P1_3
 connect_virtual JUMP2_1_to_com P2_1 B2_1
-connect_virtual JUMP2_1_to_subunit B2_1 SUBUNIT
+connect_virtual JUMP2_1_to_subunit B2_1 SUBUNIT COM
 connect_virtual JUMP2_2_to_com P2_2 B2_2
-connect_virtual JUMP2_2_to_subunit B2_2 SUBUNIT
+connect_virtual JUMP2_2_to_subunit B2_2 SUBUNIT COM
 connect_virtual JUMP2_3_to_com P2_3 B2_3
-connect_virtual JUMP2_3_to_subunit B2_3 SUBUNIT
+connect_virtual JUMP2_3_to_subunit B2_3 SUBUNIT COM
 connect_virtual JUMP2_1 C2 P2_1
 connect_virtual JUMP2_2 P2_1 P2_2
 connect_virtual JUMP2_3 P2_1 P2_3
