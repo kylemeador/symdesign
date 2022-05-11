@@ -1000,7 +1000,6 @@ class DesignDirectory:  # (JobResources):
                 except UnpicklingError as error:  # pickle.UnpicklingError:
                     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
                     raise error
-                    # raise DesignError('There was an issue retrieving design state from binary file...')
                 except ModuleNotFoundError as error:
                     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
                     self.log.critical('Removing %s' % self.serialized_info)
@@ -1182,7 +1181,7 @@ class DesignDirectory:  # (JobResources):
                 self.log.warning('There were no fragments generated for this Design! If this isn\'t what you expected, '
                                  'ensure that you haven\'t disabled it with "--%s" or explicitly request it with --%s'
                                  % (PUtils.no_term_constraint, PUtils.generate_fragments))
-                                 # 'Have you run %s on it yet?' % PUtils.generate_fragments)
+                #                  'Have you run %s on it yet?' % PUtils.generate_fragments)
                 frag_metrics = fragment_metric_template
                 # self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet?
                 #                  ' Trying %s now...' % (self.path, PUtils.generate_fragments, generate_fragments))
@@ -1205,14 +1204,13 @@ class DesignDirectory:  # (JobResources):
         self.coil_fragment_content = frag_metrics['percent_fragment_coil']
 
         self.total_interface_residues = len(self.interface_residues)
+        self.total_non_fragment_interface_residues = \
+            max(self.total_interface_residues - self.central_residues_with_fragment_overlap, 0)
         try:
-            self.total_non_fragment_interface_residues = \
-                max(self.total_interface_residues - self.central_residues_with_fragment_overlap, 0)
             # if interface_distance is different between interface query and fragment generation these can be < 0 or > 1
             self.percent_residues_fragment_center = \
                 min(self.central_residues_with_fragment_overlap / self.total_interface_residues, 1)
             self.percent_residues_fragment_total = min(self.fragment_residues_total / self.total_interface_residues, 1)
-
         except ZeroDivisionError:
             self.log.warning('%s: No interface residues were found. Is there an interface in your design?'
                              % self.source)
@@ -1587,9 +1585,9 @@ class DesignDirectory:  # (JobResources):
                     raise ValueError('The symmetry %s is unavailable at this time!')
             else:  # layer or space
                 self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
-        else:
-            self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
+        else:  # asymmetric
             self.symmetry_protocol = 'asymmetric'
+            self.sym_def_file = sdf_lookup(None)  # grabs dummy.sym
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
 
@@ -2184,7 +2182,6 @@ class DesignDirectory:  # (JobResources):
         self.info['fragment_source'] = self.fragment_source
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
-    # @handle_design_errors(errors=(DesignError, AssertionError))  # Todo this may be called too many places to use here
     def identify_interface(self):
         """Initialize the design in a symmetric environment (if one is passed) and find the interfaces between
         entities
