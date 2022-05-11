@@ -14,9 +14,6 @@ from Database import FragmentDB
 # Nanohedra.py Path
 main_script_path = os.path.dirname(os.path.realpath(__file__))
 
-# Free SASA Executable Path
-free_sasa_exe_path = os.path.join(main_script_path, 'nanohedra', "sasa", "freesasa-2.0", "src", "freesasa")
-
 # Create fragment database for all ijk cluster representatives
 ijk_frag_db = FragmentDB()
 # Get complete IJK fragment representatives database dictionaries
