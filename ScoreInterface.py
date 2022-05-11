@@ -37,7 +37,7 @@ if __name__ == '__main__':
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-t', '--threads', type=int, help='How many threads should be utilized?\nDefault=1', default=1)
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
 
     args, additional_flags = parser.parse_known_args()
     # Program input

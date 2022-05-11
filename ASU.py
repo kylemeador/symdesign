@@ -456,7 +456,7 @@ if __name__ == '__main__':
     parser = argparse.ArgumentParser(
         description='\nTurn file(s) from a full PDB biological assembly into an ASU containing one copy of all entities'
                     ' in contact with the chain specified by chain')
-    parser.add_argument('-b', '--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
+    parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
     parser.add_argument('-c', '--command_only', action='store_true', help='Whether to only write commands, not run '
                                                                           'them')
     parser.add_argument('-d', '--directory', type=str, help='Directory where \'.pdb\' files to set up ASU extraction'

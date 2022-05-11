@@ -561,7 +561,7 @@ if __name__ == '__main__':
     parser.add_argument('-a', '--output_assembly', action='store_true',
                         help='Should the assembly be output for docked poses? 2- and 3-D materials will be output '
                              'with a single unit cell.')
-    parser.add_argument('-b', '--debug', action='store_true',
+    parser.add_argument('--debug', action='store_true',
                         help='Whether to log debugging messages to stdout\nDefault=False')
     parser.add_argument('-C', '--cluster_map', type=os.path.abspath,
                         help='The location of a serialized file containing spatially or interfacially clustered poses')
