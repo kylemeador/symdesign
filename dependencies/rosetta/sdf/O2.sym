@@ -1,0 +1,127 @@
+symmetry_name O3
+subunits 24
+number_of_interfaces 23
+E = 24*B11+12*(B11:B12)+12*(B11:B21)+12*(B11:B22)+12*(B11:B31)+12*(B11:B32)+12*(B11:B41)+12*(B11:B42)+12*(B11:B51)+12*(B11:B52)+12*(B11:B61)+12*(B11:B62)+12*(B11:B71)+12*(B11:B72)+12*(B11:B81)+12*(B11:B82)+12*(B11:B91)+12*(B11:B92)+12*(B11:B101)+12*(B11:B102)+12*(B11:B111)+12*(B11:B112)+12*(B11:B121)+12*(B11:B122)
+anchor_residue COM
+virtual_coordinates_start
+# using orthogonal y only along opposite axis and negated on second occurance # incorrect lengths but similar idea
+xyz C1   1,1,0 0,0,1 0,0,0 # 1,1,0 1,1,0.5 0,0,0
+xyz P1   1,1,0 0,0,1 0,0,0 # 1,1,0 1,1,0.5 0,0,0
+xyz B11  1,1,0 0,0,1 0,0,0 # 1,1,0 1,1,0.5 0,0,0
+xyz B12  1,1,0 0,0,-1 0,0,0 # 1,1,0 1,1,-0.5 0,0,0
+xyz C2   1,0,1 0,1,0 0,0,0 # 1,0,1 1,0.5,1 0,0,0
+xyz P2   1,0,1 0,1,0 0,0,0 # 1,0,1 1,0.5,1 0,0,0
+xyz B21  1,0,1 0,1,0 0,0,0 # 1,0,1 1,0.5,1 0,0,0
+xyz B22  1,0,1 0,-1,0 0,0,0 # 1,0,1 1,-0.5,1 0,0,0
+xyz C3   0,1,1 1,0,0 0,0,0 # 0,1,1 0.5,1,1 0,0,0
+xyz P3   0,1,1 1,0,0 0,0,0 # 0,1,1 0.5,1,1 0,0,0
+xyz B31  0,1,1 1,0,0 0,0,0 # 0,1,1 0.5,1,1 0,0,0
+xyz B32  0,1,1 -1,0,0 0,0,0 # 0,1,1 -0.5,1,1 0,0,0
+xyz C4   -1,-1,0 0,0,1 0,0,0 # -1,-1,0 -1,-1,0.5 0,0,0
+xyz P4   -1,-1,0 0,0,1 0,0,0 # -1,-1,0 -1,-1,0.5 0,0,0
+xyz B41  -1,-1,0 0,0,1 0,0,0 # -1,-1,0 -1,-1,0.5 0,0,0
+xyz B42  -1,-1,0 0,0,-1 0,0,0 # -1,-1,0 -1,-1,-0.5 0,0,0
+xyz C5   -1,0,-1 0,1,0 0,0,0 # -1,0,-1 -1,0.5,-1 0,0,0
+xyz P5   -1,0,-1 0,1,0 0,0,0 # -1,0,-1 -1,0.5,-1 0,0,0
+xyz B51  -1,0,-1 0,1,0 0,0,0 # -1,0,-1 -1,0.5,-1 0,0,0
+xyz B52  -1,0,-1 0,-1,0 0,0,0 # -1,0,-1 -1,-0.5,-1 0,0,0
+xyz C6   0,-1,-1 1,0,0 0,0,0 # 0,-1,-1 0.5,-1,-1 0,0,0
+xyz P6   0,-1,-1 1,0,0 0,0,0 # 0,-1,-1 0.5,-1,-1 0,0,0
+xyz B61  0,-1,-1 1,0,0 0,0,0 # 0,-1,-1 0.5,-1,-1 0,0,0
+xyz B62  0,-1,-1 -1,0,0 0,0,0 # 0,-1,-1 -0.5,-1,-1 0,0,0
+xyz C7   -1,1,0 0,0,1 0,0,0 # -1,1,0 -1,1,0.5 0,0,0   # negated 1
+xyz P7   -1,1,0 0,0,1 0,0,0 # -1,1,0 -1,1,0.5 0,0,0   # negated 1
+xyz B71  -1,1,0 0,0,1 0,0,0 # -1,1,0 -1,1,0.5 0,0,0   # negated 1
+xyz B72  -1,1,0 0,0,-1 0,0,0 # -1,1,0 -1,1,-0.5 0,0,0  # negated 1
+xyz C8   -1,0,1 0,1,0 0,0,0 # -1,0,1 -1,0.5,1 0,0,0   # negated 2
+xyz P8   -1,0,1 0,1,0 0,0,0 # -1,0,1 -1,0.5,1 0,0,0   # negated 2
+xyz B81  -1,0,1 0,1,0 0,0,0 # -1,0,1 -1,0.5,1 0,0,0   # negated 2
+xyz B82  -1,0,1 0,-1,0 0,0,0 # -1,0,1 -1,-0.5,1 0,0,0  # negated 2
+xyz C9   0,1,-1 1,0,0 0,0,0 # 0,1,-1 0.5,1,-1 0,0,0   # negated 3
+xyz P9   0,1,-1 1,0,0 0,0,0 # 0,1,-1 0.5,1,-1 0,0,0   # negated 3
+xyz B91  0,1,-1 1,0,0 0,0,0 # 0,1,-1 0.5,1,-1 0,0,0   # negated 3
+xyz B92  0,1,-1 -1,0,0 0,0,0 # 0,1,-1 -0.5,1,-1 0,0,0  # negated 3
+xyz C10  0,-1,1 1,0,0 0,0,0 # 0,-1,1 0.5,-1,1 0,0,0  # negated 6
+xyz P10  0,-1,1 1,0,0 0,0,0 # 0,-1,1 0.5,-1,1 0,0,0  # negated 6
+xyz B101 0,-1,1 1,0,0 0,0,0 # 0,-1,1 0.5,-1,1 0,0,0  # negated 6
+xyz B102 0,-1,1 -1,0,0 0,0,0 # 0,-1,1 -0.5,-1,1 0,0,0 # negated 6
+xyz C11  1,-1,0 0,0,1 0,0,0 # 1,-1,0 1,-1,0.5 0,0,0  # negated 4
+xyz P11  1,-1,0 0,0,1 0,0,0 # 1,-1,0 1,-1,0.5 0,0,0  # negated 4
+xyz B111 1,-1,0 0,0,1 0,0,0 # 1,-1,0 1,-1,0.5 0,0,0  # negated 4
+xyz B112 1,-1,0 0,0,-1 0,0,0 # 1,-1,0 1,-1,-0.5 0,0,0 # negated 4
+xyz C12  1,0,-1 0,1,0 0,0,0 # 1,0,-1 1,0.5,-1 0,0,0  # negated 5
+xyz P12  1,0,-1 0,1,0 0,0,0 # 1,0,-1 1,0.5,-1 0,0,0  # negated 5
+xyz B121 1,0,-1 0,1,0 0,0,0 # 1,0,-1 1,0.5,-1 0,0,0  # negated 5
+xyz B122 1,0,-1 0,-1,0 0,0,0 # 1,0,-1 1,-0.5,-1 0,0,0 # negated 5
+
+virtual_coordinates_stop
+connect_virtual J2 C1 C2
+connect_virtual J3 C1 C3
+connect_virtual J4 C1 C4
+connect_virtual J5 C1 C5
+connect_virtual J6 C1 C6
+connect_virtual J7 C1 C7
+connect_virtual J8 C1 C8
+connect_virtual JC1 C1 P1
+connect_virtual JC2 C2 P2
+connect_virtual JC3 C3 P3
+connect_virtual JC4 C4 P4
+connect_virtual JC5 C5 P5
+connect_virtual JC6 C6 P6
+connect_virtual JC7 C7 P7
+connect_virtual JC8 C8 P8
+connect_virtual JC9 C9 P9
+connect_virtual JC10 C10 P10
+connect_virtual JC11 C11 P11
+connect_virtual JC12 C12 P12
+connect_virtual JP11 P1 B11
+connect_virtual JP12 P1 B12
+connect_virtual JP21 P2 B21
+connect_virtual JP22 P2 B22
+connect_virtual JP31 P3 B31
+connect_virtual JP32 P3 B32
+connect_virtual JP41 P4 B41
+connect_virtual JP42 P4 B42
+connect_virtual JP51 P5 B51
+connect_virtual JP52 P5 B52
+connect_virtual JP61 P6 B61
+connect_virtual JP62 P6 B62
+connect_virtual JP71 P7 B71
+connect_virtual JP72 P7 B72
+connect_virtual JP81 P8 B81
+connect_virtual JP82 P8 B82
+connect_virtual JP91 P9 B91
+connect_virtual JP92 P9 B92
+connect_virtual JP101 P10 B101
+connect_virtual JP102 P10 B102
+connect_virtual JP111 P11 B111
+connect_virtual JP112 P11 B112
+connect_virtual JP121 P12 B121
+connect_virtual JP122 P12 B122
+connect_virtual JB11 B11 SUBUNIT COM
+connect_virtual JB12 B12 SUBUNIT COM
+connect_virtual JB21 B21 SUBUNIT COM
+connect_virtual JB22 B22 SUBUNIT COM
+connect_virtual JB31 B31 SUBUNIT COM
+connect_virtual JB32 B32 SUBUNIT COM
+connect_virtual JB41 B41 SUBUNIT COM
+connect_virtual JB42 B42 SUBUNIT COM
+connect_virtual JB51 B51 SUBUNIT COM
+connect_virtual JB52 B52 SUBUNIT COM
+connect_virtual JB61 B61 SUBUNIT COM
+connect_virtual JB62 B62 SUBUNIT COM
+connect_virtual JB71 B71 SUBUNIT COM
+connect_virtual JB72 B72 SUBUNIT COM
+connect_virtual JB81 B81 SUBUNIT COM
+connect_virtual JB82 B82 SUBUNIT COM
+connect_virtual JB91 B91 SUBUNIT COM
+connect_virtual JB92 B92 SUBUNIT COM
+connect_virtual JB101 B101 SUBUNIT COM
+connect_virtual JB102 B102 SUBUNIT COM
+connect_virtual JB111 B111 SUBUNIT COM
+connect_virtual JB112 B112 SUBUNIT COM
+connect_virtual JB121 B121 SUBUNIT COM
+connect_virtual JB122 B122 SUBUNIT COM
+set_dof JP1 x angle_x
+set_jump_group JGP JC1 JC2 JC3 JC4 JC5 JC6 JC7 JC8 JC9 JC10 JC11 JC12
+set_jump_group JGB JB11 JB12 JB21 JB22 JB31 JB32 JB41 JB42 JB51 JB52 JB61 JB62 JB71 JB72 JB81 JB82 JB91 JB92 JB101 JB102 JB111 JB112 JB121 JB122

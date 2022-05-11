@@ -1,0 +1,105 @@
+symmetry_name O3
+subunits 24
+number_of_interfaces 23
+E = 24*B11+6*(B11:B12)+6*(B11:B13)+6*(B11:B14)+6*(B11:B21)+6*(B11:B22)+6*(B11:B23)+6*(B11:B24)+6*(B11:B31)+6*(B11:B32)+6*(B11:B33)+6*(B11:B34)+6*(B11:B41)+6*(B11:B42)+6*(B11:B43)+6*(B11:B44)+6*(B11:B51)+6*(B11:B52)+6*(B11:B53)+6*(B11:B54)+6*(B11:B61)+6*(B11:B62)+6*(B11:B63)+6*(B11:B64)
+anchor_residue COM
+virtual_coordinates_start
+xyz C1  1,0,0 0,1,-1 0,0,0
+xyz P1  1,0,0 0,1,-1 0,0,0
+xyz B11 1,0,0 0,1,-1 0,0,0
+xyz B12 1,0,0 0,-1,1 0,0,0
+xyz B13 1,0,0 0,1,1 0,0,0
+xyz B14 1,0,0 0,-1,-1 0,0,0
+xyz C2  0,-1,0 1,0,1 0,0,0
+xyz P2  0,-1,0 1,0,1 0,0,0
+xyz B21 0,-1,0 1,0,1 0,0,0
+xyz B22 0,-1,0 -1,0,-1 0,0,0
+xyz B23 0,-1,0 -1,0,1 0,0,0
+xyz B24 0,-1,0 1,0,-1 0,0,0
+xyz C3  0,0,-1 -1,-1,0 0,0,0
+xyz P3  0,0,-1 -1,-1,0 0,0,0
+xyz B31 0,0,-1 -1,-1,0 0,0,0
+xyz B32 0,0,-1 1,1,0 0,0,0
+xyz B33 0,0,-1 1,-1,0 0,0,0
+xyz B34 0,0,-1 -1,1,0 0,0,0
+xyz C4  0,0,1 -1,1,0 0,0,0
+xyz P4  0,0,1 -1,1,0 0,0,0
+xyz B41 0,0,1 -1,1,0 0,0,0
+xyz B42 0,0,1 1,-1,0 0,0,0
+xyz B43 0,0,1 1,1,0 0,0,0
+xyz B44 0,0,1 -1,-1,0 0,0,0
+xyz C5  0,1,0 1,0,-1 0,0,0
+xyz P5  0,1,0 1,0,-1 0,0,0
+xyz B51 0,1,0 1,0,-1 0,0,0
+xyz B52 0,1,0 -1,0,1 0,0,0
+xyz B53 0,1,0 1,0,1 0,0,0
+xyz B54 0,1,0 -1,0,-1 0,0,0
+xyz C6  -1,0,0 0,1,1 0,0,0
+xyz P6  -1,0,0 0,1,1 0,0,0
+xyz B61 -1,0,0 0,1,1 0,0,0
+xyz B62 -1,0,0 0,-1,-1 0,0,0
+xyz B63 -1,0,0 0,1,-1 0,0,0
+xyz B64 -1,0,0 0,-1,1 0,0,0
+virtual_coordinates_stop
+connect_virtual JC2 C1 C2
+connect_virtual JC3 C1 C3
+connect_virtual JC4 C1 C4
+connect_virtual JC5 C1 C5
+connect_virtual JC6 C1 C6
+connect_virtual JP1 C1 P1
+connect_virtual JP2 C2 P2
+connect_virtual JP3 C3 P3
+connect_virtual JP4 C4 P4
+connect_virtual JP5 C5 P5
+connect_virtual JP6 C6 P6
+connect_virtual JP11 P1 B11
+connect_virtual JP12 P1 B12
+connect_virtual JP13 P1 B13
+connect_virtual JP14 P1 B14
+connect_virtual JP21 P2 B21
+connect_virtual JP22 P2 B22
+connect_virtual JP23 P2 B23
+connect_virtual JP24 P2 B24
+connect_virtual JP31 P3 B31
+connect_virtual JP32 P3 B32
+connect_virtual JP33 P3 B33
+connect_virtual JP34 P3 B34
+connect_virtual JP41 P4 B41
+connect_virtual JP42 P4 B42
+connect_virtual JP43 P4 B43
+connect_virtual JP44 P4 B44
+connect_virtual JP51 P5 B51
+connect_virtual JP52 P5 B52
+connect_virtual JP53 P5 B53
+connect_virtual JP54 P5 B54
+connect_virtual JP61 P6 B61
+connect_virtual JP62 P6 B62
+connect_virtual JP63 P6 B63
+connect_virtual JP64 P6 B64
+connect_virtual JB11 B11 SUBUNIT COM
+connect_virtual JB12 B12 SUBUNIT COM
+connect_virtual JB13 B13 SUBUNIT COM
+connect_virtual JB14 B14 SUBUNIT COM
+connect_virtual JB21 B21 SUBUNIT COM
+connect_virtual JB22 B22 SUBUNIT COM
+connect_virtual JB23 B23 SUBUNIT COM
+connect_virtual JB24 B24 SUBUNIT COM
+connect_virtual JB31 B31 SUBUNIT COM
+connect_virtual JB32 B32 SUBUNIT COM
+connect_virtual JB33 B33 SUBUNIT COM
+connect_virtual JB34 B34 SUBUNIT COM
+connect_virtual JB41 B41 SUBUNIT COM
+connect_virtual JB42 B42 SUBUNIT COM
+connect_virtual JB43 B43 SUBUNIT COM
+connect_virtual JB44 B44 SUBUNIT COM
+connect_virtual JB51 B51 SUBUNIT COM
+connect_virtual JB52 B52 SUBUNIT COM
+connect_virtual JB53 B53 SUBUNIT COM
+connect_virtual JB54 B54 SUBUNIT COM
+connect_virtual JB61 B61 SUBUNIT COM
+connect_virtual JB62 B62 SUBUNIT COM
+connect_virtual JB63 B63 SUBUNIT COM
+connect_virtual JB64 B64 SUBUNIT COM
+set_dof JP1 x angle_x
+set_jump_group JGP JP1 JP2 JP3 JP4 JP5 JP6
+set_jump_group JGB JB11 JB12 JB13 JB14 JB21 JB22 JB23 JB24 JB31 JB32 JB33 JB34 JB41 JB42 JB43 JB44 JB51 JB52 JB53 JB54 JB61 JB62 JB63 JB64
