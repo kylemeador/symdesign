@@ -231,9 +231,9 @@ if __name__ == '__main__':
                 bad_designs.append(des_directory)
 
     if bad_designs:
-        logging.critical('%d directories have bad poses, including:' % len(bad_designs))
+        logger.critical('%d directories have bad poses, including:' % len(bad_designs))
         for des in bad_designs:
-            logging.critical('%s' % des)
+            logger.critical('%s' % des)
         with open(os.path.join(args.directory, 'BAD_DESIGNS.txt'), 'w') as f:
             for des in bad_designs:
                 f.write(str(des.path) + '\n')

@@ -1,5 +1,5 @@
 import copy
-import logging
+from logging import Logger
 import math
 import os
 import subprocess
@@ -1567,7 +1567,7 @@ def fetch_pdb_file(pdb_code, asu=True, location=pdb_db, **kwargs):  # assembly=N
         return pdb_file[0]  # we should only find one file, therefore, return the first
 
 
-def orient_pdb_file(file: os.PathLike, log: logging.Logger = logger, symmetry: str = None,
+def orient_pdb_file(file: os.PathLike, log: Logger = logger, symmetry: str = None,
                     out_dir: os.PathLike = None) -> Optional[str]:
     """For a specified pdb filename and output directory, orient the PDB according to the provided symmetry where the
         resulting .pdb file will have the chains symmetrized and oriented in the coordinate frame as to have the major axis

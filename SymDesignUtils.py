@@ -1,5 +1,6 @@
 import os
-import logging
+from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, \
+    FileHandler, NullHandler, StreamHandler, Formatter, root
 import math
 import multiprocessing as mp
 import time
@@ -109,7 +110,7 @@ starttime = timestamp()
 
 def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[str, bytes] = os.getcwd(),
               propagate: bool = False, format_log: bool = True, no_log_name: bool = False,
-              set_handler_level: bool = False) -> logging.Logger:
+              set_handler_level: bool = False) -> Logger:
     """Create a logger to handle program messages
 
     Args:
@@ -126,22 +127,22 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
     """
     # Todo make a mechanism to only emit warning or higher if propagate=True
     # log_handler = {1: logging.StreamHandler(), 2: logging.FileHandler(location + '.log'), 3: logging.NullHandler}
-    log_level = {1: logging.DEBUG, 2: logging.INFO, 3: logging.WARNING, 4: logging.ERROR, 5: logging.CRITICAL}
+    log_level = {1: DEBUG, 2: INFO, 3: WARNING, 4: ERROR, 5: CRITICAL}
 
-    _logger = logging.getLogger(name)
+    _logger = getLogger(name)
     _logger.setLevel(log_level[level])
     if not propagate:
         _logger.propagate = False
     # lh = log_handler[handler]
     if handler == 1:
-        lh = logging.StreamHandler()
+        lh = StreamHandler()
     elif handler == 2:
         if os.path.splitext(location)[1] == '':  # no extension, should add one
-            lh = logging.FileHandler('%s.log' % location)
+            lh = FileHandler('%s.log' % location)
         else:  # already has extension
-            lh = logging.FileHandler(location)
+            lh = FileHandler(location)
     else:  # handler == 3:
-        lh = logging.NullHandler()
+        lh = NullHandler()
         # return _logger
     if set_handler_level:
         lh.setLevel(log_level[level])
@@ -149,11 +150,11 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
 
     if format_log:
         if no_log_name:
-            # log_format = logging.Formatter('%(levelname)s: %(message)s')
-            log_format = logging.Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            # log_format = Formatter('%(levelname)s: %(message)s')
+            log_format = Formatter('\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
         else:
-            # log_format = logging.Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
-            log_format = logging.Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
+            # log_format = Formatter('[%(name)s]-%(levelname)s: %(message)s')  # \033[48;5;69m background
+            log_format = Formatter('\033[38;5;93m%(name)s\033[0;0m-\033[38;5;208m%(levelname)s\033[0;0m: %(message)s')
         lh.setFormatter(log_format)
 
     return _logger
@@ -164,9 +165,10 @@ null_log = start_log(name='null', handler=3)
 
 
 def set_logging_to_debug():
-    for logger_name in logging.root.manager.loggerDict:
-        _logger = logging.getLogger(logger_name)
-        _logger.setLevel(logging.DEBUG)
+    """For each Logger in current run time set the Logger level to debug"""
+    for logger_name in root.manager.loggerDict:
+        _logger = getLogger(logger_name)
+        _logger.setLevel(DEBUG)
         _logger.propagate = False
 
 
