@@ -1,13 +1,9 @@
-import copy
-import os
+# import os
 
 import numpy as np
 import sklearn.neighbors
 
-
-# Globals
-from utils.SymmetryUtils import generate_cryst1_record, cart_to_frac, frac_to_cart, \
-    get_expanded_ptgrp_pdb, get_unit_cell_sym_mates
+# from utils.SymmetryUtils import generate_cryst1_record, get_unit_cell_sym_mates
 
 
 # def get_expanded_ptgrp_pdbs(pdb1_asu, pdb2_asu, expand_matrices):
@@ -17,38 +13,26 @@ from utils.SymmetryUtils import generate_cryst1_record, cart_to_frac, frac_to_ca
 #     return get_expanded_ptgrp_pdb(pdb_asu, expand_matrices)
 
 
-def write_expanded_ptgrp(expanded_ptgrp_pdbs, outfile_path):  # TODO DEPRECIATE
-    outfile = open(outfile_path, "w")
-    model_count = 1
-    for pdb in expanded_ptgrp_pdbs:  # TODO enumerate
-        outfile.write("MODEL     {:>4s}\n".format(str(model_count)))
-        model_count += 1
-        for atom in pdb.all_atoms:
-            outfile.write(str(atom))
-        outfile.write("ENDMDL\n")
-    outfile.close()
-
-
-def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
-    asu = expanded_ptgrp_pdbs[0]
-    symm_mates_wo_asu = expanded_ptgrp_pdbs[1:]
-
-    # asu_bb_coords = asu.get_backbone_and_cb_coords()
-    # asu_bb_coords = asu.extract_backbone_coords()
-    # symm_mates_wo_asu_bb_coords = [sym_mate_pdb.get_backbone_and_cb_coords() for sym_mate_pdb in symm_mates_wo_asu]
-    symm_mates_wo_asu_bb_coords = []
-    for sym_mate_pdb in symm_mates_wo_asu:
-        symm_mates_wo_asu_bb_coords.extend(sym_mate_pdb.extract_backbone_coords())
-
-    # kdtree_central_asu_bb = sklearn.neighbors.BallTree(np.array(asu_bb_coords))
-    kdtree_central_asu_bb = sklearn.neighbors.BallTree(asu.get_backbone_and_cb_coords())
-    cb_clash_count = kdtree_central_asu_bb.two_point_correlation(symm_mates_wo_asu_bb_coords, [clash_distance])
-
-    if cb_clash_count[0] == 0:
-        return False  # "NO CLASH"
-
-    else:
-        return True  # "CLASH!!"
+# def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
+#     asu = expanded_ptgrp_pdbs[0]
+#     symm_mates_wo_asu = expanded_ptgrp_pdbs[1:]
+#
+#     # asu_bb_coords = asu.get_backbone_and_cb_coords()
+#     # asu_bb_coords = asu.extract_backbone_coords()
+#     # symm_mates_wo_asu_bb_coords = [sym_mate_pdb.get_backbone_and_cb_coords() for sym_mate_pdb in symm_mates_wo_asu]
+#     symm_mates_wo_asu_bb_coords = []
+#     for sym_mate_pdb in symm_mates_wo_asu:
+#         symm_mates_wo_asu_bb_coords.extend(sym_mate_pdb.extract_backbone_coords())
+#
+#     # kdtree_central_asu_bb = sklearn.neighbors.BallTree(np.array(asu_bb_coords))
+#     kdtree_central_asu_bb = sklearn.neighbors.BallTree(asu.get_backbone_and_cb_coords())
+#     cb_clash_count = kdtree_central_asu_bb.two_point_correlation(symm_mates_wo_asu_bb_coords, [clash_distance])
+#
+#     if cb_clash_count[0] == 0:
+#         return False  # "NO CLASH"
+#
+#     else:
+#         return True  # "CLASH!!"
 
 
 # def get_central_asu_pdb_2d(pdb1, pdb2, uc_dimensions):
@@ -260,181 +244,181 @@ def expanded_ptgrp_is_clash(expanded_ptgrp_pdbs, clash_distance=2.2):
 #     return all_surrounding_unit_cells
 
 
-def write_unit_cell_sym_mates(unit_cell_sym_mates, outfile_path):  # Todo integrate with Model.py
-    f = open(outfile_path, "a+")
-    model_count = 0
-    for unit_cell_sym_mate_pdb in unit_cell_sym_mates:
-        model_count += 1
-        model_line = "MODEL     {:>4s}\n".format(str(model_count))
-        end_model_line = "ENDMDL\n"
-
-        f.write(model_line)
-        for atom in unit_cell_sym_mate_pdb.atoms():
-            f.write(str(atom))
-        f.write(end_model_line)
-    f.close()
-
-
-def write_surrounding_unit_cells(surrounding_unit_cells, outfile_path):  # Todo integrate with Model.py
-    f = open(outfile_path, "a+")
-
-    model_count = 0
-    for unit_cell in surrounding_unit_cells:  # Todo remove the extra nest on UC generation
-        for unit_cell_sym_mate_pdb in unit_cell:
-            model_count += 1
-            model_line = "MODEL     {:>4s}\n".format(str(model_count))
-            end_model_line = "ENDMDL\n"
-
-            f.write(model_line)
-            for atom in unit_cell_sym_mate_pdb.atoms():
-                f.write(str(atom))
-            f.write(end_model_line)
-
-    f.close()
+# def write_unit_cell_sym_mates(unit_cell_sym_mates, outfile_path):
+#     f = open(outfile_path, "a+")
+#     model_count = 0
+#     for unit_cell_sym_mate_pdb in unit_cell_sym_mates:
+#         model_count += 1
+#         model_line = "MODEL     {:>4s}\n".format(str(model_count))
+#         end_model_line = "ENDMDL\n"
+#
+#         f.write(model_line)
+#         for atom in unit_cell_sym_mate_pdb.atoms():
+#             f.write(str(atom))
+#         f.write(end_model_line)
+#     f.close()
 
 
-def uc_expansion_is_clash(central_unit_cell, clash_distance=2.2):
-    central_asu_pdb = central_unit_cell[0]
-    central_unit_cell_wo_central_asu = central_unit_cell[1:]
+# def write_surrounding_unit_cells(surrounding_unit_cells, outfile_path):
+#     f = open(outfile_path, "a+")
+#
+#     model_count = 0
+#     for unit_cell in surrounding_unit_cells:  # Todo remove the extra nest on UC generation
+#         for unit_cell_sym_mate_pdb in unit_cell:
+#             model_count += 1
+#             model_line = "MODEL     {:>4s}\n".format(str(model_count))
+#             end_model_line = "ENDMDL\n"
+#
+#             f.write(model_line)
+#             for atom in unit_cell_sym_mate_pdb.atoms():
+#                 f.write(str(atom))
+#             f.write(end_model_line)
+#
+#     f.close()
+#
 
-    central_asu_pdb_bb_coords = central_asu_pdb.extract_backbone_coords()
-    central_unit_cell_wo_central_asu_bb_coords = []
-    for unit_cell_sym_mate_pdb in central_unit_cell_wo_central_asu:
-        central_unit_cell_wo_central_asu_bb_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
+# def uc_expansion_is_clash(central_unit_cell, clash_distance=2.2):
+#     central_asu_pdb = central_unit_cell[0]
+#     central_unit_cell_wo_central_asu = central_unit_cell[1:]
+#
+#     central_asu_pdb_bb_coords = central_asu_pdb.extract_backbone_coords()
+#     central_unit_cell_wo_central_asu_bb_coords = []
+#     for unit_cell_sym_mate_pdb in central_unit_cell_wo_central_asu:
+#         central_unit_cell_wo_central_asu_bb_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
+#
+#     kdtree_central_asu_bb = sklearn.neighbors.BallTree(np.array(central_asu_pdb_bb_coords))
+#     cb_clash_count = kdtree_central_asu_bb.two_point_correlation(central_unit_cell_wo_central_asu_bb_coords,
+#                                                                  [clash_distance])
+#
+#     if cb_clash_count[0] == 0:
+#         return False  # "NO CLASH"
+#
+#     else:
+#         return True  # "CLASH!!"
+#
 
-    kdtree_central_asu_bb = sklearn.neighbors.BallTree(np.array(central_asu_pdb_bb_coords))
-    cb_clash_count = kdtree_central_asu_bb.two_point_correlation(central_unit_cell_wo_central_asu_bb_coords,
-                                                                 [clash_distance])
+# def surrounding_uc_is_clash(central_unit_cell, surrounding_unit_cells, clash_distance=2.2):
+#     central_asu_pdb = central_unit_cell[0]
+#     all_unit_cells_wo_central_asu = surrounding_unit_cells + [central_unit_cell[1:]]
+#
+#     central_asu_pdb_bb_coords = central_asu_pdb.extract_backbone_coords()
+#     all_unit_cells_wo_central_asu_bb_coords = []
+#     for unit_cell in all_unit_cells_wo_central_asu:
+#         for unit_cell_sym_mate_pdb in unit_cell:
+#             all_unit_cells_wo_central_asu_bb_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
+#
+#     kdtree_central_asu_bb = sklearn.neighbors.BallTree(np.array(central_asu_pdb_bb_coords))
+#     cb_clash_count = kdtree_central_asu_bb.two_point_correlation(all_unit_cells_wo_central_asu_bb_coords,
+#                                                                  [clash_distance])
+#
+#     if cb_clash_count[0] == 0:
+#         return False  # "NO CLASH"
+#
+#     else:
+#         return True  # "CLASH!!"
+#
 
-    if cb_clash_count[0] == 0:
-        return False  # "NO CLASH"
-
-    else:
-        return True  # "CLASH!!"
-
-
-def surrounding_uc_is_clash(central_unit_cell, surrounding_unit_cells, clash_distance=2.2):
-    central_asu_pdb = central_unit_cell[0]
-    all_unit_cells_wo_central_asu = surrounding_unit_cells + [central_unit_cell[1:]]
-
-    central_asu_pdb_bb_coords = central_asu_pdb.extract_backbone_coords()
-    all_unit_cells_wo_central_asu_bb_coords = []
-    for unit_cell in all_unit_cells_wo_central_asu:
-        for unit_cell_sym_mate_pdb in unit_cell:
-            all_unit_cells_wo_central_asu_bb_coords.extend(unit_cell_sym_mate_pdb.extract_backbone_coords())
-
-    kdtree_central_asu_bb = sklearn.neighbors.BallTree(np.array(central_asu_pdb_bb_coords))
-    cb_clash_count = kdtree_central_asu_bb.two_point_correlation(all_unit_cells_wo_central_asu_bb_coords,
-                                                                 [clash_distance])
-
-    if cb_clash_count[0] == 0:
-        return False  # "NO CLASH"
-
-    else:
-        return True  # "CLASH!!"
-
-
-def expanded_design_is_clash(asu_pdb_1, asu_pdb_2, design_dim, result_design_sym, expand_matrices, uc_dimensions=None,
-                             outdir=None, output_exp_assembly=False, output_uc=False, output_surrounding_uc=False):
-    if design_dim == 0:
-        # Todo Pose from pdbs
-        expanded_ptgrp_pdbs = get_expanded_ptgrp_pdbs(asu_pdb_1, asu_pdb_2, expand_matrices)
-
-        is_clash = expanded_ptgrp_is_clash(expanded_ptgrp_pdbs)
-
-        if not is_clash and outdir is not None:
-            if not os.path.exists(outdir):
-                os.makedirs(outdir)
-            if output_exp_assembly:
-                write_expanded_ptgrp(expanded_ptgrp_pdbs, outdir + "/expanded_assembly.pdb")
-            pdb_asu = expanded_ptgrp_pdbs[0]
-            pdb_asu.write(outdir + "/asu.pdb")
-
-        return is_clash
-
-    elif design_dim == 2:
-        pdb_asu = get_central_asu_pdb_2d(asu_pdb_1, asu_pdb_2, uc_dimensions)
-
-        cryst1_record = generate_cryst1_record(uc_dimensions, result_design_sym)
-
-        unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions)
-
-        is_uc_exp_clash = uc_expansion_is_clash(unit_cell_pdbs)
-        if is_uc_exp_clash:
-            return is_uc_exp_clash
-
-        all_surrounding_unit_cells = get_surrounding_unit_cells_2d(unit_cell_pdbs, uc_dimensions)
-        is_clash = surrounding_uc_is_clash(unit_cell_pdbs, all_surrounding_unit_cells)
-
-        if not is_clash and outdir is not None:
-            if not os.path.exists(outdir):
-                os.makedirs(outdir)
-            if output_uc:
-                write_unit_cell_sym_mates(unit_cell_pdbs, outdir + "/central_uc.pdb")
-            if output_surrounding_uc:
-                write_surrounding_unit_cells(all_surrounding_unit_cells, outdir + "/surrounding_unit_cells.pdb")
-            pdb_asu.write(outdir + "/central_asu.pdb", cryst1=cryst1_record)
-
-        return is_clash
-
-    elif design_dim == 3:
-
-        # get_cryst1_time_start = time.time()
-        cryst1_record = generate_cryst1_record(uc_dimensions, result_design_sym)
-        # get_cryst1_time_stop = time.time()
-        # get_cryst1_time = get_cryst1_time_stop - get_cryst1_time_start
-        # print "TOOK %s seconds to get CRYST1" % str(get_cryst1_time)
-
-        # get_central_asu_time_start = time.time()
-        pdb_asu = get_central_asu_pdb_3d(asu_pdb_1, asu_pdb_2, uc_dimensions)
-        # get_central_asu_time_stop = time.time()
-        # get_central_asu_time = get_central_asu_time_stop - get_central_asu_time_start
-        # print "TOOK %s seconds to get central ASU" % str(get_central_asu_time)
-
-        # get_uc_time_start = time.time()
-        unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions)
-        # get_uc_time_stop = time.time()
-        # get_uc_time = get_uc_time_stop - get_uc_time_start
-        # print "TOOK %s seconds to get UC PDBs" % str(get_uc_time)
-
-        # uc_clash_test_time_start = time.time()
-        is_uc_exp_clash = uc_expansion_is_clash(unit_cell_pdbs)
-        # uc_clash_test_time_stop = time.time()
-        # uc_clash_test_time = uc_clash_test_time_stop - uc_clash_test_time_start
-        # print "TOOK %s seconds to test for clash in UC" % str(uc_clash_test_time)
-
-        if is_uc_exp_clash:
-            # print "\n\n"
-            return is_uc_exp_clash
-
-        # get_all_surrounding_uc_time_start = time.time()
-        all_surrounding_unit_cells = get_surrounding_unit_cells_3d(unit_cell_pdbs, uc_dimensions)
-        # get_all_surrounding_uc_time_stop = time.time()
-        # get_all_surrounding_uc_time = get_all_surrounding_uc_time_stop - get_all_surrounding_uc_time_start
-        # print "TOOK %s seconds to get surrounding UCs" % str(get_all_surrounding_uc_time)
-
-        # surrounding_uc_test_time_start = time.time()
-        is_clash = surrounding_uc_is_clash(unit_cell_pdbs, all_surrounding_unit_cells)
-        # surrounding_uc_test_time_stop = time.time()
-        # surrounding_uc_test_time = surrounding_uc_test_time_stop - surrounding_uc_test_time_start
-        # print "TOOK %s seconds to test for clash in surrounding UCs" % str(surrounding_uc_test_time)
-
-        # write_time_start = time.time()
-        if not is_clash and outdir is not None:
-            if not os.path.exists(outdir):
-                os.makedirs(outdir)
-            if output_uc:
-                write_unit_cell_sym_mates(unit_cell_pdbs, outdir + "/central_uc.pdb")
-            if output_surrounding_uc:
-                write_surrounding_unit_cells(all_surrounding_unit_cells, outdir + "/surrounding_unit_cells.pdb")
-            pdb_asu.write(outdir + "/central_asu.pdb", cryst1=cryst1_record)
-        # write_time_stop = time.time()
-        # write_time = write_time_stop - write_time_start
-        # print "TOOK %s seconds to write out asu, uc and surrounding UCs" % str(write_time)
-        # print "\n\n"
-
-        return is_clash
-
-    else:
-        raise ValueError(
-            "%s is an Invalid Design Dimension. The Only Valid Dimensions are: 0, 2, 3\n" % str(design_dim))
+# def expanded_design_is_clash(asu_pdb_1, asu_pdb_2, design_dim, result_design_sym, expand_matrices, uc_dimensions=None,
+#                              outdir=None, output_exp_assembly=False, output_uc=False, output_surrounding_uc=False):
+#     if design_dim == 0:
+#         # Todo Pose from pdbs
+#         expanded_ptgrp_pdbs = get_expanded_ptgrp_pdbs(asu_pdb_1, asu_pdb_2, expand_matrices)
+#
+#         is_clash = expanded_ptgrp_is_clash(expanded_ptgrp_pdbs)
+#
+#         if not is_clash and outdir is not None:
+#             if not os.path.exists(outdir):
+#                 os.makedirs(outdir)
+#             if output_exp_assembly:
+#                 write_expanded_ptgrp(expanded_ptgrp_pdbs, outdir + "/expanded_assembly.pdb")
+#             pdb_asu = expanded_ptgrp_pdbs[0]
+#             pdb_asu.write(outdir + "/asu.pdb")
+#
+#         return is_clash
+#
+#     elif design_dim == 2:
+#         pdb_asu = get_central_asu_pdb_2d(asu_pdb_1, asu_pdb_2, uc_dimensions)
+#
+#         cryst1_record = generate_cryst1_record(uc_dimensions, result_design_sym)
+#
+#         unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions)
+#
+#         is_uc_exp_clash = uc_expansion_is_clash(unit_cell_pdbs)
+#         if is_uc_exp_clash:
+#             return is_uc_exp_clash
+#
+#         all_surrounding_unit_cells = get_surrounding_unit_cells_2d(unit_cell_pdbs, uc_dimensions)
+#         is_clash = surrounding_uc_is_clash(unit_cell_pdbs, all_surrounding_unit_cells)
+#
+#         if not is_clash and outdir is not None:
+#             if not os.path.exists(outdir):
+#                 os.makedirs(outdir)
+#             if output_uc:
+#                 write_unit_cell_sym_mates(unit_cell_pdbs, outdir + "/central_uc.pdb")
+#             if output_surrounding_uc:
+#                 write_surrounding_unit_cells(all_surrounding_unit_cells, outdir + "/surrounding_unit_cells.pdb")
+#             pdb_asu.write(outdir + "/central_asu.pdb", cryst1=cryst1_record)
+#
+#         return is_clash
+#
+#     elif design_dim == 3:
+#
+#         # get_cryst1_time_start = time.time()
+#         cryst1_record = generate_cryst1_record(uc_dimensions, result_design_sym)
+#         # get_cryst1_time_stop = time.time()
+#         # get_cryst1_time = get_cryst1_time_stop - get_cryst1_time_start
+#         # print "TOOK %s seconds to get CRYST1" % str(get_cryst1_time)
+#
+#         # get_central_asu_time_start = time.time()
+#         pdb_asu = get_central_asu_pdb_3d(asu_pdb_1, asu_pdb_2, uc_dimensions)
+#         # get_central_asu_time_stop = time.time()
+#         # get_central_asu_time = get_central_asu_time_stop - get_central_asu_time_start
+#         # print "TOOK %s seconds to get central ASU" % str(get_central_asu_time)
+#
+#         # get_uc_time_start = time.time()
+#         unit_cell_pdbs = get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions)
+#         # get_uc_time_stop = time.time()
+#         # get_uc_time = get_uc_time_stop - get_uc_time_start
+#         # print "TOOK %s seconds to get UC PDBs" % str(get_uc_time)
+#
+#         # uc_clash_test_time_start = time.time()
+#         is_uc_exp_clash = uc_expansion_is_clash(unit_cell_pdbs)
+#         # uc_clash_test_time_stop = time.time()
+#         # uc_clash_test_time = uc_clash_test_time_stop - uc_clash_test_time_start
+#         # print "TOOK %s seconds to test for clash in UC" % str(uc_clash_test_time)
+#
+#         if is_uc_exp_clash:
+#             # print "\n\n"
+#             return is_uc_exp_clash
+#
+#         # get_all_surrounding_uc_time_start = time.time()
+#         all_surrounding_unit_cells = get_surrounding_unit_cells_3d(unit_cell_pdbs, uc_dimensions)
+#         # get_all_surrounding_uc_time_stop = time.time()
+#         # get_all_surrounding_uc_time = get_all_surrounding_uc_time_stop - get_all_surrounding_uc_time_start
+#         # print "TOOK %s seconds to get surrounding UCs" % str(get_all_surrounding_uc_time)
+#
+#         # surrounding_uc_test_time_start = time.time()
+#         is_clash = surrounding_uc_is_clash(unit_cell_pdbs, all_surrounding_unit_cells)
+#         # surrounding_uc_test_time_stop = time.time()
+#         # surrounding_uc_test_time = surrounding_uc_test_time_stop - surrounding_uc_test_time_start
+#         # print "TOOK %s seconds to test for clash in surrounding UCs" % str(surrounding_uc_test_time)
+#
+#         # write_time_start = time.time()
+#         if not is_clash and outdir is not None:
+#             if not os.path.exists(outdir):
+#                 os.makedirs(outdir)
+#             if output_uc:
+#                 write_unit_cell_sym_mates(unit_cell_pdbs, outdir + "/central_uc.pdb")
+#             if output_surrounding_uc:
+#                 write_surrounding_unit_cells(all_surrounding_unit_cells, outdir + "/surrounding_unit_cells.pdb")
+#             pdb_asu.write(outdir + "/central_asu.pdb", cryst1=cryst1_record)
+#         # write_time_stop = time.time()
+#         # write_time = write_time_stop - write_time_start
+#         # print "TOOK %s seconds to write out asu, uc and surrounding UCs" % str(write_time)
+#         # print "\n\n"
+#
+#         return is_clash
+#
+#     else:
+#         raise ValueError(
+#             "%s is an Invalid Design Dimension. The Only Valid Dimensions are: 0, 2, 3\n" % str(design_dim))
