@@ -784,15 +784,15 @@ def get_rot_matrices(step_deg: int, axis: str = 'z', rot_range_deg: int = 360) -
     rot_matrices = []
     axis = axis.lower()
     if axis == 'x':
-        for step in range(0, rot_range_deg // step_deg):
+        for step in range(0, int(rot_range_deg // step_deg)):
             rad = math.radians(step * step_deg)
             rot_matrices.append([[1, 0, 0], [0, math.cos(rad), -1 * math.sin(rad)], [0, math.sin(rad), math.cos(rad)]])
     elif axis == 'y':
-        for step in range(0, rot_range_deg // step_deg):
+        for step in range(0, int(rot_range_deg // step_deg)):
             rad = math.radians(step * step_deg)
             rot_matrices.append([[math.cos(rad), 0, math.sin(rad)], [0, 1, 0], [-1 * math.sin(rad), 0, math.cos(rad)]])
     elif axis == 'z':
-        for step in range(0, rot_range_deg // step_deg):
+        for step in range(0, int(rot_range_deg // step_deg)):
             rad = math.radians(step * step_deg)
             rot_matrices.append([[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]])
     else:
