@@ -1,7 +1,7 @@
 from logging import Logger
 import os
 from copy import copy
-from pickle import load
+# from pickle import load
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil
 from typing import Set, List, Iterable, Dict, Optional, IO, Union

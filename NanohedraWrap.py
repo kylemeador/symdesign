@@ -1,24 +1,10 @@
 """For wrapping the distribution of Nanohedra jobs to Cassini Cluster
 """
-
 import os
 import subprocess
 
 import PathUtils as PUtils
 from SymDesignUtils import DesignError, write_shell_script, unpickle, handle_errors
-
-
-# @handle_design_errors(errors=(DesignError, AssertionError))
-# def nanohedra_recap_s(dock_dir, string):
-#     return nanohedra_design_recap(dock_dir, suffix=string)
-#
-#
-# def nanohedra_recap_mp(dock_dir, string):
-#     try:
-#         file = nanohedra_design_recap(dock_dir, suffix=string)
-#         return file, None
-#     except (DesignError, AssertionError) as e:
-#         return None, (dock_dir, e)
 
 
 @handle_errors(errors=(DesignError, ))
@@ -61,7 +47,7 @@ def nanohedra_design_recap(dock_dir, suffix=None):
         if not os.path.exists(os.path.join(dock_dir, new_sym, '%s.pdb' % des_dir_d[sym].lower())):
             raise DesignError('Missing symmetry %s PDB file %s!' % (new_sym, des_dir_d[sym].lower()))
 
-        # This protocol should be obsolete with ASU.py fixed symmetry order TODO, remove when old pickles are unnecessary
+        # This protocol should be obsolete with DesignRecapFileController.py fixed symmetry order TODO, remove when old pickles are unnecessary
         new_symmetry_rank = sym_hierarchy[_sym]
         if new_symmetry_rank >= symmetry_rank:  # the case where sym2 is greater than sym1 or equal to sym1
             symmetry_rank = new_symmetry_rank
@@ -90,28 +76,6 @@ def nanohedra_design_recap(dock_dir, suffix=None):
     #                          os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=dock_dir, suffix=suffix,
     #                          default=False)
 
-#
-# @handle_design_errors(errors=(DesignError, AssertionError))
-# def nanohedra_command_s(entry, path1, path2, out_dir, flags, suffix, initial):
-#     """Write out Nanohedra commands to shell scripts for processing by computational clusters
-#
-#     Return:
-#         (str): The name of the file containing the Nanohedra command
-#     """
-#     return nanohedra_command(entry, path1, path2, out_dir=out_dir, flags=flags, suffix=suffix, initial=initial)
-#
-#
-# def nanohedra_command_mp(entry, path1, path2, out_dir, flags, suffix, initial):
-#     """Write out Nanohedra commands to shell scripts for processing by computational clusters. Using Multiprocessing
-#
-#     Return:
-#         (str): The name of the file containing the Nanohedra command
-#     """
-#     try:
-#         file = nanohedra_command(entry, path1, path2, out_dir=out_dir, flags=flags, suffix=suffix, initial=initial)
-#         return file, None
-#     except (DesignError, AssertionError) as e:
-#         return None, ((path1, path2), e)
 
 
 def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=False):

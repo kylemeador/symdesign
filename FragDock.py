@@ -24,7 +24,6 @@ from classes.SymEntry import SymEntry, get_rot_matrices, get_degen_rotmatrices
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from PDB import PDB
 from Pose import Pose
-# from interface_analysis.Database import FragmentDB
 
 # Globals
 logger = start_log(name=__name__)
