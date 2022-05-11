@@ -1,11 +1,10 @@
-import copy
 import os
-# import pickle
 
 import numpy as np
 
 from PathUtils import sym_op_location, point_group_symmetry_operator_location, space_group_symmetry_operator_location
-from SymDesignUtils import unpickle
+from SymDesignUtils import unpickle, pickle_object
+from classes.SymEntry import identity_matrix, origin
 
 sg_cryst1_fmt_dict = {
     'P1': 'P 1',  # TRICLINIC
@@ -41,6 +40,27 @@ space_group_number_operations = \
 valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
                         'D6': 12, 'T': 12, 'O': 24, 'I': 60}
 cubic_point_groups = ['T', 'O', 'I']
+chiral_space_groups = [
+    'P1',  # TRICLINIC
+    'P121', 'P1211', 'C121',  # MONOCLINIC
+    'P222', 'P2221', 'P21212', 'P212121', 'C2221', 'C222', 'F222', 'I222', 'I212121',  # ORTHORHOMBIC
+    'P4', 'P41', 'P42', 'P43', 'I4', 'I41', 'P422', 'P4212', 'P4122', 'P41212', 'P4222', 'P42212', 'P4322', 'P43212',
+    'I422', 'I4122',  # TETRAGONAL
+    'P3', 'P31', 'P32', 'R3', 'P312', 'P321', 'P3112', 'P3121', 'P3212', 'P3221', 'R32',  # TRIGONAL
+    'P6', 'P61', 'P65', 'P62', 'P64', 'P63', 'P622', 'P6122', 'P6522', 'P6222', 'P6422', 'P6322',  # HEXAGONAL
+    'P23', 'F23', 'I23', 'P213', 'I213', 'P432', 'P4232', 'F432', 'F4132', 'I432', 'P4332', 'P4132', 'I4132'  # CUBIC
+]
+nanohedra_symmetry_groups = \
+    ['P23', 'P4222', 'P321', 'P6322', 'P312', 'P622', 'F23', 'F222', 'P6222', 'I422', 'I213', 'R32', 'P4212',
+     'I432', 'P4132', 'I4132', 'P3', 'P6', 'I4122', 'P4', 'C222', 'P222', 'P432', 'F4132', 'P422', 'P213',
+     'F432', 'P4232']
+
+point_group_symmetry_operators = unpickle(point_group_symmetry_operator_location)
+# with format {'symmetry': rotations[N, 3, 3], ...}
+# where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
+space_group_symmetry_operators = unpickle(space_group_symmetry_operator_location)
+# with format {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...}
+# where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
 
 
 def multicomponent_by_number(number):
@@ -140,7 +160,7 @@ def frac_to_cart(frac_coords, dimensions):
             "UNIT CELL DIMENSIONS INCORRECTLY SPECIFIED. CORRECT FORMAT IS: [a, b, c,  alpha, beta, gamma]")
 
 
-def get_central_asu(pdb, uc_dimensions, design_dimension):
+def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from FragDock then Depreciate
     asu_com_frac = cart_to_frac(pdb.center_of_mass, uc_dimensions)
 
     # array_range = np.full(21, 1)
@@ -239,8 +259,6 @@ def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, '
 #     return asu_symm_mates
 
 
-point_group_symmetry_operators = unpickle(point_group_symmetry_operator_location)
-space_group_symmetry_operators = unpickle(space_group_symmetry_operator_location)
 # def get_sg_sym_op(sym_type, space_group_operator_dir=os.path.join(sym_op_location, "SPACE_GROUP_SYMM_OPERATORS")):
 #     """Get the symmetry operations for a specified space group oriented in the canonical orientation
 #     Returns:
@@ -253,44 +271,44 @@ space_group_symmetry_operators = unpickle(space_group_symmetry_operator_location
 #     return sg_sym_op
 
 
-def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
-    """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
-    unit_cell_sym_mates = [pdb_asu]
-
-    asu_cart_coords = pdb_asu.extract_coords()
-    # asu_cart_coords = pdb_asu.extract_all_coords()
-    asu_frac_coords = cart_to_frac(asu_cart_coords, uc_dimensions)
-
-    for rot, tx in expand_matrices:
-        copy_pdb_asu = copy.copy(pdb_asu)
-        t_vec = np.array(tx)
-        tr_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + t_vec
-
-        tr_asu_cart_coords = frac_to_cart(tr_asu_frac_coords, uc_dimensions).tolist()
-        # asu_sym_mate_pdb = pdb_asu.return_transformed_copy(rotation=np.array(r), translation=tx)
-        unit_cell_sym_mate_pdb = copy_pdb_asu.replace_coords(tr_asu_cart_coords)
-
-        # unit_cell_sym_mate_pdb = PDB()
-        # unit_cell_sym_mate_pdb_atom_list = []
-        # atom_count = 0
-        # for atom in pdb_asu.atoms():
-        #     x_transformed = tr_asu_cart_coords[atom_count][0]
-        #     y_transformed = tr_asu_cart_coords[atom_count][1]
-        #     z_transformed = tr_asu_cart_coords[atom_count][2]
-        #     atom_transformed = Atom(atom_count, atom.get_type(), atom.get_alt_location(),
-        #                             atom.get_residue_type(), atom.get_chain(),
-        #                             atom.get_residue_number(),
-        #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
-        #                             z_transformed,
-        #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
-        #                             atom.get_atom_charge())
-        #     atom_count += 1
-        #     unit_cell_sym_mate_pdb_atom_list.append(atom_transformed)
-
-        # unit_cell_sym_mate_pdb.set_all_atoms(unit_cell_sym_mate_pdb_atom_list)
-        unit_cell_sym_mates.append(unit_cell_sym_mate_pdb)
-
-    return unit_cell_sym_mates
+# def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
+#     """Return all symmetry mates as a list of PDB objects. Chain names will match the ASU"""
+#     unit_cell_sym_mates = [pdb_asu]
+#
+#     asu_cart_coords = pdb_asu.extract_coords()
+#     # asu_cart_coords = pdb_asu.extract_all_coords()
+#     asu_frac_coords = cart_to_frac(asu_cart_coords, uc_dimensions)
+#
+#     for rot, tx in expand_matrices:
+#         copy_pdb_asu = copy.copy(pdb_asu)
+#         t_vec = np.array(tx)
+#         tr_asu_frac_coords = np.matmul(asu_frac_coords, np.transpose(rot)) + t_vec
+#
+#         tr_asu_cart_coords = frac_to_cart(tr_asu_frac_coords, uc_dimensions).tolist()
+#         # asu_sym_mate_pdb = pdb_asu.return_transformed_copy(rotation=np.array(r), translation=tx)
+#         unit_cell_sym_mate_pdb = copy_pdb_asu.replace_coords(tr_asu_cart_coords)
+#
+#         # unit_cell_sym_mate_pdb = PDB()
+#         # unit_cell_sym_mate_pdb_atom_list = []
+#         # atom_count = 0
+#         # for atom in pdb_asu.atoms():
+#         #     x_transformed = tr_asu_cart_coords[atom_count][0]
+#         #     y_transformed = tr_asu_cart_coords[atom_count][1]
+#         #     z_transformed = tr_asu_cart_coords[atom_count][2]
+#         #     atom_transformed = Atom(atom_count, atom.get_type(), atom.get_alt_location(),
+#         #                             atom.get_residue_type(), atom.get_chain(),
+#         #                             atom.get_residue_number(),
+#         #                             atom.get_code_for_insertion(), x_transformed, y_transformed,
+#         #                             z_transformed,
+#         #                             atom.get_occ(), atom.get_temp_fact(), atom.get_element_symbol(),
+#         #                             atom.get_atom_charge())
+#         #     atom_count += 1
+#         #     unit_cell_sym_mate_pdb_atom_list.append(atom_transformed)
+#
+#         # unit_cell_sym_mate_pdb.set_all_atoms(unit_cell_sym_mate_pdb_atom_list)
+#         unit_cell_sym_mates.append(unit_cell_sym_mate_pdb)
+#
+#     return unit_cell_sym_mates
 
 
 # def get_surrounding_unit_cells(unit_cell_sym_mates, uc_dimensions, dimension=None, return_side_chains=False):
@@ -401,3 +419,137 @@ def get_unit_cell_sym_mates(pdb_asu, expand_matrices, uc_dimensions):
 #
 #     return unit_cell_pdbs
     # return all_surrounding_unit_cells
+
+
+def get_sg_sym_op(sym_type):
+    is_sg = False
+    expand_uc_matrices = []
+    rot_mat, tx_mat = [], []
+    line_count = 0
+    for line in sg_op_lines:
+        if "'" in line:  # ensure only sg lines are parsed either before or after sg
+            is_sg = False
+        if "'%s'" % sym_type in line:
+            is_sg = True
+        if is_sg and "'" not in line and ":" not in line and not line[0].isdigit():
+            line_float = [float(s) for s in line.split()]
+            rot_mat.append(line_float[0:3])
+            tx_mat.append(line_float[-1])
+            line_count += 1
+            if line_count % 3 == 0:
+                expand_uc_matrices.append((rot_mat, tx_mat))
+                rot_mat, tx_mat = [], []
+
+    return expand_uc_matrices
+
+
+def get_all_sg_sym_ops():
+    expand_uc_matrices = []
+    sg_syms = {}
+    rot_mat, tx_mat = [], []
+    line_count = 0
+    name = None
+    for line in sg_op_lines:
+        if "'" in line:  # we have a new sg, add the old one, then reset all variables
+            if name:
+                sg_syms[name] = expand_uc_matrices
+            expand_uc_matrices = []
+            rot_mat, tx_mat = [], []
+            line_count = 0
+            number, name, *_ = line.strip().replace("'", '').split()
+        # if "'%s'" % sym_type in line:
+        #     is_sg = True
+        if "'" not in line and ':' not in line and not line[0].isdigit():
+            line_float = [float(s) for s in line.split()]
+            rot_mat.append(line_float[0:3])
+            tx_mat.append(line_float[-1])
+            line_count += 1
+            if line_count % 3 == 0:
+                expand_uc_matrices.append((rot_mat, tx_mat))
+                rot_mat, tx_mat = [], []
+
+    return sg_syms
+
+
+def generate_sym_op_txtfiles():
+    for group in nanohedra_symmetry_groups:
+        sym_op_outfile_path = os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS_TXT', '%s.txt' % symmetry_group)
+        with open(sym_op_outfile_path, 'w') as f:
+            symmetry_op = get_sg_sym_op(group)
+            for op in symmetry_op:
+                f.write(str(op) + '\n')
+
+
+def generate_sym_op_pickles():
+    for group in nanohedra_symmetry_groups:
+        # sym_op_outfile_path = os.path.join(sym_op_location, '%s.pkl' % symmetry_group)
+        symmetry_op = get_sg_sym_op(group)
+        pickle_object(symmetry_op, name=symmetry_group, out_path=pickled_dir)
+
+
+if __name__ == '__main__':
+    # missing identity operators for most part. P1 not
+    sg_op_filepath = os.path.join(sym_op_location, 'spacegroups_op.txt')
+    with open(sg_op_filepath, "r") as f:
+        sg_op_lines = f.readlines()
+    full_space_group_operator_dict = get_all_sg_sym_ops()
+    pickled_dir = os.path.join(sym_op_location, 'pickled')
+    # os.makedirs(pickled_dir)
+    space_group_operators = {}
+    # for symmetry_group in nanohedra_symmetry_groups:
+    for symmetry_group in chiral_space_groups:
+        # sym_op_in_path = os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS', '%s.pkl' % symmetry_group)
+        # sym_op = unpickle(sym_op_in_path)
+        if 'R' in symmetry_group:
+            _symmetry_group = symmetry_group + ':H'  # have to add hexagonal notation found in spacegroup_op.txt
+        else:
+            _symmetry_group = symmetry_group
+        sym_op = full_space_group_operator_dict[_symmetry_group]
+        rotations, translations = zip(*sym_op)
+        rotations = np.array(rotations)
+        translations = np.array(translations)
+        number_of_rotations = len(rotations)
+        number_of_operators = space_group_number_operations.get(symmetry_group, None)
+        if number_of_operators:
+            if number_of_operators != number_of_rotations:  # insert the idenity matrix in the front
+                rotations = np.insert(rotations, 0, identity_matrix, axis=0)
+                translations = np.insert(translations, 0, origin, axis=0)
+                # print('%s incorrect number of operators. Adding identity' % symmetry_group)
+            else:
+                pass
+                # print('%s found the correct number of operators' % symmetry_group)
+        else:
+            if np.all(rotations[0] == identity_matrix):
+                print('\'%s\': %s | NO operator number found. Found IDENTITY'
+                      % (symmetry_group, number_of_rotations))
+            else:
+                print('\'%s\': %s | NO operator number found. Adding identity because no match'
+                      % (symmetry_group, number_of_rotations + 1))
+                rotations = np.insert(rotations, 0, identity_matrix, axis=0)
+                translations = np.insert(translations, 0, origin, axis=0)
+        # print(rotations)
+        # print(translations)
+        # exit()
+        space_group_operators[symmetry_group] = (rotations, translations[:, None, :])
+        # sym_op_outfile_path = os.path.join(sym_op_location, '%s.pkl' % symmetry_group)
+        # pickle_object(sym_op, name=symmetry_group, out_path=pickled_dir)
+    # print('Last spacegroup found:', space_group_operators[symmetry_group])
+    continue1 = input('Save these results? Yes is "Enter". Ctrl-C is quit')
+    # pickle_object(space_group_operators, name='space_group_operators', out_path=pickled_dir)
+    pickle_object(space_group_operators, out_path=space_group_symmetry_operator_location)
+    # sym_op_outfile = open(sym_op_outfile_path, "w")
+    # pickle.dump(sym_op, sym_op_outfile)
+    # sym_op_outfile.close()
+
+    pg_symmetry_groups = ['D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
+    point_group_operators = {}
+    for symmetry in pg_symmetry_groups:
+        rotations = np.array(get_ptgrp_sym_op(symmetry))
+        point_group_operators[symmetry] = rotations
+
+    # print('Last pointgroup found:', point_group_operators[symmetry])
+    continue2 = input('Save these results? Yes is "Enter". Ctrl-C is quit')
+    # pickle_object(point_group_operators, name='point_group_operators', out_path=pickled_dir)
+    pickle_object(point_group_operators, out_path=point_group_symmetry_operator_location)
+    # print({notation: notation.replace(' ', '') for notation in hg_notation})
+    # generate_sym_op_pickles(sg_op_filepath)
