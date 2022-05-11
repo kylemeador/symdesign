@@ -1,4 +1,3 @@
-import logging
 from collections import UserList, defaultdict
 from logging import Logger
 import os
@@ -342,7 +341,7 @@ class Residue:
         self._contact_order = 0
 
     @property
-    def log(self) -> logging.Logger:
+    def log(self) -> Logger:
         """Access to the Structure logger"""
         return self._log.log
 
@@ -1375,7 +1374,7 @@ class Structure(StructureBase):
 
     @property
     def log(self) -> Logger:
-        """Returns: (logging.Logger)"""
+        """Returns the log object holding the Logger"""
         return self._log.log
 
     @log.setter

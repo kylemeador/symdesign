@@ -1,4 +1,4 @@
-import logging
+from logging import Logger
 import os
 from copy import copy
 from pickle import load
@@ -618,7 +618,7 @@ class Model:  # Todo (Structure)
     If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
     """
     def __init__(self, pdb: Structure = None, pdb_file: str = None, models: List[Structure] = None,
-                 log: logging.Logger = None, **kwargs):
+                 log: Logger = None, **kwargs):
         # Todo kwarg collector to protect Object while passing to subclasses. Useful for SymmetricModel asu_file
         super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
         # self.pdb = self.models[0]
