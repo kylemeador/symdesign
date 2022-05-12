@@ -8,7 +8,8 @@ import numpy as np
 import PathUtils as PUtils
 from SymDesignUtils import start_log, dictionary_lookup, DesignError
 
-from utils.SymmetryUtils import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators
+from utils.SymmetryUtils import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators, \
+    all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, sub_symmetries
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
@@ -187,88 +188,9 @@ symmetry_combinations = {
 #          'T', 'T', 0, 'N/A', 4, 2],
 
 custom_entries = [200, 201, 202, 203, 210, 211, 212, 213, 214, 220, 221, 222, 223, 224]
-
-layer_group_d = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
-                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
-                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
-layer_groups = {2, 4, 10, 12, 17, 19, 20, 21, 23,
-                27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
-                71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
-space_groups = {'P23', 'P4222', 'P321', 'P6322', 'P312', 'P622', 'F23', 'F222', 'P6222', 'I422', 'I213', 'R32', 'P4212',
-                'I432', 'P4132', 'I4132', 'P3', 'P6', 'I4122', 'P4', 'C222', 'P222', 'P432', 'F4132', 'P422', 'P213',
-                'F432', 'P4232'}
 space_group_to_sym_entry = {}
-possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T',  # O32': 'O', 'O42': 'O', 'O43': 'O',
-                       'I23': 'I', 'I25': 'I', 'I35': 'I', 'T23': 'T',  # O23': 'O', 'O24': 'O', 'O34': 'O',
-                       'T:{C2}{C3}': 'T', 'T:{C3}{C2}': 'T', 'T:{C3}{C3}': 'T',
-                       # 'O:{C2}{C3}': 'O', 'O:{C2}{C4}': 'O', 'O:{C3}{C4}': 'I',
-                       # 'O:{C3}{C2}': 'O', 'O:{C4}{C2}': 'O', 'O:{C4}{C3}': 'I'
-                       'I:{C2}{C3}': 'I', 'I:{C2}{C5}': 'I', 'I:{C3}{C5}': 'I',
-                       'I:{C3}{C2}': 'I', 'I:{C5}{C2}': 'I', 'I:{C5}{C3}': 'I',
-                       'T': 'T', 'O': 'O', 'I': 'I',
-                       'C2': 'C2', 'C3': 'C3', 'C4': 'C4', 'C5': 'C5', 'C6': 'C6',
-                       'D2': 'D2', 'D3': 'D3', 'D4': 'D4', 'D5': 'D5', 'D6': 'C6',
-                       # layer groups
-                       # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
-                       # space groups  # Todo
-                       # 'cryst': 'cryst'
-                       }
-all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200},
-                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': 210},
-                      'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}, 'I': 220}}
-point_group_sdf_map = {9: 'I32', 16: 'I52', 58: 'I53', 5: 'T32', 54: 'T33',  # 7: 'O32', 13: 'O42', 56: 'O43',
-                       200: 'T', 210: 'O', 211: 'O', 220: 'I'}
-
-max_sym = 6
-rotation_range = {'C%d' % i: 360 / i for i in map(float, range(1, max_sym + 1))}
 # ROTATION SETTING MATRICES - All descriptions are with view on the positive side of respective axis
-setting_matrices = {
-    1: np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
-    # identity
-    2: np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]),
-    # 90 degrees CCW on Y
-    3: np.array([[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]]),
-    # 45 degrees CCW on Y, which is 2-fold axis in T, O
-    4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
-    # 45 degrees CW on X, 45 degrees CW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
-    5: np.array([[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]),
-    # 45 degrees CW on Z
-    6: np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]),
-    # 90 degrees CW on X
-    7: np.array([[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]]),
-    # ~20.9 degrees CW on X which is 3-fold axis in I (2-fold is positive Z)
-    8: np.array([[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]]),
-    # 90 degrees CW on Y, 135 degrees CW on Z, which is 45 degree X,Y plane diagonal in D4
-    9: np.array([[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]]),
-    # ~31.7 degrees CCW on Y which is 5-fold axis in I (2-fold is positive Z)
-    10: np.array([[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]]),
-    # 90 degrees CW on Y, 150 degrees CW on Z, which is 60 degree X,Y plane diagonal in D6
-    11: np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
-    # 90 degrees CCW on Z
-    12: np.array([[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]),
-    # 45 degrees CCW on X, 45 degrees CCW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
-    13: np.array([[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]])
-    # 60 degrees CCW on Z
-    }
-inv_setting_matrices = {key: np.linalg.inv(setting_matrix) for key, setting_matrix in setting_matrices.items()}
-identity_matrix = setting_matrices[1]
-origin = np.array([0., 0., 0.])
-flip_x_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180x
-flip_y_matrix = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180y
-point_group_degeneracy_matrices = {
-    'T': 6,
-}
 # These specify combinations of symmetric point groups which can be used to construct a larger point group
-sub_symmetries = {'C1': ['C1'],
-                  'C2': ['C1', 'C2'],
-                  'C3': ['C1', 'C3'],
-                  'C4': ['C1', 'C2', 'C4'],
-                  'C5': ['C1', 'C5'],
-                  'C6': ['C1', 'C2', 'C3', 'C6'],
-                  'T': ['C1', 'C2', 'C3', 'T'],
-                  'O': ['C1', 'C2', 'C3', 'C4', 'O'],
-                  'I': ['C1', 'C2', 'C3', 'C5', 'I'],
-                  }
 point_group_setting_matrix_members = {
     # Up until 'T' are all correct for original 124, but dynamic dict creation is preferred with additional combinations
     # 'C3': {'C2': {1}, 'C3': {1}},

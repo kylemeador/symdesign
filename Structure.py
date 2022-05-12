@@ -23,10 +23,10 @@ from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
     retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
 from SequenceProfile import SequenceProfile, generate_mutations
-from classes.SymEntry import identity_matrix, get_rot_matrices, rotation_range, flip_x_matrix, get_degen_rotmatrices, \
-    origin
+from classes.SymEntry import get_rot_matrices, get_degen_rotmatrices
 from utils.GeneralUtils import transform_coordinate_sets
-from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators
+from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators, \
+    rotation_range, identity_matrix, origin, flip_x_matrix
 
 # globals
 logger = start_log(name=__name__)

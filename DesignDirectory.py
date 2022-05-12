@@ -45,7 +45,8 @@ from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
-from classes.SymEntry import SymEntry, sdf_lookup, identity_matrix
+from classes.SymEntry import SymEntry, sdf_lookup
+from utils.SymmetryUtils import identity_matrix
 from Database import FragmentDatabase, Database
 
 # Globals
