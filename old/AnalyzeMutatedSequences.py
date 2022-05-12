@@ -24,8 +24,6 @@ def calculate_sequence_metrics(des_dir, alignment, residues=None):  # Unused Tod
         mutation_probabilities = filter_dictionary_keys(alignment.frequencies, keep_residues)
     else:
         mutation_probabilities = alignment.frequencies
-    #     design_flags = SDUtils.parse_flags_file(des_dir.path, name='design')
-    #     keep_residues = SDUtils.get_interface_residues(design_flags, zero=True)
 
     ranked_frequencies = rank_possibilities(mutation_probabilities)
 
