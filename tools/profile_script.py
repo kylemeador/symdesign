@@ -14,7 +14,8 @@ import SymDesignUtils as SDUtils
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()
-    parser.add_argument('-s', '--sort_by', type=str, choices=list(SortKey.__dict__.keys()), default='CUMULATIVE',
+    parser.add_argument('-s', '--sort_by', type=str, default='CUMULATIVE',
+                        choices=list(key for key in SortKey.__dict__.keys() if not key.startswith('_')),
                         help='The specific key to sort statistics by. Choices are defined by pstats.SortKey. '
                              'Default=CUMULATIVE')
     parser.add_argument('-f', '--file', type=os.path.abspath, metavar=SDUtils.ex_path('file_with_stats.txt'),
@@ -24,4 +25,4 @@ if __name__ == '__main__':
     args, additional_args = parser.parse_known_args()
 
     p = pstats.Stats(args.file)
-    p.strip_dirs().sort_stats(args.sort_by).print_stats(args.top)
+    p.strip_dirs().sort_stats(getattr(SortKey, args.sort_by)).print_stats(args.top)
