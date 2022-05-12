@@ -561,10 +561,10 @@ if __name__ == '__main__':
                                      '\nAll jobs have built in features for command monitoring & distribution to '
                                      'computational clusters for parallel processing.\n'
                                      % (PUtils.program_name, PUtils.nano.title(), PUtils.program_command),
-                                     formatter_class=argparse.RawDescriptionHelpFormatter)
+                                     formatter_class=argparse.RawDescriptionHelpFormatter,
+                                     allow_abbrev=False)
     # ---------------------------------------------------
-    # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
-    #                                                             'include %s' % ', '.join(possible_symmetries))
+    # TODO add action=argparse.BooleanOptionalAction to all action='store_true'/'store_false'
     parser.add_argument('-a', '--output_assembly', action='store_true',
                         help='Whether the assembly should be output? Infinite materials are output in a unit cell')
     parser.add_argument('--debug', action='store_true',
@@ -593,10 +593,10 @@ if __name__ == '__main__':
                         help='The name of a pair of chains to fuse during design. Pairs should be separated by a colon,'
                              ' new instances by a space. Ex --fuse_chains A:B C:D')
     parser.add_argument('-f', '--file', type=os.path.abspath, metavar=SDUtils.ex_path('file_with_directory_names.txt'),
-                        help='File with location(s) of %s designs. For each run of %s, a file will be created '
+                        help='File(s) with location(s) of %s designs. For each run of %s, a file will be created '
                              'specifying the specific directories to use in subsequent %s commands of the same designs.'
                              ' If pose-IDs are specified in a file, say as the result of %s or %s, in addition to the '
-                             'pose-ID file, provide your %s working directory to locate the pose-Ids of interest.'
+                             'pose-ID file, provide your %s working directory to locate the pose-IDs of interest.'
                              % (PUtils.program_name, PUtils.program_name, PUtils.program_name, PUtils.analysis,
                                 PUtils.select_designs, PUtils.program_name),
                         default=None, nargs='*')
@@ -826,7 +826,7 @@ if __name__ == '__main__':
                                       % (PUtils.all_scores, PUtils.analysis_file % ('TIMESTAMP', 'LOCATION')))
     parser_analysis.add_argument('-N', '--no_save', action='store_true',
                                  help='Don\'t save trajectory information.\nDefault=False')
-    parser_analysis.add_argument('-fig', '--figures', action='store_true',
+    parser_analysis.add_argument('--figures', action='store_true',
                                  help='Create and save figures for all poses?\nDefault=False')
     parser_analysis.add_argument('-j', '--join', action='store_true',
                                  help='Join Trajectory and Residue Dataframes?\nDefault=False')
