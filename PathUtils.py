@@ -50,7 +50,7 @@ if not rosetta:
     print('No environmental variable specifying Rosetta software location found at %s. Rosetta inaccessible'
           % ', '.join(search_strings))
 
-nstruct = 20  # Todo back to 50?
+nstruct = 20
 stage = {1: refine, 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
          11: 'all_to_cluster', 12: scout, 13: 'hbnet_design_profile', 14: structure_background}
@@ -134,7 +134,7 @@ binaries = os.path.join(dependency_dir, 'bin')
 models_to_multimodel_exe = os.path.join(binaries, 'models_to_multimodel.py')
 list_pdb_files = os.path.join(binaries, 'list_files_in_directory.py')
 hbnet_sort = os.path.join(binaries, 'sort_hbnet_silent_file_results.sh')
-sbatch_template_dir = os.path.join(binaries, 'sbatch')
+sbatch_template_dir = os.path.join(dependency_dir, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
 reformat_msa_exe_path = os.path.join(dependency_dir, 'hh-suite', 'scripts', 'reformat.pl')
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
