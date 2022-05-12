@@ -12,7 +12,7 @@ from subprocess import Popen, list2cmdline
 import sys
 import time
 from glob import glob
-from itertools import repeat, product, combinations
+from itertools import repeat, product, combinations, chain
 from json import loads, dumps
 from csv import reader
 
@@ -34,7 +34,6 @@ from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from classes.EulerLookup import EulerLookup
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
 from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, JobResources
-from NanohedraWrap import nanohedra_command
 from PDB import PDB, orient_pdb_file
 from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
@@ -1123,7 +1122,7 @@ if __name__ == '__main__':
     # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
     all_poses, design_directories, location = None, [], None
-    all_dock_directories, pdb_pairs = None, None
+    all_dock_directories, entity_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
 
     if args.multi_processing:
@@ -1144,6 +1143,7 @@ if __name__ == '__main__':
         symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
         SDUtils.make_path(symdesign_directory)
         job = JobResources(symdesign_directory)
+    logger.info('Using design resources from Database located at "%s"' % job.protein_data)
     queried_flags['job_resources'] = job
 
     if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
@@ -1162,7 +1162,6 @@ if __name__ == '__main__':
     job.fragment_db = fragment_db
     job.euler_lookup = euler_lookup
 
-    initial_iter = None
     if initialize:
         if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
             raise SDUtils.DesignError(
@@ -1233,10 +1232,6 @@ if __name__ == '__main__':
             else:
                 designs_directory = args.output_directory
             os.makedirs(designs_directory, exist_ok=True)
-        # job.resources = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
-        #                      job.sequences, job.profiles, sql=None)  # , log=logger)
-        logger.info('Using design resources from Database located at "%s"' % job.protein_data)
-
         # Todo logic error when initialization occurs with module that doens't call this, subsequent runs are missing
         #  directories/resources that haven't been made
         # check to see that proper files have been created if doing design
@@ -1410,130 +1405,126 @@ if __name__ == '__main__':
                             % example_log)
 
     elif args.module == PUtils.nano:
-        logger.info('Using design resources from Database located at "%s"' % job.protein_data)
-        if args.directory or args.file:
-            all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
-                                                                               directory=args.directory, dock=True)
-            design_directories = [DesignDirectory.from_nanohedra(dock_dir, dock=True,  # mode=args.directory_type,
-                                                                 project=args.project, **queried_flags)
-                                  for dock_dir in all_dock_directories]
-            if not design_directories:
-                raise SDUtils.DesignError('No docking directories/files were found!\n'
-                                          'Please specify --directory1, and/or --directory2 or --directory or '
-                                          '--file. See %s' % PUtils.help(args.module))
-            # master_directory = next(iter(design_directories))
-            logger.info('%d unique building block docking combinations found in "%s"'
-                        % (len(design_directories), location))
+        # if args.directory or args.file:
+        #     all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
+        #                                                                        directory=args.directory, dock=True)
+        #     design_directories = [DesignDirectory.from_nanohedra(dock_dir, dock=True,  # mode=args.directory_type,
+        #                                                          project=args.project, **queried_flags)
+        #                           for dock_dir in all_dock_directories]
+        #     if not design_directories:
+        #         raise SDUtils.DesignError('No docking directories/files were found!\n'
+        #                                   'Please specify --directory1, and/or --directory2 or --directory or '
+        #                                   '--file. See %s' % PUtils.help(args.module))
+        #     # master_directory = next(iter(design_directories))
+        #     logger.info('%d unique building block docking combinations found in "%s"'
+        #                 % (len(design_directories), location))
+        # else:
+        # if args.output_directory:
+        #     master_directory = JobResources(queried_flags['output_directory'])
+        # else:
+        #     master_directory = JobResources(os.path.join(os.getcwd(), PUtils.program_output))
+        # Todo make current with sql ambitions
+        # make master output directory.           sym_entry is required, so this won't fail v
+        job.docking_master_dir = os.path.join(job.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
+        os.makedirs(job.docking_master_dir, exist_ok=True)
+        # Transform input oligomers to canonical orientation and return their ASU
+        symmetry_map = sym_entry.groups
+        all_entities = []
+        load_resources = False
+        orient_log = SDUtils.start_log(name='orient', handler=2,
+                                       location=os.path.join(job.resources.oriented.location, PUtils.orient_log_file),
+                                       propagate=True)
+        if args.query_codes:
+            if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
+                args.save_query = True
+            else:
+                args.save_query = False
+            entities1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            entities2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
         else:
-            # if args.output_directory:
-            #     master_directory = JobResources(queried_flags['output_directory'])
-            # else:
-            #     master_directory = JobResources(os.path.join(os.getcwd(), PUtils.program_output))
-            # Todo make current with sql ambitions
-            job.docking_master_dir = os.path.join(job.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
-            # sym_entry is required so this won't fail ^
-
-            # Transform input oligomers to canonical orientation and return their ASU
-            symmetry_map = sym_entry.groups
-            all_entities = []
-            load_resources = False
-            orient_log = SDUtils.start_log(name='orient', handler=2,
-                                           location=os.path.join(job.resources.oriented.location, PUtils.orient_log_file),
-                                           propagate=True)
-            if args.query_codes:
-                if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
-                    args.save_query = True
+            if args.pdb_codes1:
+                entities1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
+                # all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
+            else:  # args.oligomer1:
+                logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
+                                % args.oligomer1)
+                if '.pdb' in args.oligomer1:
+                    pdb1_filepaths = [args.oligomer1]
                 else:
-                    args.save_query = False
-                entities1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
-                entities2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
-            else:
-                if args.pdb_codes1:
-                    entities1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
-                    # all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
-                else:  # args.oligomer1:
-                    logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
-                                    % args.oligomer1)
-                    if '.pdb' in args.oligomer1:
-                        pdb1_filepaths = [args.oligomer1]
-                    else:
-                        pdb1_filepaths = SDUtils.get_all_file_paths(args.oligomer1, extension='.pdb')
-                    pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
-                                                               out_dir=job.resources.oriented.location)
-                                               for file in pdb1_filepaths]
-                    # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
-                    entities1 = list(map(os.path.basename,
-                                         [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
-                    # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
-                    # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
-            all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
+                    pdb1_filepaths = SDUtils.get_all_file_paths(args.oligomer1, extension='.pdb')
+                pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
+                                                           out_dir=job.resources.oriented.location)
+                                           for file in pdb1_filepaths]
+                # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
+                entities1 = list(map(os.path.basename,
+                                     [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
+                # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
+                # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
+        all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
 
-            single_component_design = False
-            if args.oligomer2:
-                if args.oligomer1 != args.oligomer2:  # see if they are the same input
-                    logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
-                                    % args.oligomer1)
-                    if '.pdb' in args.oligomer2:
-                        pdb2_filepaths = [args.oligomer2]
-                    else:
-                        pdb2_filepaths = SDUtils.get_all_file_paths(args.oligomer2, extension='.pdb')
-                    pdb2_oriented_filepaths = \
-                        [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
-                                         out_dir=job.resources.oriented.location)
-                         for file in pdb2_filepaths]
-                    # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
-                    entities2 = list(map(os.path.basename,
-                                         [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
-                else:  # the entities are the same symmetry, or we have single component and bad input
-                    entities2 = []
-            elif args.pdb_codes2:
-                # Collect all entities required for processing the given commands
-                entities2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
-                # Select entities, orient them, then load each entity to all_entities for further database processing
-                # for symmetry, entities in zip(symmetry_map, required_entities):
-                #     if not entities:
-                #         continue
-                #     elif not symmetry or symmetry == 'C1':
-                #         logger.info('PDB files are being processed without consideration for symmetry: %s'
-                #                     % ', '.join(entities))
-                #         continue
-                #         # example_directory.transform_d[idx]['translation'] = -center_of_mass
-                #         # example_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
-                #     else:
-                #         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
-                #                     % (symmetry, job.orient_dir, ', '.join(entities)))
-            else:
+        single_component_design = False
+        if args.oligomer2:
+            if args.oligomer1 != args.oligomer2:  # see if they are the same input
+                logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
+                                % args.oligomer1)
+                if '.pdb' in args.oligomer2:
+                    pdb2_filepaths = [args.oligomer2]
+                else:
+                    pdb2_filepaths = SDUtils.get_all_file_paths(args.oligomer2, extension='.pdb')
+                pdb2_oriented_filepaths = \
+                    [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
+                                     out_dir=job.resources.oriented.location)
+                     for file in pdb2_filepaths]
+                # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
+                entities2 = list(map(os.path.basename,
+                                     [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
+            else:  # the entities are the same symmetry, or we have single component and bad input
                 entities2 = []
-                # if not entities2:
-                logger.info('No additional entities requested for docking, treating as single component')
-                single_component_design = True
-            all_entities.extend(job.resources.orient_entities(entities2, symmetry=symmetry_map[1]))
+        elif args.pdb_codes2:
+            # Collect all entities required for processing the given commands
+            entities2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
+            # Select entities, orient them, then load each entity to all_entities for further database processing
+            # for symmetry, entities in zip(symmetry_map, required_entities):
+            #     if not entities:
+            #         continue
+            #     elif not symmetry or symmetry == 'C1':
+            #         logger.info('PDB files are being processed without consideration for symmetry: %s'
+            #                     % ', '.join(entities))
+            #         continue
+            #         # example_directory.transform_d[idx]['translation'] = -center_of_mass
+            #         # example_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
+            #     else:
+            #         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
+            #                     % (symmetry, job.orient_dir, ', '.join(entities)))
+        else:
+            entities2 = []
+            # if not entities2:
+            logger.info('No additional entities requested for docking, treating as single component')
+            single_component_design = True
+        all_entities.extend(job.resources.orient_entities(entities2, symmetry=symmetry_map[1]))
 
-            info_messages = []
-            preprocess_instructions, pre_refine, pre_loop_model = \
-                job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
-                                                             script_out_path=job.sbatch_scripts,
-                                                             batch_commands=not args.run_in_shell)
-            if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
-                logger.critical(sbatch_warning)
-                for message in info_messages + preprocess_instructions:
-                    logger.info(message)
-                print('\n')
-                logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
-                            % (PUtils.program_name, ' '.join(sys.argv)))
-                terminate(output=False)
-                # After completion of sbatch, the next time command is entered docking will proceed
+        info_messages = []
+        preprocess_instructions, pre_refine, pre_loop_model = \
+            job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
+                                                         script_out_path=job.sbatch_scripts,
+                                                         batch_commands=not args.run_in_shell)
+        if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
+            logger.critical(sbatch_warning)
+            for message in info_messages + preprocess_instructions:
+                logger.info(message)
+            print('\n')
+            logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
+                        % (PUtils.program_name, ' '.join(sys.argv)))
+            terminate(output=False)
+            # After completion of sbatch, the next time command is entered docking will proceed
 
-            # make all possible pdb_pairs given input entities
-            entities1 = [entity for entity in all_entities if entity.name in entities1]
-            entities2 = [entity for entity in all_entities if entity.name in entities2]
-            pdb_pairs = list(product(entities1, entities2))
-            # pdb_pairs = list(combinations(entities1, 2))
-            # pdb_pairs = list(combinations(pdb1_oriented_filepaths, 2))
-            # pdb_pairs = list(combinations(SDUtils.get_all_file_paths(oriented_pdb1_out_dir, extension='.pdb'), 2))
-            location = args.oligomer1
-            initial_iter = [False for _ in range(len(pdb_pairs))]
-            initial_iter[0] = True
+        # make all possible entity_pairs given input entities
+        for entity in all_entities:
+            entity.make_oligomer(symmetry=entity.symmetry)
+        entities1 = [entity for entity in all_entities if entity.name in entities1]
+        entities2 = [entity for entity in all_entities if entity.name in entities2]
+        entity_pairs = list(product(entities1, entities2))
+        location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
     else:  # this logic is possible with select_designs without --metric
         # job.resources = None
@@ -1631,8 +1622,6 @@ if __name__ == '__main__':
     elif args.module == PUtils.nano:  # -o1 oligomer1, -o2 oligomer2, -e entry, -o outdir
         # Initialize docking procedure
         if args.run_in_shell:
-            # make master output directory
-            os.makedirs(job.docking_master_dir, exist_ok=True)
             if args.debug:
                 # Root logs to stream with level debug according to prior logging initialization
                 master_logger, bb_logger = logger, logger
