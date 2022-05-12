@@ -5,7 +5,21 @@ import numpy as np
 from PathUtils import sym_op_location, point_group_symmetry_operator_location, space_group_symmetry_operator_location
 from SymDesignUtils import unpickle, pickle_object
 
-sg_cryst1_fmt_dict = {
+
+chiral_space_groups = [
+    'P1',  # TRICLINIC
+    'P121', 'P1211', 'C121',  # MONOCLINIC
+    'P222', 'P2221', 'P21212', 'P212121', 'C2221', 'C222', 'F222', 'I222', 'I212121',  # ORTHORHOMBIC
+    'P4', 'P41', 'P42', 'P43', 'I4', 'I41', 'P422', 'P4212', 'P4122', 'P41212', 'P4222', 'P42212', 'P4322', 'P43212',
+    'I422', 'I4122',  # TETRAGONAL
+    'P3', 'P31', 'P32', 'R3', 'P312', 'P321', 'P3112', 'P3121', 'P3212', 'P3221', 'R32',  # TRIGONAL
+    'P6', 'P61', 'P65', 'P62', 'P64', 'P63', 'P622', 'P6122', 'P6522', 'P6222', 'P6422', 'P6322',  # HEXAGONAL
+    'P23', 'F23', 'I23', 'P213', 'I213', 'P432', 'P4232', 'F432', 'F4132', 'I432', 'P4332', 'P4132', 'I4132'  # CUBIC
+]
+nanohedra_space_groups = {'P23', 'P4222', 'P321', 'P6322', 'P312', 'P622', 'F23', 'F222', 'P6222', 'I422', 'I213',
+                          'R32', 'P4212', 'I432', 'P4132', 'I4132', 'P3', 'P6', 'I4122', 'P4', 'C222', 'P222', 'P432',
+                          'F4132', 'P422', 'P213', 'F432', 'P4232'}
+space_group_cryst1_fmt_dict = {
     'P1': 'P 1',  # TRICLINIC
     'P121': 'P 1 2 1', 'P1211': 'P 1 21 1', 'C121': 'C 1 2 1',  # MONOCLINIC
     'P222': 'P 2 2 2', 'P2221': 'P 2 2 21', 'P21212': 'P 21 21 2', 'P212121': 'P 21 21 21', 'C2221': 'C 2 2 21',
@@ -21,12 +35,25 @@ sg_cryst1_fmt_dict = {
     'P23': 'P 2 3', 'F23': 'F 2 3', 'I23': 'I 2 3', 'P213': 'P 21 3', 'I213': 'I 21 3', 'P432': 'P 4 3 2',
     'P4232': 'P 42 3 2', 'F432': 'F 4 3 2', 'F4132': 'F 41 3 2', 'I432': 'I 4 3 2', 'P4332': 'P 43 3 2',
     'P4132': 'P 41 3 2', 'I4132': 'I 41 3 2'}  # CUBIC
-
-pg_cryst1_fmt_dict = {  # MISSING 7 OF THESE
-    'p3': 'P 3', 'p321': 'P 3 2 1', 'p622': 'P 6 2 2', 'p4': 'P 4', 'p222': 'P 2 2 2',
-    'p422': 'P 4 2 2', 'p4212': 'P 4 21 2', 'p6': 'P 6', 'p312': 'P 3 1 2', 'c222': 'C 2 2 2'}
-pg_cryst1_to_hm_notation = {'P 3': 'p3', 'P 3 2 1': 'p321', 'P 6 2 2': 'p622', 'P 4': 'p4', 'P 2 2 2': 'p222',
-                            'P 4 2 2': 'p422', 'P 4 21 2': 'p4212', 'P 6': 'p6', 'P 3 1 2': 'p312', 'C 2 2 2': 'c222'}
+layer_groups = {
+    'p1': 'P 1',
+    'p2': 'P 2', 'p21': 'P 21', 'pg': 'C 2', 'p222': 'P 2 2 2', 'p2221': 'P 2 2 21', 'p22121': 'P 2 21 21',
+    'c222': 'C 2 2 2',
+    'p3': 'P 3', 'p312': 'P 3 1 2', 'p321': 'P 3 2 1',
+    'p4': 'P 4', 'p422': 'P 4 2 2', 'p4212': 'P 4 21 2',
+    'p6': 'P 6', 'p622': 'P 6 2 2'
+}
+nanohedra_layer_groups = ['p222', 'c222', 'p3', 'p312', 'p321', 'p4', 'p422', 'p4212', 'p6', 'p622']
+layer_group_cryst1_fmt_dict = {  # MISSING 7 OF THESE
+    'p222': 'P 2 2 2',
+    'c222': 'C 2 2 2',
+    'p3': 'P 3', 'p312': 'P 3 1 2', 'p321': 'P 3 2 1',
+    'p4': 'P 4', 'p422': 'P 4 2 2', 'p4212': 'P 4 21 2',
+    'p6': 'P 6', 'p622': 'P 6 2 2'
+}
+layer_group_entry_numbers = {2, 4, 10, 12, 17, 19, 20, 21, 23,
+                             27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
+                             71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
 space_group_number_operations = \
     {'P1': 1, 'P121': 2, 'P1211': 2, 'C121': 4, 'P2221': 4, 'P21212': 4, 'P212121': 4, 'C2221': 8, 'I222': 8,
      'I212121': 8, 'P41': 4, 'P42': 4, 'P43': 4, 'I4': 8, 'I41': 8, 'P4122': 8, 'P41212': 8, 'P42212': 8, 'P4322': 8,
@@ -39,27 +66,84 @@ space_group_number_operations = \
 valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
                         'D6': 12, 'T': 12, 'O': 24, 'I': 60}
 cubic_point_groups = ['T', 'O', 'I']
-chiral_space_groups = [
-    'P1',  # TRICLINIC
-    'P121', 'P1211', 'C121',  # MONOCLINIC
-    'P222', 'P2221', 'P21212', 'P212121', 'C2221', 'C222', 'F222', 'I222', 'I212121',  # ORTHORHOMBIC
-    'P4', 'P41', 'P42', 'P43', 'I4', 'I41', 'P422', 'P4212', 'P4122', 'P41212', 'P4222', 'P42212', 'P4322', 'P43212',
-    'I422', 'I4122',  # TETRAGONAL
-    'P3', 'P31', 'P32', 'R3', 'P312', 'P321', 'P3112', 'P3121', 'P3212', 'P3221', 'R32',  # TRIGONAL
-    'P6', 'P61', 'P65', 'P62', 'P64', 'P63', 'P622', 'P6122', 'P6522', 'P6222', 'P6422', 'P6322',  # HEXAGONAL
-    'P23', 'F23', 'I23', 'P213', 'I213', 'P432', 'P4232', 'F432', 'F4132', 'I432', 'P4332', 'P4132', 'I4132'  # CUBIC
-]
-nanohedra_symmetry_groups = \
-    ['P23', 'P4222', 'P321', 'P6322', 'P312', 'P622', 'F23', 'F222', 'P6222', 'I422', 'I213', 'R32', 'P4212',
-     'I432', 'P4132', 'I4132', 'P3', 'P6', 'I4122', 'P4', 'C222', 'P222', 'P432', 'F4132', 'P422', 'P213',
-     'F432', 'P4232']
-
 point_group_symmetry_operators = unpickle(point_group_symmetry_operator_location)
 # with format {'symmetry': rotations[N, 3, 3], ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
 space_group_symmetry_operators = unpickle(space_group_symmetry_operator_location)
 # with format {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
+possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T', 'O32': 'O', 'O42': 'O', 'O43': 'O',
+                       'I23': 'I', 'I25': 'I', 'I35': 'I', 'T23': 'T', 'O23': 'O', 'O24': 'O', 'O34': 'O',
+                       'T': 'T', 'T:{C2}': 'T', 'T:{C3}': 'T',
+                       'T:{C2}{C3}': 'T', 'T:{C3}{C2}': 'T', 'T:{C3}{C3}': 'T',
+                       'O': 'O', 'O:{C2}': 'O', 'O:{C3}': 'O', 'O:{C4}': 'O',
+                       'O:{C2}{C3}': 'O', 'O:{C2}{C4}': 'O', 'O:{C3}{C4}': 'O',
+                       # 'O:234': 'O', 'O:324': 'O', 'O:342': 'O', 'O:432': 'O', 'O:423': 'O', 'O:243': 'O',
+                       # 'O:{C2}{C3}{C4}': 'O', 'O:{C3}{C2}{C4}': 'O', 'O:{C3}{C4}{C2}': 'O', 'O:{C4}{C3}{C2}': 'O',
+                       # 'O:{C4}{C2}{C3}': 'O', 'O:{C2}{C4}{C3}': 'O',
+                       'O:{C3}{C2}': 'O', 'O:{C4}{C2}': 'O', 'O:{C4}{C3}': 'O',
+                       'I': 'I', 'I:{C2}': 'I', 'I:{C3}': 'I', 'I:{C5}': 'I',
+                       'I:{C2}{C3}': 'I', 'I:{C2}{C5}': 'I', 'I:{C3}{C5}': 'I',
+                       'I:{C3}{C2}': 'I', 'I:{C5}{C2}': 'I', 'I:{C5}{C3}': 'I',
+                       # 'I:235': 'I', 'I:325': 'I', 'I:352': 'I', 'I:532': 'I', 'I:253': 'I', 'I:523': 'I',
+                       # 'I:{C2}{C3}{C5}': 'I', 'I:{C3}{C2}{C5}': 'I', 'I:{C3}{C5}{C2}': 'I', 'I:{C5}{C3}{C2}': 'I',
+                       # 'I:{C2}{C5}{C3}': 'I', 'I:{C5}{C2}{C3}': 'I',
+                       'C2': 'C2', 'C3': 'C3', 'C4': 'C4', 'C5': 'C5', 'C6': 'C6',
+                       'D2': 'D2', 'D3': 'D3', 'D4': 'D4', 'D5': 'D5', 'D6': 'C6',
+                       # layer groups
+                       # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
+                       # space groups  # Todo
+                       # 'cryst': 'cryst'
+                       }
+all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200},
+                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': 210},
+                      'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}, 'I': 220}}
+max_sym = 6
+rotation_range = {'C%d' % i: 360 / i for i in map(float, range(1, max_sym + 1))}
+setting_matrices = {
+    1: np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
+    # identity
+    2: np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]),
+    # 90 degrees CCW on Y
+    3: np.array([[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]]),
+    # 45 degrees CCW on Y, which is 2-fold axis in T, O
+    4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
+    # 45 degrees CW on X, 45 degrees CW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
+    5: np.array([[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]),
+    # 45 degrees CW on Z
+    6: np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]),
+    # 90 degrees CW on X
+    7: np.array([[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]]),
+    # ~20.9 degrees CW on X which is 3-fold axis in I (2-fold is positive Z)
+    8: np.array([[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]]),
+    # 90 degrees CW on Y, 135 degrees CW on Z, which is 45 degree X,Y plane diagonal in D4
+    9: np.array([[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]]),
+    # ~31.7 degrees CCW on Y which is 5-fold axis in I (2-fold is positive Z)
+    10: np.array([[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]]),
+    # 90 degrees CW on Y, 150 degrees CW on Z, which is 60 degree X,Y plane diagonal in D6
+    11: np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
+    # 90 degrees CCW on Z
+    12: np.array([[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]),
+    # 45 degrees CCW on X, 45 degrees CCW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
+    13: np.array([[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]])
+    # 60 degrees CCW on Z
+    }
+inv_setting_matrices = {key: np.linalg.inv(setting_matrix) for key, setting_matrix in setting_matrices.items()}
+flip_x_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180x
+flip_y_matrix = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180y
+point_group_degeneracy_matrices = {
+    'T': 6,
+}
+sub_symmetries = {'C1': ['C1'],
+                  'C2': ['C1', 'C2'],
+                  'C3': ['C1', 'C3'],
+                  'C4': ['C1', 'C2', 'C4'],
+                  'C5': ['C1', 'C5'],
+                  'C6': ['C1', 'C2', 'C3', 'C6'],
+                  'T': ['C1', 'C2', 'C3', 'T'],
+                  'O': ['C1', 'C2', 'C3', 'C4', 'O'],
+                  'I': ['C1', 'C2', 'C3', 'C5', 'I'],
+                  }
 
 
 def multicomponent_by_number(number):
@@ -85,10 +169,10 @@ def generate_cryst1_record(dimensions, space_group) -> str:
     Returns:
         (str): The CRYST1 record
     """
-    if space_group in sg_cryst1_fmt_dict:
-        formatted_space_group = sg_cryst1_fmt_dict[space_group]
-    elif space_group in pg_cryst1_fmt_dict:
-        formatted_space_group = pg_cryst1_fmt_dict[space_group]
+    if space_group in space_group_cryst1_fmt_dict:
+        formatted_space_group = space_group_cryst1_fmt_dict[space_group]
+    elif space_group in layer_group_cryst1_fmt_dict:
+        formatted_space_group = layer_group_cryst1_fmt_dict[space_group]
         dimensions[2] = 1.0
         dimensions[4] = 90.0
         dimensions[5] = 90.0
@@ -389,9 +473,9 @@ def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, '
 #         expand_matrices = point_group_symmetry_operators[symmetry.upper()]
 #         return get_expanded_ptgrp_pdb(asu, expand_matrices)
 #     else:
-#         if symmetry in pg_cryst1_fmt_dict:
+#         if symmetry in layer_group_cryst1_fmt_dict:
 #             dimension = 2
-#         elif symmetry in sg_cryst1_fmt_dict:
+#         elif symmetry in space_group_cryst1_fmt_dict:
 #             dimension = 3
 #         else:
 #             return
@@ -471,7 +555,7 @@ def get_all_sg_sym_ops():
 
 
 def generate_sym_op_txtfiles():
-    for group in nanohedra_symmetry_groups:
+    for group in nanohedra_space_groups:
         sym_op_outfile_path = os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS_TXT', '%s.txt' % symmetry_group)
         with open(sym_op_outfile_path, 'w') as f:
             symmetry_op = get_sg_sym_op(group)
@@ -480,7 +564,7 @@ def generate_sym_op_txtfiles():
 
 
 def generate_sym_op_pickles():
-    for group in nanohedra_symmetry_groups:
+    for group in nanohedra_space_groups:
         # sym_op_outfile_path = os.path.join(sym_op_location, '%s.pkl' % symmetry_group)
         symmetry_op = get_sg_sym_op(group)
         pickle_object(symmetry_op, name=symmetry_group, out_path=pickled_dir)
@@ -497,7 +581,7 @@ if __name__ == '__main__':
     pickled_dir = os.path.join(sym_op_location, 'pickled')
     # os.makedirs(pickled_dir)
     space_group_operators = {}
-    # for symmetry_group in nanohedra_symmetry_groups:
+    # for symmetry_group in nanohedra_space_groups:
     for symmetry_group in chiral_space_groups:
         # sym_op_in_path = os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS', '%s.pkl' % symmetry_group)
         # sym_op = unpickle(sym_op_in_path)
@@ -554,84 +638,3 @@ if __name__ == '__main__':
     pickle_object(point_group_operators, out_path=point_group_symmetry_operator_location)
     # print({notation: notation.replace(' ', '') for notation in hg_notation})
     # generate_sym_op_pickles(sg_op_filepath)
-layer_group_d = {'P 1': 'p1', 'P 2': 'p2', 'P 21': 'p21', 'C 2': 'pg', 'P 2 2 2': 'p222', 'P 2 2 21': 'p2221',
-                 'P 2 21 21': 'p22121', 'C 2 2 2': 'c222', 'P 4': 'p4', 'P 4 2 2': 'p422',
-                 'P 4 21 2': 'p4121', 'P 3': 'p3', 'P 3 1 2': 'p312', 'P 3 2 1': 'p321', 'P 6': 'p6', 'P 6 2 2': 'p622'}
-layer_groups = {2, 4, 10, 12, 17, 19, 20, 21, 23,
-                27, 29, 30, 37, 38, 42, 43, 53, 59, 60, 64, 65, 68,
-                71, 78, 74, 78, 82, 83, 84, 89, 93, 97, 105, 111, 115}
-space_groups = {'P23', 'P4222', 'P321', 'P6322', 'P312', 'P622', 'F23', 'F222', 'P6222', 'I422', 'I213', 'R32', 'P4212',
-                'I432', 'P4132', 'I4132', 'P3', 'P6', 'I4122', 'P4', 'C222', 'P222', 'P432', 'F4132', 'P422', 'P213',
-                'F432', 'P4232'}
-possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T', 'O32': 'O', 'O42': 'O', 'O43': 'O',
-                       'I23': 'I', 'I25': 'I', 'I35': 'I', 'T23': 'T', 'O23': 'O', 'O24': 'O', 'O34': 'O',
-                       'T': 'T', 'T:{C2}': 'T', 'T:{C3}': 'T',
-                       'T:{C2}{C3}': 'T', 'T:{C3}{C2}': 'T', 'T:{C3}{C3}': 'T',
-                       'O': 'O', 'O:{C2}': 'O', 'O:{C3}': 'O', 'O:{C4}': 'O',
-                       'O:{C2}{C3}': 'O', 'O:{C2}{C4}': 'O', 'O:{C3}{C4}': 'O',
-                       # 'O:234': 'O', 'O:324': 'O', 'O:342': 'O', 'O:432': 'O', 'O:423': 'O', 'O:243': 'O',
-                       # 'O:{C2}{C3}{C4}': 'O', 'O:{C3}{C2}{C4}': 'O', 'O:{C3}{C4}{C2}': 'O', 'O:{C4}{C3}{C2}': 'O',
-                       # 'O:{C4}{C2}{C3}': 'O', 'O:{C2}{C4}{C3}': 'O',
-                       'O:{C3}{C2}': 'O', 'O:{C4}{C2}': 'O', 'O:{C4}{C3}': 'O',
-                       'I': 'I', 'I:{C2}': 'I', 'I:{C3}': 'I', 'I:{C5}': 'I',
-                       'I:{C2}{C3}': 'I', 'I:{C2}{C5}': 'I', 'I:{C3}{C5}': 'I',
-                       'I:{C3}{C2}': 'I', 'I:{C5}{C2}': 'I', 'I:{C5}{C3}': 'I',
-                       # 'I:235': 'I', 'I:325': 'I', 'I:352': 'I', 'I:532': 'I', 'I:253': 'I', 'I:523': 'I',
-                       # 'I:{C2}{C3}{C5}': 'I', 'I:{C3}{C2}{C5}': 'I', 'I:{C3}{C5}{C2}': 'I', 'I:{C5}{C3}{C2}': 'I',
-                       # 'I:{C2}{C5}{C3}': 'I', 'I:{C5}{C2}{C3}': 'I',
-                       'C2': 'C2', 'C3': 'C3', 'C4': 'C4', 'C5': 'C5', 'C6': 'C6',
-                       'D2': 'D2', 'D3': 'D3', 'D4': 'D4', 'D5': 'D5', 'D6': 'C6',
-                       # layer groups
-                       # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
-                       # space groups  # Todo
-                       # 'cryst': 'cryst'
-                       }
-all_sym_entry_dict = {'T': {'C2': {'C3': 5}, 'C3': {'C2': 5, 'C3': 54}, 'T': 200},
-                      'O': {'C2': {'C3': 7, 'C4': 13}, 'C3': {'C2': 7, 'C4': 56}, 'C4': {'C2': 13, 'C3': 56}, 'O': 210},
-                      'I': {'C2': {'C3': 9, 'C5': 16}, 'C3': {'C2': 9, 'C5': 58}, 'C5': {'C2': 16, 'C3': 58}, 'I': 220}}
-max_sym = 6
-rotation_range = {'C%d' % i: 360 / i for i in map(float, range(1, max_sym + 1))}
-setting_matrices = {
-    1: np.array([[1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, 1.0]]),
-    # identity
-    2: np.array([[0.0, 0.0, 1.0], [0.0, 1.0, 0.0], [-1.0, 0.0, 0.0]]),
-    # 90 degrees CCW on Y
-    3: np.array([[0.707107, 0.0, 0.707107], [0.0, 1.0, 0.0], [-0.707107, 0.0, 0.707107]]),
-    # 45 degrees CCW on Y, which is 2-fold axis in T, O
-    4: np.array([[0.707107, 0.408248, 0.577350], [-0.707107, 0.408248, 0.577350], [0.0, -0.816497, 0.577350]]),
-    # 45 degrees CW on X, 45 degrees CW on Z, which is X,Y,Z body diagonal or 3-fold axis in T, O
-    5: np.array([[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]),
-    # 45 degrees CW on Z
-    6: np.array([[1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, -1.0, 0.0]]),
-    # 90 degrees CW on X
-    7: np.array([[1.0, 0.0, 0.0], [0.0, 0.934172, 0.356822], [0.0, -0.356822, 0.934172]]),
-    # ~20.9 degrees CW on X which is 3-fold axis in I (2-fold is positive Z)
-    8: np.array([[0.0, 0.707107, 0.707107], [0.0, -0.707107, 0.707107], [1.0, 0.0, 0.0]]),
-    # 90 degrees CW on Y, 135 degrees CW on Z, which is 45 degree X,Y plane diagonal in D4
-    9: np.array([[0.850651, 0.0, 0.525732], [0.0, 1.0, 0.0], [-0.525732, 0.0, 0.850651]]),
-    # ~31.7 degrees CCW on Y which is 5-fold axis in I (2-fold is positive Z)
-    10: np.array([[0.0, 0.5, 0.866025], [0.0, -0.866025, 0.5], [1.0, 0.0, 0.0]]),
-    # 90 degrees CW on Y, 150 degrees CW on Z, which is 60 degree X,Y plane diagonal in D6
-    11: np.array([[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]),
-    # 90 degrees CCW on Z
-    12: np.array([[0.707107, -0.408248, 0.577350], [0.707107, 0.408248, -0.577350], [0.0, 0.816497, 0.577350]]),
-    # 45 degrees CCW on X, 45 degrees CCW on Z, which is X,-Y,Z body diagonal or opposite 3-fold in T, O
-    13: np.array([[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]])
-    # 60 degrees CCW on Z
-    }
-inv_setting_matrices = {key: np.linalg.inv(setting_matrix) for key, setting_matrix in setting_matrices.items()}
-flip_x_matrix = np.array([[1.0, 0.0, 0.0], [0.0, -1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180x
-flip_y_matrix = np.array([[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]])  # rot 180y
-point_group_degeneracy_matrices = {
-    'T': 6,
-}
-sub_symmetries = {'C1': ['C1'],
-                  'C2': ['C1', 'C2'],
-                  'C3': ['C1', 'C3'],
-                  'C4': ['C1', 'C2', 'C4'],
-                  'C5': ['C1', 'C5'],
-                  'C6': ['C1', 'C2', 'C3', 'C6'],
-                  'T': ['C1', 'C2', 'C3', 'T'],
-                  'O': ['C1', 'C2', 'C3', 'C4', 'O'],
-                  'I': ['C1', 'C2', 'C3', 'C5', 'I'],
-                  }
