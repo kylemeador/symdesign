@@ -495,17 +495,16 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
             if len(success) == 0:
                 exit_code = 1
                 exit(exit_code)
-            # if stage == PUtils.nano:
-            if design_directories:  # design_directories is empty list when nano, use success as the commands holder
-                command_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
-                                                      name='_'.join(default_output_tuple))
-                sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module,
-                                         number_of_commands=len(success))
-            else:
+            if design_directories:
                 command_file = SDUtils.write_commands([os.path.join(des.scripts, '%s.sh' % stage) for des in success],
                                                       out_path=job_paths, name='_'.join(default_output_tuple))
                 sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module)
                 #                                                                        ^ for sbatch template
+            else:  # design_directories is empty list when nano, use success as the commands holder
+                command_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
+                                                      name='_'.join(default_output_tuple))
+                sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module,
+                                         number_of_commands=len(success))
             logger.critical(sbatch_warning)
             if args.module == PUtils.interface_design and not job.pre_refine:  # must refine before design
                 refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % PUtils.refine)
