@@ -511,26 +511,26 @@ def to_iterable(_obj, ensure_file=False, skip_comma=False):
     return clean_set
 
 
-def remove_duplicates(_iter):
+def remove_duplicates(_iter: Iterable) -> List:
+    """An efficient, order maintaining, and set free function to remove duplicates"""
     seen = set()
     seen_add = seen.add
     return [x for x in _iter if not (x in seen or seen_add(x))]
 
 
-def write_shell_script(command, name='script', out_path=os.getcwd(), additional=None, shell='bash', status_wrap=None) \
-        -> str:
+def write_shell_script(command: str, name: str = 'script', out_path: Union[str, bytes] = os.getcwd(),
+                       additional: List = None, shell: str = 'bash', status_wrap: str = None) -> Union[str, bytes]:
     """Take a command and write to a name.sh script. By default bash is used as the shell interpreter
 
     Args:
-        command (str): The command formatted using subprocess.list2cmdline(list())
-    Keyword Args:
-        name='script' (str): The name of the output shell script
-        out_path=os.getcwd() (str): The location where the script will be written
-        additional=None (list): Additional commands also formatted using subprocess.list2cmdline()
-        shell='bash' (str): The shell which should interpret the script
-        status_wrap=None (str): The name of a file in which to check and set the status of the command in the shell
+        command: The command formatted using subprocess.list2cmdline(list())
+        name: The name of the output shell script
+        out_path: The location where the script will be written
+        additional: Additional commands also formatted using subprocess.list2cmdline()
+        shell: The shell which should interpret the script
+        status_wrap: The name of a file in which to check and set the status of the command in the shell
     Returns:
-        (str): The name of the file
+        The name of the file
     """
     if status_wrap:
         modifier = '&&'
@@ -551,93 +551,22 @@ def write_shell_script(command, name='script', out_path=os.getcwd(), additional=
     return file_name
 
 
-def write_commands(command_list, name='all_commands', out_path=os.getcwd()):
+def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path: Union[str, bytes] = os.getcwd()) \
+        -> Union[str, bytes]:
     """Write a list of commands out to a file
 
     Args:
-        command_list (Iterable[str]): An iterable with the commands as values
-    Keyword Args:
-        name='all_commands' (str): The name of the file. Will be appended with '.cmd(s)'
-        out_path=os.getcwd(): The directory where the file will be written
+        commands: An iterable with the commands as values
+        name: The name of the file. Will be appended with '.cmd(s)'
+        out_path: The directory where the file will be written
     Returns:
-        (str): The filename of the new file
+        The filename of the new file
     """
-    file = os.path.join(out_path, '%s.cmds' % name if len(command_list) > 1 else '%s.cmd' % name)
+    file = os.path.join(out_path, '%s.cmds' % name if len(commands) > 1 else '%s.cmd' % name)
     with open(file, 'w') as f:
-        f.write('%s\n' % '\n'.join(command for command in command_list))
+        f.write('%s\n' % '\n'.join(command for command in commands))
 
     return file
-
-
-def write_list_to_file(_list, name=None, location=os.getcwd()):
-    file_name = os.path.join(location, name)  # + '.cmd')
-    with open(file_name, 'w') as f:
-        f.write('\n'.join(str(item) for item in _list))
-
-    return file_name
-
-
-def pdb_list_file(refined_pdb, total_pdbs=1, suffix='', out_path=os.getcwd(), additional=None):
-    file_name = os.path.join(out_path, 'design_files.txt')
-    with open(file_name, 'w') as f:
-        f.write('%s\n' % refined_pdb)  # run second round of metrics on input as well
-        f.write('\n'.join('%s%s_%s.pdb' % (os.path.splitext(refined_pdb)[0], suffix, str(idx).zfill(4))
-                          for idx in enumerate(total_pdbs, 1)))
-        if additional:
-            f.write('\n'.join(pdb for pdb in additional))
-
-    return file_name
-
-
-# @handle_errors(errors=(FileNotFoundError,))
-# def parse_flags_file(directory, name=PUtils.interface_design, flag_variable=None):  # UNUSED
-#     """Returns the design flags passed to Rosetta from a design directory
-#
-#     Args:
-#         directory (str): Location of design directory on disk
-#     Keyword Args:
-#         name=PUtils.interface_design (str): The flags file suffix
-#         flag_variable=None (str): The name of a specific variable to retrieve
-#     Returns:
-#         variable_dict (dict): {'interfaceA': 15A,21A,25A,..., 'dssm_file': , ...}
-#     """
-#     parser_vars = '-parser:script_vars'
-#     with open(os.path.join(directory, 'flags_%s' % name), 'r') as f:
-#         all_lines = f.readlines()
-#         for line in all_lines:
-#             if line[:19] == parser_vars:
-#                 variables = line.lstrip(parser_vars).strip().split()
-#                 variable_dict = {}
-#                 for variable in variables:
-#                     variable_dict[variable.split('=')[0]] = variable.split('=')[1]
-#                 if flag_variable:
-#                     return variable_dict[flag_variable]
-#                 else:
-#                     return variable_dict
-
-
-def get_interface_residues(design_variables, pdb=True, zero=False):
-    """Returns a list of interface residues from flags_design parameters
-
-    Args:
-        design_variables (dict): {'interfaceA': 15A,21A,25A,..., 'dssm_file': , ...}
-    Keyword Args:
-        pdb=True (bool): Whether residues are in PDB format (True) or pose format (False)
-        zero=True (bool): Whether residues are zero indexed (True) or one indexed (False)
-    Returns:
-          int_residues (list): [13, 16, 40, 88, 129, 130, 131, 190, 300]
-    """
-    _slice, offset = 0, 0
-    if pdb:
-        _slice = -1
-    if zero:
-        offset = index_offset
-    int_residues = []
-    for var in design_variables:
-        if var.startswith('interface'):
-            int_residues += [int(n[:_slice]) - offset for n in design_variables[var].split(',')]
-
-    return int_residues
 
 
 def change_filename(original, new=None, increment=None):
