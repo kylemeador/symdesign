@@ -7,6 +7,7 @@ import os
 import signal
 import subprocess
 from itertools import repeat, chain
+from typing import Union, List
 
 from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
     program_name, interface_design, refine, rosetta_scripts, sym_weights, solvent_weights_sym, solvent_weights
@@ -164,23 +165,25 @@ def run(cmd, log_file_name, program=None, srun=None):
         return False
 
 
-def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, failure_file=None, max_jobs=80,
-               number_of_commands=None, mpi=None, log_file=None, finishing_commands=None, **kwargs):
+def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.getcwd(), scale: str = None,
+               success_file: Union[str, bytes] = None, failure_file: Union[str, bytes] = None, max_jobs: int = 80,
+               number_of_commands: int = None, mpi: int = None, log_file: Union[str, bytes] = None,
+               finishing_commands: List[str] = None, **kwargs) -> str:
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
-    Keyword Args:
-        file=None (str): The location of the file which contains your commands to distribute through an sbatch array
-        out_path=os.getcwd() (str): Where to write out the sbatch script
-        scale=None (str): The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs
-        success_file=None (str): What file to write the successful jobs to for job organization
-        failure_file=None (str): What file to write the failed jobs to for job organization
-        max_jobs=80 (int): The size of the job array limiter. This caps the number of commands executed at once
-        number_of_commands=None (int): The size of the job array
-        mpi=None (int): The number of processes to run concurrently with MPI
-        log_file=None (str): The name of a log file to write command results to
-        finishing_commands=None (list[str]): Commands to run once all sbatch processes are completed
+    Args:
+        file: The location of the file which contains your commands to distribute through a sbatch array
+        out_path: Where to write out the sbatch script
+        scale: The stage of design to distribute. Works with CommandUtils and PathUtils to allocate jobs
+        success_file: What file to write the successful jobs to for job organization
+        failure_file: What file to write the failed jobs to for job organization
+        max_jobs: The size of the job array limiter. This caps the number of commands executed at once
+        number_of_commands: The size of the job array
+        mpi: The number of processes to run concurrently with MPI
+        log_file: The name of a log file to write command results to
+        finishing_commands: Commands to run once all sbatch processes are completed
     Returns:
-        (str): The name of the sbatch script that was written
+        The name of the sbatch script that was written
     """
     if not scale:
         # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
@@ -222,8 +225,7 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
     if not failure_file:
         failure_file = os.path.join(out_path, '%s_%s_failures.log' % (name, sbatch))
     output = os.path.join(out_path, 'sbatch_output')
-    if not os.path.exists(output):
-        os.mkdir(output)
+    os.makedirs(output, exist_ok=True)
 
     # Make sbatch file from template, array details, and command distribution script
     filename = os.path.join(out_path, '%s_%s.sh' % (name, sbatch))
@@ -237,8 +239,8 @@ def distribute(file=None, out_path=os.getcwd(), scale=None, success_file=None, f
         out = 'output=%s/%s' % (output, '%A_%a.out')
         new_f.write('%s%s\n' % (sb_flag, out))
         array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[scale] + 0.5), max_jobs)
-        new_f.write('%s%s\n' % (sb_flag, array))
-        new_f.write('\npython %s --stage %s distribute %s--success_file %s --failure_file %s --command_file %s %s\n' %
+        new_f.write('%s%s\n\n' % (sb_flag, array))
+        new_f.write('python %s --stage %s distribute %s--success_file %s --failure_file %s --command_file %s %s\n' %
                     (cmd_dist, scale, '--log_file %s ' % log_file if log_file else '', success_file, failure_file, file,
                      (script_present or '')))
         if finishing_commands:
