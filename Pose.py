@@ -18,12 +18,12 @@ import PathUtils as PUtils
 from SymDesignUtils import pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
     start_log, null_log, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
     split_number_pairs_and_sort
-from classes.SymEntry import get_rot_matrices, rotation_range, get_degen_rotmatrices, SymEntry, flip_x_matrix, \
-    possible_symmetries, point_group_setting_matrix_members, setting_matrices, symmetry_combination_format, \
-    inv_setting_matrices, origin
+from classes.SymEntry import get_rot_matrices, get_degen_rotmatrices, SymEntry, point_group_setting_matrix_members, \
+    symmetry_combination_format
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, sg_cryst1_fmt_dict, pg_cryst1_fmt_dict, generate_cryst1_record, \
-    space_group_number_operations, point_group_symmetry_operators, space_group_symmetry_operators
+    space_group_number_operations, point_group_symmetry_operators, space_group_symmetry_operators, possible_symmetries, \
+    rotation_range, setting_matrices, inv_setting_matrices, origin, flip_x_matrix
 from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile

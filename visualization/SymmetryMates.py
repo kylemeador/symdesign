@@ -2,8 +2,7 @@ import os
 from pymol import cmd, stored
 
 # from Pose import Pose
-from classes.SymEntry import possible_symmetries
-from utils.SymmetryUtils import get_ptgrp_sym_op
+from utils.SymmetryUtils import get_ptgrp_sym_op, possible_symmetries
 
 
 def generate_symmetry_mates_pymol(name, expand_matrices):

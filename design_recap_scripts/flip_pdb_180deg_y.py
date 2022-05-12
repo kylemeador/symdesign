@@ -2,7 +2,7 @@ import os
 import sys
 
 from PDB import PDB
-from classes.SymEntry import flip_y_matrix
+from utils.SymmetryUtils import flip_y_matrix
 
 pdb_filepath = sys.argv[1]
 
