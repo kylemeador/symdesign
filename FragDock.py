@@ -1702,17 +1702,17 @@ if __name__ == '__main__':
             master_logger = start_log(name=os.path.basename(__file__), handler=2, location=master_log_filepath,
                                       propagate=True)
         # SymEntry Parameters
-        sym_entry = SymEntry(sym_entry_number)  # sym_map inclusion?
+        symmetry_entry = SymEntry(sym_entry_number)  # sym_map inclusion?
 
         if initial:
             # make master output directory
             os.makedirs(master_outdir, exist_ok=True)
             master_logger.info('Nanohedra\nMODE: DOCK\n\n')
-            write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,
+            write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, symmetry_entry, master_outdir,
                                      log=master_logger)
         else:  # for parallel runs, ensure that the first file was able to write before adding below log
             time.sleep(1)
-            rot_step_deg1, rot_step_deg2 = get_rotation_step(sym_entry, rot_step_deg1, rot_step_deg2)
+            rot_step_deg1, rot_step_deg2 = get_rotation_step(symmetry_entry, rot_step_deg1, rot_step_deg2)
 
         pdb1_name = os.path.basename(os.path.splitext(pdb1_path)[0])
         pdb2_name = os.path.basename(os.path.splitext(pdb2_path)[0])
