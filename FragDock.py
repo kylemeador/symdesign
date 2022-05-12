@@ -447,10 +447,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     for entity in pdb2.entities:
         entity.retrieve_sequence_from_api()
 
-    # Output Directory  # Todo DesignDirectory
-    building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
-    outdir = os.path.join(master_outdir, building_blocks)
-    os.makedirs(outdir, exist_ok=True)
+    # Set up output mechanism
+    if isinstance(master_output, str):
+        building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
+        outdir = os.path.join(master_output, building_blocks)
+        os.makedirs(outdir, exist_ok=True)
+    # elif isinstance(master_output, DockingDirectory):
+    #     pass
+    #     Todo make a docking directory object compatible with this and implement sql handle
     if log is None:
         log_file_path = os.path.join(outdir, '%s_log.txt' % building_blocks)
     else:
