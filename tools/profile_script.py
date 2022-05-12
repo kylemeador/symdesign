@@ -1,0 +1,27 @@
+"""
+Run your script with the command format:
+python -m cProfile -o [output_file.name] [SCRIPT] [ARGS]
+Then run this with:
+python profile_script.py -f [output_file.name] [-s] [-t]
+"""
+import os
+import argparse
+import pstats
+from pstats import SortKey
+
+import SymDesignUtils as SDUtils
+
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--sort_by', type=str, choices=list(SortKey.__dict__.keys()), default='CUMULATIVE',
+                        help='The specific key to sort statistics by. Choices are defined by pstats.SortKey. '
+                             'Default=CUMULATIVE')
+    parser.add_argument('-f', '--file', type=os.path.abspath, metavar=SDUtils.ex_path('file_with_stats.txt'),
+                        help='File containing the stats from a cProfile run', default=None)
+    parser.add_argument('-t', '--top', type=int, help='The number of results to view', default=10)
+
+    args, additional_args = parser.parse_known_args()
+
+    p = pstats.Stats(args.file)
+    p.strip_dirs().sort_stats(args.sort_by).print_stats(args.top)
