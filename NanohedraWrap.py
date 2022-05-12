@@ -2,6 +2,8 @@
 """
 import os
 import subprocess
+from itertools import chain
+from typing import Union
 
 import PathUtils as PUtils
 from SymDesignUtils import DesignError, write_shell_script, unpickle, handle_errors
@@ -76,6 +78,29 @@ def nanohedra_design_recap(dock_dir, suffix=None):
     #                          os.path.join(dock_dir, '%s' % sym_d['higher_path']), out_dir=dock_dir, suffix=suffix,
     #                          default=False)
 
+
+def nanohedra_command_concise(path1: Union[str, bytes], path2: Union[str, bytes], entry: int = 0,
+                              out_dir: Union[str, bytes] = os.getcwd(), initial: bool = False, **kwargs) -> str:
+    """Write out Nanohedra commands to shell scripts for processing by computational clusters
+
+    Return:
+        The name of the file containing the Nanohedra command
+    """
+    nano_out_dir = os.path.join(out_dir, 'NanohedraEntry%sDockedPoses%s' % entry)
+    script_out_dir = os.path.join(nano_out_dir, PUtils.scripts)
+    os.makedirs(nano_out_dir, exist_ok=True)
+    os.makedirs(script_out_dir, exist_ok=True)
+
+    cmd = ['python', PUtils.nanohedra_dock_file, '-dock', '-entry', entry, PUtils.nano_entity_flag1, path1,
+           PUtils.nano_entity_flag2, path2, '-outdir', nano_out_dir]
+    #        ['rot_step1', rotation1, '-rot_step2', rotation2, '-min_matched']
+    cmd.extend(chain.from_iterable([['-%s' % key, str(value)] for key, value in kwargs]))
+    if initial:
+        cmd.extend(['-initial'])
+
+    return write_shell_script(subprocess.list2cmdline(cmd), out_path=script_out_dir,
+                              name='nanohedra_%s_%s' % (os.path.basename(os.path.splitext(path1)[0]),
+                                                        os.path.basename(os.path.splitext(path2)[0])))
 
 
 def nanohedra_command(entry, path1, path2, out_dir=None, suffix=None, initial=False):
