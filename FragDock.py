@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
+from Database import FragmentDatabase
 from PathUtils import frag_text_file, master_log, biological_fragment_db_pickle, frag_dir
 from Structure import Structure  # superposition3d
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
@@ -401,14 +402,34 @@ def compute_ij_type_lookup(indices1, indices2):
     return np.where(indices1_repeated == indices2_tiled, True, False).reshape(len(indices1), -1)
 
 
-def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pdb2, rot_step_deg1=3, rot_step_deg2=3,
-                   min_matched=3, high_quality_match_value=0.5, output_assembly=False, output_surrounding_uc=False,
-                   clash_dist=2.2, init_max_z_val=1., subseq_max_z_val=2., log=logger, keep_time=True):  # resume=False,
+def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_lookup: EulerLookup,
+                   master_output: Union[str, bytes], pdb1: Union[Structure, Union[str, bytes]],
+                   pdb2: Union[Structure, Union[str, bytes]], rotation_step1: float = 3., rotation_step2: float = 3.,
+                   min_matched: int = 3, high_quality_match_value: float = 0.5, initial_z_value: float = 1.,
+                   output_assembly: bool = False, output_surrounding_uc: bool = False, log: Logger = logger,
+                   clash_dist: float = 2.2, keep_time: bool = True) -> None:  # resume=False,
     """
+    Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
-    Keyword Args:
+    Args:
+        sym_entry: The SymmetryEntry object describing the material
+        ijk_frag_db: The FragmentDatabase object used for finding fragment pairs
+        euler_lookup: The EulerLookup object used to search for overlapping euler angles
+        master_output: The object to issue outputs to
+        pdb1: The first Structure to be used in docking
+        pdb2: The second Structure to be used in docking
+        rotation_step1: The number of degrees to increment the rotational degrees of freedom search
+        rotation_step2: The number of degrees to increment the rotational degrees of freedom search
+        min_matched: How many high quality fragment pairs should be present before a pose is identified?
         high_quality_match_value=0.5 (float): The value to exceed before a high quality fragment is matched
             When z-value was used 1.0, however 0.5 when match score is used
+        initial_z_value: The acceptable standard deviation z score for initial fragment overlap identification.
+            Smaller values lead to more stringent matching criteria
+        output_assembly: Whether the assembly should be output? Infinite materials are output in a unit cell
+        output_surrounding_uc: Whether the surrounding unit cells should be output? Only for infinite materials
+        log: The logger to keep track of program messages
+        clash_dist: The distance to measure for clashing atoms
+        keep_time: Whether the times for each step should be reported
     Returns:
         None
     """
@@ -693,14 +714,14 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
         log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 1')
 
     # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
-    rotation_matrices_1 = get_rot_matrices(rot_step_deg1, 'z', sym_entry.rotation_range1)
+    rotation_matrices_1 = get_rot_matrices(rotation_step1, 'z', sym_entry.rotation_range1)
     degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
 
     if not resume:
         log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n')
 
     # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
-    rotation_matrices_2 = get_rot_matrices(rot_step_deg2, 'z', sym_entry.rotation_range2)
+    rotation_matrices_2 = get_rot_matrices(rotation_step2, 'z', sym_entry.rotation_range2)
     degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
 
     # Initialize Euler Lookup Class
@@ -720,8 +741,8 @@ def nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pd
     zshift1 = set_mat1[:, 2:3].T if sym_entry.is_internal_tx1 else None
     zshift2 = set_mat2[:, 2:3].T if sym_entry.is_internal_tx2 else None
 
-    # log.debug('zshift1 = %s, zshift2 = %s, max_z_value=%f' % (str(zshift1), str(zshift2), init_max_z_val))
-    optimal_tx = OptimalTx.from_dof(sym_entry.ext_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=init_max_z_val)
+    # log.debug('zshift1 = %s, zshift2 = %s, max_z_value=%f' % (str(zshift1), str(zshift2), initial_z_value))
+    optimal_tx = OptimalTx.from_dof(sym_entry.ext_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=initial_z_value)
 
     # passing_optimal_shifts = []
     # degen_rot_counts = []

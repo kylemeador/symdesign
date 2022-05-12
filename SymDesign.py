@@ -556,8 +556,7 @@ if __name__ == '__main__':
     # parser.add_argument('-symmetry', '--symmetry', type=str, help='The design symmetry to use. Possible symmetries '
     #                                                             'include %s' % ', '.join(possible_symmetries))
     parser.add_argument('-a', '--output_assembly', action='store_true',
-                        help='Should the assembly be output for docked poses? 2- and 3-D materials will be output '
-                             'with a single unit cell.')
+                        help='Whether the assembly should be output? Infinite materials are output in a unit cell')
     parser.add_argument('--debug', action='store_true',
                         help='Whether to log debugging messages to stdout\nDefault=False')
     parser.add_argument('-C', '--cluster_map', type=os.path.abspath,
@@ -689,6 +688,9 @@ if __name__ == '__main__':
                              help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
     parser_dock.add_argument('-mv', '--match_value', type=float, default=0.5, dest='high_quality_match_value',
                              help='What is the minimum match score required for a high quality fragment?')
+    parser_dock.add_argument('-iz', '--initial_z_value', type=float, default=1.,
+                             help='The acceptable standard deviation z score for initial fragment overlap '
+                                  'identification. Smaller values lead to more stringent matching criteria')
     parser_dock.add_argument('-m', '--min_matched', type=int, default=3,
                              help='How many high quality fragment pairs should be present before a pose is identified?')
     parser_dock.add_argument('-o', '--outdir', type=str, dest='output_directory', default=None,
@@ -702,21 +704,19 @@ if __name__ == '__main__':
                              help='File with list of PDB_entity codes for component 1\n', default=None)
     dock2_group.add_argument('-c2', '--pdb_codes2', type=os.path.abspath,
                              help='File with list of PDB_entity codes for component 2\n', default=None)
-    dock1_group.add_argument('-o1', '--oligomer1', type=os.path.abspath,
+    dock1_group.add_argument('-o1', '-%s' % PUtils.nano_entity_flag1, type=os.path.abspath,
                              help='Disk location where the first oligomer(s) are located\n', default=None)
-    dock2_group.add_argument('-o2', '--oligomer2', type=os.path.abspath,
+    dock2_group.add_argument('-o2', '-%s' % PUtils.nano_entity_flag2, type=os.path.abspath,
                              help='Disk location where the second oligomer(s) are located\n', default=None)
     dock1_group.add_argument('-qc', '--query_codes', action='store_true',
                              help='Search the PDB API for corresponding codes\n')
-    parser_dock.add_argument('-q', '--query', action='store_true',
-                             help='Run %s in query mode\n' % PUtils.nano)
-    parser_dock.add_argument('-r1', '--rot_step1', type=os.path.abspath, default=3,
-                             help='Disk location where the first oligomers are located\nREQUIRED')
-    parser_dock.add_argument('-r2', '--rot_step2', type=os.path.abspath, default=3,
-                             help='Disk location where the second oligomers are located\nDefault=None')
+    parser_dock.add_argument('-q', '--query', action='store_true', help='Run %s in query mode\n' % PUtils.nano)
+    parser_dock.add_argument('-r1', '--rotation_step1', type=float, default=3.,
+                             help='The number of degrees to increment the rotational degrees of freedom search')
+    parser_dock.add_argument('-r2', '--rotation_step2', type=float, default=3.,
+                             help='The number of degrees to increment the rotational degrees of freedom search')
     parser_dock.add_argument('-suc', '--output_surrounding_uc', action='store_true',
-                             help='Should the surrounding unit cells be output for docked poses? Only viable for 2D and'
-                                  ' 3D materials')
+                             help='Whether the surrounding unit cells should be output? Only for infinite materials')
     # ---------------------------------------------------
     parser_fragments = subparsers.add_parser(PUtils.generate_fragments,
                                              help='Generate fragment overlap for poses of interest.')
