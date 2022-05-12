@@ -178,13 +178,17 @@ def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.
         success_file: What file to write the successful jobs to for job organization
         failure_file: What file to write the failed jobs to for job organization
         max_jobs: The size of the job array limiter. This caps the number of commands executed at once
-        number_of_commands: The size of the job array
+        number_of_commands: The size of the job array. Inclusion circumvents automatic detection of corrupted commands
         mpi: The number of processes to run concurrently with MPI
         log_file: The name of a log file to write command results to
         finishing_commands: Commands to run once all sbatch processes are completed
     Returns:
         The name of the sbatch script that was written
     """
+    # Should this be included in docstring?
+    # If the commands are provided as a list of raw commands and not a command living in a DesignDirectory, the argument
+    #     number_of_commands should be used! It will skip checking for the presence of commands in the corresponding
+    #     DesignDirectory
     if not scale:
         # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
         #                      Could add a hyperthreading=True parameter to remove process scale
@@ -195,26 +199,27 @@ def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.
     if number_of_commands:
         _commands = [0 for _ in range(number_of_commands)]
         script_present = '-c'
-    elif file:  # use collect directories get the commands from the provided file and verify content
-        _commands, location = collect_designs(files=[file], directory=out_path)
-        # Automatically detect if the commands file has executable scripts or errors
-        script_present = None
+    elif file:  # Automatically detect if the commands file has executable scripts or errors
+        # use collect_designs to get commands from the provided file
+        _commands, location = collect_designs(files=[file])  # , directory=out_path)
+        script_present, error = None, ''
         for idx, _command in enumerate(_commands):
-            if not _command.endswith('.sh'):  # if the command string is not a shell script (doesn't end with .sh)
-                if idx != 0 and script_present:  # There was a change from script files to non-script files
-                    raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                      'or not. Cannot mix!\n' % (file, idx + 1))
-                # break
-            else:  # the command string is a shell script
+            if _command.endswith('.sh'):  # the command string is a shell script
                 if not os.path.exists(_command):  # check for any missing commands and report
-                    raise DesignError('%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n'
-                                      % (file, idx + 1, _command))
+                    error = '%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n' \
+                            % (file, idx + 1, _command)
                 if idx != 0 and not script_present:  # There was a change from non-script files to script files
-                    raise DesignError('%s is malformed at line %d! All commands must either have a file extension '
-                                      'or not. Cannot mix!\n' % (file, idx + 1))
+                    error = '%s is malformed at line %d! All commands must either have a file extension or not. Cannot ' \
+                            'mix!\n' % (file, idx + 1)
                 script_present = '-c'
+            else:  # the command string is not a shell script
+                if idx != 0 and script_present:  # There was a change from script files to non-script files
+                    error = '%s is malformed at line %d! All commands must either have a file extension or not. Cannot ' \
+                            'mix!\n' % (file, idx + 1)
+        if error != '':
+            raise DesignError(error)
     else:
-        raise DesignError('You must pass number_of_commands or file which contains a list of commands to process')
+        raise DesignError('You must pass number_of_commands or file to %s' % distribute.__name__)
         # 'A file is typically output as a \'STAGE.cmds\' file. Ensure that this file exists and resubmit with
         # -f \'STAGE.cmds\'\n')
 
