@@ -548,7 +548,7 @@ def generate_sequence_template(pdb_file):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(fromfile_prefix_chars='@',
+    parser = argparse.ArgumentParser(fromfile_prefix_chars='@',  # prog=PUtils.program_name,
                                      description=
                                      '\nControl all input/output of the various %s operations including: '
                                      '\n\t1. %s docking '
