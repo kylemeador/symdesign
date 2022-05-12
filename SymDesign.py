@@ -15,6 +15,7 @@ from glob import glob
 from itertools import repeat, product, combinations, chain
 from json import loads, dumps
 from csv import reader
+from typing import List, Any, Union, Dict
 
 import pandas as pd
 import psutil
@@ -402,25 +403,28 @@ sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, c
                  ' understand the variables or ask for help if you are still unsure.'
 
 
-def terminate(results=None, output=True):
+def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
     """Format designs passing output parameters and report program exceptions
 
-    Keyword Args:
-        results=None (list): The returned results from the module run. By convention contains results and exceptions
-        output=False (bool): Whether the module used requires a file to be output
-    Returns:
-        (None)
+    Args:
+        results: The returned results from the module run. By convention contains results and exceptions
+        output: Whether the module used requires a file to be output
     """
     global out_path
+    global design_source
     # save any information found during the design command to it's serialized state
     for design in design_directories:
         design.pickle_info()
 
     if results:
-        success = \
-            [design_directories[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
-        exceptions = \
-            [(design_directories[idx], result) for idx, result in enumerate(results) if isinstance(result, BaseException)]
+        if design_directories:  # design_directories is empty list when nano
+            success = \
+                [design_directories[idx] for idx, result in enumerate(results) if not isinstance(result, BaseException)]
+            exceptions = \
+                [(design_directories[idx], result) for idx, result in enumerate(results)
+                 if isinstance(result, BaseException)]
+        else:
+            success, exceptions = results, []
     else:
         success, exceptions = [], []
 
@@ -438,7 +442,7 @@ def terminate(results=None, output=True):
         job_paths = job.job_paths
         job.make_path(job_paths)
         if low and high:
-            timestamp = '%s-%.2f-%.2f' % (SDUtils.starttime, low, high)
+            design_source = '%s-%.2f-%.2f' % (design_source, low, high)
         # Make single file with names of each directory where all_docked_poses can be found
         # project_string = os.path.basename(design_directories[0].project_designs)
         default_output_tuple = (SDUtils.starttime, args.module, design_source)
@@ -447,12 +451,13 @@ def terminate(results=None, output=True):
         else:
             designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % default_output_tuple)
 
-        with open(designs_file, 'w') as f:
-            f.write('%s\n' % '\n'.join(design.path for design in success))
-        logger.critical('The file "%s" contains the locations of all designs in your current project that passed '
-                        'internal checks/filtering. Utilize this file to interact with %s designs in future commands '
-                        'for this project such as:\n\t%s --file %s MODULE\n'
-                        % (designs_file, PUtils.program_name, PUtils.program_command, designs_file))
+        if design_directories:  # design_directories is empty list when nano
+            with open(designs_file, 'w') as f:
+                f.write('%s\n' % '\n'.join(design.path for design in success))
+            logger.critical('The file "%s" contains the locations of all designs in your current project that passed '
+                            'internal checks/filtering. Utilize this file to interact with %s designs in future '
+                            'commands for this project such as:\n\t%s --file %s MODULE\n'
+                            % (designs_file, PUtils.program_name, PUtils.program_command, designs_file))
 
         if args.module == PUtils.analysis:
             all_scores = job.all_scores
@@ -490,11 +495,17 @@ def terminate(results=None, output=True):
             if len(success) == 0:
                 exit_code = 1
                 exit(exit_code)
-            # sbatch_scripts = job.sbatch_scripts
-            command_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % stage) for design in success],
-                                                  out_path=job_paths, name='_'.join(default_output_tuple))
-            sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module)
-            #                                                                        ^ for sbatch template
+            # if stage == PUtils.nano:
+            if design_directories:  # design_directories is empty list when nano, use success as the commands holder
+                command_file = SDUtils.write_commands([list2cmdline(cmd) for cmd in success], out_path=job_paths,
+                                                      name='_'.join(default_output_tuple))
+                sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module,
+                                         number_of_commands=len(success))
+            else:
+                command_file = SDUtils.write_commands([os.path.join(des.scripts, '%s.sh' % stage) for des in success],
+                                                      out_path=job_paths, name='_'.join(default_output_tuple))
+                sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module)
+                #                                                                        ^ for sbatch template
             logger.critical(sbatch_warning)
             if args.module == PUtils.interface_design and not job.pre_refine:  # must refine before design
                 refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % PUtils.refine)
@@ -1644,16 +1655,18 @@ if __name__ == '__main__':
                 for entity1, entity2 in entity_pairs:
                     master_logger.info('Docking %s / %s' % (entity1.name, entity1.name))
                     # result = nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, pdb1, pdb2,
-                    result = None
+                    # result = None
                     nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, entity1, entity2,
                                    rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
                                    min_matched=args.min_matched, high_quality_match_value=args.high_quality_match_value,
                                    initial_z_value=args.initial_z_value, output_assembly=args.output_assembly,
                                    output_surrounding_uc=args.output_surrounding_uc, log=bb_logger)
-                    results.append(result)
+                    # results.append(result)  # DONT need. Results uses design_directories. There are none and no output
+            terminate(results=results, output=False)
         else:  # write all commands to a file and use sbatch
-            script_out_dir = os.path.join(job.docking_master_dir, PUtils.scripts)
-            os.makedirs(script_out_dir, exist_ok=True)
+            design_source = 'Entry%d' % sym_entry.entry_numbe  # used for terminate()
+            # script_out_dir = os.path.join(job.docking_master_dir, PUtils.scripts)
+            # os.makedirs(script_out_dir, exist_ok=True)
             cmd = ['python', PUtils.nanohedra_dock_file, '-dock']
             kwargs = dict(outdir=job.docking_master_dir, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
                           rot_step2=args.rotation_step2, min_matcher=args.min_matched,
@@ -1661,21 +1674,9 @@ if __name__ == '__main__':
                           initial_z_value=args.initial_z_value, output_assembly=args.output_assembly,
                           output_surrounding_uc=args.output_surrounding_uc)
             cmd.extend(chain.from_iterable([['-%s' % key, str(value)] for key, value in kwargs.items()]))
-            commands = []
-            for idx, (entity1, entity2) in enumerate(entity_pairs):
-                # commands.append(cmd + [PUtils.nano_entity_flag1, path1, PUtils.nano_entity_flag2, path2] +
-                _cmd = cmd + [PUtils.nano_entity_flag1, entity1.name, PUtils.nano_entity_flag2, entity2.name] + \
-                       (['-initial'] if idx == 0 else [])
-                # SDUtils.write_shell_script(list2cmdline(_cmd), out_path=script_out_dir,
-                #                            name='nanohedra_%s_%s' % (entity1.name, entity1.name))
-            commands_file = \
-                SDUtils.write_commands([list2cmdline(cmd) for cmd in commands], out_path=script_out_dir,
-                                       name='%s-refine_entities' % SDUtils.starttime)
-            nanohedra_sbatch = distribute(file=commands_file, out_path=script_out_dir, scale=PUtils.nano,
-                                          max_jobs=int(len(commands) / 2 + 0.5), number_of_commands=len(commands))
-        design_source = args.directory  # for terminate()
-        terminate(results=results, output=False)
-        #                                          location=location,
+            commands = [cmd + [PUtils.nano_entity_flag1, entity1.name, PUtils.nano_entity_flag2, entity2.name] +
+                        (['-initial'] if idx == 0 else []) for idx, (entity1, entity2) in enumerate(entity_pairs)]
+            terminate(results=commands)
         # # Make single file with names of each directory. Specific for docking due to no established directory
         # args.file = os.path.join(args.directory, 'all_docked_directories.paths')
         # with open(args.file, 'w') as design_f:
