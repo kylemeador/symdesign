@@ -1750,9 +1750,9 @@ if __name__ == '__main__':
             #     bb_logger.info('DOCKING %s TO %s' % (pdb1_name, pdb2_name))
             #     bb_logger.info('Oligomer 1 Path: %s\nOligomer 2 Path: %s\n' % (pdb1_path, pdb2_path))
 
-            nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1_path, pdb2_path,
-                           rot_step_deg1=rot_step_deg1, rot_step_deg2=rot_step_deg2, output_assembly=output_assembly,
-                           output_surrounding_uc=output_surrounding_uc, min_matched=min_matched,
+            nanohedra_dock(symmetry_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1_path, pdb2_path,
+                           rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
+                           output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
                            keep_time=timer)  # log=bb_logger,
             master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
 

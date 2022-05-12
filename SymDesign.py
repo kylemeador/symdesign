@@ -1639,47 +1639,51 @@ if __name__ == '__main__':
             else:
                 master_log_filepath = os.path.join(args.output_directory, PUtils.master_log)
                 master_logger = SDUtils.start_log(name=PUtils.nano.title(), handler=2, location=master_log_filepath,
-                                                  propagate=True)
+                                                  propagate=True, no_log_name=True)
+                bb_logger = None  # have to include this incase started as debug
             master_logger.info('Nanohedra\nMODE: DOCK\n\n')
-            write_docking_parameters(args.oligomer1, args.oligomer2, args.rot_step_deg1, args.rot_step_deg2, sym_entry,
-                                     job.docking_master_dir, log=master_logger)
-        if args.multi_processing:
-            if args.run_in_shell:
+            write_docking_parameters(args.oligomer1, args.oligomer2, args.rotation_step1, args.rotation_step2,
+                                     sym_entry, job.docking_master_dir, log=master_logger)
+            if args.multi_processing:
                 zipped_args = zip(repeat(sym_entry), repeat(fragment_db), repeat(euler_lookup),
-                                  repeat(job.docking_master_dir), *zip(*pdb_pairs),
-                                  repeat(args.rot_step_deg1), repeat(args.rot_step_deg2),
-                                  repeat(args.min_matched), repeat(args.high_quality_match_value),
-                                  repeat(args.output_assembly), repeat(args.output_surrounding_uc))
-                SDUtils.mp_starmap(nanohedra_dock, zipped_args, threads=threads)
-            else:
-                if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
-                    zipped_args = zip(repeat(args.entry), *zip(*pdb_pairs), repeat(args.outdir), repeat(args.project),
-                                      initial_iter)
-                    results = SDUtils.mp_starmap(nanohedra_command, zipped_args, threads=threads)
-                else:  # args.directory or args.file set up docking directories
-                    zipped_args = zip(design_directories, repeat(args.project))
-                    results = SDUtils.mp_starmap(nanohedra_design_recap, zipped_args, threads=threads)
-        else:
-            if args.run_in_shell:
-                for pdb_pair in pdb_pairs:
-                    pdb1, pdb2 = pdb_pair
-                    master_logger.info('Docking %s / %s \n' % (pdb1.name, pdb2.name))
-                    nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir,
-                                   pdb1, pdb2, rot_step_deg1=args.rot_step_deg1, rot_step_deg2=args.rot_step_deg2,
+                                  repeat(job.docking_master_dir), *zip(*entity_pairs),
+                                  repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
+                                  repeat(args.high_quality_match_value), repeat(args.initial_z_value),
+                                  repeat(args.output_assembly), repeat(args.output_surrounding_uc), repeat(bb_logger))
+                results = SDUtils.mp_starmap(nanohedra_dock, zipped_args, threads=threads)
+            else:  # using combinations of directories with .pdb files
+                for entity1, entity2 in entity_pairs:
+                    master_logger.info('Docking %s / %s' % (entity1.name, entity1.name))
+                    # result = nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, pdb1, pdb2,
+                    result = None
+                    nanohedra_dock(sym_entry, fragment_db, euler_lookup, job.docking_master_dir, entity1, entity2,
+                                   rotation_step1=args.rotation_step1, rotation_step2=args.rotation_step2,
                                    min_matched=args.min_matched, high_quality_match_value=args.high_quality_match_value,
-                                   output_assembly=args.output_assembly,
-                                   output_surrounding_uc=args.output_surrounding_uc)
-                    # clash_dist=2.2, init_max_z_val=1., subseq_max_z_val=2.
-            else:
-                if pdb_pairs and initial_iter:  # using combinations of directories with .pdb files
-                    for initial, (path1, path2) in zip(initial_iter, pdb_pairs):
-                        result = nanohedra_command(args.entry, path1, path2, args.outdir, args.project,
-                                                   initial)
-                        results.append(result)
-                else:  # single directory docking (already made directories)
-                    for dock_directory in design_directories:
-                        result = nanohedra_design_recap(dock_directory, args.project)
-                        results.append(result)
+                                   initial_z_value=args.initial_z_value, output_assembly=args.output_assembly,
+                                   output_surrounding_uc=args.output_surrounding_uc, log=bb_logger)
+                    results.append(result)
+        else:  # write all commands to a file and use sbatch
+            script_out_dir = os.path.join(job.docking_master_dir, PUtils.scripts)
+            os.makedirs(script_out_dir, exist_ok=True)
+            cmd = ['python', PUtils.nanohedra_dock_file, '-dock']
+            kwargs = dict(outdir=job.docking_master_dir, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
+                          rot_step2=args.rotation_step2, min_matcher=args.min_matched,
+                          high_quality_match_value=args.high_quality_match_value,
+                          initial_z_value=args.initial_z_value, output_assembly=args.output_assembly,
+                          output_surrounding_uc=args.output_surrounding_uc)
+            cmd.extend(chain.from_iterable([['-%s' % key, str(value)] for key, value in kwargs.items()]))
+            commands = []
+            for idx, (entity1, entity2) in enumerate(entity_pairs):
+                # commands.append(cmd + [PUtils.nano_entity_flag1, path1, PUtils.nano_entity_flag2, path2] +
+                _cmd = cmd + [PUtils.nano_entity_flag1, entity1.name, PUtils.nano_entity_flag2, entity2.name] + \
+                       (['-initial'] if idx == 0 else [])
+                # SDUtils.write_shell_script(list2cmdline(_cmd), out_path=script_out_dir,
+                #                            name='nanohedra_%s_%s' % (entity1.name, entity1.name))
+            commands_file = \
+                SDUtils.write_commands([list2cmdline(cmd) for cmd in commands], out_path=script_out_dir,
+                                       name='%s-refine_entities' % SDUtils.starttime)
+            nanohedra_sbatch = distribute(file=commands_file, out_path=script_out_dir, scale=PUtils.nano,
+                                          max_jobs=int(len(commands) / 2 + 0.5), number_of_commands=len(commands))
         design_source = args.directory  # for terminate()
         terminate(results=results, output=False)
         #                                          location=location,
