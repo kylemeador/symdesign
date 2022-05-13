@@ -3,7 +3,7 @@ import sys
 
 # from PathUtils import master_log
 from classes.SymEntry import all_entries, query_combination, query_result, query_counterpart, dimension
-from classes.SymEntry import symmetry_combinations
+from classes.SymEntry import nanohedra_symmetry_combinations
 from utils import PostProcessUtils, SymQueryUtils
 from SymDesignUtils import start_log
 
@@ -80,10 +80,12 @@ def get_docking_parameters(arg_list):
     if '-entry' in arg_list:
         entry_index = arg_list.index('-entry') + 1
         if entry_index < len(arg_list):
-            if arg_list[entry_index].isdigit() and (int(arg_list[entry_index]) in range(1, len(symmetry_combinations))):
+            if arg_list[entry_index].isdigit() and \
+                    (int(arg_list[entry_index]) in range(1, len(nanohedra_symmetry_combinations))):
                 entry = int(arg_list[arg_list.index('-entry') + 1])
             else:
-                logger.error("INVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: %d to %d\n" % (1, len(symmetry_combinations)))
+                logger.error('INVALID SYMMETRY ENTRY. SUPPORTED VALUES ARE: %d to %d' %
+                             (1, len(nanohedra_symmetry_combinations)))
                 exit(1)
         else:
             logger.error("SYMMETRY ENTRY NOT SPECIFIED\n")

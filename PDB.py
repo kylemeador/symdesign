@@ -22,7 +22,7 @@ from SequenceProfile import generate_alignment
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, \
     unpickle, pickle_object
-from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number
+from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number, valid_symmetries
 
 logger = start_log(name=__name__)
 seq_res_len = 52
@@ -643,7 +643,7 @@ class PDB(Structure):
         subunit_number = valid_subunit_number.get(symmetry, None)
         if not subunit_number:
             raise ValueError('Symmetry %s is not a valid symmetry. Please try one of: %s' %
-                             (symmetry, ', '.join(valid_subunit_number.keys())))
+                             (symmetry, ', '.join(valid_symmetries)))
         if not log:
             log = self.log
 

@@ -818,26 +818,26 @@ class DesignDirectory:  # (JobResources):
         else:
             raise ValueError('The attribute pose_transformation must be a list, not %s' % type(transform))
 
-    def rotation_parameters(self):
-        return self.rot_range_deg_pdb1, self.rot_range_deg_pdb2, self.rot_step_deg1, self.rot_step_deg2
+    # def rotation_parameters(self):
+    #     return self.rot_range_deg_pdb1, self.rot_range_deg_pdb2, self.rot_step_deg1, self.rot_step_deg2
+    #
+    # def degeneracy_parameters(self):
+    #     return self.sym_entry.degeneracy_matrices1, self.sym_entry.degeneracy_matrices2
+    #
+    # def degen_and_rotation_parameters(self):
+    #     return self.degeneracy_parameters(), self.rotation_parameters()
+    #
+    # def compute_last_rotation_state(self):
+    #     number_steps1 = self.rot_range_deg_pdb1 / self.rot_step_deg1
+    #     number_steps2 = self.rot_range_deg_pdb2 / self.rot_step_deg1
+    #
+    #     return int(number_steps1), int(number_steps2)
+    #
+    # def return_symmetry_parameters(self):
+    #     return dict(symmetry=self.design_symmetry, design_dimension=self.design_dimension,
+    #                 uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
 
-    def degeneracy_parameters(self):
-        return self.sym_entry.degeneracy_matrices_1, self.sym_entry.degeneracy_matrices_2
-
-    def degen_and_rotation_parameters(self):
-        return self.degeneracy_parameters(), self.rotation_parameters()
-
-    def compute_last_rotation_state(self):
-        number_steps1 = self.rot_range_deg_pdb1 / self.rot_step_deg1
-        number_steps2 = self.rot_range_deg_pdb2 / self.rot_step_deg1
-
-        return int(number_steps1), int(number_steps2)
-
-    def return_symmetry_parameters(self):
-        return dict(symmetry=self.design_symmetry, design_dimension=self.design_dimension,
-                    uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
-
-    # Decorator Staticmethods: These must be declared above usage, but made static after declaration
+    # Decorator static methods: These must be declared above their usage, but made static after each declaration
     def handle_design_errors(errors: Tuple = (Exception,)) -> Callable:
         """Decorator to wrap a method with try: ... except errors: and log errors to the DesignDirectory
 

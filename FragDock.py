@@ -719,14 +719,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
     rotation_matrices_1 = get_rot_matrices(rotation_step1, 'z', sym_entry.rotation_range1)
-    degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_1, rotation_matrices_1)
+    degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices1, rotation_matrices_1)
 
     if not resume:
         log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n')
 
     # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
     rotation_matrices_2 = get_rot_matrices(rotation_step2, 'z', sym_entry.rotation_range2)
-    degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices_2, rotation_matrices_2)
+    degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices2, rotation_matrices_2)
 
     # Initialize Euler Lookup Class
     # euler_lookup = EulerLookup()
@@ -746,7 +746,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     zshift2 = set_mat2[:, 2:3].T if sym_entry.is_internal_tx2 else None
 
     # log.debug('zshift1 = %s, zshift2 = %s, max_z_value=%f' % (str(zshift1), str(zshift2), initial_z_value))
-    optimal_tx = OptimalTx.from_dof(sym_entry.ext_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=initial_z_value)
+    optimal_tx = \
+        OptimalTx.from_dof(sym_entry.external_dof, zshift1=zshift1, zshift2=zshift2, max_z_value=initial_z_value)
 
     # passing_optimal_shifts = []
     # degen_rot_counts = []

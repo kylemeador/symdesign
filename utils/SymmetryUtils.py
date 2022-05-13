@@ -63,8 +63,6 @@ space_group_number_operations = \
      'I422': 16, 'I213': 24, 'R32': 6, 'P4212': 8, 'I432': 48, 'P4132': 24, 'I4132': 48, 'P3': 3, 'P6': 6,
      'I4122': 16, 'P4': 4, 'C222': 8, 'P222': 4, 'P213': 12, 'F4132': 96, 'P422': 8, 'P432': 24, 'F432': 96,
      'P4232': 24}
-valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
-                        'D6': 12, 'T': 12, 'O': 24, 'I': 60}
 cubic_point_groups = ['T', 'O', 'I']
 point_group_symmetry_operators = unpickle(point_group_symmetry_operator_location)
 # with format {'symmetry': rotations[N, 3, 3], ...}
@@ -140,9 +138,15 @@ sub_symmetries = {'C1': ['C1'],
                   'C4': ['C1', 'C2', 'C4'],
                   'C5': ['C1', 'C5'],
                   'C6': ['C1', 'C2', 'C3', 'C6'],
-                  'T': ['C1', 'C2', 'C3', 'T'],
-                  'O': ['C1', 'C2', 'C3', 'C4', 'O'],
-                  'I': ['C1', 'C2', 'C3', 'C5', 'I'],
+                  # all dihedral have C2 operator orthogonal to main symmetry axis
+                  'D2': ['C1', 'C2'],
+                  'D3': ['C1', 'C3', 'C2'],
+                  'D4': ['C1', 'C2', 'C4'],
+                  'D5': ['C1', 'C5', 'C2'],
+                  'D6': ['C1', 'C2', 'C3', 'C6'],
+                  'T': ['C1', 'C2', 'C3'],  # , 'T'
+                  'O': ['C1', 'C2', 'C3', 'C4'],  # , 'O'
+                  'I': ['C1', 'C2', 'C3', 'C5'],  # , 'I'
                   }
 
 
@@ -150,6 +154,9 @@ def multicomponent_by_number(number):
     return [multiplier * number for multiplier in range(1, 10)]
 
 
+valid_subunit_number = {'C1': 1, 'C2': 2, 'C3': 3, 'C4': 4, 'C5': 5, 'C6': 6, 'D2': 4, 'D3': 6, 'D4': 8, 'D5': 10,
+                        'D6': 12, 'T': 12, 'O': 24, 'I': 60}
+valid_symmetries = list(valid_subunit_number.keys())
 multicomponent_valid_subunit_number = \
     {sym: multicomponent_by_number(copy_number) for sym, copy_number in valid_subunit_number.items()}
 # multicomponent_valid_subunit_number = \
