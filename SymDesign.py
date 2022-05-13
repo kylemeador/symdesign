@@ -517,8 +517,12 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
             else:
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
 
-    del fragment_db
-    # del job.fragment_db
+    global fragment_db
+    try:
+        del fragment_db
+        del job.fragment_db
+    except (NameError, AttributeError) as error:
+        print(error)
     time.sleep(10)  # let the garbage collector get rid of any ties
     # test for the size of each of the designdirectories
     if design_directories:
