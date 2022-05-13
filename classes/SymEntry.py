@@ -268,7 +268,7 @@ class SymEntry:
                     raise DesignError('This functionality hasn\'t been implemented yet!')
                 self.groups.append(sub_symmetry)
 
-        self._int_dof_groups, self._setting_matrices, self._ref_frame_tx_dof, self._external_dof = [], [], [], []
+        self._int_dof_groups, self._setting_matrices, self._ref_frame_tx_dof, self.__external_dof = [], [], [], []
         for idx, group_symmetry in enumerate(self.groups, 1):
             int_dof, set_mat, ext_dof = group_info[group_symmetry]
             self._int_dof_groups.append(int_dof)
@@ -441,7 +441,7 @@ class SymEntry:
             if not self.is_ref_frame_tx_dof1 and not self.is_ref_frame_tx_dof2:
                 self._external_dof = np.empty((0, 3), float)  # <- np.array([[0.], [0.], [0.]])
             else:
-                difference_matrix = self._external_dof[1] - self._external_dof[0]
+                difference_matrix = self.__external_dof[1] - self.__external_dof[0]
                 # for entry 6 - string_vector is 4*e, 4*e, 4*e
                 # which is uc_dimension_matrix of [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
                 #  (^).sum(axis=-1)) = [12, 0, 0]
@@ -457,12 +457,12 @@ class SymEntry:
     @property
     def external_dof1(self) -> np.ndarray:
         """Return the 3x3 external degrees of freedom for component1"""
-        return self._external_dof[0]
+        return self.__external_dof[0]
 
     @property
     def external_dof2(self) -> np.ndarray:
         """Return the 3x3 external degrees of freedom for component2"""
-        return self._external_dof[1]
+        return self.__external_dof[1]
 
     @property
     def degeneracy_matrices1(self) -> Optional[np.ndarray]:
