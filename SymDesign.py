@@ -518,7 +518,8 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
     # test for the size of each of the designdirectories
     if design_directories:
-        print('average_design_directory_size equals %f' % float(psutil.virtual_memory().used) / len(design_directories))
+        print('average_design_directory_size equals %f' %
+              (float(psutil.virtual_memory().used) / len(design_directories)))
 
     print('\n')
     exit(exit_code)
