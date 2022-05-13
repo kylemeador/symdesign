@@ -518,6 +518,7 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
 
     global fragment_db
+    print(sys.getrefcount(fragment_db))
     try:
         del fragment_db
         del job.fragment_db
