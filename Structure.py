@@ -1461,11 +1461,12 @@ class Structure(StructureBase):
         # residue_indices, residue_atom_indices = zip(*res_idx_atom_idx)
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self.coords_indexed_residues, self.coords_indexed_residue_atoms = zip(*residues_atom_idx)
-        range_idx = 0
+        range_idx, prior_range_idx = 0, 0
         residue_indexed_ranges = []
         for residue in self.residues:
-            residue_indexed_ranges.append(list(range(range_idx, range_idx + residue.number_of_atoms)))
             range_idx += residue.number_of_atoms
+            residue_indexed_ranges.append(list(range(prior_range_idx, range_idx)))
+            prior_range_idx = range_idx
         self.residues_indexed_coords_indices = residue_indexed_ranges
 
     @property
