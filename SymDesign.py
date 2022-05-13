@@ -2244,9 +2244,10 @@ if __name__ == '__main__':
         tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
         codon_optimization_errors = {}
         for des_dir, design in results:
-            file = sorted(glob('%s/*%s*' % (des_dir.designs, design)))
+            file_glob = '%s%s*%s*' % (des_dir.designs, os.sep, design)
+            file = sorted(glob(file_glob))
             if not file:
-                logger.error('No file found for %s' % '%s/*%s*' % (des_dir.designs, design))
+                logger.error('No file found for %s' % file_glob)
                 continue
             design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
             designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]

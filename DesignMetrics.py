@@ -2,6 +2,7 @@ import operator
 from copy import copy, deepcopy
 from itertools import repeat
 from json import loads
+from typing import Dict
 
 import numpy as np
 import pandas as pd
@@ -1280,15 +1281,14 @@ def df_permutation_test(grouped_df: pd.DataFrame, diff_s: pd.Series, group1_size
 #     return total
 
 
-def filter_df_for_index_by_value(df, metrics):
+def filter_df_for_index_by_value(df: pd.DataFrame, metrics: Dict) -> Dict:
     """Retrieve the indices from a DataFrame which have column values greater_equal/less_equal to an indicated threshold
 
     Args:
-        df (pandas.DataFrame): DataFrame to filter indices on
-        metrics (dict): {column: 0.3, ...} OR {column: {'direction': 'min', 'value': 0.3}, ...} to specify a sorting
-            direction
+        df: DataFrame to filter indices on
+        metrics: {column: 0.3, ...} OR {column: {'direction': 'min', 'value': 0.3}, ...} to specify a sorting direction
     Returns:
-        (dict): {column: ['0001', '0002', ...], ...}
+        {column: ['0001', '0002', ...], ...}
     """
     filtered_indices = {}
     for column, value in metrics.items():
@@ -1753,17 +1753,17 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
     return metric_values
 
 
-def rank_dataframe_by_metric_weights(df, weights=None, function='rank', **kwargs):
+def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: Dict[str, float] = None, function: str = 'rank',
+                                     **kwargs) -> pd.Series:
     """From a provided DataFrame with individual design trajectories, select trajectories based on provided metric and
     weighting parameters
 
     Args:
-        df (pandas.DataFrame): The designs x metrics DataFrame (single index metrics column) to select trajectories from
-    Keyword Args:
-         weights=None (dict[mapping[str, float]]): {'metric': value, ...}. If not provided, sorts by interface_energy
-         function='rank' (str): The function to use for weighting. Either 'rank' or 'normalize' is possible
+        df: The designs x metrics DataFrame (single index metrics column) to select trajectories from
+        weights: {'metric': value, ...}. If not provided, sorts by interface_energy
+        function: The function to use for weighting. Either 'rank' or 'normalize' is possible
     Returns:
-        (pandas.Series): The sorted Series of values with the best indices first (top) and the worst on the bottom
+        The sorted Series of values with the best indices first (top) and the worst on the bottom
     """
     if not function:
         function = 'rank'
