@@ -281,6 +281,10 @@ class SymEntry:
             else:
                 if getattr(self, 'is_ref_frame_tx_dof%d' % idx):
                     raise DesignError('Cannot yet create a SymEntry with external degrees of freedom and > 2 groups!')
+        print(self._int_dof_groups)
+        print(self._setting_matrices)
+        print(self._ref_frame_tx_dof)
+        print(self.__external_dof)
         # Reformat reference_frame entries
         # self.is_ref_frame_tx_dof1 = False if self.ref_frame_tx_dof1 == '<0,0,0>' else True
         # self.is_ref_frame_tx_dof2 = False if self.ref_frame_tx_dof2 == '<0,0,0>' else True
