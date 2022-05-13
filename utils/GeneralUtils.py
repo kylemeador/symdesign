@@ -255,16 +255,16 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
                                                      else str(None)))
     # Get Degeneracy Matrices
     log.info('Searching For Possible Degeneracies')
-    if sym_entry.degeneracy_matrices_1 is None:
+    if sym_entry.degeneracy_matrices1 is None:
         log.info('No Degeneracies Found for Oligomer 1')
-    elif len(sym_entry.degeneracy_matrices_1) == 1:
+    elif len(sym_entry.degeneracy_matrices1) == 1:
         log.info('1 Degeneracy Found for Oligomer 1')
     else:
-        log.info('%d Degeneracies Found for Oligomer 1' % len(sym_entry.degeneracy_matrices_1))
-    if sym_entry.degeneracy_matrices_2 is None:
+        log.info('%d Degeneracies Found for Oligomer 1' % len(sym_entry.degeneracy_matrices1))
+    if sym_entry.degeneracy_matrices2 is None:
         log.info('No Degeneracies Found for Oligomer 2\n')
-    elif len(sym_entry.degeneracy_matrices_2) == 1:
+    elif len(sym_entry.degeneracy_matrices2) == 1:
         log.info('1 Degeneracy Found for Oligomer 2\n')
     else:
-        log.info('%d Degeneracies Found for Oligomer 2\n' % len(sym_entry.degeneracy_matrices_2))
+        log.info('%d Degeneracies Found for Oligomer 2\n' % len(sym_entry.degeneracy_matrices2))
     log.info('Retrieving Database of Complete Interface Fragment Cluster Representatives')
