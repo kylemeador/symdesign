@@ -112,6 +112,8 @@ def connection_exception_handler(url: str, max_attempts: int = 5) -> Optional[An
             logger.debug('Requests ran into a connection error. Sleeping, then retrying')
             time.sleep(1)
             iteration += 1
+        except ValueError:  # the json response was bad...
+            logger.error('A json response was missing or corrupted from "%s"' % url)
 
         if iteration == max_attempts:
             time.sleep(10)  # try one really long sleep then go once more
