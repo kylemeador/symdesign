@@ -45,8 +45,8 @@ from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
-from classes.SymEntry import SymEntry, sdf_lookup
-from utils.SymmetryUtils import identity_matrix
+from classes.SymEntry import SymEntry, sdf_lookup, symmetry_factory
+from utils.SymmetryUtils import identity_matrix, origin
 from Database import FragmentDatabase, Database
 
 # Globals
@@ -110,6 +110,7 @@ class JobResources:
         self.reduce_memory = False
         self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
                                   self.stride_dir, self.sequences, self.profiles, sql=None)  # , log=logger)
+        self.symmetry_factory = symmetry_factory
         self.fragment_db = None
         self.euler_lookup = None
 
@@ -497,8 +498,8 @@ class DesignDirectory:  # (JobResources):
         try:
             return self._sym_entry
         except AttributeError:
-            self._sym_entry = symmetry_factory(self.info['sym_entry_number']) if 'sym_entry_number' in self.info \
-                else None
+            self._sym_entry = symmetry_factory(*self.info['sym_entry_specification']) \
+                if 'sym_entry_specification' in self.info else None
             return self._sym_entry
 
     @sym_entry.setter
@@ -525,6 +526,22 @@ class DesignDirectory:  # (JobResources):
             return self.sym_entry.entry_number
         except AttributeError:
             return
+
+    @property
+    def sym_entry_map(self) -> Optional[str]:
+        """The symmetry map of the SymEntry"""
+        try:
+            return self.sym_entry.sym_map
+        except AttributeError:
+            return
+
+    # @property
+    # def sym_entry_combination(self) -> Optional[str]:
+    #     """The combination string of the SymEntry"""
+    #     try:
+    #         return self.sym_entry.combination_string
+    #     except AttributeError:
+    #         return
 
     @property
     def design_dimension(self) -> Optional[int]:
@@ -1037,7 +1054,8 @@ class DesignDirectory:  # (JobResources):
                     shutil.copy(self.pose_file, self.path)
                     shutil.copy(self.frag_file, self.path)
                 self.info['nanohedra'] = True
-                self.info['sym_entry'] = self.sym_entry
+                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+                # self.info['sym_entry'] = self.sym_entry
                 self.info['oligomer_names'] = self.oligomer_names
                 self.pose_transformation = self.retrieve_pose_metrics_from_file()
                 # self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
@@ -1065,15 +1083,16 @@ class DesignDirectory:  # (JobResources):
                         getattr(self.info.get('fragment_database'), 'source', 'biological_interfaces')
                     self.pickle_info()  # save immediately so we don't have this issue with reading again!
                 self._info = self.info.copy()  # create a copy of the state upon initialization
-                if not self.sym_entry:
-                    self.sym_entry = self.info.get('sym_entry', None)
-                else:
-                    self.info['sym_entry'] = self.sym_entry
                 self.pre_refine = self.info.get('pre_refine', False)  # default value is False unless set to True
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
                 self.entity_names = self.info.get('entity_names', [])
                 self.oligomer_names = self.info.get('oligomer_names', [])
-                # These statements are a temporary patch Todo remove for SymDesign master
+                # These statements are a temporary patch Todo remove for SymDesign master branch
+                if not self.sym_entry:  # none was provided at initiation or in state
+                    if 'sym_entry' in self.info:
+                        self.sym_entry = self.info['sym_entry']  # get instance
+                        self.info.pop('sym_entry')  # remove this object
+                        self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
                 if not self.oligomer_names:
                     self.oligomer_names = self.info.get('entity_names', [])
                 if 'design_residue_ids' in self.info:  # format is modern

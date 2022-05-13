@@ -1057,7 +1057,7 @@ if __name__ == '__main__':
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags['symmetry'] and queried_flags.get('sym_entry'):
         queried_flags['sym_entry'] = \
-            parse_symmetry_to_sym_entry(queried_flags['symmetry'], sym_entry=queried_flags['sym_entry'])
+            parse_symmetry_to_sym_entry(sym_entry=queried_flags['sym_entry'], symmetry=queried_flags['symmetry'])
     elif queried_flags.get('sym_entry'):
         queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
     elif queried_flags['symmetry']:
@@ -1065,7 +1065,7 @@ if __name__ == '__main__':
             # the symmetry information is in the pdb header
             queried_flags['symmetry'] = 'cryst'
         else:  # queried_flags['symmetry'] in possible_symmetries:
-            queried_flags['sym_entry'] = parse_symmetry_to_sym_entry(queried_flags['symmetry'])
+            queried_flags['sym_entry'] = parse_symmetry_to_sym_entry(symmetry=queried_flags['symmetry'])
     sym_entry = queried_flags['sym_entry']
 
     initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,  # PUtils.refine,
