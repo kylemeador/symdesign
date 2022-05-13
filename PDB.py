@@ -214,10 +214,7 @@ class PDB(Structure):
             self.assembly = True
 
         if not self.name:
-            # formatted_filename = os.path.splitext(os.path.basename(self.filepath))[0].replace('pdb', '')
-            # underscore_idx = formatted_filename.rfind('_') if formatted_filename.rfind('_') != -1 else None
-            # self.name = formatted_filename[:underscore_idx]
-            self.name = os.path.splitext(os.path.basename(self.filepath))[0].replace('pdb', '').lower()
+            self.name = os.path.splitext(os.path.basename(self.filepath))[0]  # .replace('pdb', '')
 
         seq_res_lines = []
         start_of_new_model = False
