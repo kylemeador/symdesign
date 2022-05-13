@@ -235,7 +235,7 @@ for entry_number, ent in symmetry_combinations.items():
 
 
 class SymEntry:
-    def __init__(self, entry: int, sym_map: Iterable = None):
+    def __init__(self, entry: int, sym_map: List[str] = None):
         try:
             # group1, self.int_dof_group1, self.rot_set_group1, self.ref_frame_tx_dof1, \
             #     group2, self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2, \
@@ -255,8 +255,11 @@ class SymEntry:
         if not sym_map:  # assume standard SymEntry
             # assumes 2 component symmetry. index with only 2 options
             self.groups = list(group_info.keys())
+            self.sym_map = [self.result] + self.groups
         else:  # requires full specification of all symmetry groups
             self.groups = []
+            self.sym_map = sym_map
+            result, *sym_map = self.sym_map  # remove the result and pass the groups
             for idx, sub_symmetry in enumerate(sym_map, 1):
                 if sub_symmetry not in valid_symmetries:
                     raise ValueError('The symmetry "%s" specified at index "%d" is not a valid sub-symmetry!'
@@ -634,8 +637,46 @@ class SymEntry:
                           % (PUtils.symmetry_def_files, self.entry_number))
 
 
-def construct_uc_matrix(string_vector):
-    """
+class SymEntryFactory:
+    def __init__(self, **kwargs):
+        self._entries = {}
+
+    def __call__(self, entry: int, sym_map: List[str] = None, **kwargs) -> SymEntry:
+        """Return the specified SymEntry object singleton
+
+        Args:
+            entry: The entry number
+            sym_map: The particular mapping of the symmetric groups
+        Returns:
+            The instance of the specified SymEntry
+        """
+        sym_map_string = '|'.join(sym_map)
+        # entry_key = '%d:%s' % (entry, sym_map_string)
+        entry_key = sym_map_string
+        symmetry = self._entries.get(entry_key)
+        if symmetry:
+            return symmetry
+        else:
+            self._entries[entry_key] = SymEntry(entry, sym_map=sym_map)
+            return self._entries[entry_key]
+
+    def get(self, entry: int, sym_map: List[str] = None, **kwargs) -> SymEntry:
+        """Return the specified SymEntry object singleton
+
+        Args:
+            entry: The entry number
+            sym_map: The particular mapping of the symmetric groups
+        Returns:
+            The instance of the specified SymEntry
+        """
+        return self.__call__(entry, sym_map, **kwargs)
+
+
+symmetry_factory = SymEntryFactory()
+
+
+def construct_uc_matrix(string_vector: List[str]) -> np.ndarray:
+    """Calculate a matrix specifying the degrees of freedom in each dimension of the unit cell
 
     Args:
         string_vector: The string vector as parsed from the symmetry combination table
@@ -842,33 +883,41 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
     return lengths + angles
 
 
-def parse_symmetry_to_sym_entry(symmetry_string, sym_entry=None):
-    symmetry_string = symmetry_string.strip()
-    clean_split = None
-    if len(symmetry_string) > 3:
-        clean_split = [split.strip('}:') for split in symmetry_string.split('{')]
-    elif len(symmetry_string) == 3:  # Probably Rosetta formatting
-        clean_split = [symmetry_string[0], '%s' % symmetry_string[1], '%s' % symmetry_string[2]]
-        # clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
-    elif symmetry_string in ['T', 'O']:  # , 'I']:
-        logger.warning('This functionality is not working properly yet!')
-        clean_split = [symmetry_string, symmetry_string]  # , symmetry_string]
-    else:  # C2, D6, C35
-        raise ValueError('%s is not a supported symmetry yet!' % symmetry_string)
+def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym_map: List[str] = None) -> SymEntry:
+    """Take a symmetry specified in a number of ways and return the symmetry parameters in a SymEntry
 
+    Args:
+        sym_entry: The integer corresponding to the desired SymEntry
+        symmetry: The symmetry specified by a string
+        sym_map: A symmetry map where each successive entry is the corresponding symmetry group number for the structure
+    Returns:
+        An instance of the SymEntry
+    """
     # logger.debug('Symmetry parsing split: %s' % clean_split)
     if not sym_entry:
+        symmetry = symmetry.strip()
+        if len(symmetry) > 3:
+            sym_map = [split.strip('}:') for split in symmetry.split('{')]
+        elif len(symmetry) == 3:  # Probably Rosetta formatting
+            sym_map = [symmetry[0], '%s' % symmetry[1], '%s' % symmetry[2]]
+            # clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
+        elif symmetry in ['T', 'O', 'I']:
+            logger.warning('This functionality is not working properly yet!')
+            sym_map = [symmetry, symmetry]
+        else:  # C2, D6, C35
+            raise ValueError('%s is not a supported symmetry yet!' % symmetry)
+
         try:
-            sym_entry = dictionary_lookup(all_sym_entry_dict, clean_split)
+            sym_entry = dictionary_lookup(all_sym_entry_dict, sym_map)
             if not isinstance(sym_entry, int):
                 raise TypeError
         except (KeyError, TypeError):  # when the entry is not specified in the all_sym_entry_dict
             # the prescribed symmetry was a plane, space group, or point group that isn't in nanohedra. try a custom input
             # raise ValueError('%s is not a supported symmetry!' % symmetry_string)
-            sym_entry = lookup_sym_entry_by_symmetry_combination(*clean_split)
+            sym_entry = lookup_sym_entry_by_symmetry_combination(*sym_map)
 
     # logger.debug('Found Symmetry Entry %s for %s.' % (sym_entry, symmetry_string))
-    return SymEntry(sym_entry, sym_map=clean_split[1:])  # remove the result and pass the groups
+    return symmetry_factory(sym_entry, sym_map=sym_map)
 
 
 def sdf_lookup(symmetry: Optional[str] = None) -> Union[str, bytes]:
