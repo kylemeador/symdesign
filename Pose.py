@@ -2084,8 +2084,10 @@ class SymmetricModel(Model):
             # external_tx1 = optimal_external_shifts[:, None] * self.sym_entry.external_dof1
             # external_tx2 = optimal_external_shifts[:, None] * self.sym_entry.external_dof2
             # external_tx = [external_tx1, external_tx2]
-            external_tx = [optimal_external_shifts[:, None] * getattr(self.sym_entry, 'external_dof%d' % idx)
-                           for idx, group in enumerate(self.sym_entry.groups, 1)]
+            self.log.critical('This functionality has never been tested! Inspect all outputs before trusting results')
+            external_tx = \
+                [(optimal_external_shifts[:, None] * getattr(self.sym_entry, 'external_dof%d' % idx)).sum(axis=-2)
+                 for idx, group in enumerate(self.sym_entry.groups, 1)]
 
         center_of_mass_symmetric_entities = self.center_of_mass_symmetric_entities
         # self.log.critical('center_of_mass_symmetric_entities = %s' % center_of_mass_symmetric_entities)
