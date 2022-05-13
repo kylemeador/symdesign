@@ -1,10 +1,10 @@
 import os
 import sys
 
-# from PathUtils import master_log
 from classes.SymEntry import all_entries, query_combination, query_result, query_counterpart, dimension
 from classes.SymEntry import nanohedra_symmetry_combinations
-from utils import PostProcessUtils, SymQueryUtils
+from utils import PostProcessUtils
+from PathUtils import nano_entity_flag1, nano_entity_flag2
 from SymDesignUtils import start_log
 
 
@@ -88,35 +88,35 @@ def get_docking_parameters(arg_list):
                              (1, len(nanohedra_symmetry_combinations)))
                 exit(1)
         else:
-            logger.error("SYMMETRY ENTRY NOT SPECIFIED\n")
+            logger.error('SYMMETRY ENTRY NOT SPECIFIED')
             exit(1)
     else:
-        logger.error("SYMMETRY ENTRY NOT SPECIFIED\n")
+        logger.error('SYMMETRY ENTRY NOT SPECIFIED')
         exit(1)
 
     # General INPUT PARAMETERS
-    if ("-oligomer1" in arg_list) and ("-oligomer2" in arg_list):
-        path1_index = arg_list.index('-oligomer1') + 1
-        path2_index = arg_list.index('-oligomer2') + 1
+    if nano_entity_flag1 in arg_list and nano_entity_flag2 in arg_list:
+        path1_index = arg_list.index(nano_entity_flag1) + 1
+        path2_index = arg_list.index(nano_entity_flag2) + 1
 
         if (path1_index < len(arg_list)) and (path2_index < len(arg_list)):
-            path1 = arg_list[arg_list.index('-oligomer1') + 1]
-            path2 = arg_list[arg_list.index('-oligomer2') + 1]
+            path1 = arg_list[arg_list.index(nano_entity_flag1) + 1]
+            path2 = arg_list[arg_list.index(nano_entity_flag2) + 1]
             if os.path.exists(path1) and os.path.exists(path2):
                 pdb_dir1_path = path1
                 pdb_dir2_path = path2
             else:
-                logger.error("SPECIFIED PDB DIRECTORY PATH(S) DO(ES) NOT EXIST\n")
+                logger.error('SPECIFIED PDB DIRECTORY PATH(S) DO(ES) NOT EXIST')
                 exit(1)
         else:
-            logger.error("PDB DIRECTORY PATH(S) NOT SPECIFIED\n")
+            logger.error('PDB DIRECTORY PATH(S) NOT SPECIFIED')
             exit(1)
     else:
-        logger.error("PDB DIRECTORY PATH(S) NOT SPECIFIED\n")
+        logger.error('PDB DIRECTORY PATH(S) NOT SPECIFIED')
         exit(1)
 
     # FragDock PARAMETERS
-    if "-rot_step1" in arg_list:
+    if '-rot_step1' in arg_list:
         rot_step_index1 = arg_list.index('-rot_step1') + 1
         if rot_step_index1 < len(arg_list):
             if arg_list[rot_step_index1].isdigit():

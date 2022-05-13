@@ -120,29 +120,17 @@ class PDB(Structure):
 
     @property
     def number_of_chains(self) -> int:
-        """Return the number of Chain objects in the PDB
-
-        Returns:
-            (int)
-        """
+        """Return the number of Chain objects in the PDB"""
         return len(self.chains)
 
     @property
     def number_of_entities(self) -> int:
-        """Return the number of Entity objects in the PDB
-
-        Returns:
-            (int)
-        """
+        """Return the number of Entity objects in the PDB"""
         return len(self.entities)
 
     @property
     def symmetry(self) -> Dict:
-        """Return the symmetry parameters of the PDB
-
-        Returns:
-            (dict)
-        """
+        """Return the symmetry parameters of the PDB"""
         sym_attrbutes = ['symmetry', 'uc_dimensions', 'cryst_record', 'cryst']  # , 'max_symmetry': self.max_symmetry}
         return {sym_attrbutes[idx]: sym_attr
                 for idx, sym_attr in enumerate([self.space_group, self.uc_dimensions, self.cryst_record, self.cryst])
@@ -640,8 +628,9 @@ class PDB(Structure):
         # C		of separate IDs; multiple conformations are written out for the same subunit structure
         # C		(as in an NMR ensemble), negative residue numbers, etc. etc.
         # must format the input.pdb in an acceptable manner
-        subunit_number = valid_subunit_number.get(symmetry, None)
-        if not subunit_number:
+        try:
+            subunit_number = valid_subunit_number[symmetry]
+        except KeyError:
             raise ValueError('Symmetry %s is not a valid symmetry. Please try one of: %s' %
                              (symmetry, ', '.join(valid_symmetries)))
         if not log:
@@ -1478,24 +1467,24 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
     return interface_pdb
 
 
-def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
-    """Download .pdb files from pdb_codes provided in a file, a supplied list, or a single entry
+def fetch_pdb(pdb_codes: Union[str, list], assembly: int = 1, asu: bool = False,
+              out_dir: Union[str, bytes] = os.getcwd(), **kwargs) -> List[Union[str, bytes]]:  # Todo mmcif
+    """Download PDB files from pdb_codes provided in a file, a supplied list, or a single entry
     Can download a specific biological assembly if asu=False.
-    fetch_pdb(1bkh, assembly=2) fetches 1bkh biological assembly 2
+    Ex: fetch_pdb('1bkh', assembly=2) fetches 1bkh biological assembly 2 "1bkh.pdb2"
+
     Args:
-        pdb_codes (Union[str, list]): PDB's of interest.
-    Keyword Args:
-        assembly=1 (int): The integer of the assembly to fetch
-        asu=False (bool): Whether to download the asymmetric unit file
-        out_dir=os.getcwd() (str): The location to save downloaded files to
+        pdb_codes: PDB IDs of interest.
+        assembly: The integer of the assembly to fetch
+        asu: Whether to download the asymmetric unit file
+        out_dir: The location to save downloaded files to
     Returns:
-        (list[str]): Filename(s) of the retrieved files
+        Filenames of the retrieved files
     """
     file_names = []
     for pdb_code in to_iterable(pdb_codes):
         clean_pdb = pdb_code[:4].lower()
         if asu:
-            assembly = ''
             clean_pdb = '%s.pdb' % clean_pdb
         else:
             # assembly = pdb[-3:]
@@ -1534,18 +1523,18 @@ def fetch_pdb(pdb_codes, assembly=1, asu=False, out_dir=os.getcwd(), **kwargs):
     return file_names
 
 
-def fetch_pdb_file(pdb_code, asu=True, location=pdb_db, **kwargs):  # assembly=None, out_dir=os.getcwd(),
-    """Fetch PDB object of each chain from PDBdb or PDB server
+def fetch_pdb_file(pdb_code: str, asu: bool = True, location: Union[str, bytes] = pdb_db, **kwargs) -> \
+        Optional[Union[str, bytes]]:  # assembly=None, out_dir=os.getcwd(),
+    """Fetch PDB object from PDBdb or download from PDB server
 
     Args:
-        pdb_code (iter): The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
-    Keyword Args:
-        assembly=None (Union[None, int]): Location of a local PDB mirror if one is linked on disk
-        asu=True (bool): Whether to fetch the ASU
-        location=PathUtils.pdb_db (str): Location of a local PDB mirror if one is linked on disk
-        out_dir=os.getcwd() (str): The location to save retrieved files if fetched from PDB
+        pdb_code: The PDB ID/code. If the biological assembly is desired, supply 1ABC_1 where '_1' is assembly ID
+        asu: Whether to fetch the ASU
+        location: Location of a local PDB mirror if one is linked on disk
+        assembly=None (Optional[int]): Location of a local PDB mirror if one is linked on disk
+        out_dir=os.getcwd() (Union[str, bytes]): The location to save retrieved files if fetched from PDB
     Returns:
-        (Union[None, str]): path/to/your.pdb if located/downloaded successfully (alphabetical characters in lowercase)
+        The path to the file if located successfully
     """
     # if location == pdb_db and asu:
     if os.path.exists(location) and asu:
@@ -1563,8 +1552,8 @@ def fetch_pdb_file(pdb_code, asu=True, location=pdb_db, **kwargs):  # assembly=N
     pdb_file = get_pdb(pdb_code, asu=asu, location=location, **kwargs)
     if not pdb_file:
         logger.warning('No matching file found for PDB: %s' % pdb_code)
-    else:
-        return pdb_file[0]  # we should only find one file, therefore, return the first
+    else:  # we should only find one file, therefore, return the first
+        return pdb_file[0]
 
 
 def orient_pdb_file(file: os.PathLike, log: Logger = logger, symmetry: str = None,

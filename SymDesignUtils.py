@@ -480,35 +480,42 @@ def io_save(data, file_name=None):
     return file_name
 
 
-def to_iterable(_obj, ensure_file=False, skip_comma=False):
-    """Take a file/object and return a list of individual objects splitting on newline or comma"""
+def to_iterable(obj: Union[str, bytes, List], ensure_file: bool = False, skip_comma: bool = False) -> List[str]:
+    """Take an object and return a list of individual objects splitting on newline or comma
+
+    Args:
+        obj: The object to convert to an Iterable
+        ensure_file: Whether to ensure the passed obj is a file
+        skip_comma: Whether to skip commas when converting the records to an iterable
+    Returns:
+        The Iterable formed from the input obj
+    """
     try:
-        with open(_obj, 'r') as f:
-            _list = f.readlines()
-    except (FileNotFoundError, TypeError) as e:
-        if isinstance(e, FileNotFoundError) and ensure_file:
-            raise e
-            # logger.info('No file was found for %s:\n%s' % (_obj, e))
-        if isinstance(_obj, list):
-            _list = _obj
+        with open(obj, 'r') as f:
+            iterable = f.readlines()
+    except (FileNotFoundError, TypeError) as error:
+        if isinstance(error, FileNotFoundError) and ensure_file:
+            raise error
+        if isinstance(obj, list):
+            iterable = obj
         else:  # assumes obj is a string
-            _list = [_obj]
+            iterable = [obj]
 
     clean_list = []
-    for it in _list:
+    for item in iterable:
         if skip_comma:
-            it_list = [it]
+            it_list = [item]
         else:
-            it_list = it.split(',')
+            it_list = item.split(',')
         clean_list.extend(map(str.strip, it_list))
 
     # remove duplicates but keep the order
-    clean_set = remove_duplicates(clean_list)
+    clean_list = remove_duplicates(clean_list)
     try:
-        clean_set.pop(clean_set.index(''))  # remove any missing values
+        clean_list.pop(clean_list.index(''))  # remove any missing values
     except ValueError:
         pass
-    return clean_set
+    return clean_list
 
 
 def remove_duplicates(_iter: Iterable) -> List:

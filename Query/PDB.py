@@ -645,7 +645,7 @@ def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval t
     return entity_clustered_chains
 
 
-def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
+def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data retrieval to POST
     """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
 
     The following information is returned:
@@ -665,10 +665,11 @@ def get_pdb_info_by_entry(entry):  # Todo change data retrieval to POST
     {'pdbx_nmr_exptl', 'pdbx_audit_revision_item', 'pdbx_audit_revision_category', 'pdbx_nmr_spectrometer',
      'pdbx_nmr_refine', 'pdbx_nmr_representative', 'pdbx_nmr_software', 'pdbx_nmr_exptl_sample_conditions',
      'pdbx_nmr_ensemble'}
-
+     Args:
+         entry: The PDB code to search for
     Returns:
-        (dict): {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-            'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
+        {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+         'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
     """
     # Ex. entry = '4atz'
     # ex. assembly = 1
