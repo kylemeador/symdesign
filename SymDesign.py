@@ -1544,6 +1544,7 @@ if __name__ == '__main__':
         # job = JobResources(queried_flags['output_directory'])
         pass
 
+    job.reduce_memory = True
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
             logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
