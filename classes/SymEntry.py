@@ -277,7 +277,7 @@ class SymEntry:
             self._ref_frame_tx_dof.append(ref_frame_tx_dof)
             if idx <= 2:
                 # this wouldn't be possible with more than 2 groups unless we tether the group to an existing group...
-                self._external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
+                self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
             else:
                 if getattr(self, 'is_ref_frame_tx_dof%d' % idx):
                     raise DesignError('Cannot yet create a SymEntry with external degrees of freedom and > 2 groups!')
