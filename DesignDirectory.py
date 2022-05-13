@@ -2391,11 +2391,10 @@ class DesignDirectory:  # (JobResources):
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
         design_structures = []
         for file in self.get_designs():
-            decoy_name = os.path.splitext(os.path.basename(file))[0]  # should match scored designs...
-            # design_structures.append(PDB.from_file(file, name=decoy_name, log=self.log, entities=False))
-            design = PDB.from_file(file, name=decoy_name, entity_names=self.entity_names, log=self.log)
-            #                        pass names if available ^
-            if self.sym_entry:
+            # decoy_name = os.path.splitext(os.path.basename(file))[0]  # name should match scored designs...
+            #                     pass names if available v
+            design = PDB.from_file(file, entity_names=self.entity_names, log=self.log)  # name=decoy_name,
+            if self.symmetric:
                 for idx, entity in enumerate(design.entities):
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
             design_structures.append(design)

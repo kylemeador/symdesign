@@ -166,8 +166,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                                               'canonical_pdb1/2 attribute of DesignDirectory to pull the'
                                               ' pdb file source.')
                     # Todo
-
-                pdb = PDB.from_file(file_path, pose_format=False)  # , log=None)
+                # remove any mirror specific naming from fetch_pdb_file
+                file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
+                pdb = PDB.from_file(file_path, name=file_name, pose_format=False)  # , log=None)
                 if entity:  # replace pdb from fetched file with the entity pdb
                     # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
                     entity = pdb.entity(entry_entity)
