@@ -1,7 +1,7 @@
 import math
 import os
 import warnings
-from typing import List, Union, Iterable, Optional
+from typing import List, Union, Optional
 
 import numpy as np
 from numpy import ndarray
@@ -168,7 +168,6 @@ symmetry_combinations = {
     261: ['C1', ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 1, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 6, 1],
     262: ['C2', ['r:<0,0,1,a>', 't:<0,0,b>'], 2, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 2, 1],
     263: ['C3', ['r:<0,0,1,a>', 't:<0,0,b>'], 1, '<0,0,0>', 'D3', [], 1, '<0,0,0>', 'D3', 'D3', 0, 'N/A', 2, 1],
-
     # KM 3 component entries
     # 301: {'components': [{'symmetry': 'C1', 'dof_internal': ['r:<1,1,1,h,i,a>', 't:<j,k,b>'], 'setting': 1, 'dof_external': '<0,0,0>'},
     #                      {'symmetry': 'C2', 'dof_internal': ['r:<0,0,1,a>', 't:<0,0,b>'], 'setting': 1, 'dof_external': '<0,0,0>'},
@@ -212,26 +211,25 @@ point_group_setting_matrix_members = {
     # # 15
     # 'D6': {'C2': {1, 2, 6, 10}, 'C3': {1}, 'C6': {1}, 'D2': {1, 13}, 'D3': {1, 4, 11}, 'D6': {1}},
     # # 18, 19, 23, 24, 29-31, 42-44, 60, 68, 82, 83, 87, 89-91, 97, 98, 107, 111, 112
-    # 'T': {'C2': {1}, 'C3': {4, 12}},  # might have to check using degeneracy matrix mult to first setting matrix 6(4)=12
+    # 'T': {'C2': {1}, 'C3': {4, 12}},  # might have to check using degeneracy mat mul to first setting matrix 6(4)=12
     # 'O': {'C2': {3}, 'C3': {4, 12}, 'C4': {1}},
     # 'I': {'C2': {1}, 'C3': {7}, 'C5': {9}},
 }
 for entry_number, ent in symmetry_combinations.items():
-    group1, int_dof_group1, setting1, ref_frame_tx_dof_group1, group2, int_dof_group2, setting2, \
-        ref_frame_tx_dof_group2, point_group, result, dimension, _, _, _ = ent
+    group_1, _, setting_1, _, group_2, _, setting_2, _, point_group, _, _, _, _, _ = ent
     result_entry = point_group_setting_matrix_members.get(point_group, None)
     if result_entry:
-        if group1 in result_entry:
-            result_entry[group1].add(setting1)
+        if group_1 in result_entry:
+            result_entry[group_1].add(setting_1)
         else:
-            result_entry[group1] = {setting1}
+            result_entry[group_1] = {setting_1}
 
-        if group2 in result_entry:
-            result_entry[group2].add(setting2)
+        if group_2 in result_entry:
+            result_entry[group_2].add(setting_2)
         else:
-            result_entry[group2] = {setting2}
+            result_entry[group_2] = {setting_2}
     else:
-        point_group_setting_matrix_members[point_group] = {group1: {setting1}, group2: {setting2}}
+        point_group_setting_matrix_members[point_group] = {group_1: {setting_1}, group_2: {setting_2}}
 
 
 class SymEntry:
@@ -878,7 +876,7 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
     else:
         angles = [0.0, 0.0, 0.0]
         for idx, string_vec_angle in enumerate(string_vec_angles):
-            angles[i] = float(string_vec_angle)
+            angles[idx] = float(string_vec_angle)
 
     return lengths + angles
 
@@ -1133,7 +1131,7 @@ def query_counterpart(query_group):
                     "{:>5s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}  {:>10s}  {:>9s}  {:^20s}  {:>6s}".format(
                         str(entry_number), group1, str(int_rot1), str(int_tx1), ref_frame_tx_dof_group1, group2,
                         str(int_rot2), str(int_tx2), ref_frame_tx_dof_group2, result))
-        if matching_entries == []:
+        if not matching_entries:
             print('\033[1m' + "NO MATCHING ENTRY FOUND" + '\033[0m')
             print('')
         else:
@@ -1149,7 +1147,7 @@ def all_entries():
     all_entries_list = []
     for entry_number, entry in nanohedra_symmetry_combinations.items():
         group1, int_dof_group1, _, ref_frame_tx_dof_group1, group2, int_dof_group2, _, \
-        ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
+            ref_frame_tx_dof_group2, _, result, dimension, _, _, _ = entry
         # group2 = entry[6]
         # int_dof_group1 = entry[3]
         # int_dof_group2 = entry[8]
@@ -1284,13 +1282,13 @@ if __name__ == '__main__':
     axis_length = 2 * point_cloud_scale
     axis_list = [0, 0, 0]
     axis_type = ['X', 'Y', 'Z']
-    for idx, _ in enumerate(axis_list):
+    for axis_idx, _ in enumerate(axis_list):
         atom_idx += 1
         axis_point = axis_list.copy()
-        axis_point[idx] = axis_length
+        axis_point[axis_idx] = axis_length
         atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
                                         'C', atom_charge)
-                     % (format(atom_idx, '5d'), 'GLY', axis_type[idx], format(idx + 1, '4d'),
+                     % (format(atom_idx, '5d'), 'GLY', axis_type[axis_idx], format(axis_idx + 1, '4d'),
                         '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(axis_point))))
 
     # write to file
