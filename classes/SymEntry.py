@@ -188,7 +188,7 @@ symmetry_combinations = {
 custom_entries = [entry for entry in symmetry_combinations]
 symmetry_combinations.update(nanohedra_symmetry_combinations)
 # reformat the symmetry_combinations to account for groups and results separately
-parsed_symmetry_combinations = {entry_number: (dict([(entry[0], entry[1:4]), (entry[4], entry[5:8])]), entry[-6:])
+parsed_symmetry_combinations = {entry_number: ([(entry[0], entry[1:4]), (entry[4], entry[5:8])], entry[-6:])
                                 for entry_number, entry in symmetry_combinations.items()}
 space_group_to_sym_entry = {}
 # ROTATION SETTING MATRICES - All descriptions are with view on the positive side of respective axis
@@ -252,9 +252,10 @@ class SymEntry:
                              'custom entries: %s'
                              % (entry, 1, len(nanohedra_symmetry_combinations), ', '.join(map(str, custom_entries))))
         self.entry_number = entry
+        entry_groups = [group_name for group_name, group_params in group_info]
         if not sym_map:  # assume standard SymEntry
             # assumes 2 component symmetry. index with only 2 options
-            self.groups = list(group_info.keys())
+            self.groups = entry_groups
             self.sym_map = [self.resulting_symmetry] + self.groups
         else:  # requires full specification of all symmetry groups
             self.groups = []
@@ -264,27 +265,25 @@ class SymEntry:
                 if sub_symmetry not in valid_symmetries:
                     raise ValueError('The symmetry "%s" specified at index "%d" is not a valid sub-symmetry!'
                                      % (sub_symmetry, idx))
-                if sub_symmetry not in group_info:  # Todo add sub_symmetry specification to group info
+                if sub_symmetry not in entry_groups:  # Todo add sub_symmetry specification to group info
                     raise DesignError('This functionality hasn\'t been implemented yet!')
                 self.groups.append(sub_symmetry)
 
         self._int_dof_groups, self._setting_matrices, self._ref_frame_tx_dof, self.__external_dof = [], [], [], []
-        for idx, group_symmetry in enumerate(self.groups, 1):
-            int_dof, set_mat, ext_dof = group_info[group_symmetry]
-            self._int_dof_groups.append(int_dof)
-            self._setting_matrices.append(set_mat)
-            ref_frame_tx_dof = list(map(str.strip, ext_dof.strip('<>').split(',')))
-            self._ref_frame_tx_dof.append(ref_frame_tx_dof)
-            if idx <= 2:
-                # this wouldn't be possible with more than 2 groups unless we tether the group to an existing group...
-                self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
-            else:
-                if getattr(self, 'is_ref_frame_tx_dof%d' % idx):
-                    raise DesignError('Cannot yet create a SymEntry with external degrees of freedom and > 2 groups!')
-        print(self._int_dof_groups)
-        print(self._setting_matrices)
-        print(self._ref_frame_tx_dof)
-        print(self.__external_dof)
+        for group_idx, group_symmetry in enumerate(self.groups, 1):
+            for entry_group_symmetry, (int_dof, set_mat, ext_dof) in group_info:
+                if group_symmetry == entry_group_symmetry:
+                    self._int_dof_groups.append(int_dof)
+                    self._setting_matrices.append(set_mat)
+                    ref_frame_tx_dof = list(map(str.strip, ext_dof.strip('<>').split(',')))
+                    self._ref_frame_tx_dof.append(ref_frame_tx_dof)
+                    if group_idx <= 1:
+                        # this wouldn't be possible with more than 2 groups unless we tether group to an existing group
+                        self.__external_dof.append(construct_uc_matrix(ref_frame_tx_dof))
+                    else:
+                        if getattr(self, 'is_ref_frame_tx_dof%d' % group_idx):
+                            raise DesignError('Cannot yet create a SymEntry with external degrees of freedom and > 2 '
+                                              'groups!')
         # Reformat reference_frame entries
         # self.is_ref_frame_tx_dof1 = False if self.ref_frame_tx_dof1 == '<0,0,0>' else True
         # self.is_ref_frame_tx_dof2 = False if self.ref_frame_tx_dof2 == '<0,0,0>' else True
