@@ -517,17 +517,18 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
             else:
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
 
-    global fragment_db
-    print(sys.getrefcount(fragment_db))
-    try:
-        del fragment_db
-        del job.fragment_db
-    except (NameError, AttributeError) as error:
-        print(error)
-    time.sleep(10)  # let the garbage collector get rid of any ties
     # test for the size of each of the designdirectories
     if design_directories:
-        print('average_design_directory_size equals %f' %
+        print('Before fragments\naverage_design_directory_size equals %f' %
+              (float(psutil.virtual_memory().used) / len(design_directories)))
+        global fragment_db
+        try:
+            del fragment_db
+            del job.fragment_db
+        except (NameError, AttributeError) as error:
+            print(error)
+        time.sleep(10)  # let the garbage collector get rid of any ties
+        print('After fragments\naverage_design_directory_size equals %f' %
               (float(psutil.virtual_memory().used) / len(design_directories)))
 
     print('\n')
