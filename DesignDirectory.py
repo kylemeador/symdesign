@@ -455,6 +455,10 @@ class DesignDirectory:  # (JobResources):
         return self.job_resources.protein_data  # program_root/Data
 
     @property
+    def reduce_memory(self):
+        return self.job_resources.reduce_memory
+
+    @property
     def refine_dir(self):
         return self.job_resources.refine_dir  # program_root/Data/PDBs/refined
 
@@ -899,7 +903,6 @@ class DesignDirectory:  # (JobResources):
 
     def close_logs(func):
         """Decorator to close the instance log file after use in an instance method (protocol)"""
-        # def wrapper(func):
         @wraps(func)
         def wrapped(self, *args, **kwargs):
             func_return = func(self, *args, **kwargs)
@@ -908,7 +911,17 @@ class DesignDirectory:  # (JobResources):
                 handler.close()
             return func_return
         return wrapped
-        # return wrapper
+
+    def remove_structure_memory(func):
+        """Decorator to remove large memory attributes from the instance after processing is complete"""
+        @wraps(func)
+        def wrapped(self, *args, **kwargs):
+            func_return = func(self, *args, **kwargs)
+            if self.reduce_memory:
+                self.pose = None
+                self.oligomers.clear()
+            return func_return
+        return wrapped
 
     def start_log(self, level: int = 2) -> None:
         """Initialize the logger for the Pose"""
@@ -1458,12 +1471,13 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
+    @remove_structure_memory
     def interface_metrics(self):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
         main_cmd = copy.copy(script_cmd)
-        # Need to initialize the pose so each entity can get sdf created
         if self.interface_residues is False or self.design_residues is False:
+            # need these ^ for making flags so get them v
             self.identify_interface()
             if not self.design_residues:  # we should always get an empty set if we have got to this point
                 raise DesignError('No residues were found with your design criteria... Your flags may be too stringent '
@@ -1954,6 +1968,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError,))
     @close_logs
+    @remove_structure_memory
     def check_clashes(self, clashing_threshold=0.75):
         """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
         models = [Models.from_PDB(self.resources.full_models.retrieve_data(name=entity), log=self.log)
@@ -1979,6 +1994,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError,))
     @close_logs
+    @remove_structure_memory
     def rename_chains(self):
         """Standardize the chain names in incremental order found in the design source file"""
         pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
@@ -1987,6 +2003,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
     @close_logs
+    @remove_structure_memory
     def orient(self, to_design_directory=False):
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         self.symmetry is used to specify the orientation
@@ -2017,6 +2034,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
+    @remove_structure_memory
     def refine(self, to_design_directory=False, interface_to_alanine=True, gather_metrics=False):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         main_cmd = copy.copy(script_cmd)
@@ -2120,6 +2138,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
     @close_logs
+    @remove_structure_memory
     def find_asu(self):
         """From a PDB with multiple Chains from multiple Entities, return the minimal configuration of Entities.
         ASU will only be a true ASU if the starting PDB contains a symmetric system, otherwise all manipulations find
@@ -2155,6 +2174,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
+    @remove_structure_memory
     def expand_asu(self):
         """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
         self.symmetry, and self.log objects then expand the design given the provided symmetry operators and write to a
@@ -2174,6 +2194,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
+    @remove_structure_memory
     def generate_interface_fragments(self):
         """For the design info given by a DesignDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
@@ -2244,6 +2265,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
+    @remove_structure_memory
     def interface_design(self):
         """For the design info given by a DesignDirectory source, initialize the Pose then prepare all parameters for
         interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
@@ -2282,6 +2304,7 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
+    @remove_structure_memory
     def optimize_designs(self, threshold: float = 0.):
         """To touch up and optimize a design, provide a list of optional directives to view mutational landscape around
         certain residues in the design as well as perform wild-type amino acid reversion to mutated residues
@@ -2366,7 +2389,9 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
-    def design_analysis(self, merge_residue_data=False, save_trajectories=True, figures=False):
+    @remove_structure_memory
+    def design_analysis(self, merge_residue_data: bool = False, save_trajectories: bool = True, figures: bool = False) \
+            -> pd.Series:  # Todo interface_design_analysis
         """Retrieve all score information from a DesignDirectory and write results to .csv file
 
         Keyword Args:
@@ -3697,6 +3722,7 @@ class DesignDirectory:  # (JobResources):
 
     handle_design_errors = staticmethod(handle_design_errors)
     close_logs = staticmethod(close_logs)
+    remove_structure_memory = staticmethod(remove_structure_memory)
 
     def __key(self):
         return self.name
