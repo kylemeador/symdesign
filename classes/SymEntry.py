@@ -245,6 +245,8 @@ class SymEntry:
             #   'group2': [self.int_dof_group2, self.rot_set_group2, self.ref_frame_tx_dof2],
             #   ...},
             #  [point_group_symmetry, resulting_symmetry, dimension, unit_cell, tot_dof, cycle_size]
+            self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.total_dof, \
+                self.cycle_size = result_info
         except KeyError:
             raise ValueError('Invalid symmetry entry "%s". Supported values are Nanohedra entries: %d-%d and '
                              'custom entries: %s'
@@ -253,7 +255,7 @@ class SymEntry:
         if not sym_map:  # assume standard SymEntry
             # assumes 2 component symmetry. index with only 2 options
             self.groups = list(group_info.keys())
-            self.sym_map = [self.result] + self.groups
+            self.sym_map = [self.resulting_symmetry] + self.groups
         else:  # requires full specification of all symmetry groups
             self.groups = []
             self.sym_map = sym_map
@@ -305,8 +307,6 @@ class SymEntry:
         #     self.ext_dof = difference_matrix[np.nonzero(difference_matrix.sum(axis=-1))]
 
         self.n_dof_external = self.external_dof.shape[0]
-        self.point_group_symmetry, self.resulting_symmetry, self.dimension, self.unit_cell, self.total_dof, \
-            self.cycle_size = result_info
         # Check construction is valid
         if self.point_group_symmetry not in valid_symmetries:
             raise ValueError('Invalid point group symmetry %s' % self.point_group_symmetry)
