@@ -185,8 +185,8 @@ class DesignDirectory:  # (JobResources):
         self.sym_def_file = None  # The symmetry definition file for the entire Pose
         if 'sym_entry' in kwargs:
             self.sym_entry = kwargs['sym_entry']
-        elif 'sym_entry_number' in kwargs:
-            self.sym_entry = symmetry_factory(kwargs['sym_entry_number'])
+        # elif 'sym_entry_number' in kwargs:
+        #     self.sym_entry = symmetry_factory(kwargs['sym_entry_specification'])
         # if symmetry:
         #     if symmetry == 'cryst':
         #         raise DesignError('This functionality is not possible yet. Please pass --symmetry by Symmetry Entry'
