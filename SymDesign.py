@@ -516,6 +516,10 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                             '%s' % (sbatch_refine_file, sbatch_file))
             else:
                 logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
+
+    del job.fragment_db
+    del fragment_db
+    time.sleep(10)  # let the garbage collector get rid of any ties
     # test for the size of each of the designdirectories
     if design_directories:
         print('average_design_directory_size equals %f' %
