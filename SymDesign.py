@@ -141,6 +141,7 @@ def rsync_dir(des_dir):
     """Takes a DEGEN_1_1 specific formatted list of directories and finds the DEGEN_1_2 directories to condense down to
     a single DEGEEN_1_2 directory making hard links for every file in a DEGEN_1_2 and higher directory to DEGEN_1_1"""
 
+    raise RuntimeError('The function %s is no longer operational as of 5/13/22' % 'get_building_block_dir')
     for s, sym_dir in enumerate(des_dir.program_root):
         if '_flipped_180y' in sym_dir:
             for bb_dir in des_dir.composition[s]:
@@ -487,9 +488,9 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                   else (PUtils.stage[14] if getattr(args, PUtils.structure_background, None)
                         else PUtils.stage[13]))  # hbnet_design_profile
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano, PUtils.refine: PUtils.refine,
-                        'interface_metrics': 'interface_metrics',
+                        PUtils.interface_metrics: PUtils.interface_metrics,
                         'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
-                        'optimize_designs': 'optimize_design'}
+                        PUtils.optimize_designs: PUtils.optimize_designs}
         stage = module_files.get(args.module)
         if stage:
             if len(success) == 0:
@@ -619,7 +620,7 @@ if __name__ == '__main__':
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
     parser.add_argument('-no', '--nanohedra_output', action='store_true',
-                        help='Whether the directory in question is a Nanohedra Docking output')
+                        help='Whether the directory in question is a Nanohedra docking output')
     parser.add_argument('-od', '--output_directory', type=os.path.abspath, default=None,
                         help='If provided, the name of the directory to output all created files. If blank, one will be'
                              ' automatically generated based off input_location, module, and the time.')
@@ -637,7 +638,7 @@ if __name__ == '__main__':
                         metavar=SDUtils.ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design(s)[.pdb]'),
                         help='If you wish to operate on designs specified by a single pose, which pose(s) to use?')
     parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
-                        help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
+                        help='The entry number of %s docking combinations to use' % PUtils.nano.title())
     parser.add_argument('--skip_logging', action='store_true',
                         help='This will skip logging output to files and direct all logging to stream')
     parser.add_argument('-S', '--symmetry', type=str, default=None,
@@ -656,10 +657,6 @@ if __name__ == '__main__':
                                             % (PUtils.submodule_guide, PUtils.submodule_help))
     # ---------------------------------------------------
     # Set Up SubModule Parsers
-    # ---------------------------------------------------
-    # Set Up SubModule Parsers
-    # ---------------------------------------------------
-    parser_query = subparsers.add_parser('nanohedra_query', help='Query %s.py docking entries' % PUtils.nano.title())
     # ---------------------------------------------------
     parser_flag = subparsers.add_parser('flags', help='Generate a flags file for %s' % PUtils.program_name)
     parser_flag.add_argument('-t', '--template', action='store_true',
@@ -694,7 +691,7 @@ if __name__ == '__main__':
                                              'or -q to specify PDB Entity codes, building block directories, or query '
                                              'the PDB for building blocks to dock' % PUtils.nano.title())
     parser_dock.add_argument('-e', '--entry', type=int, default=None, dest='sym_entry', required=True,
-                             help='The entry number of %s.py docking combinations to use' % PUtils.nano.title())
+                             help='The entry number of %s docking combinations to use' % PUtils.nano.title())
     parser_dock.add_argument('-mv', '--match_value', type=float, default=0.5, dest='high_quality_match_value',
                              help='What is the minimum match score required for a high quality fragment?')
     parser_dock.add_argument('-iz', '--initial_z_value', type=float, default=1.,
@@ -775,12 +772,12 @@ if __name__ == '__main__':
     #                                                   list(PUtils.frag_directory.keys())[0]),
     #                            default=list(PUtils.frag_directory.keys())[0])
     # ---------------------------------------------------
-    parser_metrics = subparsers.add_parser('interface_metrics',
+    parser_metrics = subparsers.add_parser(PUtils.interface_metrics,
                                            help='Set up RosettaScript to analyze interface metrics from a pose')
     parser_metrics.add_argument('-sp', '--specific_protocol', type=str,
-                                help='The specific protocol to perform interface_metrics on')
+                                help='The specific protocol to perform %s on' % PUtils.interface_metrics)
     # ---------------------------------------------------
-    parser_optimize_designs = subparsers.add_parser('optimize_designs',
+    parser_optimize_designs = subparsers.add_parser(PUtils.optimize_designs,
                                                     help='Optimize and touch up designs after running interface design.'
                                                          ' Useful for reverting excess mutations to wild-type, or '
                                                          'directing targeted exploration of specific troublesome areas')
@@ -797,8 +794,8 @@ if __name__ == '__main__':
                                help='Whether to use already produced designs in the designs/ directory')
     parser_custom.add_argument('-n', '--native', type=str, help='What structure to use as a "native" structure for '
                                                                 'Rosetta reference calculations. Default=refined_pdb',
-                               choices=['source', 'asu', 'assembly', 'refine_pdb', 'refined_pdb', 'consensus_pdb',
-                                        'consensus_design_pdb'])
+                               choices=['source', 'asu_path', 'assembly_path', 'refine_pdb', 'refined_pdb',
+                                        'consensus_pdb', 'consensus_design_pdb'])
     parser_custom.add_argument('--score_only', action='store_true', help='Whether to only score the design(s)')
     parser_custom.add_argument('script', type=os.path.abspath, help='The location of the custom script')
     parser_custom.add_argument('--suffix', type=str, metavar='SUFFIX',
@@ -1069,11 +1066,11 @@ if __name__ == '__main__':
     sym_entry = queried_flags['sym_entry']
 
     initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,  # PUtils.refine,
-                          'optimize_designs', 'custom_script']  # PUtils.analysis,
+                          PUtils.optimize_designs, 'custom_script']  # PUtils.analysis,
     # TODO consolidate these checks
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'find_asu', 'expand_asu', 'status',
-                       PUtils.interface_metrics, PUtils.refine, 'optimize_designs', 'custom_script', 'rename_chains',
-                       'check_clashes', 'visualize']:
+                       PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
+                       'check_clashes', 'custom_script', 'visualize']:
         initialize, queried_flags['construct_pose'] = True, True  # set up design directories
         # if args.module in ['orient', 'expand_asu']:
         #     if queried_flags['nanohedra_output'] or queried_flags['symmetry']:
@@ -1099,7 +1096,6 @@ if __name__ == '__main__':
     else:  # [PUtils.nano, 'guide', 'flags', 'residue_selector', 'multicistronic']
         initialize = False
         if getattr(args, 'query', None):  # run nanohedra query mode
-            # if args.module == 'nanohedra_query':
             query_flags = [__file__, '-query'] + additional_args
             logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
             query_mode(query_flags)
@@ -1399,6 +1395,7 @@ if __name__ == '__main__':
             pre_loop_model = None  # False
 
         if args.multi_processing:  # and not args.skip_master_db:
+            # Todo set up a job based data acquisition as it takes some time and isn't always necessary!
             job.resources.load_all_data()
             # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
             # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
@@ -1694,7 +1691,7 @@ if __name__ == '__main__':
         # else:
         #     logger.error('No "%s" commands were written!' % PUtils.nano)
     # ---------------------------------------------------
-    elif args.module == 'interface_metrics':
+    elif args.module == PUtils.interface_metrics:
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # zipped_args = zip(design_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
@@ -1707,7 +1704,7 @@ if __name__ == '__main__':
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == 'optimize_designs':
+    elif args.module == PUtils.optimize_designs:
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # zipped_args = zip(design_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
@@ -2251,7 +2248,7 @@ if __name__ == '__main__':
             design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
             designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
 
-            des_dir.load_pose(source=des_dir.asu)
+            des_dir.load_pose(source=des_dir.asu_path)
             des_dir.pose.pdb.reorder_chains()  # Do I need to modify chains?
             missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]
             prior_offset = 0

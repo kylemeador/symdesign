@@ -20,8 +20,7 @@ from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_
     reference_residues_pkl, free_sasa_configuration_path
 # from ProteinExpression import find_expression_tags, remove_expression_tags
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
-from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, \
-    retrieve_entity_id_by_sequence  # get_pdb_info_by_entry, query_entity_id
+from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, retrieve_entity_id_by_sequence
 from SequenceProfile import SequenceProfile, generate_mutations
 from classes.SymEntry import get_rot_matrices, get_degen_rotmatrices
 from utils.GeneralUtils import transform_coordinate_sets
@@ -1441,14 +1440,15 @@ class Structure(StructureBase):
             assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
                                                         % (self.name, len(self.atoms), len(self.coords))
 
-    def set_coords(self, coords=None):
+    def set_coords(self, coords: Union[np.ndarray, List] = None):
         """Set the coordinates for the Structure as a Coord object. Additionally, updates all member Residues with the
         Coords object and maps the atom/coordinate index to each Residue, residue atom index pair.
 
-        Keyword Args:
-            coords=None (Union[numpy.ndarray, list]): The coordinates to set for the structure
         Only use set_coords once per Structure object creation otherwise Structures with multiple containers will be
-        corrupted"""
+        corrupted
+        Args:
+            coords: The coordinates to set for the structure
+        """
         self.coords = coords
         # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
@@ -4447,15 +4447,18 @@ class Entity(Chain, SequenceProfile):
 
         return out_file
 
-    def format_sdf(self, lines, to_file=None, out_path=os.getcwd(), dihedral=False, modify_sym_energy=False, energy=2) -> Union[str, bytes]:
+    def format_sdf(self, lines: List, to_file: Optional[Union[str, bytes]] = None,
+                   out_path: Union[str, bytes] = os.getcwd(), dihedral: bool = False, modify_sym_energy: bool = False,
+                   energy: int = 2) -> Union[str, bytes]:
         """Ensure proper sdf formatting before proceeding
 
-        Keyword Args:
-            to_file=None (str): The name of the symmetry definition file
-            out_path=os.getcwd() (str): The location the symmetry definition file should be written
-            dihedral=False (bool): Whether the assembly is in dihedral symmetry
-            modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
-            energy=2 (int): Scalar to modify the Rosetta energy by
+        Args:
+            lines: The symmetry definition file lines
+            to_file: The name of the symmetry definition file
+            out_path: The location the symmetry definition file should be written
+            dihedral: Whether the assembly is in dihedral symmetry
+            modify_sym_energy: Whether the symmetric energy produced in the file should be modified
+            energy: Scalar to modify the Rosetta energy by
         Returns:
             The location the symmetry definition file was written
         """

@@ -548,7 +548,7 @@ class SymEntry:
         Returns:
             The optimal vector for translation
         """
-        optimal_shifts_t = getattr(self, 'group_external_dof%d' % group_number).T * optimal_ext_dof_shifts
+        optimal_shifts_t = getattr(self, 'external_dof%d' % group_number).T * optimal_ext_dof_shifts
         return optimal_shifts_t.T.sum(axis=0)
 
     def get_uc_dimensions(self, optimal_shift_vec: np.ndarray) -> Optional[np.ndarray]:
@@ -567,12 +567,9 @@ class SymEntry:
         # for entry 6 - string_vector is 4*e, 4*e, 4*e
         # construct_uc_matrix() = [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
         uc_mat = construct_uc_matrix(string_lengths) * optimal_shift_vec[:, :, None]
-        # [:, :, None] <- expands axis so multiplication is accurate. eg. [[[1.], [0.], [0.]],[[0.], [0.], [0.]]]
+        # [:, :, None] <- expands axis so multiplication is accurate. eg. [[[1.], [0.], [0.]], [[0.], [0.], [0.]]]
         lengths = np.abs(uc_mat.sum(axis=-2))
-        # (^).sum(axis=1) = [4, 4, 4]
-        # lengths = [0.0, 0.0, 0.0]
-        # for i in range(len(string_vec_lens)):
-        #     lengths[i] = abs((e1[i] + f1[i] + g1[i]))
+        #               (^).sum(axis=-2) = [4, 4, 4]
         if len(string_lengths) == 2:
             lengths[:, 2] = 1.
 
@@ -580,7 +577,7 @@ class SymEntry:
             angles = [90., 90., float(string_angles[0])]
         else:
             # angles = [float(string_angle) for string_angle in string_angles]
-            angles = [0., 0., 0.]  # need this incase there is only 1 angle
+            angles = [0., 0., 0.]  # initialize incase there are < 1 string_angles
             for idx, string_angle in enumerate(string_angles):
                 angles[idx] = float(string_angle)
 
@@ -641,25 +638,32 @@ def construct_uc_matrix(string_vector):
     """
 
     Args:
-        string_vector (list[str]):
-
+        string_vector: The string vector as parsed from the symmetry combination table
     Returns:
-        (numpy.ndarray): 3x3 array with the values to specify unit cell dimensions from basis vector constraints
+        3x3 float array with the values to specify unit cell dimensions from basis vector constraints
     """
     string_position = {'e': 0, 'f': 1, 'g': 2}
-    variable_matrix = np.zeros((3, 3))
-    for col_idx, string in enumerate(string_vector):
+    variable_matrix = np.zeros((3, 3))  # default is float
+    for col_idx, string in enumerate(string_vector):  # ex ['4*e', 'f', '0']
         if string[-1] != '0':
-            row_idx = string_position.get(string[-1])
+            row_idx = string_position[string[-1]]
             variable_matrix[row_idx][col_idx] = float(string.split('*')[0]) if '*' in string else 1.
 
             if '-' in string:
                 variable_matrix[row_idx][col_idx] *= -1
 
-    # for entry 6 - string_vector is 4*e, 4*e, 4*e
-    # [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
-    # for entry 85 - string_vector is 4*e, 4*f, 4*g
-    # [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
+    # for entry 6 - unit cell string_vector is ['4*e', '4*e', '4*e']
+    #  [[4, 4, 4], [0, 0, 0], [0, 0, 0]]
+    #  component1 string vector is ['0', 'e', '0']
+    #   [[0, 1, 0], [0, 0, 0], [0, 0, 0]]
+    #  component2 string vector is ['0', '0', '0']
+    #   [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    # for entry 85 - string_vector is ['4*e', '4*f', '4*g']
+    #  [[4, 0, 0], [0, 4, 0], [0, 0, 4]]
+    #  component1 string vector is ['0', '0', '0']
+    #   [[0, 0, 0], [0, 0, 0], [0, 0, 0]]
+    #  component2 string vector is ['e', 'f', 'g']
+    #   [[1, 0, 0], [0, 1, 0], [0, 0, 1]]
     return variable_matrix
 
 

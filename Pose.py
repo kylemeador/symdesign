@@ -1003,10 +1003,11 @@ class SymmetricModel(Model):
         self.set_symmetry(**kwargs)
 
     @classmethod
-    def from_assembly(cls, assembly, symmetry=None):
+    def from_assembly(cls, assembly, symmetry=None, **kwargs):
         assert symmetry, 'Currently, can\'t initialize a symmetric model without the symmetry! Pass symmetry during ' \
                          'Class initialization. Or add a Class method to scout for symmetry to SymmetricModel...'
-        return cls(models=assembly, **symmetry)
+        kwargs.update(symmetry=symmetry)
+        return cls(models=assembly, **kwargs)
 
     @classmethod
     def from_asu(cls, asu, **kwargs):  # generate_symmetry_mates=True
@@ -1015,8 +1016,6 @@ class SymmetricModel(Model):
         Keyword Args:
             # generate_symmetry_mates=True (bool): Whether the symmetric copies of the ASU model should be generated
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        Returns:
-            (SymmetricModel)
         """
         return cls(asu=asu, **kwargs)  # generate_symmetry_mates=generate_symmetry_mates,
 
@@ -1025,7 +1024,8 @@ class SymmetricModel(Model):
         return cls(asu_file=asu_file, **kwargs)
 
     @property
-    def asu(self):
+    def asu(self) -> Structure:
+        """The asymmetric unit of the symmetric system"""
         return self._pdb
 
     @asu.setter
@@ -1043,6 +1043,7 @@ class SymmetricModel(Model):
 
     @property
     def sym_entry(self) -> SymEntry:
+        """The SymEntry specifies the symmetric parameters for the utilized symmetry"""
         try:
             return self._sym_entry
         except AttributeError:
@@ -1054,6 +1055,7 @@ class SymmetricModel(Model):
 
     @property
     def symmetry(self) -> str:
+        """The result of the SymEntry"""
         try:
             return self._symmetry
         except AttributeError:
@@ -1066,6 +1068,7 @@ class SymmetricModel(Model):
 
     @property
     def point_group_symmetry(self) -> str:
+        """The point group underlying the resulting SymEntry"""
         try:
             return self._point_group_symmetry
         except AttributeError:
@@ -1078,6 +1081,7 @@ class SymmetricModel(Model):
 
     @property
     def dimension(self) -> int:
+        """The dimension of the symmetry from 0, 2, or 3"""
         try:
             return self._dimension
         except AttributeError:
@@ -1090,11 +1094,7 @@ class SymmetricModel(Model):
 
     @property
     def cryst_record(self) -> str:
-        """Return the symmetry parameters as a CRYST1 entry
-
-        Returns:
-            (str)
-        """
+        """Return the symmetry parameters as a CRYST1 entry"""
         try:
             return self._cryst_record
         except AttributeError:
@@ -1108,7 +1108,7 @@ class SymmetricModel(Model):
         try:
             return self._number_of_symmetry_mates
         except AttributeError:
-            self._number_of_symmetry_mates = len(self.expand_matrices)
+            self._number_of_symmetry_mates = self.sym_entry.number_of_operations
             return self._number_of_symmetry_mates
 
     @number_of_symmetry_mates.setter
@@ -3150,7 +3150,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def check_interface_topology(self):
         """From each pair of entities that share an interface, split the identified residues into two distinct groups.
-        If an interface can't be composed into two distinct groups, raise a DesignError
+        If an interface can't be composed into two distinct groups, raise DesignError
 
         Sets:
             self.split_interface_residues (dict): Residue/Entity id of each residue at the interface identified by interface id
@@ -3256,7 +3256,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if not self.split_interface_residues[1]:
             # Todo return an error but don't raise anything
             raise DesignError('Interface was unable to be split because no residues were found on one side of the'
-                              ' interface!')
+                              ' interface! Check that your input has an interface or your flags aren\'t too stringent')
         else:
             self.log.debug('The interface is split as:\n\tInterface 1: %s\n\tInterface 2: %s'
                            % tuple(','.join('%d%s' % (res.number, ent.chain_id) for res, ent in residues_entities)
@@ -3620,9 +3620,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.connect_fragment_database(init=True)  # default init=False, we need an initiated one to generate frags
 
         if not self.interface_residues:
-            self.find_and_split_interface()  # shouldn't occur with the set up on 3/17/21, upstream funcs call this 1st
-            # for entity_pair in combinations_with_replacement(self.active_entities, 2):
-            #     self.find_interface_residues(*entity_pair)
+            self.find_and_split_interface()
 
         for entity_pair in combinations_with_replacement(self.active_entities, 2):
             self.log.debug('Querying Entity pair: %s, %s for interface fragments'
@@ -3648,16 +3646,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_overlap_match_%d.pdb'
             #                                                            % (*interface_ghost_frag.get_ijk(), idx)))
 
-    def return_symmetry_parameters(self):
-        """Return the symmetry parameters from a SymmetricModel
-
-        Returns:
-            (dict): {symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
-        """
-        return {'symmetry': self.__dict__['symmetry'],
-                'uc_dimensions': self.__dict__['uc_dimensions'],
-                'expand_matrices': self.__dict__['expand_matrices'],
-                'dimension': self.__dict__['dimension']}
+    # def return_symmetry_parameters(self):
+    #     """Return the symmetry parameters from a SymmetricModel
+    #
+    #     Returns:
+    #         (dict): {symmetry: (str), dimension: (int), uc_dimensions: (list), expand_matrices: (list[list])}
+    #     """
+    #     return {'symmetry': self.__dict__['symmetry'],
+    #             'uc_dimensions': self.__dict__['uc_dimensions'],
+    #             'expand_matrices': self.__dict__['expand_matrices'],
+    #             'dimension': self.__dict__['dimension']}
 
     def format_seqres(self, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
