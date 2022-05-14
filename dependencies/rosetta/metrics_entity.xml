@@ -119,10 +119,10 @@
 <!--		<DeleteRegionMover name="measure_entity" residue_selector="not_entity"/>-->
 		<ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>
 		# sample all rotamers to find minimum
-<!--        <SymRotamerTrialsMover name="S_RT" scorefxn="2015_nano_cst" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>-->
+        <SymRotamerTrialsMover name="S_RT" scorefxn="2015_nano_cst" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
         <RotamerTrialsMover name="RT" scorefxn="2015_cst" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
         # minimize all residues in design_map (move map)
-<!--        <SymMinMover name="S_min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"-->
+        <SymMinMover name="S_min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
 		<MinMover name="min" scorefxn="2015_cst" movemap_factory="design_map"/> # bb="0" chi="1"
 		<ParsedProtocol name="S_rotamer_trials_min_mover">
 			<Add mover_name="S_RT"/>
