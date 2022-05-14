@@ -64,7 +64,7 @@
 <!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_%%entity%%_unbound"/>-->
 <!--		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_%%entity%%_unbound"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix-->
 <!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum" use_cached_data="true" cache_suffix="_total_%%entity%%_unbound"/>-->
-<!--		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano_solvation"/>-->
+		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano_solvation"/>
 		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors" scorefxn="2015_solvation"/>
 	</SIMPLE_METRICS>
 
