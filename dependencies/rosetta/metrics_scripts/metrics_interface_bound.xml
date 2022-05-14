@@ -5,7 +5,7 @@
 		<ScoreFunction name="2015" weights="ref2015"/>
 		<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
 		<ScoreFunction name="2015_cst_fsp" weights="ref2015_cst"/>
-		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_score_patch%%"/>
+<!--TODO reinstate after scout		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_score_patch%%"/>-->
 		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
 		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
 		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
