@@ -85,7 +85,7 @@
 		<ReadPoseExtraScoreFilter name="read_repacking" term_name="repacking" threshold="-0.5"/>
 		# find the average degree of connectivity to residues surrounding specified residues
 		<AverageDegree name="interface_connectivity_%%entity%%" threshold="0" distance_threshold="10.0" task_operations="no_interface_no_pack,entity_interface_and_neighbors_pack"/>
-<!--		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement-->
+		<BuriedUnsatHbonds name="S_buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		<BuriedUnsatHbonds name="buns_%%entity%%_unbound" residue_selector="entity_interface_and_neighbors" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		<Report name="R_interface_connectivity_%%entity%%" 				filter="interface_connectivity_%%entity%%"/>
 		<Report name="R_S_buns_%%entity%%_unbound" 						filter="S_buns_%%entity%%_unbound"/>
