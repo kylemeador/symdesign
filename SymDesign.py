@@ -1553,8 +1553,15 @@ if __name__ == '__main__':
         # design_source = os.path.basename(example_directory.project_designs)
         # job = JobResources(queried_flags['output_directory'])
         pass
+    # Format job specific details based on the input
+    if args.module == PUtils.nano:
+        required_memory = PUtils.baseline_program_memory + 30000000000  # 30 GB ?
+    else:
+        required_memory = PUtils.baseline_program_memory + \
+                          len(design_directories) * PUtils.approx_ave_design_directory_memory_w_pose * 0.2  # % error
+    job.reduce_memory = True if psutil.virtual_memory().available < required_memory else False
+    # job.reduce_memory = True
 
-    job.reduce_memory = True
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
             logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')

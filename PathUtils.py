@@ -100,6 +100,11 @@ directory_structure = './design_symmetry_pg/building_blocks/DEGEN_A_B/ROT_A_B/tx
                       '\nTotal design_symmetry_pg score are located in ./design_symmetry_pg/building_blocks/%s' \
                       % (pdbs_outdir, scores_outdir, scores_outdir)
 variance = 0.8
+# 10.5MB was measured 5/13/22 with self.pose,
+# after deleting self.pose: 450 poses -> 6.585339. 900 poses -> 3.346759
+approx_ave_design_directory_memory_w_pose = 4000000  # 4MB
+approx_ave_design_directory_memory_w_o_pose = 150000  # with 44279 poses get 147299.66 bytes/pose
+baseline_program_memory = 3000000000  # 3GB
 clustered_poses = '%sClusteredPoses-%s.pkl'
 pdb_source = 'db'  # 'fetch_pdb'  # TODO set up
 
