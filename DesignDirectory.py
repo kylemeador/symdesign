@@ -1171,6 +1171,14 @@ class DesignDirectory:  # (JobResources):
         self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
         # self.fragment_data_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
 
+    def symmetry_definition_files(self) -> List:
+        """Retrieve the symmetry definition files name from DesignDirectory"""
+        try:
+            return self._symmetry_definition_files
+        except AttributeError:
+            self._symmetry_definition_files = sorted(glob(os.path.join(self.data, '*.sdf')))
+            return self._symmetry_definition_files
+
     def get_wildtype_file(self) -> Union[str, bytes]:
         """Retrieve the wild-type file name from DesignDirectory"""
         wt_file = glob(self.asu_path)
