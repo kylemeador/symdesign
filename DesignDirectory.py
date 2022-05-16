@@ -684,7 +684,7 @@ class DesignDirectory:  # (JobResources):
         """
         self.get_fragment_metrics()
         # Interface B Factor TODO ensure asu.pdb has B-factors for Nanohedra
-        int_b_factor = sum(self.pose.pdb.residue(residue_number).b_factor for residue_number in self.interface_residues)
+        int_b_factor = sum(residue.b_factor for residue in self.pose.pdb.get_residues(self.interface_residues))
         metrics = {
             'interface_b_factor_per_residue': round(int_b_factor / self.total_interface_residues, 2),
             'nanohedra_score': self.all_residue_score,
@@ -2364,16 +2364,21 @@ class DesignDirectory:  # (JobResources):
         self.load_pose()
         # format all amino acids in self.design_residues with frequencies above the threshold to a set
         # Todo, make threshold and return set of strings a property of a profile object
-        background = \
-            {self.pose.pdb.residue(residue_number):
-             {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
-             for residue_number, fields in self.design_background.items() if residue_number in self.design_residues}
+        # background = \
+        #     {self.pose.pdb.residue(residue_number):
+        #      {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
+        #      for residue_number, fields in self.design_background.items() if residue_number in self.design_residues}
+        background = {residue: {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3
+                                if self.design_background[residue.number].get(aa, -1) > threshold}
+                      for residue in self.pose.pdb.get_residues(self.design_residues)}
         # include the wild-type residue from DesignDirectory Pose source and the residue identity of the selected design
         wt = {residue: {self.design_background[residue.number].get('type'), protein_letters_3to1[residue.type.title()]}
               for residue in background}
         directives = dict(zip(background.keys(), repeat(None)))
-        directives.update({self.pose.pdb.residue(residue_number): directive
-                           for residue_number, directive in self.directives.items()})
+        # directives.update({self.pose.pdb.residue(residue_number): directive
+        #                    for residue_number, directive in self.directives.items()})
+        directives.update({residue: self.directives[residue.number]
+                           for residue in self.pose.pdb.get_residues(self.directives.keys())})
 
         res_file = self.pose.pdb.make_resfile(directives, out_path=self.data, include=wt, background=background)
 
