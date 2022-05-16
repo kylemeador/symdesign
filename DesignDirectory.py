@@ -2529,25 +2529,6 @@ class DesignDirectory:  # (JobResources):
             self.log.debug('Found design scores in file: %s' % self.scores_file)
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
-
-            # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
-            #  sequence data along trajectory is a metric on it's own
-            # # Gather mutations for residue specific processing and design sequences
-            # for design, data in list(all_design_scores.items()):  # make a copy as is removed if no sequence present
-            #     sequence = data.get('final_sequence')
-            #     if sequence:
-            #         if len(sequence) >= pose_length:
-            #             pose_sequences[design] = sequence[:pose_length]  # Todo won't work if the design had insertions
-            #         else:
-            #             pose_sequences[design] = sequence
-            #     else:
-            #         self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
-            #         all_design_scores.pop(design)
-            # # format {entity: {design_name: sequence, ...}, ...}
-            # entity_sequences = \
-            #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
-            #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
-
             scores_df = pd.DataFrame(all_design_scores).T
             # Gather all columns into specific types for processing and formatting
             per_res_columns, hbonds_columns = [], []
@@ -2585,6 +2566,23 @@ class DesignDirectory:  # (JobResources):
             # residue_info.update(residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
             #                                        per_res_columns, hbonds=interface_hbonds))
 
+            # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
+            #  sequence data along trajectory is a metric on it's own
+            # # Gather mutations for residue specific processing and design sequences
+            # for design, data in list(all_design_scores.items()):  # make a copy as is removed if no sequence present
+            #     sequence = data.get('final_sequence')
+            #     if sequence:
+            #         if len(sequence) >= pose_length:
+            #             pose_sequences[design] = sequence[:pose_length]  # Todo won't work if the design had insertions
+            #         else:
+            #             pose_sequences[design] = sequence
+            #     else:
+            #         self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
+            #         all_design_scores.pop(design)
+            # # format {entity: {design_name: sequence, ...}, ...}
+            # entity_sequences = \
+            #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
+            #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
         # Find designs where required data is present
         viable_designs = scores_df.index.to_list()
         assert viable_designs, 'No viable designs remain after processing!'
