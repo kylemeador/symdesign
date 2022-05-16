@@ -209,7 +209,7 @@ class SequenceProfile:
         return self.number_of_residues
 
     @property
-    def offset(self):
+    def offset(self) -> int:
         """Return the starting index for the Entity based on pose numbering of the residues"""
         return self.residues[0].number - 1
 
@@ -2552,8 +2552,8 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
     For PDB comparison, reference should be expression sequence (SEQRES), query should be atomic sequence (ATOM)
 
     Args:
-        reference (str): Reference sequence to align mutations against. Character values are returned in the "from" key
-        query (str): Query sequence. Character values are returned in the "to" key
+        reference: Reference sequence to align mutations against. Character values are returned in the "from" key
+        query: Query sequence. Character values are returned in the "to" key
         offset: Whether sequences are different lengths. Will create an alignment of the two sequences
         blanks: Include all gaped indices, i.e. outside the reference sequence or missing characters in the sequence
         remove_termini: Remove indices that are outside the reference sequence boundaries
@@ -2562,7 +2562,7 @@ def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True
         zero_index: Whether to return the indices zero-indexed (like python) or one-indexed
         return_all: Whether to return all the indices and there corresponding mutational data
     Returns:
-        (Dict[int, Dict[str, str]]): {1: {'from': 'A', 'to': 'K'}, ...}
+        Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
     """
     if offset:
         align_seq_1, align_seq_2, *_ = generate_alignment(reference, query)
