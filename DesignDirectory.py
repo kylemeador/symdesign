@@ -1329,27 +1329,32 @@ class DesignDirectory:  # (JobResources):
             with open(self.pose_file, 'r') as f:
                 pose_transformation = {}
                 for line in f.readlines():
+                    # all parsing lacks PDB number suffix such as PDB1 or PDB2 for hard coding in dict key
                     if line[:20] == 'ROT/DEGEN MATRIX PDB':
-                        data = eval(line[22:].strip())  # Todo remove eval(), this is a program vulnerability
+                        # data = eval(line[22:].strip())
+                        data = [[float(item) for item in group.split(', ')]
+                                for group in line[22:].strip().strip('[]').split('], [')]
                         pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
-                    elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
-                        data = eval(line[17:].strip())
-                        if data:  # == 'None'
-                            pose_transformation[int(line[15:16])]['translation'] = np.array(data)
-                        else:
-                            pose_transformation[int(line[15:16])]['translation'] = np.array([0, 0, 0])
+                    elif line[:15] == 'INTERNAL Tx PDB':
+                        try:  # This may have values of None
+                            data = np.array([float(item) for item in line[17:].strip().strip('[]').split(', ')])
+                        except ValueError:  # we received a string which is not a float
+                            data = origin
+                        pose_transformation[int(line[15:16])]['translation'] = data
                     elif line[:18] == 'SETTING MATRIX PDB':
-                        data = eval(line[20:].strip())
+                        # data = eval(line[20:].strip())
+                        data = [[float(item) for item in group.split(', ')]
+                                for group in line[20:].strip().strip('[]').split('], [')]
                         pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
                     elif line[:22] == 'REFERENCE FRAME Tx PDB':
-                        data = eval(line[24:].strip())
-                        if data:
-                            pose_transformation[int(line[22:23])]['translation2'] = np.array(data)
-                        else:
-                            pose_transformation[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
-                    elif 'CRYST1 RECORD:' in line:
-                        cryst_record = line[15:].strip()
-                        self.cryst_record = None if cryst_record == 'None' else cryst_record
+                        try:  # This may have values of None
+                            data = np.array([float(item) for item in line[24:].strip().strip('[]').split(', ')])
+                        except ValueError:  # we received a string which is not a float
+                            data = origin
+                        pose_transformation[int(line[22:23])]['translation2'] = data
+                    # elif 'CRYST1 RECORD:' in line:
+                    #     cryst_record = line[15:].strip()
+                    #     self.cryst_record = None if cryst_record == 'None' else cryst_record
 
             return [pose_transformation[idx] for idx, _ in enumerate(pose_transformation, 1)]
         except TypeError:
