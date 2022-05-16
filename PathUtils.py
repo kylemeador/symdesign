@@ -40,12 +40,12 @@ hhblits = 'hhblits'
 rosetta_str = 'ROSETTA'
 string_ops = [str.upper, str.lower, str.title]
 rosetta = None
-idx = 0
+i = 0
 search_strings = []
-while idx < 3 and not rosetta:
-    search_strings.append(string_ops[idx](rosetta_str))
-    rosetta = os.environ.get(search_strings[idx])
-    idx += 1
+while i < 3 and not rosetta:
+    search_strings.append(string_ops[i](rosetta_str))
+    rosetta = os.environ.get(search_strings[i])
+    i += 1
 
 if not rosetta:
     print('No environmental variable specifying Rosetta software location found at %s. Rosetta inaccessible'

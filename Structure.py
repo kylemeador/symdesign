@@ -3938,7 +3938,7 @@ class Entity(Chain, SequenceProfile):
         sequence with that of the structure sequence
 
         Returns:
-            (dict[int, dict[str, str]]): {1: {'from': 'A', 'to': 'K'}, ...}
+            Mutation index to mutations in the format of {1: {'from': 'A', 'to': 'K'}, ...}
         """
         try:
             return self._disorder
@@ -4408,8 +4408,9 @@ class Entity(Chain, SequenceProfile):
             Symmetry definition filename
         """
         out_file = os.path.join(out_path, '%s.sdf' % self.name)
-        if os.path.exists(out_file):
-            return out_file
+        # Todo Master branch reinstate
+        # if os.path.exists(out_file):
+        #     return out_file
 
         # if self.symmetry == 'C1':
         #     return
