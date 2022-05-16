@@ -1204,61 +1204,75 @@ class DesignDirectory:  # (JobResources):
     #     self.all_residue_score, self.center_residue_score, self.fragment_residues_total, \
     #         self.central_residues_with_fragment_overlap, self.multiple_frag_ratio, self.fragment_content_d
 
-    def get_fragment_metrics(self):
+    def get_fragment_metrics(self):  # Todo interface_fragment_metrics
         """Calculate fragment metrics for all fragment observations in the design
 
         Sets:
-            self.center_residue_numbers (int)
-            self.total_residue_numbers (int)
-            self.fragment_residues_total (int)
-            self.central_residues_with_fragment_overlap (int)
-            self.total_interface_residues (int)
-            self.all_residue_score (float)
-            self.center_residue_score (float)
-            self.multiple_frag_ratio (float)
-            self.helical_fragment_content (float)
-            self.strand_fragment_content (float)
-            self.coil_fragment_content (float)
-            self.total_non_fragment_interface_residues (int)
-            self.percent_residues_fragment_center (int)
-            self.percent_residues_fragment_total (int)
-            self.interface_ss_fragment_topology (Dict[int, str])
-        """
-        # TODO Doesn't need an attached pose if fragments have been generated
-        if self.design_residues is False:  # no search yet, so = False
-            self.identify_interface()  # sets self.design_residues and self.interface_residues
+            self.center_residue_numbers (int):
 
+            self.total_residue_numbers (int):
+
+            self.fragment_residues_total (int):
+
+            self.central_residues_with_fragment_overlap (int):
+
+            self.total_interface_residues (int):
+
+            self.all_residue_score (float):
+
+            self.center_residue_score (float):
+
+            self.multiple_frag_ratio (float):
+
+            self.helical_fragment_content (float):
+
+            self.strand_fragment_content (float):
+
+            self.coil_fragment_content (float):
+
+            self.total_non_fragment_interface_residues (int):
+
+            self.percent_residues_fragment_center (int):
+
+            self.percent_residues_fragment_total (int):
+
+            self.interface_ss_fragment_topology (Dict[int, str]):
+
+        """
         self.log.debug('Starting fragment metric collection')
         if self.fragment_observations:  # check if fragment generation has been populated somewhere
-            # frag_metrics = self.pose.return_fragment_metrics(fragments=self.info.get('fragments'))
-            frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+            frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
+            # frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
+        elif os.path.exists(self.frag_file):  # try to pull them from disk
+            self.log.debug('Fragment observations found on disk. Adding to the Design state')
+            self.retrieve_fragment_info_from_file()
+            frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
+            # frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
         else:
+            if self.design_residues is False:  # no search yet, so self.design_residues = False
+                self.identify_interface()
+            else:  # it is True, but we haven't got the fragments yet, so we will get them by the same means
+                pass
+            self.make_path(self.frags, condition=self.write_frags)
+            self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
             if self.pose.fragment_queries:
                 self.log.debug('Fragment observations found in Pose. Adding to the Design state')
                 self.fragment_observations = self.pose.return_fragment_observations()
-                frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
-            elif os.path.exists(self.frag_file):  # try to pull them from disk
-                self.log.debug('Fragment observations found on disk. Adding to the Design state')
-                self.retrieve_fragment_info_from_file()
-                # frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
-                frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
-            # fragments were attempted, but returned nothing, set frag_metrics to the template (empty)
-            elif self.fragment_observations == list():
-                frag_metrics = fragment_metric_template
-            # fragments haven't been attempted on this pose
-            elif self.fragment_observations is None:
-                self.log.warning('There were no fragments generated for this Design! If this isn\'t what you expected, '
-                                 'ensure that you haven\'t disabled it with "--%s" or explicitly request it with --%s'
-                                 % (PUtils.no_term_constraint, PUtils.generate_fragments))
-                #                  'Have you run %s on it yet?' % PUtils.generate_fragments)
-                frag_metrics = fragment_metric_template
-                # self.log.warning('%s: There are no fragment observations for this Design! Have you run %s on it yet?
-                #                  ' Trying %s now...' % (self.path, PUtils.generate_fragments, generate_fragments))
-                # self.generate_interface_fragments()
-            else:
-                raise DesignError('Design hit a snag that shouldn\'t have happened. Please report to the developers')
-            self.info['fragments'] = self.fragment_observations
-            self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
+                frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
+                self.info['fragments'] = self.fragment_observations
+                self.pickle_info()  # Todo remove once DesignDirectory state can be returned to SymDesign dispatch w/ MP
+        # else:
+        #     raise DesignError('Design hit a snag that shouldn\'t have happened. Please report to the developers')
+
+        # fragments were attempted, but returned nothing, set frag_metrics to the template (empty)
+        if self.fragment_observations == list():
+            frag_metrics = fragment_metric_template
+        # fragments haven't been attempted on this pose
+        elif self.fragment_observations is None:  # should this ever happen?
+            self.log.warning('There were no fragments generated for this Design! If this isn\'t what you expected, '
+                             'ensure that you haven\'t disabled it with "--%s" or explicitly request it with --%s'
+                             % (PUtils.no_term_constraint, PUtils.generate_fragments))
+            frag_metrics = fragment_metric_template
 
         self.center_residue_numbers = frag_metrics['center_residues']
         self.total_residue_numbers = frag_metrics['total_residues']
