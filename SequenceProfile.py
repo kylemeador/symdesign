@@ -3173,11 +3173,11 @@ def generate_mutations_from_reference(reference: str, sequences: Dict[str, str])
         reference: The reference sequence to compare each sequence against
         sequences: {alias: sequence, ...}
     Returns:
-        (dict): {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
+        {alias: {mutation_index: {'from': 'A', 'to': 'K'}, ...}, ...}
     """
     mutations = {alias: generate_mutations(reference, sequence, offset=False) for alias, sequence in sequences.items()}
     # add reference sequence mutations
-    mutations['reference'] = {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
+    mutations[PUtils.reference_name] = {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
 
     return mutations
 

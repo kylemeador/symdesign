@@ -7,7 +7,7 @@ from typing import Dict
 import numpy as np
 import pandas as pd
 
-from PathUtils import groups
+from PathUtils import groups, reference_name
 from SymDesignUtils import start_log, DesignError, index_intersection, handle_errors, \
     pretty_format_table, digit_translate_table
 from Query.utils import input_string, validate_type, verify_choice, header_string
@@ -983,7 +983,7 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
               ...}, ...}
     """
     # pose_length (int): The number of residues in the pose
-    pose_length = len(mutations['reference'])
+    pose_length = len(mutations[reference_name])
     warn, warn2 = False, False
     total_residue_dict = {}
     for design, scores in score_dict.items():
@@ -1024,7 +1024,7 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
                 data['type'] = mutations[design][residue_number]
             except KeyError:
                 try:
-                    data['type'] = mutations['reference'][residue_number]  # fill with aa from wt seq
+                    data['type'] = mutations[reference_name][residue_number]  # fill with aa from wt seq
                 except KeyError:
                     # residue is out of bounds on pose length. Possibly a virtual residue or a string that was processed
                     # incorrectly from the digit_translate_table
@@ -1094,7 +1094,7 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
                           ...}, ...}
     """
     # pose_length (int): The number of residues in the pose
-    pose_length = len(mutations['reference'])
+    pose_length = len(mutations[reference_name])
     warn, warn2 = False, False
     total_residue_dict = {}
     for design, scores in score_dict.items():
@@ -1138,7 +1138,7 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
                 data['type'] = mutations[design][residue_number]
             except KeyError:
                 try:
-                    data['type'] = mutations['reference'][residue_number]  # fill with aa from wt seq
+                    data['type'] = mutations[reference_name][residue_number]  # fill with aa from wt seq
                 except KeyError:
                     # residue is out of bounds on pose length. Possibly a virtual residue or a string that was processed
                     # incorrectly from the digit_translate_table
