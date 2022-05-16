@@ -2169,14 +2169,11 @@ if __name__ == '__main__':
                 result_mp = SDUtils.mp_starmap(DesignDirectory.select_sequences, zipped_args, threads)
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
-                results = []
-                for result in result_mp:
-                    results.extend(result)
+                results = {design: results for design, result in zip(design_directories, result_mp)}
             else:
-                results = []
-                for design in design_directories:
-                    results.extend(design.select_sequences(filters=sequence_filters, weights=sequence_weights,
-                                                           number=args.number_sequences, protocols=args.protocol))
+                results = {design: design.select_sequences(filters=sequence_filters, weights=sequence_weights,
+                                                           number=args.number_sequences, protocols=args.protocol)
+                           for design in design_directories}
             save_poses_df = None  # Todo make possible!
 
         if not args.selection_string:
@@ -2263,303 +2260,308 @@ if __name__ == '__main__':
         missing_tags = {}  # result: [True, True] for result in results
         tag_sequences, final_sequences, inserted_sequences, nucleotide_sequences = {}, {}, {}, {}
         codon_optimization_errors = {}
-        for des_dir, design in results:
-            file_glob = '%s%s*%s*' % (des_dir.designs, os.sep, design)
-            file = sorted(glob(file_glob))
-            if not file:
-                logger.error('No file found for %s' % file_glob)
-                continue
-            design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
-            designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
-
+        # for des_dir, design in results:
+        for des_dir, designs in results.items():
             des_dir.load_pose(source=des_dir.asu_path)
             des_dir.pose.pdb.reorder_chains()  # Do I need to modify chains?
-            missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]
-            prior_offset = 0
-            # all_missing_residues = {}
-            # mutations = []
-            # referenced_design_sequences = {}
-            sequences_and_tags = {}
-            entity_termini_availability, entity_helical_termini = {}, {}
-            for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
-                # source_entity.retrieve_info_from_api()
-                source_entity.retrieve_sequence_from_api(entity_id=source_entity.name)
-                sequence_id = '%s_%s' % (des_dir, source_entity.name)
-                # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
-                design_string = '%s_%s' % (design, source_entity.name)
-                uniprot_id = source_entity.uniprot_id
-                termini_availability = des_dir.return_termini_accessibility(source_entity)
-                logger.debug('Design %s has the following termini accessible for tags: %s'
-                             % (sequence_id, termini_availability))
-                if args.avoid_tagging_helices:
-                    termini_helix_availability = des_dir.return_termini_accessibility(source_entity, report_if_helix=True)
-                    logger.debug('Design %s has the following helical termini available: %s'
-                                 % (sequence_id, termini_helix_availability))
-                    termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
-                                            'c': termini_availability['c'] and not termini_helix_availability['c']}
-                    entity_helical_termini[design_string] = termini_helix_availability
-                true_termini = [term for term, is_true in termini_availability.items() if is_true]
-                logger.debug('The termini %s are available for tagging' % termini_availability)
-                entity_termini_availability[design_string] = termini_availability
-                # Find sequence specified attributes required for expression formatting
-                # disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
-                #                               only_gaps=True)
-                disorder = source_entity.disorder
-                indexed_disordered_residues = \
-                    {residue + source_entity.offset + prior_offset: mutation for residue, mutation in disorder.items()}
-                prior_offset += len(disorder)  # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
-                # generate the source TO design mutations before any disorder handling
-                mutations = \
-                    generate_mutations(design_entity.structure_sequence, source_entity.structure_sequence, offset=False)
-                # Insert the disordered residues into the design pose
-                for residue_number, mutation in indexed_disordered_residues.items():
-                    logger.debug('Inserting %s into position %d on chain %s'
-                                 % (mutation['from'], residue_number, source_entity.chain_id))
-                    design_pose.insert_residue_type(mutation['from'], at=residue_number, chain=source_entity.chain_id)
-                    # adjust mutations to account for insertion
-                    for mutation_index in sorted(mutations.keys(), reverse=True):
-                        if mutation_index < residue_number:
-                            break
-                        else:  # mutation should be incremented by one
-                            mutations[mutation_index + 1] = mutations.pop(mutation_index)
-
-                # Check for expression tag addition to the designed sequences
-                inserted_design_sequence = design_entity.structure_sequence
-                selected_tag = {}
-                available_tags = find_expression_tags(inserted_design_sequence)
-                if available_tags:  # look for existing tag to remove from sequence and save identity
-                    tag_names, tag_termini, existing_tag_sequences = \
-                        zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
-                    try:
-                        preferred_tag_index = tag_names.index(args.preferred_tag)
-                        if tag_termini[preferred_tag_index] in true_termini:
-                            selected_tag = available_tags[preferred_tag_index]
-                    except ValueError:
-                        pass
-                    pretag_sequence = remove_expression_tags(inserted_design_sequence, existing_tag_sequences)
-                else:
-                    pretag_sequence = inserted_design_sequence
-                logger.debug('The pretag sequence is:\n%s' % pretag_sequence)
-
-                # Find the open reading frame offset using the structure sequence after insertion
-                offset = find_orf_offset(pretag_sequence, mutations)
-                formatted_design_sequence = pretag_sequence[offset:]
-                logger.debug('The open reading frame offset is %d' % offset)
-                logger.debug('The formatted_design sequence is:\n%s' % formatted_design_sequence)
-
-                if number_of_tags is None:  # don't solve tags
-                    sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': {}}
+            for design in designs:
+                file_glob = '%s%s*%s*' % (des_dir.designs, os.sep, design)
+                file = sorted(glob(file_glob))
+                if not file:
+                    logger.error('No file found for %s' % file_glob)
                     continue
+                design_pose = PDB.from_file(file[0], log=des_dir.log, entity_names=des_dir.entity_names)
+                designed_atom_sequences = [entity.structure_sequence for entity in design_pose.entities]
 
-                if not selected_tag:  # find compatible tags from matching PDB observations
-                    uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
-                    if not uniprot_id_matching_tags:
-                        uniprot_id_matching_tags = find_matching_expression_tags(uniprot_id=uniprot_id)
-                        tag_sequences[uniprot_id] = uniprot_id_matching_tags
-
-                    if uniprot_id_matching_tags:
-                        tag_names, tag_termini, _ = \
-                            zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in uniprot_id_matching_tags])
-                    else:
-                        tag_names, tag_termini, _ = [], [], []
-
-                    iteration = 0
-                    while iteration < len(tag_names):
-                        try:
-                            preferred_tag_index_2 = tag_names[iteration:].index(args.preferred_tag)
-                            if tag_termini[preferred_tag_index_2] in true_termini:
-                                selected_tag = uniprot_id_matching_tags[preferred_tag_index_2]
-                                break
-                        except ValueError:
-                            selected_tag = \
-                                select_tags_for_sequence(sequence_id, uniprot_id_matching_tags,
-                                                         preferred=args.preferred_tag, **termini_availability)
-                            break
-                        iteration += 1
-
-                if selected_tag.get('name'):
-                    missing_tags[(des_dir, design)][idx] = 0
-                    logger.debug('The pre-existing, identified tag is:\n%s' % selected_tag)
-                sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': selected_tag}
-
-            # after selecting all tags, consider tagging the design as a whole
-            if number_of_tags is not None:
-                number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
-                if number_of_tags > number_of_found_tags:
-                    print('There were %d requested tags for design %s and %d were found'
-                          % (number_of_tags, des_dir, number_of_found_tags))
-                    current_tag_options = \
-                        '\n\t'.join(['%d - %s\n\tAvailable Termini: %s\n\t\t   TAGS: %s'
-                                     % (i, entity_name, entity_termini_availability[entity_name], tag_options['tag'])
-                                     for i, (entity_name, tag_options) in enumerate(sequences_and_tags.items(), 1)])
-                    print('Current Tag Options:\n\t%s' % current_tag_options)
+                missing_tags[(des_dir, design)] = [1 for _ in des_dir.pose.entities]
+                prior_offset = 0
+                # all_missing_residues = {}
+                # mutations = []
+                # referenced_design_sequences = {}
+                sequences_and_tags = {}
+                entity_termini_availability, entity_helical_termini = {}, {}
+                for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
+                    # source_entity.retrieve_info_from_api()
+                    # source_entity.reference_sequence
+                    sequence_id = '%s_%s' % (des_dir, source_entity.name)
+                    # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
+                    design_string = '%s_%s' % (design, source_entity.name)
+                    uniprot_id = source_entity.uniprot_id
+                    termini_availability = des_dir.return_termini_accessibility(source_entity)
+                    logger.debug('Design %s has the following termini accessible for tags: %s'
+                                 % (sequence_id, termini_availability))
                     if args.avoid_tagging_helices:
-                        print('Helical Termini:\n\t%s'
-                              % '\n\t'.join('%s\t%s' % item for item in entity_helical_termini.items()))
-                    satisfied = input('If this is acceptable, enter "continue", otherwise, '
-                                      'you can modify the tagging options with any other input.%s' % input_string)
-                    if satisfied == 'continue':
-                        number_of_found_tags = number_of_tags
+                        termini_helix_availability = des_dir.return_termini_accessibility(source_entity, report_if_helix=True)
+                        logger.debug('Design %s has the following helical termini available: %s'
+                                     % (sequence_id, termini_helix_availability))
+                        termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
+                                                'c': termini_availability['c'] and not termini_helix_availability['c']}
+                        entity_helical_termini[design_string] = termini_helix_availability
+                    logger.debug('The termini %s are available for tagging' % termini_availability)
+                    entity_termini_availability[design_string] = termini_availability
+                    true_termini = [term for term, is_true in termini_availability.items() if is_true]
 
-                    iteration_idx = 0
-                    while number_of_tags != number_of_found_tags:
-                        if iteration_idx == len(missing_tags[(des_dir, design)]):
-                            print('You have seen all options, but the number of requested tags (%d) doesn\'t equal the '
-                                  'number selected (%d)' % (number_of_tags, number_of_found_tags))
-                            satisfied = input('If you are satisfied with this, enter "continue", otherwise enter '
-                                              'anything and you can view all remaining options starting from the first '
-                                              'entity%s' % input_string)
-                            if satisfied == 'continue':
+                    # Find sequence specified attributes required for expression formatting
+                    # disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
+                    #                               only_gaps=True)
+                    # disorder = source_entity.disorder
+                    source_offset = source_entity.offset
+                    indexed_disordered_residues = {res_number + source_offset + prior_offset: mutation
+                                                   for res_number, mutation in source_entity.disorder.items()}
+                    # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
+                    prior_offset += len(indexed_disordered_residues)
+                    # generate the source TO design mutations before any disorder handling
+                    mutations = generate_mutations(source_entity.structure_sequence, design_entity.structure_sequence,
+                                                   offset=False)
+                    # Insert the disordered residues into the design pose
+                    for residue_number, mutation in indexed_disordered_residues.items():
+                        logger.debug('Inserting %s into position %d on chain %s'
+                                     % (mutation['from'], residue_number, source_entity.chain_id))
+                        design_pose.insert_residue_type(mutation['from'], at=residue_number, chain=source_entity.chain_id)
+                        # adjust mutations to account for insertion
+                        for mutation_index in sorted(mutations.keys(), reverse=True):
+                            if mutation_index < residue_number:
                                 break
-                            else:
-                                iteration_idx = 0
-                        for idx, entity_missing_tag in enumerate(missing_tags[(des_dir, design)][iteration_idx:]):
-                            sequence_id = '%s_%s' % (des_dir, des_dir.pose.entities[idx].name)
-                            if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
-                                print('Entity %s is missing a tag. Would you like to tag this entity?' % sequence_id)
-                                if not boolean_choice():
-                                    continue
-                            else:
-                                continue
-                            if args.preferred_tag:
-                                tag = args.preferred_tag
-                                while True:
-                                    termini = input('Your preferred tag will be added to one of the termini. Which '
-                                                    'termini would you prefer? [n/c]%s' % input_string)
-                                    if termini.lower() in ['n', 'c']:
-                                        break
-                                    else:
-                                        print('"%s" is an invalid input, one of "n" or "c" is required')
-                            else:
-                                while True:
-                                    tag_input = input('What tag would you like to use? Enter the number of the below '
-                                                      'options.\n\t%s\n%s' %
-                                                      ('\n\t'.join(['%d - %s' % (i, tag)
-                                                                    for i, tag in enumerate(expression_tags, 1)]),
-                                                       input_string))
-                                    if tag_input.isdigit():
-                                        tag_input = int(tag_input)
-                                        if tag_input <= len(expression_tags):
-                                            tag = list(expression_tags.keys())[tag_input - 1]
-                                            break
-                                    print('Input doesn\'t match available options. Please try again')
-                                while True:
-                                    termini = input('Your tag will be added to one of the termini. Which termini would '
-                                                    'you prefer? [n/c]%s' % input_string)
-                                    if termini.lower() in ['n', 'c']:
-                                        break
-                                    else:
-                                        print('"%s" is an invalid input. One of "n" or "c" is required' % termini)
+                            else:  # mutation should be incremented by one
+                                mutations[mutation_index + 1] = mutations.pop(mutation_index)
 
-                            selected_entity = list(sequences_and_tags.keys())[idx]
-                            if termini == 'n':
-                                new_tag_sequence = \
-                                    expression_tags[tag] + 'SG' + sequences_and_tags[selected_entity]['sequence'][:12]
-                            else:  # termini == 'c'
-                                new_tag_sequence = \
-                                    sequences_and_tags[selected_entity]['sequence'][-12:] + 'GS' + expression_tags[tag]
-                            sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
-                            missing_tags[(des_dir, design)][idx] = 0
-                            break
-
-                        iteration_idx += 1
-                        number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
-
-                elif number_of_tags < number_of_found_tags:  # when more than the requested number of tags were id'd
-                    print('There were only %d requested tags for design %s and %d were found'
-                          % (number_of_tags, des_dir, number_of_found_tags))
-                    while number_of_tags != number_of_found_tags:
-                        tag_input = input('Which tag would you like to remove? Enter the number of the currently '
-                                          'configured tag option that you would like to remove. If you would like to '
-                                          'keep all, specify "keep" \n\t%s\n%s'
-                                          % ('\n\t'.join(['%d - %s\n\t\t%s' % (i, entity_name, tag_options['tag'])
-                                                          for i, (entity_name, tag_options)
-                                                          in enumerate(sequences_and_tags.items(), 1)]), input_string))
-                        if tag_input == 'keep':
-                            break
-                        elif tag_input.isdigit():
-                            tag_input = int(tag_input)
-                            if tag_input <= len(sequences_and_tags):
-                                missing_tags[(des_dir, design)][tag_input - 1] = 1
-                                selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
-                                sequences_and_tags[selected_entity]['tag'] = \
-                                    {'name': None, 'termini': None, 'sequence': None}
-                                # tag = list(expression_tags.keys())[tag_input - 1]
-                                break
-                            else:
-                                print('Input doesn\'t match an integer from the available options. Please try again')
-                        else:
-                            print('"%s" is an invalid input. Try again'
-                                  % tag_input)
-                        number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
-
-            # apply all tags to the sequences
-            cistronic_sequence = ''
-            for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
-                tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
-                # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
-                design_sequence = add_expression_tag(tag.get('sequence'), sequence)
-                if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
-                    tag_sequence = expression_tags[tag.get('name')]
-                    if tag.get('termini') == 'n':
-                        if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
-                            design_sequence = design_sequence[1:]
-                        design_sequence = tag_sequence + 'SG' + design_sequence
-                    else:  # termini == 'c'
-                        design_sequence = design_sequence + 'GS' + tag_sequence
-
-                # If no MET start site, include one
-                if design_sequence[0] != 'M':
-                    design_sequence = 'M%s' % design_sequence
-                if 'X' in design_sequence:
-                    logger.critical('An unrecognized amino acid was specified in the sequence %s. '
-                                    'This requires manual intervention!' % design_string)
-                    # idx = 0
-                    seq_length = len(design_sequence)
-                    while True:
-                        idx = design_sequence.find('X')
-                        if idx == -1:  # Todo clean
-                            break
-                        idx_range = (idx - 6 if idx - 6 > 0 else 0, idx + 6 if idx + 6 < seq_length else seq_length)
-                        while True:
-                            new_amino_acid = input('What amino acid should be swapped for "X" in this sequence '
-                                                   'context?\n\t%s\n\t%s%s'
-                                                   % ('%d%s%d' % (idx_range[0] + 1, ' ' *
-                                                                  (len(range(*idx_range)) -
-                                                                   (len(str(idx_range[0])) + 1)), idx_range[1] + 1),
-                                                      design_sequence[idx_range[0]:idx_range[1]], input_string)).upper()
-                            if new_amino_acid in protein_letters:
-                                design_sequence = design_sequence[:idx] + new_amino_acid + design_sequence[idx + 1:]
-                                break
-                            else:
-                                print('Input doesn\'t match a single letter canonical amino acid. Please try again')
-
-                # For a final manual check of sequence generation, find sequence additions compared to the design model
-                # and save to view where additions lie on sequence. Cross these additions with design structure to check
-                # if insertions are compatible
-                all_insertions = {residue: {'to': aa} for residue, aa in enumerate(design_sequence, 1)}
-                all_insertions.update(generate_mutations(design_sequence, designed_atom_sequences[idx], blanks=True))
-                # Reduce to sequence only
-                inserted_sequences[design_string] = '%s\n%s' % (''.join([res['to'] for res in all_insertions.values()]),
-                                                                design_sequence)
-                logger.info('Formatted sequence comparison:\n%s' % inserted_sequences[design_string])
-                final_sequences[design_string] = design_sequence
-                if args.nucleotide:
-                    try:
-                        nucleotide_sequence = optimize_protein_sequence(design_sequence, species=args.optimize_species)
-                    except NoSolutionError:  # add the protein sequence?
-                        logger.warning('Optimization of %s was not successful!' % design_string)
-                        codon_optimization_errors[design_string] = design_sequence
-                        break
-
-                    if args.multicistronic:
-                        if idx > 0:
-                            cistronic_sequence += intergenic_sequence
-                        cistronic_sequence += nucleotide_sequence
+                    # Check for expression tag addition to the designed sequences
+                    inserted_design_sequence = design_entity.structure_sequence
+                    selected_tag = {}
+                    available_tags = find_expression_tags(inserted_design_sequence)
+                    if available_tags:  # look for existing tag to remove from sequence and save identity
+                        tag_names, tag_termini, existing_tag_sequences = \
+                            zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in available_tags])
+                        try:
+                            preferred_tag_index = tag_names.index(args.preferred_tag)
+                            if tag_termini[preferred_tag_index] in true_termini:
+                                selected_tag = available_tags[preferred_tag_index]
+                        except ValueError:
+                            pass
+                        pretag_sequence = remove_expression_tags(inserted_design_sequence, existing_tag_sequences)
                     else:
-                        nucleotide_sequences[design_string] = nucleotide_sequence
-            if args.multicistronic:
-                nucleotide_sequences[str(des_dir)] = cistronic_sequence
+                        pretag_sequence = inserted_design_sequence
+                    logger.debug('The pretag sequence is:\n%s' % pretag_sequence)
+
+                    # Find the open reading frame offset using the structure sequence after insertion
+                    offset = find_orf_offset(pretag_sequence, mutations)
+                    formatted_design_sequence = pretag_sequence[offset:]
+                    logger.debug('The open reading frame offset is %d' % offset)
+                    logger.debug('The formatted_design sequence is:\n%s' % formatted_design_sequence)
+
+                    if number_of_tags is None:  # don't solve tags
+                        sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': {}}
+                        continue
+
+                    if not selected_tag:  # find compatible tags from matching PDB observations
+                        uniprot_id_matching_tags = tag_sequences.get(uniprot_id, None)
+                        if not uniprot_id_matching_tags:
+                            uniprot_id_matching_tags = find_matching_expression_tags(uniprot_id=uniprot_id)
+                            tag_sequences[uniprot_id] = uniprot_id_matching_tags
+
+                        if uniprot_id_matching_tags:
+                            tag_names, tag_termini, _ = \
+                                zip(*[(tag['name'], tag['termini'], tag['sequence']) for tag in uniprot_id_matching_tags])
+                        else:
+                            tag_names, tag_termini, _ = [], [], []
+
+                        iteration = 0
+                        while iteration < len(tag_names):
+                            try:
+                                preferred_tag_index_2 = tag_names[iteration:].index(args.preferred_tag)
+                                if tag_termini[preferred_tag_index_2] in true_termini:
+                                    selected_tag = uniprot_id_matching_tags[preferred_tag_index_2]
+                                    break
+                            except ValueError:
+                                selected_tag = \
+                                    select_tags_for_sequence(sequence_id, uniprot_id_matching_tags,
+                                                             preferred=args.preferred_tag, **termini_availability)
+                                break
+                            iteration += 1
+
+                    if selected_tag.get('name'):
+                        missing_tags[(des_dir, design)][idx] = 0
+                        logger.debug('The pre-existing, identified tag is:\n%s' % selected_tag)
+                    sequences_and_tags[design_string] = {'sequence': formatted_design_sequence, 'tag': selected_tag}
+
+                # after selecting all tags, consider tagging the design as a whole
+                if number_of_tags is not None:
+                    number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+                    if number_of_tags > number_of_found_tags:
+                        print('There were %d requested tags for design %s and %d were found'
+                              % (number_of_tags, des_dir, number_of_found_tags))
+                        current_tag_options = \
+                            '\n\t'.join(['%d - %s\n\tAvailable Termini: %s\n\t\t   TAGS: %s'
+                                         % (i, entity_name, entity_termini_availability[entity_name], tag_options['tag'])
+                                         for i, (entity_name, tag_options) in enumerate(sequences_and_tags.items(), 1)])
+                        print('Current Tag Options:\n\t%s' % current_tag_options)
+                        if args.avoid_tagging_helices:
+                            print('Helical Termini:\n\t%s'
+                                  % '\n\t'.join('%s\t%s' % item for item in entity_helical_termini.items()))
+                        satisfied = input('If this is acceptable, enter "continue", otherwise, '
+                                          'you can modify the tagging options with any other input.%s' % input_string)
+                        if satisfied == 'continue':
+                            number_of_found_tags = number_of_tags
+
+                        iteration_idx = 0
+                        while number_of_tags != number_of_found_tags:
+                            if iteration_idx == len(missing_tags[(des_dir, design)]):
+                                print('You have seen all options, but the number of requested tags (%d) doesn\'t equal the '
+                                      'number selected (%d)' % (number_of_tags, number_of_found_tags))
+                                satisfied = input('If you are satisfied with this, enter "continue", otherwise enter '
+                                                  'anything and you can view all remaining options starting from the first '
+                                                  'entity%s' % input_string)
+                                if satisfied == 'continue':
+                                    break
+                                else:
+                                    iteration_idx = 0
+                            for idx, entity_missing_tag in enumerate(missing_tags[(des_dir, design)][iteration_idx:]):
+                                sequence_id = '%s_%s' % (des_dir, des_dir.pose.entities[idx].name)
+                                if entity_missing_tag and tag_index[idx]:  # isn't tagged but could be
+                                    print('Entity %s is missing a tag. Would you like to tag this entity?' % sequence_id)
+                                    if not boolean_choice():
+                                        continue
+                                else:
+                                    continue
+                                if args.preferred_tag:
+                                    tag = args.preferred_tag
+                                    while True:
+                                        termini = input('Your preferred tag will be added to one of the termini. Which '
+                                                        'termini would you prefer? [n/c]%s' % input_string)
+                                        if termini.lower() in ['n', 'c']:
+                                            break
+                                        else:
+                                            print('"%s" is an invalid input, one of "n" or "c" is required')
+                                else:
+                                    while True:
+                                        tag_input = input('What tag would you like to use? Enter the number of the below '
+                                                          'options.\n\t%s\n%s' %
+                                                          ('\n\t'.join(['%d - %s' % (i, tag)
+                                                                        for i, tag in enumerate(expression_tags, 1)]),
+                                                           input_string))
+                                        if tag_input.isdigit():
+                                            tag_input = int(tag_input)
+                                            if tag_input <= len(expression_tags):
+                                                tag = list(expression_tags.keys())[tag_input - 1]
+                                                break
+                                        print('Input doesn\'t match available options. Please try again')
+                                    while True:
+                                        termini = input('Your tag will be added to one of the termini. Which termini would '
+                                                        'you prefer? [n/c]%s' % input_string)
+                                        if termini.lower() in ['n', 'c']:
+                                            break
+                                        else:
+                                            print('"%s" is an invalid input. One of "n" or "c" is required' % termini)
+
+                                selected_entity = list(sequences_and_tags.keys())[idx]
+                                if termini == 'n':
+                                    new_tag_sequence = \
+                                        expression_tags[tag] + 'SG' + sequences_and_tags[selected_entity]['sequence'][:12]
+                                else:  # termini == 'c'
+                                    new_tag_sequence = \
+                                        sequences_and_tags[selected_entity]['sequence'][-12:] + 'GS' + expression_tags[tag]
+                                sequences_and_tags[selected_entity]['tag'] = {'name': tag, 'sequence': new_tag_sequence}
+                                missing_tags[(des_dir, design)][idx] = 0
+                                break
+
+                            iteration_idx += 1
+                            number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+
+                    elif number_of_tags < number_of_found_tags:  # when more than the requested number of tags were id'd
+                        print('There were only %d requested tags for design %s and %d were found'
+                              % (number_of_tags, des_dir, number_of_found_tags))
+                        while number_of_tags != number_of_found_tags:
+                            tag_input = input('Which tag would you like to remove? Enter the number of the currently '
+                                              'configured tag option that you would like to remove. If you would like to '
+                                              'keep all, specify "keep" \n\t%s\n%s'
+                                              % ('\n\t'.join(['%d - %s\n\t\t%s' % (i, entity_name, tag_options['tag'])
+                                                              for i, (entity_name, tag_options)
+                                                              in enumerate(sequences_and_tags.items(), 1)]), input_string))
+                            if tag_input == 'keep':
+                                break
+                            elif tag_input.isdigit():
+                                tag_input = int(tag_input)
+                                if tag_input <= len(sequences_and_tags):
+                                    missing_tags[(des_dir, design)][tag_input - 1] = 1
+                                    selected_entity = list(sequences_and_tags.keys())[tag_input - 1]
+                                    sequences_and_tags[selected_entity]['tag'] = \
+                                        {'name': None, 'termini': None, 'sequence': None}
+                                    # tag = list(expression_tags.keys())[tag_input - 1]
+                                    break
+                                else:
+                                    print('Input doesn\'t match an integer from the available options. Please try again')
+                            else:
+                                print('"%s" is an invalid input. Try again'
+                                      % tag_input)
+                            number_of_found_tags = len(des_dir.pose.entities) - sum(missing_tags[(des_dir, design)])
+
+                # apply all tags to the sequences
+                cistronic_sequence = ''
+                for idx, (design_string, sequence_tag) in enumerate(sequences_and_tags.items()):
+                    tag, sequence = sequence_tag['tag'], sequence_tag['sequence']
+                    # print('TAG:\n', tag.get('sequence'), '\nSEQUENCE:\n', sequence)
+                    design_sequence = add_expression_tag(tag.get('sequence'), sequence)
+                    if tag.get('sequence') and design_sequence == sequence:  # tag exists and no tag added
+                        tag_sequence = expression_tags[tag.get('name')]
+                        if tag.get('termini') == 'n':
+                            if design_sequence[0] == 'M':  # remove existing Met to append tag to n-term
+                                design_sequence = design_sequence[1:]
+                            design_sequence = tag_sequence + 'SG' + design_sequence
+                        else:  # termini == 'c'
+                            design_sequence = design_sequence + 'GS' + tag_sequence
+
+                    # If no MET start site, include one
+                    if design_sequence[0] != 'M':
+                        design_sequence = 'M%s' % design_sequence
+                    if 'X' in design_sequence:
+                        logger.critical('An unrecognized amino acid was specified in the sequence %s. '
+                                        'This requires manual intervention!' % design_string)
+                        # idx = 0
+                        seq_length = len(design_sequence)
+                        while True:
+                            idx = design_sequence.find('X')
+                            if idx == -1:  # Todo clean
+                                break
+                            idx_range = (idx - 6 if idx - 6 > 0 else 0, idx + 6 if idx + 6 < seq_length else seq_length)
+                            while True:
+                                new_amino_acid = input('What amino acid should be swapped for "X" in this sequence '
+                                                       'context?\n\t%s\n\t%s%s'
+                                                       % ('%d%s%d' % (idx_range[0] + 1, ' ' *
+                                                                      (len(range(*idx_range)) -
+                                                                       (len(str(idx_range[0])) + 1)), idx_range[1] + 1),
+                                                          design_sequence[idx_range[0]:idx_range[1]], input_string)).upper()
+                                if new_amino_acid in protein_letters:
+                                    design_sequence = design_sequence[:idx] + new_amino_acid + design_sequence[idx + 1:]
+                                    break
+                                else:
+                                    print('Input doesn\'t match a single letter canonical amino acid. Please try again')
+
+                    # For a final manual check of sequence generation, find sequence additions compared to the design model
+                    # and save to view where additions lie on sequence. Cross these additions with design structure to check
+                    # if insertions are compatible
+                    all_insertions = {residue: {'to': aa} for residue, aa in enumerate(design_sequence, 1)}
+                    all_insertions.update(generate_mutations(design_sequence, designed_atom_sequences[idx], blanks=True))
+                    # Reduce to sequence only
+                    inserted_sequences[design_string] = '%s\n%s' % (''.join([res['to'] for res in all_insertions.values()]),
+                                                                    design_sequence)
+                    logger.info('Formatted sequence comparison:\n%s' % inserted_sequences[design_string])
+                    final_sequences[design_string] = design_sequence
+                    if args.nucleotide:
+                        try:
+                            nucleotide_sequence = optimize_protein_sequence(design_sequence, species=args.optimize_species)
+                        except NoSolutionError:  # add the protein sequence?
+                            logger.warning('Optimization of %s was not successful!' % design_string)
+                            codon_optimization_errors[design_string] = design_sequence
+                            break
+
+                        if args.multicistronic:
+                            if idx > 0:
+                                cistronic_sequence += intergenic_sequence
+                            cistronic_sequence += nucleotide_sequence
+                        else:
+                            nucleotide_sequences[design_string] = nucleotide_sequence
+                if args.multicistronic:
+                    nucleotide_sequences[str(des_dir)] = cistronic_sequence
 
         # Report Errors
         if codon_optimization_errors:

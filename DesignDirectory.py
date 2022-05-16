@@ -3603,18 +3603,20 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
-    def select_sequences(self, filters=None, weights=None, number=1, protocols=None, **kwargs):
+    # @remove_structure_memory  # structures not used in this protocol
+    def select_sequences(self, filters: Dict = None, weights: Dict = None, number: int = 1, protocols: List[str] = None,
+                         **kwargs) -> List[str]:
         """Select sequences for further characterization. If weights, then user can prioritize by metrics, otherwise
         sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
         sequence with the lowest weight will be selected
 
         Keyword Args:
-            filters=None (Iterable): The filters to use in sequence selection
-            weights=None (Iterable): The weights to use in sequence selection
-            number=1 (int): The number of sequences to consider for each design
-            protocols=None (str): Whether particular design protocol(s) should be chosen
+            filters: The filters to use in sequence selection
+            weights: The weights to use in sequence selection
+            number: The number of sequences to consider for each design
+            protocols: Whether particular design protocol(s) should be chosen
         Returns:
-            (list[tuple[DesignDirectory, str]]): Containing the selected sequences found
+            The selected sequences found
         """
         # Load relevant data from the design directory
         trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
@@ -3644,7 +3646,7 @@ class DesignDirectory:  # (JobResources):
             design_list = rank_dataframe_by_metric_weights(df, weights=weights, **kwargs).index.to_list()
             self.log.info('Final ranking of trajectories:\n%s' % ', '.join(pose for pose in design_list))
 
-            return list(zip(repeat(self), design_list[:number]))
+            return design_list[:number]
         else:
             # sequences_pickle = glob(os.path.join(self.all_scores, '%s_Sequences.pkl' % str(self)))
             # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
@@ -3723,11 +3725,11 @@ class DesignDirectory:  # (JobResources):
             if len(final_designs) > number:
                 energy_s = trajectory_df.loc[final_designs.keys(), 'interface_energy']
                 energy_s.sort_values(inplace=True)
-                final_seqs = zip(repeat(self), energy_s.index.to_list()[:number])
+                final_seqs = energy_s.index.to_list()[:number]
             else:
-                final_seqs = zip(repeat(self), final_designs.keys())
+                final_seqs = list(final_designs.keys())
 
-            return list(final_seqs)
+            return final_seqs
 
     @staticmethod
     def make_path(path, condition=True):
