@@ -2545,7 +2545,7 @@ class DesignDirectory:  # (JobResources):
             all_viable_design_scores = {}
             for design in design_structures:
                 try:
-                    all_viable_design_scores[design] = all_design_scores.pop(design.name)
+                    all_viable_design_scores[design.name] = all_design_scores.pop(design.name)
                 except KeyError:  # structure wasn't scored, we will remove this later
                     pass
             # Create protocol dataframe
