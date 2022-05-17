@@ -27,7 +27,7 @@ from PDB import PDB
 from Pose import Pose
 
 # Globals
-logger = start_log(name=__name__)
+logger = start_log(name=__name__, format_log=False, propagate=True)
 
 
 def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, complete_ghost_frags, complete_surf_frags,
@@ -465,8 +465,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         resume = False
     else:  # it has been set. Does it exist?
         resume = True if os.path.exists(log_file_path) else False
+        log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
 
-    log = start_log(name=building_blocks, handler=2, location=log_file_path, format_log=False, propagate=True)
     pdb1.log = log
     pdb2.log = log
 
