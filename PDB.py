@@ -615,9 +615,9 @@ class PDB(Structure):
         """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
         file. Automatically produces files in PDB numbering for proper orient execution
 
-        Keyword Args:
-            symmetry=None (str): What is the symmetry of the specified PDB?
-            log=None (os.PathLike): If there is a log specific for orienting
+        Args:
+            symmetry: What is the symmetry of the specified PDB?
+            log: If there is a log specific for orienting
         """
         # orient_oligomer.f program notes
         # C		Will not work in any of the infinite situations where a PDB file is f***ed up,
@@ -642,16 +642,21 @@ class PDB(Structure):
         # Todo change output to logger with potential for file and stdout
 
         number_of_subunits = len(self.chain_ids)
-        if number_of_subunits > 1:
+        multicomponent = False
+        if symmetry == 'C1':
+            log.info('C1 symmetry doesn\'t have a cannonical orientation')
+            self.translate(-self.center_of_mass)
+            return
+        elif number_of_subunits > 1:
             if number_of_subunits != subunit_number:
                 if number_of_subunits in multicomponent_valid_subunit_number.get(symmetry):
                     multicomponent = True
                 else:
-                    raise ValueError('%s\n Oligomer could not be oriented: It has %d subunits while a multiple of %d '
-                                     'are expected for %s symmetry\n\n'
+                    raise ValueError('%s could not be oriented: It has %d subunits while a multiple of %d '
+                                     'are expected for %s symmetry'
                                      % (pdb_file_name, number_of_subunits, subunit_number, symmetry))
-            else:
-                multicomponent = False
+            # else:
+            #     multicomponent = False
         else:
             raise ValueError('%s: Cannot orient a Structure with only a single chain. No symmetry present!' % self.name)
 
@@ -668,14 +673,14 @@ class PDB(Structure):
         # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps
         # have to change residue numbering to PDB numbering
         if multicomponent:
-            self.entities[0].write_oligomer(orient_input, pdb_number=True)
+            self.entities[0].write_oligomer(out_path=orient_input, pdb_number=True)
             # entity1_chains = self.entities[0].chains
             # entity1_chains[0].write(orient_input, pdb_number=True)
             # with open(orient_input, 'w') as f:
             #     for chain in entity1_chains[1:]:
             #         chain.write(file_handle=f, pdb_number=True)
         else:
-            self.write(orient_input, pdb_number=True)
+            self.write(out_path=orient_input, pdb_number=True)
         # self.renumber_residues_by_chain()
 
         p = subprocess.Popen([orient_exe_path], stdin=subprocess.PIPE, stdout=subprocess.PIPE,
