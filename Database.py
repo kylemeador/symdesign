@@ -131,6 +131,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         all_entities = []
         logger.info('The requested files/IDs are being checked for proper orientation with symmetry %s: %s'
                     % (symmetry, ', '.join(entity_ids)))
+        non_viable_structures = []
         for entry_entity in entity_ids:  # ex: 1ABC_1
             if entry_entity not in orient_names:  # add the proper files
                 entry = entry_entity.split('_')
@@ -176,7 +177,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
                     else:  # write out the entity as parsed. since this is assembly we should get the correct state
                         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
-                    # Todo make Entity object capable of orient() then don't need this
+                    # Todo make Entity  capable of orient() then don't need this ugly mechanism
                     pdb = PDB.from_chains(entity.chains, pose_format=False, entity_names=[entry_entity])  # , log=None)
                     pdb.entities = [entity]
                 else:  # orient the whole set of chains based on orient() multicomponent solution
@@ -210,6 +211,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         orient_log.info('Oriented: %s' % orient_file)
                     except (ValueError, RuntimeError) as err:
                         orient_log.error(str(err))
+                        non_viable_structures.append(entry_entity)
                         continue
                     # extract the asu from the oriented file for symmetric refinement
                     # Todo include multiple entities if they are used...? Maybe these are coming from PDB
@@ -236,6 +238,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 entity.filepath = oriented_asu.filepath
                 all_entities.append(entity)
 
+        orient_log.error('The Entit%sunable to be oriented properly'
+                         % 'ies %s were' if len(non_viable_structures) > 1 else 'y %s was'
+                                                                                % ', '.join(non_viable_structures))
         return all_entities
 
     def preprocess_entities_for_design(self, entities: List[Entity], script_out_path: os.PathLike = os.getcwd(),
