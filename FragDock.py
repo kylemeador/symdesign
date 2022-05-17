@@ -407,7 +407,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                    pdb2: Union[Structure, Union[str, bytes]], rotation_step1: float = 3., rotation_step2: float = 3.,
                    min_matched: int = 3, high_quality_match_value: float = 0.5, initial_z_value: float = 1.,
                    output_assembly: bool = False, output_surrounding_uc: bool = False, log: Logger = logger,
-                   clash_dist: float = 2.2, keep_time: bool = True) -> None:  # resume=False,
+                   clash_dist: float = 2.2, keep_time: bool = True, write_frags: bool = False) -> None:  # resume=False,
     """
     Perform the fragment docking routine described in Laniado, Meador, & Yeates, PEDS. 2021
 
@@ -430,6 +430,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         log: The logger to keep track of program messages
         clash_dist: The distance to measure for clashing atoms
         keep_time: Whether the times for each step should be reported
+        write_frags: Whether to write fragment information to a file (useful for fragment based docking w/o Nanohedra)
     Returns:
         None
     """
@@ -561,7 +562,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     get_complete_ghost_frags1_time_stop = time.time()
     #################################
-    write_frags = False
     if write_frags:  # implemented for Todd to work on C1 instances
         guide_file_ghost = os.path.join(os.getcwd(), '%s_ghost_coords.txt' % pdb1.name)
         with open(guide_file_ghost, 'w') as f:

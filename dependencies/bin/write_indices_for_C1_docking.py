@@ -24,7 +24,8 @@ for file in os.listdir(master_outdir):
 
 for pdb1, pdb2 in list(product(entities1, entities2)):
     try:
-        nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pdb2)
+        nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1, pdb2,
+                       write_frags=True)
     except RuntimeError as error:
         print(error)
         continue
