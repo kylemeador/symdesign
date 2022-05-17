@@ -2520,6 +2520,7 @@ class DesignDirectory:  # (JobResources):
                 #                          'hbond': 0} for residue in entity.residues})
             scores_df['number_hbonds'] = 0
             protocol_s = scores_df[PUtils.groups]
+            remove_columns = rosetta_terms + unnecessary + [PUtils.groups]
             # Todo generate the per residue scores internally which matches output from dirty_residue_processing
             # interface_hbonds = dirty_hbond_processing(all_design_scores)
             residue_info.update({structure_name: wt_design_info for structure_name in scores_df.index.to_list()})
@@ -2549,7 +2550,6 @@ class DesignDirectory:  # (JobResources):
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
             remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + [PUtils.groups]
-            scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             interface_hbonds = dirty_hbond_processing(all_design_scores)
@@ -2584,6 +2584,7 @@ class DesignDirectory:  # (JobResources):
             #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
             #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
         # Find designs where required data is present
+        scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
         viable_designs = scores_df.index.to_list()
         assert viable_designs, 'No viable designs remain after processing!'
         self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
