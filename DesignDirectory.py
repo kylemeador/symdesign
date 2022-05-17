@@ -2501,6 +2501,7 @@ class DesignDirectory:  # (JobResources):
         wt_design_info = {residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
                                            'hbond': 0} for entity in self.pose.entities for residue in entity.residues}
         residue_info = {pose_source: wt_design_info}
+        job_key = 'no_energy'
         stat_s, sim_series = pd.Series(), []
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
             self.log.debug('Missing design scores file at %s' % self.scores_file)
@@ -2528,10 +2529,20 @@ class DesignDirectory:  # (JobResources):
             # residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
             #                                             hbonds=interface_hbonds)
         else:  # Get the scores from the score file on design trajectory metrics
+            source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
+            for idx, entity in enumerate(self.pose.entities):
+                source_df['buns_%d_unbound' % idx] = 0
+                source_df['interface_energy_%d_bound' % idx] = 0
+                source_df['interface_energy_%d_unbound' % idx] = 0
+                source_df['solvation_energy_%d_bound' % idx] = 0
+                source_df['solvation_energy_%d_unbound' % idx] = 0
+                source_df['interface_connectivity_%d' % idx] = 0
+            source_df['number_hbonds'] = 0
             self.log.debug('Found design scores in file: %s' % self.scores_file)
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             scores_df = pd.DataFrame(all_design_scores).T
+            scores_df = pd.concat([source_df, scores_df])
             # Gather all columns into specific types for processing and formatting
             per_res_columns, hbonds_columns = [], []
             for column in scores_df.columns.to_list():
