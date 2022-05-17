@@ -2479,10 +2479,11 @@ class DesignDirectory:  # (JobResources):
         idx_slice = pd.IndexSlice
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(1, pose_length + 1))
-        pose_sequences = {structure.name: structure.sequence for structure in design_structures}
+        pose_source = 'pose_source'
+        pose_sequences = {pose_source: self.pose.sequence}
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
-        #  need to add the source to the pose_sequences if the reference sequence not from the source...
-        pose_sequences.update({'pose_source': self.pose.sequence})
+        pose_sequences.update({PUtils.reference_name: self.pose.sequence})
+        pose_sequences.update({structure.name: structure.sequence for structure in design_structures})
         all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
         #    generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
 
@@ -2499,13 +2500,13 @@ class DesignDirectory:  # (JobResources):
         #                         for chain, named_sequences in entity_sequences.items()}
         wt_design_info = {residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
                                            'hbond': 0} for entity in self.pose.entities for residue in entity.residues}
-        residue_info = {PUtils.reference_name: wt_design_info}
+        residue_info = {pose_source: wt_design_info}
         stat_s, sim_series = pd.Series(), []
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
             self.log.debug('Missing design scores file at %s' % self.scores_file)
             # Todo add relevant missing scores such as those specified as 0 below
             job_key = 'no_energy'
-            reference_df = pd.DataFrame({PUtils.reference_name: {PUtils.groups: job_key}}).T
+            reference_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
             design_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
             scores_df = pd.concat([reference_df, design_df])
             for idx, entity in enumerate(self.pose.entities):
@@ -2616,7 +2617,7 @@ class DesignDirectory:  # (JobResources):
         # Favor errat/collapse measurement on a per Entity basis because the wild type is assuming no interface present
         # but the design has the interface
         # atomic_deviation[wild_type] per_residue_errat = pose_assembly_minimally_contacting.errat(out_path=self.data)
-        # per_residue_data['errat_deviation'][PUtils.reference_name] = per_residue_errat[:pose_length]
+        # per_residue_data['errat_deviation'][pose_source] = per_residue_errat[:pose_length]
         # perform SASA measurements
         pose_assembly_minimally_contacting.get_sasa()
         # per_residue_sasa = [residue.sasa for residue in structure.residues
@@ -2627,15 +2628,14 @@ class DesignDirectory:  # (JobResources):
             [residue.sasa_polar for residue in pose_assembly_minimally_contacting.residues[:pose_length]]
         per_residue_sasa_complex_relative = \
             [residue.relative_sasa for residue in pose_assembly_minimally_contacting.residues[:pose_length]]
-        per_residue_data['sasa_hydrophobic_complex'][PUtils.reference_name] = per_residue_sasa_complex_apolar
-        per_residue_data['sasa_polar_complex'][PUtils.reference_name] = per_residue_sasa_complex_polar
-        per_residue_data['sasa_relative_complex'][PUtils.reference_name] = per_residue_sasa_complex_relative
+        per_residue_data['sasa_hydrophobic_complex'][pose_source] = per_residue_sasa_complex_apolar
+        per_residue_data['sasa_polar_complex'][pose_source] = per_residue_sasa_complex_polar
+        per_residue_data['sasa_relative_complex'][pose_source] = per_residue_sasa_complex_relative
         per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
             [], [], []
         # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
         msa_metrics = True
-        collapse_df, wt_errat, wt_collapse, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}, {}, {}
-        inverse_residue_contact_order_z, contact_order = {}, {}
+        wt_errat, inverse_residue_contact_order_z, contact_order = {}, {}, {}
         for entity in self.pose.entities:
             # we need to get the contact order, errat from the symmetric entity
             # entity.oligomer.get_sasa()
@@ -2647,8 +2647,8 @@ class DesignDirectory:  # (JobResources):
                 [residue.sasa_polar for residue in entity_oligomer.residues[:entity.number_of_residues]])
             per_residue_sasa_unbound_relative.extend(
                 [residue.relative_sasa for residue in entity_oligomer.residues[:entity.number_of_residues]])
-        # for entity in self.pose.entities:
-            # entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+            _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+            wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
             # Contact order is the same for every design in the Pose
             # Todo clean this behavior up as it is not good if entity is used downstream...
             #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity...
@@ -2656,22 +2656,25 @@ class DesignDirectory:  # (JobResources):
             residue_contact_order = entity.contact_order
             # residue_contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
             contact_order[entity] = residue_contact_order  # save the contact order for plotting
-            _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-            wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
-            # residue_contact_order_mean, residue_contact_order_std = \
-            #     residue_contact_order.mean(), residue_contact_order.std()
-            # print('%s residue_contact_order' % entity.name, residue_contact_order)
-            # temporary contact order debugging
-            # print(residue_contact_order)
-            # entity.contact_order = residue_contact_order
-            # entity.set_residues_attributes_from_array(collapse=wt_collapse[entity])
-            # entity.set_b_factor_data(dtype='collapse')
-            # entity.write_oligomer(out_path=os.path.join(self.path, '%s_collapse.pdb' % entity.name))
             residue_contact_order_z = \
                 z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
             inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
-            wt_collapse[entity] = hydrophobic_collapse_index(entity.sequence)  # TODO comment out, instate below?
-            wt_collapse_bool[entity] = np.where(wt_collapse[entity] > collapse_significance_threshold, 1, 0)
+        per_residue_data['sasa_hydrophobic_bound'][pose_source] = per_residue_sasa_unbound_apolar
+        per_residue_data['sasa_polar_bound'][pose_source] = per_residue_sasa_unbound_polar
+        per_residue_data['sasa_relative_bound'][pose_source] = per_residue_sasa_unbound_relative
+
+        wt_errat_concat_s = pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices)
+        per_residue_data['errat_deviation'][pose_source] = wt_errat_concat_s
+
+        # Calculate Reference sequence statistics
+        collapse_df, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}
+        reference_collapse_concat = []
+        for entity, design_sequences in entity_sequences.items():
+            # Todo separate sequence measures below from reliance on pose_source to potential reference sequence...
+            reference_collapse = hydrophobic_collapse_index(entity.sequence)
+            reference_collapse_concat.append(reference_collapse)
+            # reference_collapse = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
+            wt_collapse_bool[entity] = np.where(reference_collapse > collapse_significance_threshold, 1, 0)
             # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
             entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
@@ -2688,20 +2691,9 @@ class DesignDirectory:  # (JobResources):
                     continue
                 collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
                 collapse_df[entity] = collapse
-                # wt_collapse[entity] = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
-                wt_collapse_z_score[entity] = z_score(wt_collapse[entity], collapse.loc[mean, :], collapse.loc[std, :])
-        per_residue_data['sasa_hydrophobic_bound'][PUtils.reference_name] = per_residue_sasa_unbound_apolar
-        per_residue_data['sasa_polar_bound'][PUtils.reference_name] = per_residue_sasa_unbound_polar
-        per_residue_data['sasa_relative_bound'][PUtils.reference_name] = per_residue_sasa_unbound_relative
-
-        wt_errat_concat_s = pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices)  #, name=PUtils.reference_name)
-        wt_collapse_concat_s = pd.Series(np.concatenate(list(wt_collapse.values())), index=residue_indices)
-        per_residue_data['errat_deviation'][PUtils.reference_name] = wt_errat_concat_s
-        per_residue_data['hydrophobic_collapse'][PUtils.reference_name] = wt_collapse_concat_s
-        # now that wildtype is included, don't need this anymore...
-        # errat_collapse_df = \
-        #     pd.concat([pd.concat(dict(errat_deviation=wt_errat_concat_s, hydrophobic_collapse=wt_collapse_concat_s))],
-        #               keys=[PUtils.reference_name]).unstack().unstack()  # .swaplevel(0, 1, axis=1)
+                wt_collapse_z_score[entity] = z_score(reference_collapse, collapse.loc[mean, :], collapse.loc[std, :])
+        reference_collapse_concat_s = pd.Series(np.concatenate(reference_collapse_concat), index=residue_indices)
+        per_residue_data['hydrophobic_collapse'][PUtils.reference_name] = reference_collapse_concat_s
 
         interface_local_density, atomic_deviation = {}, {}
         for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
@@ -2768,8 +2760,7 @@ class DesignDirectory:  # (JobResources):
         scores_df['interface_local_density'] = pd.Series(interface_local_density)
 
         # Calculate hydrophobic collapse for each design
-        # Measure the wild type entity versus the modified entity to find the hci delta
-        # Todo if no design, can't measure the wild-type after the normalization...
+        # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
 
         # A measure of the sequential, the local, the global, and the significance all constitute interesting
         # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
@@ -3435,7 +3426,7 @@ class DesignDirectory:  # (JobResources):
             #         {'errat_deviation': pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
             #          'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
             #                                            index=residue_indices)})],
-            #         keys=[PUtils.reference_name]).unstack().unstack()  # .swaplevel(0, 1, axis=1)
+            #         keys=[pose_source]).unstack().unstack()  # .swaplevel(0, 1, axis=1)
 
             # wild_type_residue_info = {}
             # for res_number in residue_info[next(iter(residue_info))].keys():
@@ -3452,7 +3443,7 @@ class DesignDirectory:  # (JobResources):
             #     # if res_number in issm_residues and res_number not in residues_no_frags:
             #     #     wild_type_residue_info[res_number]['observed_fragment'] = None
 
-            # wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=[PUtils.reference_name]).unstack()
+            # wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=[pose_source]).unstack()
             # wt_df = pd.merge(wt_df, errat_collapse_df.loc[:, idx_slice[wt_df.columns.levels[0], :]],
             #                  left_index=True, right_index=True)
             # wt_df.drop(residue_indices_no_frags, inplace=True, axis=1, errors='ignore')
