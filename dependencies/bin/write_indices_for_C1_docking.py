@@ -16,7 +16,8 @@ sym_entry = SymEntry(261)
 master_outdir = os.getcwd()
 entities1, entities2 = [], []
 for file in os.listdir(master_outdir):
-    if file.startswith('1nu4'):
+    # if file.startswith('1nu4'):  # U1a
+    if file.startswith('3v7e'):  # YbxF
         entities1.append(file)
     else:
         entities2.append(file)
