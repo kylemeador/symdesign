@@ -2542,7 +2542,12 @@ class DesignDirectory:  # (JobResources):
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Remove designs with scores but no structures
-            all_viable_design_scores = {design: all_design_scores.pop(design) for design in pose_sequences.keys()}
+            all_viable_design_scores = {}
+            for design in design_structures:
+                try:
+                    all_viable_design_scores[design] = all_design_scores.pop(design.name)
+                except KeyError:  # structure wasn't scored, we will remove this later
+                    pass
             # Create protocol dataframe
             scores_df = pd.DataFrame(all_viable_design_scores).T
             scores_df = pd.concat([source_df, scores_df])
