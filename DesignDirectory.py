@@ -3227,13 +3227,13 @@ class DesignDirectory:  # (JobResources):
             pose_stats.append(getattr(trajectory_df, stat)().rename(stat))
             protocol_stats.append(getattr(protocol_groups, stat)())
 
-        protocol_stats[stats_metrics.index('mean')]['observations'] = protocol_groups.size()
+        protocol_stats[stats_metrics.index(mean)]['observations'] = protocol_groups.size()
         protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
         pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
         stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
         # change statistic names for all df that are not groupby means for the final trajectory dataframe
         for idx, stat in enumerate(stats_metrics):
-            if stat != 'mean':
+            if stat != mean:
                 protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
                     {protocol: '%s_%s' % (protocol, stat) for protocol in unique_design_protocols})
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
@@ -3244,7 +3244,7 @@ class DesignDirectory:  # (JobResources):
         scout_protocols = list(filter(re.compile('.*scout').match, unique_protocols))
         similarity_protocols = unique_design_protocols.difference([PUtils.refine] + scout_protocols)
         if background_protocol not in unique_design_protocols:
-            self.log.warning('Missing background protocol \'%s\'. No protocol significance measurements available '
+            self.log.warning('Missing background protocol "%s". No protocol significance measurements available '
                              'for this pose' % background_protocol)
         elif len(similarity_protocols) == 1:  # measure significance
             self.log.info('Can\'t measure protocol significance, only one protocol of interest')
@@ -3647,6 +3647,9 @@ class DesignDirectory:  # (JobResources):
         pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
         pose_s.name = str(self)
 
+        del residue_df
+        del per_residue_df
+        del scores_df
         return pose_s
 
     @handle_design_errors(errors=(DesignError, AssertionError))
