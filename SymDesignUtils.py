@@ -14,7 +14,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
-from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any
+from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable
 
 import numpy as np
 # from numba import njit
@@ -736,35 +736,35 @@ def set_worker_affinity():
     subprocess.Popen(_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 
-def mp_map(function, arg, threads=1):
-    """Maps input argument to a function using multiprocessing Pool
+def mp_map(function: Callable, arg: List[Tuple], threads: int = 1, context: str = 'spawn') -> List[Any]:
+    """Maps an interable input with a single argument to a function using multiprocessing Pool
 
     Args:
-        function (Callable): Which function should be executed
-        arg (var): Argument to be unpacked in the defined function
-        threads (int): How many workers/threads should be spawned to handle function(arguments)?
+        function: Which function should be executed
+        arg: Arguments to be unpacked in the defined function, order specific
+        threads: How many workers/threads should be spawned to handle function(arguments)?
+        context: One of 'spawn', 'fork', or 'forkserver'
     Returns:
-        results (list): The results produced from the function and arg
+        The results produced from the function and arg
     """
-    # with mp.get_context('spawn').Pool(processes=threads, initializer=set_worker_affinity) as p:  # maxtasksperchild=1
-    with mp.get_context('spawn').Pool(processes=threads) as p:  # maxtasksperchild=1
+    # with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity) as p:  # maxtasksperchild=1
+    with mp.get_context(context).Pool(processes=threads) as p:  # maxtasksperchild=1
         results = p.map(function, arg)
     p.join()
 
     return results
 
 
-def mp_starmap(function, process_args, threads=1, context='spawn'):
-    """Maps iterable to a function using multiprocessing Pool
+def mp_starmap(function: Callable, process_args: List[Tuple], threads: int = 1, context: str = 'spawn') -> List[Any]:
+    """Maps an iterable input with multiple arguments to a function using multiprocessing Pool
 
     Args:
-        function (function): Which function should be executed
-        process_args (list(tuple)): Arguments to be unpacked in the defined function, order specific
-    Keyword Args:
-        threads=1 (int): How many workers/threads should be spawned to handle function(arguments)?
-        context='spawn' (str): One of 'spawn', 'fork', or 'forkserver'
+        function: Which function should be executed
+        process_args: Arguments to be unpacked in the defined function, order specific
+        threads: How many workers/threads should be spawned to handle function(arguments)?
+        context: One of 'spawn', 'fork', or 'forkserver'
     Returns:
-        (list): The results produced from the function and process_args
+        The results produced from the function and process_args
     """
     # with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity, maxtasksperchild=100) as p:
     with mp.get_context(context).Pool(processes=threads, maxtasksperchild=100) as p:
