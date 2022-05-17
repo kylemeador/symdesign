@@ -239,8 +239,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 all_entities.append(entity)
 
         orient_log.error('The Entit%sunable to be oriented properly'
-                         % 'ies %s were' if len(non_viable_structures) > 1 else 'y %s was'
-                                                                                % ', '.join(non_viable_structures))
+                         % ('ies %s were' if len(non_viable_structures) > 1 else 'y %s was'
+                                                                                % ', '.join(non_viable_structures)))
         return all_entities
 
     def preprocess_entities_for_design(self, entities: List[Entity], script_out_path: os.PathLike = os.getcwd(),
