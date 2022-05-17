@@ -2717,7 +2717,7 @@ class Structure(StructureBase):
         if not self.sasa:
             self.get_sasa(probe_radius=probe_radius, atom=False)  # , sasa_thresh=sasa_thresh)
 
-        return [residue.number for residue, sasa in zip(self.residues, self.sasa) if sasa > sasa_thresh]
+        return [residue.number for residue in self.residues if residue.sasa > sasa_thresh]
         # Todo make dynamic based on relative threshold seen with Levy 2010
         # return [residue.number for residue in self.residues if residue.relative_sasa > sasa_thresh]
 
