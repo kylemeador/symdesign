@@ -178,6 +178,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
                     # Todo make Entity object capable of orient() then don't need this
                     pdb = PDB.from_chains(entity.chains, pose_format=False, entity_names=[entry_entity])  # , log=None)
+                    pdb.entities = [entity]
                 else:  # orient the whole set of chains based on orient() multicomponent solution
                     # entity = pdb.entities[0]  # assume that there is only one entity and grab the first
                     entry_entity = pdb.entities[0].name
