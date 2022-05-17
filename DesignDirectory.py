@@ -2666,35 +2666,7 @@ class DesignDirectory:  # (JobResources):
         wt_errat_concat_s = pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices)
         per_residue_data['errat_deviation'][pose_source] = wt_errat_concat_s
 
-        # Calculate Reference sequence statistics
-        collapse_df, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}
-        reference_collapse_concat = []
-        for entity, design_sequences in entity_sequences.items():
-            # Todo separate sequence measures below from reliance on pose_source to potential reference sequence...
-            reference_collapse = hydrophobic_collapse_index(entity.sequence)
-            reference_collapse_concat.append(reference_collapse)
-            # reference_collapse = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
-            wt_collapse_bool[entity] = np.where(reference_collapse > collapse_significance_threshold, 1, 0)
-            # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-            # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
-            entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
-            # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
-            # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
-            if msa_metrics:
-                if not entity.msa:
-                    self.log.info('Metrics relying on a multiple sequence alignment are not being collected as '
-                                  'there is no MSA found. These include: %s'
-                                  % ', '.join(multiple_sequence_alignment_dependent_metrics))
-                    # set anything found to null values
-                    collapse_df, wt_collapse_z_score = {}, {}
-                    msa_metrics = False
-                    continue
-                collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
-                collapse_df[entity] = collapse
-                wt_collapse_z_score[entity] = z_score(reference_collapse, collapse.loc[mean, :], collapse.loc[std, :])
-        reference_collapse_concat_s = pd.Series(np.concatenate(reference_collapse_concat), index=residue_indices)
-        per_residue_data['hydrophobic_collapse'][PUtils.reference_name] = reference_collapse_concat_s
-
+        # Compute structural measurements for all designs
         interface_local_density, atomic_deviation = {}, {}
         for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
             if structure.name not in viable_designs:
@@ -2761,7 +2733,34 @@ class DesignDirectory:  # (JobResources):
 
         # Calculate hydrophobic collapse for each design
         # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
-
+        # Calculate Reference sequence statistics
+        collapse_df, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}
+        reference_collapse_concat = []
+        for entity, design_sequences in entity_sequences.items():
+            # Todo separate sequence measures below from reliance on pose_source to potential reference sequence...
+            reference_collapse = hydrophobic_collapse_index(entity.sequence)
+            reference_collapse_concat.append(reference_collapse)
+            # reference_collapse = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
+            wt_collapse_bool[entity] = np.where(reference_collapse > collapse_significance_threshold, 1, 0)
+            # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+            # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
+            entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
+            # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
+            # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
+            if msa_metrics:
+                if not entity.msa:
+                    self.log.info('Metrics relying on a multiple sequence alignment are not being collected as '
+                                  'there is no MSA found. These include: %s'
+                                  % ', '.join(multiple_sequence_alignment_dependent_metrics))
+                    # set anything found to null values
+                    collapse_df, wt_collapse_z_score = {}, {}
+                    msa_metrics = False
+                    continue
+                collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
+                collapse_df[entity] = collapse
+                wt_collapse_z_score[entity] = z_score(reference_collapse, collapse.loc[mean, :], collapse.loc[std, :])
+        reference_collapse_concat_s = pd.Series(np.concatenate(reference_collapse_concat), index=residue_indices)
+        per_residue_data['hydrophobic_collapse'][PUtils.reference_name] = reference_collapse_concat_s
         # A measure of the sequential, the local, the global, and the significance all constitute interesting
         # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
         # analysis. In the meantime, I could stay away from any design which causes the global collapse to increase
