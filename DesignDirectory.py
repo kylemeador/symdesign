@@ -2505,10 +2505,10 @@ class DesignDirectory:  # (JobResources):
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
             self.log.debug('Missing design scores file at %s' % self.scores_file)
             # Todo add relevant missing scores such as those specified as 0 below
-            job_key = 'no_energy'
-            reference_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
+            # Todo may need to put source_df in scores file alternative
+            source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
             design_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
-            scores_df = pd.concat([reference_df, design_df])
+            scores_df = pd.concat([source_df, design_df])
             for idx, entity in enumerate(self.pose.entities):
                 scores_df['buns_%d_unbound' % idx] = 0
                 scores_df['interface_energy_%d_bound' % idx] = 0
@@ -2663,8 +2663,8 @@ class DesignDirectory:  # (JobResources):
         per_residue_data['sasa_polar_bound'][pose_source] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound'][pose_source] = per_residue_sasa_unbound_relative
 
-        wt_errat_concat_s = pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices)
-        per_residue_data['errat_deviation'][pose_source] = wt_errat_concat_s
+        pose_source_errat_s = pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices)
+        per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
 
         # Compute structural measurements for all designs
         interface_local_density, atomic_deviation = {}, {}
@@ -2759,8 +2759,8 @@ class DesignDirectory:  # (JobResources):
                 collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
                 collapse_df[entity] = collapse
                 wt_collapse_z_score[entity] = z_score(reference_collapse, collapse.loc[mean, :], collapse.loc[std, :])
-        reference_collapse_concat_s = pd.Series(np.concatenate(reference_collapse_concat), index=residue_indices)
-        per_residue_data['hydrophobic_collapse'][PUtils.reference_name] = reference_collapse_concat_s
+        # reference_collapse_concat_s = pd.Series(np.concatenate(reference_collapse_concat), index=residue_indices)
+        # per_residue_data['hydrophobic_collapse'][PUtils.reference_name] = reference_collapse_concat_s
         # A measure of the sequential, the local, the global, and the significance all constitute interesting
         # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
         # analysis. In the meantime, I could stay away from any design which causes the global collapse to increase
@@ -2793,7 +2793,7 @@ class DesignDirectory:  # (JobResources):
             {'hydrophobicity_deviation_magnitude': {}, 'new_collapse_islands': {},
              'new_collapse_island_significance': {}, 'contact_order_collapse_z_sum': {},
              'sequential_collapse_peaks_z_sum': {}, 'sequential_collapse_z_sum': {}, 'global_collapse_z_sum': {}}
-        for design in viable_designs:
+        for design in viable_designs:  # includes the pose_source
             hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
             contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, \
                 global_collapse_z_sum, collapse_concatenated = [], [], [], [], []
@@ -2898,19 +2898,20 @@ class DesignDirectory:  # (JobResources):
         # turn per_residue_data into a dataframe matching residue_df orientation
         per_residue_df = pd.concat({measure: pd.DataFrame(data, index=residue_indices)
                                     for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
-        # With the per_residue_df constructed with wild_type, many metric instances should remove this entry
-        not_wt_indices = per_residue_df.index != PUtils.reference_name
-        errat_df = per_residue_df.loc[not_wt_indices, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+        # With the per_residue_df constructed with reference, many metric instances should remove this entry
+        # not_pose_source_indices = per_residue_df.index != pose_source  # PUtils.reference_name
+        # errat_df = per_residue_df.loc[not_pose_source_indices, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+        errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         # include if errat score is < 2 std devs and isn't 0.  TODO what about measuring wild-type when no design?
-        wt_errat_inclusion_boolean = np.logical_and(wt_errat_concat_s < errat_2_sigma, wt_errat_concat_s != 0.)
-        # print('SEPARATE', (wt_errat_concat_s < errat_2_sigma)[30:40], (wt_errat_concat_s != 0.)[30:40])
+        wt_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+        # print('SEPARATE', (pose_source_errat_s < errat_2_sigma)[30:40], (pose_source_errat_s != 0.)[30:40])
         # print('LOGICAL AND\n', wt_errat_inclusion_boolean[30:40])
         # errat_sig_df = (errat_df > errat_2_sigma)
         # find where designs deviate above wild-type errat scores
         # print('errat_df', errat_df.iloc[:5, 30:40])
-        # print('wt_errat_concat_s', wt_errat_concat_s[30:40])
-        # print('SUBTRACTION', errat_df.sub(wt_errat_concat_s, axis=1).iloc[:5, 30:40])
-        errat_sig_df = (errat_df.sub(wt_errat_concat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
+        # print('pose_source_errat_s', pose_source_errat_s[30:40])
+        # print('SUBTRACTION', errat_df.sub(pose_source_errat_s, axis=1).iloc[:5, 30:40])
+        errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
         # print('errat_sig_df', errat_sig_df.iloc[:5, 30:40])
         # then select only those residues which are expressly important by the inclusion boolean
         errat_design_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=1)
@@ -3054,13 +3055,13 @@ class DesignDirectory:  # (JobResources):
                                                index=list(entity_sequences[entity].keys()), columns=residue_indices)
             dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy']).swaplevel(0, 1, axis=1)
             # merge with per_residue_df
-            per_residue_df = pd.merge(per_residue_df, dca_concatenated_df, left_index=True, right_index=True)
+            residue_df = pd.merge(residue_df, dca_concatenated_df, left_index=True, right_index=True)
 
         # residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
         #                       left_index=True, right_index=True)
         # Add local_density information to scores_df
         # scores_df['interface_local_density'] = \
-        #     residue_df.loc[not_wt_indices, idx_slice[self.interface_residues, 'local_density']].mean(axis=1)
+        #     residue_df.loc[:, idx_slice[self.interface_residues, 'local_density']].mean(axis=1)
 
         # Make buried surface area (bsa) columns
         residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.design_residues, 'sasa_hydrophobic_bound']]
@@ -3076,11 +3077,11 @@ class DesignDirectory:  # (JobResources):
                                      residue_df.loc[:, idx_slice[self.design_residues, 'bsa_polar']]
                                      .rename(columns={'bsa_polar': 'bsa_total'}))
         scores_df['interface_area_polar'] = \
-            residue_df.loc[not_wt_indices, idx_slice[self.design_residues, 'bsa_polar']].sum(axis=1)
+            residue_df.loc[:, idx_slice[self.design_residues, 'bsa_polar']].sum(axis=1)
         scores_df['interface_area_hydrophobic'] = \
-            residue_df.loc[not_wt_indices, idx_slice[self.design_residues, 'bsa_hydrophobic']].sum(axis=1)
+            residue_df.loc[:, idx_slice[self.design_residues, 'bsa_hydrophobic']].sum(axis=1)
         # scores_df['interface_area_total'] = \
-        #     residue_df.loc[not_wt_indices, idx_slice[self.design_residues, 'bsa_total']].sum(axis=1)
+        #     residue_df.loc[not_pose_source_indices, idx_slice[self.design_residues, 'bsa_total']].sum(axis=1)
         scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
         # make sasa_complex_total columns
         residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.design_residues, 'sasa_hydrophobic_bound']]
@@ -3093,9 +3094,9 @@ class DesignDirectory:  # (JobResources):
                                      .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
         # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         sasa_assembly_df = \
-            residue_df.loc[not_wt_indices, idx_slice[self.design_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
+            residue_df.loc[:, idx_slice[self.design_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
         bsa_assembly_df = \
-            residue_df.loc[not_wt_indices, idx_slice[self.design_residues, 'bsa_total']].droplevel(-1, axis=1)
+            residue_df.loc[:, idx_slice[self.design_residues, 'bsa_total']].droplevel(-1, axis=1)
         total_surface_area_df = sasa_assembly_df + bsa_assembly_df
         # ratio_df = bsa_assembly_df / total_surface_area_df
         scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
@@ -3119,7 +3120,7 @@ class DesignDirectory:  # (JobResources):
         residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
                                 surface_residues], axis=1)
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
-        # interior_residue_df = residue_df.loc[not_wt_indices, idx_slice[:, 'interior']]
+        # interior_residue_df = residue_df.loc[:, idx_slice[:, 'interior']]
         interior_residue_numbers = \
             interior_residues[interior_residues.mean(axis=1) > 0.5].columns.remove_unused_levels().levels[0].to_list()
         if interior_residue_numbers:
@@ -3131,7 +3132,7 @@ class DesignDirectory:  # (JobResources):
 
         # Add design residue information to scores_df such as how many core, rim, and support residues were measured
         for residue_class in residue_classificiation:
-            scores_df[residue_class] = residue_df.loc[not_wt_indices, idx_slice[:, residue_class]].sum(axis=1)
+            scores_df[residue_class] = residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
 
         scores_columns = scores_df.columns.to_list()
         self.log.debug('Score columns present: %s' % scores_columns)
@@ -3245,7 +3246,7 @@ class DesignDirectory:  # (JobResources):
             trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
             # Compute residue energy/sequence differences between each protocol
-            residue_energy_df = residue_df.loc[not_wt_indices, idx_slice[:, 'energy_delta']]
+            residue_energy_df = residue_df.loc[:, idx_slice[:, 'energy_delta']]
 
             scaler = StandardScaler()
             res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
@@ -3565,7 +3566,7 @@ class DesignDirectory:  # (JobResources):
             # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             errat_graph_df = errat_df
             # wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='clean_asu')
-            errat_graph_df['clean_asu'] = wt_errat_concat_s
+            errat_graph_df['clean_asu'] = pose_source_errat_s
             errat_graph_df.index += 1  # offset index to residue numbering
             errat_graph_df.sort_index(axis=1, inplace=True)
             # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
