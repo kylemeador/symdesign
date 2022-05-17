@@ -1474,6 +1474,9 @@ if __name__ == '__main__':
                     pdb1_filepaths = [args.oligomer1]
                 else:
                     pdb1_filepaths = SDUtils.get_all_file_paths(args.oligomer1, extension='.pdb')
+                # Todo this mechanism conflicts with the one in job.resources. The use of both causes their varioius
+                #  nuances to require extensive checks. Ex C1 symmetry, stride file production, asu/oligomer production
+                #  fix the divergence of these mechanisms to one single mechanism relying on entities and filepaths
                 pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
                                                            out_dir=job.resources.oriented.location)
                                            for file in pdb1_filepaths]
@@ -1518,6 +1521,8 @@ if __name__ == '__main__':
             #     else:
             #         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
             #                     % (symmetry, job.orient_dir, ', '.join(entities)))
+        elif args.query_codes:
+            pass
         else:
             entities2 = []
             # if not entities2:
