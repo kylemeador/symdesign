@@ -223,6 +223,7 @@ class PDB(Structure):
         coords, atom_info = [], []
         atom_idx = 0
         current_operation = -1
+        # for line_tokens in map(str.split, pdb_lines):  # Todo
         for line in pdb_lines:
             if line[:4] == 'ATOM' or line[17:20] == 'MSE' and line[:6] == 'HETATM':
                 alt_location = line[16:17].strip()
@@ -237,15 +238,16 @@ class PDB(Structure):
                         atom_type = 'SD'  # change type from Selenium to Sulfur delta
                 else:
                     residue_type = line[17:20].strip()
-                if start_of_new_model:  # if self.multimodel:
-                    start_of_new_model = False
-                    if line[21:22] == curr_chain_id:  # chain naming is not incremental
-                        curr_chain_id = line[21:22]
-                        chain = next(available_chain_ids)
-                    else:  # line[21:22] != curr_chain_id  Chain naming IS incremental
-                        curr_chain_id, chain = line[21:22], line[21:22]
-                        discard = next(available_chain_ids)  # getting rid of a chain is prudent
-                    self.multimodel_chain_map[chain] = curr_chain_id
+                if self.multimodel:
+                    if start_of_new_model:
+                        start_of_new_model = False
+                        if line[21:22] == curr_chain_id:  # chain naming is not incremental
+                            # curr_chain_id = line[21:22]
+                            chain = next(available_chain_ids)
+                        else:  # line[21:22] != curr_chain_id  Chain naming IS incremental
+                            curr_chain_id, chain = line[21:22], line[21:22]
+                            discard = next(available_chain_ids)  # getting rid of a chain is prudent
+                        self.multimodel_chain_map[chain] = curr_chain_id
                 else:
                     chain = line[21:22]
                 residue_number = int(line[22:26])
@@ -337,7 +339,7 @@ class PDB(Structure):
                     self.multimodel = True
                     self.log.debug('Multimodel file found. Original Chains: %s' % ','.join(self.multimodel_chain_map.values()))
                     break
-            if self.multimodel:
+            if not self.multimodel:
                 self.log.debug('Multimodel file not respected, chains are all different')
         if not atom_info:
             raise DesignError('The file %s has no atom records!' % self.filepath)
