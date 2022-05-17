@@ -2523,9 +2523,9 @@ class DesignDirectory:  # (JobResources):
             scores_df['number_hbonds'] = 0
             protocol_s = scores_df[PUtils.groups]
             remove_columns = rosetta_terms + unnecessary + [PUtils.groups]
-            # Todo generate the per residue scores internally which matches output from dirty_residue_processing
-            # interface_hbonds = dirty_hbond_processing(all_design_scores)
             residue_info.update({structure_name: wt_design_info for structure_name in scores_df.index.to_list()})
+            # Todo generate energy scores internally which matches output from residue_processing
+            # interface_hbonds = dirty_hbond_processing(all_design_scores)
             # residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
             #                                             hbonds=interface_hbonds)
         else:  # Get the scores from the score file on design trajectory metrics
@@ -2541,7 +2541,10 @@ class DesignDirectory:  # (JobResources):
             self.log.debug('Found design scores in file: %s' % self.scores_file)
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
-            scores_df = pd.DataFrame(all_design_scores).T
+            # Remove designs with scores but no structures
+            all_viable_design_scores = {design: all_design_scores.pop(design) for design in pose_sequences.keys()}
+            # Create protocol dataframe
+            scores_df = pd.DataFrame(all_viable_design_scores).T
             scores_df = pd.concat([source_df, scores_df])
             # Gather all columns into specific types for processing and formatting
             per_res_columns, hbonds_columns = [], []
@@ -2555,7 +2558,7 @@ class DesignDirectory:  # (JobResources):
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             assert metric_set == set(), 'Missing required metrics: %s' % metric_set
-            # CLEAN: Create new columns, remove unneeded columns, create protocol dataframe
+            # Remove unneeded columns
             protocol_s = scores_df[PUtils.groups]
             # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
 
@@ -2564,33 +2567,33 @@ class DesignDirectory:  # (JobResources):
             remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + [PUtils.groups]
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
-            interface_hbonds = dirty_hbond_processing(all_design_scores)
+            interface_hbonds = dirty_hbond_processing(all_viable_design_scores)
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
-            # interface_hbonds = hbond_processing(all_design_scores, hbonds_columns)
+            # interface_hbonds = hbond_processing(all_viable_design_scores, hbonds_columns)
             number_hbonds_s = \
                 pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
             # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
             scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-            residue_info.update(dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
+            residue_info.update(dirty_residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
                                                          hbonds=interface_hbonds))
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
-            # residue_info.update(residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
+            # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
             #                                        per_res_columns, hbonds=interface_hbonds))
 
             # Todo implement this protocol if sequence data is taken at multiple points along a trajectory and the
             #  sequence data along trajectory is a metric on it's own
             # # Gather mutations for residue specific processing and design sequences
-            # for design, data in list(all_design_scores.items()):  # make a copy as is removed if no sequence present
+            # for design, data in list(all_viable_design_scores.items()):  # make a copy as can be removed
             #     sequence = data.get('final_sequence')
             #     if sequence:
             #         if len(sequence) >= pose_length:
-            #             pose_sequences[design] = sequence[:pose_length]  # Todo won't work if the design had insertions
+            #             pose_sequences[design] = sequence[:pose_length]  # Todo won't work if design had insertions
             #         else:
             #             pose_sequences[design] = sequence
             #     else:
             #         self.log.warning('Design %s is missing sequence data, removing from design pool' % design)
-            #         all_design_scores.pop(design)
+            #         all_viable_design_scores.pop(design)
             # # format {entity: {design_name: sequence, ...}, ...}
             # entity_sequences = \
             #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
