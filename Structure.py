@@ -2515,11 +2515,9 @@ class Structure(StructureBase):
         """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
         value over each Residue
 
-        Keyword Args:
+        Args:
             residue_numbers: The number of the Residues to include in the calculation
             distance: The cutoff distance with which Atoms should be included in local density
-        Sets:
-            self.residues.local_density
         Returns:
             An array like containing the local density around each Residue
         """
@@ -2551,14 +2549,14 @@ class Structure(StructureBase):
 
         return [residue.local_density for residue in self.residues]
 
-    def is_clash(self, distance=2.1):
+    def is_clash(self, distance: float = 2.1) -> bool:
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms
 
-        Keyword Args:
-            distance=2.1 (float): The distance which clashes should be checked
+        Args:
+            distance: The distance which clashes should be checked
         Returns:
-            (bool)
+            True if the Structure clashes, False if not
         """
         # heavy_atom_indices = self.heavy_atom_indices
         # all_atom_tree = BallTree(self.coords[heavy_atom_indices])  # faster 131 msec/loop
