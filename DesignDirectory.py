@@ -2654,7 +2654,7 @@ class DesignDirectory:  # (JobResources):
         per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
         # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
         msa_metrics = True
-        source_errat, contact_order, inverse_residue_contact_order_z = [], [], []
+        source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], []
         for idx, entity in enumerate(self.pose.entities):
             # we need to get the contact order, errat from the symmetric entity
             # entity.oligomer.get_sasa()
@@ -2674,7 +2674,7 @@ class DesignDirectory:  # (JobResources):
             entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
             contact_order = entity.contact_order
             # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
-            contact_order.append(contact_order)  # save the contact order for plotting
+            source_contact_order.append(contact_order)  # save the contact order for plotting
             residue_contact_order_z = z_score(contact_order, contact_order.mean(), contact_order.std())
             inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
         per_residue_data['sasa_hydrophobic_bound'][pose_source] = per_residue_sasa_unbound_apolar
@@ -2684,7 +2684,7 @@ class DesignDirectory:  # (JobResources):
         pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
         per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
         pose_source_contact_order_s = \
-            pd.Series(np.concatenate(contact_order), index=residue_indices, name='contact_order')
+            pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
         per_residue_data['contact_order'][pose_source] = pose_source_contact_order_s
 
         # Compute structural measurements for all designs
@@ -2838,17 +2838,6 @@ class DesignDirectory:  # (JobResources):
                     if _bool and (not reference_collapse[idx - 1] or not reference_collapse[idx + 1]):
                         new_collapse[idx] = _bool
                 # new_collapse are sites where a new collapse is formed compared to wild-type
-
-                # # we must give a copy of coords_indexed_residues from the pose to each entity...
-                # entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
-                # contact_order = entity.contact_order
-                # contact_order_concatenated.append(contact_order)
-                # inverse_residue_contact_order = max(contact_order) - contact_order
-                # residue_contact_order_mean, residue_contact_order_std = \
-                #     contact_order[entity_idx].mean(), contact_order[entity_idx].std()
-                # residue_contact_order_z = \
-                #     z_score(contact_order, residue_contact_order_mean, residue_contact_order_std)
-                # inverse_residue_contact_order_z = residue_contact_order_z * -1
 
                 # use contact order and hci to understand designability of an area and its folding modification
                 # Indicate the degree to which low contact order segments (+) are reliant on collapse for folding, while
