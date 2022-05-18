@@ -467,7 +467,7 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
             args.output_file = args.output_file if args.output_file.endswith('.csv') else '%s.csv' % args.output_file
             design_df.to_csv(args.output_file)
             logger.info('Analysis of all poses written to %s' % args.output_file)
-            if save:
+            if args.save:
                 logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
         elif args.module == PUtils.cluster_poses:
             logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
