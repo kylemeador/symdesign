@@ -993,7 +993,7 @@ class SymmetricModel(Model):
         self.expand_translations = None
         # self.sym_entry = None
         # self.symmetry = None  # also defined in PDB as self.space_group
-        self.point_group_symmetry = None
+        # self.point_group_symmetry = None
         self.oligomeric_equivalent_model_idxs = {}
         # self.output_asu = True
         self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
@@ -2301,27 +2301,27 @@ class SymmetricModel(Model):
 
         model_asu_indices = self.return_asu_equivalent_symmetry_mate_indices()
         if self.coords_type == 'bb_cb':  # grab every coord in the model
-            model_indices_filter = np.arange(len(self.symmetric_coords))
-            asu_indices = None
+            model_indices = np.arange(len(self.symmetric_coords))
+            asu_indices = []
         else:  # Select only coords that are BB or CB from the model coords
             number_asu_atoms = self.number_of_atoms
             asu_indices = self.asu.backbone_and_cb_indices
             # We have all the BB/CB indices from ASU, must multiply this int's in self.number_of_symmetry_mates
             # to get every BB/CB coord in the model
             # Finally we take out those indices that are inclusive of the model_asu_indices like below
-            model_indices_filter = np.array([idx + (model_number * number_asu_atoms)
-                                             for model_number in range(self.number_of_symmetry_mates)
-                                             for idx in asu_indices])
+            model_indices = np.array([idx + (model_number * number_asu_atoms)
+                                      for model_number in range(self.number_of_symmetry_mates) for idx in asu_indices])
 
-        # make a boolean mask where the model indices of interest are True
-        without_asu_mask = np.logical_or(model_indices_filter < model_asu_indices[0],
-                                         model_indices_filter > model_asu_indices[-1])
+        # # make a boolean mask where the model indices of interest are True
+        # without_asu_mask = np.logical_or(model_indices < model_asu_indices[0],
+        #                                  model_indices > model_asu_indices[-1])
+        # model_indices_without_asu = model_indices[without_asu_mask]
         # take the boolean mask and filter the model indices mask to leave only symmetry mate bb/cb indices, NOT asu
-        model_indices_without_asu = model_indices_filter[without_asu_mask]
-        selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
-        all_assembly_coords_length = len(asu_indices) * self.number_of_symmetry_mates
-        assert selected_assembly_coords == all_assembly_coords_length, \
-            '%s: Ran into an issue indexing' % self.symmetric_assembly_is_clash.__name__
+        model_indices_without_asu = model_indices[len(asu_indices):]
+        # selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
+        # all_assembly_coords_length = len(asu_indices) * self.number_of_symmetry_mates
+        # assert selected_assembly_coords == all_assembly_coords_length, \
+        #     '%s: Ran into an issue indexing' % self.symmetric_assembly_is_clash.__name__
 
         # asu_coord_tree = BallTree(self.coords[asu_indices])
         # return BallTree(self.symmetric_coords[model_indices_without_asu])
