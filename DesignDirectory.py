@@ -2684,6 +2684,9 @@ class DesignDirectory:  # (JobResources):
 
         pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
         per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
+        pose_source_contact_order_s = \
+            pd.Series(np.concatenate(contact_order), index=residue_indices, name='contact_order')
+        per_residue_data['contact_order'][pose_source] = pose_source_contact_order_s
 
         # Compute structural measurements for all designs
         interface_local_density, atomic_deviation = {}, {}
@@ -3197,6 +3200,8 @@ class DesignDirectory:  # (JobResources):
         # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
         # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
         residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
+        # fill in contact order for each design
+        residue_df.fillna(residue_df.loc[pose_source, idx_slice[:, 'contact_order']], method='pad', inplace=True)
         residue_df.fillna(0., inplace=True)
         # residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
 
