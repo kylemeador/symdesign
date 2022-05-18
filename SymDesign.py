@@ -1565,9 +1565,9 @@ if __name__ == '__main__':
         required_memory = PUtils.baseline_program_memory + \
                           len(design_directories) * PUtils.approx_ave_design_directory_memory_w_pose * 0.2  # % error
     job.reduce_memory = True if psutil.virtual_memory().available < required_memory else False
-    print('Available: %f' % psutil.virtual_memory().available)
-    print('Requried: %f' % required_memory)
-    print('Reduce Memory?:', job.reduce_memory)
+    logger.info('Available: %f' % psutil.virtual_memory().available)
+    logger.info('Requried: %f' % required_memory)
+    logger.info('Reduce Memory?:', job.reduce_memory)
     job.reduce_memory = True
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
