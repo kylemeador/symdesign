@@ -1603,7 +1603,7 @@ class SymmetricModel(Model):
 
         self.oligomeric_equivalent_model_idxs[entity] = equivalent_models
 
-    def return_asu_interaction_model_indices(self, calculate_contacts: bool = False, distance: float = 8., **kwargs) ->\
+    def return_asu_interaction_model_indices(self, calculate_contacts: bool = True, distance: float = 8., **kwargs) ->\
             List[int]:
         """From an ASU, find the symmetric models that immediately surround the ASU
 
@@ -1678,7 +1678,7 @@ class SymmetricModel(Model):
 
         self.symmetric_coords must be from all atoms which is True by default
         Keyword Args:
-            calculate_contacts=False (bool): Whether to calculate interacting models by atomic contacts
+            calculate_contacts=True (bool): Whether to calculate interacting models by atomic contacts
             distance=8.0 (float): When calculate_contacts is True, the CB distance which nearby symmetric models should be found
                 When calculate_contacts is False, uses the ASU radius plus the maximum Entity radius
         Returns:
