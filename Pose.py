@@ -4,7 +4,7 @@ from copy import copy
 # from pickle import load
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil
-from typing import Set, List, Iterable, Dict, Optional, IO, Union
+from typing import Set, List, Tuple, Iterable, Dict, Optional, IO, Union
 # from operator import itemgetter
 
 import numpy as np
@@ -1243,7 +1243,7 @@ class SymmetricModel(Model):
         except AttributeError:
             if not self.models:
                 self.get_assembly_symmetry_mates()  # default to surrounding_uc generation, but only return contacting
-            selected_model_indices = self.return_asu_interaction_models()
+            selected_model_indices = self.return_asu_interaction_model_indices()
             self.log.debug('Found selected models %s for assembly' % selected_model_indices)
 
             chains = []
@@ -1536,8 +1536,9 @@ class SymmetricModel(Model):
     def find_asu_equivalent_symmetry_model(self):
         """Find the asu equivalent model in the SymmetricModel. Zero-indexed
 
-        Returns:
-            (int): The index of the number of models where the ASU can be found
+        Sets:
+            self.asu_equivalent_model_idx (int):
+                The index of the number of models where the ASU can be found
         """
         if self.asu_equivalent_model_idx:  # we already found this information
             self.log.debug('Skipping ASU identification as information already exists')
@@ -1560,14 +1561,13 @@ class SymmetricModel(Model):
 
         self.log.error('%s FAILED to find model' % self.find_asu_equivalent_symmetry_model.__name__)
 
-    def find_intra_oligomeric_equivalent_symmetry_models(self, entity, epsilon=0.5):
+    def find_intra_oligomeric_equivalent_symmetry_models(self, entity: Structure, epsilon: float = 0.5):
         """From an Entity's Chain members, find the SymmetricModel equivalent models using Chain center or mass
         compared to the symmetric model center of mass
 
         Args:
-            entity (Entity): The Entity with oligomeric chains that should be queried
-        Keyword Args:
-            epsilon=0.5 (float): The distance measurement tolerance to find similar symmetric models to the oligomer
+            entity: The Entity with oligomeric chains that should be queried
+            epsilon: The distance measurement tolerance to find similar symmetric models to the oligomer
         """
         if self.oligomeric_equivalent_model_idxs.get(entity):  # we already found this information
             self.log.debug('Skipping oligomeric identification as information already exists')
@@ -1603,15 +1603,14 @@ class SymmetricModel(Model):
 
         self.oligomeric_equivalent_model_idxs[entity] = equivalent_models
 
-    def return_asu_interaction_models(self, calculate_contacts: bool = False, distance: float = 8., **kwargs) -> \
+    def return_asu_interaction_model_indices(self, calculate_contacts: bool = False, distance: float = 8., **kwargs) ->\
             List[int]:
         """From an ASU, find the symmetric models that immediately surround the ASU
 
         Args:
-            calculate_contacts: Whether to calculate interacting models by atomic contacts. If this argument is True,
-                the value passed to distance will be the contact distance
-            distance: The distance within which nearby symmetric models should be found. When calculate_contacts is
-                True, uses the default, otherwise, uses the ASU radius plus the maximum Entity radius
+            calculate_contacts: Whether to calculate interacting models by atomic contacts
+            distance: When calculate_contacts is True, the CB distance which nearby symmetric models should be found
+                When calculate_contacts is False, uses the ASU radius plus the maximum Entity radius
         Returns:
             The indices of the models that contact the asu
         """
@@ -1639,12 +1638,12 @@ class SymmetricModel(Model):
 
         return interacting_models
 
-    def return_asu_equivalent_symmetry_mate_indices(self):
+    def return_asu_equivalent_symmetry_mate_indices(self) -> List[int]:
         """Find the coordinate indices of the asu equivalent model in the SymmetricModel. Zero-indexed
 
         self.symmetric_coords must be from all atoms which is True by default
         Returns:
-            (list): The indices in the SymmetricModel where the ASU is also located
+            The indices in the SymmetricModel where the ASU is also located
         """
         self.find_asu_equivalent_symmetry_model()
         # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
@@ -1654,14 +1653,14 @@ class SymmetricModel(Model):
 
         return list(range(start_idx, end_idx))
 
-    def return_intra_oligomeric_symmetry_mate_indices(self, entity):
+    def return_intra_oligomeric_symmetry_mate_indices(self, entity: Structure) -> List[int]:
         """Find the coordinate indices of the intra-oligomeric equivalent models in the SymmetricModel. Zero-indexed
 
         self.symmetric_coords must be from all atoms which is True by default
         Args:
-            entity (Entity): The Entity with oligomeric chains to query for corresponding symmetry mates
+            entity: The Entity with oligomeric chains to query for corresponding symmetry mates
         Returns:
-            (list): The indices in the SymmetricModel where the intra-oligomeric contacts are located
+            The indices in the SymmetricModel where the intra-oligomeric contacts are located
         """
         self.find_intra_oligomeric_equivalent_symmetry_models(entity)
         oligomeric_indices = []
@@ -1674,20 +1673,18 @@ class SymmetricModel(Model):
 
         return oligomeric_indices
 
-    def find_asu_interaction_indices(self, **kwargs):
+    def find_asu_interaction_indices(self, **kwargs) -> List[int]:
         """Find the coordinate indices for the models in the SymmetricModel interacting with the asu. Zero-indexed
 
         self.symmetric_coords must be from all atoms which is True by default
         Keyword Args:
-            calculate_contacts=False (bool): Whether to calculate interacting models by atomic contacts. If this
-                argument is True, the value passed to distance will be the contact distance
-            distance=None (float): The distance measurement to find nearby symmetric models to the asu.
-                If no distance is provided, will use 2x the max asu diameter.
-                If calculate_contacts=True, distance is 8.0 by default
+            calculate_contacts=False (bool): Whether to calculate interacting models by atomic contacts
+            distance=8.0 (float): When calculate_contacts is True, the CB distance which nearby symmetric models should be found
+                When calculate_contacts is False, uses the ASU radius plus the maximum Entity radius
         Returns:
-            (list): The indices in the SymmetricModel where the asu contacts other models
+            The indices in the SymmetricModel where the asu contacts other models
         """
-        model_numbers = self.return_asu_interaction_models(**kwargs)
+        model_numbers = self.return_asu_interaction_model_indices(**kwargs)
         interacting_indices = []
         # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
         number_of_atoms = len(self.coords)
@@ -2861,19 +2858,20 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         return interface_asu_structure
 
-    def find_interface_pairs(self, entity1=None, entity2=None, distance=8):
+    def find_interface_pairs(self, entity1: Structure = None, entity2: Structure = None, distance: float = 8.) -> \
+            Optional[List[Tuple]]:
         """Get pairs of Residues that have CB Atoms within a distance between two Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
         design_selector aware. Will remove interface residues if not active under the design selector
 
-        Keyword Args:
-            entity1=None (Entity): First entity to measure interface between
-            entity2=None (Entity): Second entity to measure interface between
-            distance=8 (int): The distance to query the interface in Angstroms
+        Args:
+            entity1: First entity to measure interface between
+            entity2: Second entity to measure interface between
+            distance: The distance to query the interface in Angstroms
         Returns:
-            (list[tuple]): A list of interface residue numbers across the interface
+            A list of interface residue numbers across the interface
         """
         self.log.debug('Entity %s | Entity %s interface query' % (entity1.name, entity2.name))
         # Get CB Atom Coordinates including CA coordinates for Gly residues
@@ -2907,9 +2905,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                    % (len(remove_indices)))
                 else:  # remove asu
                     remove_indices = self.return_asu_equivalent_symmetry_mate_indices()
-                self.log.debug('Number of indices before removal of \'self\' indices: %s' % len(entity2_indices))
+                self.log.debug('Number of indices before removal of "self" indices: %s' % len(entity2_indices))
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
-                self.log.debug('Final indices remaining after removing \'self\': %s' % len(entity2_indices))
+                self.log.debug('Final indices remaining after removing "self": %s' % len(entity2_indices))
             entity2_coords = self.symmetric_coords[entity2_indices]  # only get the coordinate indices we want
         elif entity1 == entity2:
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
@@ -2955,16 +2953,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         else:
             return contacting_pairs
 
-    def find_interface_residues(self, entity1=None, entity2=None, **kwargs):  # distance=8
+    def find_interface_residues(self, entity1: Structure = None, entity2: Structure = None, **kwargs):  # distance=8
         """Get unique Residues across an interface provided by two Entities
 
-        Keyword Args:
-            entity1=None (Entity): First Entity to measure interface between
-            entity2=None (Entity): Second Entity to measure interface between
-            distance=8 (int): The distance to query the interface in Angstroms
+        Args:
+            entity1: First Entity to measure interface between
+            entity2: Second Entity to measure interface between
         Sets:
-            self.interface_residues (dict[mapping[tuple[Structure,Structure],tuple[list[Residue],list[Residue]]]):
-            The Entity1/Entity2 interface mapped to the interface Residues
+            self.interface_residues (dict[tuple[Structure, Structure], tuple[list[Residue], list[Residue]]]):
+                The Entity1/Entity2 interface mapped to the interface Residues
         """
         entity1_residues, entity2_residues = \
             split_interface_residues(self.find_interface_pairs(entity1=entity1, entity2=entity2, **kwargs))
@@ -2991,18 +2988,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                        for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)])
                        for residue in entity_residues))
 
-    def find_interface_atoms(self, entity1=None, entity2=None, distance=4.68):
+    def find_interface_atoms(self, entity1: Structure = None, entity2: Structure = None, distance: float = 4.68) -> \
+            Optional[List[Tuple[int]]]:
         """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
         Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
 
-        Keyword Args:
-            entity1=None (Entity): First Entity to measure interface between
-            entity2=None (Entity): Second Entity to measure interface between
-            distance=3.28 (float): The distance to measure contacts between atoms. Default = CB radius + 2.8 H2O probe
+        Args:
+            entity1: First Entity to measure interface between
+            entity2: Second Entity to measure interface between
+            distance: The distance to measure contacts between atoms. Default = CB radius + 2.8 H2O probe Was 3.28
         Returns:
-            (list[tuple]): The Atom indices for the interface
+            The Atom indices for the interface
         """
         residues1, residues2 = self.interface_residues.get((entity1, entity2))
         if not residues1:
