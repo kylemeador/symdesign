@@ -774,7 +774,8 @@ class DesignDirectory:  # (JobResources):
             radius_ratio = metrics['entity_%d_radius' % entity_idx1] / metrics['entity_%d_radius' % entity_idx2]
             min_ratio = metrics['entity_%d_min_radius' % entity_idx1] / metrics['entity_%d_min_radius' % entity_idx2]
             max_ratio = metrics['entity_%d_max_radius' % entity_idx1] / metrics['entity_%d_max_radius' % entity_idx2]
-            residue_ratio = metrics['entity_%d_number_of_residues' % entity_idx1] / metrics['entity_%d_number_of_residues' % entity_idx2]
+            residue_ratio = metrics['entity_%d_number_of_residues' % entity_idx1] \
+                / metrics['entity_%d_number_of_residues' % entity_idx2]
             radius_ratio_sum += abs(1 - radius_ratio)
             min_ratio_sum += abs(1 - min_ratio)
             max_ratio_sum += abs(1 - max_ratio)
@@ -2454,7 +2455,7 @@ class DesignDirectory:  # (JobResources):
         """
         if self.interface_residues is False or self.design_residues is False:
             self.identify_interface()
-        else:  # we only need to pose active as we already calculated these
+        else:  # we only need to load pose as we already calculated interface
             self.load_pose()
         self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.design_residues))))
         if self.query_fragments:
@@ -3142,7 +3143,8 @@ class DesignDirectory:  # (JobResources):
         interior_residue_numbers = \
             interior_residues[interior_residues.mean(axis=1) > 0.5].columns.remove_unused_levels().levels[0].to_list()
         if interior_residue_numbers:
-            self.log.info('Design Residues %s are located in the interior' % ', '.join(map(str, interior_residue_numbers)))
+            self.log.info('Design Residues %s are located in the interior'
+                          % ', '.join(map(str, interior_residue_numbers)))
 
         # This shouldn't be much different from the state variable self.interface_residues
         # perhaps the use of residue neighbor energy metrics adds residues which contribute, but not directly
@@ -3152,9 +3154,9 @@ class DesignDirectory:  # (JobResources):
         for residue_class in residue_classificiation:
             scores_df[residue_class] = residue_df.loc[:, idx_slice[:, residue_class]].sum(axis=1)
 
-        scores_columns = scores_df.columns.to_list()
-        self.log.debug('Score columns present: %s' % scores_columns)
         # Calculate new metrics from combinations of other metrics
+        scores_columns = scores_df.columns.to_list()
+        self.log.debug('Metrics present: %s' % scores_columns)
         # sum columns using list[0] + list[1] + list[n]
         summation_pairs = \
             {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
@@ -3205,7 +3207,8 @@ class DesignDirectory:  # (JobResources):
         # remove this step for consensus or refine if they are run multiple times
         trajectory_df = scores_df.sort_index().drop([PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
         # add all docking and pose information to each trajectory
-        pose_metrics_df = pd.concat([pd.Series(other_pose_metrics)] * len(trajectory_df), axis=1).T
+        other_metrics_s = pd.Series(other_pose_metrics)
+        pose_metrics_df = pd.concat([other_metrics_s] * len(trajectory_df), axis=1).T
         pose_metrics_df.rename(index=dict(zip(range(len(trajectory_df)), trajectory_df.index)), inplace=True)
         trajectory_df = pd.concat([pose_metrics_df, trajectory_df, pose_collapse_df], axis=1)
 
@@ -3297,13 +3300,13 @@ class DesignDirectory:  # (JobResources):
             # All protocol means have pairwise distance measured to access similarity
             # Gather protocol similarity/distance metrics
             sim_measures = {'sequence_distance': {}, 'energy_distance': {}}
-            sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
+            # sim_stdev = {}  # 'similarity': None, 'seq_distance': None, 'energy_distance': None}
             # grouped_pc_seq_df_dict, grouped_pc_energy_df_dict, similarity_stat_dict = {}, {}, {}
             for stat in stats_metrics:
                 grouped_pc_seq_df = getattr(sequence_groups, stat)()
                 grouped_pc_energy_df = getattr(residue_energy_groups, stat)()
                 similarity_stat = getattr(pvalue_df, stat)(axis=1)  # protocol pair : stat Series
-                if stat == 'mean':
+                if stat == mean:
                     # for each measurement in residue_energy_pc_df, need to take the distance between it and the
                     # structure background mean (if structure background, is the mean is useful too?)
                     background_distance = cdist(residue_energy_pc,
@@ -3340,11 +3343,12 @@ class DesignDirectory:  # (JobResources):
                                                            grouped_pc_seq_df.index[j])] = seq_dist
                         sim_measures['energy_distance'][(grouped_pc_energy_df.index[i],
                                                          grouped_pc_energy_df.index[j])] = energy_dist
-                elif stat == 'std':
+                elif stat == std:
                     # sim_stdev['similarity'] = similarity_stat_dict[stat]
-                    # Todo need to square each pc, add them up, divide by the group number, then take the sqrt
-                    sim_stdev['seq_distance'] = grouped_pc_seq_df
-                    sim_stdev['energy_distance'] = grouped_pc_energy_df
+                    pass
+                    # # Todo need to square each pc, add them up, divide by the group number, then take the sqrt
+                    # sim_stdev['sequence_distance'] = grouped_pc_seq_df
+                    # sim_stdev['energy_distance'] = grouped_pc_energy_df
 
             # Find the significance between each pair of protocols
             protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
@@ -3434,42 +3438,6 @@ class DesignDirectory:  # (JobResources):
         if save_trajectories:
             trajectory_df.sort_index(inplace=True, axis=1)
             residue_df.sort_index(inplace=True)
-            # # Add wild-type residue information in metrics for sequence comparison
-            # # find the solvent accessible surface area of the separated entities
-            # for entity in self.pose.entities:
-            #     entity.get_sasa()
-
-            # errat_collapse_df = \
-            #     pd.concat([pd.concat(
-            #         {'errat_deviation': pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices),
-            #          'hydrophobic_collapse': pd.Series(np.concatenate(list(wt_collapse.values())),
-            #                                            index=residue_indices)})],
-            #         keys=[pose_source]).unstack().unstack()  # .swaplevel(0, 1, axis=1)
-
-            # wild_type_residue_info = {}
-            # for res_number in residue_info[next(iter(residue_info))].keys():
-            #     # bsa_total is actually a sasa, but for formatting sake, I've called it a bsa...
-            #     residue = self.pose.pdb.residue(res_number)
-            #     wild_type_residue_info[res_number] = \
-            #         {'type': protein_letters_3to1.get(residue.type.title()), 'core': None, 'rim': None, 'support': None,
-            #          'interior': 0, 'hbond': None, 'energy_delta': None,
-            #          'bsa_total': None, 'bsa_polar': None, 'bsa_hydrophobic': None, 'sasa_total': residue.sasa,
-            #          'coordinate_constraint': None, 'residue_favored': None, 'observed_design': None,
-            #          'observed_evolution': None, 'observed_fragment': None}  # 'hot_spot': None}
-            #     if residue.relative_sasa < 0.25:
-            #         wild_type_residue_info[res_number]['interior'] = 1
-            #     # if res_number in issm_residues and res_number not in residues_no_frags:
-            #     #     wild_type_residue_info[res_number]['observed_fragment'] = None
-
-            # wt_df = pd.concat([pd.DataFrame(wild_type_residue_info)], keys=[pose_source]).unstack()
-            # wt_df = pd.merge(wt_df, errat_collapse_df.loc[:, idx_slice[wt_df.columns.levels[0], :]],
-            #                  left_index=True, right_index=True)
-            # wt_df.drop(residue_indices_no_frags, inplace=True, axis=1, errors='ignore')
-            # # only sort once as residues are in same order
-            # # wt_df.sort_index(level=0, inplace=True, axis=1, sort_remaining=False)
-            # # residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-            # residue_df = pd.concat([wt_df, residue_df], sort=False)
-            # # residue_df.drop(residue_indices_no_frags, inplace=True, axis=1)
             residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
             residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
             # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
@@ -3507,11 +3475,11 @@ class DesignDirectory:  # (JobResources):
             contact_ax = collapse_ax.twinx()
             contact_ax.plot(pose_source_contact_order_s, label='Contact Order',
                             color='#fbc0cb', lw=1, linestyle='-')  # pink
-            # contact_ax.scatter(residue_indices, wt_contact_order_concatenated_s, color='#fbc0cb', marker='o')  # pink
-            # wt_contact_order_concatenated_min_s = wt_contact_order_concatenated_s.min()
-            # wt_contact_order_concatenated_max_s = wt_contact_order_concatenated_s.max()
+            # contact_ax.scatter(residue_indices, pose_source_contact_order_s, color='#fbc0cb', marker='o')  # pink
+            # wt_contact_order_concatenated_min_s = pose_source_contact_order_s.min()
+            # wt_contact_order_concatenated_max_s = pose_source_contact_order_s.max()
             # wt_contact_order_range = wt_contact_order_concatenated_max_s - wt_contact_order_concatenated_min_s
-            # scaled_contact_order = ((wt_contact_order_concatenated_s - wt_contact_order_concatenated_min_s)
+            # scaled_contact_order = ((pose_source_contact_order_s - wt_contact_order_concatenated_min_s)
             #                         / wt_contact_order_range)  # / wt_contact_order_range)
             # graph_contact_order = sns.relplot(data=errat_graph_df, kind='line')  # x='Residue Number'
             # collapse_ax1.plot(scaled_contact_order)
@@ -3633,7 +3601,7 @@ class DesignDirectory:  # (JobResources):
             fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
 
         # After parsing data sources
-        other_metrics_s = pd.concat([pd.Series(other_pose_metrics)], keys=[('dock', 'pose')])
+        other_metrics_s = pd.concat([other_metrics_s], keys=[('dock', 'pose')])
 
         # CONSTRUCT: Create pose series and format index names
         pose_s = pd.concat([other_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
