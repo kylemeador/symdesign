@@ -17,6 +17,7 @@ from collections import defaultdict
 from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable
 
 import numpy as np
+import psutil
 # from numba import njit
 # from Bio.PDB import PDBParser, Superimposer
 
@@ -691,30 +692,26 @@ def write_fasta_file(sequence, name, out_path=os.getcwd(), csv=False):
 ####################
 
 
-def calculate_mp_threads(cores=None, mpi=False, jobs=None, hyperthreading=True):
-    """Calculate the number of multiprocessing threads to use for a specific application.
+def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -> int:
+    """Calculate the number of multiprocessing cores to use for a specific application.
 
-    Keyword Args:
-        cores=None (int): How many cpu's to attempt to use, leaving at least one available for the machine
-        mpi=False (bool): If commands use MPI
-        jobs=None (int): How many jobs to attempt
-        hyperthreading=True (bool): Whether the number of requested cores should be doubled due to hyperthread capacity
+    Args:
+        cores: How many cpu's to attempt to use, leaving at least one available for the machine
+        mpi: If commands use MPI
+        jobs: How many jobs to attempt
     Returns:
-        (int): The number of threads to use taking the minimum of cores[if hyperthreading * 2], jobs, and max available
-            cpus
+        The number of cores to use taking the minimum of cores, jobs, and max cpus available
     """
     allocated_cpus = os.environ.get('SLURM_CPUS_PER_TASK')
-    if allocated_cpus:  # we are in a SLURM environment and should follow allocation but allow hyper-threading (* 2)
-        # Todo reconsider the * 2 if not on cassini
-        max_cpus_to_use = int(allocated_cpus) * (2 if hyperthreading else 1)
+    if allocated_cpus:  # we are in a SLURM environment and should follow allocation
+        max_cpus_to_use = int(allocated_cpus)
     else:
-        max_cpus_to_use = mp.cpu_count() - 1  # leave CPU available for computer, see also len(os.sched_getaffinity(0))
+        max_cpus_to_use = psutil.cpu_count(logical=False) - 1  # leave CPU available for computer
 
     if jobs:  # test if cores or jobs is None, then take the minimal
-        return min((cores * (2 if hyperthreading else 1) or max_cpus_to_use),
-                   (jobs or max_cpus_to_use), max_cpus_to_use)
-    if mpi:
-        # Todo grab an evironmental variable for mpi threads?
+        return min((cores or max_cpus_to_use), (jobs or max_cpus_to_use), max_cpus_to_use)
+
+    if mpi:  # Todo grab an evironmental variable for mpi cores?
         return int(max_cpus_to_use / 6)  # CommandDistributer.mpi)
     else:
         return min((cores or max_cpus_to_use), max_cpus_to_use)  # (jobs or max_cpus_to_use),
@@ -736,39 +733,39 @@ def set_worker_affinity():
     subprocess.Popen(_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
 
 
-def mp_map(function: Callable, arg: List[Tuple], threads: int = 1, context: str = 'spawn') -> List[Any]:
+def mp_map(function: Callable, arg: Iterable, processes: int = 1, context: str = 'spawn') -> List[Any]:
     """Maps an interable input with a single argument to a function using multiprocessing Pool
 
     Args:
         function: Which function should be executed
         arg: Arguments to be unpacked in the defined function, order specific
-        threads: How many workers/threads should be spawned to handle function(arguments)?
+        processes: How many workers/cores should be spawned to handle function(arguments)?
         context: One of 'spawn', 'fork', or 'forkserver'
     Returns:
         The results produced from the function and arg
     """
-    # with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity) as p:  # maxtasksperchild=1
-    with mp.get_context(context).Pool(processes=threads) as p:  # maxtasksperchild=1
+    # with mp.get_context(context).Pool(processes=cores, initializer=set_worker_affinity) as p:  # maxtasksperchild=1
+    with mp.get_context(context).Pool(processes=processes) as p:  # , maxtasksperchild=100
         results = p.map(function, arg)
     p.join()
 
     return results
 
 
-def mp_starmap(function: Callable, process_args: List[Tuple], threads: int = 1, context: str = 'spawn') -> List[Any]:
+def mp_starmap(function: Callable, star_args: Iterable[Tuple], processes: int = 1, context: str = 'spawn') -> List[Any]:
     """Maps an iterable input with multiple arguments to a function using multiprocessing Pool
 
     Args:
         function: Which function should be executed
-        process_args: Arguments to be unpacked in the defined function, order specific
-        threads: How many workers/threads should be spawned to handle function(arguments)?
+        star_args: Arguments to be unpacked in the defined function, order specific
+        processes: How many workers/cores should be spawned to handle function(arguments)?
         context: One of 'spawn', 'fork', or 'forkserver'
     Returns:
         The results produced from the function and process_args
     """
-    # with mp.get_context(context).Pool(processes=threads, initializer=set_worker_affinity, maxtasksperchild=100) as p:
-    with mp.get_context(context).Pool(processes=threads, maxtasksperchild=100) as p:
-        results = p.starmap(function, process_args)  # , chunksize=1
+    # with mp.get_context(context).Pool(processes=cores, initializer=set_worker_affinity, maxtasksperchild=100) as p:
+    with mp.get_context(context).Pool(processes=processes) as p:  # , maxtasksperchild=100
+        results = p.starmap(function, star_args)  # , chunksize=1
     p.join()
 
     return results
@@ -785,8 +782,8 @@ def mp_starmap(function: Callable, process_args: List[Tuple], threads: int = 1, 
 #     pool.terminate()
 #
 #
-# def mp_starmap_python2(function, process_args, threads=1):
-#     with poolcontext(processes=threads) as p:
+# def mp_starmap_python2(function, process_args, cores=1):
+#     with poolcontext(processes=cores) as p:
 #         results = p.map(function, process_args)
 #     p.join()
 #

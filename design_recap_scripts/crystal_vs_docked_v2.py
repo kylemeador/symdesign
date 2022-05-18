@@ -1,4 +1,5 @@
 import sys
+import os
 import warnings
 from itertools import repeat
 
@@ -86,7 +87,7 @@ def main():
     xtal_pdb2_path = sys.argv[2]
     docked_poses_dirpath = sys.argv[3]
     outdir = sys.argv[4]
-    threads = 4
+    cores = 4
     ####################################################################################################################
 
     # read in crystal structure oligomer 1 and oligomer 2 PDB files
@@ -110,7 +111,7 @@ def main():
     # align reference structures to docked poses and calculate interface RMSD
     zipped_args = zip(repeat(ref_pdb1), repeat(ref_pdb2), repeat(ref1_chain_id_residue_d),
                       repeat(ref2_chain_id_residue_d), all_design_directories)
-    aligned_xtal_pdbs = SDUtils.mp_starmap(reference_vs_docked_irmsd, zipped_args, threads=threads)
+    aligned_xtal_pdbs = SDUtils.mp_starmap(reference_vs_docked_irmsd, zipped_args, processes=cores)
 
     # sort by RMSD value from lowest to highest
     aligned_xtal_pdbs_sorted = sorted(aligned_xtal_pdbs, key=lambda tup: tup[1], reverse=False)

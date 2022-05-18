@@ -1904,12 +1904,12 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
 #     return outfile_name, p
 #
 #
-# def hhblits(query, threads=CommandDistributer.hhblits_threads, outpath=os.getcwd()):
+# def hhblits(query, cores=CommandDistributer.hhblits_threads, outpath=os.getcwd()):
 #     """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
 #
 #     Args:
 #         query (str): Basename of the sequence to use as a query, intended for use as pdb
-#         threads (int): Number of cpu's to use for the process
+#         cores (int): Number of cpu's to use for the process
 #     Keyword Args:
 #         outpath=None (str): Disk location where generated file should be written
 #     Returns:
@@ -1919,7 +1919,7 @@ def flatten_for_issm(design_cluster_dict, keep_extras=True):
 #
 #     outfile_name = os.path.join(outpath, os.path.splitext(os.path.basename(query))[0] + '.hmm')
 #
-#     cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', query, '-ohhm', outfile_name, '-v', '1', '-cpu', str(threads)]
+#     cmd = [PUtils.hhblits, '-d', PUtils.uniclustdb, '-i', query, '-ohhm', outfile_name, '-v', '1', '-cpu', str(cores)]
 #     logger.info('%s Profile Command: %s' % (query, subprocess.list2cmdline(cmd)))
 #     p = subprocess.Popen(cmd)
 #

@@ -738,13 +738,13 @@ if __name__ == '__main__':
 
     # Start Pose processing and preparation for Rosetta
     if args.multi_processing:
-        # Calculate the number of threads to use depending on computer resources
-        mp_threads = SDUtils.calculate_mp_threads(mpi=args.mpi, maximum=True, no_model=args.suspend)
-        logger.info('Starting multiprocessing %s threads' % str(mp_threads))
+        # Calculate the number of cores to use depending on computer resources
+        cores = SDUtils.calculate_mp_cores(mpi=args.mpi)
+        logger.info('Starting multiprocessing %s cores' % str(cores))
         zipped_args = zip(all_design_dirs, repeat(args.fragment_database), repeat(args.symmetry_group),
                           repeat(args.command_only), repeat(args.mpi), repeat(args.suspend),
                           repeat(args.debug))  # repeat(args.prioritize_frags)
-        results, exceptions = SDUtils.mp_try_starmap(initialization_mp, zipped_args, mp_threads)
+        results, exceptions = SDUtils.mp_starmap(initialization, zipped_args, cores)
         if exceptions:
             logger.warning('\nThe following exceptions were thrown. Design for these directories is inaccurate.')
             for exception in exceptions:
@@ -752,8 +752,8 @@ if __name__ == '__main__':
     else:
         logger.info('Starting processing. If single process is taking awhile, use -m during submission')
         for des_directory in all_design_dirs:
-            initialization_s(des_directory, args.fragment_database, args.symmetry_group, script=args.command_only,
-                             mpi=args.mpi, suspend=args.suspend, debug=args.debug)
+            initialization(des_directory, args.fragment_database, args.symmetry_group, script=args.command_only,
+                           mpi=args.mpi, suspend=args.suspend, debug=args.debug)
 
     if args.command_only:
         all_commands = [[] for s in PUtils.stage_f]

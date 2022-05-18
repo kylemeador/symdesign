@@ -12,7 +12,7 @@ from typing import Union, List
 from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
     program_name, interface_design, refine, rosetta_scripts, sym_weights, solvent_weights_sym, solvent_weights
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors, \
-    calculate_mp_threads
+    calculate_mp_cores
 
 # Globals
 logger = start_log(name=__name__)
@@ -384,8 +384,8 @@ if __name__ == '__main__':
 
         number_of_commands = len(specific_commands)  # different from process scale as this could reflect edge cases
         if number_of_commands > 1:  # set by process_scale
-            results = mp_starmap(run, zipped_commands, threads=calculate_mp_threads(cores=number_of_commands,
-                                                                                    jobs=args.jobs))
+            results = \
+                mp_starmap(run, zipped_commands, processes=calculate_mp_cores(cores=number_of_commands, jobs=args.jobs))
         else:
             results = [run(*command) for command in zipped_commands]
         #    iteration += 1

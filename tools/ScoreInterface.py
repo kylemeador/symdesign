@@ -31,7 +31,7 @@ if __name__ == '__main__':
                                                        'pairs', required=True)
     parser.add_argument('-mp', '--multi_processing', action='store_true',
                         help='Should job be run with multiprocessing?\nDefault=False')
-    parser.add_argument('-t', '--threads', type=int, help='How many threads should be utilized?\nDefault=1', default=1)
+    parser.add_argument('-t', '--cores', type=int, help='How many cores should be utilized?\nDefault=1', default=1)
     parser.add_argument('--debug', action='store_true', help='Debug all steps to standard out?\nDefault=False')
 
     args, additional_flags = parser.parse_known_args()
@@ -111,14 +111,14 @@ if __name__ == '__main__':
 
     if args.multi_processing:
         # # used without Pose
-        # results = mp_map(calculate_interface_score, interface_pdbs, threads=args.threads)
+        # results = mp_map(calculate_interface_score, interface_pdbs, processes=args.cores)
         # interface_d = {result for result in results}
         # # interface_d = {key: result[key] for result in results for key in result}
 
         zipped_args = zip(interface_poses, repeat(1), repeat(2))
         # Todo change zipped_args, args to (entity1, entity2) self.entities?
         #  score_interface(entity1=None, entity2=None)
-        results = mp_starmap(Pose.score_interface, zipped_args, threads=args.threads)
+        results = mp_starmap(Pose.score_interface, zipped_args, processes=args.cores)
         interface_d = {pose.name: result.values() for pose, result in zip(interface_poses, results)}
     else:
         raise RuntimeError('This functionality is currently broken')
