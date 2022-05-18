@@ -1206,7 +1206,7 @@ class SymmetricModel(Model):
         return np.matmul(self.center_of_mass, self.expand_matrices)
 
     @property
-    def center_of_mass_symmetric_entities(self) -> np.ndarray:
+    def center_of_mass_symmetric_entities(self) -> List[np.ndarray]:
         """The individual centers of mass for each Entity in the symmetric system"""
         # if self.symmetry:
         # self._center_of_mass_symmetric_entities = []
@@ -1243,11 +1243,11 @@ class SymmetricModel(Model):
         except AttributeError:
             if not self.models:
                 self.get_assembly_symmetry_mates()  # default to surrounding_uc generation, but only return contacting
-            selected_model_indices = self.return_asu_interaction_model_indices()
-            self.log.debug('Found selected models %s for assembly' % selected_model_indices)
+            interacting_model_indices = self.return_asu_interaction_model_indices()
+            self.log.debug('Found selected models %s for assembly' % interacting_model_indices)
 
             chains = []
-            for idx in selected_model_indices:
+            for idx in [0] + interacting_model_indices:  # add the ASU to the model first
                 chains.extend(self.models[idx].chains)
             self._assembly_minimally_contacting = \
                 PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
@@ -1614,13 +1614,8 @@ class SymmetricModel(Model):
         Returns:
             The indices of the models that contact the asu
         """
-        if not calculate_contacts:
-            # distance = self.asu.radius * 2  # value too large self.pdb.radius * 2
-            # The furthest point from the ASU COM + the max individual Entity radius
-            distance = self.asu.radius + max([entity.radius for entity in self.entities])  # all the radii
-
-        if calculate_contacts:  # Todo need to verify this is proper
-            # Need to select only coords that are BB or CB from the model coords
+        if calculate_contacts:
+            # Select only coords that are BB or CB from the model coords
             bb_cb_indices = None if self.coords_type == 'bb_cb' else self.pdb.backbone_and_cb_indices
             self.generate_assembly_tree()
             asu_query = self.assembly_tree.query_radius(self.coords[bb_cb_indices], distance)
@@ -1629,8 +1624,13 @@ class SymmetricModel(Model):
             #                             for asu_idx, assembly_contacts in enumerate(asu_query)
             #                             for assembly_idx in assembly_contacts]
             # interacting_models = sorted(set(contacting_model_indices))
-            interacting_models = np.unique(np.concatenate(asu_query) // len(asu_query)).tolist()
+            # combine each subarray of the asu_query and divide by the assembly_tree interval length len(asu_query)
+            interacting_models = (np.unique(np.concatenate(asu_query) // len(asu_query)) + 1).tolist()
+            # asu is missing from assembly_tree so add 1 model to total symmetric index  ^
         else:
+            # distance = self.asu.radius * 2  # value too large self.pdb.radius * 2
+            # The furthest point from the ASU COM + the max individual Entity radius
+            distance = self.asu.radius + max([entity.radius for entity in self.entities])  # all the radii
             center_of_mass = self.center_of_mass
             interacting_models = [idx for idx, sym_model_com in enumerate(self.center_of_mass_symmetric_models)
                                   if np.linalg.norm(center_of_mass - sym_model_com) <= distance]
