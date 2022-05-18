@@ -2829,7 +2829,8 @@ class DesignDirectory:  # (JobResources):
                 collapse_propensity_z_positive = np.where(collapse_propensity_z > 0, collapse_propensity_z, 0)
                 # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
                 # collapse_bool = np.where(standardized_collapse > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-                collapse_bool = np.nonzero(collapse_propensity_z_positive)[0]  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+                collapse_bool = np.where(collapse_propensity_z_positive, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+                # collapse_bool = np.nonzero(collapse_propensity_z_positive)[0]  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
                 reference_collapse = reference_collapse_bool[entity_idx]
                 increased_collapse = np.where(collapse_bool - reference_collapse == 1, 1, 0)
                 # check if the increased collapse has made new collapse
