@@ -2513,7 +2513,7 @@ class DesignDirectory:  # (JobResources):
             source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
             design_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
             scores_df = pd.concat([source_df, design_df])
-            for idx, entity in enumerate(self.pose.entities):
+            for idx, entity in enumerate(self.pose.entities, 1):
                 scores_df['buns_%d_unbound' % idx] = 0
                 scores_df['interface_energy_%d_bound' % idx] = 0
                 scores_df['interface_energy_%d_unbound' % idx] = 0
@@ -2533,7 +2533,7 @@ class DesignDirectory:  # (JobResources):
             #                                             hbonds=interface_hbonds)
         else:  # Get the scores from the score file on design trajectory metrics
             source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
-            for idx, entity in enumerate(self.pose.entities):
+            for idx, entity in enumerate(self.pose.entities, 1):
                 source_df['buns_%d_unbound' % idx] = 0
                 source_df['interface_energy_%d_bound' % idx] = 0
                 source_df['interface_energy_%d_unbound' % idx] = 0
