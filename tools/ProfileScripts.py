@@ -1,8 +1,11 @@
 """
-Run your script with the command format:
+To profile CPU usage and execution times, run your script with the command format:
 python -m cProfile -o [output_file.name] [SCRIPT] [ARGS]
 Then run this with:
-python profile_script.py -f [output_file.name] [-s] [-t]
+python ProfileScripts.py -f [output_file.name] [-s] [-t]
+
+To profile memory (RAM) usage, run your script with the command format:
+python -m memory_profiler [SCRIPT] [ARGS] > output_file.name
 """
 import os
 import argparse
