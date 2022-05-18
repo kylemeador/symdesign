@@ -2609,6 +2609,8 @@ class DesignDirectory:  # (JobResources):
         viable_designs = scores_df.index.to_list()
         assert viable_designs, 'No viable designs remain after processing!'
         self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
+        other_pose_metrics['observations'] = len(viable_designs)
+        pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
         # Find protocols for protocol specific data processing
         unique_protocols = protocol_s.unique().tolist()
         protocol_dict = {idx: protocol for idx, protocol in enumerate(unique_protocols)}
@@ -2620,14 +2622,11 @@ class DesignDirectory:  # (JobResources):
         unique_design_protocols = set(designs_by_protocol.keys())
         self.log.info('Unique Design Protocols: %s' % ', '.join(unique_design_protocols))
 
-        other_pose_metrics['observations'] = len(viable_designs)
-        pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
-        # Replace empty strings with numpy.notanumber (np.nan) and convert remaining to float
+        # Replace empty strings with np.nan and convert remaining to float
         scores_df.replace('', np.nan, inplace=True)
         scores_df.fillna(dict(zip(protocol_specific_columns, repeat(0))), inplace=True)
         scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
-        # design_assemblies = []  # Todo use to store the poses generated below?
         # per residue data includes every residue in the pose
         per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {},
                             'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
@@ -2651,8 +2650,7 @@ class DesignDirectory:  # (JobResources):
         per_residue_data['sasa_hydrophobic_complex'][pose_source] = per_residue_sasa_complex_apolar
         per_residue_data['sasa_polar_complex'][pose_source] = per_residue_sasa_complex_polar
         per_residue_data['sasa_relative_complex'][pose_source] = per_residue_sasa_complex_relative
-        per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
-            [], [], []
+        per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
         # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
         msa_metrics = True
         source_errat, contact_order, inverse_residue_contact_order_z = [], [], []
@@ -2723,8 +2721,6 @@ class DesignDirectory:  # (JobResources):
             per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
             # perform SASA measurements
             assembly_minimally_contacting.get_sasa()
-            # per_residue_sasa = [residue.sasa for residue in structure.residues
-            #                     if residue.number in self.design_residues]
             per_residue_sasa_complex_apolar = \
                 [residue.sasa_apolar for residue in assembly_minimally_contacting.residues[:pose_length]]
             per_residue_sasa_complex_polar = \
@@ -2924,9 +2920,9 @@ class DesignDirectory:  # (JobResources):
         # errat_df = per_residue_df.loc[not_pose_source_indices, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         # include if errat score is < 2 std devs and isn't 0.  TODO what about measuring wild-type when no design?
-        wt_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
+        source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
         # print('SEPARATE', (pose_source_errat_s < errat_2_sigma)[30:40], (pose_source_errat_s != 0.)[30:40])
-        # print('LOGICAL AND\n', wt_errat_inclusion_boolean[30:40])
+        # print('LOGICAL AND\n', source_errat_inclusion_boolean[30:40])
         # errat_sig_df = (errat_df > errat_2_sigma)
         # find where designs deviate above wild-type errat scores
         # print('errat_df', errat_df.iloc[:5, 30:40])
@@ -2935,9 +2931,9 @@ class DesignDirectory:  # (JobResources):
         errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
         # print('errat_sig_df', errat_sig_df.iloc[:5, 30:40])
         # then select only those residues which are expressly important by the inclusion boolean
-        errat_design_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=1)
+        errat_design_significance = errat_sig_df.loc[:, source_errat_inclusion_boolean].any(axis=1)
         # print('SIGNIFICANCE', errat_design_significance)
-        # errat_design_residue_significance = errat_sig_df.loc[:, wt_errat_inclusion_boolean].any(axis=0)
+        # errat_design_residue_significance = errat_sig_df.loc[:, source_errat_inclusion_boolean].any(axis=0)
         # print('RESIDUE SIGNIFICANCE', errat_design_residue_significance[errat_design_residue_significance].index.tolist())
         pose_collapse_df['errat_deviation'] = errat_design_significance
         # significant_errat_residues = per_residue_df.index[].remove_unused_levels().levels[0].to_list()
@@ -3620,6 +3616,7 @@ class DesignDirectory:  # (JobResources):
         del residue_df
         del per_residue_df
         del scores_df
+        del trajectory_df
         return pose_s
 
     @handle_design_errors(errors=(DesignError, AssertionError))

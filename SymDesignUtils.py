@@ -1100,7 +1100,7 @@ def z_score(sample: Union[float, np.ndarray], mean: Union[float, np.ndarray], st
     try:
         return (sample - mean) / stdev
     except ZeroDivisionError:
-        logger.error('The passed standard deviation was 0! Z-score calculation failed')
+        logger.error('The passed standard deviation (stdev) was 0! Z-score calculation failed')
 
 
 ######################
