@@ -31,6 +31,13 @@ aa_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K'
              'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
 aa_weighted_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
                       'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
+hydrophobicity_scale = \
+    {'expanded': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0,
+                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
+                  'X': 0, 'Z': 0},
+     'standard': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0,
+                  'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
+                  'X': 0, 'Z': 0}}
 add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
@@ -3282,92 +3289,111 @@ def generate_sequences(wild_type_sequences, all_design_mutations):
     return mutated_sequences
 
 
-def hydrophobic_collapse_index(sequence, hydrophobicity='standard'):  # TODO Validate
-    """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return a HCI array
+def hydrophobic_collapse_index(sequence: str, hydrophobicity: str = 'standard', lower_window: int = 3,
+                               upper_window: int = 9) -> np.ndarray:
+    """Calculate hydrophobic collapse index for a particular sequence of an iterable object and return an HCI array
 
     Args:
-        sequence (str): The sequence to measure
-    Keyword Args:
-        hydrophobicity='standard' (str): The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FILMVWY)
+        sequence: The sequence to measure
+        hydrophobicity: The degree of hydrophobicity to consider. Either 'standard' (FILV) or 'expanded' (FMILYVW)
+        lower_window: The smallest window used to measure
+        upper_window: The largest window used to measure
     Returns:
-        (numpy.ndarray): 1D array with the mean collapse score for every position on the input sequence
+        1D array with the mean collapse score for every position on the input sequence
     """
-    sequence_length = len(sequence)
-    lower_range, upper_range, range_correction = 3, 9, 1
-    range_size = upper_range - lower_range + range_correction
-    yes = 1
-    no = 0
     if hydrophobicity == 'background':  # Todo
         raise DesignError('This function is not yet possible')
-        # hydrophobicity_values = \
-        #     {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0, 'P': 0,
-        #      'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
-    elif hydrophobicity == 'expanded':
-        hydrophobicity_values = \
-            {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0, 'P': 0,
-             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
-    else:  # hydrophobicity == 'standard':
-        hydrophobicity_values = \
-            {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0, 'P': 0,
-             'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0, 'X': 0, 'Z': 0}
+    hydrophobicity_values = hydrophobicity_scale.get(hydrophobicity)
+    sequence_array = np.ndarray([hydrophobicity_values.get(aa, 0) for aa in sequence])
 
-    sequence_array = [hydrophobicity_values[aa] for aa in sequence]
-
-    # make an array with # of rows equal to upper range (+1 for indexing), length equal to # of letters in sequence
+    # make an array with # of rows equal to range of windows used, length equal to # of characters in sequence
+    sequence_length = len(sequence)
+    range_size = upper_window + 1 - lower_window  # + 1 makes lower:upper inclusive of upper in range
     window_array = np.zeros((range_size, sequence_length))
-    for array_idx, window_size in enumerate(range(lower_range, upper_range + range_correction)):
-        # iterate over the window range
-        window_spread = math.floor(window_size / 2)
-        # check if the range is odd or even, then calculate score accordingly, with cases for N- and C-terminal windows
-        if window_size % 2 == 1:  # range is odd
-            for seq_idx in range(sequence_length):
-                position_sum = 0
-                if seq_idx < window_spread:  # N-terminus
-                    for window_position in range(seq_idx + window_spread + range_correction):
-                        position_sum += sequence_array[window_position]
-                elif seq_idx + window_spread >= sequence_length:  # C-terminus
-                    for window_position in range(seq_idx - window_spread, sequence_length):
-                        position_sum += sequence_array[window_position]
-                else:
-                    for window_position in range(seq_idx - window_spread, seq_idx + window_spread + range_correction):
-                        position_sum += sequence_array[window_position]
-                window_array[array_idx][seq_idx] = position_sum / window_size
-        else:  # range is even
-            for seq_idx in range(sequence_length):
-                position_sum = 0
-                if seq_idx < window_spread:  # N-terminus
-                    for window_position in range(seq_idx + window_spread + range_correction):
-                        if window_position == seq_idx + window_spread:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                elif seq_idx + window_spread >= sequence_length:  # C-terminus
-                    for window_position in range(seq_idx - window_spread, sequence_length):
-                        if window_position == seq_idx - window_spread:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                else:
-                    for window_position in range(seq_idx - window_spread, seq_idx + window_spread + range_correction):
-                        if window_position == seq_idx - window_spread \
-                                or window_position == seq_idx + window_spread + range_correction:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                window_array[array_idx][seq_idx] = position_sum / window_size
-    # logger.debug('Hydrophobic Collapse window values:\n%s' % window_array)
-    hci = window_array.mean(axis=0)
-    # logger.debug('Hydrophobic Collapse Index:\n%s' % hci)
+    for array_idx, window_size in enumerate(map(float, range(lower_window, upper_window + 1))):  # make divisor float
+        half_window = math.floor(window_size / 2)  # how far on each side should the window extend
+        # calculate score accordingly, with cases for N- and C-terminal windows
+        for seq_idx in range(half_window):  # N-terminus windows
+            # add 1 as high slice not inclusive
+            window_array[array_idx, seq_idx] = sequence_array[:seq_idx + half_window + 1].sum() / window_size
+        for seq_idx in range(half_window, sequence_length - half_window):  # continuous length windows
+            # add 1 as high slice not inclusive
+            window_array[array_idx, seq_idx] = \
+                sequence_array[seq_idx - half_window: seq_idx + half_window + 1].sum() / window_size
+        for seq_idx in range(sequence_length - half_window, sequence_length):  # C-terminus windows
+            # No add 1 as low slice inclusive
+            window_array[array_idx, seq_idx] = sequence_array[seq_idx - half_window:].sum() / window_size
 
-    return hci
-    # hci = np.zeros(sequence_length)  # [0] * (sequence_length + 1)
-    # for seq_idx in range(sequence_length):
-    #     for window_size in range(lower_range, upper_range + range_correction):
-    #         hci[seq_idx] += window_array[window_size][seq_idx]
-    #     hci[seq_idx] /= range_size
-    #     hci[seq_idx] = round(hci[seq_idx], 3)
+        # check if the range is even, then subtract 1/2 of the value of trailing and leading window values
+        if window_size % 2 == 0.:
+            # subtract_half_leading_residue = sequence_array[half_window:] * 0.5 / window_size
+            window_array[array_idx, :sequence_length - half_window] -= \
+                sequence_array[half_window:] * 0.5 / window_size
+            # subtract_half_trailing_residue = sequence_array[:sequence_length - half_window] * 0.5 / window_size
+            window_array[array_idx, half_window:] -= \
+                sequence_array[:sequence_length - half_window] * 0.5 / window_size
 
-    # return hci
+        # # check if the range is odd or even, then calculate score accordingly, with cases for N- and C-terminal windows
+        # if window_size % 2 == 1.:  # range is odd
+        #     for seq_idx in range(half_window):  # N-terminus windows
+        #         # add 1 as high slice not inclusive
+        #         window_array[array_idx, seq_idx] = sequence_array[:seq_idx + half_window + 1].sum() / window_size
+        #     for seq_idx in range(half_window, sequence_length - half_window):  # continuous length windows
+        #         # add 1 as high slice not inclusive
+        #         window_array[array_idx, seq_idx] = \
+        #             sequence_array[seq_idx - half_window: seq_idx + half_window + 1].sum() / window_size
+        #     for seq_idx in range(sequence_length - half_window, sequence_length):  # C-terminus windows
+        #         # No add 1 as low slice inclusive
+        #         window_array[array_idx, seq_idx] = sequence_array[seq_idx - half_window:].sum() / window_size
+        #
+        #     # for seq_idx in range(sequence_length):
+        #     #     position_sum = 0
+        #     #     if seq_idx < half_window:  # N-terminus
+        #     #         for window_position in range(seq_idx + half_window + 1):
+        #     #             position_sum += sequence_array[window_position]
+        #     #     elif seq_idx + half_window >= sequence_length:  # C-terminus
+        #     #         for window_position in range(seq_idx - half_window, sequence_length):
+        #     #             position_sum += sequence_array[window_position]
+        #     #     else:
+        #     #         for window_position in range(seq_idx - half_window, seq_idx + half_window + 1):
+        #     #             position_sum += sequence_array[window_position]
+        #     #     window_array[array_idx][seq_idx] = position_sum / window_size
+        # else:  # range is even
+        #     for seq_idx in range(half_window):  # N-terminus windows
+        #         # add 1 as high slice not inclusive
+        #         window_array[array_idx, seq_idx] = sequence_array[:seq_idx + half_window + 1].sum() / window_size
+        #     for seq_idx in range(half_window, sequence_length - half_window):  # continuous length windows
+        #         # add 1 as high slice not inclusive
+        #         window_array[array_idx, seq_idx] = \
+        #             sequence_array[seq_idx - half_window: seq_idx + half_window + 1].sum() / window_size
+        #     for seq_idx in range(sequence_length - half_window, sequence_length):  # C-terminus windows
+        #         # No add 1 as low slice inclusive
+        #         window_array[array_idx, seq_idx] = sequence_array[seq_idx - half_window:].sum() / window_size
+        #
+        #     # for seq_idx in range(sequence_length):
+        #     #     position_sum = 0
+        #     #     if seq_idx < half_window:  # N-terminus
+        #     #         for window_position in range(seq_idx + half_window + 1):
+        #     #             if window_position == seq_idx + half_window:
+        #     #                 position_sum += 0.5 * sequence_array[window_position]
+        #     #             else:
+        #     #                 position_sum += sequence_array[window_position]
+        #     #     elif seq_idx + half_window >= sequence_length:  # C-terminus
+        #     #         for window_position in range(seq_idx - half_window, sequence_length):
+        #     #             if window_position == seq_idx - half_window:
+        #     #                 position_sum += 0.5 * sequence_array[window_position]
+        #     #             else:
+        #     #                 position_sum += sequence_array[window_position]
+        #     #     else:
+        #     #         for window_position in range(seq_idx - half_window, seq_idx + half_window + 1):
+        #     #             if window_position == seq_idx - half_window \
+        #     #                     or window_position == seq_idx + half_window + 1:
+        #     #                 position_sum += 0.5 * sequence_array[window_position]
+        #     #             else:
+        #     #                 position_sum += sequence_array[window_position]
+        #     #     window_array[array_idx][seq_idx] = position_sum / window_size
+
+    return window_array.mean(axis=0)  # hci
 
 
 @handle_errors(errors=(FileNotFoundError,))
