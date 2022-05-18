@@ -2489,8 +2489,8 @@ class DesignDirectory:  # (JobResources):
 
         # Assumes each structure is the same length
         entity_sequences = \
-            {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
-                      for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
+            {idx: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
+                   for design, sequence in pose_sequences.items()} for idx, entity in enumerate(self.pose.entities)}
         # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
         # sequence_mutations = \
         #     generate_multiple_mutations(self.pose.pdb.atom_sequences, pose_sequences, pose_num=False)
@@ -2654,8 +2654,8 @@ class DesignDirectory:  # (JobResources):
             [], [], []
         # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
         msa_metrics = True
-        wt_errat, inverse_residue_contact_order_z, contact_order = {}, {}, {}
-        for entity in self.pose.entities:
+        source_errat, contact_order, inverse_residue_contact_order_z = [], [], []
+        for idx, entity in enumerate(self.pose.entities):
             # we need to get the contact order, errat from the symmetric entity
             # entity.oligomer.get_sasa()
             entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
@@ -2667,22 +2667,21 @@ class DesignDirectory:  # (JobResources):
             per_residue_sasa_unbound_relative.extend(
                 [residue.relative_sasa for residue in entity_oligomer.residues[:entity.number_of_residues]])
             _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-            wt_errat[entity] = oligomeric_errat[:entity.number_of_residues]
+            source_errat.append(oligomeric_errat[:entity.number_of_residues])
             # Contact order is the same for every design in the Pose
             # Todo clean this behavior up as it is not good if entity is used downstream...
             #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity...
             entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
-            residue_contact_order = entity.contact_order
-            # residue_contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
-            contact_order[entity] = residue_contact_order  # save the contact order for plotting
-            residue_contact_order_z = \
-                z_score(residue_contact_order, residue_contact_order.mean(), residue_contact_order.std())
-            inverse_residue_contact_order_z[entity] = residue_contact_order_z * -1
+            contact_order = entity.contact_order
+            # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
+            contact_order.append(contact_order)  # save the contact order for plotting
+            residue_contact_order_z = z_score(contact_order, contact_order.mean(), contact_order.std())
+            inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
         per_residue_data['sasa_hydrophobic_bound'][pose_source] = per_residue_sasa_unbound_apolar
         per_residue_data['sasa_polar_bound'][pose_source] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound'][pose_source] = per_residue_sasa_unbound_relative
 
-        pose_source_errat_s = pd.Series(np.concatenate(list(wt_errat.values())), index=residue_indices)
+        pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
         per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
 
         # Compute structural measurements for all designs
@@ -2753,14 +2752,13 @@ class DesignDirectory:  # (JobResources):
         # Calculate hydrophobic collapse for each design
         # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
         # Calculate Reference sequence statistics
-        collapse_df, wt_collapse_bool, wt_collapse_z_score = {}, {}, {}
+        collapse_df, reference_collapse_bool, reference_collapse_z_score = [], [], []
         reference_collapse_concat = []
-        for entity, design_sequences in entity_sequences.items():
-            # Todo separate sequence measures below from reliance on pose_source to potential reference sequence...
-            reference_collapse = hydrophobic_collapse_index(entity.sequence)
+        for idx, entity in enumerate(self.pose.entities):
+            reference_collapse = hydrophobic_collapse_index(entity_sequences[idx][PUtils.reference_name])
             reference_collapse_concat.append(reference_collapse)
             # reference_collapse = hydrophobic_collapse_index(self.resources.sequences.retrieve_data(name=entity.name))
-            wt_collapse_bool[entity] = np.where(reference_collapse > collapse_significance_threshold, 1, 0)
+            reference_collapse_bool.append(np.where(reference_collapse > collapse_significance_threshold, 1, 0))
             # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
             entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
@@ -2772,12 +2770,12 @@ class DesignDirectory:  # (JobResources):
                                   'there is no MSA found. These include: %s'
                                   % ', '.join(multiple_sequence_alignment_dependent_metrics))
                     # set anything found to null values
-                    collapse_df, wt_collapse_z_score = {}, {}
+                    collapse_df, reference_collapse_z_score = [], []
                     msa_metrics = False
                     continue
                 collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
-                collapse_df[entity] = collapse
-                wt_collapse_z_score[entity] = z_score(reference_collapse, collapse.loc[mean, :], collapse.loc[std, :])
+                collapse_df.append(collapse)
+                reference_collapse_z_score.append(z_score(reference_collapse, collapse.loc[mean, :], collapse.loc[std, :]))
         # reference_collapse_concat_s = pd.Series(np.concatenate(reference_collapse_concat), index=residue_indices)
         # per_residue_data['hydrophobic_collapse'][PUtils.reference_name] = reference_collapse_concat_s
         # A measure of the sequential, the local, the global, and the significance all constitute interesting
@@ -2816,8 +2814,9 @@ class DesignDirectory:  # (JobResources):
             hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
             contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, \
                 global_collapse_z_sum, collapse_concatenated = [], [], [], [], []
-            for entity in self.pose.entities:
-                sequence = entity_sequences[entity][design]
+            for entity_idx, design_sequences in entity_sequences.items():
+                sequence = design_sequences[design]
+                sequence_length = len(sequence)
                 standardized_collapse = hydrophobic_collapse_index(sequence)
                 collapse_concatenated.append(standardized_collapse)
                 # Todo -> observed_collapse, standardized_collapse = hydrophobic_collapse_index(sequence)
@@ -2826,41 +2825,40 @@ class DesignDirectory:  # (JobResources):
                 # collapse_propensity = np.where(standardized_collapse > 0.43, standardized_collapse - 0.43, 0)
                 # scale the collapse propensity by the standard collapse threshold and make z score
                 collapse_propensity_z = z_score(standardized_collapse, collapse_significance_threshold, 0.05)
-                collapse_propensity_positive_z_only = np.where(collapse_propensity_z > 0, collapse_propensity_z, 0)
+                collapse_propensity_z_positive = np.where(collapse_propensity_z > 0, collapse_propensity_z, 0)
                 # ^ [0, 0, 0, 0, 0.04, 0.06, 0, 0, 0.1, 0.07, ...]
                 # collapse_bool = np.where(standardized_collapse > 0.43, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-                collapse_bool = np.where(collapse_propensity_positive_z_only, 1, 0)  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
-                increased_collapse = np.where(collapse_bool - wt_collapse_bool[entity] == 1, 1, 0)
+                collapse_bool = np.nonzero(collapse_propensity_z_positive)[0]  # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
+                reference_collapse = reference_collapse_bool[entity_idx]
+                increased_collapse = np.where(collapse_bool - reference_collapse == 1, 1, 0)
                 # check if the increased collapse has made new collapse
-                new_collapse = np.zeros(collapse_bool.shape)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
+                new_collapse = np.zeros(collapse_propensity_z.shape)  # [0, 0, 1, 1, 0, 0, 0, 0, 0, 0, ...]
                 for idx, _bool in enumerate(increased_collapse.tolist()[1:-1], 1):
-                    if _bool and (not wt_collapse_bool[entity][idx - 1] or not wt_collapse_bool[entity][idx + 1]):
+                    if _bool and (not reference_collapse[idx - 1] or not reference_collapse[idx + 1]):
                         new_collapse[idx] = _bool
                 # new_collapse are sites where a new collapse is formed compared to wild-type
 
                 # # we must give a copy of coords_indexed_residues from the pose to each entity...
                 # entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
-                # residue_contact_order = entity.contact_order
-                # contact_order_concatenated.append(residue_contact_order)
-                # inverse_residue_contact_order = max(residue_contact_order) - residue_contact_order
+                # contact_order = entity.contact_order
+                # contact_order_concatenated.append(contact_order)
+                # inverse_residue_contact_order = max(contact_order) - contact_order
                 # residue_contact_order_mean, residue_contact_order_std = \
-                #     residue_contact_order[entity].mean(), residue_contact_order[entity].std()
+                #     contact_order[entity_idx].mean(), contact_order[entity_idx].std()
                 # residue_contact_order_z = \
-                #     z_score(residue_contact_order, residue_contact_order_mean, residue_contact_order_std)
+                #     z_score(contact_order, residue_contact_order_mean, residue_contact_order_std)
                 # inverse_residue_contact_order_z = residue_contact_order_z * -1
 
-                # use the contact order (or inverse) to multiply by hci in order to understand the designability of
-                # the specific area and its resulting folding modification
-                # The multiplication by positive collapsing z-score will indicate the degree to which low contact
-                # order stretches are reliant on collapse as a folding mechanism, while high contact order are
-                # negative and the locations of highly negative values indicate high contact order use of collapse
-                collapse_significance = inverse_residue_contact_order_z[entity] * collapse_propensity_positive_z_only
+                # use contact order and hci to understand designability of an area and its folding modification
+                # Indicate the degree to which low contact order segments (+) are reliant on collapse for folding, while
+                # high contact order (-) use collapse
+                collapse_significance = inverse_residue_contact_order_z[entity_idx] * collapse_propensity_z_positive
 
-                collapse_peak_start = np.zeros(collapse_bool.shape)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
-                sequential_collapse_points = np.zeros(collapse_bool.shape)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ...]
-                new_collapse_peak_start = np.zeros(collapse_bool.shape)  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
+                collapse_peak_start = np.zeros(collapse_propensity_z.shape)  # [0, 0, 0, 0, 1, 0, 0, 0, 1, 0, ...]
+                sequential_collapse_points = np.zeros(collapse_propensity_z.shape)  # [0, 0, 0, 0, 1, 1, 0, 0, 2, 2, ..]
+                new_collapse_peak_start = np.zeros(collapse_propensity_z.shape)  # [0, 0, 0, 1, 0, 0, 0, 0, 0, 0, ...]
                 collapse_iterator = 0
-                for idx, _ in enumerate(collapse_bool.tolist()[1:], 1):  # peak_value
+                for idx in range(1, collapse_propensity_z.shape[0]):
                     # check for the new_collapse islands and collapse peak start position by neighbor res similarity
                     if new_collapse[idx] > new_collapse[idx - 1]:  # only true when 0 -> 1 transition
                         new_collapse_peak_start[idx] = 1
@@ -2880,21 +2878,21 @@ class DesignDirectory:  # (JobResources):
                 # v [0, 0, 0, 0, 2, 2, 0, 0, 1.8, 1.8, ...]
                 sequential_collapse_weights = scale * ((1 - (step * sequential_collapse_points)) + add_step_array)
                 # v [2, 1.98, 1.96, 1.94, 1.92, ...]
-                sequential_weights = scale * (1 - (np.arange(entity.number_of_residues) / entity.number_of_residues))
+                sequential_weights = scale * (1 - (np.arange(sequence_length) / sequence_length))
 
                 new_collapse_islands.append(new_collapse_peak_start.sum())
                 new_collapse_island_significance.append(sum(new_collapse_peak_start * abs(collapse_significance)))
 
                 if msa_metrics:
                     z_array = z_score(standardized_collapse,  # observed_collapse,
-                                      collapse_df[entity].loc[mean, :], collapse_df[entity].loc[std, :])
+                                      collapse_df[entity_idx].loc[mean, :], collapse_df[entity_idx].loc[std, :])
                     # todo test for magnitude of the wt versus profile, remove subtraction?
-                    normalized_collapse_z = z_array - wt_collapse_z_score[entity]
+                    normalized_collapse_z = z_array - reference_collapse_z_score[entity_idx]
                     hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
                     global_collapse_z = np.where(normalized_collapse_z > 0, normalized_collapse_z, 0)
                     # offset inverse_residue_contact_order_z to center at 1 instead of 0. Todo deal with negatives
                     contact_order_collapse_z_sum.append(
-                        sum((inverse_residue_contact_order_z[entity] + 1) * global_collapse_z))
+                        sum((inverse_residue_contact_order_z[entity_idx] + 1) * global_collapse_z))
                     sequential_collapse_peaks_z_sum.append(sum(sequential_collapse_weights * global_collapse_z))
                     sequential_collapse_z_sum.append(sum(sequential_weights * global_collapse_z))
                     global_collapse_z_sum.append(global_collapse_z.sum())
@@ -3046,18 +3044,18 @@ class DesignDirectory:  # (JobResources):
                               left_index=True, right_index=True)
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
-        entity_alignments = {entity: msa_from_dictionary(design_sequences)
-                             for entity, design_sequences in entity_sequences.items()}
+        # entity_alignments = \
+        #     {idx: msa_from_dictionary(design_sequences) for idx, design_sequences in entity_sequences.items()}
         # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
         dca_design_residues_concat = []
         dca_succeed = True
         # dca_background_energies, dca_design_energies = [], []
         dca_background_energies, dca_design_energies = {}, {}
-        for entity in self.pose.entities:
-            try:
-                # TODO add these to the analysis
+        for idx, entity in enumerate(self.pose.entities):
+            try:  # TODO add these to the analysis
                 dca_background_residue_energies = entity.direct_coupling_analysis()
-                dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignments[entity])
+                entity_alignment = msa_from_dictionary(entity_sequences[idx])
+                dca_design_residue_energies = entity.direct_coupling_analysis(msa=entity_alignment)
                 dca_design_residues_concat.append(dca_design_residue_energies)
                 # dca_background_energies.append(dca_background_energies.sum(axis=1))
                 # dca_design_energies.append(dca_design_energies.sum(axis=1))
@@ -3071,7 +3069,8 @@ class DesignDirectory:  # (JobResources):
         if dca_succeed:
             # concatenate along columns, adding residue index to column, design name to row
             dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
-                                               index=list(entity_sequences[entity].keys()), columns=residue_indices)
+                                               index=list(entity_sequences[0].keys()), columns=residue_indices)
+            # get all design names                                         ^
             dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy']).swaplevel(0, 1, axis=1)
             # merge with per_residue_df
             residue_df = pd.merge(residue_df, dca_concatenated_df, left_index=True, right_index=True)
@@ -3505,10 +3504,8 @@ class DesignDirectory:  # (JobResources):
             # collapse_ax, contact_ax, errat_ax = fig.subplots(3, 1, sharex=True)
             collapse_ax, errat_ax = fig.subplots(2, 1, sharex=True)
             # add the contact order to a new plot
-            wt_contact_order_concatenated_s = \
-                pd.Series(np.concatenate(list(contact_order.values())), index=residue_indices, name='contact_order')
             contact_ax = collapse_ax.twinx()
-            contact_ax.plot(wt_contact_order_concatenated_s, label='Contact Order',
+            contact_ax.plot(pose_source_contact_order_s, label='Contact Order',
                             color='#fbc0cb', lw=1, linestyle='-')  # pink
             # contact_ax.scatter(residue_indices, wt_contact_order_concatenated_s, color='#fbc0cb', marker='o')  # pink
             # wt_contact_order_concatenated_min_s = wt_contact_order_concatenated_s.min()
@@ -3565,9 +3562,9 @@ class DesignDirectory:  # (JobResources):
             # Plot: Collapse description of total profile against each design
             if msa_metrics:
                 profile_mean_collapse_concatenated_s = \
-                    pd.concat([collapse_df[entity].loc['mean', :] for entity in self.pose.entities], ignore_index=True)
+                    pd.concat([collapse_df[idx].loc[mean, :] for idx in range(self.pose.number_of_entities)], ignore_index=True)
                 profile_std_collapse_concatenated_s = \
-                    pd.concat([collapse_df[entity].loc['std', :] for entity in self.pose.entities], ignore_index=True)
+                    pd.concat([collapse_df[idx].loc[std, :] for idx in range(self.pose.number_of_entities)], ignore_index=True)
                 profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
                 profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
                 collapse_graph_describe_df = pd.DataFrame({
@@ -3584,8 +3581,8 @@ class DesignDirectory:  # (JobResources):
             # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
             # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             errat_graph_df = errat_df
-            # wt_errat_concatenated_s = pd.Series(np.concatenate(list(wt_errat.values())), name='clean_asu')
-            errat_graph_df['clean_asu'] = pose_source_errat_s
+            # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
+            # errat_graph_df[pose_source] = pose_source_errat_s
             errat_graph_df.index += 1  # offset index to residue numbering
             errat_graph_df.sort_index(axis=1, inplace=True)
             # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
