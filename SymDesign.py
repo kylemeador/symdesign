@@ -1822,12 +1822,12 @@ if __name__ == '__main__':
             zipped_args = zip(design_directories, repeat(args.join), repeat(args.save), repeat(args.figures))
             results = SDUtils.mp_starmap(DesignDirectory.design_analysis, zipped_args, processes=cores)
         else:
-            @profile
-            def run_single_analysis():
-                for design in design_directories:
-                    results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=args.save,
-                                                          figures=args.figures))
-            run_single_analysis()
+            # @profile  # memory_profiler
+            # def run_single_analysis():
+            for design in design_directories:
+                results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=args.save,
+                                                      figures=args.figures))
+            # run_single_analysis()
         terminate(results=results)
     # ---------------------------------------------------
     # elif args.module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
