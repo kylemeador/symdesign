@@ -2442,7 +2442,7 @@ class DesignDirectory:  # (JobResources):
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    @profile
+    # @profile  # memory_profiler
     def design_analysis(self, merge_residue_data: bool = False, save_trajectories: bool = True, figures: bool = False) \
             -> pd.Series:  # Todo interface_design_analysis
         """Retrieve all score information from a DesignDirectory and write results to .csv file
