@@ -3304,7 +3304,7 @@ def hydrophobic_collapse_index(sequence: str, hydrophobicity: str = 'standard', 
     if hydrophobicity == 'background':  # Todo
         raise DesignError('This function is not yet possible')
     hydrophobicity_values = hydrophobicity_scale.get(hydrophobicity)
-    sequence_array = np.ndarray([hydrophobicity_values.get(aa, 0) for aa in sequence])
+    sequence_array = np.array([hydrophobicity_values.get(aa, 0) for aa in sequence])
 
     # make an array with # of rows equal to range of windows used, length equal to # of characters in sequence
     sequence_length = len(sequence)
