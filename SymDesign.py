@@ -1565,7 +1565,10 @@ if __name__ == '__main__':
         required_memory = PUtils.baseline_program_memory + \
                           len(design_directories) * PUtils.approx_ave_design_directory_memory_w_pose * 0.2  # % error
     job.reduce_memory = True if psutil.virtual_memory().available < required_memory else False
-    # job.reduce_memory = True
+    print('Available: %f' % psutil.virtual_memory().available)
+    print('Requried: %f' % required_memory)
+    print('Reduce Memory?:', job.reduce_memory)
+    job.reduce_memory = True
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
@@ -1820,7 +1823,7 @@ if __name__ == '__main__':
             zipped_args = zip(design_directories, repeat(args.join), repeat(args.save), repeat(args.figures))
             results = SDUtils.mp_starmap(DesignDirectory.design_analysis, zipped_args, processes=cores)
         else:
-            # @profile
+            @profile
             def run_single_analysis():
                 for design in design_directories:
                     results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=args.save,
