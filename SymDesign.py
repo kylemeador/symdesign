@@ -1559,11 +1559,20 @@ if __name__ == '__main__':
         # job = JobResources(queried_flags['output_directory'])
         pass
     # Format job specific details based on the input
-    if args.module == PUtils.nano:
-        required_memory = PUtils.baseline_program_memory + 30000000000  # 30 GB ?
+    if args.module == PUtils.nano:  # Todo
+        required_memory = PUtils.baseline_program_memory + PUtils.nanohedra_memory  # 30 GB ?
+    elif args.module == PUtils.analysis:
+        required_memory = (PUtils.baseline_program_memory +
+                           len(design_directories) * PUtils.approx_ave_design_directory_memory_w_assembly) * 1.2
     else:
         required_memory = (PUtils.baseline_program_memory +
-                           len(design_directories) * PUtils.approx_ave_design_directory_memory_w_pose) * 1.2  # % error
+                           len(design_directories) * PUtils.approx_ave_design_directory_memory_w_pose) * 1.2
+    if args.module == PUtils.interface_design and not queried_flags[PUtils.no_evolution_constraint]:  # hhblits to run
+        if psutil.virtual_memory().available <= required_memory + hhblits_memory_threshold:
+            logger.critical('The amount of memory for the computer is insufficient to run hhblits (required for '
+                            'designing with evolution)! Please allocate the job to a computer with more memory or the '
+                            'process will fail. Otherwise, select --%s' % PUtils.no_evolution_constraint)
+
     job.reduce_memory = True if psutil.virtual_memory().available < required_memory else False
     logger.info('Available: %f' % psutil.virtual_memory().available)
     logger.info('Requried: %f' % required_memory)
@@ -1783,11 +1792,7 @@ if __name__ == '__main__':
         #         ' %s at a time. This will speed up pose processing ~%f-fold.' %
         #         (CommmandDistributer.mpi - 1, PUtils.nstruct / (CommmandDistributer.mpi - 1)))
         #     queried_flags.update({'mpi': True, 'script': True})
-        if queried_flags['design_with_evolution']:
-            if psutil.virtual_memory().available <= hhblits_memory_threshold:
-                logger.critical('The amount of virtual memory for the computer is insufficient to run hhblits '
-                                '(the backbone of --design_with_evolution)! Please allocate the job to a computer with '
-                                'more memory or the process will fail. Otherwise, select --design_with_evolution False')
+        if not queried_flags[PUtils.no_evolution_constraint]:  # hhblits to run
             job.make_path(job.sequences)
             job.make_path(job.profiles)
         # Start pose processing and preparation for Rosetta
