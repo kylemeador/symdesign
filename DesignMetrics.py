@@ -314,8 +314,8 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'The Nanohedra Score normalized by number of fragment residues',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'new_collapse_island_significance':
-                      {'description': 'The significance of new locations of collapse ranked by proximity to the '
-                                      'sequence start',
+                      {'description': 'The significance of new collapse islands according to their inverse signficance '
+                                      'towards the contact order',
                        'direction': 'min', 'function': 'rank', 'filter': True},
                   'new_collapse_islands':
                       {'description': 'The number of new collapse islands found',
