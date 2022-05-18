@@ -1820,7 +1820,7 @@ if __name__ == '__main__':
             zipped_args = zip(design_directories, repeat(args.join), repeat(args.save), repeat(args.figures))
             results = SDUtils.mp_starmap(DesignDirectory.design_analysis, zipped_args, processes=cores)
         else:
-            @profile
+            # @profile
             def run_single_analysis():
                 for design in design_directories:
                     results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=args.save,
