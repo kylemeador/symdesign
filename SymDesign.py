@@ -1799,9 +1799,9 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == PUtils.analysis:  # -o output, -f figures, -n no_save, -j join
         if args.no_save:
-            save = False
+            args.save = False
         else:
-            save = True
+            args.save = True
         # job = next(iter(design_directories))
         # ensure analysis write directory exists
         job.make_path(job.all_scores)
@@ -1817,12 +1817,15 @@ if __name__ == '__main__':
                             % args.output_file)
             exit(1)
         if args.multi_processing:
-            zipped_args = zip(design_directories, repeat(args.join), repeat(save), repeat(args.figures))
+            zipped_args = zip(design_directories, repeat(args.join), repeat(args.save), repeat(args.figures))
             results = SDUtils.mp_starmap(DesignDirectory.design_analysis, zipped_args, processes=cores)
         else:
-            for design in design_directories:
-                results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
-                                                      figures=args.figures))
+            @profile
+            def run_single_analysis():
+                for design in design_directories:
+                    results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=args.save,
+                                                          figures=args.figures))
+            run_single_analysis()
         terminate(results=results)
     # ---------------------------------------------------
     # elif args.module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
