@@ -59,6 +59,7 @@ stats_metrics = [mean, std]
 residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
+variance = 0.8
 
 
 class JobResources:
@@ -2447,7 +2448,7 @@ class DesignDirectory:  # (JobResources):
             -> pd.Series:  # Todo interface_design_analysis
         """Retrieve all score information from a DesignDirectory and write results to .csv file
 
-        Keyword Args:
+        Args:
             merge_residue_data: Whether to incorporate residue data into Pose DataFrame
             save_trajectories: Whether to save trajectory and residue DataFrames
             figures: Whether to make and save pose figures
@@ -3262,11 +3263,11 @@ class DesignDirectory:  # (JobResources):
             residue_energy_df = residue_df.loc[:, idx_slice[:, 'energy_delta']]
 
             scaler = StandardScaler()
-            res_pca = PCA(PUtils.variance)  # P432 designs used 0.8 percent of the variance
+            res_pca = PCA(variance)  # P432 designs used 0.8 percent of the variance
             residue_energy_np = scaler.fit_transform(residue_energy_df.values)
             residue_energy_pc = res_pca.fit_transform(residue_energy_np)
 
-            seq_pca = PCA(PUtils.variance)
+            seq_pca = PCA(variance)
             designed_residue_info = {design: {residue: info for residue, info in residues_info.items()
                                               if residue in self.design_residues}
                                      for design, residues_info in residue_info.items()}
@@ -3687,7 +3688,7 @@ class DesignDirectory:  # (JobResources):
             pairwise_sequence_diff_mat = sym(pairwise_sequence_diff_mat)
 
             pairwise_sequence_diff_mat = StandardScaler().fit_transform(pairwise_sequence_diff_mat)
-            seq_pca = PCA(PUtils.variance)
+            seq_pca = PCA(variance)
             seq_pc_np = seq_pca.fit_transform(pairwise_sequence_diff_mat)
             seq_pca_distance_vector = pdist(seq_pc_np)
             # epsilon = math.sqrt(seq_pca_distance_vector.mean()) * 0.5
