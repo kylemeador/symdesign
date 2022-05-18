@@ -2629,7 +2629,7 @@ class DesignDirectory:  # (JobResources):
         scores_df = scores_df.astype(float)  # , copy=False, errors='ignore')
 
         # per residue data includes every residue in the pose
-        per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {},
+        per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {}, 'contact_order': {},
                             'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
                             'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
         # 'local_density': {},
