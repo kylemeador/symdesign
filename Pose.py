@@ -1223,19 +1223,16 @@ class SymmetricModel(Model):
         try:
             return self._assembly
         except AttributeError:
-            if not self.models:
-                self.get_assembly_symmetry_mates()  # default to surrounding_uc generation, but only return contacting
             if self.dimension > 0:
-                selected_models = self.return_asu_interaction_models()
-                self.log.debug('Found selected models %s for assembly' % selected_models)
+                self._assembly = self.assembly_minimally_contacting
             else:
-                selected_models = list(range(self.number_of_models))
-
-            chains = []
-            for idx in selected_models:
-                chains.extend(self.models[idx].chains)
-            self._assembly = PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
-                                             cryst_record=self.cryst_record, entities=False)
+                if not self.models:
+                    self.get_assembly_symmetry_mates()
+                chains = []
+                for model in self.models:
+                    chains.extend(model.chains)
+                self._assembly = PDB.from_chains(chains, name='assembly', log=self.log, entities=False,
+                                                 biomt_header=self.format_biomt(), cryst_record=self.cryst_record)
             return self._assembly
 
     @property
