@@ -587,7 +587,7 @@ if __name__ == '__main__':
     parser.add_argument('-C', '--cluster_map', type=os.path.abspath,
                         help='The location of a serialized file containing spatially or interfacially clustered poses')
     parser.add_argument('-c', '--cores', type=int,
-                        help='Number of cores to use with --multiprocessing. If -mp is run in a cluster environment, '
+                        help='Number of cores to use with --multi_processing. If -mp is run in a cluster environment, '
                              'the number of cores will reflect the allocation provided by the cluster, otherwise, '
                              'specify the number of cores\nDefault=#ofCores - 1')
     parser.add_argument('-d', '--directory', type=os.path.abspath, metavar=SDUtils.ex_path('your_pdb_files'),
@@ -633,7 +633,7 @@ if __name__ == '__main__':
                         help='Whether to fetch and store resources for each Structure in the sequence/structure '
                              'database')
     parser.add_argument('-mp', '--multi_processing', action='store_true',
-                        help='Should job be run with multiprocessing?\nDefault=False')
+                        help='Should job be run with multiple processors?\nDefault=False')
     parser.add_argument('-no', '--nanohedra_output', action='store_true',
                         help='Whether the directory in question is a Nanohedra docking output')
     parser.add_argument('-od', '--output_directory', type=os.path.abspath, default=None,
@@ -1147,12 +1147,12 @@ if __name__ == '__main__':
     low, high, low_range, high_range = None, None, None, None
 
     if args.multi_processing:
-        # Calculate the number of threads to use depending on computer resources
-        threads = SDUtils.calculate_mp_threads(cores=args.cores)  # mpi=args.mpi, Todo
-        logger.info('Starting multiprocessing using %d threads' % threads)
+        # Calculate the number of cores to use depending on computer resources
+        cores = SDUtils.calculate_mp_cores(cores=args.cores)  # mpi=args.mpi, Todo
+        logger.info('Starting multiprocessing using %d cores' % cores)
     else:
-        threads = 1
-        logger.info('Starting processing. If single process is taking awhile, use -mp during submission')
+        cores = 1
+        logger.info('Starting processing. If single process is taking awhile, use --multi_processing during submission')
 
     # Set up JobResources, DesignDirectories input and outputs or Nanohedra inputs
     symdesign_directory = SDUtils.get_base_symdesign_dir(args.directory)
@@ -1413,8 +1413,8 @@ if __name__ == '__main__':
             # Todo set up a job based data acquisition as it takes some time and isn't always necessary!
             job.resources.load_all_data()
             # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
-            # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, threads=threads)
-            # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, threads=threads)
+            # SDUtils.mp_map(DesignDirectory.set_up_design_directory, design_directories, processes=cores)
+            # SDUtils.mp_map(DesignDirectory.link_master_database, design_directories, processes=cores)
         # else:  # for now just do in series
         for design in design_directories:
             design.set_up_design_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
@@ -1602,7 +1602,7 @@ if __name__ == '__main__':
         args.to_design_directory = True  # default to True when using this module
         if args.multi_processing:
             zipped_args = zip(design_directories, repeat(args.to_design_directory))
-            results = SDUtils.mp_starmap(DesignDirectory.orient, zipped_args, threads=threads)
+            results = SDUtils.mp_starmap(DesignDirectory.orient, zipped_args, processes=cores)
         else:
             for design_dir in design_directories:
                 results.append(design_dir.orient(to_design_directory=args.to_design_directory))
@@ -1611,7 +1611,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == 'find_asu':
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.find_asu, design_directories, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.find_asu, design_directories, processes=cores)
         else:
             for design_dir in design_directories:
                 results.append(design_dir.find_asu())
@@ -1620,7 +1620,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == 'expand_asu':
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.expand_asu, design_directories, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.expand_asu, design_directories, processes=cores)
         else:
             for design_dir in design_directories:
                 results.append(design_dir.expand_asu())
@@ -1629,7 +1629,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == 'rename_chains':
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.rename_chains, design_directories, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.rename_chains, design_directories, processes=cores)
         else:
             for design_dir in design_directories:
                 results.append(design_dir.rename_chains())
@@ -1638,7 +1638,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == 'check_clashes':
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.check_clashes, design_directories, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.check_clashes, design_directories, processes=cores)
         else:
             for design_dir in design_directories:
                 results.append(design_dir.check_clashes())
@@ -1647,7 +1647,7 @@ if __name__ == '__main__':
     # ---------------------------------------------------
     elif args.module == PUtils.generate_fragments:  # Todo or queried_flags.get(PUtils.generate_fragments):
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.generate_interface_fragments, design_directories, processes=cores)
         else:
             for design in design_directories:
                 results.append(design.generate_interface_fragments())
@@ -1674,7 +1674,7 @@ if __name__ == '__main__':
                                   repeat(args.rotation_step1), repeat(args.rotation_step2), repeat(args.min_matched),
                                   repeat(args.high_quality_match_value), repeat(args.initial_z_value),
                                   repeat(args.output_assembly), repeat(args.output_surrounding_uc), repeat(bb_logger))
-                results = SDUtils.mp_starmap(nanohedra_dock, zipped_args, threads=threads)
+                results = SDUtils.mp_starmap(nanohedra_dock, zipped_args, processes=cores)
             else:  # using combinations of directories with .pdb files
                 for entity1, entity2 in entity_pairs:
                     master_logger.info('Docking %s / %s' % (entity1.name, entity1.name))
@@ -1723,7 +1723,7 @@ if __name__ == '__main__':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # zipped_args = zip(design_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
-            results = SDUtils.mp_map(DesignDirectory.interface_metrics, design_directories, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.interface_metrics, design_directories, processes=cores)
         else:
             for design in design_directories:
                 # if design.sym_entry is None:
@@ -1736,7 +1736,7 @@ if __name__ == '__main__':
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
             # zipped_args = zip(design_directories, repeat(args.force_flags), repeat(queried_flags.get('development')))
-            results = SDUtils.mp_map(DesignDirectory.optimize_designs, design_directories, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.optimize_designs, design_directories, processes=cores)
         else:
             for design in design_directories:
                 results.append(design.optimize_designs())
@@ -1749,7 +1749,7 @@ if __name__ == '__main__':
             zipped_args = zip(design_directories, repeat(args.script), repeat(args.force_flags),
                               repeat(args.file_list), repeat(args.native), repeat(args.suffix), repeat(args.score_only),
                               repeat(args.variables))
-            results = SDUtils.mp_starmap(DesignDirectory.custom_rosetta_script, zipped_args, threads=threads)
+            results = SDUtils.mp_starmap(DesignDirectory.custom_rosetta_script, zipped_args, processes=cores)
         else:
             for design in design_directories:
                 results.append(design.custom_rosetta_script(args.script, force_flags=args.force_flags,
@@ -1764,7 +1764,7 @@ if __name__ == '__main__':
         if args.multi_processing:
             zipped_args = zip(design_directories, repeat(args.to_design_directory), repeat(args.interface_to_alanine),
                               repeat(args.gather_metrics))
-            results = SDUtils.mp_starmap(DesignDirectory.refine, zipped_args, threads=threads)
+            results = SDUtils.mp_starmap(DesignDirectory.refine, zipped_args, processes=cores)
         else:
             for design in design_directories:
                 results.append(design.refine(to_design_directory=args.to_design_directory,
@@ -1790,7 +1790,7 @@ if __name__ == '__main__':
             job.make_path(job.profiles)
         # Start pose processing and preparation for Rosetta
         if args.multi_processing:
-            results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, threads=threads)
+            results = SDUtils.mp_map(DesignDirectory.interface_design, design_directories, processes=cores)
         else:
             for design in design_directories:
                 results.append(design.interface_design())
@@ -1818,7 +1818,7 @@ if __name__ == '__main__':
             exit(1)
         if args.multi_processing:
             zipped_args = zip(design_directories, repeat(args.join), repeat(save), repeat(args.figures))
-            results = SDUtils.mp_starmap(DesignDirectory.design_analysis, zipped_args, threads=threads)
+            results = SDUtils.mp_starmap(DesignDirectory.design_analysis, zipped_args, processes=cores)
         else:
             for design in design_directories:
                 results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=save,
@@ -1860,8 +1860,8 @@ if __name__ == '__main__':
     #                                                                                         for fail in failures))
     #     if args.multi_processing:
     #         zipped_args = zip(design_directories, repeat(args.increment))
-    #         results = SDUtils.mp_starmap(rename, zipped_args, threads=threads)
-    #         results2 = SDUtils.mp_map(merge_design_pair, directory_pairs, threads)
+    #         results = SDUtils.mp_starmap(rename, zipped_args, processes=cores)
+    #         results2 = SDUtils.mp_map(merge_design_pair, directory_pairs, processes=cores)
     #     else:
     #         for des_directory in design_directories:
     #             rename(des_directory, increment=args.increment)
@@ -1927,7 +1927,7 @@ if __name__ == '__main__':
                                           for pose in selected_poses]
                     compositions = group_compositions(design_directories)
                     if args.multi_processing:
-                        results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
+                        results = SDUtils.mp_map(cluster_designs, compositions.values(), processes=cores)
                         pose_cluster_map = {}
                         for result in results:
                             pose_cluster_map.update(result.items())
@@ -2038,7 +2038,7 @@ if __name__ == '__main__':
             design_pairs = []
             if args.multi_processing:
                 # zipped_args = zip(combinations(design_interfaces, 2))
-                design_scores = SDUtils.mp_starmap(ialign, combinations(design_interfaces, 2), threads=threads)
+                design_scores = SDUtils.mp_starmap(ialign, combinations(design_interfaces, 2), processes=cores)
 
                 for idx, is_score in enumerate(design_scores):
                     if is_score > is_threshold:
@@ -2075,7 +2075,7 @@ if __name__ == '__main__':
             # First, identify the same compositions
             compositions = group_compositions(design_directories)
             if args.multi_processing:
-                results = SDUtils.mp_map(cluster_designs, compositions.values(), threads=threads)
+                results = SDUtils.mp_map(cluster_designs, compositions.values(), processes=cores)
                 for result in results:
                     pose_cluster_map.update(result.items())
             else:
@@ -2170,8 +2170,8 @@ if __name__ == '__main__':
                 #                     'int_energy_res_summary_delta': 0.25}
                 zipped_args = zip(design_directories, repeat(sequence_filters), repeat(sequence_weights),
                                   repeat(args.number_sequences), repeat(args.protocol))
-                # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, threads))
-                result_mp = SDUtils.mp_starmap(DesignDirectory.select_sequences, zipped_args, threads)
+                # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=cores))
+                result_mp = SDUtils.mp_starmap(DesignDirectory.select_sequences, zipped_args, processes=cores)
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
                 # could simply return the design index then zip with the directory
                 results = {design: results for design, result in zip(design_directories, result_mp)}

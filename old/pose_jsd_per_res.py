@@ -68,11 +68,11 @@ if __name__ == '__main__':
 
     # Start Pose processing
     if args.multi_processing:
-        # Calculate the number of threads to use depending on computer resources
-        mp_threads = SDUtils.calculate_mp_threads(analysis=True)
-        logger.info('Starting multiprocessing using %s threads' % str(mp_threads))
+        # Calculate the number of cores to use depending on computer resources
+        cores = SDUtils.calculate_mp_cores()
+        logger.info('Starting multiprocessing using %s cores' % str(cores))
         zipped_args = zip(all_designs, repeat(args.debug))
-        pose_results, exceptions = SDUtils.old_mp_starmap(pose_jsd, zipped_args, mp_threads)
+        pose_results, exceptions = SDUtils.old_mp_starmap(pose_jsd, zipped_args, cores)
         print(type(pose_results[0]))
         # design_df = pd.concat([result for result in pose_results])
     else:

@@ -29,13 +29,13 @@ from utils.GeneralUtils import transform_coordinate_sets
 logger = start_log(name=__name__)
 
 
-def pose_rmsd_mp(all_des_dirs, threads=1):
+def pose_rmsd_mp(all_des_dirs, cores=1):
     """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
 
     Args:
         all_des_dirs (list[DesignDirectory]): List of relevant design directories
     Keyword Args:
-        threads: Number of multiprocessing threads to run
+        cores: Number of multiprocessing cores to run
     Returns:
         (dict): {composition: {pair1: {pair2: rmsd, ...}, ...}, ...}
     """
@@ -50,7 +50,7 @@ def pose_rmsd_mp(all_des_dirs, threads=1):
             # add all individual poses to a singles pool. pair2 is included in pair1, no need to add additional
             singlets[pair1.composition] = pair1
     # find the rmsd between a pair of poses.  multiprocessing to increase throughput
-    _results = mp_map(pose_pair_rmsd, pairs_to_process, threads=threads)
+    _results = mp_map(pose_pair_rmsd, pairs_to_process, processes=cores)
 
     # Make dictionary with all pairs
     for pair, pair_rmsd in zip(pairs_to_process, _results):

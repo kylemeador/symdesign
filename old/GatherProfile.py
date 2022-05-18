@@ -209,11 +209,11 @@ if __name__ == '__main__':
 
     bad_designs = []
     if args.multi_processing:
-        # calculate the number of threads to use depending on computer resources
-        mp_threads = 4
-        logger.info('Multiprocessing with %s multiprocessing threads' % str(mp_threads))
+        # calculate the number of cores to use depending on computer resources
+        cores = 4
+        logger.info('Multiprocessing with %s multiprocessing cores' % str(cores))
         zipped_args = zip(all_designs, repeat(args.debug))
-        results, exceptions = SDUtils.mp_starmap(generate_profile, zipped_args, mp_threads)
+        results, exceptions = SDUtils.mp_starmap(generate_profile, zipped_args, cores)
         if exceptions:
             logger.warning('The following exceptions were thrown. Design for these directories is inaccurate.')
             for exception in exceptions:

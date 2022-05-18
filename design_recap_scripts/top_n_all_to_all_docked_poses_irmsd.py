@@ -760,7 +760,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
         # directory_pairs.append((str(pair[0]), str(pair[1])))
 
     # print(directory_pairs)
-    irmsds, errors = zip(*SDUtils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, threads=threads))
+    irmsds, errors = zip(*SDUtils.mp_starmap(map_align_interface_chains_km_mp, zipped_args, processes=threads))
     irmsds = list(irmsds)
     errors = list(errors)
     for i, error in enumerate(errors):
