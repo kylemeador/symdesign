@@ -1562,13 +1562,12 @@ if __name__ == '__main__':
     if args.module == PUtils.nano:
         required_memory = PUtils.baseline_program_memory + 30000000000  # 30 GB ?
     else:
-        required_memory = PUtils.baseline_program_memory + \
-                          len(design_directories) * PUtils.approx_ave_design_directory_memory_w_pose * 0.2  # % error
+        required_memory = (PUtils.baseline_program_memory +
+                           len(design_directories) * PUtils.approx_ave_design_directory_memory_w_pose) * 1.2  # % error
     job.reduce_memory = True if psutil.virtual_memory().available < required_memory else False
     logger.info('Available: %f' % psutil.virtual_memory().available)
     logger.info('Requried: %f' % required_memory)
-    logger.info('Reduce Memory?:', job.reduce_memory)
-    job.reduce_memory = True
+    logger.info('Reduce Memory?: %s', job.reduce_memory)
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
