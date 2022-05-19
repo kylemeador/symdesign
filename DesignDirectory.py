@@ -2918,7 +2918,7 @@ class DesignDirectory:  # (JobResources):
         # not_pose_source_indices = per_residue_df.index != pose_source  # PUtils.reference_name
         # errat_df = per_residue_df.loc[not_pose_source_indices, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-        # include if errat score is < 2 std devs and isn't 0.  TODO what about measuring wild-type when no design?
+        # include if errat score is < 2 std devs and isn't 0
         source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
         # print('SEPARATE', (pose_source_errat_s < errat_2_sigma)[30:40], (pose_source_errat_s != 0.)[30:40])
         # print('LOGICAL AND\n', source_errat_inclusion_boolean[30:40])
@@ -3211,7 +3211,8 @@ class DesignDirectory:  # (JobResources):
         # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
         # consensus cst_weights are very large and destroy the mean.
         # remove this step for consensus or refine if they are run multiple times
-        trajectory_df = scores_df.sort_index().drop([PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
+        trajectory_df = \
+            scores_df.sort_index().drop([pose_source, PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
         # add all docking and pose information to each trajectory
         other_metrics_s = pd.Series(other_pose_metrics)
         pose_metrics_df = pd.concat([other_metrics_s] * len(trajectory_df), axis=1).T
