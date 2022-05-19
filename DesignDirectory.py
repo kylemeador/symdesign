@@ -172,7 +172,8 @@ class DesignDirectory:  # (JobResources):
         self.refined_pdb = None  # /program_root/Projects/project_Designs/design/design_name_refined.pdb
         self.scouted_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_scouted.pdb
         self.consensus_pdb = None  # /program_root/Projects/project_Designs/design/design_name_for_consensus.pdb
-        self.consensus_design_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_for_consensus.pdb
+        # /program_root/Projects/project_Designs/design/designs/design_name_for_consensus.pdb
+        self.consensus_design_pdb = None
         self.pdb_list = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
         self.design_profile_file = None  # /program_root/Projects/project_Designs/design/data/design.pssm
         self.evolutionary_profile_file = None  # /program_root/Projects/project_Designs/design/data/evolutionary.pssm
@@ -182,6 +183,7 @@ class DesignDirectory:  # (JobResources):
         # self._pose_transformation = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
         # self.cryst_record = None
         # self.expand_matrices = None
+        # Todo monitor if energy mechansims are modified for crystal set ups and adjust parameter accordingly
         self.modify_sym_energy = True if self.design_dimension in [2, 3] else False
         self.sym_def_file = None  # The symmetry definition file for the entire Pose
         if 'sym_entry' in kwargs:
@@ -1534,12 +1536,16 @@ class DesignDirectory:  # (JobResources):
         if self.interface_residues is False or self.interface_design_residues is False:
             # need these ^ for making flags so get them v
             self.identify_interface()
-            if not self.design_residues:  # we should always get an empty set if we have got to this point
-                raise DesignError('No residues were found with your design criteria... Your flags may be too stringent '
-                                  'or incorrect. If you are performing interface design, check that your input has an '
-                                  'interface')
-        else:
-            self.load_pose()
+
+        if len(self.symmetry_definition_files) != len(self.entity_names) or self.force_flags:
+            self.load_pose()  # Need to initialize the pose so each entity can get sdf created
+            for idx, entity in enumerate(self.pose.entities, 1):
+                if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+                    entity.make_sdf(out_path=self.data, modify_sym_energy_for_cryst=self.modify_sym_energy)
+                else:
+                    shutil.copy(os.path.join(PUtils.symmetry_def_files, 'C1.sym'),
+                                os.path.join(self.data, '%s.sdf' % entity.name))
+
         # interface_secondary_structure
         if not os.path.exists(self.flags) or self.force_flags:
             # self.prepare_symmetry_for_rosetta()
@@ -1567,15 +1573,15 @@ class DesignDirectory:  # (JobResources):
         entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
                                               % (PUtils.stage[3], '_DEV' if self.development else ''))]
         metric_cmds = [metric_cmd_bound]
-        for idx, entity in enumerate(self.pose.entities, 1):
-            if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
+        for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
+            if self.symmetric:
+                entity_sdf = 'sdf=%s' % os.path.join(self.data, '%s.sdf' % name)
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
             _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
                 ([entity_sdf] if entity_sdf != '' else [])
-            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
+            self.log.info('Metrics Command for Entity %s: %s' % (name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable to gather interface Metrics on all Designs
         if not self.run_in_shell:
@@ -1778,7 +1784,8 @@ class DesignDirectory:  # (JobResources):
         metric_cmds = []
         for idx, entity in enumerate(self.pose.entities, 1):
             if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
+                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
+                                                        modify_sym_energy_for_cryst=self.modify_sym_energy)
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
@@ -2166,7 +2173,8 @@ class DesignDirectory:  # (JobResources):
             metric_cmds = [metric_cmd_bound]
             for idx, entity in enumerate(self.pose.entities, 1):
                 if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                    entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
+                    entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
+                                                            modify_sym_energy_for_cryst=self.modify_sym_energy)
                     entity_sym = 'symmetry=make_point_group'
                 else:
                     entity_sdf, entity_sym = '', 'symmetry=asymmetric'
@@ -2433,7 +2441,8 @@ class DesignDirectory:  # (JobResources):
         metric_cmds = []
         for idx, entity in enumerate(self.pose.entities, 1):
             if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data, modify_sym_energy=True)
+                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
+                                                        modify_sym_energy_for_cryst=self.modify_sym_energy)
                 entity_sym = 'symmetry=make_point_group'
             else:
                 entity_sdf, entity_sym = '', 'symmetry=asymmetric'
