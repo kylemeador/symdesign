@@ -1090,11 +1090,11 @@ class DesignDirectory:  # (JobResources):
                 self.entity_names = self.info.get('entity_names', [])
                 self.oligomer_names = self.info.get('oligomer_names', [])
                 # These statements are a temporary patch Todo remove for SymDesign master branch
-                if not self.sym_entry:  # none was provided at initiation or in state
-                    if 'sym_entry' in self.info:
-                        self.sym_entry = self.info['sym_entry']  # get instance
-                        self.info.pop('sym_entry')  # remove this object
-                        self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+                # if not self.sym_entry:  # none was provided at initiation or in state
+                if 'sym_entry' in self.info:
+                    # self.sym_entry = self.info['sym_entry']  # get instance
+                    self.info.pop('sym_entry')  # remove this object
+                    self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
                 if not self.oligomer_names:
                     self.oligomer_names = self.info.get('entity_names', [])
                 if 'design_residue_ids' in self.info:  # format is old, convert
