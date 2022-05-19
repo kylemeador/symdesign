@@ -7,7 +7,7 @@ from collections.abc import Iterable
 from itertools import repeat
 from math import ceil
 from random import random  # , randint
-from typing import Union, List, Dict, IO, Optional, Sequence, Container
+from typing import Union, List, Dict, IO, Optional, Sequence, Container, Tuple
 
 import numpy as np
 from numpy.linalg import eigh, LinAlgError
@@ -2743,13 +2743,13 @@ class Structure(StructureBase):
         # return sum([sasa for residue_number, sasa in zip(self.sasa_residues, self.sasa) if residue_number in numbers])
         return sum([residue.sasa for residue in self.residues if residue.number in numbers])
 
-    def errat(self, out_path=os.getcwd()):
+    def errat(self, out_path: Union[str, bytes] = os.getcwd()) -> Tuple[float, np.ndarray]:
         """Find the overall and per residue Errat accuracy for the given Structure
 
-        Keyword Args:
-            out_path=os.getcwd(): The path where Errat files should be written
+        Args:
+            out_path: The path where Errat files should be written
         Returns:
-            (tuple[float,numpy.ndarray]): Overall Errat score, Errat value/residue array
+            Overall Errat score, Errat value/residue array
         """
         # name = 'errat_input-%s-%d.pdb' % (self.name, random() * 100000)
         # current_struc_file = self.write(out_path=os.path.join(out_path, name))
