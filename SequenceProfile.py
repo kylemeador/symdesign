@@ -2551,7 +2551,7 @@ def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62',
 
 def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, blanks: bool = False,
                        remove_termini: bool = True, remove_query_gaps: bool = True, only_gaps: bool = False,
-                       zero_index: bool = False, return_all: bool = True) -> Dict[int, Dict[str, str]]:
+                       zero_index: bool = False, return_all: bool = False) -> Dict[int, Dict[str, str]]:
     """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
      sequence index. Sequence mutations accessed by "from" and "to" keys. By default, all gaped sequences are excluded
      from returned mutation dictionary
@@ -3184,7 +3184,8 @@ def generate_mutations_from_reference(reference: str, sequences: Dict[str, str])
     """
     mutations = {alias: generate_mutations(reference, sequence, offset=False) for alias, sequence in sequences.items()}
     # add reference sequence mutations
-    mutations[PUtils.reference_name] = {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
+    mutations[PUtils.reference_name] = \
+        {sequence_idx: {'from': aa, 'to': aa} for sequence_idx, aa in enumerate(reference, 1)}
 
     return mutations
 
