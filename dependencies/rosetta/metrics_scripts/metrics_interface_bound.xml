@@ -109,7 +109,6 @@
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>
 		<PerResidueEnergyMetric name="M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_cst"/>
 		<PerResidueEnergyMetric name="M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_cst"/>
-		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_solvation"/>
 		# sasa is now measured with freesasa
 <!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="hydrophobic_sasa"/>-->
 <!--		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface" mode="polar_sasa"/>-->
@@ -121,8 +120,8 @@
 <!--		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_complex"/> # cache_prefix=""-->
 <!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_per_res" action="sum" use_cached_data="true" cache_suffix="_total_complex"/> # cache_prefix=""-->
 <!--		<CompositeEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_sym" scorefxn="2015_nano_solvation"/>-->
-		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_solvation"/>
-		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano_solvation"/>
+		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano_solvation"/>
+		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_solvation"/>
 		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
         <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
 		<SequenceMetric name="M_sequence" custom_type="" residue_selector="full_pose"/>
@@ -226,7 +225,7 @@
 		# Non cryst outputs
 		<Report name="R_full_stability_complex"				filter="full_stability_complex"/>
 		<Report name="R_favor_residue_energy" 				filter="favor_residue_energy"/>
-		<Report name="R_fsp_total_stability" 				filter="fsp_total_stability"/>
+<!--		<Report name="R_fsp_total_stability" 				filter="fsp_total_stability"/>-->
 		<Report name="R_coordinate_constraint" 				filter="coordinate_constraint"/>
 		<Report name="R_interaction_energy_per_residue"		filter="interaction_energy_per_residue"/>
 <!--		<Report name="R_int_energy_context_complex"		filter="int_energy_context_complex"/>-->
