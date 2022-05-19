@@ -3311,40 +3311,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Sets:
             self.pssm_file (Union[str, bytes]
         """
-        # Ensure ASU. This should be done on loading from PDB file with Pose.from_asu()/Pose.from_pdb()
-        # save self.asu to design_dir.asu now that we have cleaned any chain issues and renumbered residues
-        # self.pdb.write(out_path=design_dir.asu)
-
-        # if design_dir.nano:
-        #     # num_chains = len(self.pdb.chain_ids)
-        #     # if num_chains != len(design_dir.oligomers):
-        #     #     # oligomer_file = glob(os.path.join(des_dir.path, pdb_codes[0] + '_tx_*.pdb'))
-        #     #     # assert len(oligomer_file) == 1, 'More than one matching file found with %s' % pdb_codes[0] + '_tx_*.pdb'
-        #     #     # # assert len(oligomer_file) == 1, '%s: More than one matching file found with %s' % \
-        #     #     # #                                 (des_dir.path, pdb_codes[0] + '_tx_*.pdb')
-        #     #     # first_oligomer = PDB(file=oligomer_file[0])
-        #     #     # # first_oligomer = SDUtils.read_pdb(oligomer_file[0])
-        #     #     # # find the number of ATOM records for template_pdb chain1 using the same oligomeric chain as model
-        #     #     # for atom_idx in range(len(first_oligomer.chain(template_pdb.chain_ids[0]))):
-        #     #     for atom_idx in range(len(design_dir.oligomers.chain(self.pdb.entity(1)))):
-        #     #         self.pdb.atoms[atom_idx].chain = self.pdb.chain_ids[0].lower()
-        #     #     self.pdb.chain_ids = [self.pdb.chain_ids[0].lower(), self.pdb.chain_ids[0]]
-        #     #     num_chains = len(self.pdb.chain_ids)
-        #     #     logger.warning(
-        #     #         '%s: Incorrect chain count: %d. Chains probably have the same id! Temporarily changing IDs\'s to'
-        #     #         ' %s' % (design_dir.path, num_chains, self.pdb.chain_ids))
-        #     #     # Save the renamed chain PDB to the source.pdb
-        #     #     self.pdb.write(out_path=design_dir.source)
-        #
-        #     assert len(design_dir.oligomers) == num_chains, \
-        #         'Number of chains \'%d\' in ASU doesn\'t match number of building blocks \'%d\'' \
-        #         % (num_chains, len(design_dir.oligomers))
-        # else:
-        #     # sdf_file_name = os.path.join(os.path.dirname(oligomer[name].filepath), '%s.sdf' % oligomer[name].name)
-        #     # sym_definition_files[name] = oligomer[name].make_sdf(out_path=sdf_file_name, modify_sym_energy=True)
         self.log.debug('Entities: %s' % ', '.join(entity.name for entity in self.entities))
         self.log.debug('Active Entities: %s' % ', '.join(entity.name for entity in self.active_entities))
-        # self.log.debug('Designable Residues: %s' % ', '.join(entity.name for entity in self.design_selector_indices))
 
         # we get interface residues for the designable entities as well as interface_topology at DesignDirectory level
         if fragments:
@@ -3364,18 +3332,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                       'them separately with \'%s %s\''
                                       % (PUtils.program_command, PUtils.generate_fragments))
 
-                # Must provide des_dir.fragment_observations then specify whether the Entity in question is from the
-                # mapped or paired chain (entity1 is mapped, entity2 is paired from Nanohedra). Then, need to renumber
-                # fragments to Pose residue numbering when added to fragment queries
-                # if design_dir.nano:  # Todo depreciate this check as Nanohedra outputs will be in Pose Numbering
-                #     if len(self.entities) > 2:  # Todo compatible with > 2 entities
-                #         raise DesignError('Not able to solve fragment/residue membership with more than 2 Entities!')
-                #     self.log.debug('Fragment data found in Nanohedra docking. Solving fragment membership for '
-                #                    'Entity\'s: %s by PDB numbering correspondence'
-                #                    % ','.join(entity.name for entity in self.entities))
-                #     self.add_fragment_query(entity1=self.entities[0], entity2=self.entities[1], query=fragment_source,
-                #                             pdb_numbering=True)
-                # else:  # assuming the input is in Pose numbering!
                 self.log.debug('Fragment data found from prior query. Solving query index by Pose numbering/Entity '
                                'matching')
                 self.add_fragment_query(query=fragment_source)
@@ -3413,9 +3369,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=des_dir.sequences)
                 entity.add_profile(evolution=evolution, fragments=fragments, out_path=profiles_path)
 
-        # Update DesignDirectory with design information # Todo include in DesignDirectory initialization by args?
-        # This info is pulled out in AnalyzeOutput from Rosetta currently
-
+        # Update DesignDirectory with design information
         if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
             self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
             fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=des_dir.data)
@@ -3425,9 +3379,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.pssm_file = self.write_pssm_file(self.evolutionary_profile, PUtils.pssm, out_path=des_dir.data)
 
         self.combine_profile([entity.profile for entity in self.entities])
-        # self.log.debug('Design Specific Scoring Matrix: %s' % str(self.profile))
         design_pssm_file = self.write_pssm_file(self.profile, PUtils.dssm, out_path=des_dir.data)
-        # design_dir.info['design_profile'] = self.design_pssm_file
         # -------------------------------------------------------------------------
         # self.solve_consensus()
         # -------------------------------------------------------------------------
