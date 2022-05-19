@@ -1184,6 +1184,7 @@ class DesignDirectory:  # (JobResources):
         self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
         # self.fragment_data_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
 
+    @property
     def symmetry_definition_files(self) -> List:
         """Retrieve the symmetry definition files name from DesignDirectory"""
         try:
