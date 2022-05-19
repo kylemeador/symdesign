@@ -744,8 +744,8 @@ def mp_map(function: Callable, arg: Iterable, processes: int = 1, context: str =
     Returns:
         The results produced from the function and arg
     """
-    # with mp.get_context(context).Pool(processes=cores, initializer=set_worker_affinity) as p:  # maxtasksperchild=1
-    with mp.get_context(context).Pool(processes=processes) as p:  # , maxtasksperchild=100
+    with mp.get_context(context).Pool(processes=processes, initializer=set_worker_affinity) as p:
+    # with mp.get_context(context).Pool(processes=processes) as p:  # , maxtasksperchild=100
         results = p.map(function, arg)
     p.join()
 
@@ -763,8 +763,8 @@ def mp_starmap(function: Callable, star_args: Iterable[Tuple], processes: int = 
     Returns:
         The results produced from the function and process_args
     """
-    # with mp.get_context(context).Pool(processes=cores, initializer=set_worker_affinity, maxtasksperchild=100) as p:
-    with mp.get_context(context).Pool(processes=processes) as p:  # , maxtasksperchild=100
+    with mp.get_context(context).Pool(processes=processes, initializer=set_worker_affinity) as p:
+    # with mp.get_context(context).Pool(processes=processes) as p:  # , maxtasksperchild=100
         results = p.starmap(function, star_args)  # , chunksize=1
     p.join()
 
