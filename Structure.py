@@ -4399,9 +4399,9 @@ class Entity(Chain, SequenceProfile):
         Args:
             struct_file: The location of the input .pdb file
             out_path: The location the symmetry definition file should be written
-            # dihedral=False (bool): Whether the assembly is in dihedral symmetry
-            # modify_sym_energy=False (bool): Whether the symmetric energy produced in the file should be modified
-            # energy=2 (int): Scalar to modify the Rosetta energy by
+        Keyword Args:
+            modify_sym_energy_for_cryst=False (bool): Whether the symmetric energy produced in the file should be modified
+            energy=2 (int): Scalar to modify the Rosetta energy by
         Returns:
             Symmetry definition filename
         """
@@ -4443,13 +4443,13 @@ class Entity(Chain, SequenceProfile):
         assert p.returncode == 0, 'Symmetry definition file creation failed for %s' % self.name
 
         self.format_sdf(out.decode('utf-8').split('\n')[:-1], to_file=out_file, dihedral=dihedral, **kwargs)
-        #               modify_sym_energy=False, energy=2)
+        #               modify_sym_energy_for_cryst=False, energy=2)
 
         return out_file
 
     def format_sdf(self, lines: List, to_file: Optional[Union[str, bytes]] = None,
-                   out_path: Union[str, bytes] = os.getcwd(), dihedral: bool = False, modify_sym_energy: bool = False,
-                   energy: int = 2) -> Union[str, bytes]:
+                   out_path: Union[str, bytes] = os.getcwd(), dihedral: bool = False,
+                   modify_sym_energy_for_cryst: bool = False, energy: int = None) -> Union[str, bytes]:
         """Ensure proper sdf formatting before proceeding
 
         Args:
@@ -4457,7 +4457,7 @@ class Entity(Chain, SequenceProfile):
             to_file: The name of the symmetry definition file
             out_path: The location the symmetry definition file should be written
             dihedral: Whether the assembly is in dihedral symmetry
-            modify_sym_energy: Whether the symmetric energy produced in the file should be modified
+            modify_sym_energy_for_cryst: Whether the symmetric energy should match crystallographic systems
             energy: Scalar to modify the Rosetta energy by
         Returns:
             The location the symmetry definition file was written
@@ -4506,13 +4506,18 @@ class Entity(Chain, SequenceProfile):
             lines[-1] = \
                 lines[-1].strip() + (len(jumps_subunit_to_add) * ' JUMP%s_to_subunit') % tuple(jumps_subunit_to_add)
 
-        if modify_sym_energy:
+        if modify_sym_energy_for_cryst:
             # new energy should equal the energy multiplier times the scoring subunit plus additional complex subunits
             # where complex subunits = num_subunits - 1
             # new_energy = 'E = %d*%s + ' % (energy, subunits[0])  # assumes subunits are read in alphanumerical order
             # new_energy += ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:]))
-            lines[1] = '%s' % 'E = %d*%s + %s' \
-                % (energy, subunits[0], ' + '.join('1*(%s:%s)' % t for t in zip(repeat(subunits[0]), subunits[1:])))
+            lines[1] = 'E = 2*%s+%s' \
+                % (subunits[0], '+'.join('1*(%s:%s)' % (subunits[0], pair) for pair in subunits[1:]))
+        else:
+            if not energy:
+                energy = len(subunits)
+            lines[1] = 'E = %d*%s+%s' \
+                % (energy, subunits[0], '+'.join('%d*(%s:%s)' % (energy, subunits[0], pair) for pair in subunits[1:]))
 
         if not to_file:
             to_file = os.path.join(out_path, '%s.sdf' % self.name)
