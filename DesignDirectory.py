@@ -1109,10 +1109,12 @@ class DesignDirectory:  # (JobResources):
                         self.info['interface_residues'] = self.info.pop('interface_residues')
                     except KeyError:
                         pass
-                elif 'interface_residues' in self.info:  # format is old old, convert
-                    self.info['interface_design_residues'] = False
-                    self.info['interface_residue_ids'] = self.info.get('interface_residues', {})
-                    self.info['interface_residues'] = False
+                else:  # format is old old, remove all
+                    for old_element in ['design_residues', 'interface_residues']:
+                        try:
+                            self.info.pop(old_element)
+                        except KeyError:
+                            pass
 
                 if 'fragment_database' in self.info:
                     self.info['fragment_source'] = self.info.get('fragment_database')
