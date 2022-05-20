@@ -693,19 +693,21 @@ def write_fasta_file(sequence, name, out_path=os.getcwd(), csv=False):
 
 
 def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -> int:
-    """Calculate the number of multiprocessing cores to use for a specific application.
+    """Calculate the number of multiprocessing cores to use for a specific application
 
+    Default options specify to leave at least one CPU available for the machine. If a SLURM environment is used,
+    the number of cores will reflect the environmental variable SLURM_CPUS_PER_TASK
     Args:
-        cores: How many cpu's to attempt to use, leaving at least one available for the machine
+        cores: How many cpu's to use
         mpi: If commands use MPI
-        jobs: How many jobs to attempt
+        jobs: How many jobs to use
     Returns:
         The number of cores to use taking the minimum of cores, jobs, and max cpus available
     """
     allocated_cpus = os.environ.get('SLURM_CPUS_PER_TASK')
     if allocated_cpus:  # we are in a SLURM environment and should follow allocation
         max_cpus_to_use = int(allocated_cpus)
-    else:
+    else:  # logical=False only uses physical cpus, not logical threads
         max_cpus_to_use = psutil.cpu_count(logical=False) - 1  # leave CPU available for computer
 
     if jobs:  # test if cores or jobs is None, then take the minimal

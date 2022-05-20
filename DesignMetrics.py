@@ -1002,28 +1002,17 @@ def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: D
     return design_residue_scores
 
 
-def mutation_conserved(residue_info, bkgnd):
+def mutation_conserved(residue_info: Dict, bkgnd: Dict) -> Dict:
     """Process residue mutations compared to evolutionary background. Returns 1 if residue is observed in background
 
     Both residue_dict and background must be same index
     Args:
-        residue_info (dict): {15: {'type': 'T', ...}, ...}
-        bkgnd (dict): {0: {'A': 0, 'R': 0, ...}, ...}
+        residue_info: {15: {'type': 'T', ...}, ...}
+        bkgnd: {0: {'A': 0, 'R': 0, ...}, ...}
     Returns:
-        conservation_dict (dict): {15: 1, 21: 0, 25: 1, ...}
+        conservation_dict: {15: 1, 21: 0, 25: 1, ...}
     """
     return {res: 1 if bkgnd[res][info['type']] > 0 else 0 for res, info in residue_info.items() if res in bkgnd}
-    # conservation_dict = {}
-    # for residue, info in residue_info.items():
-    #     residue_background = background.get(residue, None)
-    #     if not residue_background:
-    #         continue
-    #     if residue_background[info['type']] > 0:
-    #         conservation_dict[residue] = 1
-    #     else:
-    #         conservation_dict[residue] = 0
-    #
-    # return conservation_dict
 
 
 def per_res_metric(sequence_metrics, key=None):
@@ -1224,25 +1213,23 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None, **kwa
     return final_df
 
 
-def calculate_match_metrics(fragment_matches):
+def calculate_match_metrics(fragment_matches: List[Dict]) -> Dict:
     """Return the various metrics calculated by overlapping fragments at the interface of two proteins
 
     Args:
-        fragment_matches (list[dict]): [{'mapped': entity1_resnum, 'match': score_term, 'paired': entity2_resnum,
-                                         'culster': cluster_id}, ...]
+        fragment_matches: [{'mapped': entity1_resnum, 'match': score_term, 'paired': entity2_resnum,
+                            'culster': cluster_id}, ...]
     Returns:
-        (dict): {'mapped': {'center': {'residues': (set[int]), 'score': (float), 'number': (int)},
-                            'total': {'residues': (set[int]), 'score': (float), 'number': (int)},
-                            'match_scores': {residue number(int): (list[score (float)]), ...},
-                            'index_count': {index (int): count (int), ...},
-                            'multiple_ratio': (float)}
-                 'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
-                 'total':  {'center': {'score': , 'number': },
-                            'total': {'score': , 'number': },
-                            'index_count': , 'multiple_ratio': , 'observations': (int)}
-                 }
-        # (tuple): all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap, \
-        # central_residues_with_fragment_overlap, multiple_frag_ratio, total_fragment_content
+        {'mapped': {'center': {'residues': (set[int]), 'score': (float), 'number': (int)},
+                    'total': {'residues': (set[int]), 'score': (float), 'number': (int)},
+                    'match_scores': {residue number(int): (list[score (float)]), ...},
+                    'index_count': {index (int): count (int), ...},
+                    'multiple_ratio': (float)}
+         'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
+         'total':  {'center': {'score': , 'number': },
+                    'total': {'score': , 'number': },
+                    'index_count': , 'multiple_ratio': , 'observations': (int)}
+         }
     """
     if not fragment_matches:
         # raise DesignError('No fragment matches were passed! Can\'t calculate match metrics')
@@ -1406,14 +1393,14 @@ def nanohedra_fragment_match_score(fragment_metric_d):
     return all_residue_score + center_residue_score, center_residue_score
 
 
-def format_fragment_metrics(metrics, null=False):
+def format_fragment_metrics(metrics: Dict, null: bool = False) -> Dict:
     """For a set of fragment metrics, return the formatted total fragment metrics
 
     Returns:
-        (dict): {center_residues, total_residues,
-                 nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
-                 number_fragment_residues_center, number_fragments, percent_fragment_helix, percent_fragment_strand,
-                 percent_fragment_coil}
+        {center_residues, total_residues,
+         nanohedra_score, nanohedra_score_center, multiple_fragment_ratio, number_fragment_residues_total,
+         number_fragment_residues_center, number_fragments, percent_fragment_helix, percent_fragment_strand,
+         percent_fragment_coil}
     """
     if null:
         return fragment_metric_template
