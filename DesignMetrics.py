@@ -723,11 +723,6 @@ multiple_sequence_alignment_dependent_metrics = \
     ['global_collapse_z_sum', 'hydrophobicity_deviation_magnitude', 'new_collapse_island_significance',
      'new_collapse_islands', 'sequential_collapse_peaks_z_sum', 'sequential_collapse_z_sum']
 # per_res_keys = ['jsd', 'des_jsd', 'int_jsd', 'frag_jsd']
-
-residue_template = {'energy': {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.}, 'type': None, 'hbond': 0}
-                    # 'sasa': {'total': {'complex': 0., 'unbound': 0.}, 'polar': {'complex': 0., 'unbound': 0.},
-                    #          'hydrophobic': {'complex': 0., 'unbound': 0.}},
-                    # 'core': 0, 'rim': 0, 'support': 0, 'interior': 0, # , 'hot_spot': 0}
 fragment_metric_template = {'center_residues': set(), 'total_residues': set(),
                             'nanohedra_score': 0.0, 'nanohedra_score_center': 0.0, 'multiple_fragment_ratio': 0.0,
                             'number_fragment_residues_total': 0, 'number_fragment_residues_center': 0,
@@ -964,35 +959,33 @@ def interface_composition_similarity(series):
     return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
 
 
-def residue_processing(score_dict, mutations, columns, hbonds=None):
-    """Process Residue Metrics from Rosetta score dictionary
+def residue_processing(self, design_scores: Dict, columns: List) -> Dict:
+    """Process Residue Metrics from Rosetta score dictionary (One-indexed residues)
 
-    One-indexed residues
     Args:
-        score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15A': -3.26, ...,
-                            'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
-        mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
-                           '0001': {mutation_index: {}, ...}, ...}
-        columns (list): ['per_res_energy_complex_5', 'per_res_sasa_polar_1_unbound_5', 
-            'per_res_energy_1_unbound_5', ...]
-    Keyword Args:
-        hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
+        design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
+                        'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
+        columns: ['per_res_energy_complex_5', 'per_res_energy_1_unbound_5', ...]
     Returns:
-        (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 22.29,
-                   'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0},  # , 'hot_spot': 1
-              ...}, ...}
+        {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0., 'cst': 0.}, ...}, ...}
     """
-    # pose_length (int): The number of residues in the pose
-    pose_length = len(mutations[reference_name])
-    warn, warn2 = False, False
-    total_residue_dict = {}
-    for design, scores in score_dict.items():
+    # energy_template = {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.}
+    residue_template = {'energy': {'complex': 0., 'unbound': [0. for entity in self.entities], 'fsp': 0., 'cst': 0.}}
+    pose_length = self.number_of_residues
+    # adjust the energy based on pose specifics
+    pose_energy_multiplier = self.number_of_symmetry_mates
+    entity_energy_multiplier = [entity.number_of_monomers for entity in self.entities]
+    warn = False
+    parsed_design_residues = {}
+    for design, scores in design_scores.items():
         residue_data = {}
-        for column in map(str.strip, columns, '_'):
+        for column in [column.strip('_') for column in columns]:
+            if column not in scores:
+                continue
             metadata = column.split('_')
             # remove chain_id in rosetta_numbering="False"
-            # if we have enough chains, weird characters appear "per_res_energy_complex_19_" which mess up split
-            # also numbers appear "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
+            # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
+            # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
             residue_number = int(metadata[-1].translate(digit_translate_table))
             if residue_number > pose_length:
                 if not warn:
@@ -1003,110 +996,54 @@ def residue_processing(score_dict, mutations, columns, hbonds=None):
                                    'debugging. Otherwise, this is likely a numerical chain and will be treated under '
                                    'that assumption. Always ensure that output_as_pdb_nums="true" is set'
                                    % (column, pose_length))
-                residue_number = int(metadata[-1].translate(digit_translate_table)[:-1])
+                residue_number = residue_number[:-1]
             if residue_number not in residue_data:
-                residue_data[residue_number] = deepcopy(residue_template)
+                residue_data[residue_number] = deepcopy(residue_template)  # deepcopy(energy_template)
 
             metric = metadata[2]  # energy [or sasa]
-            pose_state = metadata[-2]  # unbound or complex [fsp (favor_sequence_profile) or constrait (constraint)]
-            if metric == 'sasa':
+            if metric != 'energy':
                 continue
-                # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
-                # polarity = metadata[3]
-                # residue_data[residue_number][metric][polarity][pose_state] = scores.get(column, 0)
-            # else:
-                # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
-            residue_data[residue_number][metric][pose_state] += scores.get(column, 0)  # symmetrically related chains are added
+            pose_state = metadata[-2]  # unbound or complex [or fsp (favor_sequence_profile) or cst (constraint)]
+            entity_or_complex = metadata[3]  # 1,2,3,... or complex
 
-        remove_residues = []
-        for residue_number, data in residue_data.items():
-            try:
-                data['type'] = mutations[design][residue_number]
-            except KeyError:
-                try:
-                    data['type'] = mutations[reference_name][residue_number]  # fill with aa from wt seq
-                except KeyError:
-                    # residue is out of bounds on pose length. Possibly a virtual residue or a string that was processed
-                    # incorrectly from the digit_translate_table
-                    if not warn2:
-                        logger.error('Encountered residue number "%s" which is not within the pose size "%d" and will '
-                                     'be removed from processing. This is likely an error with residue processing or '
-                                     'residue selection in the specified rosetta protocol. If there were warnings '
-                                     'produced indicating a larger residue number than pose size, this problem was not '
-                                     'addressable heuristically and something else has occurred. It is likely that this'
-                                     ' residue number is not useful if you indeed have output_as_pdb_nums="true"'
-                                     % (residue_number, pose_length))
-                        warn2 = True
-                    remove_residues.append(residue_number)
-                    continue
-            if hbonds:
-                if residue_number in hbonds[design]:
-                    data['hbond'] = 1
-            data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
-            #     - data['energy']['fsp'] - data['energy']['cst']
-            # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
-            # relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
-            # relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
-            # for polarity in data['sasa']:
-            #     # convert sasa measurements into bsa measurements
-            #     data['bsa_%s' % polarity] = data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex']
-            #
-            # if data['bsa_total'] > 0:
-            #     if relative_oligomer_sasa < 0.25:
-            #         data['support'] = 1
-            #     elif relative_complex_sasa < 0.25:
-            #         data['core'] = 1
-            #     else:
-            #         data['rim'] = 1
-            # else:  # Todo remove residue from dict as no design should be done? keep interior residue constant?
-            #     if relative_complex_sasa < 0.25:
-            #         data['interior'] = 1
-            #     # else:
-            #     #     residue_data[residue_number]['surface'] = 1
-            data['coordinate_constraint'] = data['energy']['cst']
-            data['residue_favored'] = data['energy']['fsp']
-            data.pop('energy')
-            # data.pop('sasa')
-            # if residue_data[residue_number]['energy'] <= hot_spot_energy:
-            #     residue_data[residue_number]['hot_spot'] = 1
-        # clean up any incorrect residues
-        for residue in remove_residues:
-            residue_data.pop(residue)
-        total_residue_dict[design] = residue_data
+            # use += because instances of symmetric residues from symmetry related chains are summed
+            try:  # to convert to int. Will succeed if we have an entity value, ex: 1,2,3,...
+                entity = int(entity_or_complex) - index_offset
+                residue_data[residue_number][metric][pose_state][entity] += \
+                    (scores.get(column, 0) / entity_energy_multiplier[entity])
+            except ValueError:  # complex is the value, use the pose state
+                residue_data[residue_number][metric][pose_state] += (scores.get(column, 0) / pose_energy_multiplier)
+        parsed_design_residues[design] = residue_data
 
-    return total_residue_dict
+    return parsed_design_residues
 
 
-def dirty_residue_processing(score_dict, mutations, hbonds=None):
-    """Process Residue Metrics from Rosetta score dictionary
+def rosetta_residue_processing(self, design_scores: Dict) -> Dict:
+    """Process Residue Metrics from Rosetta score dictionary (One-indexed residues)
 
-    One-indexed residues
     Args:
-        score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15A': -3.26, ...,
-                            'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
-        mutations (dict): {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
-                           '0001': {mutation_index: {}, ...}, ...}
-    Keyword Args:
-        hbonds=None (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
+        design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
+                        'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
     Returns:
-        (dict): {'0001': {15: {'type': 'T', 'energy_delta': -2.771, 'bsa_polar': 13.987, 'bsa_hydrophobic': 22.29,
-                               'bsa_total': 36.278, 'hbond': 0, 'core': 0, 'rim': 1, 'support': 0},  # , 'hot_spot': 1
-                          ...}, ...}
+        {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0., 'cst': 0.}, ...}, ...}
     """
-    # pose_length (int): The number of residues in the pose
-    pose_length = len(mutations[reference_name])
-    warn, warn2 = False, False
-    total_residue_dict = {}
-    for design, scores in score_dict.items():
+    # energy_template = {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.}
+    residue_template = {'energy': {'complex': 0., 'unbound': [0. for entity in self.entities], 'fsp': 0., 'cst': 0.}}
+    pose_length = self.number_of_residues
+    # adjust the energy based on pose specifics
+    pose_energy_multiplier = self.number_of_symmetry_mates
+    entity_energy_multiplier = [entity.number_of_monomers for entity in self.entities]
+
+    warn = False
+    parsed_design_residues = {}
+    for design, scores in design_scores.items():
         residue_data = {}
-        # for column in columns:
         for key, value in scores.items():
-            # metadata = column.split('_')
             if key.startswith('per_res_'):
                 metadata = key.strip('_').split('_')
                 # remove chain_id in rosetta_numbering="False"
-                # if we have enough chains, weird characters appear "per_res_energy_complex_19_" which mess up split
-                # also numbers appear "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
+                # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
+                # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
                 residue_number = int(metadata[-1].translate(digit_translate_table))
                 if residue_number > pose_length:
                     if not warn:
@@ -1117,33 +1054,59 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
                             'PerResidue SimpleMetrics, there is an error in processing that requires your '
                             'debugging. Otherwise, this is likely a numerical chain and will be treated under '
                             'that assumption. Always ensure that output_as_pdb_nums="true" is set' % (key, pose_length))
-                    residue_number = int(metadata[-1].translate(digit_translate_table)[:-1])
+                    residue_number = residue_number[:-1]
                 if residue_number not in residue_data:
-                    residue_data[residue_number] = deepcopy(residue_template)
+                    residue_data[residue_number] = deepcopy(residue_template)  # deepcopy(energy_template)
 
                 metric = metadata[2]  # energy [or sasa]
-                pose_state = metadata[-2]  # unbound or complex [fsp (favor_sequence_profile) or constrait (constraint)]
-                if metric == 'sasa':
+                if metric != 'energy':
                     continue
-                    # Ex. per_res_sasa_hydrophobic_1_unbound_15 or per_res_sasa_hydrophobic_complex_15
-                    # polarity = metadata[3]
-                    # residue_data[residue_number][metric][polarity][pose_state] = value
-                # else:
-                    # Ex. per_res_energy_1_unbound_15 or per_res_energy_complex_15
-                residue_data[residue_number][metric][pose_state] += value  # symmetrically related chains are added
+                pose_state = metadata[-2]  # unbound or complex [or fsp (favor_sequence_profile) or cst (constraint)]
+                entity_or_complex = metadata[3]  # 1,2,3,... or complex
 
+                # use += because instances of symmetric residues from symmetry related chains are summed
+                try:  # to convert to int. Will succeed if we have an entity value, ex: 1,2,3,...
+                    entity = int(entity_or_complex) - index_offset
+                    residue_data[residue_number][metric][pose_state][entity] += \
+                        (value / entity_energy_multiplier[entity])
+                except ValueError:  # complex is the value, use the pose state
+                    residue_data[residue_number][metric][pose_state] += (value / pose_energy_multiplier)
+        parsed_design_residues[design] = residue_data
+
+    return parsed_design_residues
+
+
+def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: Dict = None) -> Dict:
+    """Process energy metrics from per residue info and incorporate mutation and hydrogen bond measurements
+
+    Args:
+        design_residue_scores: {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0.,
+                                             'cst': 0.}, ...}, ...}
+        mutations: {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
+                    '0001': {mutation_index: {}, ...}, ...}
+        hbonds: {'0001': [34, 54, 67, 68, 106, 178], ...}
+    Returns:
+        {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
+                  ...}, ...}
+    """
+    if not hbonds:
+        hbonds = {}
+
+    warn2 = False
+    pose_length = len(mutations[reference_name])
+    for design, residue_info in design_residue_scores.items():
+        design_hbonds = hbonds.get(design, [])
         remove_residues = []
-        for residue_number, data in residue_data.items():
-            try:
+        for residue_number, data in residue_info.items():
+            try:  # set residue AA type based on provided mutations
                 data['type'] = mutations[design][residue_number]
-            except KeyError:
-                try:
-                    data['type'] = mutations[reference_name][residue_number]  # fill with aa from wt seq
-                except KeyError:
-                    # residue is out of bounds on pose length. Possibly a virtual residue or a string that was processed
-                    # incorrectly from the digit_translate_table
+            except KeyError:  # residue is not a mutation, so missing from mutations
+                try:  # fill with aa from wt seq
+                    data['type'] = mutations[reference_name][residue_number]
+                except KeyError:  # residue is out of bounds on pose length
+                    # Possibly a virtual residue or string that was processed incorrectly from the digit_translate_table
                     if not warn2:
-                        logger.error('Encountered residue number "%s" which is not within the pose size "%d" and will '
+                        logger.error('Encountered residue number "%d" which is not within the pose size "%d" and will '
                                      'be removed from processing. This is likely an error with residue processing or '
                                      'residue selection in the specified rosetta protocol. If there were warnings '
                                      'produced indicating a larger residue number than pose size, this problem was not '
@@ -1153,42 +1116,21 @@ def dirty_residue_processing(score_dict, mutations, hbonds=None):
                         warn2 = True
                     remove_residues.append(residue_number)
                     continue
-            if hbonds:
-                if residue_number in hbonds[design]:
-                    data['hbond'] = 1
-            data['energy_delta'] = data['energy']['complex'] - data['energy']['unbound']
-            #     - data['energy']['fsp'] - data['energy']['cst']
-            # because Rosetta energy is from unfavored/unconstrained scorefunction, we don't need to subtract
-            # relative_oligomer_sasa = calc_relative_sa(data['type'], data['sasa']['total']['unbound'])
-            # relative_complex_sasa = calc_relative_sa(data['type'], data['sasa']['total']['complex'])
-            # for polarity in data['sasa']:
-            #     # convert sasa measurements into bsa measurements
-            #     data['bsa_%s' % polarity] = data['sasa'][polarity]['unbound'] - data['sasa'][polarity]['complex']
-            #
-            # if data['bsa_total'] > 0:
-            #     if relative_oligomer_sasa < 0.25:
-            #         data['support'] = 1
-            #     elif relative_complex_sasa < 0.25:
-            #         data['core'] = 1
-            #     else:
-            #         data['rim'] = 1
-            # else:  # Todo remove residue from dict as no design should be done? keep interior residue constant?
-            #     if relative_complex_sasa < 0.25:
-            #         data['interior'] = 1
-            #     # else:
-            #     #     residue_data[residue_number]['surface'] = 1
+            # set hbond data if available
+            data['hbond'] = 1 if residue_number in design_hbonds else 0
+            # compute the energy delta of each residue which requires summing the unbound energies
+            data['energy_delta'] = data['energy']['complex'] - sum(data['energy']['unbound'])
             data['coordinate_constraint'] = data['energy']['cst']
             data['residue_favored'] = data['energy']['fsp']
             data.pop('energy')
-            # data.pop('sasa')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
+
         # clean up any incorrect residues
         for residue in remove_residues:
-            residue_data.pop(residue)
-        total_residue_dict[design] = residue_data
+            residue_info.pop(residue)
 
-    return total_residue_dict
+    return design_residue_scores
 
 
 def mutation_conserved(residue_info, bkgnd):
