@@ -36,12 +36,12 @@ from CommandDistributer import reference_average_residue_weight, run_cmds, scrip
     rosetta_variables, relax_flags_cmdline
 from PDB import PDB
 from Pose import Pose, MultiModel, Models  # , Model
-from DesignMetrics import read_scores, necessary_metrics, division_pairs, delta_pairs, \
-    columns_to_new_column, unnecessary, rosetta_terms, dirty_hbond_processing, dirty_residue_processing, \
-    mutation_conserved, per_res_metric, interface_composition_similarity, \
+from DesignMetrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms, \
+    columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, mutation_conserved, per_res_metric, \
     significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value, \
-    multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, residue_processing
+    multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
+    process_residue_info
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
@@ -2548,8 +2548,9 @@ class DesignDirectory:  # (JobResources):
             residue_info.update({structure_name: wt_design_info for structure_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
             # interface_hbonds = dirty_hbond_processing(all_design_scores)
-            # residue_info = dirty_residue_processing(all_design_scores, simplify_mutation_dict(all_mutations),
-            #                                             hbonds=interface_hbonds)
+            # residue_info = self.pose.rosetta_residue_processing(all_design_scores)
+            # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
+            #                                     hbonds=interface_hbonds)
         else:  # Get the scores from the score file on design trajectory metrics
             source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
             for idx, entity in enumerate(self.pose.entities, 1):
@@ -2602,8 +2603,9 @@ class DesignDirectory:  # (JobResources):
             # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
             scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-            residue_info.update(dirty_residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
-                                                         hbonds=interface_hbonds))
+            residue_info.update(self.pose.rosetta_residue_processing(all_viable_design_scores))
+            residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
+                                                hbonds=interface_hbonds)
             # can't use residue_processing (clean) in the case there is a design without metrics... columns not found!
             # residue_info.update(residue_processing(all_viable_design_scores, simplify_mutation_dict(all_mutations),
             #                                        per_res_columns, hbonds=interface_hbonds))
