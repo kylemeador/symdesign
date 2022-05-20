@@ -1232,8 +1232,7 @@ def calculate_match_metrics(fragment_matches: List[Dict]) -> Dict:
          }
     """
     if not fragment_matches:
-        # raise DesignError('No fragment matches were passed! Can\'t calculate match metrics')
-        return None
+        return {}
 
     fragment_i_index_count_d = {1: 0, 2: 0, 3: 0, 4: 0, 5: 0}
     fragment_j_index_count_d = copy(fragment_i_index_count_d)
@@ -1402,7 +1401,7 @@ def format_fragment_metrics(metrics: Dict, null: bool = False) -> Dict:
          number_fragment_residues_center, number_fragments, percent_fragment_helix, percent_fragment_strand,
          percent_fragment_coil}
     """
-    if null:
+    if null or not metrics:
         return fragment_metric_template
     return {'center_residues': metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']),
             'total_residues': metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']),
