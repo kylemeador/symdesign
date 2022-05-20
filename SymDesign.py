@@ -1186,7 +1186,7 @@ if __name__ == '__main__':
     all_dock_directories, entity_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
     if initialize:
-        logger.critical('Setting up input files for %s' % args.module)
+        logger.info('Setting up input files for %s' % args.module)
         if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
             raise SDUtils.DesignError(
                 'No designs were specified! Please specify --directory, --file, --specification_file,'
