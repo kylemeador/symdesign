@@ -3229,19 +3229,14 @@ class DesignDirectory:  # (JobResources):
         # residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
 
         # POSE ANALYSIS
+        scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
         # refine is not considered sequence design and destroys mean. remove v
         # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
         # consensus cst_weights are very large and destroy the mean.
-        # remove this step for consensus or refine if they are run multiple times
+        other_metrics_s = pd.Series(other_pose_metrics)
+        # remove this drop for consensus or refine if they are run multiple times
         trajectory_df = \
             scores_df.sort_index().drop([pose_source, PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
-        # add all docking and pose information to each trajectory
-        other_metrics_s = pd.Series(other_pose_metrics)
-        pose_metrics_df = pd.concat([other_metrics_s] * len(trajectory_df), axis=1).T
-        pose_metrics_df.rename(index=dict(zip(range(len(trajectory_df)), trajectory_df.index)), inplace=True)
-        trajectory_df = pd.concat([pose_metrics_df, trajectory_df, pose_collapse_df], axis=1)
-
-        # assert len(trajectory_df.index.to_list()) > 0, 'No designs left to analyze in this pose!'
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         protocol_groups = scores_df.groupby(PUtils.groups)
@@ -3269,6 +3264,12 @@ class DesignDirectory:  # (JobResources):
                     {protocol: '%s_%s' % (protocol, stat) for protocol in unique_design_protocols})
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
+        number_of_trajectories = len(trajectory_df)
+        # if number_of_trajectories > 0:
+        # add all docking and pose information to each trajectory
+        pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
+        pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories), trajectory_df.index)), inplace=True)
+        trajectory_df = pd.concat([pose_metrics_df, trajectory_df], axis=1)
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
