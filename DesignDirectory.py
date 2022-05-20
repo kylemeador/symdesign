@@ -217,7 +217,8 @@ class DesignDirectory:  # (JobResources):
         self.number_of_trajectories = kwargs.get(PUtils.number_of_trajectories, PUtils.nstruct)
         self.output_assembly = kwargs.get('output_assembly', False)
         self.run_in_shell = kwargs.get('run_in_shell', False)
-        self.pre_refine = False  # True
+        self.pre_refine = False
+        self.pre_loop_model = False
         self.query_fragments = kwargs.get(PUtils.generate_fragments, False)
         self.scout = kwargs.get(PUtils.scout, False)
         self.sequence_background = kwargs.get('sequence_background', False)
@@ -276,7 +277,7 @@ class DesignDirectory:  # (JobResources):
         if self.nanohedra_output:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
             if not os.path.exists(self.source_path):
-                raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
+                raise FileNotFoundError('The specified DesignDirectory "%s" was not found!' % self.source_path)
             # self.canonical_pdb1 = None  # canonical pdb orientation
             # self.canonical_pdb2 = None
             # self.rot_step_deg1 = None
@@ -391,7 +392,7 @@ class DesignDirectory:  # (JobResources):
             self.initialized = True
             self.path = self.source_path
             if not os.path.exists(self.path):
-                raise FileNotFoundError('The specified DesignDirectory \'%s\' was not found!' % self.source_path)
+                raise FileNotFoundError('The specified DesignDirectory "%s" was not found!' % self.source_path)
             self.project_designs = os.path.dirname(self.path)
             self.projects = os.path.dirname(self.project_designs)
             self.program_root = os.path.dirname(self.projects)
@@ -1064,7 +1065,7 @@ class DesignDirectory:  # (JobResources):
                 self.pose_transformation = self.retrieve_pose_metrics_from_file()
                 # self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
                 self.info['entity_names'] = self.entity_names  # Todo remove after T33
-                # self.info['pre_refine'] = self.pre_refine  # Todo remove after T33
+                # self.info['pre_refine'] = self.pre_refine
                 self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
@@ -1087,7 +1088,8 @@ class DesignDirectory:  # (JobResources):
                         getattr(self.info.get('fragment_database'), 'source', 'biological_interfaces')
                     self.pickle_info()  # save immediately so we don't have this issue with reading again!
                 self._info = self.info.copy()  # create a copy of the state upon initialization
-                self.pre_refine = self.info.get('pre_refine', False)  # default value is False unless set to True
+                self.pre_refine = self.info.get('pre_refine', False)
+                self.pre_loop_model = self.info.get('pre_loop_model', False)
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
                 self.entity_names = self.info.get('entity_names', [])
                 self.oligomer_names = self.info.get('oligomer_names', [])
@@ -1138,9 +1140,9 @@ class DesignDirectory:  # (JobResources):
                 self.info['entity_names'] = self.entity_names
                 # self.pickle_info()  # save this info on the first copy so that we don't have to construct again
 
+        # check if the source of the pdb files was refined upon loading
         if pre_refine is not None:
             self.pre_refine = pre_refine
-        # check if the source of the pdb files was refined upon loading
         if self.pre_refine:
             self.refined_pdb = self.asu_path
             self.scouted_pdb = \
@@ -1148,6 +1150,9 @@ class DesignDirectory:  # (JobResources):
         else:
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
+        # check if the source of the pdb files was loop modelled upon loading
+        # if pre_loop_model is not None:
+        #     self.pre_loop_model = pre_loop_model
 
         # configure standard pose loading mechanism with self.source
         if self.specific_design:
