@@ -1064,7 +1064,7 @@ if __name__ == '__main__':
                            SDUtils.ex_path('design.paths')))
         exit()
     # -----------------------------------------------------------------------------------------------------------------
-    # Process arguments for program initialization
+    # Process flags and arguments for program initialization
     # -----------------------------------------------------------------------------------------------------------------
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags['symmetry'] and queried_flags.get('sym_entry'):
@@ -1140,21 +1140,19 @@ if __name__ == '__main__':
             reported_args['sym_entry'] = sym_entry.entry_number
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(reported_args.items())))
     # -----------------------------------------------------------------------------------------------------------------
-    # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
+    # Initialize common resources
     # -----------------------------------------------------------------------------------------------------------------
-    all_poses, design_directories, location = None, [], None
-    all_dock_directories, entity_pairs = None, None
-    low, high, low_range, high_range = None, None, None, None
+    # Check if output already exists  # or provide --overwrite
+    if os.path.exists(args.output_file):
+        logger.critical('The specified output file "%s" already exists, this will overwrite your old data! Please '
+                        'specify a new name with with -of/--output_file' % args.output_file)
+        exit(1)
+    # elif os.path.exists(args.output_directory):  # Todo is this necessary?
+    #     logger.critical('The specified output directory "%s" already exists, this will overwrite your old data! Please '
+    #                     'specify a new one with with -od/--output_directory' % args.output_file)
+    #     exit(1)
 
-    if args.multi_processing:
-        # Calculate the number of cores to use depending on computer resources
-        cores = SDUtils.calculate_mp_cores(cores=args.cores)  # mpi=args.mpi, Todo
-        logger.info('Starting multiprocessing using %d cores' % cores)
-    else:
-        cores = 1
-        logger.info('Starting processing. If single process is taking awhile, use --multi_processing during submission')
-
-    # Set up JobResources, DesignDirectories input and outputs or Nanohedra inputs
+    # Set up JobResources
     symdesign_directory = SDUtils.get_base_symdesign_dir(args.directory)
     if symdesign_directory:  # SymDesignOutput
         job = JobResources(symdesign_directory)
@@ -1181,7 +1179,12 @@ if __name__ == '__main__':
 
     job.fragment_db = fragment_db
     job.euler_lookup = euler_lookup
-
+    # -----------------------------------------------------------------------------------------------------------------
+    # Grab all Designs (DesignDirectory) to be processed from either database, directory, project name, or file
+    # -----------------------------------------------------------------------------------------------------------------
+    all_poses, design_directories, location = None, [], None
+    all_dock_directories, entity_pairs = None, None
+    low, high, low_range, high_range = None, None, None, None
     if initialize:
         logger.critical('Setting up input files for %s' % args.module)
         if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
@@ -1538,7 +1541,19 @@ if __name__ == '__main__':
         # design_source = os.path.basename(example_directory.project_designs)
         # job = JobResources(queried_flags['output_directory'])
         pass
-    # Format job specific details based on the input
+    # -----------------------------------------------------------------------------------------------------------------
+    # Set up Job specific details and resources
+    # -----------------------------------------------------------------------------------------------------------------
+    # Format computational requirements
+    if args.multi_processing:
+        # Calculate the number of cores to use depending on computer resources
+        cores = SDUtils.calculate_mp_cores(cores=args.cores)  # mpi=args.mpi, Todo
+        logger.info('Starting multiprocessing using %d cores' % cores)
+    else:
+        cores = 1
+        logger.info('Starting processing. If single process is taking awhile, use --multi_processing during submission')
+
+    # Format memory requirements with module dependencies
     if args.module == PUtils.nano:  # Todo
         required_memory = PUtils.baseline_program_memory + PUtils.nanohedra_memory  # 30 GB ?
     elif args.module == PUtils.analysis:
@@ -1547,16 +1562,19 @@ if __name__ == '__main__':
     else:
         required_memory = (PUtils.baseline_program_memory +
                            len(design_directories) * PUtils.approx_ave_design_directory_memory_w_pose) * 1.2
+
+    job.reduce_memory = True if psutil.virtual_memory().available < required_memory else False
+    # logger.info('Available: %f' % psutil.virtual_memory().available)
+    # logger.info('Requried: %f' % required_memory)
+    # logger.info('Reduce Memory?: %s', job.reduce_memory)
+
+    # Run specific checks
     if args.module == PUtils.interface_design and not queried_flags[PUtils.no_evolution_constraint]:  # hhblits to run
         if psutil.virtual_memory().available <= required_memory + hhblits_memory_threshold:
             logger.critical('The amount of memory for the computer is insufficient to run hhblits (required for '
                             'designing with evolution)! Please allocate the job to a computer with more memory or the '
                             'process will fail. Otherwise, select --%s' % PUtils.no_evolution_constraint)
-
-    job.reduce_memory = True if psutil.virtual_memory().available < required_memory else False
-    logger.info('Available: %f' % psutil.virtual_memory().available)
-    logger.info('Requried: %f' % required_memory)
-    logger.info('Reduce Memory?: %s', job.reduce_memory)
+            exit(1)
 
     if args.module in [PUtils.nano, PUtils.interface_design]:
         if args.run_in_shell:
@@ -1798,11 +1816,6 @@ if __name__ == '__main__':
         elif len(args.output_file.split(os.sep)) <= 1:  # the path isn't an absolute or relative path, prepend location
             args.output_file = os.path.join(job.all_scores, args.output_file)
 
-        if os.path.exists(args.output_file):
-            logger.critical('The specified output file "%s" already exists, this will overwrite your old analysis '
-                            'data! Please modify that file or specify a new one with with -of/--output_file'
-                            % args.output_file)
-            exit(1)
         if args.multi_processing:
             zipped_args = zip(design_directories, repeat(args.join), repeat(args.save), repeat(args.figures))
             results = SDUtils.mp_starmap(DesignDirectory.design_analysis, zipped_args, processes=cores)
