@@ -640,7 +640,20 @@ if __name__ == '__main__':
     # pickle.dump(sym_op, sym_op_outfile)
     # sym_op_outfile.close()
 
-    pg_symmetry_groups = ['D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
+    pg_symmetry_groups = ['C2', 'C3', 'C4', 'C5', 'C6', 'D2', 'D3', 'D4', 'D5', 'D6', 'T', 'O', 'I']
+    # Todo for cyclic and dihedral use
+    #  point_group_operators = {}
+    #  for symmetry in pg_symmetry_groups:
+    #      if symmetry not in cubic_point_groups:
+    #          cyclic = get_rot_matrices(rotation_range[symmetry])
+    #          point_group_operators[symmetry] = cyclic
+    #          dihedral = make_rotations_degenerate(rotations=cyclic, degeneracies=[identity_matrix, flip_x_matrix])
+    #          point_group_operators[symmetry] = dihedral
+    #      elif symmetry.startswith('D'):
+    #          pass
+    #      else:
+    #          rotations = np.array(get_ptgrp_sym_op(symmetry))  # todo generate from rotations...
+    #          point_group_operators[symmetry] = rotations
     point_group_operators = {}
     for symmetry in pg_symmetry_groups:
         rotations = np.array(get_ptgrp_sym_op(symmetry))
