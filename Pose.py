@@ -21,9 +21,10 @@ from SymDesignUtils import pickle_object, DesignError, calculate_overlap, z_valu
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
     symmetry_combination_format
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
-from utils.SymmetryUtils import valid_subunit_number, space_group_cryst1_fmt_dict, layer_group_cryst1_fmt_dict, generate_cryst1_record, \
-    space_group_number_operations, point_group_symmetry_operators, space_group_symmetry_operators, possible_symmetries, \
-    rotation_range, setting_matrices, inv_setting_matrices, origin, flip_x_matrix
+from utils.SymmetryUtils import valid_subunit_number, space_group_cryst1_fmt_dict, layer_group_cryst1_fmt_dict, \
+    generate_cryst1_record, space_group_number_operations, point_group_symmetry_operators, \
+    space_group_symmetry_operators, possible_symmetries, rotation_range, setting_matrices, inv_setting_matrices, \
+    origin, flip_x_matrix, identity_matrix
 from classes.EulerLookup import EulerLookup
 from PDB import PDB
 from SequenceProfile import SequenceProfile
@@ -1916,11 +1917,9 @@ class SymmetricModel(Model):
             rotation_matrices_only1 = get_rot_matrices(rotation_range[group1], 'z', 360)
             rotation_matrices_only2 = get_rot_matrices(rotation_range[group2], 'z', 360)
             # provide a 180 degree rotation along x (all D orient symmetries have axis here)
-            # apparently passing the degeneracy matrix first without any specification towards the row/column major
-            # worked for Josh. I am not sure that I understand his degeneracy (rotation) matrices orientation enough to
-            # understand if he hardcoded the column "majorness" into situations with rot and degen np.matmul(rot, degen)
-            rotation_matrices_group1 = get_degen_rotmatrices(flip_x_matrix, rotation_matrices_only1)
-            rotation_matrices_group2 = get_degen_rotmatrices(flip_x_matrix, rotation_matrices_only2)
+            flip_x = [identity_matrix, flip_x_matrix]
+            rotation_matrices_group1 = make_rotations_degenerate(rotation_matrices_only1, flip_x)
+            rotation_matrices_group2 = make_rotations_degenerate(rotation_matrices_only2, flip_x)
             # group_set_rotation_matrices = {1: np.matmul(degen_rot_mat_1, np.transpose(set_mat1)),
             #                                2: np.matmul(degen_rot_mat_2, np.transpose(set_mat2))}
             raise DesignError('Using dihedral symmetry has not been implemented yet! It is required to change the code'
@@ -1935,7 +1934,6 @@ class SymmetricModel(Model):
         # entity_coms = [entity.center_of_mass for entity in self.asu]
         # all_entities_com = np.matmul(np.full(len(entity_coms), 1 / len(entity_coms)), entity_coms)
         all_entities_com = self.center_of_mass
-        origin = np.array([0., 0., 0.])
         # check if global symmetry is centered at the origin. If not, translate to the origin with ext_tx
         self.log.debug('The symmetric center of mass is: %s' % str(self.center_of_mass_symmetric))
         if np.isclose(self.center_of_mass_symmetric, origin):  # is this threshold loose enough?
