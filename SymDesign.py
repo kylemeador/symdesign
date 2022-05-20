@@ -1164,12 +1164,13 @@ if __name__ == '__main__':
         symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
         SDUtils.make_path(symdesign_directory)
         job = JobResources(symdesign_directory)
-    logger.info('Using design resources from Database located at "%s"' % job.protein_data)
+    logger.info('Using JobResources from Database located at "%s"' % job.protein_data)
     queried_flags['job_resources'] = job
 
+    # Set up Databases
     if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
             or args.module in [PUtils.nano, PUtils.generate_fragments]:
-        interface_type = 'biological_interfaces'  # Todo parameterize
+        interface_type = 'biological_interfaces'  # Todo parameterize when more available
         logger.info('Initializing %s FragmentDatabase\n' % interface_type)
         fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
         # fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)  # has since been depreciated
@@ -1178,12 +1179,11 @@ if __name__ == '__main__':
     else:
         fragment_db, euler_lookup = None, None
 
-    # job.resources = Database(job.orient_dir, job.orient_asu_dir, job.refine_dir, job.full_model_dir, job.stride_dir,
-    #                          job.sequences, job.profiles, sql=None)  # , log=logger)
     job.fragment_db = fragment_db
     job.euler_lookup = euler_lookup
 
     if initialize:
+        logger.critical('Setting up input files for %s' % args.module)
         if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
             raise SDUtils.DesignError(
                 'No designs were specified! Please specify --directory, --file, --specification_file,'
@@ -1259,43 +1259,20 @@ if __name__ == '__main__':
         # including orientation, refinement, loop modeling, hhblits, bmdca?
         # example_directory.initialized = True  # Todo remove this
         if not example_directory.initialized and args.module in initialize_modules \
-                or args.nanohedra_output or args.load_database:  # or args.module == PUtils.nano
-            # job.make_path(job.protein_data)
-            # job.make_path(job.pdbs)
-            # job.make_path(job.sequence_info)
-            # job.make_path(job.sequences)
-            # job.make_path(job.profiles)
-            # job.make_path(job.job_paths)
-            # job.make_path(job.sbatch_scripts)
-            if args.load_database:  # Todo why is this set_up_design_directory here?
-                for design in design_directories:
-                    design.set_up_design_directory()
+                or args.nanohedra_output or args.load_database:
+            # if args.load_database:  # Todo why is this set_up_design_directory here?
+            #     for design in design_directories:
+            #         design.set_up_design_directory()
             # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
             # for each design_directory, ensure that the pdb files used as source are present in the self.orient_dir
             orient_dir = job.orient_dir
-            # job.make_path(orient_dir)
             orient_asu_dir = job.orient_asu_dir
-            # job.make_path(orient_asu_dir)
             stride_dir = job.stride_dir
-            # job.make_path(stride_dir)
             logger.critical('The requested poses require preprocessing before design modules should be used')
-            # logger.info('The required files for %s designs are being collected and oriented if necessary' % PUtils.nano)
-            # for design in design_directories:
-            #     print(design.info.keys())
-            # required_entities1 = set(design.entity_names[0] for design in design_directories)
-            # required_entities2 = set(design.entity_names[1] for design in design_directories)
-
             # Collect all entities required for processing the given commands
             required_entities = list(map(set, list(zip(*[design.entity_names for design in design_directories]))))
-            # all_entity_names = required_entities1.union(required_entities2)
-            # all_entity_names = []
-            # for entity_group in required_entities:
-            #     all_entity_names.extend(entity_group)
-            # all_entity_names = set(all_entity_names)
             all_entities = []
             load_resources = False
-            # orient_files = [os.path.splitext(file)[0] for file in os.listdir(orient_dir)]
-            # qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
             # Select entities, orient them, then load each entity to all_entities for further database processing
             symmetry_map = example_directory.sym_entry.groups if example_directory.sym_entry else repeat(None)
             for symmetry, entities in zip(symmetry_map, required_entities):
@@ -1406,10 +1383,12 @@ if __name__ == '__main__':
                 # After completion of sbatch, the next time initialized, there will be no refine files left allowing
                 # initialization to proceed
         else:
+            # currently these don't do anything
             pre_refine = None  # False
             pre_loop_model = None  # False
 
         if args.multi_processing:  # and not args.skip_master_db:
+            logger.info('Loading Database for multiprocessing fork')
             # Todo set up a job based data acquisition as it takes some time and isn't always necessary!
             job.resources.load_all_data()
             # Todo tweak behavior of these two parameters. Need Queue based DesignDirectory
@@ -1427,6 +1406,7 @@ if __name__ == '__main__':
                             % example_log)
 
     elif args.module == PUtils.nano:
+        logger.critical('Setting up inputs for %s Docking' % PUtils.nano)
         # if args.directory or args.file:
         #     all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
         #                                                                        directory=args.directory, dock=True)
