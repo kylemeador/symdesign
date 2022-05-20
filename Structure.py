@@ -22,7 +22,7 @@ from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_
 from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, retrieve_entity_id_by_sequence
 from SequenceProfile import SequenceProfile, generate_mutations
-from classes.SymEntry import get_rot_matrices, get_degen_rotmatrices
+from classes.SymEntry import get_rot_matrices, make_rotations_degenerate
 from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators, \
     rotation_range, identity_matrix, origin, flip_x_matrix
@@ -4052,12 +4052,11 @@ class Entity(Chain, SequenceProfile):
                 degeneracy_matrices = None  # Todo may need to add T degeneracy here!
             elif 'D' in symmetry:  # provide a 180 degree rotation along x (all D orient symmetries have axis here)
                 rotation_matrices = get_rot_matrices(rotation_range[symmetry.replace('D', 'C')], 'z', 360)
-                degeneracy_matrices = flip_x_matrix
+                degeneracy_matrices = [identity_matrix, flip_x_matrix]
             else:  # symmetry is cyclic
                 rotation_matrices = get_rot_matrices(rotation_range[symmetry], 'z', 360)
                 degeneracy_matrices = None
-            degeneracy_rotation_matrices = get_degen_rotmatrices(degeneracy_matrices=degeneracy_matrices,
-                                                                 rotation_matrices=rotation_matrices)
+            degeneracy_rotation_matrices = make_rotations_degenerate(rotation_matrices, degeneracy_matrices)
         except KeyError:
             raise ValueError('The symmetry %s is not a viable symmetry! You should try to add compatibility for it'
                              ' if you believe this is a mistake' % symmetry)

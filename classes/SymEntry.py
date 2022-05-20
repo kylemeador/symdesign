@@ -498,12 +498,12 @@ class SymEntry:
             degeneracy_matrices = None
             # For cages, only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
             if self.dimension == 0 and idx == 2:
-                degeneracy_matrices = [flip_y_matrix]
+                degeneracy_matrices = [identity_matrix, flip_y_matrix]
             # For layers that obey a cyclic point group symmetry and that are constructed from two oligomers that both
             # obey cyclic symmetry only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
             elif self.dimension == 2 and idx == 2 and \
                     (self.groups[0][0], self.groups[1][0], self.point_group_symmetry[0]) == ('C', 'C', 'C'):
-                degeneracy_matrices = [flip_y_matrix]
+                degeneracy_matrices = [identity_matrix, flip_y_matrix]
             # else:
             #     if oligomer_symmetry[0] == "C" and design_symmetry[0] == "C":
             #         degeneracy_matrices = [[[-1.0, 0.0, 0.0], [0.0, 1.0, 0.0], [0.0, 0.0, -1.0]]]  # ROT180y
@@ -514,30 +514,34 @@ class SymEntry:
                 # <0,e> would also have to be searched as well to remove the "if" statement below.
                 # if (oligomer_symmetry, design_symmetry_pg) != ('D3', 'D6'):
                 if group == 'D3':
-                    # ROT 60 degrees about z
-                    degeneracy_matrices = [[[0.5, -0.86603, 0.0], [0.86603, 0.5, 0.0], [0.0, 0.0, 1.0]]]
+                    degeneracy_matrices = [identity_matrix,  # 60 degrees about z
+                                           [[0.5, -0.866025, 0.0], [0.866025, 0.5, 0.0], [0.0, 0.0, 1.0]]]
                 elif group == 'D4':
-                    # 45 degrees about z; z unaffected; x goes to [1,-1,0] direction
-                    degeneracy_matrices = [[[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]]
+                    degeneracy_matrices = [identity_matrix,  # 45 degrees about z
+                                           [[0.707107, 0.707107, 0.0], [-0.707107, 0.707107, 0.0], [0.0, 0.0, 1.0]]]
                 elif group == 'D6':
-                    # ROT 30 degrees about z
-                    degeneracy_matrices = [[[0.86603, -0.5, 0.0], [0.5, 0.86603, 0.0], [0.0, 0.0, 1.0]]]
+                    degeneracy_matrices = [identity_matrix,  # 30 degrees about z
+                                           [[0.866025, -0.5, 0.0], [0.5, 0.866025, 0.0], [0.0, 0.0, 1.0]]]
             elif group == 'D2' and self.point_group_symmetry != 'O':
                 if self.point_group_symmetry == 'T':
-                    degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
+                    degeneracy_matrices = [identity_matrix,
+                                           [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # 90 degrees about z
 
                 elif self.point_group_symmetry == 'D4':
-                    degeneracy_matrices = [[[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                    degeneracy_matrices = [identity_matrix,
+                                           [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]]]  # z,x,y and y,z,x
 
                 elif self.point_group_symmetry in ['D2', 'D6']:
-                    degeneracy_matrices = [[[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
+                    degeneracy_matrices = [identity_matrix,
+                                           [[0.0, 0.0, 1.0], [1.0, 0.0, 0.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [0.0, 0.0, 1.0], [1.0, 0.0, 0.0]],
                                            [[-1.0, 0.0, 0.0], [0.0, 0.0, 1.0], [0.0, 1.0, 0.0]],
                                            [[0.0, 0.0, 1.0], [0.0, -1.0, 0.0], [1.0, 0.0, 0.0]],
                                            [[0.0, 1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, -1.0]]]
             elif group == 'T' and self.point_group_symmetry == 'T':
-                degeneracy_matrices = [[[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # ROT90z
+                degeneracy_matrices = [identity_matrix,
+                                       [[0.0, -1.0, 0.0], [1.0, 0.0, 0.0], [0.0, 0.0, 1.0]]]  # 90 degrees about z
 
             degeneracies.append(np.array(degeneracy_matrices) if degeneracy_matrices is not None else None)
 
@@ -801,32 +805,39 @@ def get_rot_matrices(step_deg: float, axis: str = 'z', rot_range_deg: int = 360)
     return np.array(rot_matrices)
 
 
-def get_degen_rotmatrices(degeneracy_matrices=None, rotation_matrices=None):
+def make_rotations_degenerate(rotations: np.ndarray = None, degeneracies: Union[np.ndarray, List[np.ndarray]] = None) \
+        -> List[np.ndarray]:
     """From a set of degeneracy matrices and a set of rotation matrices, produce the complete combination of the
-    specified transformations.
+    specified transformations
 
-    Keyword Args:
-        degeneracy_matrices (numpy.ndarray): column major with shape (degeneracies, 3, 3)
-            # [[[x, y, z], [x, y, z], [x, y, z]], ...]
-        rotation_matrices (numpy.ndarray): row major with shape (rotations, 3, 3)
-            # [[[x, y, z], [x, y, z], [x, y, z]], ...]
+    Args:
+        rotations: A group of rotations with shape (rotations, 3, 3)
+        degeneracies: A group of degeneracies with shape (degeneracies, 3, 3)
     Returns:
-        (list[list[numpy.ndarray]])  # (list[list[list[list]]])
+        The resulting matrices from the combination of degeneracies and rotations
     """
-    if rotation_matrices is not None and degeneracy_matrices is not None:
-        degen_rot_matrices = [np.matmul(rotation_matrices, degen_mat) for degen_mat in degeneracy_matrices]
-        # degen_rot_matrices = \
-        #     [[np.matmul(rotation_matrices, degen_mat)] for degen_mat in degeneracy_matrices]
-        return [rotation_matrices] + degen_rot_matrices
+    if rotations is None:
+        rotations = identity_matrix[None, :, :]
+    if degeneracies is None:
+        degeneracies = [identity_matrix]
+    else:
+        if (degeneracies[0] != identity_matrix).any():
+            logger.warning('degeneracies are missing an identity matrix which is recommended to produce the correct '
+                           'matrices outcome. Ensure you add this matrix to your degeneracies! before calling %s'
+                           % make_rotations_degenerate.__name__)
 
-    elif rotation_matrices is not None and degeneracy_matrices is None:
-        return [rotation_matrices]
+    # if rotations is not None and degeneracies is not None:
+    return [np.matmul(rotations, degen_mat) for degen_mat in degeneracies]  # = deg_rot
+    # Todo np.concatenate()
 
-    elif rotation_matrices is None and degeneracy_matrices is not None:  # is this ever true? list addition seems wrong
-        return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracy_matrices]
+    # elif rotations is not None and degeneracies is None:
+    #     return [rotations]  # Todo rotations[None, :, :, :] # UNNECESSARY
 
-    elif rotation_matrices is None and degeneracy_matrices is None:
-        return [[identity_matrix]]
+    # elif rotations is None and degeneracies is not None:  # is this ever true? list addition seems wrong
+    #     return [[identity_matrix]] + [[degen_mat] for degen_mat in degeneracies]  # Todo np.concatenate()
+
+    # elif rotations is None and degeneracies is None:
+    #     return [rotations]  # Todo rotations[None, :, :, :] # UNNECESSARY
 
 
 def parse_uc_str_to_tuples(uc_string):

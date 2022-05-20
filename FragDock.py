@@ -21,7 +21,7 @@ from utils.PDBUtils import get_contacting_asu, get_interface_residues
 from utils.SymmetryUtils import generate_cryst1_record, get_central_asu
 from classes.EulerLookup import EulerLookup
 from classes.OptimalTx import OptimalTx
-from classes.SymEntry import SymEntry, get_rot_matrices, get_degen_rotmatrices
+from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from PDB import PDB
 from Pose import Pose
@@ -719,14 +719,14 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Get Degeneracies/Rotation Matrices for Oligomer1: degen_rot_mat_1
     rotation_matrices_1 = get_rot_matrices(rotation_step1, 'z', sym_entry.rotation_range1)
-    degen_rot_mat_1 = get_degen_rotmatrices(sym_entry.degeneracy_matrices1, rotation_matrices_1)
+    degen_rot_mat_1 = make_rotations_degenerate(rotation_matrices_1, sym_entry.degeneracy_matrices1)
 
     if not resume:
         log.info('Obtaining Rotation/Degeneracy Matrices for Oligomer 2\n')
 
     # Get Degeneracies/Rotation Matrices for Oligomer2: degen_rot_mat_2
     rotation_matrices_2 = get_rot_matrices(rotation_step2, 'z', sym_entry.rotation_range2)
-    degen_rot_mat_2 = get_degen_rotmatrices(sym_entry.degeneracy_matrices2, rotation_matrices_2)
+    degen_rot_mat_2 = make_rotations_degenerate(rotation_matrices_2, sym_entry.degeneracy_matrices2)
 
     # Initialize Euler Lookup Class
     # euler_lookup = EulerLookup()
