@@ -137,20 +137,17 @@ def create_file(file):
             dummy = True
 
 
-def run(cmd, log_file_name, program=None, srun=None):
+def run(cmd: str, log_file_name: str, program: str = None, srun: str = None) -> bool:  #
     """Executes specified command and appends command results to log file
 
     Args:
-        cmd (str): The name of a command file which should be executed by the system
-        log_file_name (str): Location on disk of log file
-    Keyword Args:
-        program=None (str): The interpreter for said command
+        cmd: The name of a command file which should be executed by the system
+        log_file_name: Location on disk of log file
+        program: The interpreter for said command
+        srun: Whether to utilize a job step prefix during command issuance
     Returns:
-        (bool): Whether or not command executed successfully
+        Whether the command executed successfully
     """
-    # des_dir = SDUtils.DesignDirectory(os.path.dirname(cmd))
-    # if not log_file:
-    #     log_file = os.path.join(des_dir.path, os.path.basename(des_dir.path) + '.log')
     cluster_prefix = srun if srun else []
     program = [program] if program else []
     command = [cmd] if isinstance(cmd, str) else cmd
@@ -255,7 +252,7 @@ def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-def update_status(serialized_info, stage, mode='check'):
+def update_status(serialized_info: Union[str, bytes], stage: str, mode: str = 'check'):
     """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
     info = unpickle(serialized_info)
     if mode == 'check':

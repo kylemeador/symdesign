@@ -3751,12 +3751,8 @@ class Entity(Chain, SequenceProfile):
                                  'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
-    def uniprot_id(self) -> Union[str, None]:
-        """The UniProt ID for the Entity used for accessing genomic and homology features
-
-        Returns:
-            (str)
-        """
+    def uniprot_id(self) -> Optional[str]:
+        """The UniProt ID for the Entity used for accessing genomic and homology features"""
         try:
             return self._uniprot_id
         except AttributeError:
@@ -3782,11 +3778,7 @@ class Entity(Chain, SequenceProfile):
 
     @property
     def chain_id(self) -> str:
-        """The Chain name for the Entity instance
-
-        Returns:
-            (str)
-        """
+        """The Chain name for the Entity instance"""
         return self.residues[0].chain
 
     @chain_id.setter
@@ -3801,11 +3793,7 @@ class Entity(Chain, SequenceProfile):
 
     @property
     def number_of_monomers(self) -> int:
-        """The number of copies of the Entity in the Oligomer
-
-        Returns:
-            (int)
-        """
+        """The number of copies of the Entity in the Oligomer"""
         try:
             return self._number_of_monomers
         except AttributeError:  # set based on the symmetry, unless that fails then find using chain_ids
@@ -3818,11 +3806,7 @@ class Entity(Chain, SequenceProfile):
 
     @property
     def chain_ids(self) -> List:  # Also used in PDB
-        """The names of each Chain found in the Entity
-
-        Returns:
-            (list)
-        """
+        """The names of each Chain found in the Entity"""
         try:
             return self._chain_ids
         except AttributeError:  # This shouldn't be possible with the constructor available

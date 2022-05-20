@@ -3383,11 +3383,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # self.solve_consensus()
         # -------------------------------------------------------------------------
 
-    def return_fragment_observations(self):
+    def return_fragment_observations(self) -> List[Dict[str, Union[str, int, float]]]:
         """Return the fragment observations identified on the pose regardless of Entity binding
 
         Returns:
-            (list[dict]): [{'mapped': int, 'paired': int, 'cluster': str, 'match': float}, ...]
+            [{'mapped': int, 'paired': int, 'cluster': str, 'match': float}, ...]
         """
         observations = []
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
@@ -3396,18 +3396,20 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         return observations
 
-    def return_fragment_metrics(self, fragments=None, by_interface=False, entity1=None, entity2=None, by_entity=False):
-        """From self.fragment_queries, return the specified fragment metrics. By default returns the entire Pose
+    def return_fragment_metrics(self, fragments: List[Dict] = None, by_interface: bool = False, by_entity: bool = False,
+                                entity1: Structure = None, entity2: Structure = None) -> Dict:
+        """Return fragment metrics from the Pose. Entire Pose unless by_interface or by_entity is used
 
-        Keyword Args:
-            metrics=None (list): A list of calculated metrics
-            by_interface=False (bool): Return fragment metrics for each particular interface found in the Pose
-            entity1=None (Entity): The first Entity object to identify the interface if per_interface=True
-            entity2=None (Entity): The second Entity object to identify the interface if per_interface=True
-            by_entity=False (bool): Return fragment metrics for each Entity found in the Pose
+        Uses data from self.fragment_queries unless fragments are passed
+        Args:
+            fragments: A list of fragment observations
+            by_interface: Return fragment metrics for each particular interface found in the Pose
+            by_entity: Return fragment metrics for each Entity found in the Pose
+            entity1: The first Entity object to identify the interface if per_interface=True
+            entity2: The second Entity object to identify the interface if per_interface=True
         Returns:
-            (dict): {query1: {all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap,
-            central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d}, ... }
+            {query1: {all_residue_score (Nanohedra), center_residue_score, total_residues_with_fragment_overlap,
+                      central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d}, ... }
         """
         # Todo consolidate return to (dict[(dict)]) like by_entity
         # Todo once moved to pose, incorporate these?

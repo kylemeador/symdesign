@@ -1,4 +1,5 @@
 import os
+from typing import List, Union
 
 import numpy as np
 
@@ -174,7 +175,7 @@ def generate_cryst1_record(dimensions, space_group) -> str:
         dimensions (union[list, tuple]): Containing a, b, c (Angstroms) alpha, beta, gamma (degrees)
         space_group (str): The space group of interest in compact format
     Returns:
-        (str): The CRYST1 record
+        The CRYST1 record
     """
     if space_group in space_group_cryst1_fmt_dict:
         formatted_space_group = space_group_cryst1_fmt_dict[space_group]
@@ -295,10 +296,16 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from F
         return pdb
 
 
-def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
+def get_ptgrp_sym_op(sym_type: str,
+                     expand_matrix_dir: Union[str, bytes] = os.path.join(sym_op_location,
+                                                                         'POINT_GROUP_SYMM_OPERATORS')) -> List[List]:
     """Get the symmetry operations for a specified point group oriented in the canonical orientation
+
+    Args:
+        sym_type: The name of the symmetry
+        expand_matrix_dir: Where are the expand matrices saved to disk
     Returns:
-        (list[list])
+        The rotation matrices to perform point group expansion
     """
     expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
     with open(expand_matrix_filepath, 'r') as f:
