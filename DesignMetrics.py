@@ -2,7 +2,7 @@ import operator
 from copy import copy
 from itertools import repeat
 from json import loads
-from typing import Dict
+from typing import Dict, List, Set
 
 import numpy as np
 import pandas as pd
@@ -816,92 +816,79 @@ def columns_to_new_column(df, column_dict, mode='add'):
     return df
 
 
-def hbond_processing(score_dict, columns, offset=None):
+def hbond_processing(design_scores: Dict, columns: List[str]) -> Dict[str, Set]:
     """Process Hydrogen bond Metrics from Rosetta score dictionary
 
     if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
     Args:
-        score_dict (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
-                            'yhh_planarity':0.885, 'hbonds_res_selection': '15A,21A,26A,35A,...'}, ...}
-        columns (list): ['hbonds_res_selection_complex', 'hbonds_res_selection_1_unbound',
-            'hbonds_res_selection_2_unbound']
-    Keyword Args:
-        offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
+        design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
+                                'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...',
+                                'hbonds_res_selection_1_bound': '26A'}, ...}
+        columns : ['hbonds_res_selection_complex', 'hbonds_res_selection_1_unbound',
+                   'hbonds_res_selection_2_unbound']
     Returns:
-        hbond_dict (dict): {'0001': [34, 54, 67, 68, 106, 178], ...}
+        {'0001': {34, 54, 67, 68, 106, 178}, ...}
     """
-    hbond_dict = {}
-    res_offset = 0
-    for entry in score_dict:
-        entry_dict = {}
-        for column in columns:
-            hbonds = score_dict[entry][column].split(',')
-            if hbonds[0] == '' and len(hbonds) == 1:
-                hbonds = set()
-            else:
-                if column.split('_')[-1] == 'unbound' and offset:  # 'oligomer'
-                    res_offset = offset[column.split('_')[-2]]
-                for i in range(len(hbonds)):
-                    hbonds[i] = int(hbonds[i][:-1]) + res_offset  # remove chain ID off last index
-            entry_dict[column.split('_')[3]] = set(hbonds)
-        if len(entry_dict) == 3:
-            hbond_dict[entry] = list((entry_dict['complex'] - entry_dict['1']) - entry_dict['2'])
-            #                                                   entry_dict['A']) - entry_dict['B'])
-        else:
-            hbond_dict[entry] = list()
-        #     logger.error('%s: Missing hbonds_res_selection_ data for %s. Hbonds inaccurate!' % (pose, entry))
-
-    return hbond_dict
-
-
-def dirty_hbond_processing(score_data, offset=None):  # columns
-    """Process Hydrogen bond Metrics from Rosetta score dictionary
-
-    if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
-    Args:
-        score_data (dict): {'0001': {'buns': 2.0, 'per_res_energy_15': -3.26, ...,
-                            'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...',
-                            'hbonds_res_selection_1_bound': '26A'}, ...}
-    Keyword Args:
-        offset=None (dict[mapping[int, int]]): {1: 0, 2: 102, ...} The amount to offset each chain by
-    Returns:
-        (dict[mapping[str, set]]): {'0001': [34, 54, 67, 68, 106, 178], ...}
-    """
-    hbond_dict = {}
-    res_offset = 0
-    for entry, data in score_data.items():
+    hbonds = {}
+    for design, scores in design_scores.items():
         unbound_bonds, complex_bonds = set(), set()
-        # hbonds_entry = []
-        # for column in columns:
-        for column, value in data.items():
-            if column.startswith('hbonds_res_selection'):
-                # hbonds = value.split(',')
-                meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
-                # ensure there are hbonds present
-                # if hbonds[0] == '' and len(hbonds) == 1:
-                # parsed_hbonds = set()
-                # else:
-                parsed_hbonds = set(int(hbond.translate(digit_translate_table))
-                                    for hbond in value.split(',') if hbond != '')  # check if '' in case no hbonds
-                if meta_data[-1] == 'bound' and offset:  # find offset according to chain
-                    res_offset = offset[meta_data[-2]]
-                    parsed_hbonds = set(residue + res_offset for residue in parsed_hbonds)
-                # for idx, hbond in enumerate(hbonds):
-                #     # hbonds[i] = res_offset + int(hbonds[i][:-1])  # remove chain ID off last index of string
-                #     parsed_hbonds.add(res_offset + int(hbond[:-1]))  # remove chain ID off last index of string
-                if meta_data[3] == 'complex':
-                    complex_bonds = parsed_hbonds
-                else:  # from another state
-                    unbound_bonds.union(parsed_hbonds)
+        for column in columns:
+            if column not in scores:
+                continue
+            meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
+            parsed_hbonds = set(int(hbond.translate(digit_translate_table))
+                                for hbond in scores.get(column, '').split(',') if hbond != '')  # check if '' in case no hbonds
+            if meta_data[3] == 'complex':
+                complex_bonds = parsed_hbonds
+            else:  # from another state
+                unbound_bonds = unbound_bonds.union(parsed_hbonds)
         if complex_bonds:  # 'complex', '1', '2'
-            hbond_dict[entry] = complex_bonds.difference(unbound_bonds)
-            # hbond_dict[entry] = [hbonds_entry['complex'].difference(hbonds_entry['1']).difference(hbonds_entry['2']))]
+            hbonds[design] = complex_bonds.difference(unbound_bonds)
+            # hbonds[entry] = [hbonds_entry['complex'].difference(hbonds_entry['1']).difference(hbonds_entry['2']))]
             #                                                         hbonds_entry['A']).difference(hbonds_entry['B'])
         else:  # no hbonds were found in the complex
-            hbond_dict[entry] = set()
+            hbonds[design] = complex_bonds
             # logger.error('%s: Missing hbonds_res_selection_ data for %s. Hbonds inaccurate!' % (pose, entry))
 
-    return hbond_dict
+    return hbonds
+
+
+def dirty_hbond_processing(design_scores: Dict) -> Dict[str, Set]:
+    """Process Hydrogen bond Metrics from Rosetta score dictionary
+
+    if rosetta_numbering="true" in .xml then use offset, otherwise, hbonds are PDB numbering
+    Args:
+        design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
+                                'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...',
+                                'hbonds_res_selection_1_bound': '26A'}, ...}
+    Returns:
+        {'001': {34, 54, 67, 68, 106, 178}, ...}
+    """
+    hbonds = {}
+    for design, scores in design_scores.items():
+        unbound_bonds, complex_bonds = set(), set()
+        for column, value in scores.items():
+            if not column.startswith('hbonds_res_selection'):
+                continue
+            meta_data = column.split('_')  # ['hbonds', 'res', 'selection', 'complex/interface_number', '[unbound]']
+            parsed_hbonds = set(int(hbond.translate(digit_translate_table))
+                                for hbond in value.split(',') if hbond != '')  # check if '' in case no hbonds
+            # if meta_data[-1] == 'bound' and offset:  # find offset according to chain
+            #     res_offset = offset[meta_data[-2]]
+            #     parsed_hbonds = set(residue + res_offset for residue in parsed_hbonds)
+            if meta_data[3] == 'complex':
+                complex_bonds = parsed_hbonds
+            else:  # from another state
+                unbound_bonds = unbound_bonds.union(parsed_hbonds)
+        if complex_bonds:  # 'complex', '1', '2'
+            hbonds[design] = complex_bonds.difference(unbound_bonds)
+            # hbonds[design] = [hbonds_entry['complex'].difference(hbonds_entry['1']).difference(hbonds_entry['2']))]
+            #                                                         hbonds_entry['A']).difference(hbonds_entry['B'])
+        else:  # no hbonds were found in the complex
+            hbonds[design] = complex_bonds
+            # logger.error('%s: Missing hbonds_res_selection_ scores for %s. Hbonds inaccurate!' % (pose, design))
+
+    return hbonds
 
 
 def hot_spot(residue_dict, energy=-1.5):  # UNUSED
