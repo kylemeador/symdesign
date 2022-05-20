@@ -192,28 +192,25 @@ def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.
         # else:
         raise DesignError('No --stage specified. Required!!!')
 
+    script_or_command = '%s is malformed at line %d!\n%s\nAll commands must either have a file extension or not. Cannot mix!'
     if number_of_commands:
         _commands = [0 for _ in range(number_of_commands)]
-        script_present = '-c'
     elif file:  # Automatically detect if the commands file has executable scripts or errors
         # use collect_designs to get commands from the provided file
         _commands, location = collect_designs(files=[file])  # , directory=out_path)
-        script_present, error = None, ''
-        for idx, _command in enumerate(_commands):
-            if _command.endswith('.sh'):  # the command string is a shell script
+        script_present, error = False, None
+        for idx, _command in enumerate(_commands, 1):
+            if _command.endswith('.sh'):  # the command string is a shell script, ex: "refine.sh"
                 if not os.path.exists(_command):  # check for any missing commands and report
-                    error = '%s is malformed at line %d! The command at location (%s) doesn\'t exist!\n' \
-                            % (file, idx + 1, _command)
-                if idx != 0 and not script_present:  # There was a change from non-script files to script files
-                    error = '%s is malformed at line %d! All commands must either have a file extension or not. Cannot ' \
-                            'mix!\n' % (file, idx + 1)
-                script_present = '-c'
+                    error = '%s is malformed at line %d! The command at location (%s) doesn\'t exist!'
+                if idx != 1 and not script_present:  # There was a change from non-script files to script files
+                    error = script_or_command
+                script_present = True
             else:  # the command string is not a shell script
-                if idx != 0 and script_present:  # There was a change from script files to non-script files
-                    error = '%s is malformed at line %d! All commands must either have a file extension or not. Cannot ' \
-                            'mix!\n' % (file, idx + 1)
-        if error != '':
-            raise DesignError(error)
+                if idx != 1 and script_present:  # There was a change from script files to non-script files
+                    error = script_or_command
+        if error:
+            raise DesignError(error % (file, idx, _command))
     else:
         raise DesignError('You must pass number_of_commands or file to %s' % distribute.__name__)
 
@@ -239,9 +236,9 @@ def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.
         new_f.write('%s%s\n' % (sb_flag, out))
         array = 'array=1-%d%%%d' % (int(len(_commands) / process_scale[scale] + 0.5), max_jobs)
         new_f.write('%s%s\n\n' % (sb_flag, array))
-        new_f.write('python %s --stage %s distribute %s--success_file %s --failure_file %s --command_file %s %s\n' %
+        new_f.write('python %s --stage %s distribute %s--success_file %s --failure_file %s --command_file %s\n' %
                     (cmd_dist, scale, '--log_file %s ' % log_file if log_file else '', success_file, failure_file, file,
-                     (script_present or '')))
+                     ))
         if finishing_commands:
             new_f.write('# Wait for all to complete\nwait\n\n# Then execute\n%s\n' % '\n'.join(finishing_commands))
 
