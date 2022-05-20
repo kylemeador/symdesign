@@ -710,13 +710,14 @@ def calculate_mp_cores(cores: int = None, mpi: bool = False, jobs: int = None) -
     else:  # logical=False only uses physical cpus, not logical threads
         max_cpus_to_use = psutil.cpu_count(logical=False) - 1  # leave CPU available for computer
 
-    if jobs:  # test if cores or jobs is None, then take the minimal
-        return min((cores or max_cpus_to_use), (jobs or max_cpus_to_use), max_cpus_to_use)
+    if cores or jobs:  # test if cores or jobs is None, then take the minimum
+        infinity = float('inf')
+        return min((cores or infinity), (jobs or infinity))
 
     if mpi:  # Todo grab an evironmental variable for mpi cores?
         return int(max_cpus_to_use / 6)  # CommandDistributer.mpi)
     else:
-        return min((cores or max_cpus_to_use), max_cpus_to_use)  # (jobs or max_cpus_to_use),
+        return max_cpus_to_use
 
 
 def set_worker_affinity():
