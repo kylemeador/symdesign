@@ -1,5 +1,5 @@
 import operator
-from copy import copy, deepcopy
+from copy import copy
 from itertools import repeat
 from json import loads
 from typing import Dict
@@ -14,7 +14,6 @@ from Query.utils import input_string, validate_type, verify_choice, header_strin
 
 # Globals
 logger = start_log(name=__name__)
-index_offset = 1
 master_metrics = {'average_fragment_z_score':
                       {'description': 'The average fragment z-value used in docking/design',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
@@ -957,123 +956,6 @@ def interface_composition_similarity(series):
             class_ratio_diff_d[residue_class] = 0
 
     return sum(class_ratio_diff_d.values()) / len(class_ratio_diff_d)
-
-
-def residue_processing(self, design_scores: Dict, columns: List) -> Dict:
-    """Process Residue Metrics from Rosetta score dictionary (One-indexed residues)
-
-    Args:
-        design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
-                        'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
-        columns: ['per_res_energy_complex_5', 'per_res_energy_1_unbound_5', ...]
-    Returns:
-        {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0., 'cst': 0.}, ...}, ...}
-    """
-    # energy_template = {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.}
-    residue_template = {'energy': {'complex': 0., 'unbound': [0. for entity in self.entities], 'fsp': 0., 'cst': 0.}}
-    pose_length = self.number_of_residues
-    # adjust the energy based on pose specifics
-    pose_energy_multiplier = self.number_of_symmetry_mates
-    entity_energy_multiplier = [entity.number_of_monomers for entity in self.entities]
-    warn = False
-    parsed_design_residues = {}
-    for design, scores in design_scores.items():
-        residue_data = {}
-        for column in [column.strip('_') for column in columns]:
-            if column not in scores:
-                continue
-            metadata = column.split('_')
-            # remove chain_id in rosetta_numbering="False"
-            # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
-            # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
-            residue_number = int(metadata[-1].translate(digit_translate_table))
-            if residue_number > pose_length:
-                if not warn:
-                    warn = True
-                    logger.warning('Encountered %s which has residue number > the pose length (%d). If this system is '
-                                   'NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
-                                   'PerResidue SimpleMetrics, there is an error in processing that requires your '
-                                   'debugging. Otherwise, this is likely a numerical chain and will be treated under '
-                                   'that assumption. Always ensure that output_as_pdb_nums="true" is set'
-                                   % (column, pose_length))
-                residue_number = residue_number[:-1]
-            if residue_number not in residue_data:
-                residue_data[residue_number] = deepcopy(residue_template)  # deepcopy(energy_template)
-
-            metric = metadata[2]  # energy [or sasa]
-            if metric != 'energy':
-                continue
-            pose_state = metadata[-2]  # unbound or complex [or fsp (favor_sequence_profile) or cst (constraint)]
-            entity_or_complex = metadata[3]  # 1,2,3,... or complex
-
-            # use += because instances of symmetric residues from symmetry related chains are summed
-            try:  # to convert to int. Will succeed if we have an entity value, ex: 1,2,3,...
-                entity = int(entity_or_complex) - index_offset
-                residue_data[residue_number][metric][pose_state][entity] += \
-                    (scores.get(column, 0) / entity_energy_multiplier[entity])
-            except ValueError:  # complex is the value, use the pose state
-                residue_data[residue_number][metric][pose_state] += (scores.get(column, 0) / pose_energy_multiplier)
-        parsed_design_residues[design] = residue_data
-
-    return parsed_design_residues
-
-
-def rosetta_residue_processing(self, design_scores: Dict) -> Dict:
-    """Process Residue Metrics from Rosetta score dictionary (One-indexed residues)
-
-    Args:
-        design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
-                        'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
-    Returns:
-        {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0., 'cst': 0.}, ...}, ...}
-    """
-    # energy_template = {'complex': 0., 'unbound': 0., 'fsp': 0., 'cst': 0.}
-    residue_template = {'energy': {'complex': 0., 'unbound': [0. for entity in self.entities], 'fsp': 0., 'cst': 0.}}
-    pose_length = self.number_of_residues
-    # adjust the energy based on pose specifics
-    pose_energy_multiplier = self.number_of_symmetry_mates
-    entity_energy_multiplier = [entity.number_of_monomers for entity in self.entities]
-
-    warn = False
-    parsed_design_residues = {}
-    for design, scores in design_scores.items():
-        residue_data = {}
-        for key, value in scores.items():
-            if key.startswith('per_res_'):
-                metadata = key.strip('_').split('_')
-                # remove chain_id in rosetta_numbering="False"
-                # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
-                # split. Also numbers appear, "per_res_energy_complex_1161" which may indicate chain "1" or residue 1161
-                residue_number = int(metadata[-1].translate(digit_translate_table))
-                if residue_number > pose_length:
-                    if not warn:
-                        warn = True
-                        logger.warning(
-                            'Encountered %s which has residue number > the pose length (%d). If this system is '
-                            'NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
-                            'PerResidue SimpleMetrics, there is an error in processing that requires your '
-                            'debugging. Otherwise, this is likely a numerical chain and will be treated under '
-                            'that assumption. Always ensure that output_as_pdb_nums="true" is set' % (key, pose_length))
-                    residue_number = residue_number[:-1]
-                if residue_number not in residue_data:
-                    residue_data[residue_number] = deepcopy(residue_template)  # deepcopy(energy_template)
-
-                metric = metadata[2]  # energy [or sasa]
-                if metric != 'energy':
-                    continue
-                pose_state = metadata[-2]  # unbound or complex [or fsp (favor_sequence_profile) or cst (constraint)]
-                entity_or_complex = metadata[3]  # 1,2,3,... or complex
-
-                # use += because instances of symmetric residues from symmetry related chains are summed
-                try:  # to convert to int. Will succeed if we have an entity value, ex: 1,2,3,...
-                    entity = int(entity_or_complex) - index_offset
-                    residue_data[residue_number][metric][pose_state][entity] += \
-                        (value / entity_energy_multiplier[entity])
-                except ValueError:  # complex is the value, use the pose state
-                    residue_data[residue_number][metric][pose_state] += (value / pose_energy_multiplier)
-        parsed_design_residues[design] = residue_data
-
-    return parsed_design_residues
 
 
 def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: Dict = None) -> Dict:
