@@ -2525,9 +2525,12 @@ class DesignDirectory:  # (JobResources):
         # entity_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
         # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
         #                         for chain, named_sequences in entity_sequences.items()}
-        wt_design_info = {residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
-                                           'hbond': 0} for entity in self.pose.entities for residue in entity.residues}
-        residue_info = {pose_source: wt_design_info}
+        entity_energies = [0. for ent in self.pose.entities]
+        pose_source_residue_info = \
+            {residue.number: {'energy': {'complex': 0., 'unbound': copy.copy(entity_energies), 'fsp': 0., 'cst': 0.},
+                              'type': protein_letters_3to1.get(residue.type.title()), 'hbond': 0}
+             for entity in self.pose.entities for residue in entity.residues}
+        residue_info = {pose_source: pose_source_residue_info}
         job_key = 'no_energy'
         stat_s, sim_series = pd.Series(), []
         if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
@@ -2550,7 +2553,7 @@ class DesignDirectory:  # (JobResources):
             scores_df['number_hbonds'] = 0
             protocol_s = scores_df[PUtils.groups]
             remove_columns = rosetta_terms + unnecessary + [PUtils.groups]
-            residue_info.update({structure_name: wt_design_info for structure_name in scores_df.index.to_list()})
+            residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
             # interface_hbonds = dirty_hbond_processing(all_design_scores)
             # residue_info = self.pose.rosetta_residue_processing(all_design_scores)
