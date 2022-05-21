@@ -234,11 +234,12 @@ def get_table_column_widths(data):
     return tuple(max(map(len, map(str, column))) for column in zip(*data))
 
 
-def make_path(path, condition=True):
+def make_path(path: Union[str, bytes], condition: bool = True):
     """Make all required directories in specified path if it doesn't exist, and optional condition is True
 
-    Keyword Args:
-        condition=True (bool): A condition to check before the path production is executed
+    Args:
+        path: The path to create
+        condition: A condition to check before the path production is executed
     """
     if condition:
         os.makedirs(path, exist_ok=True)
