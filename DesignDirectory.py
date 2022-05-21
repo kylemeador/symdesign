@@ -1600,14 +1600,13 @@ class DesignDirectory:  # (JobResources):
             self.log.info('Metrics Command for Entity %s: %s' % (name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable to gather interface Metrics on all Designs
-        if not self.run_in_shell:
-            write_shell_script(list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
-                               out_path=self.scripts, additional=[list2cmdline(command) for command in metric_cmds])
-        else:
+        if self.run_in_shell:
             for metric_cmd in metric_cmds:
                 metrics_process = Popen(metric_cmd)
-                # Wait for Rosetta Design command to complete
-                metrics_process.communicate()
+                metrics_process.communicate()  # wait for command to complete
+        else:
+            write_shell_script(list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
+                               out_path=self.scripts, additional=[list2cmdline(command) for command in metric_cmds])
 
     def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
                               score_only=None, variables=None, **kwargs):
@@ -1810,19 +1809,18 @@ class DesignDirectory:  # (JobResources):
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
-        if not self.run_in_shell:
-            write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
-                               additional=[list2cmdline(command) for command in additional_cmds] +
-                               [list2cmdline(generate_files_cmd)] +
-                               [list2cmdline(command) for command in metric_cmds])
-            #                  status_wrap=self.serialized_info,
-        else:
+        if self.run_in_shell:
             design_process = Popen(design_cmd)
-            # Wait for Rosetta Design command to complete
-            design_process.communicate()
+            design_process.communicate()  # wait for command to complete
             for metric_cmd in metric_cmds:
                 metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()
+        else:
+            write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
+                               additional=[list2cmdline(command) for command in additional_cmds] +
+                                          [list2cmdline(generate_files_cmd)] +
+                                          [list2cmdline(command) for command in metric_cmds])
+            #                  status_wrap=self.serialized_info,
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if self.run_in_shell:
@@ -2202,18 +2200,17 @@ class DesignDirectory:  # (JobResources):
             metric_cmds = []
 
         # Create executable/Run FastRelax on Clean ASU with RosettaScripts
-        if not self.run_in_shell:
-            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
-                               additional=[list2cmdline(command) for command in metric_cmds])
-            #                  status_wrap=self.serialized_info)
-        else:
+        if self.run_in_shell:
             relax_process = Popen(relax_cmd)
-            relax_process.communicate()
+            relax_process.communicate()  # wait for command to complete
             if gather_metrics:
                 for metric_cmd in metric_cmds:
                     metrics_process = Popen(metric_cmd)
-                    # Wait for Rosetta Design command to complete
                     metrics_process.communicate()
+        else:
+            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
+                               additional=[list2cmdline(command) for command in metric_cmds])
+            #                  status_wrap=self.serialized_info)
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
     @close_logs
@@ -2467,7 +2464,13 @@ class DesignDirectory:  # (JobResources):
             self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
             metric_cmds.append(_metric_cmd)
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
-        if not self.run_in_shell:
+        if self.run_in_shell:
+            design_process = Popen(design_cmd)
+            design_process.communicate()  # wait for command to complete
+            for metric_cmd in metric_cmds:
+                metrics_process = Popen(metric_cmd)
+                metrics_process.communicate()
+        else:
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds])
