@@ -1542,6 +1542,39 @@ class DesignDirectory:  # (JobResources):
 
         return out_file
 
+    def generate_entity_metrics(self, entity_command) -> List[Optional[List[str]]]:
+        """Use the Pose state to generate metrics commands for it's Entities
+
+        Args:
+            entity_command: The base command to build Entity metric commands off of
+        Returns:
+            The formatted command for every Entity in the Pose
+        """
+        if self.pose.entities == 1:  # no unbound state to query!
+            return []
+        else:
+            number_of_entities = len(self.entity_names)  # not dependent on Pose load
+            if len(self.symmetry_definition_files) != number_of_entities or self.force_flags:
+                self.load_pose()  # Need to initialize the pose so each entity can get sdf created
+                for entity in self.pose.entities:
+                    if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+                        entity.make_sdf(out_path=self.data, modify_sym_energy_for_cryst=self.modify_sym_energy)
+                    else:
+                        shutil.copy(os.path.join(PUtils.symmetry_def_files, 'C1.sym'),
+                                    os.path.join(self.data, '%s.sdf' % entity.name))
+
+            entity_metric_commands = []
+            for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
+                if self.symmetric:
+                    entity_sdf = 'sdf=%s' % os.path.join(self.data, '%s.sdf' % name)
+                    entity_sym = 'symmetry=make_point_group'
+                else:
+                    entity_sdf, entity_sym = '', 'symmetry=asymmetric'
+                metric_cmd = entity_command + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+                    ([entity_sdf] if entity_sdf != '' else [])
+                self.log.info('Metrics Command for Entity %s: %s' % (name, list2cmdline(metric_cmd)))
+                entity_metric_commands.append(metric_cmd)
+
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
@@ -1552,15 +1585,6 @@ class DesignDirectory:  # (JobResources):
         if self.interface_residues is False or self.interface_design_residues is False:
             # need these ^ for making flags so get them v
             self.identify_interface()
-
-        if len(self.symmetry_definition_files) != len(self.entity_names) or self.force_flags:
-            self.load_pose()  # Need to initialize the pose so each entity can get sdf created
-            for idx, entity in enumerate(self.pose.entities, 1):
-                if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                    entity.make_sdf(out_path=self.data, modify_sym_energy_for_cryst=self.modify_sym_energy)
-                else:
-                    shutil.copy(os.path.join(PUtils.symmetry_def_files, 'C1.sym'),
-                                os.path.join(self.data, '%s.sdf' % entity.name))
 
         # interface_secondary_structure
         if not os.path.exists(self.flags) or self.force_flags:
@@ -1589,16 +1613,18 @@ class DesignDirectory:  # (JobResources):
         entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
                                               % (PUtils.stage[3], '_DEV' if self.development else ''))]
         metric_cmds = [metric_cmd_bound]
-        for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
-            if self.symmetric:
-                entity_sdf = 'sdf=%s' % os.path.join(self.data, '%s.sdf' % name)
-                entity_sym = 'symmetry=make_point_group'
-            else:
-                entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
-                ([entity_sdf] if entity_sdf != '' else [])
-            self.log.info('Metrics Command for Entity %s: %s' % (name, list2cmdline(_metric_cmd)))
-            metric_cmds.append(_metric_cmd)
+        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+        # for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
+        #     if self.symmetric:
+        #         entity_sdf = 'sdf=%s' % os.path.join(self.data, '%s.sdf' % name)
+        #         entity_sym = 'symmetry=make_point_group'
+        #     else:
+        #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
+        #     _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+        #         ([entity_sdf] if entity_sdf != '' else [])
+        #     self.log.info('Metrics Command for Entity %s: %s' % (name, list2cmdline(_metric_cmd)))
+        #     metric_cmds.append(_metric_cmd)
+
         # Create executable to gather interface Metrics on all Designs
         if self.run_in_shell:
             for metric_cmd in metric_cmds:
@@ -1797,17 +1823,19 @@ class DesignDirectory:  # (JobResources):
 
         self.log.info('Design Command: %s' % list2cmdline(design_cmd))
         metric_cmds = []
-        for idx, entity in enumerate(self.pose.entities, 1):
-            if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
-                                                        modify_sym_energy_for_cryst=self.modify_sym_energy)
-                entity_sym = 'symmetry=make_point_group'
-            else:
-                entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
-                ([entity_sdf] if entity_sdf != '' else [])
-            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
-            metric_cmds.append(_metric_cmd)
+        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+        # for idx, entity in enumerate(self.pose.entities, 1):
+        #     if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+        #         entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
+        #                                                 modify_sym_energy_for_cryst=self.modify_sym_energy)
+        #         entity_sym = 'symmetry=make_point_group'
+        #     else:
+        #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
+        #     _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+        #         ([entity_sdf] if entity_sdf != '' else [])
+        #     self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
+        #     metric_cmds.append(_metric_cmd)
+
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.run_in_shell:
             design_process = Popen(design_cmd)
@@ -2185,17 +2213,18 @@ class DesignDirectory:  # (JobResources):
             entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
                                                   % (PUtils.stage[3], '_DEV' if self.development else ''))]
             metric_cmds = [metric_cmd_bound]
-            for idx, entity in enumerate(self.pose.entities, 1):
-                if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                    entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
-                                                            modify_sym_energy_for_cryst=self.modify_sym_energy)
-                    entity_sym = 'symmetry=make_point_group'
-                else:
-                    entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-                _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
-                    ([entity_sdf] if entity_sdf != '' else [])
-                self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
-                metric_cmds.append(_metric_cmd)
+            metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+            # for idx, entity in enumerate(self.pose.entities, 1):
+            #     if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+            #         entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
+            #                                                 modify_sym_energy_for_cryst=self.modify_sym_energy)
+            #         entity_sym = 'symmetry=make_point_group'
+            #     else:
+            #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
+            #     _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+            #         ([entity_sdf] if entity_sdf != '' else [])
+            #     self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
+            #     metric_cmds.append(_metric_cmd)
         else:
             metric_cmds = []
 
@@ -2347,8 +2376,10 @@ class DesignDirectory:  # (JobResources):
         interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
-        self.identify_interface()
-        if not self.command_only and not self.run_in_shell:  # just reissue the commands
+        if self.command_only and self.run_in_shell:  # just reissue the commands
+            pass
+        else:
+            self.identify_interface()
             if self.query_fragments:
                 self.make_path(self.frags)
             elif self.fragment_observations or self.fragment_observations == list():
@@ -2452,17 +2483,19 @@ class DesignDirectory:  # (JobResources):
 
         self.log.info('Design Command: %s' % list2cmdline(design_cmd))
         metric_cmds = []
-        for idx, entity in enumerate(self.pose.entities, 1):
-            if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
-                                                        modify_sym_energy_for_cryst=self.modify_sym_energy)
-                entity_sym = 'symmetry=make_point_group'
-            else:
-                entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
-                ([entity_sdf] if entity_sdf != '' else [])
-            self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
-            metric_cmds.append(_metric_cmd)
+        metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
+        # for idx, entity in enumerate(self.pose.entities, 1):
+        #     if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+        #         entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
+        #                                                 modify_sym_energy_for_cryst=self.modify_sym_energy)
+        #         entity_sym = 'symmetry=make_point_group'
+        #     else:
+        #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
+        #     _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
+        #         ([entity_sdf] if entity_sdf != '' else [])
+        #     self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
+        #     metric_cmds.append(_metric_cmd)
+
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.run_in_shell:
             design_process = Popen(design_cmd)
