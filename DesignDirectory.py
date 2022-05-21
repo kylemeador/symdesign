@@ -1275,7 +1275,7 @@ class DesignDirectory:  # (JobResources):
             if self.interface_design_residues is False:  # no search yet, so self.interface_design_residues = False
                 self.identify_interface()
             else:  # it is True, but we haven't got the fragments yet, so we will get them by the same means
-                pass
+                self.load_pose()
             self.make_path(self.frags, condition=self.write_frags)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
             if self.pose.fragment_queries:
@@ -2317,7 +2317,7 @@ class DesignDirectory:  # (JobResources):
         self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
 
     def identify_interface(self):
-        """Initialize the design and find the interfaces between entities
+        """Find the interface(s) between each Entity in the Pose
 
         Sets:
             self.interface_residue_ids (Dict[str, str]):
@@ -2335,13 +2335,13 @@ class DesignDirectory:  # (JobResources):
                 self.log.info('Symmetrically expanded assembly file written to: "%s"' % self.assembly_path)
         self.pose.find_and_split_interface()
 
-        self.interface_design_residues = set()  # update False to set() or replace set() and attempt addition of new residues
+        self.interface_design_residues = set()  # update False to set() or replace set() and add new residues
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.interface_residue_ids['interface%d' % number] = \
                 ','.join('%d%s' % (residue.number, entity.chain_id) for residue, entity in residues_entities)
             self.interface_design_residues.update([residue.number for residue, _ in residues_entities])
 
-        self.interface_residues = []  # update False to list or replace list and attempt addition of new residues
+        self.interface_residues = []  # update False to list or replace list and add new residues
         for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
             entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, pose_format=False, entities=False)
             entity_oligomer.get_sasa()
