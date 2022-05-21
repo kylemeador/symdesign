@@ -30,7 +30,7 @@ from Query.UniProt import is_uniprot_thermophilic
 from Structure import Structure  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, \
-    condensed_to_square, digit_translate_table, sym, index_intersection, z_score, large_color_array, starttime
+    condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime
 # from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
     rosetta_variables, relax_flags_cmdline
@@ -45,7 +45,7 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
-from classes.SymEntry import SymEntry, sdf_lookup, symmetry_factory
+from classes.SymEntry import SymEntry, symmetry_factory
 from utils.SymmetryUtils import identity_matrix, origin
 from JobResources import FragmentDatabase
 
