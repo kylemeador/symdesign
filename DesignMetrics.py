@@ -456,9 +456,17 @@ master_metrics = {'average_fragment_z_score':
                   'support':
                       {'description': 'The number of \'support\' residues as classified by E. Levy 2010',
                        'direction': 'max', 'function': 'rank', 'filter': True},
-                  'symmetry':
-                      {'description': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
+                  # 'symmetry':
+                  #     {'description': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
+                  #      'direction': None, 'function': None, 'filter': False},
+                  'symmetry_group_1':  # TODO make a single metric
+                      {'description': 'The specific symmetry of group 1 from of Nanohedra symmetry combination '
+                                      'materials (SCM)',
                        'direction': None, 'function': None, 'filter': False},
+                  # 'symmetry_group_2':
+                  #     {'description': 'The specific symmetry of group 1 from of Nanohedra symmetry combination '
+                  #                     'materials (SCM)',
+                  #      'direction': None, 'function': None, 'filter': False},
                   'total_interface_residues':
                       {'description': 'The total number of interface residues found in the pose (residue CB within 8A)',
                        'direction': 'max', 'function': 'rank', 'filter': True},
