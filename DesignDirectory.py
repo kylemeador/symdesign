@@ -854,7 +854,7 @@ class DesignDirectory:  # (JobResources):
                     return func(self, *args, **kwargs)
                 except errors as error:
                     self.log.error(error)  # Allows exception reporting using self.log
-                    # self.info['error'] = error  # include the error code in the design state
+                    # self.info['error'] = error  # Todo? include the error code in the design state
                     return error
             return wrapped
         return wrapper
