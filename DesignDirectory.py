@@ -1501,13 +1501,17 @@ class DesignDirectory:  # (JobResources):
         variables.extend([(PUtils.design_profile, self.design_profile_file)] if self.design_profile else [])
         variables.extend([(PUtils.fragment_profile, self.fragment_profile_file)] if self.fragment_profile else [])
 
-        self.prepare_symmetry_for_rosetta()
-        if not symmetry_protocol:
-            symmetry_protocol = self.symmetry_protocol
-        if not sym_def_file:
-            sym_def_file = self.sym_def_file
-        variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
-        out_of_bounds_residue = self.pose.number_of_residues * self.number_of_symmetry_mates + 1
+        if self.symmetric:
+            self.prepare_symmetry_for_rosetta()
+            if not symmetry_protocol:
+                symmetry_protocol = self.symmetry_protocol
+            if not sym_def_file:
+                sym_def_file = self.sym_def_file
+            variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
+            out_of_bounds_residue = self.pose.number_of_residues * self.number_of_symmetry_mates + 1
+        else:
+            variables.append(('symmetry', symmetry_protocol))
+            out_of_bounds_residue = self.pose.number_of_residues + 1
         variables.extend([(interface, residues) if residues else (interface, out_of_bounds_residue)
                           for interface, residues in self.interface_residue_ids.items()])
 
@@ -1678,13 +1682,13 @@ class DesignDirectory:  # (JobResources):
             self.sym_def_file (Union[str, bytes])
         """
         if self.design_dimension is not None:  # symmetric, could be 0
+            # self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
             self.symmetry_protocol = PUtils.protocol[self.design_dimension]
             self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
-            self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
             self.sym_def_file = self.sym_entry.sdf_lookup()
         else:  # asymmetric
             self.symmetry_protocol = 'asymmetric'
-            self.sym_def_file = sdf_lookup()  # grabs C1.sym
+            # self.sym_def_file = sdf_lookup()
             self.log.critical('No symmetry invoked during design. Rosetta will still design your PDB, however, if it\'s'
                               ' an ASU it may be missing crucial interface contacts. Is this what you want?')
 
