@@ -1169,7 +1169,7 @@ if __name__ == '__main__':
     if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
             or args.module in [PUtils.nano, PUtils.generate_fragments]:
         interface_type = 'biological_interfaces'  # Todo parameterize when more available
-        logger.info('Initializing %s FragmentDatabase\n' % interface_type)
+        logger.info('Initializing %s FragmentDatabase' % interface_type)
         fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
         # fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)  # has since been depreciated
         # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.fragment_db
