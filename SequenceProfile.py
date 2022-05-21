@@ -3310,42 +3310,50 @@ def hydrophobic_collapse_index(sequence: str, hydrophobicity: str = 'standard', 
         #         sequence_array[:sequence_length - half_window] * 0.5 / window_size
 
         # check if the range is odd or even, then calculate score accordingly, with cases for N- and C-terminal windows
-        if window_size % 2 == 1.:  # range is odd
-            for seq_idx in range(sequence_length):
-                position_sum = 0
-                if seq_idx < half_window:  # N-terminus
-                    for window_position in range(seq_idx + half_window + 1):
-                        position_sum += sequence_array[window_position]
-                elif seq_idx + half_window >= sequence_length:  # C-terminus
-                    for window_position in range(seq_idx - half_window, sequence_length):
-                        position_sum += sequence_array[window_position]
-                else:
-                    for window_position in range(seq_idx - half_window, seq_idx + half_window + 1):
-                        position_sum += sequence_array[window_position]
-                window_array[array_idx][seq_idx] = position_sum / window_size
-        else:  # range is even
-            for seq_idx in range(sequence_length):
-                position_sum = 0
-                if seq_idx < half_window:  # N-terminus
-                    for window_position in range(seq_idx + half_window + 1):
-                        if window_position == seq_idx + half_window:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                elif seq_idx + half_window >= sequence_length:  # C-terminus
-                    for window_position in range(seq_idx - half_window, sequence_length):
-                        if window_position == seq_idx - half_window:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                else:
-                    for window_position in range(seq_idx - half_window, seq_idx + half_window + 1):
-                        if window_position == seq_idx - half_window \
-                                or window_position == seq_idx + half_window + 1:
-                            position_sum += 0.5 * sequence_array[window_position]
-                        else:
-                            position_sum += sequence_array[window_position]
-                window_array[array_idx][seq_idx] = position_sum / window_size
+        # if window_size % 2 == 1.:  # range is odd
+        for seq_idx in range(sequence_length):
+            position_sum = 0
+            if seq_idx < half_window:  # N-terminus
+                for window_position in range(seq_idx + half_window + 1):
+                    position_sum += sequence_array[window_position]
+            elif seq_idx + half_window >= sequence_length:  # C-terminus
+                for window_position in range(seq_idx - half_window, sequence_length):
+                    position_sum += sequence_array[window_position]
+            else:
+                for window_position in range(seq_idx - half_window, seq_idx + half_window + 1):
+                    position_sum += sequence_array[window_position]
+            window_array[array_idx, seq_idx] = position_sum / window_size
+        # else:  # range is even
+        #     for seq_idx in range(sequence_length):
+        #         position_sum = 0
+        #         if seq_idx < half_window:  # N-terminus
+        #             for window_position in range(seq_idx + half_window + 1):
+        #                 # if window_position == seq_idx + half_window:
+        #                 #     position_sum += 0.5 * sequence_array[window_position]
+        #                 # else:
+        #                 position_sum += sequence_array[window_position]
+        #         elif seq_idx + half_window >= sequence_length:  # C-terminus
+        #             for window_position in range(seq_idx - half_window, sequence_length):
+        #                 # if window_position == seq_idx - half_window:
+        #                 #     position_sum += 0.5 * sequence_array[window_position]
+        #                 # else:
+        #                 position_sum += sequence_array[window_position]
+        #         else:
+        #             for window_position in range(seq_idx - half_window, seq_idx + half_window + 1):
+        #                 # if window_position == seq_idx - half_window \
+        #                 #         or window_position == seq_idx + half_window + 1:
+        #                 #     position_sum += 0.5 * sequence_array[window_position]
+        #                 # else:
+        #                 position_sum += sequence_array[window_position]
+        #         window_array[array_idx, seq_idx] = position_sum / window_size
+        if window_size % 2 == 0.:  # range is even
+            even_modifier = 0.5 / window_size
+            # subtract_half_leading_residue = sequence_array[half_window:] * 0.5 / window_size
+            window_array[array_idx, :sequence_length - half_window] -= \
+                [hydrophobicity * even_modifier for hydrophobicity in sequence_array[half_window:]]
+            # subtract_half_trailing_residue = sequence_array[:sequence_length - half_window] * 0.5 / window_size
+            window_array[array_idx, half_window:] -= \
+                [hydrophobicity * even_modifier for hydrophobicity in sequence_array[:sequence_length - half_window]]
 
     return window_array.mean(axis=0)  # hci
 
