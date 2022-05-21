@@ -20,12 +20,13 @@ from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio, reference_aa_
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from SequenceProfile import generate_alignment
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
-from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, \
-    unpickle, pickle_object
+from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, unpickle
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number, valid_symmetries
 
+# Globals
 logger = start_log(name=__name__)
 seq_res_len = 52
+qsbio_confirmed = unpickle(qs_bio)
 
 
 class PDB(Structure):
@@ -1592,7 +1593,13 @@ def orient_pdb_file(file: os.PathLike, log: Logger = logger, symmetry: str = Non
 
 
 def query_qs_bio(pdb_entry_id: str) -> int:
-    qsbio_confirmed = unpickle(qs_bio)
+    """Retrieve the first matching High/Very High confidence QSBio assembly from a PDB ID
+
+    Args:
+        pdb_entry_id: The 4 letter PDB code to query
+    Returns:
+        The integer of the corresponding PDB Assembly ID according to the QSBio assembly
+    """
     biological_assemblies = qsbio_confirmed.get(pdb_entry_id)
     if biological_assemblies:  # first   v   assembly in matching oligomers
         assembly = biological_assemblies[0]
@@ -1605,4 +1612,5 @@ def query_qs_bio(pdb_entry_id: str) -> int:
 # ref_aa = PDB.from_file(reference_aa_file, log=None, pose_format=False, entities=False)
 # from shutil import move
 # move(reference_residues_pkl, '%s.bak' % reference_residues_pkl)
+# from SymDesignUtils import pickle_object
 # pickle_object(ref_aa.residues, name=reference_residues_pkl, out_path='')

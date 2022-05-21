@@ -3,7 +3,7 @@ import math
 from glob import glob
 from copy import copy
 from subprocess import list2cmdline
-from typing import List, Tuple, Iterable, Dict
+from typing import List, Tuple, Iterable, Dict, Union, Optional
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
@@ -12,14 +12,14 @@ from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe
     biological_fragment_db_pickle, all_scores, projects, sequence_info, data
 import SymDesignUtils as SDUtils
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
-from PDB import PDB, orient_pdb_file, fetch_pdb_file
+from PDB import PDB, fetch_pdb_file, query_qs_bio
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
 from Structure import parse_stride, Entity
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
-from classes.SymEntry import sdf_lookup
+from classes.SymEntry import sdf_lookup, symmetry_factory
 from utils.MysqlPython import Mysql
 # import dependencies.bmdca as bmdca
 
@@ -29,7 +29,6 @@ from utils.MysqlPython import Mysql
 # https://new.rosettacommons.org/docs/latest/rosetta_basics/options/Database-options
 logger = start_log(name=__name__)
 index_offset = 1
-qsbio_confirmed = SDUtils.unpickle(PUtils.qs_bio)
 
 
 class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
@@ -150,13 +149,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     asu = True
                 else:
                     asu = False
-                    biological_assemblies = qsbio_confirmed.get(entry)
-                    if biological_assemblies:  # first   v   assembly in matching oligomers
-                        assembly = biological_assemblies[0]
-                    else:
-                        assembly = 1
-                        logger.warning('No confirmed biological assembly for entry %s, entity %s. '
-                                       'Using PDB default assembly %d' % (entry, entity, assembly))
+                    assembly = query_qs_bio(entry)
                 # get the specified filepath for the assembly state of interest
                 file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=pdbs_dir)
 
