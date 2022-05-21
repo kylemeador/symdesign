@@ -47,7 +47,7 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
 from classes.SymEntry import SymEntry, sdf_lookup, symmetry_factory
 from utils.SymmetryUtils import identity_matrix, origin
-from Database import FragmentDatabase, Database
+from JobResources import FragmentDatabase
 
 # Globals
 logger = start_log(name=__name__)
@@ -60,70 +60,6 @@ residue_classificiation = ['core', 'rim', 'support']  # 'hot_spot'
 errat_1_sigma, errat_2_sigma, errat_3_sigma = 5.76, 11.52, 17.28  # these are approximate magnitude of deviation
 collapse_significance_threshold = 0.43
 variance = 0.8
-
-
-class JobResources:
-    """The intention of JobResources is to serve as a singular source of design info which is common accross all
-    designs. This includes common paths, databases, and design flags which should only be set once in program operation,
-    then shared across all member designs"""
-    def __init__(self, program_root, **kwargs):
-        """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes"""
-        if not os.path.exists(program_root):
-            raise DesignError('Path does not exist!\n\t%s' % program_root)
-        else:
-            self.program_root = program_root
-        self.protein_data = os.path.join(self.program_root, PUtils.data.title())
-        self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
-        self.orient_dir = os.path.join(self.pdbs, 'oriented')
-        self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
-        self.refine_dir = os.path.join(self.pdbs, 'refined')
-        self.full_model_dir = os.path.join(self.pdbs, 'full_models')
-        self.stride_dir = os.path.join(self.pdbs, 'stride')
-        self.sequence_info = os.path.join(self.protein_data, PUtils.sequence_info)
-        self.sequences = os.path.join(self.sequence_info, 'sequences')
-        self.profiles = os.path.join(self.sequence_info, 'profiles')
-        # try:
-        # if not self.projects:  # used for subclasses
-        if not getattr(self, 'projects', None):  # used for subclasses
-            self.projects = os.path.join(self.program_root, PUtils.projects)
-        # except AttributeError:
-        #     self.projects = os.path.join(self.program_root, PUtils.projects)
-        self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
-        self.job_paths = os.path.join(self.program_root, 'JobPaths')
-        self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
-        # TODO ScoreDatabase integration
-        self.all_scores = os.path.join(self.program_root, PUtils.all_scores)
-        # self.design_db = None
-        # self.score_db = None
-        self.make_path(self.protein_data)
-        self.make_path(self.job_paths)
-        self.make_path(self.sbatch_scripts)
-        # sequence database specific
-        self.make_path(self.sequence_info)
-        self.make_path(self.sequences)
-        self.make_path(self.profiles)
-        # structure database specific
-        self.make_path(self.pdbs)
-        self.make_path(self.orient_dir)
-        self.make_path(self.orient_asu_dir)
-        self.make_path(self.stride_dir)
-        self.make_path(self.full_model_dir)
-        self.reduce_memory = False
-        self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
-                                  self.stride_dir, self.sequences, self.profiles, sql=None)  # , log=logger)
-        self.symmetry_factory = symmetry_factory
-        self.fragment_db = None
-        self.euler_lookup = None
-
-    @staticmethod
-    def make_path(path, condition=True):
-        """Make all required directories in specified path if it doesn't exist, and optional condition is True
-
-        Keyword Args:
-            condition=True (bool): A condition to check before the path production is executed
-        """
-        if condition:
-            os.makedirs(path, exist_ok=True)
 
 
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
@@ -207,7 +143,7 @@ class DesignDirectory:  # (JobResources):
         self.directives = kwargs.get('directives', {})
         self.no_evolution_constraint = kwargs.get(PUtils.no_evolution_constraint, True)
         # self.fragment_file = None
-        # self.fragment_type = 'biological_interfaces'  # default for now, can be found in fragment_db
+        # self.fragment_type = PUtils.biological_interfaces  # default for now, can be found in fragment_db
         self.force_flags = kwargs.get(PUtils.force_flags, False)
         self.fuse_chains = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.ignore_clashes = kwargs.get('ignore_clashes', False)
@@ -1093,7 +1029,7 @@ class DesignDirectory:  # (JobResources):
                     print('Found pickled file with huge size %d. fragment_database being removed'
                           % os.stat(self.serialized_info).st_size)
                     self.info['fragment_source'] = \
-                        getattr(self.info.get('fragment_database'), 'source', 'biological_interfaces')
+                        getattr(self.info.get('fragment_database'), 'source', PUtils.biological_interfaces)
                     self.pickle_info()  # save immediately so we don't have this issue with reading again!
                 self._info = self.info.copy()  # create a copy of the state upon initialization
                 self.pre_refine = self.info.get('pre_refine', False)

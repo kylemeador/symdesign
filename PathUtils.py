@@ -182,24 +182,24 @@ qs_bio_monomers_file = os.path.join(data_dir, 'QSbio_Monomers.csv')
 # Fragment Database
 fragment_db = os.path.join(database, 'fragment_db')
 # fragment_db = os.path.join(database, 'fragment_DB')  # TODO when full MySQL DB is operational
-biological_fragmentDB = os.path.join(fragment_db, 'biological_interfaces')  # TODO change this directory style
-biological_fragment_db_pickle = os.path.join(fragment_db, 'biological_interfaces.pkl')
-bio_fragmentDB = os.path.join(fragment_db, 'bio')
-# bio_frag_db = os.path.join(fragment_db, 'bio')  # TODO
-xtal_fragmentDB = os.path.join(fragment_db, 'xtal')
-# xtal_frag_db = os.path.join(fragment_db, 'xtal')  # TODO
-full_fragmentDB = os.path.join(fragment_db, 'bio+xtal')
-# full_frag_db = os.path.join(fragment_db, 'bio+xtal')  # TODO
-frag_directory = {'biological_interfaces': biological_fragmentDB, 'bio': bio_fragmentDB, 'xtal': xtal_fragmentDB,
-                  'bio+xtal': full_fragmentDB}
+biological_interfaces = 'biological_interfaces'
+bio = 'bio'
+xtal = 'xtal'
+bio_xtal = 'bio_xtal'
+fragment_dbs = [biological_interfaces,
+                # bio, xtal, bio_xtal
+                ]
+biological_fragment_db = os.path.join(fragment_db, biological_interfaces)  # TODO change this directory style
+biological_fragment_db_pickle = os.path.join(fragment_db, '%s.pkl' % biological_interfaces)
+bio_fragment_db = os.path.join(fragment_db, bio)
+xtal_fragment_db = os.path.join(fragment_db, xtal)
+full_fragment_db = os.path.join(fragment_db, bio+xtal)
+frag_directory = {biological_interfaces: biological_fragment_db, bio: bio_fragment_db, xtal: xtal_fragment_db,
+                  bio+xtal: full_fragment_db}
 # Nanohedra Specific
-frag_db = frag_directory['biological_interfaces']  # was fragment_db on 1/25/21
 monofrag_cluster_rep_dirpath = os.path.join(fragment_db, "Top5MonoFragClustersRepresentativeCentered")
 intfrag_cluster_rep_dirpath = os.path.join(fragment_db, "Top75percent_IJK_ClusterRepresentatives_1A")
 intfrag_cluster_info_dirpath = os.path.join(fragment_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
-
-# frag_directory = {'biological_interfaces': biological_frag_db, 'bio': bio_frag_db, 'xtal': xtal_frag_db,
-#                   'bio+xtal': full_frag_db}  # TODO
 
 # External Program Dependencies
 make_symmdef = os.path.join(rosetta, 'source/src/apps/public/symmetry/make_symmdef_file.pl')

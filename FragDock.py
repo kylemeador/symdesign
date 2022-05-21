@@ -9,11 +9,11 @@ import numpy as np
 from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
-from Database import FragmentDatabase
-from PathUtils import frag_text_file, master_log, biological_fragment_db_pickle, frag_dir
+from JobResources import FragmentDatabase, fragment_factory
+from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces
 from Structure import Structure  # superposition3d
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
-    calculate_match, z_value_from_match_score, unpickle, set_logging_to_debug
+    calculate_match, z_value_from_match_score, set_logging_to_debug
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
     transform_coordinate_sets, get_rotation_step, write_docking_parameters
@@ -1724,7 +1724,9 @@ if __name__ == '__main__':
         master_logger.info('Docking %s / %s \n' % (pdb1_name, pdb2_name))
 
         # Create fragment database for all ijk cluster representatives
-        ijk_frag_db = unpickle(biological_fragment_db_pickle)
+        # ijk_frag_db = unpickle(biological_fragment_db_pickle)
+        # Todo parameterize when more available
+        ijk_frag_db = fragment_factory(source=biological_interfaces)
         # Load Euler Lookup table for each instance
         euler_lookup = EulerLookup()
         # ijk_frag_db = FragmentDB()

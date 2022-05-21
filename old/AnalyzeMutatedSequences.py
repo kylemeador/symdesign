@@ -15,7 +15,7 @@ from SequenceProfile import position_specific_jsd, weave_mutation_dict, \
 
 # Globals
 logger = start_log(name=__name__)
-db = PUtils.biological_fragmentDB
+db = PUtils.biological_fragment_db
 
 
 def calculate_sequence_metrics(des_dir, alignment, residues=None):  # Unused Todo SequenceProfile.py

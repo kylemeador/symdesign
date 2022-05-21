@@ -8,7 +8,8 @@ from typing import List, Tuple, Iterable, Dict
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
-import PathUtils as PUtils
+from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, nano, biological_interfaces, \
+    biological_fragment_db_pickle, all_scores, projects, sequence_info, data
 import SymDesignUtils as SDUtils
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
 from PDB import PDB, orient_pdb_file, fetch_pdb_file
@@ -125,7 +126,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         os.makedirs(stride_dir, exist_ok=True)
         # orient_log = SDUtils.start_log(name='orient', handler=1)
         orient_log = SDUtils.start_log(name='orient', handler=2,
-                                       location=os.path.join(orient_dir, PUtils.orient_log_file), propagate=True)
+                                       location=os.path.join(orient_dir, orient_log_file), propagate=True)
         orient_names = self.oriented.retrieve_names()
         orient_asu_names = self.oriented_asu.retrieve_names()
         all_entities = []
@@ -162,7 +163,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 if not file_path:
                     logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
                                    'downloading it from the PDB. Attempting to copy from %s job data source'
-                                   % (file_path, PUtils.nano))
+                                   % (file_path, nano))
                     raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
                                               'canonical_pdb1/2 attribute of DesignDirectory to pull the'
                                               ' pdb file source.')
@@ -311,7 +312,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         f.write('%s\n' % '\n'.join(flags))
 
                 refine_cmd = ['@%s' % flags_file, '-parser:protocol',
-                              os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.refine)]
+                              os.path.join(rosetta_scripts, '%s.xml' % refine)]
                 refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
                                ['sdf=%s' % sym_def_files[entity.symmetry],
                                 'symmetry=%s' % ('make_point_group' if entity.symmetry != 'C1' else 'asymmetric')]
@@ -320,8 +321,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     commands_file = \
                         SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
                                                name='%s-refine_entities' % SDUtils.starttime)
-                    refine_sbatch = distribute(file=commands_file, out_path=script_out_path, scale=PUtils.refine,
-                                               log_file=os.path.join(refine_dir, '%s.log' % PUtils.refine),
+                    refine_sbatch = distribute(file=commands_file, out_path=script_out_path, scale=refine,
+                                               log_file=os.path.join(refine_dir, '%s.log' % refine),
                                                max_jobs=int(len(refine_cmds) / 2 + 0.5),
                                                number_of_commands=len(refine_cmds))
                     refine_sbatch_message = \
@@ -358,7 +359,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         f.write('%s\n' % '\n'.join(flags))
 
                 loop_model_cmd = ['@%s' % flags_file, '-parser:protocol',
-                                  os.path.join(PUtils.rosetta_scripts, 'loop_model_ensemble.xml'),
+                                  os.path.join(rosetta_scripts, 'loop_model_ensemble.xml'),
                                   '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
                 logger.info('Preparing blueprint and loop files for entity:')
@@ -378,7 +379,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                          entity_out_path] + (['-symmetry:symmetry_definition', sym_def_files[entity.symmetry]]
                                              if entity.symmetry != 'C1' else [])
 
-                    multimodel_cmd = ['python', PUtils.models_to_multimodel_exe, '-d', entity_loop_file,
+                    multimodel_cmd = ['python', models_to_multimodel_exe, '-d', entity_loop_file,
                                       '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity)]
                     copy_cmd = ['scp', os.path.join(entity_out_path, '%s_0001.pdb' % entity),
                                 os.path.join(full_model_dir, '%s.pdb' % entity)]
@@ -389,7 +390,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     loop_cmds_file = \
                         SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % SDUtils.starttime,
                                                out_path=full_model_dir)
-                    loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_out_path, scale=PUtils.refine,
+                    loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_out_path, scale=refine,
                                                    log_file=os.path.join(full_model_dir, 'loop_model.log'),
                                                    max_jobs=int(len(loop_model_cmds) / 2 + 0.5),
                                                    number_of_commands=len(loop_model_cmds))
@@ -647,7 +648,8 @@ class FragmentDB:
 
 
 class FragmentDatabase(FragmentDB):
-    def __init__(self, source='biological_interfaces', fragment_length=5, init_db=False, sql=False):
+    def __init__(self, source: str = biological_interfaces, fragment_length: int = 5, init_db: bool = True,
+                 sql: bool = False, **kwargs):
         super().__init__()  # FragmentDB
         # self.monofrag_representatives_path = monofrag_representatives_path
         # self.cluster_representatives_path
@@ -655,15 +657,15 @@ class FragmentDatabase(FragmentDB):
         # self.reps = None
         # self.paired_frags = None
         # self.info = None
-        self.source = source
+        self.source: str = source
         # Todo load all statistics files into the pickle!
         # self.location = frag_directory.get(self.source, None)
-        self.statistics = {}
+        self.statistics: Dict = {}
         # {cluster_id: [[mapped, paired, {max_weight_counts}, ...], ..., frequencies: {'A': 0.11, ...}}
         #  ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749]
-        self.fragment_range = None
-        self.cluster_info = {}
-        self.fragdb = None
+        self.fragment_range: Tuple[int, int]
+        self.cluster_info: Dict = {}
+        # self.fragdb = None  # Todo
 
         if sql:
             self.start_mysql_connection()
@@ -682,18 +684,17 @@ class FragmentDatabase(FragmentDB):
         self.parameterize_frag_length(fragment_length)
 
     @property
-    def location(self):
+    def location(self) -> Optional[Union[str, bytes]]:
         """Provide the location where fragments are stored"""
         return frag_directory.get(self.source, None)
 
-    def get_db_statistics(self):
+    def get_db_statistics(self) -> Dict:
         """Retrieve summary statistics for a specific fragment database located on directory
 
         Returns:
-            (dict): {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {paired}],
-                                   total_fragment_observations],
-                     cluster_id2: ...,
-                     frequencies: {'A': 0.11, ...}}
+            {cluster_id1: [[mapped_index_average, paired_index_average, {max_weight_counts_mapped}, {paired}],
+                           total_fragment_observations], cluster_id2: ...,
+             frequencies: {'A': 0.11, ...}}
                 ex: {'1_0_0': [[0.540, 0.486, {-2: 67, -1: 326, ...}, {-2: 166, ...}], 2749], ...}
         """
         if self.db:
@@ -718,20 +719,19 @@ class FragmentDatabase(FragmentDB):
         """
         return self.statistics.get('frequencies', {})
 
-    def retrieve_cluster_info(self, cluster=None, source=None, index=None):  # Todo rework this, below func for Database
+    def retrieve_cluster_info(self, cluster: str = None, source: str = None, index: str = None) -> \
+            Dict[str, Union[int, float, str, Dict[int, Dict[Union[protein_letters, str],
+                                                            Union[float, Tuple[int, float]]]]]]:
+        # Todo rework this and below func for Database
         """Return information from the fragment information database by cluster_id, information source, and source index
-         cluster_info takes the form:
-            {'1_2_123': {'size': ..., 'rmsd': ..., 'rep': ...,
-                         'mapped': indexed_frequency_dict, 'paired': indexed_frequency_dict}
-                         indexed_frequency_dict = {-2: {'A': 0.1, 'C': 0., ..., 'info': (12, 0.41)},
-                                                   -1: {}, 0: {}, 1: {}, 2: {}}
 
-        Keyword Args:
-            cluster=None (str): A cluster_id to get information about
-            source=None (str): The source of information to gather from: ['size', 'rmsd', 'rep', 'mapped', 'paired']
-            index=None (int): The index to gather information from. Must be from 'mapped' or 'paired'
+        Args:
+            cluster: A cluster_id to get information about
+            source: The source of information to gather from: ['size', 'rmsd', 'rep', 'mapped', 'paired']
+            index: The index to gather information from. Must be from 'mapped' or 'paired'
         Returns:
-            (dict)
+            {'size': ..., 'rmsd': ..., 'rep': ..., 'mapped': indexed_frequencies, 'paired': indexed_frequencies}
+            Where indexed_frequencies has format {-2: {'A': 0.1, 'C': 0., ..., 'info': (12, 0.41)}, -1: {}, ..., 2: {}}
         """
         if cluster:
             if cluster not in self.cluster_info:
@@ -746,16 +746,16 @@ class FragmentDatabase(FragmentDB):
         else:
             return self.cluster_info
 
-    def get_cluster_info(self, ids=None):
+    def get_cluster_info(self, ids: List[str] = None):
         """Load cluster information from the fragment database source into attribute cluster_info
         # todo change ids to a tuple
-        Keyword Args:
-            id_list=None: [1_2_123, ...]
+        Args:
+            ids: ['1_2_123', ...]
         Sets:
             self.cluster_info (dict): {'1_2_123': {'size': , 'rmsd': , 'rep': , 'mapped': , 'paired': }, ...}
         """
         if self.db:
-            logger.warning('No SQL DB connected yet!')  # Todo
+            logger.warning('No SQL DB connected yet!')
             raise DesignError('Can\'t connect to MySQL database yet')
         else:
             if not ids:
@@ -801,13 +801,114 @@ class FragmentDatabase(FragmentDB):
     def parameterize_frag_length(self, length):
         """Generate fragment length range parameters for use in fragment functions"""
         _range = math.floor(length / 2)  # get the number of residues extending to each side
-        if length % 2 == 1:
+        if length % 2 == 1:  # fragment length is odd
             self.fragment_range = (0 - _range, 0 + _range + index_offset)
             # return 0 - _range, 0 + _range + index_offset
-        else:
-            self.log.critical('%d is an even integer which is not symmetric about a single residue. '
-                              'Ensure this is what you want' % length)
+        else:  # length is even
+            logger.critical('%d is an even integer which is not symmetric about a single residue. '
+                            'Ensure this is what you want' % length)
             self.fragment_range = (0 - _range, 0 + _range)
 
     def start_mysql_connection(self):
         self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
+
+
+class FragmentDatabaseFactory:
+    def __init__(self, **kwargs):
+        self._databases = {}
+
+    def __call__(self, source: str, **kwargs) -> FragmentDatabase:
+        """Return the specified FragmentDatabase object singleton
+
+        Args:
+            source: The FragmentDatabase source name
+        Returns:
+            The instance of the specified FragmentDatabase
+        """
+        fragment_db = self._databases.get(source)
+        if fragment_db:
+            return fragment_db
+        elif source == biological_interfaces:
+            self._databases[source] = unpickle(biological_fragment_db_pickle)
+        else:
+            self._databases[source] = FragmentDatabase(source=source, **kwargs)
+            return self._databases[source]
+
+    def get(self, source: str, **kwargs) -> FragmentDatabase:
+        """Return the specified FragmentDatabase object singleton
+
+        Args:
+            source: The FragmentDatabase source name
+        Returns:
+            The instance of the specified FragmentDatabase
+        """
+        return self.__call__(source, **kwargs)
+
+
+fragment_factory = FragmentDatabaseFactory()
+# fragment_factory.set(biological_interfaces, unpickle(PUtils.biological_fragment_db_pickle))
+
+
+class JobResources:
+    """The intention of JobResources is to serve as a singular source of design info which is common accross all
+    designs. This includes common paths, databases, and design flags which should only be set once in program operation,
+    then shared across all member designs"""
+    def __init__(self, program_root, **kwargs):
+        """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes"""
+        if not os.path.exists(program_root):
+            raise DesignError('Path does not exist!\n\t%s' % program_root)
+        else:
+            self.program_root = program_root
+        self.protein_data = os.path.join(self.program_root, data.title())
+        self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
+        self.orient_dir = os.path.join(self.pdbs, 'oriented')
+        self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
+        self.refine_dir = os.path.join(self.pdbs, 'refined')
+        self.full_model_dir = os.path.join(self.pdbs, 'full_models')
+        self.stride_dir = os.path.join(self.pdbs, 'stride')
+        self.sequence_info = os.path.join(self.protein_data, sequence_info)
+        self.sequences = os.path.join(self.sequence_info, 'sequences')
+        self.profiles = os.path.join(self.sequence_info, 'profiles')
+        # try:
+        # if not self.projects:  # used for subclasses
+        if not getattr(self, 'projects', None):  # used for subclasses
+            self.projects = os.path.join(self.program_root, projects)
+        # except AttributeError:
+        #     self.projects = os.path.join(self.program_root, projects)
+        self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
+        self.job_paths = os.path.join(self.program_root, 'JobPaths')
+        self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
+        # TODO ScoreDatabase integration
+        self.all_scores = os.path.join(self.program_root, all_scores)
+        # self.design_db = None
+        # self.score_db = None
+        self.make_path(self.protein_data)
+        self.make_path(self.job_paths)
+        self.make_path(self.sbatch_scripts)
+        # sequence database specific
+        self.make_path(self.sequence_info)
+        self.make_path(self.sequences)
+        self.make_path(self.profiles)
+        # structure database specific
+        self.make_path(self.pdbs)
+        self.make_path(self.orient_dir)
+        self.make_path(self.orient_asu_dir)
+        self.make_path(self.stride_dir)
+        self.make_path(self.full_model_dir)
+        self.reduce_memory = False
+        self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
+                                  self.stride_dir, self.sequences, self.profiles, sql=None)  # , log=logger)
+        self.symmetry_factory = symmetry_factory
+        self.fragment_db = None
+        self.euler_lookup = None
+
+    @staticmethod
+    def make_path(path: Union[str, bytes], condition: bool = True):
+        """Make all required directories in specified path if it doesn't exist, and optional condition is True
+
+        Args:
+            path: The path to create
+            condition: A condition to check before the path production is executed
+        """
+        if condition:
+            os.makedirs(path, exist_ok=True)

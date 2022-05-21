@@ -10,7 +10,7 @@ sys.path.append(parent_dir)
 from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
 from SymDesignUtils import start_log, pickle_object, unpickle, get_all_file_paths, to_iterable, ex_path
-from Database import FragmentDatabase
+from JobResources import FragmentDatabase
 import Query.PDB as qPDB
 # from PDB import extract_interface
 # from Pose import retrieve_pdb_file_path
@@ -596,7 +596,7 @@ if __name__ == '__main__':
         pickle_object(uniprot_unknown_bio_interfaces, uniprot_unknown_bio_interface_file_name,
                       out_path=current_interface_file_path)
     if write_to_db:
-        fragdb = FragmentDatabase(sql=True)
+        fragdb = FragmentDatabase(sql=True)  # Todo this isn't ready to write
         # fragdb.start_mysql_connection()
         table_name = 'pdb_interfaces'
         columns = ('pdb', 'pisa_interface_number', 'interface_type', 'ch1', 'ch2', 'ch1_rot_id', 'ch1_tx',
