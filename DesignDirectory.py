@@ -2827,8 +2827,8 @@ class DesignDirectory:  # (JobResources):
         # Calculate hydrophobic collapse for each design
         # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
         # Calculate Reference sequence statistics
-        collapse_df, reference_collapse_bool, reference_collapse_z_score = [], [], []
-        reference_collapse_concat = []
+        entity_collapse_mean, entity_collapse_std, reference_collapse_bool, reference_collapse_z_score = [], [], [], []
+        reference_collapse_concat = []  # used in figures if they are requested
         for idx, entity in enumerate(self.pose.entities):
             reference_collapse = hydrophobic_collapse_index(entity_sequences[idx][PUtils.reference_name])
             reference_collapse_concat.append(reference_collapse)
@@ -2845,14 +2845,15 @@ class DesignDirectory:  # (JobResources):
                                   'there is no MSA found. These include: %s'
                                   % ', '.join(multiple_sequence_alignment_dependent_metrics))
                     # set anything found to null values
-                    collapse_df, reference_collapse_z_score = [], []
+                    entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
                     msa_metrics = False
                     continue
                 collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
-                collapse_df.append(collapse)
-                reference_collapse_z_score.append(z_score(reference_collapse, collapse.loc[mean, :], collapse.loc[std, :]))
-        # reference_collapse_concat_s = pd.Series(np.concatenate(reference_collapse_concat), index=residue_indices)
-        # per_residue_data['hydrophobic_collapse'][PUtils.reference_name] = reference_collapse_concat_s
+                entity_collapse_mean.append(collapse.mean())
+                entity_collapse_std.append(collapse.std())
+                reference_collapse_z_score.append(z_score(reference_collapse, entity_collapse_mean[idx],
+                                                          entity_collapse_std[idx]))
+
         # A measure of the sequential, the local, the global, and the significance all constitute interesting
         # parameters which contribute to the outcome. I can use the measure of each to do a post-hoc solubility
         # analysis. In the meantime, I could stay away from any design which causes the global collapse to increase
@@ -2950,7 +2951,7 @@ class DesignDirectory:  # (JobResources):
 
                 if msa_metrics:
                     z_array = z_score(standardized_collapse,  # observed_collapse,
-                                      collapse_df[entity_idx].loc[mean, :], collapse_df[entity_idx].loc[std, :])
+                                      entity_collapse_mean[entity_idx], entity_collapse_std[entity_idx])
                     # todo test for magnitude of the wt versus profile, remove subtraction?
                     normalized_collapse_z = z_array - reference_collapse_z_score[entity_idx]
                     hydrophobicity_deviation_magnitude.append(sum(abs(normalized_collapse_z)))
@@ -2963,18 +2964,18 @@ class DesignDirectory:  # (JobResources):
                     global_collapse_z_sum.append(global_collapse_z.sum())
 
             # add the total and concatenated metrics to analysis structures
-            folding_and_collapse['hydrophobicity_deviation_magnitude'][design] = sum(hydrophobicity_deviation_magnitude)
+            # collapse_concatenated = pd.Series(np.concatenate(collapse_concatenated), name=design)
+            per_residue_data['hydrophobic_collapse'][design] = pd.Series(np.concatenate(collapse_concatenated),
+                                                                         name=design)
             folding_and_collapse['new_collapse_islands'][design] = sum(new_collapse_islands)
             # takes into account new collapse positions contact order and measures the deviation of collapse and
             # contact order to indicate the potential effect to folding
             folding_and_collapse['new_collapse_island_significance'][design] = sum(new_collapse_island_significance)
+            folding_and_collapse['hydrophobicity_deviation_magnitude'][design] = sum(hydrophobicity_deviation_magnitude)
             folding_and_collapse['contact_order_collapse_z_sum'][design] = sum(contact_order_collapse_z_sum)
             folding_and_collapse['sequential_collapse_peaks_z_sum'][design] = sum(sequential_collapse_peaks_z_sum)
             folding_and_collapse['sequential_collapse_z_sum'][design] = sum(sequential_collapse_z_sum)
             folding_and_collapse['global_collapse_z_sum'][design] = sum(global_collapse_z_sum)
-            # collapse_concatenated = np.concatenate(collapse_concatenated)
-            collapse_concatenated = pd.Series(np.concatenate(collapse_concatenated), name=design)
-            per_residue_data['hydrophobic_collapse'][design] = collapse_concatenated
 
         pose_collapse_df = pd.DataFrame(folding_and_collapse)
         # turn per_residue_data into a dataframe matching residue_df orientation
@@ -3528,8 +3529,9 @@ class DesignDirectory:  # (JobResources):
             # Plot: Format the collapse data with residues as index and each design as column
             # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
             collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
-            # wt_collapse_concatenated_s = pd.Series(np.concatenate(list(wt_collapse.values())), name='clean_asu')
-            # collapse_graph_df['clean_asu'] = wt_collapse_concatenated_s
+            reference_collapse_concatenated_s = \
+                pd.Series(np.concatenate(reference_collapse_concat), name=PUtils.reference_name)
+            collapse_graph_df[PUtils.reference_name] = reference_collapse_concatenated_s
             collapse_graph_df.index += 1  # offset index to residue numbering
             # collapse_graph_df.sort_index(axis=1, inplace=True)
             # graph_collapse = sns.lineplot(data=collapse_graph_df)
@@ -3604,9 +3606,11 @@ class DesignDirectory:  # (JobResources):
             # Plot: Collapse description of total profile against each design
             if msa_metrics:
                 profile_mean_collapse_concatenated_s = \
-                    pd.concat([collapse_df[idx].loc[mean, :] for idx in range(self.pose.number_of_entities)], ignore_index=True)
+                    pd.concat([entity_collapse_mean[idx] for idx in range(self.pose.number_of_entities)],
+                              ignore_index=True)
                 profile_std_collapse_concatenated_s = \
-                    pd.concat([collapse_df[idx].loc[std, :] for idx in range(self.pose.number_of_entities)], ignore_index=True)
+                    pd.concat([entity_collapse_std[idx] for idx in range(self.pose.number_of_entities)],
+                              ignore_index=True)
                 profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
                 profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
                 collapse_graph_describe_df = pd.DataFrame({
