@@ -4,14 +4,16 @@ from itertools import repeat
 
 import pandas as pd
 
+from JobResources import fragment_factory
 from Pose import Pose
-import PathUtils as PUtils
+from PathUtils import biological_interfaces
 from SymDesignUtils import start_log, unpickle, get_all_file_paths, to_iterable, mp_starmap, set_logging_to_debug
 from classes.EulerLookup import EulerLookup
 
 # Globals
 # Create fragment database for all ijk cluster representatives
-ijk_frag_db = unpickle(PUtils.biological_fragment_db_pickle)
+# ijk_frag_db = unpickle(biological_fragment_db_pickle)
+ijk_frag_db = fragment_factory(source=biological_interfaces)
 # ijk_frag_db = FragmentDB()
 # # Get complete IJK fragment representatives database dictionaries
 # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()

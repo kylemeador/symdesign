@@ -6,10 +6,11 @@ from itertools import product, combinations
 import PathUtils as PUtils
 from FragDock import nanohedra_dock
 # from interface_analysis.Database import FragmentDB
+from JobResources import fragment_factory
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry
 from PDB import orient_pdb_file
-from SymDesignUtils import get_all_file_paths, start_log, unpickle, set_logging_to_debug
+from SymDesignUtils import get_all_file_paths, start_log, set_logging_to_debug
 from utils.GeneralUtils import write_docking_parameters, get_rotation_step
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
 from utils.NanohedraManualUtils import print_usage
@@ -137,7 +138,9 @@ if __name__ == '__main__':
                 pdb_filepaths = product(pdb1_oriented_filepaths, pdb2_oriented_filepaths)
 
             # Create fragment database for all ijk cluster representatives
-            ijk_frag_db = unpickle(PUtils.biological_fragment_db_pickle)
+            # ijk_frag_db = unpickle(PUtils.biological_fragment_db_pickle)
+            # Todo parameterize when more available
+            ijk_frag_db = fragment_factory(source=PUtils.biological_interfaces)
             # Load Euler Lookup table for each instance
             euler_lookup = EulerLookup()
             # ijk_frag_db = FragmentDB()

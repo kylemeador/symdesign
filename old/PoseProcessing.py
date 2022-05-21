@@ -685,9 +685,10 @@ if __name__ == '__main__':
     parser.add_argument('-f', '--file', type=str, help='File with location(s) of %s output.' % PUtils.nano,
                         default=None)
     # TODO, function for selecting the appropriate interface library given a viable input
-    parser.add_argument('-i', '--fragment_database', type=str, help='Database to match fragments for interface specific'
-                                                                    ' scoring matrices. Default=biological_interfaces',
-                        default='biological_interfaces')  # PUtils.biological_fragmentDB <- this is a path, need keyword
+    parser.add_argument('-i', '--fragment_database', type=str,
+                        help='Database to match fragments for interface specific scoring matrices. Default=%s'
+                             % PUtils.biological_interfaces,
+                        default=PUtils.biological_interfaces)
     parser.add_argument('symmetry_group', type=int, help='What type of symmetry group does your design belong too? '
                                                          'One of 0-Point Group, 2-Plane Group, or 3-Space Group')
     parser.add_argument('-c', '--command_only', action='store_true', help='Should commands be written but not executed?'

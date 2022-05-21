@@ -235,13 +235,13 @@ class SequenceProfile:
     #         self._disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
     #         return self._disorder
 
-    def attach_fragment_database(self, db=None):
-        """Attach an existing Fragment Database to the SequenceProfile"""
-        if db:
-            self.fragment_db = db
-        else:
-            raise DesignError('%s: No fragment database connection was passed!'
-                              % self.attach_fragment_database.__name__)
+    # def attach_fragment_database(self, db=None):
+    #     """Attach an existing Fragment Database to the SequenceProfile"""
+    #     if db:
+    #         self.fragment_db = db
+    #     else:
+    #         raise DesignError('%s: No fragment database connection was passed!'
+    #                           % self.attach_fragment_database.__name__)
 
     # def retrieve_sequence_from_api(self, entity_id=None):  # Unused
     #     self.sequence = get_sequence_by_entity_id(entity_id)
@@ -1556,7 +1556,7 @@ def get_db_aa_frequencies(database: Union[str, bytes]) -> Dict[protein_letters, 
     return get_db_statistics(database).get('frequencies', {})
 
 
-def get_cluster_dicts(db='biological_interfaces', id_list=None):  # TODO Rename
+def get_cluster_dicts(db=PUtils.biological_interfaces, id_list=None):  # TODO Rename
     """Generate an interface specific scoring matrix from the fragment library
 
     Args:
@@ -1604,15 +1604,15 @@ def return_cluster_id_string(cluster_rep, index_number=3):
     return '_'.join(info)
 
 
-def parameterize_frag_length(length):
-    """Generate fragment length range parameters for use in fragment functions"""
-    _range = floor(length / 2)
-    if length % 2 == 1:
-        return 0 - _range, 0 + _range + index_offset
-    else:
-        logger.critical('%d is an even integer which is not symmetric about a single residue. '
-                        'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
-        raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
+# def parameterize_frag_length(length):
+#     """Generate fragment length range parameters for use in fragment functions"""
+#     _range = floor(length / 2)
+#     if length % 2 == 1:
+#         return 0 - _range, 0 + _range + index_offset
+#     else:
+#         logger.critical('%d is an even integer which is not symmetric about a single residue. '
+#                         'Ensure this is what you want and modify %s' % (length, parameterize_frag_length.__name__))
+#         raise DesignError('Function not supported: Even fragment length \'%d\'' % length)
 
 
 def format_frequencies(frequency_list, flip=False):
@@ -2130,7 +2130,7 @@ def combine_pssm(pssms):
     return combined_pssm
 
 
-def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=True, boltzmann=False, a=0.5):
+def combine_ssm(pssm, issm, alpha, db=biological_interfaces, favor_fragments=True, boltzmann=False, a=0.5):
     """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
     All input must be zero indexed
@@ -2142,7 +2142,7 @@ def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=T
         issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
         alpha (dict): {48: 0.5, 50: 0.321, ...}
     Keyword Args:
-        db='biological_interfaces': Disk location of fragment database
+        db: Disk location of fragment database
         favor_fragments=True (bool): Whether to favor fragment profile in the lod score of the resulting profile
         boltzmann=True (bool): Whether to weight the fragment profile by the Boltzmann probability. If false, residues
             are weighted by a local maximum over the residue scaled to a maximum provided in the standard Rosetta per
@@ -2201,14 +2201,14 @@ def combine_ssm(pssm, issm, alpha, db='biological_interfaces', favor_fragments=T
     return pssm
 
 
-def find_alpha(issm, cluster_map, db='biological_interfaces', a=0.5):
+def find_alpha(issm, cluster_map, db=PUtils.biological_interfaces, a=0.5):
     """Find fragment contribution to design with cap at alpha
 
     Args:
         issm (dict): {48: {'A': 0.167, 'D': 0.028, 'E': 0.056, ..., 'stats': [4, 0.274]}, 50: {...}, ...}
         cluster_map (dict): {48: {'chain': 'mapped', 'cluster': [(-2, 1_1_54), ...]}, ...}
     Keyword Args:
-        db='biological_interfaces': Disk location of fragment database
+        db: Disk location of fragment database
         a=0.5 (float): The maximum alpha value to use, should be bounded between 0 and 1
     Returns:
         alpha (dict): {48: 0.5, 50: 0.321, ...}

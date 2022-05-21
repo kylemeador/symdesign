@@ -34,7 +34,8 @@ from Query import Flags
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from classes.EulerLookup import EulerLookup
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
-from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory, JobResources
+from DesignDirectory import DesignDirectory, get_sym_entry_from_nanohedra_directory
+from JobResources import JobResources, fragment_factory
 from PDB import PDB, orient_pdb_file
 from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
@@ -627,6 +628,10 @@ if __name__ == '__main__':
                              'or "%s"' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
     parser.add_argument('-gf', '--%s' % PUtils.generate_fragments, action='store_true',
                         help='Generate fragment overlap for poses of interest.')
+    parser.add_argument('-i', '--fragment_database', type=str, choices=PUtils.fragment_dbs,
+                        help='Database to match fragments for interface specific scoring matrices. Default=%s'
+                             % PUtils.biological_interfaces,
+                        default=PUtils.biological_interfaces)
     parser.add_argument('-ic', '--ignore_clashes', action='store_true',
                         help='Whether errors raised from identified clashes should be ignored and allowed to process')
     parser.add_argument('-l', '--load_database', action='store_true',
@@ -1168,11 +1173,10 @@ if __name__ == '__main__':
     # Set up Databases
     if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
             or args.module in [PUtils.nano, PUtils.generate_fragments]:
-        interface_type = 'biological_interfaces'  # Todo parameterize when more available
-        logger.info('Initializing %s FragmentDatabase' % interface_type)
-        fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
-        # fragment_db.location = PUtils.frag_directory.get(fragment_db.source, None)  # has since been depreciated
-        # fragment_db = FragmentDatabase(source=interface_type, init_db=True)  # Todo sql=args.fragment_db
+        # Todo parameterize when more available
+        logger.info('Initializing %s FragmentDatabase' % PUtils.biological_interfaces)
+        # fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
+        fragment_db = fragment_factory(source=PUtils.biological_interfaces)
         euler_lookup = EulerLookup()
     else:
         fragment_db, euler_lookup = None, None

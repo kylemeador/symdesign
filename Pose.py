@@ -1,7 +1,6 @@
 from logging import Logger
 import os
 from copy import copy, deepcopy
-# from pickle import load
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from math import sqrt, cos, sin, prod, ceil
 from typing import Set, List, Tuple, Iterable, Dict, Optional, IO, Union
@@ -12,7 +11,6 @@ import numpy as np
 from Bio.Data.IUPACData import protein_letters_1to3_extended
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
-# import requests
 
 import PathUtils as PUtils
 from SymDesignUtils import pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
@@ -30,7 +28,7 @@ from PDB import PDB
 from SequenceProfile import SequenceProfile
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue  # Atoms, Residues,
-from Database import FragmentDB, FragmentDatabase
+from JobResources import FragmentDB, fragment_factory, JobResources
 
 # Globals
 logger = start_log(name=__name__)
@@ -2391,7 +2389,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.required_indices = set()
         self.required_residues = None
         self.interface_residues = {}  # {(entity1, entity2): ([entity1_residues], [entity2_residues]), ...}
-        self.source_db = kwargs.get('source_db', None)
+        self.source_db: JobResources = kwargs.get('source_db', None)
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
         self.split_interface_ss_elements = {}  # {1: [0,1,2] , 2: [9,13,19]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
@@ -2405,10 +2403,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         fragment_db = kwargs.get('fragment_db')
         if fragment_db:  # Attach existing FragmentDB to the Pose
-            self.attach_fragment_database(fragment_db)
+            self.fragment_db = fragment_db
+            # self.attach_fragment_database(fragment_db)
             # self.fragment_db = fragment_db  # Todo property
             for entity in self.entities:
-                entity.attach_fragment_database(fragment_db)
+                entity.fragment_db = fragment_db
 
         self.euler_lookup = kwargs.get('euler_lookup', None)
         # for entity in self.entities:  # No need to attach to entities
@@ -3304,27 +3303,28 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.log.debug('Found interface secondary structure: %s' % self.split_interface_ss_elements)
 
     def interface_design(self, evolution=True, fragments=True, query_fragments=False, fragment_source=None,
-                         write_fragments=True, fragment_db='biological_interfaces', des_dir=None):  # Todo deprec. des_dir
+                         write_fragments=True, fragment_db: str = PUtils.biological_interfaces, des_dir=None):
+        # Todo deprec. des_dir
         """Compute calculations relevant to interface design.
 
         Sets:
-            self.pssm_file (Union[str, bytes]
+            self.pssm_file (Union[str, bytes])
         """
         self.log.debug('Entities: %s' % ', '.join(entity.name for entity in self.entities))
         self.log.debug('Active Entities: %s' % ', '.join(entity.name for entity in self.active_entities))
 
         # we get interface residues for the designable entities as well as interface_topology at DesignDirectory level
         if fragments:
+            if not self.fragment_db:
+                self.connect_fragment_database(source=fragment_db)
+                # Attach an existing FragmentDB to the Pose
+                self.fragment_db = self.fragment_db
+                for entity in self.entities:
+                    entity.fragment_db = self.fragment_db
+
             if query_fragments:  # search for new fragment information
                 self.generate_interface_fragments(out_path=des_dir.frags, write_fragments=write_fragments)
             else:  # No fragment query, add existing fragment information to the pose
-                if not self.fragment_db:
-                    self.connect_fragment_database(source=fragment_db, init=False)  # no need to initialize
-                    # Attach an existing FragmentDB to the Pose
-                    self.attach_fragment_database(db=self.fragment_db)
-                    for entity in self.entities:
-                        entity.attach_fragment_database(db=self.fragment_db)
-
                 if fragment_source is None:
                     raise DesignError('Fragments were set for design but there were none found! Try including '
                                       '--query_fragments in your input flags and rerun this command or generate '
@@ -3339,9 +3339,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
                                                                            fragment_info))
                 for query_idx, entity in enumerate(query_pair):
-                    # # Attach an existing FragmentDB to the Pose
-                    # entity.connect_fragment_database(location=fragment_db, db=design_dir.fragment_db)
-                    entity.attach_fragment_database(db=self.fragment_db)
                     entity.assign_fragments(fragments=fragment_info,
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
         for entity in self.entities:
@@ -3669,25 +3666,26 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                   'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
                                   ' modifications' % self.add_fragment_query.__name__)
 
-    def connect_fragment_database(self, source=None, init=False, **kwargs):  # Todo Clean up
-        """Generate a new connection. Initialize the representative library by passing init=True"""
-        if not source:  # Todo fix once multiple are available
-            source = 'biological_interfaces'
-        self.fragment_db = FragmentDatabase(source=source, init_db=init)
-        #                               source=source, init_db=init_db)
+    def connect_fragment_database(self, source: str = PUtils.biological_interfaces, **kwargs):
+        """Generate a FragmentDatabase connection
+
+        Args:
+            source: The type of FragmentDatabase to connect
+        Sets:
+            self.fragment_db (FragmentDatabase)
+        """
+        self.fragment_db = fragment_factory(source=source, **kwargs)
 
     def generate_interface_fragments(self, write_fragments: bool = True, out_path: Union[str, bytes] = None):
-        #                            new_db: bool = False):
-        """Using the attached fragment database, generate interface fragments between the Pose interfaces
+        """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
 
         Args:
             write_fragments: Whether to write the located fragments
             out_path: The location to write each fragment file
-            # new_db: Whether a fragment database should be initialized for the interface fragment search
         """
         if not self.fragment_db:  # There is no fragment database connected
-            # Connect to a new DB, Todo parameterize which one should be used with source=
-            self.connect_fragment_database(init=True)  # default init=False, we need an initiated one to generate frags
+            # Todo parameterize which one should be used with source=
+            self.connect_fragment_database()
 
         if not self.interface_residues:
             self.find_and_split_interface()
