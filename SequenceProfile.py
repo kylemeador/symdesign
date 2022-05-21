@@ -8,7 +8,7 @@ import subprocess
 import time
 from copy import deepcopy, copy
 # from glob import glob
-from typing import Dict, Union, Sequence, List, Any
+from typing import Dict, Union, Sequence, List, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -130,13 +130,8 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             self.frequencies[residue] = {aa: count / total_column_weight for aa, count in amino_acid_counts.items()}
 
     @property
-    def query_indices(self):
-        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
-        1 and 0 during subsequent arithmetic
-
-        Returns:
-            (numpy.ndarray)
-        """
+    def query_indices(self) -> np.ndarray:
+        """Returns the query as a boolean array (1, length) where gaps ("-") are False"""
         try:
             return self._sequence_index[0]
         except AttributeError:
@@ -144,13 +139,8 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             return self._sequence_index[0]
 
     @property
-    def sequence_indices(self):
-        """Returns a boolean alignment array where the alignment gaps '-' are False. True and False are converted to
-        1 and 0 during subsequent arithmetic
-
-        Returns:
-            (numpy.ndarray)
-        """
+    def sequence_indices(self) -> np.ndarray:
+        """Returns the alignment as a boolean array (number_of_sequences, length) where gaps ("-") are False"""
         try:
             return self._sequence_index
         except AttributeError:
@@ -158,21 +148,21 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             return self._sequence_index
 
     @property
-    def numerical_alignment(self):
-        """Return the array as a numerical representation
+    def numerical_alignment(self) -> np.ndarray:
+        """Return the alignment as an integer array (number_of_sequences, length) of the amino acid characters
 
-        Returns:
-            (numpy.ndarray)
+        MultipleSequenceAlignment.numerical_translation characters "-ACDEFGHIKLMNPQRSTVWY", are the resulting integer
         """
         try:
             return self._numerical_alignment
         except AttributeError:
-            self._numerical_alignment = np.array([[self.numerical_translation[aa] for aa in record]
-                                                  for record in self.alignment])
+            self._numerical_alignment = \
+                np.array([[self.numerical_translation[aa] for aa in record] for record in self.alignment])
             return self._numerical_alignment
 
     @property
-    def array(self):
+    def array(self) -> np.ndarray:
+        """Return the alignment as a character array (number_of_sequences, length) with numpy.character dtype"""
         try:
             return self._array
         except AttributeError:
@@ -187,25 +177,25 @@ class SequenceProfile:
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.evolutionary_profile = {}  # position specific scoring matrix
+        self.evolutionary_profile: Dict = {}  # position specific scoring matrix
         # self.design_pssm_file = None
-        self.profile = {}  # design specific scoring matrix
+        self.profile: Dict = {}  # design specific scoring matrix
         self.fragment_db = None
-        self.fragment_queries = {}
+        self.fragment_queries: Dict = {}
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
-        self.fragment_map = None  # {}
-        self.alpha = {}
-        self.fragment_profile = {}
+        self.fragment_map: Optional[Dict] = None  # {}
+        self.alpha: Dict = {}
+        self.fragment_profile: Dict = {}
         # self.fragment_pssm_file = None
         # self.interface_data_file = None
-        self.a3m_file = None
-        self.h_fields = None
-        self.j_couplings = None
-        self.msa = None
-        self.msa_file = None
-        self.pssm_file = None
-        self.sequence_source = None
-        self.sequence_file = None
+        self.a3m_file: Optional[Union[str, bytes]] = None
+        self.h_fields: np.ndarray = None
+        self.j_couplings: np.ndarray = None
+        self.msa: Optional[MultipleSequenceAlignment] = None
+        self.msa_file: Optional[Union[str, bytes]] = None
+        self.pssm_file: Optional[Union[str, bytes]] = None
+        # self.sequence_source = None
+        self.sequence_file: Optional[Union[str, bytes]] = None
 
     @classmethod
     def from_structure(cls, structure=None):
@@ -704,18 +694,26 @@ class SequenceProfile:
             except FileNotFoundError:
                 raise FileNotFoundError('No multiple sequence alignment exists at %s' % self.msa_file)
 
-    def collapse_profile(self, msa: Union[str, MultipleSequenceAlignment] = None):
-        """Find the mean and standard deviation for each index in the SequenceProfile sequence MSA
+    def collapse_profile(self, msa: Union[str, MultipleSequenceAlignment] = None) -> pd.DataFrame:
+        """Make a profile out of the hydrophobic collapse index (HCI) for each sequence in a multiple sequence alignment
 
-        Turn each sequence into a HCI array. All sequences have different lengths.
-        For each input sequence, make a gap mask into a 2D array (#sequences x length of sequence alignment)
-        iterate over the gap mask array adding the ith column of the mask to the row of the iterator array
-        where there is a gap there is a 0, sequence present is 1
-            iterator array        gap mask  Hydro Collapse Array     Aligned HCI (drop col 2)   HCI
-        iter i 1  2  3  4  element 0  1  2      0    1    2          0    1    2            0    1    3
-              [0  1  2  2         [1  1  0    [0.5  0.2  0.5       [0.5  0.2   0          [0.5  0.2  ...
-               0  0  1  2          0  1  1     0.4  0.7  0.4    =    0   0.4  0.7    ->     0   0.4  ...
-               0  0  1  2          0  1  1     0.3  0.6  0.3         0   0.3  0.6           0   0.3  ...
+        Calculate HCI for each sequence (different lengths) into an array. For each msa sequence, make a gap array
+        (# msa sequences x alignment length) to account for gaps from each individual sequence. Create a map between the
+        gap array and the HCI array
+
+        iter array   -   gap mask      -       Hydro Collapse Array     -     Aligned HCI     - -     Final HCI
+
+        ------------
+
+        iter - - - - - - 1 is gap    - - - -     compute for each     -     account for gaps   -  (drop col 3, idx 2)
+
+        it 1 2 3 4  - - 0 | 1 | 2 - - - - - - - - - 0 | 1 | 2 - - - - - - - - 0 | 1 | 2 - - - - - - - 0 | 1 | 3 | ... N
+
+        0 0 1 2 2  - - 1 | 1 | 0 - - - -   - - - - 0.5 0.2 0.5 - -   =   - - 0.5 0.2 0.0 -  ->   - - 0.5 0.2 0.4 ... 0.3
+
+        1 0 0 1 2  - - 0 | 1 | 1 - - - -   - - - - 0.4 0.7 0.4 - -   =   - - 0.0 0.4 0.7 -  ->   - - 0.0 0.4 0.4 ... 0.1
+
+        2 0 0 1 2  - - 0 | 1 | 1 - - - -   - - - - 0.3 0.6 0.3 - -   =   - - 0.0 0.3 0.6 -  ->   - - 0.0 0.3 0.4 ... 0.0
 
         After the addition, the hydro collapse array index that is accessed by the iterator is multiplied by the gap
         mask to return a null value is there is no value and the hydro collapse value if there is one
@@ -723,11 +721,10 @@ class SequenceProfile:
         is removed of any gaps and only the iterations will be left, essentially giving the HCI for the sequence
         profile in the native context, however adjusted to the specific context of the protein/design sequence at hand
 
-        Keyword Args:
-            msa=None (Union[str, MultipleSequenceAlignment]): The multiple sequence alignment to use for collapse
+        Args:
+            msa: The multiple sequence alignment to use for collapse
         Returns:
-            (pandas.DataFrame): DataFrame containing each sequences hydrophobic collapse values for the profile, mean,
-                and std
+            DataFrame containing each sequences hydrophobic collapse values for the profile
         """
         if not self.msa:
             try:
@@ -737,46 +734,23 @@ class SequenceProfile:
                                   'either link the Structure to the Master Database, call %s, or pass the location of a'
                                   ' multiple sequence alignment. Supported formats:\n%s)'
                                   % (msa_generation_function, pretty_format_table(msa_supported_types.items())))
-        # msa_np = np.array([list(record) for record in self.msa.alignment], np.character)
-        # msa_np = np.array([list(str(record.seq)) for record in self.msa.alignment], np.character)
-        # print('msa_np', msa_np[:5, :])
-        # aligned_hci_np = np.zeros((self.msa.number_of_sequences, self.msa.length))
-        # Make the output array one longer to keep a np.nan value at the 0 index for collapse gaps
+
+        # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
         evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))  # aligned_hci_np.copy()
         evolutionary_collapse_np[:, 0] = np.nan  # np.nan for all missing indices
-        # print('alignment', self.msa.alignment[:5, :])
         for idx, record in enumerate(self.msa.alignment):
             non_gapped_sequence = str(record.seq).replace('-', '')
-            evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = hydrophobic_collapse_index(non_gapped_sequence)
+            evolutionary_collapse_np[idx, 1:len(non_gapped_sequence) + 1] = \
+                hydrophobic_collapse_index(non_gapped_sequence)
 
-        # print('evolutionary_collapse_np', evolutionary_collapse_np[:5, :])
-        # iterator_np = np.zeros((self.msa.number_of_sequences,), order='F', dtype=int)
-        # msa_mask = np.isin(self.msa.array, b'-', invert=True)  # returns bool array '-' = False. Converted during arithmetic
-        # print('msa_mask', msa_mask[:5, :])
         iterator_np = np.cumsum(self.msa.sequence_indices, axis=1) * self.msa.sequence_indices
-        # print('iterator_np', iterator_np[:5, :])
-        # for idx in range(self.msa.length):
-        #     # print('iterator shape', iterator_np.shape)
-        #     # print('slices mas_mask shape', msa_mask[:, idx].shape)
-        #     # print(msa_mask[:, idx])
-        #     # aligned_hci_np[:, idx] = evolutionary_collapse_np[:, iterator_np] * msa_mask[:, idx]
-        #     aligned_hci_np[:, idx] = evolutionary_collapse_np[np.ix_(:, iterator_np)] * msa_mask[:, idx]
-        #     iterator_np += msa_mask[:, idx]
         aligned_hci_np = np.take_along_axis(evolutionary_collapse_np, iterator_np, axis=1)
-        # print('aligned_hci_np', aligned_hci_np[:5, :])
-        sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]  # the query sequence indices are selected
-        # print('sequence:\n', '     '.join(aa for idx, aa in enumerate(map(str, self.msa.alignment[0].seq)) if msa_mask[0][idx]))
-        # print(list(map(round, sequence_hci_np[0, :].tolist(), repeat(2))), '\nsequence_hci_np')
-        sequence_hci_df = pd.DataFrame(sequence_hci_np, columns=list(range(1, self.msa.query_length + 1)))
-        # sequence_hci_mean_s = sequence_hci_df.mean()
-        # sequence_hci_mean = pd.Series(sequence_hci_np.mean(axis=1), name='mean')
-        # sequence_hci_mean.index += 1
-        # sequence_hci_std_s = sequence_hci_df.std()
-        # sequence_hci_std = pd.Series(sequence_hci_np.std(axis=1), name='std')
-        # sequence_hci_std.index += 1
-        # sequence_hci_z_value = (aligned_hci_np[0] - sequence_hci_mean) / sequence_hci_std
-        return pd.concat([sequence_hci_df,
-                          pd.concat([sequence_hci_df.mean(), sequence_hci_df.std()], axis=1, keys=['mean', 'std']).T])
+        # select only the query sequence indices
+        # sequence_hci_np = aligned_hci_np[:, self.msa.query_indices]
+        return pd.DataFrame(aligned_hci_np[:, self.msa.query_indices],
+                            columns=list(range(1, self.msa.query_length + 1)))  # include last residue
+        # summary = pd.concat([sequence_hci_df, pd.concat([sequence_hci_df.mean(), sequence_hci_df.std()], axis=1,
+        #                                                 keys=['mean', 'std']).T])
 
     def direct_coupling_analysis(self, msa: MultipleSequenceAlignment = None) -> np.ndarray:  # , data_dir=None):
         """Using boltzmann machine direct coupling analysis (bmDCA), score each sequence in an alignment based on the
