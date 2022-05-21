@@ -186,6 +186,7 @@ class DesignDirectory:  # (JobResources):
         # Todo monitor if energy mechansims are modified for crystal set ups and adjust parameter accordingly
         self.modify_sym_energy = True if self.design_dimension in [2, 3] else False
         self.sym_def_file = None  # The symmetry definition file for the entire Pose
+        self.symmetry_protocol = None
         if 'sym_entry' in kwargs:
             self.sym_entry = kwargs['sym_entry']
         # elif 'sym_entry_number' in kwargs:
@@ -197,7 +198,6 @@ class DesignDirectory:  # (JobResources):
         #         cryst_record_d = PDB.get_cryst_record(
         #             self.source)  # Todo must get self.source before attempt this call
         #         self.sym_entry = space_group_to_sym_entry[cryst_record_d['space_group']]
-        self.symmetry_protocol = None
         # self.uc_dimensions = None
 
         # Design flags  # Todo move to JobResources
@@ -1021,18 +1021,23 @@ class DesignDirectory:  # (JobResources):
 
     @handle_design_errors(errors=(DesignError, ))
     @close_logs
-    def set_up_design_directory(self, pre_refine=None, pre_loop_model=None):
+    def set_up_design_directory(self, pre_refine: Optional[bool] = None, pre_loop_model: Optional[bool] = None):
         """Prepare output Directory and File locations. Each DesignDirectory always includes this format
 
-        Keyword Args:
-            pre_refine=None (Union[None, bool]): Whether the Pose has been refined previously (before loading)
-            pre_loop_model=None (Union[None, bool]): Whether the Pose had loops modeled previously (before loading)
+        Args:
+            pre_refine: Whether the Pose has been refined previously (before loading)
+            pre_loop_model: Whether the Pose had loops modeled previously (before loading)
         """
-        # self.make_path(self.path, condition=(not self.nano or self.copy_nanohedra or self.construct_pose))
         self.start_log()
-        # self.scores = os.path.join(self.path, PUtils.scores_outdir)
-        # Todo if I use this for design, it opens up a can of worms. Maybe it is better to include only this identifier
-        #  for specific modules
+        if pre_refine is not None and 'pre_refine' not in self.info:
+            self.pre_refine = pre_refine
+            self.info['pre_refine'] = self.pre_refine  # this may have just been set
+        if pre_loop_model is not None and 'pre_loop_model' not in self.info:
+            self.pre_loop_model = pre_loop_model
+            self.info['pre_loop_model'] = self.pre_loop_model
+
+        # Todo if I use output_identifier for design, it opens up a can of worms. Maybe it is better to include only for
+        #  specific modules
         self.output_identifier = '%s_' % self.name if self.output_directory else ''
         self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
         self.scripts = os.path.join(self.path, '%s%s' % (self.output_identifier, PUtils.scripts))
@@ -1061,18 +1066,21 @@ class DesignDirectory:  # (JobResources):
                 self.info['nanohedra'] = True
                 self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
                 # self.info['sym_entry'] = self.sym_entry
-                self.info['oligomer_names'] = self.oligomer_names
                 self.pose_transformation = self.retrieve_pose_metrics_from_file()
-                # self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # this assumes the entity is the first
-                self.info['entity_names'] = self.entity_names  # Todo remove after T33
-                # self.info['pre_refine'] = self.pre_refine
+                self.info['oligomer_names'] = self.oligomer_names
+                self.info['entity_names'] = self.entity_names
                 self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
             if os.path.exists(self.serialized_info):  # Pose has already been processed, gather state data
                 try:
-                    self.info = unpickle(self.serialized_info)
+                    serial_info = unpickle(self.serialized_info)
+                    if not self.info:  # empty dict
+                        self.info = serial_info
+                    else:
+                        serial_info.update(self.info)
+                        self.info = serial_info
                 except UnpicklingError as error:  # pickle.UnpicklingError:
                     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
                     raise error
@@ -1131,18 +1139,16 @@ class DesignDirectory:  # (JobResources):
                 self._pose_transformation = self.info.get('pose_transformation', None)
                 if isinstance(self._pose_transformation, dict):  # old format
                     del self._pose_transformation
+                self.pickle_info()
                 # End temporary patch
                 self.interface_design_residues = self.info.get('interface_design_residues', False)  # (set[int])
                 self.interface_residue_ids = self.info.get('interface_residue_ids', {})
                 self.interface_residues = self.info.get('interface_residues', False)
             else:  # we are constructing for the first time. Save all relevant information
-                self.info['sym_entry'] = self.sym_entry
+                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
                 self.info['entity_names'] = self.entity_names
-                # self.pickle_info()  # save this info on the first copy so that we don't have to construct again
 
         # check if the source of the pdb files was refined upon loading
-        if pre_refine is not None:
-            self.pre_refine = pre_refine
         if self.pre_refine:
             self.refined_pdb = self.asu_path
             self.scouted_pdb = \
@@ -1151,8 +1157,6 @@ class DesignDirectory:  # (JobResources):
             self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
             self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
         # check if the source of the pdb files was loop modelled upon loading
-        # if pre_loop_model is not None:
-        #     self.pre_loop_model = pre_loop_model
 
         # configure standard pose loading mechanism with self.source
         if self.specific_design:
