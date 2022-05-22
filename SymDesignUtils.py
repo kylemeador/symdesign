@@ -744,14 +744,13 @@ def mp_map(function: Callable, arg: Iterable, processes: int = 1, context: str =
         function: Which function should be executed
         arg: Arguments to be unpacked in the defined function, order specific
         processes: How many workers/cores should be spawned to handle function(arguments)?
-        context: One of 'spawn', 'fork', or 'forkserver'
+        context: How to start new processes? One of 'spawn', 'fork', or 'forkserver'.
     Returns:
         The results produced from the function and arg
     """
-    with mp.get_context(context).Pool(processes=processes, initializer=set_worker_affinity) as p:
     # with mp.get_context(context).Pool(processes=processes) as p:  # , maxtasksperchild=100
+    with mp.get_context(context).Pool(processes=processes, initializer=set_worker_affinity) as p:
         results = p.map(function, arg)
-    p.join()
 
     return results
 
@@ -763,14 +762,13 @@ def mp_starmap(function: Callable, star_args: Iterable[Tuple], processes: int = 
         function: Which function should be executed
         star_args: Arguments to be unpacked in the defined function, order specific
         processes: How many workers/cores should be spawned to handle function(arguments)?
-        context: One of 'spawn', 'fork', or 'forkserver'
+        context: How to start new processes? One of 'spawn', 'fork', or 'forkserver'.
     Returns:
-        The results produced from the function and process_args
+        The results produced from the function and star_args
     """
-    with mp.get_context(context).Pool(processes=processes, initializer=set_worker_affinity) as p:
     # with mp.get_context(context).Pool(processes=processes) as p:  # , maxtasksperchild=100
-        results = p.starmap(function, star_args)  # , chunksize=1
-    p.join()
+    with mp.get_context(context).Pool(processes=processes, initializer=set_worker_affinity) as p:
+        results = p.starmap(function, star_args)
 
     return results
 
