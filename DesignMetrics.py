@@ -14,6 +14,7 @@ from Query.utils import input_string, validate_type, verify_choice, header_strin
 
 # Globals
 logger = start_log(name=__name__)
+metric_weight_functions = ['rank', 'normalize']
 master_metrics = {'average_fragment_z_score':
                       {'description': 'The average fragment z-value used in docking/design',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
@@ -557,10 +558,9 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordin
                      'interface_separation', 'interface_energy_1_bound',
                      'interface_energy_1_unbound',  'interface_energy_complex',
                      'interaction_energy_complex', groups, 'rosetta_reference_energy', 'shape_complementarity',
-                     'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
-                     'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound',
-                     'sasa_total_1_bound', 'solvation_energy_complex', 'solvation_energy_1_bound',
-                     'solvation_energy_1_unbound'
+                     # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
+                     # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
+                     'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
                      }
 #                      'buns_2_unbound',
 #                      'hbonds_res_selection_2_bound', 'interface_connectivity_2',

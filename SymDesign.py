@@ -41,7 +41,7 @@ from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
-from DesignMetrics import prioritize_design_indices, master_metrics, query_user_for_metrics
+from DesignMetrics import prioritize_design_indices, query_user_for_metrics, metric_weight_functions
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 from utils.GeneralUtils import write_docking_parameters
 from utils.guide import interface_design_guide, analysis_guide
@@ -853,16 +853,13 @@ if __name__ == '__main__':
                                                ' Either -df or -pf is required. If both are provided, -pf will be '
                                                'prioritized' % PUtils.analysis)
     filter_required = parser_filter.add_mutually_exclusive_group(required=True)
-    # filter_required.add_argument('-df', '--dataframe', type=os.path.abspath,
-    #                              metavar=SDUtils.ex_path('AllPoseDesignMetrics.csv'),
-    #                              help='Dataframe.csv from analysis containing pose info.')
     filter_required.add_argument('-m', '--metric', type=str,
                                  help='If a simple metric filter is required, what metric would you like to sort '
                                       'Designs by?', choices=['score', 'fragments_matched'])
     filter_required.add_argument('-pf', '--pose_design_file', type=str, metavar=SDUtils.ex_path('pose_design.csv'),
                                  help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_filter.add_argument('--filter', action='store_true',
-                               help='Whether to filter sequence selection using metrics from DataFrame')
+                               help='Whether to filter pose selection using metrics')
     parser_filter.add_argument('-np', '--number_poses', type=int, default=0, metavar='INT',
                                help='Number of top poses to return per pool of designs.\nDefault=All')
     parser_filter.add_argument('--protocol', type=str, help='Use specific protocol(s) to grab designs from?',
@@ -870,8 +867,7 @@ if __name__ == '__main__':
     parser_filter.add_argument('-s', '--selection_string', type=str, metavar='string',
                                help='String to prepend to output for custom design selection name')
     parser_filter.add_argument('--weight', action='store_true',
-                               help='Whether to weight sequence selection using metrics from DataFrame')
-    metric_weight_functions = ['rank', 'normalize']
+                               help='Whether to weight pose selection results using metrics')
     parser_filter.add_argument('-wf', '--weight_function', choices=metric_weight_functions,
                                help='How to standardize metrics during sequence selection weighting')
     # ---------------------------------------------------
@@ -897,7 +893,7 @@ if __name__ == '__main__':
                                       'list such as "1,0,1" where "1" indicates a tag requirement and "0" '
                                       'indicates no tag is required.')
     parser_sequence.add_argument('--filter', action='store_true',
-                                 help='Whether to filter sequence selection using metrics from DataFrame')
+                                 help='Whether to filter sequence selection using metrics')
     parser_sequence.add_argument('-g', '--global_sequences', action='store_true',
                                  help='Should sequences be selected based on their ranking in the total design pool. '
                                       'This will search for the top sequences from all poses and then choose only one '
@@ -929,7 +925,7 @@ if __name__ == '__main__':
                                  help='The name of your preferred expression tag. Default=his_tag',
                                  choices=expression_tags.keys(), default='his_tag')
     parser_sequence.add_argument('--weight', action='store_true',
-                                 help='Whether to weight sequence selection using metrics from DataFrame')
+                                 help='Whether to weight sequence selection results using metrics')
     parser_sequence.add_argument('-wf', '--weight_function', choices=metric_weight_functions,
                                  help='How to standardize metrics during sequence selection weighting')
     # ---------------------------------------------------
