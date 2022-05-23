@@ -783,29 +783,36 @@ class DesignDirectory:  # (JobResources):
         """Provide the transformation parameters for the design in question
 
         Returns:
-            [{'rotation': numpy.ndarray, 'translation': numpy.ndarray, 'rotation2': numpy.ndarray,
-              'translation2': numpy.ndarray}, ...]
+            [{'rotation': np.ndarray, 'translation': np.ndarray, 'rotation2': np.ndarray,
+              'translation2': np.ndarray}, ...]
+            A list with the transformations of each Entity in the Pose according to the symmetry
         """
         try:
             return self._pose_transformation
         except AttributeError:
-            try:
-                self._pose_transformation = self.retrieve_pose_transformation_from_file()
-            except FileNotFoundError:
+            if self.symmetric:
                 try:
-                    self._pose_transformation = self.pose.assign_pose_transformation()
-                except DesignError:
-                    # Todo
-                    #  This must be something outside of the realm of possibilities of Nanohedra symmetry groups
-                    #  Perhaps we need to get the parameters for oligomer generation from PISA or other operator source
-                    self.log.critical('There was no pose transformation file specified at %s and no transformation '
-                                      'found from routine search of Nanohedra docking parameters. Is this pose from the'
-                                      ' PDB? You may need to utilize PISA to accurately deduce the locations of pose '
-                                      'transformations to make the correct oligomers. For now, using null '
-                                      'transformation which is likely not what you want...' % self.pose_file)
-                    self._pose_transformation = \
-                        [dict(rotation=identity_matrix, translation=None) for _ in self.pose.entities]
-                # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
+                    self._pose_transformation = self.retrieve_pose_transformation_from_file()
+                except FileNotFoundError:
+                    try:
+                        self._pose_transformation = self.pose.assign_pose_transformation()
+                    except DesignError:
+                        # Todo
+                        #  This must be something outside of the realm of possibilities of Nanohedra symmetry groups
+                        #  Perhaps we need to get the parameters for oligomer generation from PISA or other source
+                        self.log.critical('There was no pose transformation file specified at %s and no transformation '
+                                          'found from routine search of Nanohedra docking parameters. Is this pose from'
+                                          ' the PDB? You may need to utilize PISA to accurately deduce the locations of'
+                                          ' pose transformations to make the correct oligomers. For now, using null '
+                                          'transformation which is likely not what you want...' % self.pose_file)
+                        self._pose_transformation = \
+                            [dict(rotation=identity_matrix, translation=None) for _ in self.pose.entities]
+                    # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
+            else:
+                # Todo would have to measure the transformation from the standard Database orientation to the pose
+                #  oritentation. This is useful if the design files are not written and the design was loaded from a
+                #  file originally, but accessing after it is loaded from the database and using a ._pose_transformation
+                self._pose_transformation = []
             self.info['pose_transformation'] = self._pose_transformation
             # self.log.debug('Using transformation parameters:\n\t%s'
             #                % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
@@ -1796,15 +1803,15 @@ class DesignDirectory:  # (JobResources):
                 header = False
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    def transform_oligomers_to_pose(self, refined=True, oriented=False, **kwargs):
+    def transform_oligomers_to_pose(self, refined: bool = True, oriented: bool = False, **kwargs):
         """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
         master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
         exists. Finally, the DesignDirectory will be used as a back up
 
-        Keyword Args:
-            refined=True (bool): Whether to use the refined pdb from the refined pdb source directory
-            oriented=false (bool): Whether to use the oriented pdb from the oriented pdb source directory
+        Args:
+            refined: Whether to use the refined pdb from the refined pdb source directory
+            oriented: Whether to use the oriented pdb from the oriented pdb source directory
         """
         self.get_oligomers(refined=refined, oriented=oriented)
         if self.pose_transformation:
@@ -1817,14 +1824,16 @@ class DesignDirectory:  # (JobResources):
             raise DesignError('The design could not be transformed as it is missing the required transformation '
                               'parameters. Were they generated properly?')
 
-    def transform_structures_to_pose(self, structures, **kwargs):
+    def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> List[Structure]:
         """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
         master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
         exists. Finally, the DesignDirectory will be used as a back up
 
         Args:
-            structures (Iterable[Structure]): The Structure objects you would like to transform
+            structures: The Structure objects you would like to transform
+        Returns:
+            The transformed Structure objects if a transformation was possible
         """
         if self.pose_transformation:
             self.log.debug('Structures were transformed to the found docking parameters')
@@ -1832,8 +1841,9 @@ class DesignDirectory:  # (JobResources):
             return [structure.return_transformed_copy(**self.pose_transformation[idx])
                     for idx, structure in enumerate(structures)]
         else:
-            raise DesignError('The design could not be transformed as it is missing the required transformation '
-                              'parameters. Were they generated properly?')
+            # raise DesignError('The design could not be transformed as it is missing the required transformation '
+            #                   'parameters. Were they generated properly?')
+            return [structure for structure in structures]
 
     def get_oligomers(self, refined: bool = True, oriented: bool = False):
         """Retrieve oligomeric files from either the design Database, the oriented directory, or the refined directory,
@@ -1843,7 +1853,7 @@ class DesignDirectory:  # (JobResources):
             refined: Whether to use the refined oligomeric directory
             oriented: Whether to use the oriented oligomeric directory
         Sets:
-            self.oligomers (list[PDB])
+            self.oligomers (list[Structure])
         """
         source_preference = ['refined', 'oriented', 'design']
         if self.resources:
