@@ -45,27 +45,23 @@ def standardize_oligomer_chain_lengths(oligomer1_pdb, oligomer2_pdb):
     oligomers_resnums_sets = map(set, oligomers_resnums_lists)
     resnums_in_common = list(set.intersection(*oligomers_resnums_sets))
 
-    oligomer1_pdb_standardized = PDB()
     oligomer1_pdb_standardized_atom_list = []
     oligomer1_pdb_standardized_chid_list = []
     for atom1 in oligomer1_pdb.atoms:
         if atom1.residue_number in resnums_in_common:
             oligomer1_pdb_standardized_atom_list.append(atom1)
             oligomer1_pdb_standardized_chid_list.append(atom1.chain)
-    oligomer1_pdb_standardized_chid_list = list(set(oligomer1_pdb_standardized_chid_list))
-    oligomer1_pdb_standardized.set_all_atoms(oligomer1_pdb_standardized_atom_list)
-    oligomer1_pdb_standardized.chain_ids = oligomer1_pdb_standardized_chid_list
+    oligomer1_pdb_standardized = PDB.from_atoms(oligomer1_pdb_standardized_atom_list)
+    oligomer1_pdb_standardized.chain_ids = list(set(oligomer1_pdb_standardized_chid_list))
 
-    oligomer2_pdb_standardized = PDB()
     oligomer2_pdb_standardized_atom_list = []
     oligomer2_pdb_standardized_chid_list = []
     for atom2 in oligomer2_pdb.atoms:
         if atom2.residue_number in resnums_in_common:
             oligomer2_pdb_standardized_atom_list.append(atom2)
             oligomer2_pdb_standardized_chid_list.append(atom2.chain)
-    oligomer2_pdb_standardized_chid_list = list(set(oligomer2_pdb_standardized_chid_list))
-    oligomer2_pdb_standardized.set_all_atoms(oligomer2_pdb_standardized_atom_list)
-    oligomer2_pdb_standardized.chain_ids = oligomer2_pdb_standardized_chid_list
+    oligomer2_pdb_standardized = PDB.from_atoms(oligomer2_pdb_standardized_atom_list)
+    oligomer2_pdb_standardized.chain_ids = list(set(oligomer2_pdb_standardized_chid_list))
 
     return oligomer1_pdb_standardized, oligomer2_pdb_standardized
 

@@ -19,8 +19,7 @@ def ijk_stats(cluster_rep_path, db_dir, info_outdir, frag_length, sc_dist):
     file1 = os.path.basename(cluster_rep_path)
 
     # Get Representative Guide Atoms
-    cluster_rep_pdb = PDB()
-    cluster_rep_pdb.readfile(cluster_rep_path)
+    cluster_rep_pdb = PDB.from_file(cluster_rep_path)
     cluster_rep_guide_atoms = Frag.get_guide_atoms(cluster_rep_pdb)
 
     ijk_name = os.path.basename(root)
@@ -45,10 +44,9 @@ def ijk_stats(cluster_rep_path, db_dir, info_outdir, frag_length, sc_dist):
     for file2 in os.listdir(cluster_dir):
         if file2.endswith('.pdb'):
             cluster_member_path = os.path.join(cluster_dir, file2)
-            member_pdb = PDB()
-            member_pdb.readfile(cluster_member_path)
+            member_pdb = PDB.from_file(cluster_member_path)
             member_guide_atoms = Frag.get_guide_atoms(member_pdb)
-
+            # todo this syntax 'mapch' is inconsistent with FragmentDatabase load mechanism
             member_mapped_ch = file2[file2.find('mapch') + 6:file2.find('mapch') + 7]
             member_paired_ch = file2[file2.find('pairch') + 7:file2.find('pairch') + 8]
 
@@ -159,8 +157,7 @@ def main(db_dir, info_outdir, frag_length, sc_dist, multi=False, num_threads=4):
         lower_bound, upper_bound, index_offset = Frag.parameterize_frag_length(frag_length)
         for cluster_rep_path in cluster_rep_paths:
             # Get Representative Guide Atoms
-            cluster_rep_pdb = PDB()
-            cluster_rep_pdb.readfile(cluster_rep_path)
+            cluster_rep_pdb = PDB.from_file(cluster_rep_path)
             cluster_rep_guide_atoms = Frag.get_guide_atoms(cluster_rep_pdb)
 
             ijk_name = os.path.basename(root)
@@ -186,10 +183,9 @@ def main(db_dir, info_outdir, frag_length, sc_dist, multi=False, num_threads=4):
             for file2 in os.listdir(cluster_dir):
                 if file2.endswith('.pdb'):
                     cluster_member_path = os.path.join(cluster_dir, file2)
-                    member_pdb = PDB()
-                    member_pdb.readfile(cluster_member_path)
+                    member_pdb = PDB.from_file(cluster_member_path)
                     member_guide_atoms = Frag.get_guide_atoms(member_pdb)
-
+                    # todo this syntax 'mapch' is inconsistent with FragmentDatabase load mechanism
                     member_mapped_ch = file2[file2.find('mapch') + 6:file2.find('mapch') + 7]
                     member_paired_ch = file2[file2.find('pairch') + 7:file2.find('pairch') + 8]
 

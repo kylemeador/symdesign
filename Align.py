@@ -1320,17 +1320,16 @@ class HelixFusion:
                 return -1
 
         # Read in Fixed PDB file or Oriented PDB File
-        target_protein = PDB()
         if self.orient_target:
             orient_target_path = os.path.splitext(self.target_protein_path)[0] + '_orient.pdb'
             if os.path.exists(orient_target_path):
                 print('Done Orienting Target Molecule')
-                target_protein.readfile(orient_target_path)
+                target_protein = PDB.from_file(orient_target_path)
             else:
                 print('Could Not Orient Target Molecule')
                 return -1
         else:
-            target_protein.readfile(self.target_protein_path)
+            target_protein = PDB.from_file(self.target_protein_path)
 
         # Add Ideal 10 Ala Helix to Target if desired
         if self.add_target_helix[0]:
@@ -1387,8 +1386,7 @@ class HelixFusion:
         oligomer_id_list = oligomer_id_listfile.list_file
         for oligomer_id in oligomer_id_list:
             oligomer_filepath = os.path.join(self.work_dir, '%s.pdb1' % oligomer_id)
-            correct_oligomer_state = PDB()
-            correct_oligomer_state.readfile(oligomer_filepath)
+            correct_oligomer_state = PDB.from_file(oligomer_filepath)
             correct_sate_out_path = os.path.splitext(oligomer_filepath)[0] + '.pdb'
             correct_sate_out = open(correct_sate_out_path, 'w')
             for atom in correct_oligomer_state.all_atoms:
@@ -1450,7 +1448,7 @@ class HelixFusion:
                         #     rot, tx, rmsd, coords_moved = pdb_overlap.overlap()
 
                         # Apply optimal rot and tx to PDB moving axis (does NOT change axis coordinates in instance)
-                        pdb_moving_axes = PDB()
+                        pdb_moving_axes = PDB()  # Todo this is outdated
 
                         if self.oligomer_symm == 'D2':
                             pdb_moving_axes.AddD2Axes()
