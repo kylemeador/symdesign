@@ -564,9 +564,12 @@ def generate_sequence_template(pdb_file):
 
 
 if __name__ == '__main__':
-    parser = argparse.ArgumentParser(fromfile_prefix_chars='@',  # prog=PUtils.program_name,
+    parser = argparse.ArgumentParser(fromfile_prefix_chars='@',
+                                     allow_abbrev=False,
+                                     # exit_on_error=False,
+                                     # prog=PUtils.program_name,
                                      description=
-                                     '\nControl all input/output of the various %s operations including: '
+                                     'Control all input/output of various %s operations including: '
                                      '\n\t1. %s docking '
                                      '\n\t2. Pose set up, sampling, assembly generation, fragment decoration'
                                      '\n\t3. Interface design using constrained residue profiles and Rosetta'
@@ -575,12 +578,25 @@ if __name__ == '__main__':
                                      ' of interface metrics.\n\n'
                                      'If your a first time user, try "%s --guide"'
                                      '\nAll jobs have built in features for command monitoring & distribution to '
-                                     'computational clusters for parallel processing.\n'
+                                     'computational clusters for parallel processing.'
                                      % (PUtils.program_name, PUtils.nano.title(), PUtils.program_command),
                                      formatter_class=argparse.RawDescriptionHelpFormatter,
-                                     allow_abbrev=False)
+                                     usage='python %(prog)s MODULE [input] [module_arguments] [optional_arguments]')
     # ---------------------------------------------------
     # TODO add action=argparse.BooleanOptionalAction to all action='store_true'/'store_false'
+    subparsers = parser.add_subparsers(title='module arguments', dest='module',
+                                       # metavar='',
+                                       required=True,
+                                       # description='',
+                                       description='These are the different modes that designs can be processed. They '
+                                                   'are\npresented in an order which might be utilized along a design '
+                                                   'workflow,\nwith utility modules listed at the bottom starting with '
+                                                   'check_clashes.\nTo see example commands or algorithmic specifics of'
+                                                   ' each Module enter:\n%s\n\nTo get help with Module arguments enter:'
+                                                   '\n%s' % (PUtils.submodule_guide, PUtils.submodule_help))
+    parser.add_argument('-g', '--guide', action='store_true',
+                        help='Access the %s guide! Display the program or module specific guide. Ex: "%s --guide" '
+                             'or "%s"' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
     parser.add_argument('-a', '--output_assembly', action='store_true',
                         help='Whether the assembly should be output? Infinite materials are output in a unit cell')
     parser.add_argument('--debug', action='store_true',
@@ -591,41 +607,48 @@ if __name__ == '__main__':
                         help='Number of cores to use with --multi_processing. If -mp is run in a cluster environment, '
                              'the number of cores will reflect the allocation provided by the cluster, otherwise, '
                              'specify the number of cores\nDefault=#ofCores - 1')
-    parser.add_argument('-d', '--directory', type=os.path.abspath, metavar=SDUtils.ex_path('your_pdb_files'),
+    _input = parser.add_argument_group(title='input arguments',
+                                       description='These are the options for specifying where/which poses should be '
+                                                   'included in processing')
+    in_mxg = _input.add_mutually_exclusive_group(required=True)
+    _input.add_argument('-d', '--directory', type=os.path.abspath, metavar=SDUtils.ex_path('your_pdb_files'),
                         help='Master directory where poses to be designed with %s are located. This may be the output '
                              'directory from %s.py, a random directory with poses requiring interface design, or the '
                              'output from %s. If the directory lives in a %sOutput directory, all projects within the '
                              'directory will be selected. For finer control over which poses to manipulate, use --file,'
                              ' --project, or --single flags.'
                              % (PUtils.program_name, PUtils.nano, PUtils.program_name, PUtils.program_name))
-    parser.add_argument('-dr', '--design_range', type=float,
-                        help='The range of designs to consider from a larger chunk of work to complete. The argument '
-                             'should specify a percentage of work from 0-100 and should separate two numbers by a '
-                             'single "-". Ex: 25-50', default=None)
-    parser.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=SDUtils.ex_path('Metrics.csv'),
+    in_mxg.add_argument('-df', '--dataframe', type=os.path.abspath, metavar=SDUtils.ex_path('Metrics.csv'),
                         help='A DataFrame created by %s analysis containing pose info. File is .csv, named such as '
                              'Metrics.csv' % PUtils.program_name)
-    parser.add_argument('-fc', '--fuse_chains', type=str, nargs='*', default=[],
-                        help='The name of a pair of chains to fuse during design. Pairs should be separated by a colon,'
-                             ' new instances by a space. Ex --fuse_chains A:B C:D')
-    parser.add_argument('-f', '--file', type=os.path.abspath, metavar=SDUtils.ex_path('file_with_directory_names.txt'),
+    in_mxg.add_argument('-f', '--file', type=os.path.abspath, metavar=SDUtils.ex_path('file_with_directory_names.txt'),
                         help='File(s) with location(s) of %s designs. For each run of %s, a file will be created '
                              'specifying the specific directories to use in subsequent %s commands of the same designs.'
                              ' If pose-IDs are specified in a file, say as the result of %s or %s, in addition to the '
                              'pose-ID file, provide your %s working directory to locate the pose-IDs of interest.'
                              % (PUtils.program_name, PUtils.program_name, PUtils.program_name, PUtils.analysis,
-                                PUtils.select_designs, PUtils.program_name),
+                                PUtils.select_poses, PUtils.program_name),
                         default=None, nargs='*')
-    parser.add_argument('-sf', '--specification_file', type=str,
+    in_mxg.add_argument('-p', '--project', type=os.path.abspath, nargs='*',
+                        metavar=SDUtils.ex_path('SymDesignOutput', 'Projects', 'your_project(s)'),
+                        help='If you wish to operate on designs specified by a whole project, which project(s) to use?')
+    in_mxg.add_argument('-s', '--single', type=os.path.abspath, nargs='*',
+                        metavar=SDUtils.ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design(s)[.pdb]'),
+                        help='If you wish to operate on designs specified by a single pose, which pose(s) to use?')
+    in_mxg.add_argument('-sf', '--specification_file', type=str,
                         metavar=SDUtils.ex_path('pose_design_specifications.csv'),
                         help='Name of comma separated file with each line formatted:\n'
                              'poseID, [designID], [residue_number:design_directive '
                              'residue_number2-residue_number9:directive ...]')
+    parser.add_argument('-dr', '--design_range', type=float,
+                        help='The range of designs to consider from a larger chunk of work to complete. The argument '
+                             'should specify a percentage of work from 0-100 and should separate two numbers by a '
+                             'single "-". Ex: 25-50', default=None)
+    parser.add_argument('-fc', '--fuse_chains', type=str, nargs='*', default=[],
+                        help='The name of a pair of chains to fuse during design. Pairs should be separated by a colon,'
+                             ' new instances by a space. Ex --fuse_chains A:B C:D')
     parser.add_argument('-F', '--%s' % PUtils.force_flags, action='store_true',
                         help='Force generation of a new flags file to update script parameters')
-    parser.add_argument('-g', '--guide', action='store_true',
-                        help='Access the %s guide! Display the program or module specific guide. Ex: "%s --guide" '
-                             'or "%s"' % (PUtils.program_name, PUtils.program_command, PUtils.submodule_guide))
     parser.add_argument('-gf', '--%s' % PUtils.generate_fragments, action='store_true',
                         help='Generate fragment overlap for poses of interest.')
     parser.add_argument('-i', '--fragment_database', type=str, choices=PUtils.fragment_dbs,
@@ -647,16 +670,10 @@ if __name__ == '__main__':
     parser.add_argument('-of', '--output_file', type=str,
                         help='If provided, the name of the output designs file. If blank, one will be automatically '
                              'generated based off input_location, module, and the time.')
-    parser.add_argument('-p', '--project', type=os.path.abspath, nargs='*',
-                        metavar=SDUtils.ex_path('SymDesignOutput', 'Projects', 'your_project(s)'),
-                        help='If you wish to operate on designs specified by a whole project, which project(s) to use?')
     parser.add_argument('-r', '--run_in_shell', action='store_true',
                         help='Should commands be executed at %s runtime? In most cases, it won\'t maximize cassini\'s '
                              'computational resources. Additionally, all computation may fail on a single trajectory '
                              'mistake.\nDefault=False' % PUtils.program_name)
-    parser.add_argument('-s', '--single', type=os.path.abspath, nargs='*',
-                        metavar=SDUtils.ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design(s)[.pdb]'),
-                        help='If you wish to operate on designs specified by a single pose, which pose(s) to use?')
     parser.add_argument('-se', '--%s' % PUtils.sym_entry, type=int, default=None,
                         help='The entry number of %s docking combinations to use' % PUtils.nano.title())
     parser.add_argument('--skip_logging', action='store_true',
@@ -668,43 +685,17 @@ if __name__ == '__main__':
                         help='For any fragments generated, write them along with the Pose')
     parser.add_argument('-wo', '--write_oligomers', action='store_true',
                         help='For any oligomers generated, write them along with the Pose')
-    subparsers = parser.add_subparsers(title='Modules', dest='module',
-                                       description='These are the different modes that designs can be processed',
-                                       help='Chose a Module followed by Module specific flags. To get help with a '
-                                            'Module such as Module algorithmic specifics or to see example commands '
-                                            'enter:\t%s\n\nTo get help with Module flags enter:\t%s\n, Any Module '
-                                            '--guide or --help can be accessed in this way.'
-                                            % (PUtils.submodule_guide, PUtils.submodule_help))
     # ---------------------------------------------------
     # Set Up SubModule Parsers
-    # ---------------------------------------------------
-    parser_flag = subparsers.add_parser('flags', help='Generate a flags file for %s' % PUtils.program_name)
-    parser_flag.add_argument('-t', '--template', action='store_true',
-                             help='Generate a flags template to edit on your own.')
-    parser_flag.add_argument('-m', '--module', dest='flags_module', action='store_true',
-                             help='Generate a flags template to edit on your own.')
-    # ---------------------------------------------------
-    parser_selection = subparsers.add_parser('residue_selector',
-                                             help='Generate a residue selection for %s' % PUtils.program_name)
     # ---------------------------------------------------
     parser_orient = subparsers.add_parser('orient',
                                           help='Orient a symmetric assembly in a canonical orientation at the origin')
     # ---------------------------------------------------
-    parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
-    # ---------------------------------------------------
-    parser_expand = subparsers.add_parser('expand_asu',
-                                          help='For given poses, expand the asymmetric unit to a symmetric assembly and'
-                                               ' write the result to the design directory.')
-    # ---------------------------------------------------
-    parser_rename = subparsers.add_parser('rename_chains',
-                                          help='For given poses, rename the chains in the source PDB to the alphabetic '
-                                               'order. Useful for writing a multi-model as distinct chains or fixing '
-                                               'common PDB formatting errors as well. Writes to design directory')
-    # ---------------------------------------------------
-    parser_clashes = subparsers.add_parser('check_clashes',
-                                           help='Check for clashes between full models. Useful for understanding '
-                                                'if loops are missing, whether their modelled density is '
-                                                'compatible with the pose')
+    parser_refine = subparsers.add_parser(PUtils.refine, help='Process Structures into an energy function')
+    parser_refine.add_argument('-ala', '--interface_to_alanine', action='store_true',
+                               help='Whether to mutate all interface residues to alanine before refinement')
+    parser_refine.add_argument('-met', '--gather_metrics', action='store_true',
+                               help='Whether to gather interface metrics for contained interfaces after refinement')
     # ---------------------------------------------------
     parser_dock = subparsers.add_parser(PUtils.nano,
                                         help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, '
@@ -744,30 +735,16 @@ if __name__ == '__main__':
     parser_dock.add_argument('-suc', '--output_surrounding_uc', action='store_true',
                              help='Whether the surrounding unit cells should be output? Only for infinite materials')
     # ---------------------------------------------------
-    parser_fragments = subparsers.add_parser(PUtils.generate_fragments,
-                                             help='Generate fragment overlap for poses of interest.')
-    # parser_design.add_argument('-i', '--fragment_database', type=str,
-    #                            help='Database to match fragments for interface specific scoring matrices. One of %s'
-    #                                 '\nDefault=%s' % (','.join(list(PUtils.frag_directory.keys())),
-    #                                                   list(PUtils.frag_directory.keys())[0]),
-    #                            default=list(PUtils.frag_directory.keys())[0])
-    # ---------------------------------------------------
     parser_cluster = subparsers.add_parser(PUtils.cluster_poses,
                                            help='Cluster all designs by their spatial similarity. This can remove '
                                                 'redundancy or be useful in identifying conformationally flexible '
-                                                'docked configurations.')
+                                                'docked configurations')
     parser_cluster.add_argument('-m', '--mode', type=str, choices=['transform', 'ialign', 'interface_residues'],
                                 default='transform')
     parser_cluster.add_argument('-of', '--output_file', type=str, default=PUtils.clustered_poses,
                                 help='Name of the output .pkl file containing design clusters Will be saved to the %s'
                                      ' folder of the output.\nDefault=%s'
                                      % (PUtils.data.title(), PUtils.clustered_poses % ('LOCATION', 'TIMESTAMP')))
-    # ---------------------------------------------------
-    parser_refine = subparsers.add_parser(PUtils.refine, help='')
-    parser_refine.add_argument('-ala', '--interface_to_alanine', action='store_true',
-                               help='Whether to mutate all interface residues to alanine before refinement')
-    parser_refine.add_argument('-met', '--gather_metrics', action='store_true',
-                               help='Whether to gather interface metrics for contained interfaces after refinement')
     # ---------------------------------------------------
     parser_design = subparsers.add_parser(PUtils.interface_design,
                                           help='Gather poses of interest and format for design using sequence '
@@ -847,15 +824,15 @@ if __name__ == '__main__':
     parser_analysis.add_argument('-j', '--join', action='store_true',
                                  help='Join Trajectory and Residue Dataframes?\nDefault=False')
     # ---------------------------------------------------
-    parser_filter = subparsers.add_parser(PUtils.select_designs,
-                                          help='Select designs based on design specific metrics. Can be one of a '
-                                               'handful of --metrics or from a DesignAnalysis.csv file generated by %s.'
-                                               ' Either -df or -pf is required. If both are provided, -pf will be '
-                                               'prioritized' % PUtils.analysis)
+    parser_filter = subparsers.add_parser(PUtils.select_poses,
+                                          help='Select poses based on specific metrics. Selection will be the result '
+                                               'of a handful of metrics combined using --filter and/or --weights. For '
+                                               'metric options see %s --guide. If a pose specification in the typical '
+                                               '-d, -f, -p, or -s form isn\'t provided, the arguments -df or -pf are'
+                                               ' required with -pf taking priority if both provided' % PUtils.analysis)
     filter_required = parser_filter.add_mutually_exclusive_group(required=True)
-    filter_required.add_argument('-m', '--metric', type=str,
-                                 help='If a simple metric filter is required, what metric would you like to sort '
-                                      'Designs by?', choices=['score', 'fragments_matched'])
+    filter_required.add_argument('-m', '--metric', type=str, choices=['score', 'fragments_matched'],
+                                 help='If a single metric filter is required, what metric would you like to sort by?')
     filter_required.add_argument('-pf', '--pose_design_file', type=str, metavar=SDUtils.ex_path('pose_design.csv'),
                                  help='Name of .csv file with (pose, design pairs to serve as sequence selector')
     parser_filter.add_argument('--filter', action='store_true',
@@ -930,7 +907,7 @@ if __name__ == '__main__':
                                  help='How to standardize metrics during sequence selection weighting')
     # ---------------------------------------------------
     parser_multicistron = subparsers.add_parser('multicistronic',
-                                                help='Generate nucleotide sequences for selected designs by codon '
+                                                help='Generate nucleotide sequences\n for selected designs by codon '
                                                      'optimizing protein sequences, then concatenating nucleotide '
                                                      'sequences. REQUIRES an input .fasta file specified as -f/--file')
     parser_multicistron.add_argument('-c', '--csv', action='store_true',
@@ -947,26 +924,54 @@ if __name__ == '__main__':
     parser_multicistron.add_argument('-ss', '--selection_string', type=str, metavar='string',
                                      help='String to prepend to output for custom sequence selection name')
     # ---------------------------------------------------
-    parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
-    parser_status.add_argument('-n', '--%s' % PUtils.number_of_trajectories, type=int, default=PUtils.nstruct,
-                               help='How many unique sequences (trajectories) were generated per design')
-    parser_status.add_argument('--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
-                               help='The stage of design to check status of. One of %s'
-                                    % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
-    parser_status.add_argument('-u', '--update', type=str, choices=('check', 'set', 'remove'),
-                               help='Provide an update to the serialized state of the specified stage', default=None)
+    # parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
     # ---------------------------------------------------
-    parser_visualize = subparsers.add_parser('visualize', help='Get design status for selected designs')
-    visualize_names = ['original', 'numerical']
-    parser_visualize.add_argument('-n', '--name', choices=visualize_names, default='original', type=str,
-                                  help='Number of trajectories per design. Options include "%s"'
-                                       % ', '.join(visualize_names))
-    visualize_order = ['alphabetical', 'none', 'dataframe', 'paths']
-    parser_visualize.add_argument('-o', '--order', choices=visualize_order, default='alphabetical',
-                                  help='The order in which designs will be loaded. Options include "%s".\nIf the '
-                                       'order is other than alphabetical, provide the required datasource through '
-                                       'one of the %s flags such as --dataframe or --file'
-                                       % (', '.join(visualize_order), PUtils.program_name))
+    parser_clashes = subparsers.add_parser('check_clashes',
+                                           help='Check for clashes between full models. Useful for understanding '
+                                                'if loops are missing, whether their modelled density is '
+                                                'compatible with the pose')
+    # ---------------------------------------------------
+    parser_expand = subparsers.add_parser('expand_asu',
+                                          help='For given poses, expand the asymmetric unit to a symmetric assembly and'
+                                               ' write the result to the design directory.')
+    # ---------------------------------------------------
+    parser_fragments = subparsers.add_parser(PUtils.generate_fragments,
+                                             help='Generate fragment overlap for poses of interest')
+    # ---------------------------------------------------
+    parser_rename = subparsers.add_parser('rename_chains',
+                                          help='For given poses, rename the chains in the source PDB to the alphabetic '
+                                               'order. Useful for writing a multi-model as distinct chains or fixing '
+                                               'common PDB formatting errors as well. Writes to design directory')
+    # ---------------------------------------------------
+    parser_flag = subparsers.add_parser('flags', help='Generate a flags file for %s' % PUtils.program_name)
+    parser_flag.add_argument('-t', '--template', action='store_true',
+                             help='Generate a flags template to edit on your own.')
+    parser_flag.add_argument('-m', '--module', dest='flags_module', action='store_true',
+                             help='Generate a flags template to edit on your own.')
+    # ---------------------------------------------------
+    parser_selection = subparsers.add_parser('residue_selector',
+                                             help='Generate a residue selection for %s' % PUtils.program_name)
+    # ---------------------------------------------------
+    # parser_status = subparsers.add_parser('status', help='Get design status for selected designs')
+    # parser_status.add_argument('-n', '--%s' % PUtils.number_of_trajectories, type=int, default=PUtils.nstruct,
+    #                            help='How many unique sequences (trajectories) were generated per design')
+    # parser_status.add_argument('--stage', choices=tuple(v for v in PUtils.stage_f.keys()),
+    #                            help='The stage of design to check status of. One of %s'
+    #                                 % ', '.join(list(v for v in PUtils.stage_f.keys())), default=None)
+    # parser_status.add_argument('-u', '--update', type=str, choices=('check', 'set', 'remove'),
+    #                            help='Provide an update to the serialized state of the specified stage', default=None)
+    # # ---------------------------------------------------
+    # parser_visualize = subparsers.add_parser('visualize', help='Visualize a set of designs')
+    # visualize_names = ['original', 'numerical']
+    # parser_visualize.add_argument('-n', '--name', choices=visualize_names, default='original', type=str,
+    #                               help='Number of trajectories per design. Options include "%s"'
+    #                                    % ', '.join(visualize_names))
+    # visualize_order = ['alphabetical', 'none', 'dataframe', 'paths']
+    # parser_visualize.add_argument('-o', '--order', choices=visualize_order, default='alphabetical',
+    #                               help='The order in which designs will be loaded. Options include "%s".\nIf the '
+    #                                    'order is other than alphabetical, provide the required datasource through '
+    #                                    'one of the %s flags such as --dataframe or --file'
+    #                                    % (', '.join(visualize_order), PUtils.program_name))
     # ---------------------------------------------------
     # parser_dist = subparsers.add_parser('distribute',
     #                                     help='Distribute specific design step commands to computational resources. '
