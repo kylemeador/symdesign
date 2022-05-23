@@ -440,7 +440,6 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
         # exit_code = 1
 
     if success and output:
-        # job = next(iter(design_directories))
         job_paths = job.job_paths
         job.make_path(job_paths)
         if low and high:
@@ -482,8 +481,9 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                         'representative is randomly chosen.')
             logger.info('To utilize the above clustering, during %s, using the option --cluster_map, will apply '
                         'clustering to poses to select a cluster representative based on the most favorable cluster '
-                        'member' % PUtils.select_designs)
+                        'member' % PUtils.select_poses)
 
+        # Set up sbatch scripts for processed Poses
         design_stage = PUtils.stage[12] if getattr(args, PUtils.scout, None) \
             else (PUtils.stage[2] if getattr(args, PUtils.no_hbnet, None)
                   else (PUtils.stage[14] if getattr(args, PUtils.structure_background, None)
@@ -493,7 +493,7 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                         'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
                         PUtils.optimize_designs: PUtils.optimize_designs}
         stage = module_files.get(args.module)
-        if stage:
+        if stage and not args.run_in_shell:
             if len(success) == 0:
                 exit_code = 1
                 exit(exit_code)
@@ -1054,7 +1054,7 @@ if __name__ == '__main__':
             logger.info()
         elif args.module == 'expand_asu':
             logger.info()
-        elif args.module == PUtils.select_designs:
+        elif args.module == PUtils.select_poses:
             logger.info()
         elif args.module == PUtils.select_sequences:
             logger.info()
@@ -1098,12 +1098,12 @@ if __name__ == '__main__':
     elif args.module in [PUtils.analysis, PUtils.cluster_poses]:
         # analysis could be run from Nanohedra docking, so we ensure that we don't construct new
         initialize, queried_flags['construct_pose'] = True, False
-    elif args.module in [PUtils.select_designs, PUtils.select_sequences]:
+    elif args.module in [PUtils.select_poses, PUtils.select_sequences]:
         initialize, queried_flags['construct_pose'] = True, False
         # automatically skip logging as we are going to open a large number of files
         if not args.debug:
             queried_flags['skip_logging'] = True
-        if args.module == PUtils.select_designs:
+        if args.module == PUtils.select_poses:
             if not args.metric:  # when not selecting by a metric, but by a dataframe, save time, don't initialize
                 initialize = False
         elif args.module == PUtils.select_sequences:
@@ -1536,7 +1536,7 @@ if __name__ == '__main__':
         entity_pairs = list(product(entities1, entities2))
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
-    else:  # this logic is possible with select_designs without --metric
+    else:  # this logic is possible with select_poses without --metric
         # job.resources = None
         # design_source = os.path.basename(example_directory.project_designs)
         # job = JobResources(queried_flags['output_directory'])
@@ -1871,7 +1871,7 @@ if __name__ == '__main__':
     #         for directory_pair in directory_pairs:
     #             merge_design_pair(directory_pair)
     # ---------------------------------------------------
-    elif args.module == PUtils.select_designs:
+    elif args.module == PUtils.select_poses:
         # -df dataframe, -f filter, -m metric, -p pose_design_file, -s selection_string, -w weight
         # program_root = next(iter(design_directories)).program_root
         # if not args.directory or not args.project or not args.single:  Todo
@@ -1908,8 +1908,8 @@ if __name__ == '__main__':
             if args.cluster_map:
                 cluster_map = args.cluster_map
             else:
-                # cluster_map = os.path.join(next(iter(design_directories)).protein_data, '%s.pkl' % PUtils.clustered_poses)
-                cluster_map = os.path.join(program_root, PUtils.data.title(), '%s.pkl' % PUtils.clustered_poses)
+                cluster_map = os.path.join(job.protein_data, '%s.pkl' % PUtils.clustered_poses)
+
             if os.path.exists(cluster_map):
                 pose_cluster_map = SDUtils.unpickle(cluster_map)
             else:
@@ -1985,11 +1985,12 @@ if __name__ == '__main__':
 
             if len(final_poses) > 1000:
                 queried_flags['skip_logging'] = True
+
+            # Need to initialize design_directories to terminate()
             design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
                                   for pose in final_poses]
-
-            for design in design_directories:
-                design.set_up_design_directory()
+            # for design in design_directories:
+            #     design.set_up_design_directory()
             design_source = program_root  # for terminate()
             # write out the chosen poses to a pose.paths file
             terminate(results=design_directories)
