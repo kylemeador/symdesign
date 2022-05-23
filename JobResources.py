@@ -596,8 +596,10 @@ class FragmentDB:
                 for file in files:
                     ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), solve_discrepancy=False,
                                                              pose_format=False, entities=False, log=None)
-                    # ijk_cluster_rep_mapped_chain = file[file.find('mappedchain') + 12:file.find('mappedchain') + 13]
-                    ijk_cluster_rep_partner_chain = file[file.find('partnerchain') + 13:file.find('partnerchain') + 14]
+                    # mapped_chain_idx = file.find('mappedchain')
+                    # ijk_cluster_rep_mapped_chain = file[mapped_chain_idx + 12:mapped_chain_idx + 13]
+                    partner_chain_idx = file.find('partnerchain')
+                    ijk_cluster_rep_partner_chain = file[partner_chain_idx + 13:partner_chain_idx + 14]
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type][k_cluster_type] = \
                         (ijk_frag_cluster_rep_pdb, ijk_cluster_rep_partner_chain)  # ijk_cluster_rep_mapped_chain,
 

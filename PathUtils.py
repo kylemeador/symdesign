@@ -94,6 +94,7 @@ scores_outdir = 'scores'
 scripts = 'scripts'
 scores_file = 'design_scores.sc'  # was all_scores.sc 1/25/21
 pose_metrics_file = 'pose_scores.sc'  # UNUSED
+default_path_file = '%s_%s_%s_pose.paths'
 analysis_file = '%s-%sPoseMetrics.csv'
 clustered_poses = '%sClusteredPoses-%s.pkl'
 pdb_source = 'db'  # 'fetch_pdb'  # TODO set up

@@ -450,7 +450,7 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
         if args.output_file and args.module not in [PUtils.analysis, PUtils.cluster_poses]:
             designs_file = args.output_file
         else:
-            designs_file = os.path.join(job_paths, '%s_%s_%s_pose.paths' % default_output_tuple)
+            designs_file = os.path.join(job_paths, PUtils.default_path_file % default_output_tuple)
 
         if design_directories:  # design_directories is empty list when nano
             with open(designs_file, 'w') as f:
@@ -556,7 +556,7 @@ def load_global_dataframe():
 
 def generate_sequence_template(pdb_file):
     pdb = PDB.from_file(pdb_file)
-    sequence = SeqRecord(Seq(''.join(pdb.atom_sequences.values()), 'Protein'), id=pdb.filepath)
+    sequence = SeqRecord(Seq(''.join(chain.sequence for chain in pdb.chains), 'Protein'), id=pdb.filepath)
     sequence_mask = copy.copy(sequence)
     sequence_mask.id = 'residue_selector'
     sequences = [sequence, sequence_mask]
