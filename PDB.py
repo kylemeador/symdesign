@@ -42,7 +42,7 @@ class PDB(Structure):
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
         self.assembly = False
-        self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
+        # self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
         # self.biomt = []
         # self.biomt_header = ''
         self.chain_ids = []  # unique chain IDs
@@ -75,23 +75,21 @@ class PDB(Structure):
                 kwargs['chains'] = chains
             self.readfile(**kwargs)
         else:
-            if atoms is not None:
-                if coords is None:
-                    raise DesignError('Can\'t initialize Structure with Atom objects without passing coords! Pass '
-                                      'desired coords.')
-                self.chain_ids = remove_duplicates([atom.chain for atom in atoms])
-                self.process_pdb(atoms=atoms, coords=coords, **kwargs)
-            elif residues:
-                if coords is None:
-                    try:
-                        coords = np.concatenate([residue.coords for residue in residues])
-                    except AttributeError:
-                        raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects '
-                                          'lacking coords! Either pass Residue objects with coords or pass coords.')
-                self.chain_ids = remove_duplicates([residue.chain for residue in residues])
-                self.process_pdb(residues=residues, coords=coords, **kwargs)
+            # if atoms is not None:
+            #     if coords is None:
+            #         raise DesignError('Can\'t initialize Structure with Atom objects without passing coords! Pass '
+            #                           'desired coords.')
+            #     self.process_pdb(atoms=atoms, coords=coords, **kwargs)
+            # elif residues:
+            #     if coords is None:
+            #         try:
+            #             coords = np.concatenate([residue.coords for residue in residues])
+            #         except AttributeError:
+            #             raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects '
+            #                               'lacking coords! Either pass Residue objects with coords or pass coords.')
+            #     self.process_pdb(residues=residues, coords=coords, **kwargs)
             # Todo add residues, atoms back to kwargs?
-            elif chains:
+            if chains:
                 self.process_pdb(chains=chains, entities=entities, **kwargs)
             elif entities:
                 self.process_pdb(entities=entities, chains=chains, **kwargs)
@@ -257,8 +255,8 @@ class PDB(Structure):
                 temp_fact = float(line[60:66])
                 element_symbol = line[76:78].strip()
                 atom_charge = line[78:80].strip()
-                if chain not in self.chain_ids:
-                    self.chain_ids.append(chain)
+                # if chain not in self.chain_ids:
+                #     self.chain_ids.append(chain)
                 # prepare the atomic coordinates for addition to numpy array
                 atom_info.append((atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
                                   code_for_insertion, occ, temp_fact, element_symbol, atom_charge))
@@ -354,14 +352,14 @@ class PDB(Structure):
         if atoms:
             # create Atoms object and Residue objects
             self.set_atoms(atoms)
-        if residues:  # Todo ensure that atoms is also None?
+        elif residues:
             # sets Atoms and Residues
             self.set_residue_slice(residues)
             # self.set_residues(residues)
 
-        if coords is not None:
-            # inherently replace the Atom and Residue Coords
-            self.set_coords(coords)
+        if coords is not None and (atoms or residues):
+            self.chain_ids = remove_duplicates([residue.chain for residue in self.residues])
+            self.set_coords(coords)  # inherently replace the supplied Atom and Residue Coords
 
         if isinstance(chains, (list, Structures)) or isinstance(entities, (list, Structures)):  # create from existing
             atoms, residues, coords = [], [], []
@@ -536,8 +534,6 @@ class PDB(Structure):
         for chain, new_id in zip(self.chains, self.chain_ids):
             chain.chain_id = new_id
 
-        self.get_chain_sequences()
-
     def renumber_residues_by_chain(self):
         for chain in self.chains:
             chain.renumber_residues()
@@ -548,6 +544,7 @@ class PDB(Structure):
         Sets:
             self.chains
         """
+        residues = self.residues
         if solve_discrepancy:
             chain_idx = 0
             chain_residues = [[0]]  # self.residues[0].index]}  <- should always be zero
@@ -575,9 +572,8 @@ class PDB(Structure):
         else:
             for chain_id in self.chain_ids:
                 self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
-                                         residue_indices=[idx for idx, residue in enumerate(self.residues)
+                                         residue_indices=[idx for idx, residue in enumerate(residues)
                                                           if residue.chain == chain_id]))
-        self.get_chain_sequences()  # Todo maybe depreciate in favor of entities?
 
     def get_chains(self, names: Container = None) -> List:
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
@@ -608,9 +604,8 @@ class PDB(Structure):
 
         return super().write(**kwargs)
 
-    def get_chain_sequences(self):
-        self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
-        # self.atom_sequences = {chain: self.chain(chain).get_structure_sequence() for chain in self.chain_ids}
+    # def get_chain_sequences(self):
+    #     self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
 
     def orient(self, symmetry: str = None, log: os.PathLike = None):
         """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry

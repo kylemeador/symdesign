@@ -171,14 +171,15 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 break
             downloaded_pdb.reorder_chains(exclude_chains=used_chains)  # redoes sequences
             used_chains += downloaded_pdb.chain_ids
-            oriented_pdb_seq_a = downloaded_pdb.atom_sequences[downloaded_pdb.chain_ids[0]]
+            oriented_pdb_seq_a = downloaded_pdb.chains[0].sequence
             chain_in_asu = asu.match_entity_by_seq(other_seq=oriented_pdb_seq_a)
-            logger.debug('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
+            asu_sequence = asu.chain(chain_in_asu).sequence
+            logger.debug('ASU\t: %s' % asu_sequence)
             logger.debug('Orient\t: %s' % oriented_pdb_seq_a)
             des_mutations_asu = \
-                SequenceProfile.generate_mutations(asu.atom_sequences[chain_in_asu], oriented_pdb_seq_a, blanks=True)
+                SequenceProfile.generate_mutations(asu_sequence, oriented_pdb_seq_a, blanks=True)
             des_mutations_orient = \
-                SequenceProfile.generate_mutations(oriented_pdb_seq_a, asu.atom_sequences[chain_in_asu], blanks=True)
+                SequenceProfile.generate_mutations(oriented_pdb_seq_a, asu_sequence, blanks=True)
             logger.debug('ASU: %s' % des_mutations_asu)
             logger.debug('Orient: %s' % des_mutations_orient)
             # Ensure that the design mutations have the right index, must be adjusted for the offset of both sequences
@@ -207,7 +208,7 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
                 else:
                     for chain in downloaded_pdb.chain_ids:
                         downloaded_pdb.chain(chain).mutate_residue(number=residue - orient_offset,
-                                                                 to=des_mutations_orient[residue]['to'])
+                                                                   to=des_mutations_orient[residue]['to'])
                         # downloaded_pdb.mutate_to(chain, residue - orient_offset,
                         #                        res_id=des_mutations_orient[residue]['to'])
             # fix the residue numbering to account for deletions
@@ -219,13 +220,13 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             #     downloaded_pdb.reindex_chain_residues(chain)
             downloaded_pdb.renumber_residues_by_chain()
             # Get the updated sequences
-            asu.get_chain_sequences()  # 1/29/21 KM updated this function which might affect this routine
-            downloaded_pdb.get_chain_sequences()
-            oriented_pdb_seq_final = downloaded_pdb.atom_sequences[downloaded_pdb.chain_ids[0]]
+            # asu.get_chain_sequences()  # 1/29/21 KM updated this function which might affect this routine
+            # downloaded_pdb.get_chain_sequences()
+            oriented_pdb_seq_final = downloaded_pdb.chains[0].sequence
             # Todo I think that this is way wrong
-            final_mutations = SequenceProfile.generate_mutations(asu.atom_sequences[chain_in_asu],
+            final_mutations = SequenceProfile.generate_mutations(asu.chain(chain_in_asu).sequence,
                                                                  oriented_pdb_seq_final, offset=False, blanks=True)
-            logger.debug('ASU\t: %s' % asu.atom_sequences[chain_in_asu])
+            logger.debug('ASU\t: %s' % asu.chain(chain_in_asu).sequence)
             logger.debug('Orient\t: %s' % oriented_pdb_seq_final)
             if final_mutations != dict():
                 logger.error('There is an error with indexing for Design %s, PDB %s. The index is %s' %

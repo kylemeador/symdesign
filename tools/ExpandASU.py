@@ -37,7 +37,7 @@ def expand_asu(file, symmetry, out_path=None) -> Union[str, bytes]:
     else:
         path_name = '%s_%s.pdb' % (os.path.splitext(file)[0], 'expanded')
 
-    asu_pdb = PDB(file=file)
+    asu_pdb = PDB.from_file(file)
     expand_matrices = point_group_symmetry_operators[symmetry.upper()]
     expanded_pdb = get_expanded_ptgrp_pdb(asu_pdb, expand_matrices)
     write_expanded_ptgrp(expanded_pdb, path_name)

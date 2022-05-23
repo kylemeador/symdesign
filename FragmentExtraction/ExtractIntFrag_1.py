@@ -107,7 +107,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
 
     print('%s Creating Neighbor CB Atom Trees at %d Angstroms Distance' % (module, interface_dist))
     # Reading In PDB Structures
-    pdbs_of_interest = [PDB(file=pdb_path) for pdb_path in int_db_filepaths]
+    pdbs_of_interest = [PDB.from_file(pdb_path) for pdb_path in int_db_filepaths]
     # pdbs_of_interest = [SDUtils.read_pdb(pdb_path) for pdb_path in int_db_filepaths]
     for i, pdb in enumerate(pdbs_of_interest):
         pdbs_of_interest[i].name = os.path.splitext(os.path.basename(pdb.filepath))[0]
