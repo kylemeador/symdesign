@@ -30,7 +30,7 @@ import SymDesignUtils as SDUtils
 from Query.PDB import retrieve_pdb_entries_by_advanced_query
 from Query.utils import input_string, bool_d, validate_input, boolean_choice, invalid_string
 from utils.CmdLineArgParseUtils import query_mode
-from Query import Flags
+from utils import Flags
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from classes.EulerLookup import EulerLookup
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
