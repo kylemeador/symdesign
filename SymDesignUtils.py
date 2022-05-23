@@ -731,10 +731,10 @@ def set_worker_affinity():
         -p is a mask for the logical cpu processors to use, the pid allows the affinity for an existing process to be
         specified instead of a new process being spawned
     """
-    # print("I'm the process %d, setting affinity to all CPUs." % os.getpid())
     _cmd = ['taskset', '-p', '0x%s' % 'f' * int((os.cpu_count() / 4)), str(os.getpid())]
     logger.debug(subprocess.list2cmdline(_cmd))
-    subprocess.Popen(_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    p = subprocess.Popen(_cmd, stdout=subprocess.DEVNULL, stderr=subprocess.STDOUT)
+    p.communicate()
 
 
 def mp_map(function: Callable, arg: Iterable, processes: int = 1, context: str = 'spawn') -> List[Any]:
