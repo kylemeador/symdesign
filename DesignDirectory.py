@@ -3229,6 +3229,7 @@ class DesignDirectory:  # (JobResources):
 
         # POSE ANALYSIS
         scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
+        scores_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns
         # refine is not considered sequence design and destroys mean. remove v
         # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
         # consensus cst_weights are very large and destroy the mean.
