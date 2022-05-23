@@ -7,7 +7,7 @@ import shutil
 from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
-from typing import Union, Dict, List, Optional, Tuple, Callable, Any
+from typing import Union, Dict, List, Optional, Tuple, Callable, Any, Iterable
 # from textwrap import fill
 
 import matplotlib.pyplot as plt
@@ -2019,8 +2019,9 @@ class DesignDirectory:  # (JobResources):
     @handle_design_errors(errors=(DesignError,))
     @close_logs
     @remove_structure_memory
-    def check_clashes(self, clashing_threshold=0.75):
+    def check_unmodelled_clashes(self, clashing_threshold=0.75):
         """Given a multimodel file, measure the number of clashes is less than a percentage threshold"""
+        raise DesignError('This module is not working correctly at the moment')
         models = [Models.from_PDB(self.resources.full_models.retrieve_data(name=entity), log=self.log)
                   for entity in self.entity_names]
         # models = [Models.from_file(self.resources.full_models.retrieve_data(name=entity))
@@ -2041,6 +2042,13 @@ class DesignDirectory:  # (JobResources):
         if clashes/float(len(multimodel)) > clashing_threshold:
             raise DesignError('The frequency of clashes (%f) exceeds the clashing threshold (%f)'
                               % (clashes/float(len(multimodel)), clashing_threshold))
+
+    @handle_design_errors(errors=(DesignError,))
+    @close_logs
+    @remove_structure_memory
+    def check_clashes(self):
+        """Check for clashes in the input and in the symmetric assembly if symmetric"""
+        self.load_pose()
 
     @handle_design_errors(errors=(DesignError,))
     @close_logs
@@ -2583,7 +2591,7 @@ class DesignDirectory:  # (JobResources):
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
-            assert metric_set == set(), 'Missing required metrics: %s' % metric_set
+            assert metric_set == set(), 'Missing required metrics: "%s"' % ', '.join(metric_set)
             # Remove unneeded columns
             protocol_s = scores_df[PUtils.groups]
             # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name

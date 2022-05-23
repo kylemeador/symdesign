@@ -927,9 +927,13 @@ if __name__ == '__main__':
     # parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
     # ---------------------------------------------------
     parser_clashes = subparsers.add_parser('check_clashes',
-                                           help='Check for clashes between full models. Useful for understanding '
-                                                'if loops are missing, whether their modelled density is '
-                                                'compatible with the pose')
+                                           help='Check for any clashes in the input poses. This is performed standard '
+                                                'in all modules and will return an error if clashes are found')
+    # ---------------------------------------------------
+    # parser_clashes = subparsers.add_parser('check_unmodelled_clashes',
+    #                                        help='Check for clashes between full models. Useful for understanding '
+    #                                             'if loops are missing, whether their modelled density is '
+    #                                             'compatible with the pose')
     # ---------------------------------------------------
     parser_expand = subparsers.add_parser('expand_asu',
                                           help='For given poses, expand the asymmetric unit to a symmetric assembly and'
@@ -1649,6 +1653,15 @@ if __name__ == '__main__':
                 results.append(design_dir.rename_chains())
 
         terminate(results=results)
+    # ---------------------------------------------------
+    # elif args.module == 'check_unmodelled_clashes':  # Todo
+    #     if args.multi_processing:
+    #         results = SDUtils.mp_map(DesignDirectory.check_unmodelled_clashes, design_directories, processes=cores)
+    #     else:
+    #         for design_dir in design_directories:
+    #             results.append(design_dir.check_unmodelled_clashes())
+    #
+    #     terminate(results=results)
     # ---------------------------------------------------
     elif args.module == 'check_clashes':
         if args.multi_processing:
