@@ -2130,7 +2130,7 @@ def combine_pssm(pssms):
     return combined_pssm
 
 
-def combine_ssm(pssm, issm, alpha, db=biological_interfaces, favor_fragments=True, boltzmann=False, a=0.5):
+def combine_ssm(pssm, issm, alpha, db=PUtils.biological_interfaces, favor_fragments=True, boltzmann=False, a=0.5):
     """Combine weights for profile PSSM and fragment SSM using fragment significance value to determine overlap
 
     All input must be zero indexed
