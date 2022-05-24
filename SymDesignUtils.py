@@ -988,7 +988,16 @@ class DesignSpecification(Dialect):
 
         # def reader(self):
         with open(self.file) as file:
-            all_poses, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
+            # all_poses, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
+            all_poses, design_names, all_design_directives, = [], [], []
+            all_info = list(zip(*reader(file, dialect=self)))
+            for idx in range(len(all_info)):
+                if idx == 0:
+                    all_poses = all_info[idx]
+                if idx == 1:
+                    design_names = all_info[idx]
+                if idx == 2:
+                    all_design_directives = all_info[idx]
             self.all_poses, self.design_names = list(map(str.strip, all_poses)), list(map(str.strip, design_names))
 
         self.directives = []
