@@ -814,7 +814,7 @@ if __name__ == '__main__':
             # # all_poses, pose_design_numbers = zip(*csv_lines)
             if not args.directory:
                 raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
-            design_specification = SDUtils.DesignSpecification(args.specification_file)
+            design_specification = SDUtils.PoseSpecification(args.specification_file)
             # Todo this works for file locations as well! should I have a separate mechanism for each?
             design_directories = [DesignDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
                                                                directives=directives, **queried_flags)

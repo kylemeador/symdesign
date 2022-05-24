@@ -14,7 +14,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
-from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable
+from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable, Dict
 
 import numpy as np
 import psutil
@@ -962,7 +962,7 @@ def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Ite
     return map(os.path.dirname, paths)
 
 
-class DesignSpecification(Dialect):
+class PoseSpecification(Dialect):
     delimiter = ','
     doublequote = True
     escapechar = None
@@ -974,36 +974,32 @@ class DesignSpecification(Dialect):
 
     def __init__(self, file):
         super().__init__()
-        # self.delimiter = ','
-        # self.doublequote = True
-        # self.escapechar = None
-        # self.lineterminator = '\r\n'
-        # self.quotechar = '"'
-        # self.quoting = QUOTE_MINIMAL
-        # self.skipinitialspace = False
-        # self.strict = False
         self.directive_delimiter = ':'
         self.file = file
-        # self.reader()
 
-        # def reader(self):
+        all_poses, design_names, all_design_directives, = [], [], []
         with open(self.file) as file:
             # all_poses, design_names, all_design_directives, *_ = zip(*reader(file, dialect=self))
-            all_poses, design_names, all_design_directives, = [], [], []
             all_info = list(zip(*reader(file, dialect=self)))
-            for idx in range(len(all_info)):
-                if idx == 0:
-                    all_poses = all_info[idx]
-                if idx == 1:
-                    design_names = all_info[idx]
-                if idx == 2:
-                    all_design_directives = all_info[idx]
-            self.all_poses, self.design_names = list(map(str.strip, all_poses)), list(map(str.strip, design_names))
 
-        self.directives = []
+        for idx in range(len(all_info)):
+            if idx == 0:
+                all_poses = all_info[idx]
+            if idx == 1:
+                design_names = all_info[idx]
+            if idx == 2:
+                all_design_directives = all_info[idx]
+        self.all_poses, self.design_names = list(map(str.strip, all_poses)), list(map(str.strip, design_names))
+        # print(all_info)
+        # print('all_poses ', all_poses[:10])
+
         # first split directives by white space, then by directive_delimiter
+        # self.directives = \
+        #     [dict((residue, directive) for residues_s, directive in [residue_directive.split(self.directive_delimiter)
+        #                                                              for residue_directive in design_directives.split()]
+        #           for residue in format_index_string(residues_s)) for design_directives in all_design_directives]
         for design_directives in all_design_directives:
-            # print('Design Directives',design_directives)
+            # print('Design Directives', design_directives)
             residue_directives = []
             # print('splitting residues', design_directives.split())
             # print('splitting directives', list(map(str.split, design_directives.split(), repeat(self.directive_delimiter))))
@@ -1015,7 +1011,7 @@ class DesignSpecification(Dialect):
             self.directives.append(dict(residue_directive for residue_directive in residue_directives))
         # print('Total Design Directives', self.directives)
 
-    def return_directives(self):
+    def return_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
         return zip(self.all_poses, self.design_names, self.directives)
 
     # def validate(self):
