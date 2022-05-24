@@ -807,7 +807,7 @@ for parser_name, parser_kwargs in module_parsers.items():
         for args, kwargs in arguments.items():
             exclusive_parser.add_argument(*args, **kwargs)
     else:  # save the subparser in a dictionary to access with mutual groups
-        module_suparsers[parser_name] = subparsers.add_parser(formatter_class=Formatter,
+        module_suparsers[parser_name] = subparsers.add_parser(formatter_class=Formatter, allow_abbrev=False,
                                                               name=parser_name, **parser_kwargs[parser_name])
         guide_subparsers.add_parser(name=parser_name, **parser_kwargs[parser_name])
         for args, kwargs in arguments.items():
