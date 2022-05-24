@@ -693,6 +693,10 @@ parser_input_arguments = {
     ('-df', '--dataframe'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
                                  help='A DataFrame created by %s analysis containing pose info.\nFile is .csv, named '
                                       'such as Metrics.csv' % program_name),
+    ('-sf', '--specification_file'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
+                                          help='Name of comma separated file with each line formatted:\nposeID, '
+                                               '[designID], [residue_number:design_directive residue_number2-'
+                                               'residue_number9:design_directive ...]')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
 parser_input_mutual_group = dict()  # required=True, adding below for different levels of parsing
@@ -717,10 +721,6 @@ parser_input_mutual_arguments = {
     ('-s', '--single'): dict(type=os.path.abspath, nargs='*',
                              metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design[.pdb]'),
                              help='Operate on single pose(s) in a project'),
-    ('-sf', '--specification_file'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
-                                          help='Name of comma separated file with each line formatted:\nposeID, '
-                                               '[designID], [residue_number:design_directive residue_number2-'
-                                               'residue_number9:design_directive ...]')
 }
 
 module_parsers = dict(refine=parser_refine,
