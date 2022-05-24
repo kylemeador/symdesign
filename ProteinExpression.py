@@ -597,17 +597,17 @@ def remove_expression_tags(sequence, tags):
     return sequence
 
 
-def optimize_protein_sequence(sequence, species='e_coli'):
+def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
     """Optimize a sequence for expression in a desired organism
 
     Args:
-        sequence (str): The sequence of interest
-    Keyword Args:
-        species='e_coli' (str): The species context to optimize nucleotide sequence usage
+        sequence: The sequence of interest
+        species: The species context to optimize nucleotide sequence usage
     Returns:
-        (str): The input sequence optimized to nucleotides for expression considerations
+        The input sequence optimized to nucleotides for expression considerations
     """
     seq_length = len(sequence)
+    species = species.lower()
     problem = DnaOptimizationProblem(sequence=reverse_translate(sequence),  # max_random_iters=20000,
                                      objectives=[CodonOptimize(species=species)], logger=None,
                                      constraints=[EnforceGCContent(mini=0.25, maxi=0.65),  # twist required
