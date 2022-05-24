@@ -538,14 +538,29 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
     exit(exit_code)
 
 
-def load_global_dataframe() -> pd.DataFrame:
+def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
     """Return a pandas DataFrame with the trajectories of every design_directory loaded and formatted according to the
     design directory and design on the index"""
-    all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
-    for idx, df in enumerate(all_dfs):
-        # get rid of all statistic entries, mean, std, etc.
-        df.drop([index for index in df.index.to_list() if design_directories[idx].name not in index],
-                inplace=True)
+    global design_directories
+    # global results
+    all_dfs = []  # None for design in design_directories]
+    for idx, design in enumerate(design_directories):
+        try:
+            all_dfs.append(pd.read_csv(design.trajectories, index_col=0, header=[0]))
+        except FileNotFoundError as error:
+            # results[idx] = error
+            logger.warning('%s: No trajectory analysis found. Skipping' % str(design))
+
+    if pose:
+        for idx, df in enumerate(all_dfs):
+            # get rid of all individual trajectories and std, not mean
+            design_name = design_directories[idx].name
+            df.drop([index for index in df.index.to_list() if design_name in index or 'std' in index], inplace=True)
+    else:  # designs
+        for idx, df in enumerate(all_dfs):
+            # get rid of all statistic entries, mean, std, etc.
+            design_name = design_directories[idx].name
+            df.drop([index for index in df.index.to_list() if design_name not in index], inplace=True)
     df = pd.concat(all_dfs, keys=design_directories)  # must add the design directory string to each index
     df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
 
@@ -1486,11 +1501,11 @@ if __name__ == '__main__':
                                                           protocol=args.protocol, function=args.weight_function)
             # remove excess pose instances
             number_chosen = 0
-            results, selected_poses = [], set()
+            selected_indices, selected_poses = [], set()
             for design_directory, design in selected_poses_df.index.to_list():
                 if design_directory not in selected_poses:
                     selected_poses.add(design_directory)
-                    results.append((design_directory, design))
+                    selected_indices.append((design_directory, design))
                     number_chosen += 1
                     if number_chosen == args.select_number:
                         break
