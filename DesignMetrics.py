@@ -231,15 +231,15 @@ master_metrics = {'average_fragment_z_score':
                   'interface_connectivity_1':  # TODO make a single metric
                       {'description': 'How embedded is interface1 in the rest of the protein?',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'interface_connectivity_2':  # TODO make a single metric
-                      {'description': 'How embedded is interface2 in the rest of the protein?',
-                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                  # 'interface_connectivity_2':
+                  #     {'description': 'How embedded is interface2 in the rest of the protein?',
+                  #      'direction': 'max', 'function': 'normalize', 'filter': True},
                   'interface_connectivity':
                       {'description': 'How embedded is the total interface in the rest of the protein?',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'int_energy_density':
-                      {'description': 'Energy in the bound complex per Angstrom^2 of interface area',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  # 'int_energy_density':
+                  #     {'description': 'Energy in the bound complex per Angstrom^2 of interface area',
+                  #      'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_energy':
                       {'description': 'DeltaG of the complexed and unbound (repacked) interfaces',
                        'direction': 'min', 'function': 'rank', 'filter': True},
@@ -255,9 +255,9 @@ master_metrics = {'average_fragment_z_score':
                   'interface_energy_1_unbound':  # TODO make a single metric or remove
                       {'description': 'Sum of interface1 residue energy in the unbound state',
                        'direction': 'min', 'function': 'rank', 'filter': True},
-                  'interface_energy_2_unbound':  # TODO make a single metric or remove
-                      {'description': 'Sum of interface2 residue energy in the unbound state',
-                       'direction': 'min', 'function': 'rank', 'filter': True},
+                  # 'interface_energy_2_unbound':
+                  #     {'description': 'Sum of interface2 residue energy in the unbound state',
+                  #      'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_separation':
                       {'description': 'Median distance between all atom points on each side of the interface',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
@@ -573,6 +573,7 @@ necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordin
 #                      'fsp_total_stability', 'full_stability_complex',
 #                      'number_hbonds', 'total_interface_residues',
 #                      'average_fragment_z_score', 'nanohedra_score', 'number_of_fragments', 'interface_b_factor_per_res',
+rosetta_required_metrics = []
 # unused, just a placeholder for the metrics in population
 final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordinate_constraint',
                  'divergence_design_per_residue', 'divergence_evolution_per_residue', 'divergence_fragment_per_residue',

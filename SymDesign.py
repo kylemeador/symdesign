@@ -44,7 +44,8 @@ from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module
 from utils.GeneralUtils import write_docking_parameters
-from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide
+from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
+    select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -588,15 +589,23 @@ if __name__ == '__main__':
         if args.module == PUtils.analysis:
             logger.info(analysis_guide)
         elif args.module == PUtils.cluster_poses:
-            logger.info()
+            logger.info(cluster_poses_guide)
         elif args.module == PUtils.interface_design:
             logger.info(interface_design_guide)
+        elif args.module == PUtils.interface_metrics:
+            logger.info(interface_metrics_guide)
+        elif args.module == 'custom_script':
+            logger.info()
+        elif args.module == PUtils.optimize_designs:
+            logger.info(optimize_designs_guide)
+        elif args.module == PUtils.refine:
+            logger.info(refine_guide)
         elif args.module == PUtils.nano:
             logger.info()
         elif args.module == PUtils.select_poses:
-            logger.info()
+            logger.info(select_poses_guide)
         elif args.module == PUtils.select_sequences:
-            logger.info()
+            logger.info(select_sequences_guide)
         elif args.module == 'expand_asu':
             logger.info()
         elif args.module == 'check_clashes':
