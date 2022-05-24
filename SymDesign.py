@@ -1472,7 +1472,7 @@ if __name__ == '__main__':
     elif args.module == PUtils.select_poses:
         if args.total:  # Figure out poses from directory specification, filters, and weights
             df = load_total_dataframe(pose=True)
-            if args.protocol:
+            if args.protocol:  # Todo adapt to protocol column not in Trajectories right now...
                 group_df = df.groupby('protocol')
                 df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
                                keys=list(zip(group_df.groups, repeat('mean'))))
@@ -1483,17 +1483,18 @@ if __name__ == '__main__':
                                                           protocol=args.protocol, function=args.weight_function)
             # remove excess pose instances
             number_chosen = 0
-            results, selected_poses = [], set()
+            selected_indices, selected_poses = [], set()
             for design_directory, design in selected_poses_df.index.to_list():
                 if design_directory not in selected_poses:
                     selected_poses.add(design_directory)
-                    results.append((design_directory, design))
+                    selected_indices.append((design_directory, design))
                     number_chosen += 1
                     if number_chosen == args.select_number:
                         break
 
             # drop the specific design for the dataframe. If they want the design, they should run select designs
-            save_poses_df = selected_poses_df.loc[results, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
+            save_poses_df = \
+                selected_poses_df.loc[selected_indices, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:  # Figure out poses from a specification file, filters, and weights
             indices = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
             df = load_total_dataframe(pose=True)
@@ -1512,8 +1513,16 @@ if __name__ == '__main__':
 
             # specify the result order according to any filtering and weighting
             # drop the specific design for the dataframe. If they want the design, they should run select designs
-            save_poses_df = selected_poses_df.loc[results, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
+            save_poses_df = \
+                selected_poses_df.loc[selected_indices, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
+            # program_root = next(iter(design_directories)).program_root
+            if args.dataframe and not design_directories:  # not args.directory:
+                logger.critical('If using a --dataframe for selection, you must include the directory where the designs'
+                                ' are located in order to properly select designs. Please specify -d/--directory on the'
+                                ' command line')
+                exit(1)
+            program_root = job.program_root
             df = pd.read_csv(args.dataframe, index_col=0, header=[0, 1, 2])
             df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
@@ -1591,9 +1600,9 @@ if __name__ == '__main__':
             if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
                 compositions = group_compositions(selected_poses)
                 if args.multi_processing:
-                    results = SDUtils.mp_map(cluster_designs, compositions.values(), processes=cores)
+                    mp_results = SDUtils.mp_map(cluster_designs, compositions.values(), processes=cores)
                     pose_cluster_map = {}
-                    for result in results:
+                    for result in mp_results:
                         pose_cluster_map.update(result.items())
                 else:
                     pose_cluster_map = {}
