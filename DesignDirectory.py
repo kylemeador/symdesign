@@ -161,8 +161,8 @@ class DesignDirectory:  # (JobResources):
         self.specific_design = kwargs.get('specific_design', None)
         self.specific_protocol = kwargs.get('specific_protocol', False)
         self.structure_background = kwargs.get(PUtils.structure_background, False)
-        self.write_frags = kwargs.get('write_fragments', True)
-        self.write_oligomers = kwargs.get('write_oligomers', False)
+        self.write_frags = kwargs.get(PUtils.output_fragments, True)
+        self.write_oligomers = kwargs.get(PUtils.output_oligomers, False)
         # Development Flags
         self.command_only = kwargs.get('command_only', False)  # Whether to reissue commands, only if run_in_shell=False
         self.development = kwargs.get('development', False)
@@ -174,7 +174,7 @@ class DesignDirectory:  # (JobResources):
 
         # Design attributes
         self.composition = None  # building_blocks (4ftd_5tch)
-        self.design_background = kwargs.get('design_background', PUtils.design_profile)  # by default, grab design profile
+        self.background_profile = kwargs.get('background_profile', PUtils.design_profile)  # by default, grab design profile
         self.interface_residue_ids = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self.design_selector = kwargs.get('design_selector', None)
         self.entity_names = []
@@ -513,18 +513,18 @@ class DesignDirectory:  # (JobResources):
 
     # SequenceProfile based attributes
     @property
-    def design_background(self) -> Dict:
+    def background_profile(self) -> Dict:
         """Return the amino acid frequencies utilized as the DesignDirectory background frequencies"""
         try:
-            return getattr(self, self._design_background)
+            return getattr(self, self._background_profile)
         except AttributeError:
-            self.log.error('For the design_background, couldn\'t locate the background profile "%s". '
-                           'By default, using design_profile instead' % self._design_background)
+            self.log.error('For the %s, couldn\'t locate the profile "%s". By default, using "design_profile" instead'
+                           % (self.background_profile.__name__, self._background_profile))
             return self.design_profile
 
-    @design_background.setter
-    def design_background(self, background: str):
-        self._design_background = background
+    @background_profile.setter
+    def background_profile(self, background: str):
+        self._background_profile = background
 
     @property
     def design_profile(self) -> Dict:
@@ -2382,12 +2382,12 @@ class DesignDirectory:  # (JobResources):
         # background = \
         #     {self.pose.pdb.residue(residue_number):
         #      {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
-        #      for residue_number, fields in self.design_background.items() if residue_number in self.interface_design_residues}
+        #      for residue_number, fields in self.background_profile.items() if residue_number in self.interface_design_residues}
         background = {residue: {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3
-                                if self.design_background[residue.number].get(aa, -1) > threshold}
+                                if self.background_profile[residue.number].get(aa, -1) > threshold}
                       for residue in self.pose.pdb.get_residues(self.interface_design_residues)}
         # include the wild-type residue from DesignDirectory Pose source and the residue identity of the selected design
-        wt = {residue: {self.design_background[residue.number].get('type'), protein_letters_3to1[residue.type.title()]}
+        wt = {residue: {self.background_profile[residue.number].get('type'), protein_letters_3to1[residue.type.title()]}
               for residue in background}
         directives = dict(zip(background.keys(), repeat(None)))
         # directives.update({self.pose.pdb.residue(residue_number): directive
