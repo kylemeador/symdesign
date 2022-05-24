@@ -2,7 +2,7 @@ import operator
 from copy import copy
 from itertools import repeat
 from json import loads
-from typing import Dict, List, Set
+from typing import Dict, List, Set, Union
 
 import numpy as np
 import pandas as pd
@@ -1115,20 +1115,24 @@ def filter_df_for_index_by_value(df: pd.DataFrame, metrics: Dict) -> Dict:
     return filtered_indices
 
 
-def prioritize_design_indices(df, filter=None, weight=None, protocol=None, **kwargs):  # , sort_df=True
+def prioritize_design_indices(df: Union[pd.DataFrame, Union[str, bytes]], filter: Union[Dict, bool] = None,
+                              weight: Union[Dict, bool] = None, protocol: Union[str, List[str]] = None, **kwargs) \
+        -> pd.DataFrame:
     """Return a filtered/sorted DataFrame (both optional) with indices that pass a set of filters and/or are ranked
     according to a feature importance. Both filter and weight instructions are provided or queried from the user
 
-    Caution: Expects that provided DataFrame is of particular formatting, i.e. 3 column indices, 1 index indices. If the
-     DF varies from this, the prioritization will likely run into errors.
+    Caution: Expects that provided DataFrame is of particular formatting, i.e. 3 column MultiIndices, 1 index indices.
+    If the DF varies from this, this function will likely cause errors
     Args:
-        df (union[str, pandas.DataFrame]): DataFrame to filter/weight indices
-    Keyword Args:
-        filter=False (bool): Whether to remove viable candidates by metric filters
-        weight=False (bool): Whether to rank the designs by certain metrics
-        protocol=None (str): Whether a specific design protocol should be chosen
+        df: DataFrame to filter/weight indices
+        filter: Whether to remove viable candidates by certain metric values or a mapping of value and filter threshold
+            pairs
+        weight: Whether to rank the designs by metric values or a mapping of value and weight pairs where the total
+            weight will be the sum of all individual weights
+        protocol: Whether specific design protocol(s) should be chosen
     Returns:
-        (pandas.DataFrame): The dataframe of selected designs based on the provided filters and weights
+        The dataframe of selected designs based on the provided filters and weights. DataFrame contains MultiIndex
+            columns with size 3
     """
     idx_slice = pd.IndexSlice
     # Grab pose info from the DateFrame and drop all classifiers in top two rows.
@@ -1141,13 +1145,13 @@ def prioritize_design_indices(df, filter=None, weight=None, protocol=None, **kwa
     logger.info('Number of starting designs: %d' % len(df))
 
     if protocol:
-        if not isinstance(protocol, list):  # treat protocol as a str
+        if isinstance(protocol, str):  # treat protocol as a str
             protocol = [protocol]
 
         try:
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
         except KeyError:
-            logger.info('Protocol \'%s\' was not found in the set of designs...' % protocol)
+            logger.info('Protocol "%s" was not found in the set of designs...' % protocol)
             # raise DesignError('The protocol \'%s\' was not found in the set of designs...')
             available_protocols = df.columns.get_level_values(0).unique()
             while True:

@@ -3258,12 +3258,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                    for residues_entities in self.split_interface_residues.values()))
 
     def interface_secondary_structure(self):
-        """From a split interface, curate the secondary structure topology for each
-
-        Keyword Args:
-            source_db=None (Database): A Database object connected to secondary structure db
-            source_dir=None (str): The location of the directory containing Stride files
-        """
+        """From a split interface, curate the secondary structure topology for each"""
         pose_secondary_structure = ''
         for entity in self.active_entities:
             if not entity.secondary_structure:
@@ -3297,7 +3292,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 try:
                     self.split_interface_ss_elements[number].append(self.ss_index_array[residue.number - 1])
                 except IndexError:
-                    raise IndexError('The index %d, from entity %s, residue %d is not found in self.ss_index_array with length %d'
+                    raise IndexError('The index %d, from entity %s, residue %d is not found in ss_index_array size %d'
                                      % (residue.number - 1, entity.name, residue.number, len(self.ss_index_array)))
 
         self.log.debug('Found interface secondary structure: %s' % self.split_interface_ss_elements)
