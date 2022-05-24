@@ -2175,7 +2175,8 @@ if __name__ == '__main__':
                     final_sequences[design_string] = design_sequence
                     if args.nucleotide:
                         try:
-                            nucleotide_sequence = optimize_protein_sequence(design_sequence, species=args.optimize_species)
+                            nucleotide_sequence = \
+                                optimize_protein_sequence(design_sequence, species=args.optimize_species)
                         except NoSolutionError:  # add the protein sequence?
                             logger.warning('Optimization of %s was not successful!' % design_string)
                             codon_optimization_errors[design_string] = design_sequence
