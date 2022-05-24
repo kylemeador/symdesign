@@ -520,12 +520,18 @@ def group_compositions(pose_directories: List[DesignDirectory]) -> Dict[Tuple, L
     Returns:
         List of similarly named DesignDirectory mapped to their name"""
     compositions = {}
-    for design in design_directories:
-        entity_names = tuple(design.entity_names)
-        if compositions.get(entity_names, None):
-            compositions[entity_names].append(design)
+    for pose in pose_directories:
+        entity_names = tuple(pose.entity_names)
+        found_composition = None
+        for permutation in combinations(entity_names, len(entity_names)):
+            found_composition = compositions.get(permutation, None)
+            if found_composition:
+                break
+
+        if found_composition:
+            compositions[entity_names].append(pose)
         else:
-            compositions[entity_names] = [design]
+            compositions[entity_names] = [pose]
 
     return compositions
 
