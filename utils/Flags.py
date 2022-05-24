@@ -307,7 +307,7 @@ parser_options_group = dict(title='optional arguments',
                                         'runtime considerations, and programatic options for determining design '
                                         'outcomes' % program_name)
 parser_options_arguments = {
-    ('--guide'): dict(action='store_true',
+    ('--guide',): dict(action='store_true',
                             help='Access the %s guide! Display the program or module specific guide\nEx: "%s --guide" '
                                  'or "%s"' % (program_name, program_command, submodule_guide)),
     ('-a', '--output_assembly'): dict(action='store_true',
