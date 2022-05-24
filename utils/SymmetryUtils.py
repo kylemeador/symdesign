@@ -589,6 +589,8 @@ def generate_sym_op_pickles():
 identity_matrix = setting_matrices[1]
 origin = np.array([0., 0., 0.])
 if __name__ == '__main__':
+    print('\nRunning this script creates the symmetry operators fresh from text files. '
+          'If all is correct, two prompts should appear and their corresponding file names\n')
     # missing identity operators for most part. P1 not
     sg_op_filepath = os.path.join(sym_op_location, 'spacegroups_op.txt')
     with open(sg_op_filepath, "r") as f:
@@ -635,9 +637,10 @@ if __name__ == '__main__':
         # sym_op_outfile_path = os.path.join(sym_op_location, '%s.pkl' % symmetry_group)
         # pickle_object(sym_op, name=symmetry_group, out_path=pickled_dir)
     # print('Last spacegroup found:', space_group_operators[symmetry_group])
-    continue1 = input('Save these results? Yes is "Enter". Ctrl-C is quit')
+    continue1 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     # pickle_object(space_group_operators, name='space_group_operators', out_path=pickled_dir)
-    pickle_object(space_group_operators, out_path=space_group_symmetry_operator_location)
+    space_group_file = pickle_object(space_group_operators, out_path=space_group_symmetry_operator_location)
+    print(space_group_file)
     # sym_op_outfile = open(sym_op_outfile_path, "w")
     # pickle.dump(sym_op, sym_op_outfile)
     # sym_op_outfile.close()
@@ -662,8 +665,9 @@ if __name__ == '__main__':
         point_group_operators[symmetry] = rotations
 
     # print('Last pointgroup found:', point_group_operators[symmetry])
-    continue2 = input('Save these results? Yes is "Enter". Ctrl-C is quit')
+    continue2 = input('Save these results? Yes hits "Enter". Ctrl-C is quit: ')
     # pickle_object(point_group_operators, name='point_group_operators', out_path=pickled_dir)
-    pickle_object(point_group_operators, out_path=point_group_symmetry_operator_location)
+    point_group_file = pickle_object(point_group_operators, out_path=point_group_symmetry_operator_location)
+    print(point_group_file)
     # print({notation: notation.replace(' ', '') for notation in hg_notation})
     # generate_sym_op_pickles(sg_op_filepath)
