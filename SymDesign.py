@@ -536,13 +536,9 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
     exit(exit_code)
 
 
-def load_global_dataframe():
+def load_global_dataframe() -> pd.DataFrame:
     """Return a pandas DataFrame with the trajectories of every design_directory loaded and formatted according to the
-    design directory and design on the index
-
-    Returns:
-        (pandas.DataFrame)
-    """
+    design directory and design on the index"""
     all_dfs = [pd.read_csv(design.trajectories, index_col=0, header=[0]) for design in design_directories]
     for idx, df in enumerate(all_dfs):
         # get rid of all statistic entries, mean, std, etc.
