@@ -682,16 +682,12 @@ if __name__ == '__main__':
         initialize, queried_flags['construct_pose'] = True, False
     elif args.module in [PUtils.select_poses, PUtils.select_sequences]:
         initialize, queried_flags['construct_pose'] = True, False
-        # automatically skip logging as we are going to open a large number of files
-        if not args.debug:
-            queried_flags['skip_logging'] = True
         if args.module == PUtils.select_poses:
-            if not args.metric:  # when not selecting by a metric, but by a dataframe, save time, don't initialize
+            if args.dataframe:  # when selecting by a dataframe, don't initialize
                 initialize = False
-        elif args.module == PUtils.select_sequences:
-            if not args.global_sequences and args.number_sequences == sys.maxsize:
-                args.number_sequences = 1
-    else:  # [PUtils.nano, 'guide', 'flags', 'residue_selector', 'multicistronic']
+        if not args.global_sequences and args.select_number == sys.maxsize:
+            args.select_number = 1
+    else:  # [PUtils.nano, 'flags', 'residue_selector', 'multicistronic']
         initialize = False
         if getattr(args, 'query', None):  # run nanohedra query mode
             query_flags = [__file__, '-query'] + additional_args
@@ -1461,110 +1457,60 @@ if __name__ == '__main__':
         else:
             program_root = job.program_root
 
-        if args.dataframe:
-            # Figure out poses from a dataframe, filters, and weights
-            selected_poses_df = prioritize_design_indices(args.dataframe, filter=args.filter, weight=args.weight,
+        if args.global_sequences:  # Figure out poses from directory specification, filters, and weights
+            df = load_global_dataframe()
+            if args.protocol:
+                group_df = df.groupby('protocol')
+                df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
+                               keys=list(zip(group_df.groups, repeat('mean'))))
+            else:
+                df = pd.concat([df], axis=1, keys=['pose', 'metric'])
+            # Figure out designs from dataframe, filters, and weights
+            selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
-            selected_poses = selected_poses_df.index.to_list()
-            logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
-            if args.filter or args.weight:
-                new_dataframe = os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
-                                             % (SDUtils.starttime, 'Filtered' if args.filter else '',
-                                                'Weighted' if args.weight else '',))
-                selected_poses_df.to_csv(new_dataframe)
-                logger.info('New DataFrame was written to %s' % new_dataframe)
-
-            # Sort results according to clustered poses if clustering exists
-            if args.cluster_map:
-                cluster_map = args.cluster_map
-            else:
-                cluster_map = os.path.join(job.protein_data, '%s.pkl' % PUtils.clustered_poses)
-
-            if os.path.exists(cluster_map):
-                pose_cluster_map = SDUtils.unpickle(cluster_map)
-            else:
-                logger.info('No cluster pose map was found at %s. Clustering similar poses may eliminate redundancy '
-                            'from the final design selection. To cluster poses broadly, run "%s %s"'
-                            % (cluster_map, PUtils.program_command, PUtils.cluster_poses))
-                while True:
-                    confirm = input('Would you like to %s on the subset of designs (%d) located so far? [y/n]%s'
-                                    % (PUtils.cluster_poses, len(selected_poses), input_string))
-                    if confirm.lower() in bool_d:
+            # remove excess pose instances
+            number_chosen = 0
+            results, selected_poses = [], set()
+            for design_directory, design in selected_poses_df.index.to_list():
+                if design_directory not in selected_poses:
+                    selected_poses.add(design_directory)
+                    results.append((design_directory, design))
+                    number_chosen += 1
+                    if number_chosen == args.select_number:
                         break
-                    else:
-                        print('%s %s is not a valid choice!' % (invalid_string, confirm))
-                if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
-                    if len(selected_poses) > 1000:
-                        queried_flags['skip_logging'] = True
-                    design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
-                                          for pose in selected_poses]
-                    compositions = group_compositions(design_directories)
-                    if args.multi_processing:
-                        results = SDUtils.mp_map(cluster_designs, compositions.values(), processes=cores)
-                        pose_cluster_map = {}
-                        for result in results:
-                            pose_cluster_map.update(result.items())
-                    else:
-                        pose_cluster_map = {}
-                        for composition_group in compositions.values():
-                            pose_cluster_map.update(cluster_designs(composition_group))
-                    # cluster_representative_pose_member_string_map = \
-                    #     {str(representative): str(member)
-                    #      for representative, members in pose_cluster_map.items()
-                    #      for member in members}
-                    pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
-                                                              PUtils.clustered_poses % (location, SDUtils.starttime),
-                                                              out_path=next(iter(design_directories)).protein_data)
-                    logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
-                                % (len(pose_cluster_map), len(design_directories),
-                                   pose_cluster_file))
-                else:
-                    pose_cluster_map = {}
 
-            if pose_cluster_map:
-                # {design_string: [design_string, ...]} where key is representative, values are matching designs
-                # OLD -> {composition: {design_string: cluster_representative}, ...}
-                pose_cluster_membership_map = invert_cluster_map(pose_cluster_map)
-                pose_clusters_found, pose_not_found = {}, []
-                for idx, pose in enumerate(selected_poses):
-                    cluster_membership = pose_cluster_membership_map.get(pose, None)
-                    if cluster_membership:
-                        if cluster_membership not in pose_clusters_found:  # include as this pose hasn't been identified
-                            pose_clusters_found[cluster_membership] = [pose]
-                        else:  # This cluster has already been found and it was identified again. Report and only
-                            # include the highest ranked pose in the output as it provides info on all occurrences
-                            pose_clusters_found[cluster_membership].append(pose)
-                    else:
-                        pose_not_found.append(pose)
+            # drop the specific design for the dataframe. If they want the design, they should run select designs
+            save_poses_df = selected_poses_df.loc[results, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
+        elif args.specification_file:  # Figure out poses from a specification file, filters, and weights
+            results = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
+            df = load_global_dataframe()
+            selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
+                                                          protocol=args.protocol, function=args.weight_function)
+            # remove excess pose instances
+            number_chosen = 0
+            results, selected_poses = [], set()
+            for design_directory, design in selected_poses_df.index.to_list():
+                if design_directory not in selected_poses:
+                    selected_poses.add(design_directory)
+                    results.append((design_directory, design))
+                    number_chosen += 1
+                    if number_chosen == args.select_number:
+                        break
 
-                # Todo report the clusters and the number of instances
-                final_poses = [members[0] for members in pose_clusters_found.values()]
-                if pose_not_found:
-                    logger.warning('Couldn\'t locate the following poses:\n\t%s\nWas %s only run on a subset of the '
-                                   'poses that were selected in %s? Adding all of these to your final poses...'
-                                   % ('\n\t'.join(pose_not_found), PUtils.cluster_poses, args.dataframe))
-                    final_poses.extend(pose_not_found)
-                logger.info('Found %d poses after clustering' % len(final_poses))
-            else:
-                logger.info('Grabbing all selected poses.')
-                final_poses = selected_poses
-
-            if args.number_poses and len(final_poses) > args.number_poses:
-                final_poses = final_poses[:args.number_poses]
-                logger.info('Found %d poses after applying your number_of_poses selection criteria' % len(final_poses))
-
-            if len(final_poses) > 1000:
-                queried_flags['skip_logging'] = True
-
-            # Need to initialize design_directories to terminate()
-            design_directories = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
-                                  for pose in final_poses]
-            # for design in design_directories:
-            #     design.set_up_design_directory()
-            design_source = program_root  # for terminate()
-            # write out the chosen poses to a pose.paths file
-            terminate(results=design_directories)
+            # specify the result order according to any filtering and weighting
+            # drop the specific design for the dataframe. If they want the design, they should run select designs
+            save_poses_df = selected_poses_df.loc[results, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
+        elif args.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
+            df = pd.read_csv(args.dataframe, index_col=0, header=[0, 1, 2])
+            df.replace({False: 0, True: 1, 'False': 0, 'True': 1}, inplace=True)
+            selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
+                                                          protocol=args.protocol, function=args.weight_function)
+            # only drop excess columns as there is no MultiIndex, so no design in the index
+            save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
+            selected_poses = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
+                                  for pose in save_poses_df.index.to_list()]
         else:  # generate design metrics on the spot
+            selected_poses, selected_poses_df, df = [], pd.DataFrame(), pd.DataFrame()
             logger.debug('Collecting designs to sort')
             if args.metric == 'score':
                 metric_design_dir_pairs = [(des_dir.score, des_dir.path) for des_dir in design_directories]
@@ -1578,12 +1524,115 @@ if __name__ == '__main__':
             metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
             sorted_metric_design_dir_pairs = sorted(metric_design_dir_pairs, key=lambda pair: (pair[0] or 0),
                                                     reverse=True)
-            logger.info('Top ranked Designs according to %s:\n\t%s\tDesign\n\t%s'
-                        % (args.metric, args.metric.title(),
-                           '\n\t'.join('%.2f\t%s' % tup for tup in sorted_metric_design_dir_pairs[:7995])))
-            # Todo write all to file
-            if len(design_directories) > 7995:
-                logger.info('Top ranked Designs cutoff at 7995')
+            top_designs_string = 'Top ranked Designs according to %s:\n\t%s\tDesign\n\t%s'\
+                                 % (args.metric, args.metric.title(), '%s')
+            results_strings = ['%.2f\t%s' % tup for tup in sorted_metric_design_dir_pairs]
+            logger.info(top_designs_string % '\n\t'.join(results_strings[:500]))
+            if len(design_directories) > 500:
+                design_source = 'top_%s' % args.metric
+                default_output_tuple = (SDUtils.starttime, args.module, design_source)
+                designs_file = os.path.join(job.job_paths, '%s_%s_%s_pose.scores' % default_output_tuple)
+                with open(designs_file, 'w') as f:
+                    f.write(top_designs_string % '\n\t'.join(results_strings))
+                logger.info('Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
+                            '"%s" for the remainder' % designs_file)
+
+            terminate(output=False)
+        # else:
+        #     logger.critical('Missing a required method to provide or find metrics from %s. If you meant to gather '
+        #                     'metrics from every pose in your input specification, ensure you include the --global '
+        #                     'argument' % PUtils.program_output)
+        #     exit()
+
+        if args.filter or args.weight:
+            new_dataframe = os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
+                                         % (SDUtils.starttime, 'Filtered' if args.filter else '',
+                                            'Weighted' if args.weight else ''))
+        else:
+            new_dataframe = os.path.join(program_root, '%s-DesignPoseMetrics.csv' % SDUtils.starttime)
+
+        logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
+        if len(selected_poses_df) != len(df):
+            selected_poses_df.to_csv(new_dataframe)
+            logger.info('Newly selected DataFrame was written to %s' % new_dataframe)
+
+        # Sort results according to clustered poses if clustering exists
+        if args.cluster_map:
+            cluster_map = args.cluster_map
+        else:  # Todo PUtils.clustered_poses is not right...
+            cluster_map = os.path.join(job.protein_data, '%s.pkl' % PUtils.clustered_poses)
+
+        if os.path.exists(cluster_map):
+            pose_cluster_map = SDUtils.unpickle(cluster_map)
+        else:  # try to generate the cluster_map
+            logger.info('No cluster pose map was found at %s. Clustering similar poses may eliminate redundancy '
+                        'from the final design selection. To cluster poses broadly, run "%s %s"'
+                        % (cluster_map, PUtils.program_command, PUtils.cluster_poses))
+            while True:
+                confirm = input('Would you like to %s on the subset of designs (%d) located so far? [y/n]%s'
+                                % (PUtils.cluster_poses, len(selected_poses), input_string))
+                if confirm.lower() in bool_d:
+                    break
+                else:
+                    print('%s %s is not a valid choice!' % (invalid_string, confirm))
+            if bool_d[confirm.lower()] or confirm.isspace():  # the user wants to separate poses
+                compositions = group_compositions(selected_poses)
+                if args.multi_processing:
+                    results = SDUtils.mp_map(cluster_designs, compositions.values(), processes=cores)
+                    pose_cluster_map = {}
+                    for result in results:
+                        pose_cluster_map.update(result.items())
+                else:
+                    pose_cluster_map = {}
+                    for composition_group in compositions.values():
+                        pose_cluster_map.update(cluster_designs(composition_group))
+
+                pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
+                                                          PUtils.clustered_poses % (location, SDUtils.starttime),
+                                                          out_path=next(iter(design_directories)).protein_data)
+                logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
+                            % (len(pose_cluster_map), len(design_directories), pose_cluster_file))
+            else:
+                pose_cluster_map = {}
+
+        if pose_cluster_map:
+            # {design_string: [design_string, ...]} where key is representative, values are matching designs
+            # OLD -> {composition: {design_string: cluster_representative}, ...}
+            pose_cluster_membership_map = invert_cluster_map(pose_cluster_map)
+            pose_clusters_found, pose_not_found = {}, []
+            # convert all of the selected poses to their string representation
+            for idx, pose_directory in enumerate(map(str, selected_poses)):
+                cluster_membership = pose_cluster_membership_map.get(pose_directory, None)
+                if cluster_membership:
+                    if cluster_membership not in pose_clusters_found:  # include as this pose hasn't been identified
+                        pose_clusters_found[cluster_membership] = [pose_directory]
+                    else:  # This cluster has already been found and it was identified again. Report and only
+                        # include the highest ranked pose in the output as it provides info on all occurrences
+                        pose_clusters_found[cluster_membership].append(pose_directory)
+                else:
+                    pose_not_found.append(pose_directory)
+
+            # Todo report the clusters and the number of instances
+            final_poses = [members[0] for members in pose_clusters_found.values()]
+            if pose_not_found:
+                logger.warning('Couldn\'t locate the following poses:\n\t%s\nWas %s only run on a subset of the '
+                               'poses that were selected? Adding all of these to your final poses...'
+                               % ('\n\t'.join(pose_not_found), PUtils.cluster_poses))
+                final_poses.extend(pose_not_found)
+            logger.info('Found %d poses after clustering' % len(final_poses))
+        else:
+            logger.info('Grabbing all selected poses')
+            final_poses = selected_poses
+
+        if len(final_poses) > args.select_number:
+            final_poses = final_poses[:args.select_number]
+            logger.info('Found %d poses after applying your number_of_poses selection criteria' % len(final_poses))
+
+        # Need to initialize design_directories to terminate()
+        design_directories = final_poses
+        design_source = program_root  # for terminate()
+        # write out the chosen poses to a pose.paths file
+        terminate(results=design_directories)
     # ---------------------------------------------------
     elif args.module == PUtils.cluster_poses:
         pose_cluster_map = {}
@@ -1686,29 +1735,29 @@ if __name__ == '__main__':
             # Figure out designs from dataframe, filters, and weights
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
-            design_indices = selected_poses_df.index.to_list()
+            selected_designs = selected_poses_df.index.to_list()
             if args.allow_multiple_poses:
                 logger.info('Choosing maximum %d designs as specified, from the top ranked designs regardless of pose'
-                            % args.number_sequences)
-                results = design_indices[:args.number_sequences]
+                            % args.select_number)
+                results = selected_designs[:args.select_number]
             else:
                 logger.info('Choosing maximum %d designs as specified, with only one design allowed per pose'
-                            % args.number_sequences)
+                            % args.select_number)
                 number_chosen = 0
-                results, selected_designs = [], set()
-                for design_directory, design in design_indices:
-                    if design_directory not in selected_designs:
-                        selected_designs.add(design_directory)
+                results, selected_poses = [], set()
+                for design_directory, design in selected_designs:
+                    if design_directory not in selected_poses:
+                        selected_poses.add(design_directory)
                         results.append((design_directory, design))
                         number_chosen += 1
-                        if number_chosen == args.number_sequences:
+                        if number_chosen == args.select_number:
                             break
             logger.info('%d designs were selected' % len(results))
 
             if args.filter or args.weight:
-                new_dataframe = \
-                    os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
-                                 % (SDUtils.starttime, 'Filtered' if args.filter else '', 'Weighted' if args.weight else ''))
+                new_dataframe = os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
+                                             % (SDUtils.starttime, 'Filtered' if args.filter else '',
+                                                'Weighted' if args.weight else ''))
             else:
                 new_dataframe = os.path.join(program_root, '%s-DesignPoseMetrics.csv' % SDUtils.starttime)
             # include only the found index names to the saved dataframe
@@ -1742,7 +1791,7 @@ if __name__ == '__main__':
                 # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                 #                     'int_energy_res_summary_delta': 0.25}
                 zipped_args = zip(design_directories, repeat(sequence_filters), repeat(sequence_weights),
-                                  repeat(args.number_sequences), repeat(args.protocol))
+                                  repeat(args.select_number), repeat(args.protocol))
                 # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=cores))
                 result_mp = SDUtils.mp_starmap(DesignDirectory.select_sequences, zipped_args, processes=cores)
                 # results - contains tuple of (DesignDirectory, design index) for each sequence
@@ -1750,18 +1799,18 @@ if __name__ == '__main__':
                 results = {design: results for design, result in zip(design_directories, result_mp)}
             else:
                 results = {design: design.select_sequences(filters=sequence_filters, weights=sequence_weights,
-                                                           number=args.number_sequences, protocols=args.protocol)
+                                                           number=args.select_number, protocols=args.protocol)
                            for design in design_directories}
             save_poses_df = None  # Todo make possible!
 
+        # Format selected sequences for output
         if not args.selection_string:
             args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
         else:
             args.selection_string += '_'
         outdir = os.path.join(os.path.dirname(program_root), '%sSelectedDesigns' % args.selection_string)
         # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
-        if not os.path.exists(outdir):
-            os.makedirs(outdir)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
+        os.makedirs(outdir, exist_ok=True)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
 
         if save_poses_df is not None:
             selection_trajectory_df_file = os.path.join(outdir, 'TrajectoryMetrics.csv')
