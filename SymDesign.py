@@ -650,7 +650,7 @@ if __name__ == '__main__':
     entire_parser.parse_known_args()
 
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    argparser_order = [parser_module, parser_input]  # , parser_options]
+    argparser_order = [parser_input, parser_module]  # , parser_options]
     for argparser in argparser_order:
         args, additional_args = argparsers[argparser].parse_known_args(additional_args, args)
     # args, additional_args = parser_module.parse_known_args()
