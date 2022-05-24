@@ -1045,6 +1045,9 @@ class Residues:
 
         return other
 
+    def __len__(self) -> int:
+        return self.residues.shape[0]  # len(self.residues)
+
     def __iter__(self) -> Residue:
         yield from self.residues.tolist()
 
@@ -1314,15 +1317,16 @@ class Structure(StructureBase):
                                       'object is passed! Either pass Atom objects with coords attribute or pass Coords')
         if residues is not None:
             if not residue_indices:  # assume that the passed residues shouldn't be bound to an existing Structure
-                # residue_indices = list(range(len(residues)))
-                # self.atoms = [residue.atoms for residue in self.residues]
                 atoms = []
                 for residue in residues:
                     atoms.extend(residue.atoms)
                 self.atom_indices = list(range(len(atoms)))
                 self.residue_indices = list(range(len(residues)))  # residue_indices
                 self.atoms = atoms
-                residues = Residues(residues)
+                if isinstance(residues, Residues):  # already have a residues object
+                    pass
+                else:  # must create the residues object
+                    residues = Residues(residues)
                 # have to copy Residues object to set new attributes on each member Residue
                 self.residues = copy(residues)
                 # set residue attributes, index according to new Atoms/Coords index
@@ -1406,8 +1410,9 @@ class Structure(StructureBase):
         return self.residues[0].contains_hydrogen
 
     @property
-    def sequence(self):  # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
+    def sequence(self) -> str:
         """Holds the Structure amino acid sequence"""
+        # Todo if the Structure is mutated, this mechanism will cause errors, must re-extract sequence
         try:
             return self._sequence
         except AttributeError:
@@ -1419,12 +1424,8 @@ class Structure(StructureBase):
         self._sequence = sequence
 
     @property
-    def coords(self):
-        """From the larger array of Coords attached to a PDB object, get the specific Coords for the subset of Atoms
-        belonging to the specific Structure instance
-        Returns:
-            (numpy.ndarray)
-        """
+    def coords(self) -> np.ndarray:
+        """Return the atomic coordinates for the Atoms in the Structure"""
         return self._coords.coords[self._atom_indices]
 
     @coords.setter
@@ -1470,19 +1471,18 @@ class Structure(StructureBase):
         self.residues_indexed_coords_indices = residue_indexed_ranges
 
     @property
-    def is_structure_owner(self):
+    def is_structure_owner(self) -> bool:
         """Check to see if the Structure is the owner of it's Coord and Atom attributes or if there is a larger
         Structure that maintains them"""
-        return True if self._coords_indexed_residues is not None else False
+        return self._coords_indexed_residues is not None
 
     @property
-    def atom_indices(self):  # In Residue too
-        """Returns: (list[int])"""
+    def atom_indices(self) -> List[int]:  # In Residue too
+        """Return the atom indices which belong to the Structure"""
         return self._atom_indices
 
     @atom_indices.setter
-    def atom_indices(self, indices):
-        """Set the Structure atom indices to a list of integers"""
+    def atom_indices(self, indices: List[int]):
         self._atom_indices = indices
 
     def start_indices(self, dtype=None, at=0):
@@ -1508,12 +1508,12 @@ class Structure(StructureBase):
         setattr(self, '%s_indices' % dtype, indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
     @property
-    def atoms(self):
-        """Returns: (list[Atom])"""
+    def atoms(self) -> List[Atom]:
+        """Return the Atom objects in the Structure"""
         return self._atoms.atoms[self._atom_indices].tolist()
 
     @atoms.setter
-    def atoms(self, atoms):
+    def atoms(self, atoms: Union[Atoms, List[Atom]]):
         """Set the Structure atoms to an Atoms object"""
         if isinstance(atoms, Atoms):
             self._atoms = atoms
@@ -1529,28 +1529,27 @@ class Structure(StructureBase):
         # self.set_residues_attributes(_atoms=atoms)
 
     @property
-    def number_of_atoms(self):
-        """Returns: (int)"""
+    def number_of_atoms(self) -> int:
+        """Return the number of atoms/coords in the Structure"""
         return len(self._atom_indices)
 
     @property
-    def residue_indices(self):
-        """Returns: (list[int])"""
+    def residue_indices(self) -> List[int]:
+        """Return the residue indices which belong to the Structure"""
         return self._residue_indices
 
     @residue_indices.setter
-    def residue_indices(self, indices):
-        """Set the Structure residue indices to a list of integers"""
+    def residue_indices(self, indices: List[int]):
         self._residue_indices = indices  # np.array(indices)
 
     @property
-    def residues(self):  # TODO Residues iteration
-        """Returns: (list[Residue])"""
+    def residues(self) -> List[Residue]:  # TODO Residues iteration
+        """Return the Residue objects in the Structure"""
         return self._residues.residues[self._residue_indices].tolist()
 
     @residues.setter
-    def residues(self, residues):
-        """Set the Structure atoms to an Residues object"""
+    def residues(self, residues: Union[Residues, List[Residue]]):
+        """Set the Structure atoms to a Residues object"""
         if isinstance(residues, Residues):
             self._residues = residues
         else:
@@ -2100,11 +2099,7 @@ class Structure(StructureBase):
     def set_residue_slice(self, residues):
         """Set the Structure Residues to Residues object. Set the Structure Atoms and atom_indices"""
         self.residues = residues
-        # self.atom_indices = [atom.index for residue in self.residues for atom in residue.atoms]
-        atom_indices = []
-        for residue in self.residues:
-            atom_indices.extend(residue.atom_indices)
-        self.atom_indices = atom_indices
+        self.atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
         self.atoms = self.residues[0]._atoms
 
     # def set_residues(self, residues):
@@ -2131,6 +2126,7 @@ class Structure(StructureBase):
 
     def create_residues(self):
         """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
+        # required_types = {'N', 'CA', 'O'}  # 'C', Removing this for fragment library guide atoms...
         required_types = {'N', 'CA', 'C', 'O'}
         remove_atom_indices = []
         new_residues = []
@@ -2144,8 +2140,8 @@ class Structure(StructureBase):
                 found_types.add(atom.type)
             else:
                 if not required_types.difference(found_types):  # empty set if properly added
-                    new_residues.append(Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords,
-                                                log=self._log))
+                    new_residues.append(
+                        Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords, log=self._log))
                 else:  # remove from atoms and coords
                     remove_atom_indices.extend(atom_indices)
                 # residue_idx += 1
@@ -2153,8 +2149,8 @@ class Structure(StructureBase):
                 current_residue_number = atom.residue_number
         # ensure last residue is added after iteration is complete
         if not required_types.difference(found_types):  # empty set if properly added
-            new_residues.append(Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords, log=self._log))
-            #                           index=residue_idx,
+            new_residues.append(
+                Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords, log=self._log))
         else:  # remove from atoms and coords
             remove_atom_indices.extend(atom_indices)
         self.residue_indices = list(range(len(new_residues)))

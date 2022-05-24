@@ -512,8 +512,13 @@ def cluster_designs(composition_designs: List[DesignDirectory], return_pose_id: 
     return composition_map
 
 
-def group_compositions(design_directories):
-    """From a set of DesignDirectories, find all the compositions and group together"""
+def group_compositions(pose_directories: List[DesignDirectory]) -> Dict[Tuple, List[DesignDirectory]]:
+    """From a set of DesignDirectories, find all the compositions and group together
+
+    Args:
+        pose_directories: The DesignDirectory to group according to composition
+    Returns:
+        List of similarly named DesignDirectory mapped to their name"""
     compositions = {}
     for design in design_directories:
         entity_names = tuple(design.entity_names)
