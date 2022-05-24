@@ -308,8 +308,8 @@ parser_options_group = dict(title='optional arguments',
                                         'outcomes' % program_name)
 parser_options_arguments = {
     ('--guide',): dict(action='store_true',
-                            help='Access the %s guide! Display the program or module specific guide\nEx: "%s --guide" '
-                                 'or "%s"' % (program_name, program_command, submodule_guide)),
+                       help='Access the %s guide! Display the program or module specific guide\nEx: "%s --guide" '
+                            'or "%s"' % (program_name, program_command, submodule_guide)),
     ('-a', '--output_assembly'): dict(action='store_true',
                                       help='Whether the assembly should be output? Infinite materials are output in a '
                                            'unit cell\nDefault=%(default)s'),
@@ -766,9 +766,9 @@ parser_arguments = dict(options_arguments=parser_options_arguments,
                         input_arguments=parser_input_arguments,
                         input_mutual_arguments=parser_input_mutual_arguments  # add_mutually_exclusive_group
                         )
-options_argparser = dict(add_help=False, formatter_class=Formatter)
-input_argparser = dict(add_help=False, formatter_class=Formatter, usage=usage_string)
-module_argparser = dict(add_help=False, formatter_class=Formatter, usage=usage_string)
+options_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)
+input_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
+module_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
 argparser_kwargs = dict(parser_options=options_argparser,
                         parser_input=input_argparser,
                         parser_module=module_argparser,

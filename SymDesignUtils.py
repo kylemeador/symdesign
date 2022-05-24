@@ -896,7 +896,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
         all_paths = []
         for file in files:
             if not os.path.exists(file):
-                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
+                logger.critical('No "%s" file found! Please ensure correct location/name!' % file)
                 exit()
             if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
                 all_paths.append(file)
