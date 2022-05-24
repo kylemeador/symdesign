@@ -773,11 +773,11 @@ if __name__ == '__main__':
     all_dock_directories, entity_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
     if initialize:
+        # if not args.file and not args.directory and not args.project and not args.single and not args.specification_file:
+        #     raise SDUtils.DesignError(
+        #         'No designs were specified! Please specify --directory, --file, --specification_file,'
+        #         ' --project, or --single to locate designs of interest and run your command again')
         logger.info('Setting up input files for %s' % args.module)
-        if not args.directory and not args.file and not args.project and not args.single and not args.specification_file:
-            raise SDUtils.DesignError(
-                'No designs were specified! Please specify --directory, --file, --specification_file,'
-                ' --project, or --single to locate designs of interest and run your command again')
         if args.nanohedra_output:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
         elif args.specification_file:  # Todo, combine this with collect_designs
