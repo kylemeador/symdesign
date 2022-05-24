@@ -7,6 +7,7 @@ import copy
 import datetime
 import os
 import shutil
+from argparse import _SubParsersAction
 from subprocess import Popen, list2cmdline
 import sys
 import time
@@ -613,7 +614,7 @@ if __name__ == '__main__':
         elif args.module == 'residue_selector':
             logger.info()
         # elif args.module == 'visualize':
-        #     logger.info('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --design_range 0-10'
+        #     logger.info('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
         #                 % (SDUtils.ex_path('pymol'), PUtils.program_command.replace('python ', ''),
         #                    SDUtils.ex_path('design_directory'), SDUtils.ex_path('DataFrame.csv'),
         #                    SDUtils.ex_path('design.paths')))
@@ -648,7 +649,6 @@ if __name__ == '__main__':
     # ensure module specific arguments are collected and argument help is printed in full
     entire_parser = argparsers[parser_entire]
     entire_parser.parse_known_args()
-
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
     argparser_order = [parser_input, parser_module]  # , parser_options]
     for argparser in argparser_order:
@@ -656,7 +656,8 @@ if __name__ == '__main__':
     # args, additional_args = parser_module.parse_known_args()
     # args, additional_args = parser_input.parse_known_args(additional_args, args)
     if additional_args:
-        print('Found additional arguments that are not recognized program wide:', additional_args)
+        exit('\nSuspending run. Found flag(s) that are not recognized program wide: %s\nPlease correct (try adding '
+             '--help if unsure), and resubmit your command\n' % ', '.join(additional_args))
     default_flags = Flags.return_default_flags(args.module)
     formatted_flags = format_additional_flags(additional_args)
     default_flags.update(formatted_flags)
@@ -692,9 +693,10 @@ if __name__ == '__main__':
     elif args.module in [PUtils.select_poses, PUtils.select_sequences]:
         initialize, queried_flags['construct_pose'] = True, False
         if args.module == PUtils.select_poses:
-            if args.dataframe:  # when selecting by a dataframe, don't initialize
+            if args.dataframe:  # when selecting by a dataframe, don't initialize, proper input is handled in module
                 initialize = False
-        if not args.global_sequences and args.select_number == sys.maxsize:
+        if args.module == PUtils.select_sequences and args.select_number == sys.maxsize and not args.total:
+            # change default number to a single sequence/pose when not doing a total selection
             args.select_number = 1
     else:  # [PUtils.nano, 'flags', 'residue_selector', 'multicistronic']
         initialize = False
@@ -713,14 +715,22 @@ if __name__ == '__main__':
         reported_args = {}
         for group in entire_parser._action_groups:
             for arg in group._group_actions:
-                # value = getattr(queried_flags, arg.dest, None)  # get the parsed flag value
-                value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
-                if value and value != arg.default:  # compare it to the default
-                    reported_args[arg.dest] = value  # add it to reported args if not the default
+                if isinstance(arg, _SubParsersAction):
+                    for name, sub_parser in arg.choices.items():
+                        for sub_group in sub_parser._action_groups:
+                            for arg in sub_group._group_actions:
+                                value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
+                                if value is not None and value != arg.default:  # compare it to the default
+                                    reported_args[arg.dest] = value  # add it to reported args if not the default
+                else:
+                    value = formatted_queried_flags.pop(arg.dest, None)  # get the parsed flag value
+                    if value is not None and value != arg.default:  # compare it to the default
+                        reported_args[arg.dest] = value  # add it to reported args if not the default
+
         # custom removal/formatting for all remaining
         for custom_arg in list(formatted_queried_flags.keys()):
-            value = formatted_queried_flags.pop(custom_arg)
-            if value:
+            value = formatted_queried_flags.pop(custom_arg, None)
+            if value is not None:
                 reported_args[custom_arg] = value
 
         sym_entry = reported_args.pop('sym_entry', None)
@@ -798,13 +808,12 @@ if __name__ == '__main__':
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           projects=args.project, singles=args.single)
-        if args.design_range:
-            low, high = map(float, args.design_range.split('-'))
+        if args.range:
+            low, high = map(float, args.range.split('-'))
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
             if low_range < 0 or high_range > len(all_poses):
-                raise SDUtils.DesignError('The input --design_range is outside of the acceptable bounds [0-%d]'
-                                          % len(all_poses))
-            logger.info('Selecting Designs within range: %d-%d' % (low_range if low_range else 1, high_range))
+                raise SDUtils.DesignError('The input --range is outside of the acceptable bounds [0-100]')
+            logger.info('Selecting poses within range: %d-%d' % (low_range if low_range else 1, high_range))
 
         if all_poses:  # TODO fetch a state from files that have already been SymDesigned...
             if all_poses[0].count(os.sep) == 0:
@@ -823,9 +832,8 @@ if __name__ == '__main__':
                 design_directories = [DesignDirectory.from_file(pose, **queried_flags)
                                       for pose in all_poses[low_range:high_range]]
         if not design_directories:
-            raise SDUtils.DesignError('No %s directories found within "%s"! Please ensure correct '
-                                      'location. Are you sure you want to run with -%s %s?'
-                                      % (PUtils.program_name, location, 'nanohedra_output', args.nanohedra_output))
+            raise SDUtils.DesignError('No %s directories found within "%s"! Please ensure correct location'
+                                      % (PUtils.program_name, location))
         # Todo could make after collect_designs? Pass to all design_directories
         #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
         example_directory = next(iter(design_directories))
@@ -1447,27 +1455,8 @@ if __name__ == '__main__':
     #             merge_design_pair(directory_pair)
     # ---------------------------------------------------
     elif args.module == PUtils.select_poses:
-        # -df dataframe, -f filter, -m metric, -p pose_design_file, -s selection_string, -w weight
-        # program_root = next(iter(design_directories)).program_root
-        # if not args.directory or not args.project or not args.single:  Todo
-        if args.dataframe and not args.directory:
-            logger.critical('If using a --dataframe for selection, you must include the directory where the designs are'
-                            ' located in order to properly select designs. Please specify -d/--directory on the command'
-                            ' line')
-            # logger.critical('If using a --dataframe for selection, you must include the directory where the designs are'
-            #                 'located in order to properly select designs. Please specify -d/--directory, -p/--project, '
-            #                 'or -s/--single on the command line') TODO
-            exit(1)
-            program_root = None
-            # Todo change this mechanism so not reliant on args.directory and outputs pose IDs/ Alternatives fix csv
-            #  to output paths
-        # elif not job:
-        #     program_root = args.directory
-        else:
-            program_root = job.program_root
-
-        if args.global_sequences:  # Figure out poses from directory specification, filters, and weights
-            df = load_global_dataframe()
+        if args.total:  # Figure out poses from directory specification, filters, and weights
+            df = load_total_dataframe(pose=True)
             if args.protocol:
                 group_df = df.groupby('protocol')
                 df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -1491,9 +1480,9 @@ if __name__ == '__main__':
             # drop the specific design for the dataframe. If they want the design, they should run select designs
             save_poses_df = selected_poses_df.loc[results, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:  # Figure out poses from a specification file, filters, and weights
-            results = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
-            df = load_global_dataframe()
-            selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
+            indices = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
+            df = load_total_dataframe(pose=True)
+            selected_poses_df = prioritize_design_indices(df.loc[indices, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
             # remove excess pose instances
             number_chosen = 0
@@ -1517,7 +1506,7 @@ if __name__ == '__main__':
             # only drop excess columns as there is no MultiIndex, so no design in the index
             save_poses_df = selected_poses_df.droplevel(0, axis=1).droplevel(0, axis=1)
             selected_poses = [DesignDirectory.from_pose_id(pose, root=program_root, **queried_flags)
-                                  for pose in save_poses_df.index.to_list()]
+                              for pose in save_poses_df.index.to_list()]
         else:  # generate design metrics on the spot
             selected_poses, selected_poses_df, df = [], pd.DataFrame(), pd.DataFrame()
             logger.debug('Collecting designs to sort')
@@ -1635,7 +1624,7 @@ if __name__ == '__main__':
 
         if len(final_poses) > args.select_number:
             final_poses = final_poses[:args.select_number]
-            logger.info('Found %d poses after applying your number_of_poses selection criteria' % len(final_poses))
+            logger.info('Found %d poses after applying your select_number selection criteria' % len(final_poses))
 
         # Need to initialize design_directories to terminate()
         design_directories = final_poses
@@ -1733,8 +1722,8 @@ if __name__ == '__main__':
     # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = job.program_root
-        if args.global_sequences:
-            df = load_global_dataframe()
+        if args.total:
+            df = load_total_dataframe()
             if args.protocol:
                 group_df = df.groupby('protocol')
                 df = pd.concat([group_df.get_group(x) for x in group_df.groups], axis=1,
@@ -1773,7 +1762,7 @@ if __name__ == '__main__':
             save_poses_df = selected_poses_df.loc[results, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:
             results = [(design_directory, design_directory.specific_design) for design_directory in design_directories]
-            df = load_global_dataframe()
+            df = load_total_dataframe()
             selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
             # specify the result order according to any filtering and weighting
@@ -1857,14 +1846,14 @@ if __name__ == '__main__':
 
         # use one directory as indication of entity specification for them all. Todo modify for different length inputs
         example_directory.load_pose()
-        if args.entity_specification:
-            if args.entity_specification == 'all':
+        if args.tag_entities:
+            if args.tag_entities == 'all':
                 tag_index = [True for _ in example_directory.pose.entities]
                 number_of_tags = len(example_directory.pose.entities)
-            elif args.entity_specification == 'single':
+            elif args.tag_entities == 'single':
                 tag_index = [True for _ in example_directory.pose.entities]
                 number_of_tags = 1
-            elif args.entity_specification == 'none':
+            elif args.tag_entities == 'none':
                 tag_index = [False for _ in example_directory.pose.entities]
                 number_of_tags = None
             else:

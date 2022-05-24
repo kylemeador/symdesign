@@ -13,6 +13,8 @@ submodule_guide = '%s MODULE --guide' % program_command
 submodule_help = '%s MODULE --help' % program_command
 guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
 sym_entry = 'sym_entry'
+output_oligomers = 'output_oligomers'
+output_fragments = 'output_fragments'
 nano = 'nanohedra'
 nano_entity_flag1 = '-oligomer1'  # Todo make -entity1
 nano_entity_flag2 = '-oligomer2'
@@ -224,7 +226,7 @@ protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'a
 
 # help and warnings
 warn_missing_symmetry = \
-    'Cannot %s without providing symmetry! Provide symmetry with \'--symmetry\' or \'--%s\'' % ('%s', sym_entry)
+    'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--%s"' % ('%s', sym_entry)
 
 
 def help(module):  # command is SymDesign.py
