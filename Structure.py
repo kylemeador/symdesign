@@ -2130,7 +2130,7 @@ class Structure(StructureBase):
         new_residues, remove_atom_indices, found_types = [], [], set()
         current_residue_number = self.atoms[0].residue_number
         start_atom_index = 0
-        for idx, atom in enumerate(self.atoms):
+        for idx, atom in enumerate(self.atoms, 1):
             # if the current residue number is the same as the prior number and the atom.type is not already present
             # We get rid of alternate conformations upon PDB load, so must be a new residue with bad numbering
             if atom.residue_number == current_residue_number and atom.type not in found_types:
