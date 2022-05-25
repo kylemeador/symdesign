@@ -31,8 +31,7 @@ qsbio_confirmed = unpickle(qs_bio)
 
 class PDB(Structure):
     """The base object for PDB file reading and Atom manipulation
-    Can pass atoms, residues, chains, entities, coords, metadata (PDB), name, seqres, multimodel, pose_format,
-    and solve_discrepancy to initialize
+    Can pass file, chains, entities, metadata, log, name, and pose_format to initialize
     """
     def __init__(self, file=None, chains=None, entities=None, metadata=None, log=False, **kwargs):
         #        atoms=None, residues=None, coords=None,
@@ -347,35 +346,31 @@ class PDB(Structure):
                          seqres=seq_res_lines, **kwargs)
 
     def process_pdb(self, atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
-                    coords: Union[List[List], np.ndarray, Coords] = None, rename_chains: bool = False,
-                    chains: Union[bool, Union[List[Chain], Structures]] = True, solve_discrepancy: bool = True,
-                    entities: Union[bool, Union[List[Entity], Structures]] = True, seqres: List[str] = None,
-                    pose_format: bool = False, **kwargs):
+                    coords: Union[List[List], np.ndarray, Coords] = None, pose_format: bool = False,
+                    chains: Union[bool, Union[List[Chain], Structures]] = True, rename_chains: bool = False,
+                    entities: Union[bool, Union[List[Entity], Structures]] = True, seqres: List[str] = None, **kwargs):
         #           reference_sequence=None, multimodel=False,
-        """Process Structure Atoms, Residues, Chain, and Entity to compliant Structure objects
+        """Process various Structure container objects to compliant Structure object
 
         Args:
             atoms:
             residues:
             coords:
-            rename_chains:
+            pose_format:
             chains:
-            solve_discrepancy:
+            rename_chains:
             entities:
             seqres:
-            pose_format:
         """
-        if atoms:
-            # create Atoms object and Residue objects
+        if atoms:  # create Atoms object and Residue objects
             self.set_atoms(atoms)
-        elif residues:
-            # sets Atoms and Residues
+        elif residues:  # set Atoms and Residues
             self.set_residue_slice(residues)
             # self.set_residues(residues)
 
         if coords is not None and (atoms or residues):
             self.chain_ids = remove_duplicates([residue.chain for residue in self.residues])
-            self.set_coords(coords)  # inherently replace the supplied Atom and Residue Coords
+            self.set_coords(coords)  # inherently replaces the supplied Atom and Residue Coords
 
         if isinstance(chains, (list, Structures)) or isinstance(entities, (list, Structures)):  # create from existing
             atoms, residues, coords = [], [], []
@@ -415,20 +410,17 @@ class PDB(Structure):
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 if rename_chains:
                     self.reorder_chains()
+
+            else:  # create Chains from Residues. Sets self.chain_ids
+                # if self.multimodel:  # discrepancy is not possible
+                self.create_chains()
                 # else:
-                #     self.chain_ids = remove_duplicates([atom.chain for atom in atoms])
-            else:  # create Chains from Residues
-                if self.multimodel:  # discrepancy is not possible
-                    self.create_chains(solve_discrepancy=False)
-                else:
-                    self.create_chains(solve_discrepancy=solve_discrepancy)
+                #     self.create_chains(solve_discrepancy=solve_discrepancy)
                 self.log.debug('Loaded with Chains: %s' % ','.join(self.chain_ids))
 
         if seqres:
             self.parse_seqres(seqres)
         else:
-            # Todo get the reference sequence from Entities?
-            # self.reference_sequence = {chain_id: None for chain_id in self.chain_ids}
             self.design = True
 
         if entities:
@@ -554,43 +546,48 @@ class PDB(Structure):
         for chain in self.chains:
             chain.renumber_residues()
 
-    def create_chains(self, solve_discrepancy: bool = True):
+    def create_chains(self):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues
 
         Sets:
             self.chains
         """
         residues = self.residues
-        if solve_discrepancy:
-            chain_idx, residue_idx_start, prior_idx = 0, 0, 0
-            chain_residues = []  # [0]]  # self.residues[0].index]}  <- should always be zero
-            for prior_idx, residue in enumerate(residues[1:]):  # start at the second index to avoid off by one
-                if residue.number_pdb < residues[prior_idx].number_pdb or residue.chain != residues[prior_idx].chain:
-                    # Decreased number should only happen with new chain therefore this SHOULD satisfy a malformed PDB
-                    chain_idx += 1
-                    chain_residues.append(list(range(residue_idx_start, prior_idx + 1)))  # residue.index]
-                    residue_idx_start = prior_idx + 1
-                else:
-                    pass
-                    # chain_residues[chain_idx].append(prior_idx + 1)  # residue.index)
-            chain_residues.append(list(range(residue_idx_start, prior_idx + 1)))
+        # if solve_discrepancy:
+        residue_idx_start, prior_idx = 0, 0
+        chain_residues = []  # [0]]  # self.residues[0].index]}  <- should always be zero
+        for prior_idx, residue in enumerate(residues[1:]):  # start at the second index to avoid off by one
+            if residue.chain != residues[prior_idx].chain or residue.number <= residues[prior_idx].number:
+                # less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
+                chain_residues.append(list(range(residue_idx_start, prior_idx + 1)))  # + 1 adjusts to correct idx
+                residue_idx_start = prior_idx + 1
+        # perform with the final chain
+        chain_residues.append(list(range(residue_idx_start, prior_idx + 1)))  # + 1 adjusts to correct idx
 
+        number_of_chain_ids = len(self.chain_ids)
+        if len(chain_residues) != number_of_chain_ids:  # we probably have a multimodel or some weird naming
             available_chain_ids = self.return_chain_generator()
+            new_chain_ids = []
             for chain_idx, residue_indices in enumerate(chain_residues):
-                if chain_idx < len(self.chain_ids):  # Todo this logic is flawed when chains come in out of order
+                if chain_idx < number_of_chain_ids:  # use the chain_ids version
                     chain_id = self.chain_ids[chain_idx]
-                    discard_chain = next(available_chain_ids)
-                else:  # when there are more chains than supplied by file, chose the next available
+                else:
+                    # chose next available chain unless already taken, then try another
                     chain_id = next(available_chain_ids)
-                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
-                                         residue_indices=residue_indices))
-                # self.chains[idx].set_atoms_attributes(chain=chain_id)
-            self.chain_ids = [chain.name for chain in self.chains]
-        else:
-            for chain_id in self.chain_ids:
-                self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
-                                         residue_indices=[idx for idx, residue in enumerate(residues)
-                                                          if residue.chain == chain_id]))
+                    while chain_id in self.chain_ids:
+                        chain_id = next(available_chain_ids)
+                new_chain_ids.append(chain_id)
+
+            self.chain_ids = new_chain_ids
+
+        for chain_idx, residue_indices in enumerate(chain_residues):
+            self.chains.append(Chain(name=self.chain_ids[chain_idx], coords=self._coords, log=self._log,
+                                     residues=self._residues, residue_indices=residue_indices))
+        # else:
+        #     for chain_id in self.chain_ids:
+        #         self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
+        #                                  residue_indices=[idx for idx, residue in enumerate(residues)
+        #                                                   if residue.chain == chain_id]))
 
     def get_chains(self, names: Container = None) -> List:
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
