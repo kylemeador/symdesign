@@ -556,11 +556,13 @@ def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
         for idx, df in enumerate(all_dfs):
             # get rid of all individual trajectories and std, not mean
             design_name = pose_directories[idx].name
-            try:
-                df.drop([index for index in df.index.to_list() if design_name in index or 'std' in index], inplace=True)
-            except TypeError:
-                for index in df.index.to_list():
-                    print(index, type(index))
+            df.fillna(0., inplace=True)  # shouldn't be necessary if saved files were formatted correctly
+            # try:
+            df.drop([index for index in df.index.to_list() if isinstance(index, float)], inplace=True)
+            df.drop([index for index in df.index.to_list() if design_name in index or 'std' in index], inplace=True)
+            # except TypeError:
+            #     for index in df.index.to_list():
+            #         print(index, type(index))
     else:  # designs
         for idx, df in enumerate(all_dfs):
             # get rid of all statistic entries, mean, std, etc.
@@ -1420,13 +1422,13 @@ if __name__ == '__main__':
 
         if args.multi_processing:
             zipped_args = zip(pose_directories, repeat(args.join), repeat(args.save), repeat(args.figures))
-            results = SDUtils.mp_starmap(PoseDirectory.design_analysis, zipped_args, processes=cores)
+            results = SDUtils.mp_starmap(PoseDirectory.interface_design_analysis, zipped_args, processes=cores)
         else:
             # @profile  # memory_profiler
             # def run_single_analysis():
             for design in pose_directories:
-                results.append(design.design_analysis(merge_residue_data=args.join, save_trajectories=args.save,
-                                                      figures=args.figures))
+                results.append(design.interface_design_analysis(merge_residue_data=args.join,
+                                                                save_trajectories=args.save, figures=args.figures))
             # run_single_analysis()
         terminate(results=results)
     # ---------------------------------------------------

@@ -1801,7 +1801,7 @@ class PoseDirectory:  # (JobResources):
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if self.run_in_shell:
-            pose_s = self.design_analysis()
+            pose_s = self.interface_design_analysis()
             out_path = os.path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
             if not os.path.exists(out_path):
                 header = True
@@ -2475,9 +2475,8 @@ class PoseDirectory:  # (JobResources):
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    # @profile  # memory_profiler
-    def design_analysis(self, merge_residue_data: bool = False, save_trajectories: bool = True, figures: bool = False) \
-            -> pd.Series:  # Todo interface_design_analysis
+    def interface_design_analysis(self, merge_residue_data: bool = False, save_trajectories: bool = True, figures: bool = False) \
+            -> pd.Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
 
         Args:
@@ -3225,8 +3224,8 @@ class PoseDirectory:  # (JobResources):
             # Currently is -1 for True (Rosetta Filter quirk...)
             scores_df.loc[scores_df[scores_df['repacking'] == 0].index, 'interface_bound_activation_energy'] = np.nan
             scores_df.drop('repacking', axis=1, inplace=True)
+
         # Process dataframes for missing values and drop refine trajectory if present
-        scores_df[PUtils.groups] = protocol_s
         # refine_index = scores_df[scores_df[PUtils.groups] == PUtils.refine].index
         # scores_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
         # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
@@ -3250,6 +3249,7 @@ class PoseDirectory:  # (JobResources):
             scores_df.sort_index().drop([pose_source, PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
+        scores_df[PUtils.groups] = protocol_s
         protocol_groups = scores_df.groupby(PUtils.groups)
         # # protocol_groups = trajectory_df.groupby(groups)
         # designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
@@ -3264,15 +3264,20 @@ class PoseDirectory:  # (JobResources):
             pose_stats.append(getattr(trajectory_df, stat)().rename(stat))
             protocol_stats.append(getattr(protocol_groups, stat)())
 
+        # format stats_s for final pose_s Series
         protocol_stats[stats_metrics.index(mean)]['observations'] = protocol_groups.size()
         protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
         pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
         stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
+
         # change statistic names for all df that are not groupby means for the final trajectory dataframe
+        print('protocol_stats')
+        print('Before', protocol_stats[1].index)
         for idx, stat in enumerate(stats_metrics):
             if stat != mean:
                 protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
                     {protocol: '%s_%s' % (protocol, stat) for protocol in unique_design_protocols})
+        print('After', protocol_stats[1].index)
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         number_of_trajectories = len(trajectory_df)
