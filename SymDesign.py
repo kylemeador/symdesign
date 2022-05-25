@@ -45,6 +45,7 @@ from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module
 from utils.GeneralUtils import write_docking_parameters
+from utils.SetUp import set_up_instructions
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
     select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide
 
@@ -636,6 +637,9 @@ if __name__ == '__main__':
         else:  # print the full program readme
             with open(PUtils.readme, 'r') as f:
                 print(f.read(), end='')
+        exit()
+    elif args.set_up:
+        set_up_instructions()
         exit()
     # ---------------------------------------------------
     # elif args.flags:  # Todo
