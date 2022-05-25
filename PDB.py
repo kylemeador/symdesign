@@ -27,6 +27,11 @@ from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subun
 logger = start_log(name=__name__)
 seq_res_len = 52
 qsbio_confirmed = unpickle(qs_bio)
+slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_type, slice_chain, \
+    slice_residue_number, slice_code_for_insertion, slice_x, slice_y, slice_z, slice_occ, slice_temp_fact, \
+    slice_element_symbol, slice_atom_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
+    slice(21, 22), slice(22, 26), slice(26, 27), slice(30, 38), slice(38, 46), slice(46, 54), slice(54, 60), \
+    slice(60, 66), slice(76, 78), slice(78, 80)
 
 
 class PDB(Structure):
@@ -210,61 +215,72 @@ class PDB(Structure):
             with open(self.filepath, 'r') as f:
                 pdb_lines = f.readlines()
 
-        if os.path.splitext(self.filepath)[-1][-1].isdigit():  # pull the extension, last character
+        path, extension = os.path.splitext(self.filepath)
+        if extension[-1].isdigit():  # pull the extension, last character
             # If not a letter, then the file is an assembly, or the filename was provided weird
             self.assembly = True
 
         if not self.name:
-            self.name = os.path.splitext(os.path.basename(self.filepath))[0]  # .replace('pdb', '')
+            self.name = os.path.basename(path)  # .replace('pdb', '')
 
-        seq_res_lines = []
-        start_of_new_model = False
-        curr_chain_id = None
         entity = None
-        coords, atom_info = [], []
-        atom_idx = 0
+        seq_res_lines, coords, atom_info = [], [], []
         current_operation = -1
-        # for line_tokens in map(str.split, pdb_lines):  # Todo
+        alt_loc_str = ' '
+        # for line_tokens in map(str.split, pdb_lines):
+        #     # 0       1       2          3             4             5      6               7                   8  9
+        #     # remark, number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y,
+        #     #     10 11   12         13              14
+        #     #     z, occ, temp_fact, element_symbol, atom_charge = \
+        #     #     line[6:11].strip(), int(line[6:11]), line[12:16].strip(), line[16:17].strip(), line[17:20].strip(),
+        #     #     line[21:22], int(line[22:26]), line[26:27].strip(), float(line[30:38]), float(line[38:46]), \
+        #     #     float(line[46:54]), float(line[54:60]), float(line[60:66]), line[76:78].strip(), line[78:80].strip()
+        #     if line_tokens[0] == 'ATOM' or line_tokens[4] == 'MSE' and line_tokens[0] == 'HETATM':
+        #         if line_tokens[3] not in ['', 'A']:
+        #             continue
         for line in pdb_lines:
-            if line[:4] == 'ATOM' or line[17:20] == 'MSE' and line[:6] == 'HETATM':
-                alt_location = line[16:17].strip()
+            remark = line[slice_remark]
+            if remark == 'ATOM  ' or line[slice_residue_type] == 'MSE' and remark == 'HETATM':
                 # if remove_alt_location and alt_location not in ['', 'A']:
-                if alt_location not in ['', 'A']:
+                if line[slice_alt_location] not in [alt_loc_str, 'A']:
                     continue
-                number = int(line[6:11])
-                atom_type = line[12:16].strip()
-                if line[17:20] == 'MSE':
+                # number = int(line[slice_number])
+                residue_type = line[slice_residue_type].strip()
+                if residue_type == 'MSE':
                     residue_type = 'MET'
+                    atom_type = line[slice_atom_type].strip()
                     if atom_type == 'SE':
                         atom_type = 'SD'  # change type from Selenium to Sulfur delta
                 else:
-                    residue_type = line[17:20].strip()
-                if self.multimodel:
-                    if start_of_new_model:
-                        start_of_new_model = False
-                        if line[21:22] == curr_chain_id:  # chain naming is not incremental
-                            # curr_chain_id = line[21:22]
-                            chain = next(available_chain_ids)
-                        else:  # line[21:22] != curr_chain_id  Chain naming IS incremental
-                            curr_chain_id, chain = line[21:22], line[21:22]
-                            discard = next(available_chain_ids)  # getting rid of a chain is prudent
-                        self.multimodel_chain_map[chain] = curr_chain_id
-                else:
-                    chain = line[21:22]
-                residue_number = int(line[22:26])
-                code_for_insertion = line[26:27].strip()
-                occ = float(line[54:60])
-                temp_fact = float(line[60:66])
-                element_symbol = line[76:78].strip()
-                atom_charge = line[78:80].strip()
+                    atom_type = line[slice_atom_type].strip()
+                # if self.multimodel:
+                #     if start_of_new_model:
+                #         start_of_new_model = False
+                #         if line[21:22] == curr_chain_id:  # chain naming is not incremental
+                #             # curr_chain_id = line[21:22]
+                #             chain = next(available_chain_ids)
+                #         else:  # line[21:22] != curr_chain_id  Chain naming IS incremental
+                #             curr_chain_id, chain = line[21:22], line[21:22]
+                #             discard = next(available_chain_ids)  # getting rid of a chain is prudent
+                #         self.multimodel_chain_map[chain] = curr_chain_id
+                # else:
+                # chain = line[slice_chain]
+                # residue_number = int(line[slice_residue_number])
+                # code_for_insertion = line[slice_code_for_insertion].strip()
+                # occ = float(line[slice_occ])
+                # temp_fact = float(line[slice_temp_fact])
+                # element_symbol = line[slice_element_symbol].strip()
+                # atom_charge = line[slice_atom_charge].strip()
                 # if chain not in self.chain_ids:
                 #     self.chain_ids.append(chain)
+                # prepare line information for population of Atom objects
+                atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
+                                  int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
+                                  float(line[slice_occ]), float(line[slice_temp_fact]),
+                                  line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
                 # prepare the atomic coordinates for addition to numpy array
-                atom_info.append((atom_idx, number, atom_type, alt_location, residue_type, chain, residue_number,
-                                  code_for_insertion, occ, temp_fact, element_symbol, atom_charge))
-                coords.append([float(line[30:38]), float(line[38:46]), float(line[46:54])])
-                atom_idx += 1
-            elif line[:5] == 'MODEL':
+                coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
+            elif remark == 'MODEL ':
                 # start_of_new_model signifies that the next line comes after a new model
                 start_of_new_model = True
                 # model_number = line[6:].strip()
@@ -272,32 +288,39 @@ class PDB(Structure):
                 if not self.multimodel:
                     self.multimodel = True
                     available_chain_ids = self.return_chain_generator()
-            elif line[:6] == 'SEQRES':
+            elif remark == 'SEQRES':
                 seq_res_lines.append(line[11:])
-            elif line[:18] == 'REMARK 350':
-            # elif line[:18] == 'REMARK 350   BIOMT':
-                self.biomt_header += line
-                # integration of the REMARK 350 BIOMT
-                # REMARK 350
-                # REMARK 350 BIOMOLECULE: 1
-                # REMARK 350 AUTHOR DETERMINED BIOLOGICAL UNIT: TRIMERIC
-                # REMARK 350 SOFTWARE DETERMINED QUATERNARY STRUCTURE: TRIMERIC
-                # REMARK 350 SOFTWARE USED: PISA
-                # REMARK 350 TOTAL BURIED SURFACE AREA: 6220 ANGSTROM**2
-                # REMARK 350 SURFACE AREA OF THE COMPLEX: 28790 ANGSTROM**2
-                # REMARK 350 CHANGE IN SOLVENT FREE ENERGY: -42.0 KCAL/MOL
-                # REMARK 350 APPLY THE FOLLOWING TO CHAINS: A, B, C
-                # REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000
-                # REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000
-                # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
-                _, _, biomt, operation_number, x, y, z, tx = line.split()
-                if biomt == 'BIOMT':
-                    if operation_number != current_operation:  # we reached a new transformation matrix
-                        current_operation = operation_number
-                        self.biomt.append([])
-                    # add the transformation to the current matrix
-                    self.biomt[-1].append(list(map(float, [x, y, z, tx])))
-            elif line[:5] == 'DBREF':
+            elif remark == 'REMARK':
+                remark_number = line[slice_number]
+                if remark_number == '   2 ':  # 6:11 ' RESOLUTION'
+                    try:
+                        self.resolution = float(line[22:30].strip().split()[0])
+                    except ValueError:
+                        self.resolution = None
+                # elif line[:18] == 'REMARK 350   BIOMT':
+                elif remark_number == ' 350 ':  # 6:11  '   BIOMT'
+                    self.biomt_header += line
+                    # integration of the REMARK 350 BIOMT
+                    # REMARK 350
+                    # REMARK 350 BIOMOLECULE: 1
+                    # REMARK 350 AUTHOR DETERMINED BIOLOGICAL UNIT: TRIMERIC
+                    # REMARK 350 SOFTWARE DETERMINED QUATERNARY STRUCTURE: TRIMERIC
+                    # REMARK 350 SOFTWARE USED: PISA
+                    # REMARK 350 TOTAL BURIED SURFACE AREA: 6220 ANGSTROM**2
+                    # REMARK 350 SURFACE AREA OF THE COMPLEX: 28790 ANGSTROM**2
+                    # REMARK 350 CHANGE IN SOLVENT FREE ENERGY: -42.0 KCAL/MOL
+                    # REMARK 350 APPLY THE FOLLOWING TO CHAINS: A, B, C
+                    # REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000
+                    # REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000
+                    # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
+                    _, _, biomt, operation_number, x, y, z, tx = line.split()
+                    if biomt == 'BIOMT':
+                        if operation_number != current_operation:  # we reached a new transformation matrix
+                            current_operation = operation_number
+                            self.biomt.append([])
+                        # add the transformation to the current matrix
+                        self.biomt[-1].append(list(map(float, [x, y, z, tx])))
+            elif 'DBREF' in remark:
                 chain = line[12:14].strip().upper()
                 if line[5:6] == '2':
                     db_accession_id = line[18:40].strip()
@@ -307,14 +330,9 @@ class PDB(Structure):
                         continue
                     db_accession_id = line[33:42].strip()
                 self.dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
-            elif line[:21] == 'REMARK   2 RESOLUTION':
-                try:
-                    self.resolution = float(line[22:30].strip().split()[0])
-                except ValueError:
-                    self.resolution = None
-            elif line[:6] == 'COMPND' and 'MOL_ID' in line:
+            elif remark == 'COMPND' and 'MOL_ID' in line:
                 entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
-            elif line[:6] == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
+            elif remark == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
                 # entity number (starting from 1) = {'chains' : {A, B, C}}
                 # self.entity_info[entity] = \
                     # {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
@@ -322,9 +340,9 @@ class PDB(Structure):
                     {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(','))),
                      'name': entity})
                 entity = None
-            elif line[:5] == 'SCALE':
+            elif remark == 'SCALE ':
                 self.header.append(line.strip())
-            elif line[:6] == 'CRYST1':
+            elif remark == 'CRYST1':
                 self.header.append(line.strip())
                 self.cryst_record = line  # .strip()
                 self.uc_dimensions, self.space_group = self.parse_cryst_record(self.cryst_record)
@@ -342,8 +360,8 @@ class PDB(Structure):
                 self.log.debug('Multimodel file not respected, chains are all different')
         if not atom_info:
             raise DesignError('The file %s has no atom records!' % self.filepath)
-        self.process_pdb(atoms=[Atom(*info) for info in atom_info], coords=coords,
-                         seqres=seq_res_lines, **kwargs)
+
+        self.process_pdb(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords, seqres=seq_res_lines, **kwargs)
 
     def process_pdb(self, atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
                     coords: Union[List[List], np.ndarray, Coords] = None, pose_format: bool = False,
