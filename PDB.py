@@ -1016,12 +1016,13 @@ class PDB(Structure):
             # v make Chain objects (if they are names)
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
             # get uniprot ID if the file is from the PDB and has a DBREF remark
-            try:
-                accession = self.dbref.get(data['chains'][0].chain_id, None)
-            except AttributeError:
-                raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s'
-                                  % (self.name, self.create_entities.__name__, self.entity_info, self.assembly,
-                                     self.multimodel))
+            # try:
+            accession = self.dbref.get(chains[0].chain_id, None)
+            # except (IndexError, AttributeError):
+            #     raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s '
+            #                       'api_entry=%s, multimodel_chain_map=%s'
+            #                       % (self.name, self.create_entities.__name__, self.entity_info, self.assembly,
+            #                          self.multimodel, self.api_entry, self.multimodel_chain_map))
             data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
             data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
