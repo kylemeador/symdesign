@@ -1609,8 +1609,8 @@ class HelixFusion:
 
 
 def align(pdb1_path, start_1, end_1, chain_1, pdb2_path, start_2, end_2, chain_2, extend_helix=False):
-        pdb1 = PDB.from_file(pdb1_path, pose_format=False)
-        pdb2 = PDB.from_file(pdb2_path, pose_format=False)
+        pdb1 = PDB.from_file(pdb1_path)
+        pdb2 = PDB.from_file(pdb2_path)
 
         if extend_helix:
             n_terminus = pdb1.chain(chain_1).n_terminal_residue.number

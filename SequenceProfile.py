@@ -3204,7 +3204,7 @@ def generate_mutations_from_reference(reference: str, sequences: Dict[str, str])
 #         #         break
 #         #     else:
 #         #         if not fail:
-#         #             temp_pdb = PDB.from_file(file=pdb.filepath)
+#         #             temp_pdb = PDB.from_file(pdb.filepath)
 #         #             fail = True
 #         #         else:
 #         #             raise DesignError('Invalid PDB input, no SEQRES record found')

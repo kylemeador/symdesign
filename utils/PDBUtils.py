@@ -73,8 +73,7 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
                 max_contact_chain1, max_contact_chain2 = chain1, chain2
 
     if max_contact_count > 0:
-        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', pose_format=False,
-                               entities=True, **kwargs)
+        return PDB.from_chains([max_contact_chain1, max_contact_chain2], name='asu', entities=True, **kwargs)
     else:
         return
 

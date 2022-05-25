@@ -4242,7 +4242,7 @@ class Entity(Chain, SequenceProfile):
     #         error_string = 'orient_oligomer could not orient %s%s' % (pdb_file_name, log_message)
     #         raise RuntimeError(error_string)
     #
-    #     oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=log)
+    #     oriented_pdb = PDB.from_file(orient_output, name=self.name, log=log)
     #     orient_fixed_struct = oriented_pdb.chains[0]
     #     moving_struct = self.chains[0]
     #     try:

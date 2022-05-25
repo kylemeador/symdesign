@@ -205,7 +205,7 @@ class PDB(Structure):
         # self.cb_coords = pdb.cb_coords
         # self.bb_coords = pdb.bb_coords
 
-    def readfile(self, pdb_lines=None, **kwargs):  # pose_format=True,
+    def readfile(self, pdb_lines=None, **kwargs):
         """Reads .pdb file and populates PDB instance"""
         if not pdb_lines:
             with open(self.filepath, 'r') as f:
@@ -273,8 +273,6 @@ class PDB(Structure):
                 if not self.multimodel:
                     self.multimodel = True
                     available_chain_ids = self.return_chain_generator()
-            # elif pose_format:
-            #     continue
             elif line[:6] == 'SEQRES':
                 seq_res_lines.append(line[11:])
             elif line[:18] == 'REMARK 350':
@@ -346,7 +344,7 @@ class PDB(Structure):
         if not atom_info:
             raise DesignError('The file %s has no atom records!' % self.filepath)
         self.process_pdb(atoms=[Atom(*info) for info in atom_info], coords=coords,
-                         seqres=seq_res_lines, **kwargs)  # pose_format=pose_format,
+                         seqres=seq_res_lines, **kwargs)
 
     def process_pdb(self, atoms=None, residues=None, coords=None, chains=True, entities=True,
                     seqres=None, pose_format=True, solve_discrepancy=True, rename_chains=False, **kwargs):
@@ -698,7 +696,7 @@ class PDB(Structure):
             error_string = 'orient_oligomer could not orient %s%s' % (pdb_file_name, log_message)
             raise RuntimeError(error_string)
 
-        oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, entities=False, log=log)
+        oriented_pdb = PDB.from_file(orient_output, name=self.name, entities=False, log=log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
@@ -1581,7 +1579,7 @@ def orient_pdb_file(file: os.PathLike, log: Logger = logger, symmetry: str = Non
         return oriented_file_path
     # elif sym in valid_subunit_number:
     else:
-        pdb = PDB.from_file(file, log=log, pose_format=False)  #, entities=False)
+        pdb = PDB.from_file(file, log=log)  # must load entities to solve multicomponent orient problem
         try:
             pdb.orient(symmetry=symmetry)
             pdb.write(out_path=oriented_file_path)
@@ -1608,7 +1606,7 @@ def query_qs_bio(pdb_entry_id: str) -> int:
                        ' using PDB default assembly %d' % (pdb_entry_id, assembly))
 
     return assembly
-# ref_aa = PDB.from_file(reference_aa_file, log=None, pose_format=False, entities=False)
+# ref_aa = PDB.from_file(reference_aa_file, log=None, entities=False)
 # from shutil import move
 # move(reference_residues_pkl, '%s.bak' % reference_residues_pkl)
 # from SymDesignUtils import pickle_object

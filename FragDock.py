@@ -436,11 +436,11 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     """
     overlapping_ghost_frags = False  # Todo make a keyword arg
     cb_distance = 9.  # change to 8.?
-    # Get Building Blocks
+    # Get Building Blocks in pose format to remove need for fragments to use chain info
     if not isinstance(pdb1, Structure):
-        pdb1 = PDB.from_file(pdb1)
+        pdb1 = PDB.from_file(pdb1, pose_format=True)
     if not isinstance(pdb2, Structure):
-        pdb2 = PDB.from_file(pdb2)
+        pdb2 = PDB.from_file(pdb2, pose_format=True)
 
     # Get pdb reference sequences
     for entity in pdb1.entities:

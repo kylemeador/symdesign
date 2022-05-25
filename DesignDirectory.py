@@ -319,7 +319,7 @@ class DesignDirectory:  # (JobResources):
             # need to start here if I want to load pose through normal mechanism... ugh
             self.set_up_design_directory()
             if not self.entity_names:
-                self.init_pdb = PDB.from_file(self.source_path, log=self.log, pose_format=False)
+                self.init_pdb = PDB.from_file(self.source_path, log=self.log)
                 self.entity_names = [entity.name for entity in self.init_pdb.entities]
                 # self.load_pose()  # load the source pdb to find the entity_names
                 # self.entity_names = [entity.name for entity in self.pose.entities]
@@ -1956,6 +1956,8 @@ class DesignDirectory:  # (JobResources):
         else:
             pdb = PDB.from_file(source if source else self.source, entity_names=self.entity_names, log=self.log)
             #                              pass names if available ^
+
+        # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
         if self.symmetric:
             self.pose = Pose.from_asu(pdb, sym_entry=self.sym_entry, name='%s-asu' % str(self),
                                       design_selector=self.design_selector, log=self.log,
@@ -1973,6 +1975,8 @@ class DesignDirectory:  # (JobResources):
                                       design_selector=self.design_selector, log=self.log,
                                       source_db=self.resources, fragment_db=self.fragment_db,
                                       euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+        # then modify numbering to ensure standard and accurate use during protocols
+        self.pose.pdb.renumber_structure()
         if not self.entity_names:  # store the entity names if they were never generated
             self.entity_names = [entity.name for entity in self.pose.entities]
             self.log.info('Input Entities: %s' % ', '.join(self.entity_names))
@@ -2055,7 +2059,7 @@ class DesignDirectory:  # (JobResources):
     @remove_structure_memory
     def rename_chains(self):
         """Standardize the chain names in incremental order found in the design source file"""
-        pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
+        pdb = PDB.from_file(self.source, log=self.log)
         pdb.reorder_chains()
         pdb.write(out_path=self.asu_path)
 
@@ -2069,7 +2073,7 @@ class DesignDirectory:  # (JobResources):
         if self.init_pdb:
             pdb = self.init_pdb
         else:
-            pdb = PDB.from_file(self.source, log=self.log, pose_format=False)
+            pdb = PDB.from_file(self.source, log=self.log)
 
         if self.design_symmetry:
             if to_design_directory:
@@ -2297,7 +2301,7 @@ class DesignDirectory:  # (JobResources):
 
         self.interface_residues = []  # update False to list or replace list and add new residues
         for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
-            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, pose_format=False, entities=False)
+            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
             entity_oligomer.get_sasa()
             # for residue_number in self.interface_design_residues:
             for residue in entity_oligomer.get_residues(self.interface_design_residues):
@@ -2494,7 +2498,8 @@ class DesignDirectory:  # (JobResources):
         for file in self.get_designs():
             # decoy_name = os.path.splitext(os.path.basename(file))[0]  # name should match scored designs...
             #                     pass names if available v
-            design = PDB.from_file(file, entity_names=self.entity_names, log=self.log)  # name=decoy_name,
+            design = PDB.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True)
+            # pose format should already be the case, but lets make sure
             if self.symmetric:
                 for idx, entity in enumerate(design.entities):
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])

@@ -568,7 +568,7 @@ def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
 
 
 def generate_sequence_template(pdb_file):
-    pdb = PDB.from_file(pdb_file)
+    pdb = PDB.from_file(pdb_file, entities=False)
     sequence = SeqRecord(Seq(''.join(chain.sequence for chain in pdb.chains), 'Protein'), id=pdb.filepath)
     sequence_mask = copy.copy(sequence)
     sequence_mask.id = 'residue_selector'
