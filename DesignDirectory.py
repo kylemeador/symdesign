@@ -7,7 +7,7 @@ import shutil
 from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
-from typing import Union, Dict, List, Optional, Tuple, Callable, Any, Iterable
+from typing import Union, Dict, List, Optional, Tuple, Callable, Any, Iterable, Set
 # from textwrap import fill
 
 import matplotlib.pyplot as plt
@@ -138,7 +138,7 @@ class DesignDirectory:  # (JobResources):
 
         # Design flags  # Todo move to JobResources
         self.consensus = kwargs.get('consensus', None)  # Whether to run consensus or not
-        self.interface_design_residues = False  # (set[int])
+        self.interface_design_residues: Set[int] = False  # (set[int])
         self.no_term_constraint = kwargs.get(PUtils.no_term_constraint, True)
         self.directives = kwargs.get('directives', {})
         self.no_evolution_constraint = kwargs.get(PUtils.no_evolution_constraint, True)
