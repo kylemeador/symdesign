@@ -549,18 +549,19 @@ class PDB(Structure):
         """
         residues = self.residues
         if solve_discrepancy:
-            chain_idx = 0
-            chain_residues = [[0]]  # self.residues[0].index]}  <- should always be zero
-            for prior_idx, residue in enumerate(self.residues[1:]):  # start at the second index to avoid off by one
-                if residue.number_pdb < self.residues[prior_idx].number_pdb \
-                        or residue.chain != self.residues[prior_idx].chain:
+            chain_idx, residue_idx_start, prior_idx = 0, 0, 0
+            chain_residues = []  # [0]]  # self.residues[0].index]}  <- should always be zero
+            for prior_idx, residue in enumerate(residues[1:]):  # start at the second index to avoid off by one
+                if residue.number_pdb < residues[prior_idx].number_pdb or residue.chain != residues[prior_idx].chain:
                     # Decreased number should only happen with new chain therefore this SHOULD satisfy a malformed PDB
                     chain_idx += 1
-                    chain_residues.append([prior_idx + 1])  # residue.index]
-                    # chain_residues[chain_idx] = [residue]
+                    chain_residues.append(list(range(residue_idx_start, prior_idx + 1)))  # residue.index]
+                    residue_idx_start = prior_idx + 1
                 else:
-                    chain_residues[chain_idx].append(prior_idx + 1)  # residue.index)
-                    # chain_residues[chain_idx].append(residue)
+                    pass
+                    # chain_residues[chain_idx].append(prior_idx + 1)  # residue.index)
+            chain_residues.append(list(range(residue_idx_start, prior_idx + 1)))
+
             available_chain_ids = self.return_chain_generator()
             for chain_idx, residue_indices in enumerate(chain_residues):
                 if chain_idx < len(self.chain_ids):  # Todo this logic is flawed when chains come in out of order
