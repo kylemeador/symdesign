@@ -16,7 +16,7 @@ from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
 import pandas as pd
 
-from DesignDirectory import DesignDirectory
+from PoseDirectory import PoseDirectory
 from PathUtils import ialign_exe_path
 from SymDesignUtils import index_intersection, mp_map, sym, rmsd_threshold, digit_translate_table, start_log
 #     handle_design_errors, DesignError
@@ -33,7 +33,7 @@ def pose_rmsd_mp(all_des_dirs, cores=1):
     """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
 
     Args:
-        all_des_dirs (list[DesignDirectory]): List of relevant design directories
+        all_des_dirs (list[PoseDirectory]): List of relevant design directories
     Keyword Args:
         cores: Number of multiprocessing cores to run
     Returns:
@@ -85,13 +85,13 @@ def pose_pair_rmsd(pair):
     """Calculate the rmsd between Nanohedra pose pairs using the intersecting residues at the interface of each pose
 
     Args:
-        pair (tuple[DesignDirectory.DesignDirectory, DesignDirectory.DesignDirectory]):
-            Paired DesignDirectory objects from pose processing directories
+        pair (tuple[PoseDirectory.PoseDirectory, PoseDirectory.PoseDirectory]):
+            Paired PoseDirectory objects from pose processing directories
     Returns:
         (float): RMSD value
     """
     # protein_pair_path = pair[0].composition
-    # Grab designed resides from the design_directory
+    # Grab designed resides from the pose_directory
     design_residues = [set(pose.interface_design_residues) for pose in pair]
 
     # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
@@ -116,7 +116,7 @@ def pose_rmsd_s(all_des_dirs):
     for pair in combinations(all_des_dirs, 2):
         if pair[0].composition == pair[1].composition:
             protein_pair_path = pair[0].composition
-            # Grab designed resides from the design_directory
+            # Grab designed resides from the pose_directory
             pair_rmsd = pose_pair_rmsd(pair)
             # des_residue_list = [pose.info['des_residues'] for pose in pair]
             # # could use the union as well...
@@ -463,14 +463,14 @@ def find_cluster_representatives(transform_tree, cluster) -> Tuple[List, numpy.n
 
 # @handle_design_errors(errors=(DesignError, AssertionError))
 # @handle_errors(errors=(DesignError, ))
-def cluster_designs(composition_designs: List[DesignDirectory], return_pose_id: bool = True) -> \
-        Dict[Union[str, DesignDirectory], List[Union[str, DesignDirectory]]]:
+def cluster_designs(composition_designs: List[PoseDirectory], return_pose_id: bool = True) -> \
+        Dict[Union[str, PoseDirectory], List[Union[str, PoseDirectory]]]:
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
     Args:
-        composition_designs: The group of DesignDirectory objects to pull transformation data from
-        return_pose_id: Whether the DesignDirectory object should be returned instead of its name
+        composition_designs: The group of PoseDirectory objects to pull transformation data from
+        return_pose_id: Whether the PoseDirectory object should be returned instead of its name
     Returns:
         Cluster with representative pose as the key and matching poses as the values
     """
@@ -492,7 +492,7 @@ def cluster_designs(composition_designs: List[DesignDirectory], return_pose_id: 
         find_cluster_representatives(*cluster_transformation_pairs(transformation1, transformation2))
 
     representative_labels = cluster_labels[cluster_representative_indices]
-    # pull out pose's from the input composition_designs groups (DesignDirectory)
+    # pull out pose's from the input composition_designs groups (PoseDirectory)
     if return_pose_id:  # convert all DesignDirectories to pose-id's
         # don't add the outliers now (-1 labels)
         composition_map = \
@@ -502,7 +502,7 @@ def cluster_designs(composition_designs: List[DesignDirectory], return_pose_id: 
         # add the outliers as separate occurrences
         composition_map.update({str(composition_designs[idx]): []
                                 for idx in np.flatnonzero(cluster_labels == -1).tolist()})
-    else:  # return the DesignDirectory object
+    else:  # return the PoseDirectory object
         composition_map = \
             {composition_designs[rep_idx]: [composition_designs[idx]
                                             for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
@@ -512,13 +512,13 @@ def cluster_designs(composition_designs: List[DesignDirectory], return_pose_id: 
     return composition_map
 
 
-def group_compositions(pose_directories: List[DesignDirectory]) -> Dict[Tuple, List[DesignDirectory]]:
+def group_compositions(pose_directories: List[PoseDirectory]) -> Dict[Tuple, List[PoseDirectory]]:
     """From a set of DesignDirectories, find all the compositions and group together
 
     Args:
-        pose_directories: The DesignDirectory to group according to composition
+        pose_directories: The PoseDirectory to group according to composition
     Returns:
-        List of similarly named DesignDirectory mapped to their name"""
+        List of similarly named PoseDirectory mapped to their name"""
     compositions = {}
     for pose in pose_directories:
         entity_names = tuple(pose.entity_names)

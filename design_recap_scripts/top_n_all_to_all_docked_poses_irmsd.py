@@ -7,7 +7,7 @@ import numpy as np
 import sklearn.neighbors
 from Bio.PDB.Atom import PDBConstructionWarning
 
-import DesignDirectory
+import PoseDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from utils.PDBUtils import biopdb_superimposer
@@ -710,7 +710,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
         # reference2_chains_and_residues_d[i] = ref2_int_chain_residue_d
 
     # For debuggin multiprocessing hang
-    # for des_dir in design_directories:
+    # for des_dir in pose_directories:
         des_dir.oligomers[des_dir.entity_names[0]] = standardize_intra_oligomer_chain_lengths(docked_pdb1)
         des_dir.oligomers[des_dir.entity_names[1]] = standardize_intra_oligomer_chain_lengths(docked_pdb2)
     # standardized_pdbs1, standardized_pdbs2 = {}, {}
@@ -730,7 +730,7 @@ def all_to_all_docked_poses_irmsd_mp(design_directories, threads):
 
     # # ORIGINAL PATCH
     # irmsds = []  # , directory_pairs = [], []
-    # for pair in combinations(design_directories, 2):
+    # for pair in combinations(pose_directories, 2):
     #     try:
     #         irmsds.append(map_align_interface_chains_km(pair[1].oligomers[pair[1].entity_names[0]],
     #                                                     pair[1].oligomers[pair[1].entity_names[1]],

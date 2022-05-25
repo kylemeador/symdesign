@@ -1177,10 +1177,10 @@ class SequenceProfile:
     def solve_consensus(self, fragment_source=None, alignment_type=None):
         # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
 
-        # frag_cluster_residue_d = DesignDirectory.gather_pose_metrics(init=True)  Call this function with it
+        # frag_cluster_residue_d = PoseDirectory.gather_pose_metrics(init=True)  Call this function with it
         # ^ Format: {'1_2_24': [(78, 87, ...), ...], ...}
         # Todo Can also re-score the interface upon Pose loading and return this information
-        # template_pdb = DesignDirectory.source NOW self.pdb
+        # template_pdb = PoseDirectory.source NOW self.pdb
 
         # v Used for central pair fragment mapping of the biological interface generated fragments
         cluster_freq_tuple_d = {cluster: fragment_source[cluster]['freq'] for cluster in fragment_source}

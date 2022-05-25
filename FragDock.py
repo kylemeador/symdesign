@@ -218,7 +218,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
             continue
 
         log.info('\tNO Backbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
-        # Todo replace with DesignDirectory? Path object?
+        # Todo replace with PoseDirectory? Path object?
         tx_dir = os.path.join(rot_subdir_out_path, 'tx_%d' % tx_idx)
         oligomers_dir = rot_subdir_out_path.split(os.sep)[-3]
         degen_dir = rot_subdir_out_path.split(os.sep)[-2]
@@ -1518,7 +1518,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         exp_des_clash_time = time.time() - exp_des_clash_time_start
         log.info('\tNO Backbone Clash when Designed Assembly is Expanded (took %f s)' % exp_des_clash_time)
 
-        # Todo replace with DesignDirectory? Path object?
+        # Todo replace with PoseDirectory? Path object?
         # temp indexing on degen and rot counts
         tx_idx = tx_counts[idx]
         degen1_count, degen2_count = degen_counts[idx]
@@ -1737,7 +1737,7 @@ if __name__ == '__main__':
         # ijk_frag_db.get_intfrag_cluster_info_dict()
 
         try:
-            # Output Directory  # Todo DesignDirectory
+            # Output Directory  # Todo PoseDirectory
             building_blocks = '%s_%s' % (pdb1_name, pdb2_name)
             # outdir = os.path.join(master_outdir, building_blocks)
             # if not os.path.exists(outdir):

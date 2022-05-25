@@ -182,9 +182,9 @@ def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.
         The name of the sbatch script that was written
     """
     # Should this be included in docstring?
-    # If the commands are provided as a list of raw commands and not a command living in a DesignDirectory, the argument
+    # If the commands are provided as a list of raw commands and not a command living in a PoseDirectory, the argument
     #     number_of_commands should be used! It will skip checking for the presence of commands in the corresponding
-    #     DesignDirectory
+    #     PoseDirectory
     if not scale:
         # elif process_scale: Todo in order to make stage unnecessary, would need to provide scale and template
         #                      Could add a hyperthreading=True parameter to remove process scale

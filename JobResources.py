@@ -158,7 +158,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                                    'downloading it from the PDB. Attempting to copy from %s job data source'
                                    % (file_path, nano))
                     raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
-                                              'canonical_pdb1/2 attribute of DesignDirectory to pull the'
+                                              'canonical_pdb1/2 attribute of PoseDirectory to pull the'
                                               ' pdb file source.')
                     # Todo
                 # remove any mirror specific naming from fetch_pdb_file
