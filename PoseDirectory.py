@@ -1051,7 +1051,7 @@ class PoseDirectory:  # (JobResources):
                     # self.sym_entry = self.info['sym_entry']  # get instance
                     self.info.pop('sym_entry')  # remove this object
                     self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
-                if not self.oligomer_names:
+                if 'oligomer_names' not in self.info:
                     self.oligomer_names = self.info.get('entity_names', [])
                 if 'design_residue_ids' in self.info:  # format is old, convert
                     try:
