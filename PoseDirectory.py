@@ -911,15 +911,18 @@ class PoseDirectory:  # (JobResources):
 
     def directory_string_to_path(self, root: Union[str, bytes], pose_id: str):
         """Set the PoseDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
-         path separators"""
-        assert root, 'No program directory attribute set! Cannot create a path from a pose_id without a root directory!' \
-                     ' Pass both -f with the pose_id\'s and -d with the specified directory'
+        path separators"""
+        assert root, 'No root directory attribute! Cannot create a path from a pose_id without a root directory!' \
+                     ' Ensure you initialized with the keyword argument root="directory"'
         if self.nanohedra_output:
             self.path = os.path.join(root, pose_id.replace('-', os.sep))
         else:
-            # self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
-            self.path = os.path.join(root, 'Projects', pose_id.replace('_%s-' % PUtils.pose_directory,
-                                                                       '_%s%s' % (PUtils.pose_directory, os.sep)))
+            # Dev only
+            if '_Designs-' in pose_id:
+                self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
+            else:
+                self.path = os.path.join(root, 'Projects', pose_id.replace('_%s-' % PUtils.pose_directory,
+                                                                           '_%s%s' % (PUtils.pose_directory, os.sep)))
 
     # def link_master_directory(self, master_db=None):  # UNUSED. Could be useful in case where root is unknown
     #     """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes
@@ -1029,6 +1032,7 @@ class PoseDirectory:  # (JobResources):
                 except UnpicklingError as error:  # pickle.UnpicklingError:
                     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
                     raise error
+                # Dev branch only
                 except ModuleNotFoundError as error:
                     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
                     self.log.critical('Removing %s' % self.serialized_info)
@@ -1041,11 +1045,6 @@ class PoseDirectory:  # (JobResources):
                         getattr(self.info.get('fragment_database'), 'source', PUtils.biological_interfaces)
                     self.pickle_info()  # save immediately so we don't have this issue with reading again!
                 self._info = self.info.copy()  # create a copy of the state upon initialization
-                self.pre_refine = self.info.get('pre_refine', False)
-                self.pre_loop_model = self.info.get('pre_loop_model', False)
-                self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-                self.entity_names = self.info.get('entity_names', [])
-                self.oligomer_names = self.info.get('oligomer_names', [])
                 # These statements are a temporary patch Todo remove for SymDesign master branch
                 # if not self.sym_entry:  # none was provided at initiation or in state
                 if 'sym_entry' in self.info:
@@ -1086,6 +1085,11 @@ class PoseDirectory:  # (JobResources):
                     del self._pose_transformation
                 self.pickle_info()
                 # End temporary patch
+                self.pre_refine = self.info.get('pre_refine', False)
+                self.pre_loop_model = self.info.get('pre_loop_model', False)
+                self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
+                self.entity_names = self.info.get('entity_names', [])
+                self.oligomer_names = self.info.get('oligomer_names', [])
                 self.interface_design_residues = self.info.get('interface_design_residues', False)  # (set[int])
                 self.interface_residue_ids = self.info.get('interface_residue_ids', {})
                 self.interface_residues = self.info.get('interface_residues', False)
