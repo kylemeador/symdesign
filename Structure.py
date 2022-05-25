@@ -169,9 +169,10 @@ class Coords:
 class Atom:
     """An Atom container with the full Structure coordinates and the Atom unique data. Pass a reference to the full
     Structure coordinates for Keyword Arg coords=self.coords"""
-    def __init__(self, index=None, number=None, atom_type=None, alt_location=None, residue_type=None, chain=None,
-                 residue_number=None, code_for_insertion=None, occupancy=None, b_factor=None, element_symbol=None,
-                 atom_charge=None):  # , sasa=None, sasa=0., coords=None
+    def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = None,
+                 residue_type: str = None, chain: str = None, residue_number: int = None,
+                 code_for_insertion: str = None, occupancy: float = None, b_factor: float = None,
+                 element_symbol: str = None, atom_charge: str = None):  # , sasa=None, sasa=0., coords=None
         self.index = index
         self.number = number
         self.type = atom_type
@@ -327,7 +328,8 @@ class Atoms:
 
 
 class Residue:
-    def __init__(self, atom_indices=None, index=None, atoms=None, coords=None, log=None):
+    def __init__(self, atom_indices: List = None, atoms: Atoms = None, coords: Coords = None, log: Log = None):
+        #        index=None
         # self.index = index
         self.log = log
         self.atom_indices = atom_indices
