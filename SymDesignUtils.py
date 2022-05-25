@@ -980,8 +980,9 @@ class PoseSpecification(Dialect):
 
     def __init__(self, file):
         super().__init__()
-        self.directive_delimiter = ':'
-        self.file = file
+        self.directive_delimiter: str = ':'
+        self.file: Union[str, bytes] = file
+        self.directives: List[Dict[int, str]] = []
 
         all_poses, design_names, all_design_directives, = [], [], []
         with open(self.file) as file:
