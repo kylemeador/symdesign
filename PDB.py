@@ -937,10 +937,10 @@ class PDB(Structure):
         biological assembly file and/or multimodel file. Finally, initialize them from the Residues in each Chain
         instance using a specified threshold of sequence homology
 
-        Keyword Args:
-            entity_names (Sequence): Names explicitly passed for the Entity instances. Length must equal number of entities.
+        Args:
+            entity_names: Names explicitly passed for the Entity instances. Length must equal number of entities.
                 Names will take precedence over query_by_sequence if passed.
-            query_by_sequence=True (bool): Whether the PDB API should be queried for an Entity name by matching sequence
+            query_by_sequence: Whether the PDB API should be queried for an Entity name by matching sequence
         """
         if not self.entity_info:  # we didn't get the info from the file, so we have to try and piece together
             # the file is either from a program that has modified the original PDB file, was a model that hasn't been
@@ -999,11 +999,16 @@ class PDB(Structure):
         # For each Entity, get chains
         for data in self.entity_info:
             # v make Chain objects (if they are names)
-            data['chains'] = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
-            data['chains'] = [chain for chain in data['chains'] if chain]  # remove any missing chains
+            chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
             # get uniprot ID if the file is from the PDB and has a DBREF remark
-            accession = self.dbref.get(data['chains'][0].chain_id, None)
+            try:
+                accession = self.dbref.get(data['chains'][0].chain_id, None)
+            except AttributeError:
+                raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s'
+                                  % (self.name, self.create_entities.__name__, self.entity_info, self.assembly,
+                                     self.multimodel))
             data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
+            data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
             data['name'] = '%s_%d' % (self.name, data['name']) if isinstance(data['name'], int) else data['name']
             self.entities.append(Entity.from_chains(**data, log=self._log))
