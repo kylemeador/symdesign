@@ -1491,12 +1491,12 @@ class SymmetricModel(Model):
 
         return self.models
 
-    def get_assembly_symmetry_mates(self, surrounding_uc=True, **kwargs):  # -> List[Structure]:
+    def get_assembly_symmetry_mates(self, surrounding_uc: bool = True, **kwargs):  # -> List[Structure]:
         # , return_side_chains=True):
         """Generate symmetry mates as a collection of Structures with symmetric coordinates
 
-        Keyword Args:
-            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        Args:
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Sets:
             self.models (list[Structure]): All symmetry mates where each mate has Chain names matching the ASU
         """

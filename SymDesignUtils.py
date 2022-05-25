@@ -14,7 +14,7 @@ from glob import glob
 from itertools import repeat
 from json import loads, dumps
 from collections import defaultdict
-from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable, Dict
+from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable, Dict, DefaultDict
 
 import numpy as np
 import psutil
@@ -102,7 +102,8 @@ def handle_errors(errors=(Exception,)):
 #####################
 
 
-def timestamp():
+def timestamp() -> str:
+    """Return the date/time formatted as YEAR-MO-DA-245959"""
     return time.strftime('%y-%m-%d-%H%M%S')
 
 
@@ -173,21 +174,19 @@ def set_logging_to_debug():
         _logger.propagate = False
 
 
-def pretty_format_table(data, justification=None, header=None, header_justification=None) -> List[str]:
+def pretty_format_table(data: Iterable, justification: Iterable = None, header: Iterable = None,
+                        header_justification: Iterable = None) -> List[str]:
     """Present a table in readable format by sizing and justifying columns in a nested data structure
     i.e. [row1[column1, column2, ...], row2[], ...]
 
     Args:
-        data (Iterable): Where each successive element is a row and each row's sub-elements are unique columns.
+        data: Where each successive element is a row and each row's sub-elements are unique columns.
             The typical data structure would be [[i, j, k], [yes, 4, 0.1], [no, 5, 0.3]]
-    Keyword Args:
-        justification=None (Iterable): Iterable with elements 'l'/'left', 'r'/'right', or 'c'/'center' as text
-            justification values
-        header=None (Iterable): The names of values to place in the table header
-        header_justification=None (Iterable): Iterable with elements 'l'/'left', 'r'/'right', or 'c'/'center' as text
-            justification values
+        justification: Iterable with elements 'l'/'left', 'r'/'right', or 'c'/'center' as justification values
+        header: The names of values to place in the table header
+        header_justification: Iterable with elements 'l'/'left', 'r'/'right', or 'c'/'center' as justification values
     Returns:
-        (list[str]): The formatted data with each input row justified as an individual element in the list
+        The formatted data with each input row justified as an individual element in the list
     """
     justification_d = {'l': str.ljust, 'r': str.rjust, 'c': str.center,
                        'left': str.ljust, 'right': str.rjust, 'center': str.center}
@@ -222,14 +221,13 @@ def pretty_format_table(data, justification=None, header=None, header_justificat
                      for idx, (col, width) in enumerate(zip(row, widths))) for row in data]
 
 
-def get_table_column_widths(data):
+def get_table_column_widths(data: Iterable) -> Tuple[int]:
     """Find the widths of each column in a nested data structure
 
     Args:
-        data (Iterable): Where each successive element is a row and each row's sub-elements are unique columns
-
+        data: Where each successive element is a row and each row's sub-elements are unique columns
     Returns:
-        (tuple): A tuple containing the width of each column from the input data
+        A tuple containing the width of each column from the input data
     """
     return tuple(max(map(len, map(str, column))) for column in zip(*data))
 
@@ -246,9 +244,9 @@ def make_path(path: Union[str, bytes], condition: bool = True):
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
+def unpickle(file_name: Union[str, bytes]) -> Any:  # , protocol=pickle.HIGHEST_PROTOCOL):
     """Unpickle (deserialize) and return a python object located at filename"""
-    if '.pkl' not in file_name:
+    if '.pkl' not in file_name and '.pickle' not in file_name:
         file_name = '%s.pkl' % file_name
     try:
         with open(file_name, 'rb') as serial_f:
@@ -261,7 +259,7 @@ def unpickle(file_name):  # , protocol=pickle.HIGHEST_PROTOCOL):
 
 def pickle_object(target_object: Any, name: str = None, out_path: Union[str, bytes] = os.getcwd(),
                   protocol: int = pickle.HIGHEST_PROTOCOL) -> Union[str, bytes]:
-    """Pickle (serialize) an object into a file named 'out_path/name.pkl'
+    """Pickle (serialize) an object into a file named "out_path/name.pkl". Automatically adds extension
 
     Args:
         target_object: Any python object
@@ -285,16 +283,15 @@ def pickle_object(target_object: Any, name: str = None, out_path: Union[str, byt
     return file_name
 
 
-def filter_dictionary_keys(dictionary, keys, remove=False):
+def filter_dictionary_keys(dictionary: Dict, keys: Iterable, remove: bool = False) -> Dict[Dict]:
     """Clean a dictionary by passing specified keys. Default keeps all specified keys
 
     Args:
-        dictionary (dict): {outer_dictionary: {key: value, key2: value2, ...}, ...}
-        keys (Iterable): [key2, key10] Iterator of keys to be removed from dictionary
-    Keyword Args:
-        remove=True (bool): Whether or not to remove (True) specified keys
+        dictionary: {outer_dictionary: {key: value, key2: value2, ...}, ...}
+        keys: [key2, key10] Iterator of keys to be removed from dictionary
+        remove: Whether to remove (True) specified keys
     Returns:
-        (dict): {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
+        {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
     """
     if remove:
         for key in keys:
@@ -305,16 +302,15 @@ def filter_dictionary_keys(dictionary, keys, remove=False):
         return {key: dictionary[key] for key in keys if key in dictionary}
 
 
-def remove_interior_keys(dictionary, keys, keep=False):
+def remove_interior_keys(dictionary: Dict, keys: Iterable, keep: bool = False) -> Dict[Dict]:
     """Clean specified keys from a dictionaries internal dictionary. Default removes the specified keys
 
     Args:
-        dictionary (dict): {outer_dictionary: {key: value, key2: value2, ...}, ...}
-        keys (iter): [key2, key10] Iterator of keys to be removed from dictionary
-    Keyword Args:
-        remove=True (bool): Whether or not to remove (True) or keep (False) specified keys
+        dictionary: {outer_dictionary: {key: value, key2: value2, ...}, ...}
+        keys: [key2, key10] Iterator of keys to be removed from dictionary
+        keep: Whether to keep (True) or remove (False) specified keys
     Returns:
-        (dict): {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
+        {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
     """
     if not keep:
         for entry in dictionary:
@@ -327,13 +323,13 @@ def remove_interior_keys(dictionary, keys, keep=False):
                 for entry in dictionary}
 
 
-def index_intersection(index_groups):
+def index_intersection(index_groups: Iterable[Iterable]) -> List:
     """Find the overlap of sets in a dictionary
-    Args:
-        index_groups (Iterable[Iterable]): Groups of indices
 
+    Args:
+        index_groups: Groups of indices
     Returns:
-        (list): The union of all provided indices
+        The union of all provided indices
     """
     final_indices = set()
     # find all set union
@@ -346,7 +342,7 @@ def index_intersection(index_groups):
     return list(final_indices)
 
 
-def digit_keeper():
+def digit_keeper() -> DefaultDict:
     table = defaultdict(type(None))
     table.update({ord(digit): digit for digit in digits})  # '0123456789'
 
@@ -360,13 +356,13 @@ def clean_comma_separated_string(string):
     return map(str.strip, string.strip().split(','))
 
 
-def format_index_string(index_string):
+def format_index_string(index_string: str) -> List[int]:
     """From a string with indices of interest, comma separated or in a range, format into individual, integer indices
 
     Args:
-        index_string (str): 23, 34,35,56-89, 290
+        index_string: 23, 34,35,56-89, 290
     Returns:
-        (list[int]): Indices in Pose formatting
+        Indices in Pose formatting
     """
     final_index = []
     for index in clean_comma_separated_string(index_string):
@@ -797,22 +793,32 @@ def mp_starmap(function: Callable, star_args: Iterable[Tuple], processes: int = 
 ######################
 
 
-def get_all_base_root_paths(directory):
+def get_all_base_root_paths(directory: Union[str, bytes]) -> List[Union[str, bytes]]:
+    """Retrieve all of the bottom most directories which recursively exist in a directory
+
+    Args:
+        directory: The directory of interest
+    Returns:
+        The list of directories matching the search
+    """
     return [os.path.abspath(root) for root, dirs, files in os.walk(directory) if not dirs]
 
 
-def get_all_file_paths(dir, extension=None):
+def get_all_file_paths(directory: Union[str, bytes], extension: str = None) -> List[Union[str, bytes]]:
+    """Retrieve all of the files which recursively exist in a directory
+
+    Args:
+        directory: The directory of interest
+        extension: A extension to filter by
+    Returns:
+        The list of files matching the search
+    """
     if extension:
-        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(dir, followlinks=True)
+        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(directory, followlinks=True)
                 for file in files if extension in file]
     else:
-        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(dir, followlinks=True)
+        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(directory, followlinks=True)
                 for file in files]
-
-
-# def get_all_pdb_file_paths(pdb_dir):
-#     return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(pdb_dir) for file in files
-#             if '.pdb' in file]
 
 
 def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> Tuple[List, str]:
