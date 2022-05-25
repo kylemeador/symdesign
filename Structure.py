@@ -1258,13 +1258,10 @@ class MonoFragment:
 
 
 class StructureBase:
-    """Collect extra keyword arguments such as:
-        chains, entities, seqres, multimodel, pose_format, solve_discrepancy
-    """
+    """Collect extra keyword arguments"""
     def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, sequence=None,
-                 solve_discrepancy=None, cryst=None, cryst_record=None, design=None, resolution=None, space_group=None,
-                 query_by_sequence=True, entity_names=None, rename_chains=None, biomt=None, biomt_header=None,
-                 **kwargs):
+                 cryst=None, cryst_record=None, design=None, resolution=None, space_group=None, query_by_sequence=True,
+                 entity_names=None, rename_chains=None, biomt=None, biomt_header=None, **kwargs):
         try:
             super().__init__(**kwargs)
         except TypeError:
