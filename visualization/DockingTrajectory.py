@@ -3,7 +3,7 @@ import os
 from glob import glob
 from itertools import chain
 
-import DesignDirectory
+import PoseDirectory
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
 from PDB import PDB
@@ -76,7 +76,7 @@ if __name__ == '__main__':
     assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \
                       % (PUtils.nano.title(), location)
 
-    all_design_directories = DesignDirectory.set_up_directory_objects(all_poses, symmetry=args.design_string)
+    all_design_directories = PoseDirectory.set_up_directory_objects(all_poses, symmetry=args.design_string)
     logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
     logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
                 os.path.join(all_design_directories[0].path, os.path.basename(all_design_directories[0].path) + '.log'))

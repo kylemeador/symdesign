@@ -63,14 +63,14 @@ variance = 0.8
 
 
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
-class DesignDirectory:  # (JobResources):
+class PoseDirectory:  # (JobResources):
     fragment_db: Optional[FragmentDatabase]
 
     def __init__(self, design_path, pose_id=None, root=None, **kwargs):
         #        project=None, specific_design=None, dock=False, construct_pose=False,
         self.job_resources = kwargs.get('job_resources', None)
 
-        # DesignDirectory flags
+        # PoseDirectory flags
         self.construct_pose = kwargs.get('construct_pose', False)
         self.debug = kwargs.get('debug', False)
         # self.dock = kwargs.get('dock', False)
@@ -84,7 +84,7 @@ class DesignDirectory:  # (JobResources):
         else:
             self.source_path = os.path.abspath(design_path)
         self.name = os.path.splitext(os.path.basename(self.source_path))[0]
-        # DesignDirectory path attributes
+        # PoseDirectory path attributes
         # self.scores = None  # /program_root/Projects/project_Designs/design/scores
         self.scores_file = None  # /program_root/Projects/project_Designs/design/data/name.sc
         self.data = None  # /program_root/Projects/project_Designs/design/data
@@ -213,14 +213,14 @@ class DesignDirectory:  # (JobResources):
         if self.nanohedra_output:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
             if not os.path.exists(self.source_path):
-                raise FileNotFoundError('The specified DesignDirectory "%s" was not found!' % self.source_path)
+                raise FileNotFoundError('The specified PoseDirectory "%s" was not found!' % self.source_path)
             # self.canonical_pdb1 = None  # canonical pdb orientation
             # self.canonical_pdb2 = None
             # self.rot_step_deg1 = None
             # self.rot_step_deg2 = None
 
             # if self.dock:  # Todo DockDirectory
-            #     # Saves the path of the docking directory as DesignDirectory.path attribute. Try to populate further
+            #     # Saves the path of the docking directory as PoseDirectory.path attribute. Try to populate further
             #     # using typical directory structuring
             #     # self.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implement?
             #     self.program_root = self.source_path  # Assuming that output directory (^ or v) of Nanohedra was passed
@@ -279,7 +279,7 @@ class DesignDirectory:  # (JobResources):
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 self.project_designs = \
-                    os.path.join(self.projects, '%s_%s' % (path_components[-5], PUtils.design_directory))
+                    os.path.join(self.projects, '%s_%s' % (path_components[-5], PUtils.pose_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 self.make_path(self.program_root)
                 self.make_path(self.projects)
@@ -308,7 +308,7 @@ class DesignDirectory:  # (JobResources):
                 self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 self.project_designs = os.path.join(self.projects, '%s_%s' % (self.source_path.split(os.sep)[-2],
-                                                                              PUtils.design_directory))
+                                                                              PUtils.pose_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
                 self.make_path(self.program_root)
@@ -324,11 +324,11 @@ class DesignDirectory:  # (JobResources):
                 # self.load_pose()  # load the source pdb to find the entity_names
                 # self.entity_names = [entity.name for entity in self.pose.entities]
             # self.set_up_design_directory()
-        else:  # initialize DesignDirectory with existing /program_root/projects/project/design
+        else:  # initialize PoseDirectory with existing /program_root/projects/project/design
             self.initialized = True
             self.path = self.source_path
             if not os.path.exists(self.path):
-                raise FileNotFoundError('The specified DesignDirectory "%s" was not found!' % self.source_path)
+                raise FileNotFoundError('The specified PoseDirectory "%s" was not found!' % self.source_path)
             self.project_designs = os.path.dirname(self.path)
             self.projects = os.path.dirname(self.project_designs)
             self.program_root = os.path.dirname(self.projects)
@@ -448,7 +448,7 @@ class DesignDirectory:  # (JobResources):
 
     @property
     def symmetric(self) -> bool:
-        """Is the DesignDirectory symmetric?"""
+        """Is the PoseDirectory symmetric?"""
         return self.sym_entry is not None
 
     @property
@@ -514,7 +514,7 @@ class DesignDirectory:  # (JobResources):
     # SequenceProfile based attributes
     @property
     def background_profile(self) -> Dict:
-        """Return the amino acid frequencies utilized as the DesignDirectory background frequencies"""
+        """Return the amino acid frequencies utilized as the PoseDirectory background frequencies"""
         try:
             return getattr(self, self._background_profile)
         except AttributeError:
@@ -847,7 +847,7 @@ class DesignDirectory:  # (JobResources):
 
     # Decorator static methods: These must be declared above their usage, but made static after each declaration
     def handle_design_errors(errors: Tuple = (Exception,)) -> Callable:
-        """Decorator to wrap a method with try: ... except errors: and log errors to the DesignDirectory
+        """Decorator to wrap a method with try: ... except errors: and log errors to the PoseDirectory
 
         Args:
             errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
@@ -910,7 +910,7 @@ class DesignDirectory:  # (JobResources):
                                  no_log_name=no_log_name)
 
     def directory_string_to_path(self, root: Union[str, bytes], pose_id: str):
-        """Set the DesignDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
+        """Set the PoseDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
          path separators"""
         assert root, 'No program directory attribute set! Cannot create a path from a pose_id without a root directory!' \
                      ' Pass both -f with the pose_id\'s and -d with the specified directory'
@@ -918,6 +918,9 @@ class DesignDirectory:  # (JobResources):
             self.path = os.path.join(root, pose_id.replace('-', os.sep))
         else:
             self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
+            self.path = os.path.join(root, 'Projects',
+                                     pose_id.replace('_%s-', '_%s%s'
+                                                     % (PUtils.pose_directory, PUtils.pose_directory, os.sep)))
 
     # def link_master_directory(self, master_db=None):  # UNUSED. Could be useful in case where root is unknown
     #     """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes
@@ -965,7 +968,7 @@ class DesignDirectory:  # (JobResources):
     @handle_design_errors(errors=(DesignError, ))
     @close_logs
     def set_up_design_directory(self, pre_refine: Optional[bool] = None, pre_loop_model: Optional[bool] = None):
-        """Prepare output Directory and File locations. Each DesignDirectory always includes this format
+        """Prepare output Directory and File locations. Each PoseDirectory always includes this format
 
         Args:
             pre_refine: Whether the Pose has been refined previously (before loading)
@@ -1126,7 +1129,7 @@ class DesignDirectory:  # (JobResources):
                     self.source = sorted(glob(os.path.join(self.path, '%s.pdb' % self.name)))[0]
                 except IndexError:  # glob found no files
                     self.source = None
-        else:  # if the DesignDirectory is loaded as .pdb, the source should be loaded already
+        else:  # if the PoseDirectory is loaded as .pdb, the source should be loaded already
             # self.source = self.init_pdb
             pass
 
@@ -1138,7 +1141,7 @@ class DesignDirectory:  # (JobResources):
 
     @property
     def symmetry_definition_files(self) -> List:
-        """Retrieve the symmetry definition files name from DesignDirectory"""
+        """Retrieve the symmetry definition files name from PoseDirectory"""
         try:
             return self._symmetry_definition_files
         except AttributeError:
@@ -1146,14 +1149,14 @@ class DesignDirectory:  # (JobResources):
             return self._symmetry_definition_files
 
     def get_wildtype_file(self) -> Union[str, bytes]:
-        """Retrieve the wild-type file name from DesignDirectory"""
+        """Retrieve the wild-type file name from PoseDirectory"""
         wt_file = glob(self.asu_path)
         assert len(wt_file) == 1, 'More than one matching file found during search %s' % self.asu_path
 
         return wt_file[0]
 
     def get_designs(self) -> List[Union[str, bytes]]:  # design_type: str = PUtils.interface_design
-        """Return the paths of all design files in a DesignDirectory"""
+        """Return the paths of all design files in a PoseDirectory"""
         return sorted(glob(os.path.join(self.designs, '*.pdb')))
         # return sorted(glob(os.path.join(self.designs, '*%s*.pdb' % design_type)))
 
@@ -1226,7 +1229,7 @@ class DesignDirectory:  # (JobResources):
                 self.fragment_observations = self.pose.return_fragment_observations()
                 frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
                 self.info['fragments'] = self.fragment_observations
-                self.pickle_info()  # Todo remove once DesignDirectory state can be returned to SymDesign dispatch w/ MP
+                self.pickle_info()  # Todo remove once PoseDirectory state can be returned to SymDesign dispatch w/ MP
         # else:
         #     raise DesignError('Design hit a snag that shouldn\'t have happened. Please report to the developers')
 
@@ -1665,7 +1668,7 @@ class DesignDirectory:  # (JobResources):
         refinement (FastRelax), redesign (FastDesign), and metrics collection (Filters & SimpleMetrics)
 
         Stores job variables in a [stage]_flags file and the command in a [stage].sh file. Sets up dependencies based
-        on the DesignDirectory
+        on the PoseDirectory
         """
         # Set up the command base (rosetta bin and database paths)
         if self.scout:
@@ -1807,7 +1810,7 @@ class DesignDirectory:  # (JobResources):
         """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
         master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
-        exists. Finally, the DesignDirectory will be used as a back up
+        exists. Finally, the PoseDirectory will be used as a back up
 
         Args:
             refined: Whether to use the refined pdb from the refined pdb source directory
@@ -1828,7 +1831,7 @@ class DesignDirectory:  # (JobResources):
         """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
         master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
-        exists. Finally, the DesignDirectory will be used as a back up
+        exists. Finally, the PoseDirectory will be used as a back up
 
         Args:
             structures: The Structure objects you would like to transform
@@ -1910,7 +1913,7 @@ class DesignDirectory:  # (JobResources):
             idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
             oligomer_files = []
             for idx, name in enumerate(self.entity_names, 1):
-                oligomer_files.extend(sorted(glob(os.path.join(path, '%s*.pdb*' % name))))  # first * is DesignDirectory
+                oligomer_files.extend(sorted(glob(os.path.join(path, '%s*.pdb*' % name))))  # first * is PoseDirectory
             assert len(oligomer_files) == idx, \
                 'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
                 % (idx, len(oligomer_files), os.path.join(path, '*.pdb*'), oligomer_files)
@@ -1924,7 +1927,7 @@ class DesignDirectory:  # (JobResources):
             'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.entity_names))
 
     def load_pose(self, source: str = None, entities: List[Structure] = None):
-        """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
+        """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
 
         Handles clash testing and writing the assembly if those options are True
@@ -1967,7 +1970,7 @@ class DesignDirectory:  # (JobResources):
             for idx, entity in enumerate(self.pose.entities):
                 if entity.number_of_monomers != self.sym_entry.group_subunit_numbers[idx]:
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
-                # write out new oligomers to the DesignDirectory
+                # write out new oligomers to the PoseDirectory
                 if self.write_oligomers:
                     entity.write_oligomer(out_path=os.path.join(self.path, '%s_oligomer.pdb' % entity.name))
         else:
@@ -2239,7 +2242,7 @@ class DesignDirectory:  # (JobResources):
     @close_logs
     @remove_structure_memory
     def expand_asu(self):
-        """For the design info given by a DesignDirectory source, initialize the Pose with self.source file,
+        """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
         self.symmetry, and self.log objects then expand the design given the provided symmetry operators and write to a
         file
 
@@ -2253,13 +2256,13 @@ class DesignDirectory:  # (JobResources):
             self.log.info('Symmetrically expanded assembly file written to: "%s"' % self.assembly_path)
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.expand_asu.__name__)
-        self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
     def generate_interface_fragments(self):
-        """For the design info given by a DesignDirectory source, initialize the Pose then generate interfacial fragment
+        """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
         if not self.fragment_db:
@@ -2272,7 +2275,7 @@ class DesignDirectory:  # (JobResources):
         self.fragment_observations = self.pose.return_fragment_observations()
         self.info['fragments'] = self.fragment_observations
         self.info['fragment_source'] = self.fragment_source
-        self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     def identify_interface(self):
         """Find the interface(s) between each Entity in the Pose
@@ -2330,7 +2333,7 @@ class DesignDirectory:  # (JobResources):
     @close_logs
     @remove_structure_memory
     def interface_design(self):
-        """For the design info given by a DesignDirectory source, initialize the Pose then prepare all parameters for
+        """For the design info given by a PoseDirectory source, initialize the Pose then prepare all parameters for
         interfacial redesign between Pose Entities. Aware of symmetry, design_selectors, fragments, and
         evolutionary information in interface design
         """
@@ -2365,7 +2368,7 @@ class DesignDirectory:  # (JobResources):
             self.refine(to_design_directory=True)
 
         self.rosetta_interface_design()
-        self.pickle_info()  # Todo remove once DesignDirectory state can be returned to the SymDesign dispatch w/ MP
+        self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -2390,7 +2393,7 @@ class DesignDirectory:  # (JobResources):
         background = {residue: {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3
                                 if self.background_profile[residue.number].get(aa, -1) > threshold}
                       for residue in self.pose.pdb.get_residues(self.interface_design_residues)}
-        # include the wild-type residue from DesignDirectory Pose source and the residue identity of the selected design
+        # include the wild-type residue from PoseDirectory Pose source and the residue identity of the selected design
         wt = {residue: {self.background_profile[residue.number].get('type'), protein_letters_3to1[residue.type.title()]}
               for residue in background}
         directives = dict(zip(background.keys(), repeat(None)))
@@ -2472,7 +2475,7 @@ class DesignDirectory:  # (JobResources):
     # @profile  # memory_profiler
     def design_analysis(self, merge_residue_data: bool = False, save_trajectories: bool = True, figures: bool = False) \
             -> pd.Series:  # Todo interface_design_analysis
-        """Retrieve all score information from a DesignDirectory and write results to .csv file
+        """Retrieve all score information from a PoseDirectory and write results to .csv file
 
         Args:
             merge_residue_data: Whether to incorporate residue data into Pose DataFrame
@@ -3805,7 +3808,7 @@ class DesignDirectory:  # (JobResources):
         return self.name
 
     def __eq__(self, other):
-        if isinstance(other, DesignDirectory):
+        if isinstance(other, PoseDirectory):
             return self.__key() == other.__key()
         return NotImplemented
 
@@ -3836,13 +3839,13 @@ def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
 
 
 def set_up_directory_objects(design_list, mode=PUtils.interface_design, project=None):
-    """Create DesignDirectory objects from a directory iterable. Add program_root if using DesignDirectory strings"""
-    return [DesignDirectory.from_nanohedra(design_path, nanohedra_output=True, mode=mode, project=project)
+    """Create PoseDirectory objects from a directory iterable. Add program_root if using PoseDirectory strings"""
+    return [PoseDirectory.from_nanohedra(design_path, nanohedra_output=True, mode=mode, project=project)
             for design_path in design_list]
 
 
 def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
-    pseudo_dir = DesignDirectory(path, nanohedra_output=False)
+    pseudo_dir = PoseDirectory(path, nanohedra_output=False)
     # pseudo_dir.path = os.path.dirname(wildtype)
     pseudo_dir.composition = os.path.dirname(path)
     pseudo_dir.designs = directory

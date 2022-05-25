@@ -87,7 +87,7 @@ fragment_profile = 'fragment_profile'
 protein_data = 'ProteinData'
 sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
 # profiles = 'profiles'
-design_directory = 'Designs'
+pose_directory = 'Designs'
 
 data = 'data'
 pdbs_outdir = 'designs'  # was rosetta_pdbs/ 1/25/21

@@ -865,7 +865,7 @@ def collect_nanohedra_designs(files: Sequence = None, directory: str = None, doc
 
 def get_base_nanohedra_dirs(base_dir):
     """Find all master directories corresponding to the highest output level of Nanohedra.py outputs. This corresponds
-    to the DesignDirectory symmetry attribute
+    to the PoseDirectory symmetry attribute
     """
     nanohedra_dirs = []
     for root, dirs, files in os.walk(base_dir, followlinks=True):

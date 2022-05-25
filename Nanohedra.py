@@ -156,7 +156,7 @@ if __name__ == '__main__':
                 # with open(master_log_filepath, 'a+') as master_log_file:
                 master_logger.info('Docking %s / %s' % (pdb1_name, pdb2_name))
 
-                # Output Directory  # Todo DesignDirectory
+                # Output Directory  # Todo PoseDirectory
                 # outdir = os.path.join(master_outdir, '%s_%s' % (pdb1_name, pdb2_name))
                 # if not os.path.exists(outdir):
                 #     os.makedirs(outdir)

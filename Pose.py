@@ -3308,7 +3308,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.log.debug('Entities: %s' % ', '.join(entity.name for entity in self.entities))
         self.log.debug('Active Entities: %s' % ', '.join(entity.name for entity in self.active_entities))
 
-        # we get interface residues for the designable entities as well as interface_topology at DesignDirectory level
+        # we get interface residues for the designable entities as well as interface_topology at PoseDirectory level
         if fragments:
             if not self.fragment_db:
                 self.connect_fragment_database(source=fragment_db)
@@ -3360,7 +3360,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=des_dir.sequences)
                 entity.add_profile(evolution=evolution, fragments=fragments, out_path=profiles_path)
 
-        # Update DesignDirectory with design information
+        # Update PoseDirectory with design information
         if fragments:  # set pose.fragment_profile by combining entity frag profile into single profile
             self.combine_fragment_profile([entity.fragment_profile for entity in self.entities])
             fragment_pssm_file = self.write_pssm_file(self.fragment_profile, PUtils.fssm, out_path=des_dir.data)
