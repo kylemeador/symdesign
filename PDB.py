@@ -34,8 +34,8 @@ class PDB(Structure):
     Can pass atoms, residues, chains, entities, coords, metadata (PDB), name, seqres, multimodel, pose_format,
     and solve_discrepancy to initialize
     """
-    def __init__(self, file=None, atoms=None, residues=None, chains=None, entities=None, coords=None, metadata=None,
-                 log=False, **kwargs):
+    def __init__(self, file=None, chains=None, entities=None, metadata=None, log=False, **kwargs):
+        #        atoms=None, residues=None, coords=None,
         # PDB defaults to Structure logger (log is False)
         super().__init__(log=log, **kwargs)
         self.api_entry = None
@@ -107,14 +107,17 @@ class PDB(Structure):
 
     @classmethod
     def from_file(cls, file, **kwargs):
+        """Create a new PDB from a .pdb formatted file"""
         return cls(file=file, **kwargs)
 
     @classmethod
     def from_chains(cls, chains, **kwargs):
-        return cls(chains=chains, **kwargs)
+        """Create a new PDB from a container of Chain objects. Automatically renames all chains"""
+        return cls(chains=chains, rename_chains=True, **kwargs)
 
     @classmethod
     def from_entities(cls, entities, **kwargs):
+        """Create a new PDB from a container of Entity objects"""
         return cls(entities=entities, **kwargs)
 
     @property
@@ -694,7 +697,7 @@ class PDB(Structure):
             error_string = 'orient_oligomer could not orient %s%s' % (pdb_file_name, log_message)
             raise RuntimeError(error_string)
 
-        oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, log=log)
+        oriented_pdb = PDB.from_file(orient_output, name=self.name, pose_format=False, entities=False, log=log)
         orient_fixed_struct = oriented_pdb.chains[0]
         if multicomponent:
             moving_struct = self.entities[0]
