@@ -163,7 +163,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     # Todo
                 # remove any mirror specific naming from fetch_pdb_file
                 file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
-                pdb = PDB.from_file(file_path, name=file_name, pose_format=False)  # , log=None)
+                pdb = PDB.from_file(file_path, name=file_name)  # , log=None)
                 if entity:  # replace pdb from fetched file with the entity pdb
                     # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
                     entity = pdb.entity(entry_entity)
@@ -172,7 +172,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     else:  # write out the entity as parsed. since this is assembly we should get the correct state
                         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
                     # Todo make Entity capable of orient() then don't need this ugly mechanism
-                    pdb = PDB.from_chains(entity.chains, pose_format=False, entity_names=[entry_entity])  # , log=None)
+                    pdb = PDB.from_chains(entity.chains, entity_names=[entry_entity])  # , log=None)
                     pdb.entities = [entity]
                 else:  # orient the whole set of chains based on orient() multicomponent solution
                     # entity = pdb.entities[0]  # assume that there is only one entity and grab the first
@@ -184,7 +184,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 #         entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, entry_entity_base))
                 #     else:  # write out the entity as parsed. since this is assembly we should get the correct state
                 #         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, entry_entity_base))
-                #     pdb = PDB.from_chains(entity.chains, pose_format=False, entity_names=[entry_entity])  # , log=None)
+                #     pdb = PDB.from_chains(entity.chains, entity_names=[entry_entity])  # , log=None)
                 # else:
                 #     raise ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
 
@@ -578,8 +578,7 @@ class FragmentDB:
 
     def get_monofrag_cluster_rep_dict(self):
         self.reps = {int(os.path.splitext(file)[0]):
-                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, pose_format=False,
-                                   entities=False, log=None)
+                     PDB.from_file(os.path.join(root, file), solve_discrepancy=False, entities=False, log=None)
                      for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
@@ -594,8 +593,8 @@ class FragmentDB:
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type] = {}
 
                 for file in files:
-                    ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), solve_discrepancy=False,
-                                                             pose_format=False, entities=False, log=None)
+                    ijk_frag_cluster_rep_pdb = \
+                        PDB.from_file(os.path.join(root, file), solve_discrepancy=False, entities=False, log=None)
                     # mapped_chain_idx = file.find('mappedchain')
                     # ijk_cluster_rep_mapped_chain = file[mapped_chain_idx + 12:mapped_chain_idx + 13]
                     partner_chain_idx = file.find('partnerchain')

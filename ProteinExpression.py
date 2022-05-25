@@ -290,7 +290,7 @@ def find_matching_expression_tags(uniprot_id=None, pdb_code=None, chain=None):
     #     matching_pdb, chain = matching_pdb_chain.split('.')
     #     # pdb_chain_d[matching_pdb] = chain  # This is essentially a set as duplicates are overwritten
     # # # for matching_pdb, chain in pdb_chain_d.items():
-    # #     partner_pdb = PDB.from_file(Pose.fetch_pdb_file(matching_pdb), log=None, pose_format=False, entities=False)
+    # #     partner_pdb = PDB.from_file(Pose.fetch_pdb_file(matching_pdb), log=None, entities=False)
     # #     # partner_d = AnalyzeMutatedSequences.get_pdb_sequences(Pose.retrieve_pdb_file_path(matching_pdb),
     # #     #                                                       chain=pdb_chain_d[matching_pdb], source='seqres')
     # #     partner_sequences.append(partner_pdb.reference_sequence[chain])

@@ -2613,8 +2613,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             else:
                 found_chain_ids.append(entity.chain_id)
 
-        return PDB.from_entities(entities, name='asu', log=self.log, pose_format=False,
-                                 biomt_header=self.format_biomt(), cryst_record=self.cryst_record, **kwargs)
+        return PDB.from_entities(entities, name='asu', log=self.log, biomt_header=self.format_biomt(),
+                                 cryst_record=self.cryst_record, **kwargs)
 
     def set_contacting_asu(self, **kwargs):
         """From the Pose Entities, find the maximal contacting Chain for each of the entities and set the Pose.asu
@@ -2623,7 +2623,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self._pdb: To a PDB object with the minimal set of Entities containing the maximally touching configuration
         """
         entities = self.find_contacting_asu(**kwargs)
-        self._pdb = PDB.from_entities(entities, name='asu', log=self.log, pose_format=False, **kwargs)
+        self._pdb = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)
 
     # def handle_flags(self, design_selector=None, fragment_db=None, ignore_clashes=False, **kwargs):
     #     self.ignore_clashes = ignore_clashes
