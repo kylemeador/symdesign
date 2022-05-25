@@ -373,6 +373,8 @@ parser_options_arguments = {
     ('-e', '--entry', '--%s' % sym_entry): dict(type=int, default=None, dest='sym_entry',
                                                 help='The entry number of %s docking combinations to use'
                                                      % nano.title()),
+    ('--set_up',): dict(action='store_true',
+                        help='Show the %s set up instructions\nDefault=%(default)s'),  # Todo allow SetUp.py to run main
     ('--skip_logging',): dict(action='store_true',
                               help='Skip logging output to files and direct all logging to stream?'
                                    '\nDefault=%(default)s'),
