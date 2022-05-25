@@ -2127,31 +2127,32 @@ class Structure(StructureBase):
         """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
         # required_types = {'N', 'CA', 'O'}  # 'C', Removing this for fragment library guide atoms...
         required_types = {'N', 'CA', 'C', 'O'}
-        remove_atom_indices = []
-        new_residues = []
-        atom_indices, found_types = [], set()
+        new_residues, remove_atom_indices, found_types = [], [], set()
         current_residue_number = self.atoms[0].residue_number
-        # residue_idx = 0
+        start_atom_index = 0
         for idx, atom in enumerate(self.atoms):
             # if the current residue number is the same as the prior number and the atom.type is not already present
+            # We get rid of alternate conformations upon PDB load, so must be a new residue with bad numbering
             if atom.residue_number == current_residue_number and atom.type not in found_types:
-                atom_indices.append(idx)
+                # atom_indices.append(idx)
                 found_types.add(atom.type)
             else:
-                if not required_types.difference(found_types):  # empty set if properly added
-                    new_residues.append(
-                        Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords, log=self._log))
-                else:  # remove from atoms and coords
-                    remove_atom_indices.extend(atom_indices)
-                # residue_idx += 1
-                found_types, atom_indices = {atom.type}, [idx]
+                if required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
+                    remove_atom_indices.extend(list(range(start_atom_index, idx)))
+                else:  # proper format
+                    new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), atoms=self._atoms,
+                                                coords=self._coords, log=self._log))
+                start_atom_index = idx
+                found_types = {atom.type}  # atom_indices = [idx]
                 current_residue_number = atom.residue_number
-        # ensure last residue is added after iteration is complete
-        if not required_types.difference(found_types):  # empty set if properly added
-            new_residues.append(
-                Residue(atom_indices=atom_indices, atoms=self._atoms, coords=self._coords, log=self._log))
-        else:  # remove from atoms and coords
-            remove_atom_indices.extend(atom_indices)
+
+        # ensure last residue is added after stop iteration
+        if required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
+            remove_atom_indices.extend(list(range(start_atom_index, idx)))
+        else:  # proper format
+            new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), atoms=self._atoms,
+                                        coords=self._coords, log=self._log))
+
         self.residue_indices = list(range(len(new_residues)))
         self.residues = new_residues
 
@@ -2160,6 +2161,68 @@ class Structure(StructureBase):
         for index in remove_atom_indices[::-1]:  # ensure popping happens in reverse
             atom_indices.pop(index)
         self.atom_indices = atom_indices
+
+    # in an alt_location world, there may be some use to this. however above works great with current parsing
+    # def create_residues(self):
+    #     """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
+    #     # required_types = {'N', 'CA', 'O'}  # 'C', Removing this for fragment library guide atoms...
+    #     required_types = {'N', 'CA', 'C', 'O'}
+    #     start_indices, residue_ranges = [], []
+    #     remove_atom_indices = []
+    #     remove_indices = []
+    #     new_residues = []
+    #     atom_indices, found_types = [], set()
+    #     current_residue_number = self.atoms[0].residue_number
+    #     start_atom_index, residue_idx = 0, 0
+    #     for idx, atom in enumerate(self.atoms):
+    #         # if the current residue number is the same as the prior number and the atom.type is not already present
+    #         # We get rid of alternate conformations upon PDB load, so must be a new residue with bad numbering
+    #         if atom.residue_number == current_residue_number and atom.type not in found_types:
+    #             atom_indices.append(idx)
+    #             found_types.add(atom.type)
+    #         # if atom.residue_number == current_residue_number:  # current residue number is the same as the prior number
+    #         #     if atom.type not in found_types:  # the atom.type is not already present
+    #         #         # atom_indices.append(idx)
+    #         #         found_types.add(atom.type)
+    #         #     else:  # atom is already present. We got rid of alternate conformations upon PDB load, so new residue
+    #         #         remove_indices.append(idx)
+    #         else:  # we are starting a new residue
+    #             if required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
+    #                 remove_atom_indices.append(list(range(start_atom_index, idx)))  # remove_indices
+    #             else:  # proper format
+    #                 start_indices.append(start_atom_index)
+    #                 residue_ranges.append(len(found_types))
+    #                 # only add those indices that are duplicates was used without alternative conformations
+    #                 remove_atom_indices.append(remove_indices)  # <- empty list
+    #             # remove_indices = []
+    #             start_atom_index = idx
+    #             found_types = {atom.type}  # atom_indices = [idx]
+    #             current_residue_number = atom.residue_number
+    #
+    #     # ensure last residue is added after stop iteration
+    #     if required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
+    #         remove_atom_indices.append(atom_indices)
+    #     else:  # proper format
+    #         start_indices.append(start_atom_index)
+    #         residue_ranges.append(len(found_types))
+    #         # only add those indices that are duplicates was used without alternative conformations
+    #         remove_atom_indices.append(remove_indices)  # <- empty list
+    #
+    #     # remove bad atoms and correct atom_indices
+    #     # atom_indices = self.atom_indices
+    #     atoms = self.atoms
+    #     for indices in remove_atom_indices[::-1]:  # ensure popping happens in reverse
+    #         for index in indices[::-1]:  # ensure popping happens in reverse
+    #             atoms.pop(index)  # , atom_indices.pop(index)
+    #
+    #     self.atom_indices = list(range(len(atoms)))  # atom_indices
+    #     self.atoms = atoms
+    #
+    #     for start_index, residue_range in zip(start_indices, residue_ranges):
+    #         new_residues.append(Residue(atom_indices=list(range(start_atom_index, start_atom_index + residue_range)),
+    #                                     atoms=self._atoms, coords=self._coords, log=self._log))
+    #     self.residue_indices = list(range(len(new_residues)))
+    #     self.residues = new_residues
 
     def residue(self, residue_number, pdb=False):
         """Retrieve the Residue specified
