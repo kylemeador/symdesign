@@ -171,7 +171,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                         entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
                     else:  # write out the entity as parsed. since this is assembly we should get the correct state
                         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
-                    # Todo make Entity  capable of orient() then don't need this ugly mechanism
+                    # Todo make Entity capable of orient() then don't need this ugly mechanism
                     pdb = PDB.from_chains(entity.chains, pose_format=False, entity_names=[entry_entity])  # , log=None)
                     pdb.entities = [entity]
                 else:  # orient the whole set of chains based on orient() multicomponent solution
