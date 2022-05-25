@@ -1349,10 +1349,10 @@ class DesignDirectory:  # (JobResources):
             raise FileNotFoundError('The specified pose metrics file was not declared and cannot be found!')
 
     def retrieve_pose_metrics_from_file(self) -> List[Dict]:
-        """Gather information for the docked Pose from Nanohedra output. Includes coarse fragment metrics
+        """Gather information for the docked Pose from a Nanohedra output. Includes coarse fragment metrics
 
         Returns:
-            (list[dict])
+            pose_transformation operations
         """
         try:
             with open(self.pose_file, 'r') as f:
@@ -1937,7 +1937,7 @@ class DesignDirectory:  # (JobResources):
             return
 
         rename_chains = True  # because the result of entities, we should rename
-        if not entities and not self.source or not os.path.exists(self.source):
+        if not entities and not self.source or not os.path.exists(self.source):  # Todo minimize I/O with transform...
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             self.log.info('No source file found. Fetching source from Database and transforming to Pose')
             self.transform_oligomers_to_pose()
