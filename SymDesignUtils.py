@@ -283,26 +283,26 @@ def pickle_object(target_object: Any, name: str = None, out_path: Union[str, byt
     return file_name
 
 
-def filter_dictionary_keys(dictionary: Dict, keys: Iterable, remove: bool = False) -> Dict[Dict]:
+def filter_dictionary_keys(dictionary: Dict, keys: Iterable, keep: bool = True) -> Dict[Any, Dict[Any, Any]]:
     """Clean a dictionary by passing specified keys. Default keeps all specified keys
 
     Args:
         dictionary: {outer_dictionary: {key: value, key2: value2, ...}, ...}
         keys: [key2, key10] Iterator of keys to be removed from dictionary
-        remove: Whether to remove (True) specified keys
+        keep: Whether to keep (True) or remove (False) specified keys
     Returns:
         {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
     """
-    if remove:
+    if keep:
+        return {key: dictionary[key] for key in keys if key in dictionary}
+    else:
         for key in keys:
             dictionary.pop(key, None)
 
         return dictionary
-    else:
-        return {key: dictionary[key] for key in keys if key in dictionary}
 
 
-def remove_interior_keys(dictionary: Dict, keys: Iterable, keep: bool = False) -> Dict[Dict]:
+def remove_interior_keys(dictionary: Dict, keys: Iterable, keep: bool = False) -> Dict[Any, Dict[Any, Any]]:
     """Clean specified keys from a dictionaries internal dictionary. Default removes the specified keys
 
     Args:
@@ -312,15 +312,15 @@ def remove_interior_keys(dictionary: Dict, keys: Iterable, keep: bool = False) -
     Returns:
         {outer_dictionary: {key: value, ...}, ...} - Cleaned dictionary
     """
-    if not keep:
+    if keep:
+        return {entry: {key: dictionary[entry][key] for key in dictionary[entry] if key in keys}
+                for entry in dictionary}
+    else:
         for entry in dictionary:
             for key in keys:
                 dictionary[entry].pop(key, None)
 
         return dictionary
-    else:
-        return {entry: {key: dictionary[entry][key] for key in dictionary[entry] if key in keys}
-                for entry in dictionary}
 
 
 def index_intersection(index_groups: Iterable[Iterable]) -> List:
