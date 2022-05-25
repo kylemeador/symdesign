@@ -917,10 +917,9 @@ class PoseDirectory:  # (JobResources):
         if self.nanohedra_output:
             self.path = os.path.join(root, pose_id.replace('-', os.sep))
         else:
-            self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
-            self.path = os.path.join(root, 'Projects',
-                                     pose_id.replace('_%s-', '_%s%s'
-                                                     % (PUtils.pose_directory, PUtils.pose_directory, os.sep)))
+            # self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
+            self.path = os.path.join(root, 'Projects', pose_id.replace('_%s-' % PUtils.pose_directory,
+                                                                       '_%s%s' % (PUtils.pose_directory, os.sep)))
 
     # def link_master_directory(self, master_db=None):  # UNUSED. Could be useful in case where root is unknown
     #     """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes
