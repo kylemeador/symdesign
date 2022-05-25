@@ -997,8 +997,6 @@ class PoseSpecification(Dialect):
             if idx == 2:
                 all_design_directives = all_info[idx]
         self.all_poses, self.design_names = list(map(str.strip, all_poses)), list(map(str.strip, design_names))
-        # print(all_info)
-        # print('all_poses ', all_poses[:10])
 
         # first split directives by white space, then by directive_delimiter
         # self.directives = \
@@ -1019,7 +1017,14 @@ class PoseSpecification(Dialect):
         # print('Total Design Directives', self.directives)
 
     def return_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
-        return zip(self.all_poses, self.design_names, self.directives)
+        if len(self.all_poses) == len(self.design_names) == len(self.directives):  # specification file
+            # return zip(self.all_poses, self.design_names, self.directives)
+            design_names, directives = self.design_names, self.directives
+        else:  # pose file with possible extra garbage
+            # design_names, directives = repeat(self.design_names), repeat(self.directives)
+            design_names, directives = repeat(self.design_names), repeat(self.directives)
+
+        return zip(self.all_poses, design_names, directives)
 
     # def validate(self):
 

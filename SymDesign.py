@@ -808,12 +808,6 @@ if __name__ == '__main__':
         if args.nanohedra_output:
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
         elif args.specification_file:  # Todo, combine this with collect_designs
-            # # Grab all poses (directories) to be processed from either directory name or file
-            # with open(args.specification_file) as csv_file:
-            #     design_specification_dialect = Dialect()
-            #     # csv_lines = [line for line in reader(csv_file)]
-            #     all_poses, pose_design_numbers = zip(*reader(csv_file, dialect=))
-            # # all_poses, pose_design_numbers = zip(*csv_lines)
             if not args.directory:
                 raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
             design_specification = SDUtils.PoseSpecification(args.specification_file)
@@ -821,7 +815,7 @@ if __name__ == '__main__':
             pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
                                                            directives=directives, **queried_flags)
                                 for pose, design, directives in design_specification.return_directives()]
-            location = args.specification_file
+            location = f'{args.directory} & {args.specification_file}'
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           projects=args.project, singles=args.single)
