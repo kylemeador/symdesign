@@ -19,7 +19,7 @@ from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1t
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio, reference_aa_file, reference_residues_pkl
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from SequenceProfile import generate_alignment
-from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d
+from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d, Atoms, Residue, Coords
 from SymDesignUtils import remove_duplicates, start_log, DesignError, split_interface_residues, to_iterable, unpickle
 from utils.SymmetryUtils import valid_subunit_number, multicomponent_valid_subunit_number, valid_symmetries
 
@@ -346,10 +346,25 @@ class PDB(Structure):
         self.process_pdb(atoms=[Atom(*info) for info in atom_info], coords=coords,
                          seqres=seq_res_lines, **kwargs)
 
-    def process_pdb(self, atoms=None, residues=None, coords=None, chains=True, entities=True,
-                    seqres=None, pose_format=True, solve_discrepancy=True, rename_chains=False, **kwargs):
+    def process_pdb(self, atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
+                    coords: Union[List[List], np.ndarray, Coords] = None, rename_chains: bool = False,
+                    chains: Union[bool, Union[List[Chain], Structures]] = True, solve_discrepancy: bool = True,
+                    entities: Union[bool, Union[List[Entity], Structures]] = True, seqres: List[str] = None,
+                    pose_format: bool = False, **kwargs):
         #           reference_sequence=None, multimodel=False,
-        """Process Structure Atoms, Residues, Chain, and Entity to compliant Structure objects"""
+        """Process Structure Atoms, Residues, Chain, and Entity to compliant Structure objects
+
+        Args:
+            atoms:
+            residues:
+            coords:
+            rename_chains:
+            chains:
+            solve_discrepancy:
+            entities:
+            seqres:
+            pose_format:
+        """
         if atoms:
             # create Atoms object and Residue objects
             self.set_atoms(atoms)

@@ -2045,7 +2045,7 @@ class Structure(StructureBase):
         return
 
     def renumber_structure(self):
-        """Change the Atom and Residue numbering for the Structure"""
+        """Change the Atom and Residue numbering. Access the readtime Residue number in .pdb_number attribute"""
         self.renumber_atoms()
         self.renumber_residues()
         self.log.debug('%s was formatted in Pose numbering (residues now 1 to %d)'
