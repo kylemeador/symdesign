@@ -374,7 +374,7 @@ parser_options_arguments = {
                                                 help='The entry number of %s docking combinations to use'
                                                      % nano.title()),
     ('--set_up',): dict(action='store_true',
-                        help='Show the %s set up instructions\nDefault=%(default)s'),  # Todo allow SetUp.py to run main
+                        help='Show the %(prog)s set up instructions\nDefault=%(default)s'),  # Todo allow SetUp.py main
     ('--skip_logging',): dict(action='store_true',
                               help='Skip logging output to files and direct all logging to stream?'
                                    '\nDefault=%(default)s'),
@@ -688,11 +688,10 @@ parser_rename_chains = dict(rename_chains=dict(help='For given poses, rename the
 # parser_residue_selector = dict(residue_selector=dict(help='Generate a residue selection for %s' % program_name))
 # # parser_residue_selector = subparsers.add_parser('residue_selector', help='Generate a residue selection for %s' % program_name)
 # ---------------------------------------------------
-directory_needed = 'In addition to any file utilizing pose IDs, provide your\nworking %s to locate the pose-IDs of ' \
-                   'interest.\nThese include the options -df, -pf, and -sf.' % program_output
+directory_needed = 'Provide your working %s with -d to locate poses\nfrom a file utilizing pose IDs (-df, -pf, and ' \
+                   '-sf)' % program_output
 parser_input_group = dict(title='input arguments',
-                          description='These are the options for specifying where/which poses should\nbe included in '
-                                      'processing.\n%s' % directory_needed)
+                          description='Specify where/which poses should be included in processing.\n%s' % directory_needed)
 parser_input_arguments = {
     # ('-d', '--directory'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
     #                             help='Master directory where poses to be designed with %s are located. This may be the '
