@@ -11,7 +11,7 @@ import SymDesignUtils as SDUtils
 import SequenceProfile
 from Query.PDB import get_entity_reference_sequence, pdb_id_matching_uniprot_id
 from Query.utils import input_string
-from dependencies.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
+from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 
 # Globals

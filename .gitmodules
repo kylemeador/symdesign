@@ -1,6 +1,9 @@
 [submodule "DnaChisel"]
-    path = dependencies/DnaChisel
-    url = https://github.com/Edinburgh-Genome-Foundry/DnaChisel.git
+    path = DnaChisel
+    url = https://github.com/kylemeador/DnaChisel.git
 [submodule "Proglog"]
-    path = dependencies/Proglog
+    path = Proglog
     url = https://github.com/Edinburgh-Genome-Foundry/Proglog.git
+[submodule "codon-usage-tables"]
+    path = codon-usage-tables
+    url = https://github.com/Edinburgh-Genome-Foundry/codon-usage-tables.git
