@@ -2653,9 +2653,13 @@ class PoseDirectory:  # (JobResources):
         other_pose_metrics['observations'] = len(viable_designs)
         pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
         # Find protocols for protocol specific data processing
+        print('protocol_s', protocol_s)
         unique_protocols = protocol_s.unique().tolist()
+        print('unique_protocols', unique_protocols)
         protocol_dict = {idx: protocol for idx, protocol in enumerate(unique_protocols)}
+        print('protocol_dict', protocol_dict)
         designs_by_protocol = protocol_s.groupby(protocol_dict).indices
+        print('designs_by_protocol',designs_by_protocol)
         # remove refine and consensus if present as there was no design done over multiple protocols
         designs_by_protocol.pop(PUtils.refine, None)
         designs_by_protocol.pop(PUtils.stage[5], None)
@@ -3281,7 +3285,7 @@ class PoseDirectory:  # (JobResources):
         print('to_series().map', protocol_stats[1].index.to_series().map(std_rename))
         for idx, stat in enumerate(stats_metrics):
             if stat != mean:
-                protocol_stats[idx].index = protocol_stats[idx].rename(index=std_rename, axis=0)
+                protocol_stats[idx].index = protocol_stats[idx].rename(index=std_rename)
         print('After', protocol_stats[1].index)
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
