@@ -800,7 +800,6 @@ if __name__ == '__main__':
 
     job.fragment_db = fragment_db
     job.euler_lookup = euler_lookup
-    queried_flags['job_resources'] = job
 
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (PoseDirectory) to be processed from either database, directory, project name, or file
