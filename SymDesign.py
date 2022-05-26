@@ -791,10 +791,9 @@ if __name__ == '__main__':
     # Set up Databases
     if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
             or args.module in [PUtils.nano, PUtils.generate_fragments]:
-        # Todo parameterize when more available
-        logger.info('Initializing %s FragmentDatabase' % PUtils.biological_interfaces)
+        # logger.info('Initializing %s FragmentDatabase' % PUtils.biological_interfaces)
         # fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
-        fragment_db = fragment_factory(source=PUtils.biological_interfaces)
+        fragment_db = fragment_factory(source=args.fragment_database)
         euler_lookup = EulerLookup()
     else:
         fragment_db, euler_lookup = None, None

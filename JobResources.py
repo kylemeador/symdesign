@@ -19,6 +19,7 @@ from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
 from Structure import parse_stride, Entity
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
+from classes.EulerLookup import EulerLookup
 from classes.SymEntry import sdf_lookup, symmetry_factory
 from utils.MysqlPython import Mysql
 # import dependencies.bmdca as bmdca
@@ -821,8 +822,10 @@ class FragmentDatabaseFactory:
         if fragment_db:
             return fragment_db
         elif source == biological_interfaces:
+            logger.info(f'Initializing "{source}" "{FragmentDatabase.__name__}"')
             self._databases[source] = unpickle(biological_fragment_db_pickle)
         else:
+            logger.info(f'Initializing "{source}" "{FragmentDatabase.__name__}"')
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
             return self._databases[source]
 
@@ -891,8 +894,8 @@ class JobResources:
         self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
                                   self.stride_dir, self.sequences, self.profiles, sql=None)  # , log=logger)
         self.symmetry_factory = symmetry_factory
-        self.fragment_db = None
-        self.euler_lookup = None
+        self.fragment_db: FragmentDatabase | None = None
+        self.euler_lookup: EulerLookup | None = None
 
     @staticmethod
     def make_path(path: Union[str, bytes], condition: bool = True):
