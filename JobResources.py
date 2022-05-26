@@ -827,7 +827,8 @@ class FragmentDatabaseFactory:
         else:
             logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
-            return self._databases[source]
+
+        return self._databases[source]
 
     def get(self, source: str, **kwargs) -> FragmentDatabase:
         """Return the specified FragmentDatabase object singleton
