@@ -45,6 +45,7 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
+from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from utils.SymmetryUtils import identity_matrix, origin
 from JobResources import FragmentDatabase
@@ -69,6 +70,7 @@ class PoseDirectory:  # (JobResources):
     def __init__(self, design_path, pose_id=None, root=None, **kwargs):
         #        project=None, specific_design=None, dock=False, construct_pose=False,
         self.job_resources = kwargs.get('job_resources', None)
+        print(self.fragment_db)
 
         # PoseDirectory flags
         self.construct_pose = kwargs.get('construct_pose', False)
@@ -355,7 +357,8 @@ class PoseDirectory:  # (JobResources):
         return self.job_resources.clustered_poses  # program_root/Data/ClusteredPoses
 
     @property
-    def euler_lookup(self):
+    def euler_lookup(self) -> EulerLookup:
+        """Returns the JobResource EulerLookup"""
         return self.job_resources.euler_lookup
 
     @property
