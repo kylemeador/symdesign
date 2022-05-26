@@ -2658,13 +2658,14 @@ class PoseDirectory:  # (JobResources):
         pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
         # Find protocols for protocol specific data processing
         print('protocol_s', protocol_s)
-        unique_protocols = protocol_s.unique().tolist()
-        print('unique_protocols', unique_protocols)
-        protocol_dict = {idx: protocol for idx, protocol in enumerate(unique_protocols)}
-        print('protocol_dict', protocol_dict)
-        designs_by_protocol = protocol_s.groupby(protocol_dict).indices
-        print('designs_by_protocol',designs_by_protocol)
+        # unique_protocols = protocol_s.unique().tolist()
+        # print('unique_protocols', unique_protocols)
+        # protocol_dict = {idx: protocol for idx, protocol in enumerate(unique_protocols)}
+        # print('protocol_dict', protocol_dict)
+        designs_by_protocol = protocol_s.groupby(protocol_s).groups
+        print('designs_by_protocol', designs_by_protocol)
         # remove refine and consensus if present as there was no design done over multiple protocols
+        # Todo change if we did multiple rounds of these protocols
         designs_by_protocol.pop(PUtils.refine, None)
         designs_by_protocol.pop(PUtils.stage[5], None)
         # Get unique protocols
@@ -3302,7 +3303,7 @@ class PoseDirectory:  # (JobResources):
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
-        scout_protocols = list(filter(re.compile('.*scout').match, unique_protocols))
+        scout_protocols = list(filter(re.compile('.*scout').match, protocol_s.unique().tolist()))
         similarity_protocols = unique_design_protocols.difference([PUtils.refine] + scout_protocols)
         if background_protocol not in unique_design_protocols:
             self.log.warning('Missing background protocol "%s". No protocol significance measurements available '
