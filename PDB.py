@@ -61,10 +61,10 @@ class PDB(Structure):
         self.filepath = file  # PDB filepath if instance is read from PDB file
         self.header = []
         # self.reference_aa = None  # object for reference residue coordinates
-        self.multimodel = False
-        self.multimodel_chain_map = {}  # {model number: [chain_ids], ...}
-        self.resolution = kwargs.get('resolution', None)
-        self.reference_sequence = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
+        self.multimodel: bool = False
+        self.multimodel_chain_ids: list = []  # [multimodel_chain_id1, id2, ...]
+        self.resolution: float | None = kwargs.get('resolution', None)
+        self.reference_sequence: dict = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.sasa_chain = []
         # self.sasa_residues = []
         # self.sasa = []
@@ -262,7 +262,7 @@ class PDB(Structure):
                 #         else:  # line[21:22] != curr_chain_id  Chain naming IS incremental
                 #             curr_chain_id, chain = line[21:22], line[21:22]
                 #             discard = next(available_chain_ids)  # getting rid of a chain is prudent
-                #         self.multimodel_chain_map[chain] = curr_chain_id
+                #         self.multimodel_chain_ids[chain] = curr_chain_id
                 # else:
                 # chain = line[slice_chain]
                 # residue_number = int(line[slice_residue_number])
@@ -284,7 +284,7 @@ class PDB(Structure):
                 # start_of_new_model signifies that the next line comes after a new model
                 start_of_new_model = True
                 # model_number = line[6:].strip()
-                # self.multimodel_chain_map[model_number] = {}
+                # self.multimodel_chain_ids[model_number] = {}
                 if not self.multimodel:
                     self.multimodel = True
                     available_chain_ids = self.return_chain_generator()
@@ -344,20 +344,10 @@ class PDB(Structure):
                 self.header.append(line.strip())
             elif remark == 'CRYST1':
                 self.header.append(line.strip())
-                self.cryst_record = line  # .strip()
+                self.cryst_record = line  # don't .strip() so we can keep \n attached for output
                 self.uc_dimensions, self.space_group = self.parse_cryst_record(self.cryst_record)
-                a, b, c, ang_a, ang_b, ang_c = self.uc_dimensions
-                self.cryst = {'space': self.space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-
-        if self.multimodel:  # ensure we have a multimodel file, not just one with MODEL record
-            self.multimodel = False
-            for new_chain, old_chain in self.multimodel_chain_map.items():
-                if new_chain != old_chain:
-                    self.multimodel = True
-                    self.log.debug('Multimodel file found. Original Chains: %s' % ','.join(self.multimodel_chain_map.values()))
-                    break
-            if not self.multimodel:
-                self.log.debug('Multimodel file not respected, chains are all different')
+                self.cryst = {'space': self.space_group, 'a_b_c': tuple(self.uc_dimensions[:3]),
+                              'ang_a_b_c': tuple(self.uc_dimensions[3:])}
         if not atom_info:
             raise DesignError('The file %s has no atom records!' % self.filepath)
 
@@ -572,15 +562,22 @@ class PDB(Structure):
         """
         residues = self.residues
         # if solve_discrepancy:
-        residue_idx_start, prior_idx = 0, 0
-        chain_residues = []  # [0]]  # self.residues[0].index]}  <- should always be zero
-        for prior_idx, residue in enumerate(residues[1:]):  # start at the second index to avoid off by one
-            if residue.chain != residues[prior_idx].chain or residue.number <= residues[prior_idx].number:
+        residue_idx_start, prior_idx = 0, 1
+        prior_residue = residues[0]
+        chain_residues = []
+        for prior_idx, residue in enumerate(residues[1:], 1):  # start at the second index to avoid off by one
+            if residue.number <= prior_residue.number or residue.chain != prior_residue.chain:
                 # less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
-                chain_residues.append(list(range(residue_idx_start, prior_idx + 1)))  # + 1 adjusts to correct idx
-                residue_idx_start = prior_idx + 1
-        # perform with the final chain
-        chain_residues.append(list(range(residue_idx_start, prior_idx + 1)))  # + 1 adjusts to correct idx
+                chain_residues.append(list(range(residue_idx_start, prior_idx)))
+                residue_idx_start = prior_idx
+            prior_residue = residue
+
+        # perform after iteration which is the final chain
+        chain_residues.append(list(range(residue_idx_start, prior_idx)))
+
+        if self.multimodel:
+            self.multimodel_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
+            self.log.debug('Multimodel file found. Original Chains: %s' % ','.join(self.multimodel_chain_ids))
 
         number_of_chain_ids = len(self.chain_ids)
         if len(chain_residues) != number_of_chain_ids:  # we probably have a multimodel or some weird naming
@@ -974,7 +971,8 @@ class PDB(Structure):
                                 # if set(cluster_chains) == chain_set:  # we found the right cluster
                                 if not set(cluster_chains).difference(chains):  # we found the right cluster
                                     self.entity_info.append(
-                                        {'chains': [new_chn for new_chn, old_chn in self.multimodel_chain_map.items()
+                                        {'chains': [new_chn for new_chn, old_chn in zip(self.chain_ids,
+                                                                                        self.multimodel_chain_ids)
                                                     if old_chn in chains], 'name': ent_idx})
                                     success = True
                                     break  # this should be fine since entities will cluster together, unless they don't
@@ -1020,9 +1018,9 @@ class PDB(Structure):
             accession = self.dbref.get(chains[0].chain_id, None)
             # except (IndexError, AttributeError):
             #     raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s '
-            #                       'api_entry=%s, multimodel_chain_map=%s'
+            #                       'api_entry=%s, multimodel_chain_ids=%s'
             #                       % (self.name, self.create_entities.__name__, self.entity_info, self.assembly,
-            #                          self.multimodel, self.api_entry, self.multimodel_chain_map))
+            #                          self.multimodel, self.api_entry, self.multimodel_chain_ids))
             data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
             data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
