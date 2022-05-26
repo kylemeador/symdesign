@@ -563,18 +563,20 @@ class PDB(Structure):
         """
         residues = self.residues
         # if solve_discrepancy:
-        residue_idx_start, prior_idx = 0, 1
+        residue_idx_start, idx = 0, 1
         prior_residue = residues[0]
         chain_residues = []
-        for prior_idx, residue in enumerate(residues[1:], 1):  # start at the second index to avoid off by one
+        for idx, residue in enumerate(residues[1:], 1):  # start at the second index to avoid off by one
             if residue.number <= prior_residue.number or residue.chain != prior_residue.chain:
                 # less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
-                chain_residues.append(list(range(residue_idx_start, prior_idx)))
-                residue_idx_start = prior_idx
+                chain_residues.append(list(range(residue_idx_start, idx)))
+                print('create_chain:', residue_idx_start, idx)
+                residue_idx_start = idx
             prior_residue = residue
 
         # perform after iteration which is the final chain
-        chain_residues.append(list(range(residue_idx_start, prior_idx)))
+        print('create_chain:', residue_idx_start, idx)
+        chain_residues.append(list(range(residue_idx_start, idx)))
 
         if self.multimodel:
             self.multimodel_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
@@ -584,7 +586,7 @@ class PDB(Structure):
         if len(chain_residues) != number_of_chain_ids:  # we probably have a multimodel or some weird naming
             available_chain_ids = self.return_chain_generator()
             new_chain_ids = []
-            for chain_idx, residue_indices in enumerate(chain_residues):
+            for chain_idx in range(len(chain_residues)):
                 if chain_idx < number_of_chain_ids:  # use the chain_ids version
                     chain_id = self.chain_ids[chain_idx]
                 else:
