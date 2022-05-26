@@ -1,19 +1,9 @@
-import sys
 import re
 import os
 from functools import lru_cache
+from urllib.request import urlopen
 
-if sys.version_info[0] == 3:
-    import urllib.request
-
-    urlopen = urllib.request.urlopen
-else:
-    import urllib2
-
-    urlopen = urllib2.urlopen
-
-_this_dir = os.path.dirname(os.path.realpath(__file__))
-_tables_dir = os.path.join(_this_dir, "../codon-usage-tables", "codon_usage_data", "tables")
+_tables_dir = os.path.join(os.path.dirname(os.path.realpath(__file__)), "codon_usage_data", "tables")
 
 available_codon_tables_names = [filename[:-4] for filename in os.listdir(_tables_dir)]
 
