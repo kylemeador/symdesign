@@ -3157,8 +3157,6 @@ class PoseDirectory:  # (JobResources):
 
         # find the relative sasa of the complex and the unbound fraction
         buried_interface_residues = np.asarray(residue_df.loc[:, idx_slice[index_residues, 'bsa_total']] > 0)
-        print(buried_interface_residues.shape)
-        print(buried_interface_residues)
         core_or_interior = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] < 0.25
         support_not_rim_or_core = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_bound']] < 0.25
         core_residues = np.logical_and(core_or_interior, buried_interface_residues).rename(
@@ -3275,10 +3273,13 @@ class PoseDirectory:  # (JobResources):
         # change statistic names for all df that are not groupby means for the final trajectory dataframe
         print('protocol_stats')
         print('Before', protocol_stats[1].index)
+        print('Before', protocol_stats[idx].index.to_series())
+        std_rename = {protocol: f'{protocol}_{std}' for protocol in unique_design_protocols}
+        print('rename(', protocol_stats[1].rename(std_rename, axis=0))
+        print('to_series().map', protocol_stats[1].to_series().map(std_rename))
         for idx, stat in enumerate(stats_metrics):
             if stat != mean:
-                protocol_stats[idx].index = protocol_stats[idx].index.to_series().map(
-                    {protocol: '%s_%s' % (protocol, stat) for protocol in unique_design_protocols})
+                protocol_stats[idx].index = protocol_stats[idx].rename(std_rename, axis=0)
         print('After', protocol_stats[1].index)
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
