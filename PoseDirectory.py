@@ -2605,7 +2605,11 @@ class PoseDirectory:  # (JobResources):
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             assert metric_set == set(), 'Missing required metrics: "%s"' % ', '.join(metric_set)
             # Remove unneeded columns
+            # Todo remove not DEV
             protocol_s = scores_df[PUtils.groups]
+            scout_change_indices = [idx for idx in protocol_s[protocol_s.isna()].index if 'scout' in idx]
+            protocol_s[scout_change_indices] = 'scout'
+            # Todo Done remove
             # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
