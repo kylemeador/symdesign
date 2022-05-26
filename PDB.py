@@ -570,13 +570,11 @@ class PDB(Structure):
             if residue.number <= prior_residue.number or residue.chain != prior_residue.chain:
                 # less than or equal number should only happen with new chain. this SHOULD satisfy a malformed PDB
                 chain_residues.append(list(range(residue_idx_start, idx)))
-                print('create_chain:', residue_idx_start, idx)
                 residue_idx_start = idx
             prior_residue = residue
 
         # perform after iteration which is the final chain
-        print('create_chain:', residue_idx_start, idx)
-        chain_residues.append(list(range(residue_idx_start, idx)))
+        chain_residues.append(list(range(residue_idx_start, idx + 1)))  # have to increment as if next residue
 
         if self.multimodel:
             self.multimodel_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
