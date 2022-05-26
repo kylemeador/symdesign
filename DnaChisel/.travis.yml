@@ -1,0 +1,15 @@
+language: python
+python:
+  - "3.9"
+# command to install dependencies
+install:
+  - pip install coveralls pytest-cov pytest
+  - pip install matplotlib primer3-py genome_collector geneblocks
+  - sudo apt-get install ncbi-blast+ bowtie
+  - pip install -e .[reports]
+# command to run tests
+script:
+  - python -m pytest -v --cov dnachisel --cov-report term-missing
+
+after_success:
+  - coveralls
