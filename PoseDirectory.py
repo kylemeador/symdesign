@@ -3275,11 +3275,13 @@ class PoseDirectory:  # (JobResources):
         print('Before', protocol_stats[1].index)
         print('Before', protocol_stats[idx].index.to_series())
         std_rename = {protocol: f'{protocol}_{std}' for protocol in unique_design_protocols}
-        print('rename(', protocol_stats[1].rename(std_rename, axis=0))
-        print('to_series().map', protocol_stats[1].to_series().map(std_rename))
+        print('std_rename', std_rename)
+        print('rename index', protocol_stats[1].rename(index=std_rename))
+        print('rename axis 1', protocol_stats[1].rename(std_rename, axis=1))
+        print('to_series().map', protocol_stats[1].index.to_series().map(std_rename))
         for idx, stat in enumerate(stats_metrics):
             if stat != mean:
-                protocol_stats[idx].index = protocol_stats[idx].rename(std_rename, axis=0)
+                protocol_stats[idx].index = protocol_stats[idx].rename(index=std_rename, axis=0)
         print('After', protocol_stats[1].index)
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
