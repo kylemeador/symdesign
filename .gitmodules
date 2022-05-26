@@ -1,6 +1,6 @@
 [submodule "DnaChisel"]
     path = DnaChisel
-    url = https://github.com/kylemeador/DnaChisel.git
+    url = https://github.com/Edinburgh-Genome-Foundrykylemeador/DnaChisel.git
 [submodule "codon-usage-tables"]
-    path = codon-usage-tables
-    url = https://github.com/Edinburgh-Genome-Foundry/codon-usage-tables.git
+	path = codon-usage-tables
+	url = https://github.com/kylemeador/codon-usage-tables.git
