@@ -1273,7 +1273,7 @@ class SymmetricModel(Model):
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         if cryst1:
-            uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1_string=cryst1)
+            uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1)
 
         if sym_entry and isinstance(sym_entry, SymEntry):
             self.sym_entry = sym_entry

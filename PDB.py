@@ -42,24 +42,25 @@ class PDB(Structure):
         #        atoms=None, residues=None, coords=None,
         # PDB defaults to Structure logger (log is False)
         super().__init__(log=log, **kwargs)
-        self.api_entry = None
+        self.api_entry: dict | None = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        self.assembly = False
+        self.assembly: bool = False
         # self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
         # self.biomt = []
         # self.biomt_header = ''
-        self.chain_ids = []  # unique chain IDs
-        self.chains = []
-        self.cryst = kwargs.get('cryst', None)  # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
-        self.cryst_record = kwargs.get('cryst_record', None)
-        self.dbref = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
-        self.design = kwargs.get('design', False)  # assume not a design unless explicitly found to be a design
-        self.entities = []
-        self.entity_info = []  # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
+        self.chain_ids: list = []  # unique chain IDs
+        self.chains: list = []
+        self.cryst: dict[str, str | tuple[float]] | None = kwargs.get('cryst', None)
+        # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
+        self.cryst_record: str | None = kwargs.get('cryst_record', None)
+        self.dbref: dict = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
+        self.design: bool = kwargs.get('design', False)  # assume not a design unless explicitly found to be a design
+        self.entities: list = []
+        self.entity_info: list = []  # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
         # ^ ZERO-indexed for recap project!!!
-        self.filepath = file  # PDB filepath if instance is read from PDB file
-        self.header = []
+        self.filepath: str | bytes = file  # PDB filepath if instance is read from PDB file
+        self.header: list = []
         # self.reference_aa = None  # object for reference residue coordinates
         self.multimodel: bool = False
         self.multimodel_chain_ids: list = []  # [multimodel_chain_id1, id2, ...]
@@ -68,9 +69,9 @@ class PDB(Structure):
         # self.sasa_chain = []
         # self.sasa_residues = []
         # self.sasa = []
-        self.space_group = kwargs.get('space_group', None)
+        self.space_group: str = kwargs.get('space_group', None)
+        self.uc_dimensions: list[float] | None = kwargs.get('uc_dimensions', None)
         self.structure_containers.extend(['chains', 'entities'])
-        self.uc_dimensions = kwargs.get('uc_dimensions', None)
 
         if file:
             if entities is not None:  # if no entities are requested a False argument could be provided
@@ -1356,33 +1357,33 @@ class PDB(Structure):
         #
         # return asu_file_name
 
-    @staticmethod
-    def get_cryst_record(file):
-        with open(file, 'r') as f:
-            for line in f.readlines():
-                if line[0:6] == 'CRYST1':
-                    uc_dimensions, space_group = PDB.parse_cryst_record(line.strip())
-                    a, b, c, ang_a, ang_b, ang_c = uc_dimensions
-                    return {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
+    # @staticmethod
+    # def get_cryst_record(file):
+    #     with open(file, 'r') as f:
+    #         for line in f.readlines():
+    #             if line[0:6] == 'CRYST1':
+    #                 uc_dimensions, space_group = PDB.parse_cryst_record(line.strip())
+    #                 a, b, c, ang_a, ang_b, ang_c = uc_dimensions
+    #                 return {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
 
     @staticmethod
-    def parse_cryst_record(cryst1_string):
+    def parse_cryst_record(cryst_record) -> tuple[list[float], str]:
         """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
-        Returns:
-            (tuple[list, str])
+        Args:
+            cryst_record: The CRYST1 record in a .pdb file
         """
         try:
-            a = float(cryst1_string[6:15].strip())
-            b = float(cryst1_string[15:24].strip())
-            c = float(cryst1_string[24:33].strip())
-            ang_a = float(cryst1_string[33:40].strip())
-            ang_b = float(cryst1_string[40:47].strip())
-            ang_c = float(cryst1_string[47:54].strip())
-        except ValueError:
-            a, b, c = 0.0, 0.0, 0.0
-            ang_a, ang_b, ang_c = a, b, c
-        space_group = cryst1_string[55:66].strip()  # not in
-        return [a, b, c, ang_a, ang_b, ang_c], space_group
+            cryst, a, b, c, ang_a, ang_b, ang_c, *space_group = cryst_record.split()
+            # a = float(cryst1_record[6:15])
+            # b = float(cryst1_record[15:24])
+            # c = float(cryst1_record[24:33])
+            # ang_a = float(cryst1_record[33:40])
+            # ang_b = float(cryst1_record[40:47])
+            # ang_c = float(cryst1_record[47:54])
+        except ValueError:  # split and unpacking went wrong
+            a = b = c = ang_a = ang_b = ang_c = 0
+
+        return list(map(float, [a, b, c, ang_a, ang_b, ang_c])), cryst_record[55:66].strip()
 
     # def update_attributes(self, **kwargs):
     #     """Update PDB attributes for all member containers specified by keyword args"""
