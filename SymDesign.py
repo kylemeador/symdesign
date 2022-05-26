@@ -22,7 +22,7 @@ import psutil
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
 from Bio.Data.IUPACData import protein_letters
-from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
+from DnaChisel.dnachisel.DnaOptimizationProblem import NoSolutionError
 
 from FragDock import nanohedra_dock
 import PathUtils as PUtils
