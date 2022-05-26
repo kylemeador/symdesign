@@ -12,7 +12,7 @@ import SequenceProfile
 from Query.PDB import get_entity_reference_sequence, pdb_id_matching_uniprot_id
 from Query.utils import input_string
 from dependencies.DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
-    EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation, EnforceMeltingTemperature
+    EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
 
 # Globals
 logger = SDUtils.start_log(name=__name__)
@@ -622,7 +622,7 @@ def optimize_protein_sequence(sequence: str, species: str = 'e_coli') -> str:
                                                   UniquifyAllKmers(20),  # twist required
                                                   AvoidRareCodons(0.08, species=species),
                                                   EnforceTranslation(),
-                                                  # EnforceMeltingTemperature(mini=10, maxi=62, location=(1, seq_length)),
+    #                                             EnforceMeltingTemperature(mini=10, maxi=62, location=(1, seq_length)),
                                                   ])
 
     # Solve constraints and solve with regards to the objective
