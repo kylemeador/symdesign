@@ -2561,8 +2561,8 @@ class PoseDirectory:  # (JobResources):
                 # design_info.update({residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
                 #                          'hbond': 0} for residue in entity.residues})
             scores_df['number_hbonds'] = 0
-            protocol_s = scores_df[PUtils.groups]
-            remove_columns = rosetta_terms + unnecessary + [PUtils.groups]
+            protocol_s = scores_df.pop(PUtils.groups)
+            remove_columns = rosetta_terms + unnecessary
             residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
             # interface_hbonds = dirty_hbond_processing(all_design_scores)
@@ -2606,7 +2606,7 @@ class PoseDirectory:  # (JobResources):
             assert metric_set == set(), 'Missing required metrics: "%s"' % ', '.join(metric_set)
             # Remove unneeded columns
             # Todo remove not DEV
-            protocol_s = scores_df[PUtils.groups]
+            protocol_s = scores_df.pop(PUtils.groups)
             scout_change_indices = [idx for idx in protocol_s[protocol_s.isna()].index if 'scout' in idx]
             protocol_s[scout_change_indices] = 'scout'
             # Todo Done remove
@@ -2614,7 +2614,7 @@ class PoseDirectory:  # (JobResources):
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
-            remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary + [PUtils.groups]
+            remove_columns = per_res_columns + hbonds_columns + rosetta_terms + unnecessary
             # TODO remove dirty when columns are correct (after P432)
             #  and column tabulation precedes residue/hbond_processing
             interface_hbonds = dirty_hbond_processing(all_viable_design_scores)
@@ -3269,13 +3269,10 @@ class PoseDirectory:  # (JobResources):
         stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
 
         # change statistic names for all df that are not groupby means for the final trajectory dataframe
-        print('protocol_stats')
-        print('Before', protocol_stats[1].index)
         for idx, stat in enumerate(stats_metrics):
             if stat != mean:
                 protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
                                                                         for protocol in unique_design_protocols})
-        print('After', protocol_stats[1].index)
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         number_of_trajectories = len(trajectory_df)
