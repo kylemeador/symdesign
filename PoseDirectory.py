@@ -2514,10 +2514,6 @@ class PoseDirectory:  # (JobResources):
         idx_slice = pd.IndexSlice
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(1, pose_length + 1))
-        print('pose', len(residue_indices))
-        for idx, entity in enumerate(self.pose.entities):
-            print('idx', entity.number_of_residues)
-
         pose_source = 'pose_source'
         pose_sequences = {pose_source: self.pose.sequence}
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
@@ -2857,7 +2853,7 @@ class PoseDirectory:  # (JobResources):
         for design in viable_designs:  # includes the pose_source
             hydrophobicity_deviation_magnitude, new_collapse_islands, new_collapse_island_significance = [], [], []
             contact_order_collapse_z_sum, sequential_collapse_peaks_z_sum, sequential_collapse_z_sum, \
-            global_collapse_z_sum, collapse_concatenated = [], [], [], [], []
+                global_collapse_z_sum, collapse_concatenated = [], [], [], [], []
             for entity_idx, design_sequences in entity_sequences.items():
                 sequence = design_sequences[design]
                 sequence_length = len(sequence)
@@ -3424,65 +3420,65 @@ class PoseDirectory:  # (JobResources):
             sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
 
             # if figures:  # Todo ensure output is as expected then move below
-            # protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
-            #                        for design in designs}
-            # _path = os.path.join(self.all_scores, str(self))
-            # # Set up Labels & Plot the PC data
-            # protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
-            # integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
-            # pc_labels_group = [protocols_by_design[design] for design in residue_info]
-            # # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
-            # pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
-            # fig = plt.figure()
-            # # ax = fig.add_subplot(111, projection='3d')
-            # ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-            # # plt.cla()
+            #     protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
+            #                            for design in designs}
+            #     _path = os.path.join(self.all_scores, str(self))
+            #     # Set up Labels & Plot the PC data
+            #     protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
+            #     integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
+            #     pc_labels_group = [protocols_by_design[design] for design in residue_info]
+            #     # pc_labels_group = np.array([protocols_by_design[design] for design in residue_info])
+            #     pc_labels_int = [protocol_map[protocols_by_design[design]] for design in residue_info]
+            #     fig = plt.figure()
+            #     # ax = fig.add_subplot(111, projection='3d')
+            #     ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+            #     # plt.cla()
             #
-            # # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
-            # #     ax.scatter(seq_pc[pc_labels_group == label, 0],
-            # #                seq_pc[pc_labels_group == label, 1],
-            # #                seq_pc[pc_labels_group == label, 2],
-            # #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
-            # scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
-            #                      edgecolor='k')
-            # # handles, labels = scatter.legend_elements()
-            # # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
-            # # ax.legend(handles, labels, loc='upper right', title=groups)
-            # # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
-            # # # plt.axis('equal') # not possible with 3D graphs
-            # # plt.legend()  # No handles with labels found to put in legend.
-            # colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-            # custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
-            #                 for c in colors]
-            # ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
-            #           bbox_to_anchor=(1.0, .5))
-            # # # Add group mean to the plot
-            # # for name, label in integer_map.items():
-            # #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
-            # #                seq_pc[pc_labels_group == label, 1].mean(),
-            # #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
-            # ax.set_xlabel('PC1')
-            # ax.set_ylabel('PC2')
-            # ax.set_zlabel('PC3')
-            # # plt.legend(pc_labels_group)
-            # plt.savefig('%s_seq_pca.png' % _path)
-            # plt.clf()
-            # # Residue PCA Figure to assay multiple interface states
-            # fig = plt.figure()
-            # # ax = fig.add_subplot(111, projection='3d')
-            # ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
-            # scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
-            #                      c=pc_labels_int,
-            #                      cmap='Spectral', edgecolor='k')
-            # colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
-            # custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
-            #                 colors]
-            # ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
-            #           bbox_to_anchor=(1.0, .5))
-            # ax.set_xlabel('PC1')
-            # ax.set_ylabel('PC2')
-            # ax.set_zlabel('PC3')
-            # plt.savefig('%s_res_energy_pca.png' % _path)
+            #     # for color_int, label in integer_map.items():  # zip(pc_labels_group, pc_labels_int):
+            #     #     ax.scatter(seq_pc[pc_labels_group == label, 0],
+            #     #                seq_pc[pc_labels_group == label, 1],
+            #     #                seq_pc[pc_labels_group == label, 2],
+            #     #                c=color_int, cmap=plt.cm.nipy_spectral, edgecolor='k')
+            #     scatter = ax.scatter(seq_pc[:, 0], seq_pc[:, 1], seq_pc[:, 2], c=pc_labels_int, cmap='Spectral',
+            #                          edgecolor='k')
+            #     # handles, labels = scatter.legend_elements()
+            #     # # print(labels)  # ['$\\mathdefault{0}$', '$\\mathdefault{1}$', '$\\mathdefault{2}$']
+            #     # ax.legend(handles, labels, loc='upper right', title=groups)
+            #     # # ax.legend(handles, [integer_map[label] for label in labels], loc="upper right", title=groups)
+            #     # # plt.axis('equal') # not possible with 3D graphs
+            #     # plt.legend()  # No handles with labels found to put in legend.
+            #     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+            #     custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20)
+            #                     for c in colors]
+            #     ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+            #               bbox_to_anchor=(1.0, .5))
+            #     # # Add group mean to the plot
+            #     # for name, label in integer_map.items():
+            #     #     ax.scatter(seq_pc[pc_labels_group == label, 0].mean(),
+            #     #                seq_pc[pc_labels_group == label, 1].mean(),
+            #     #                seq_pc[pc_labels_group == label, 2].mean(), marker='x')
+            #     ax.set_xlabel('PC1')
+            #     ax.set_ylabel('PC2')
+            #     ax.set_zlabel('PC3')
+            #     # plt.legend(pc_labels_group)
+            #     plt.savefig('%s_seq_pca.png' % _path)
+            #     plt.clf()
+            #     # Residue PCA Figure to assay multiple interface states
+            #     fig = plt.figure()
+            #     # ax = fig.add_subplot(111, projection='3d')
+            #     ax = Axes3D(fig, rect=[0, 0, .7, 1], elev=48, azim=134)
+            #     scatter = ax.scatter(residue_energy_pc[:, 0], residue_energy_pc[:, 1], residue_energy_pc[:, 2],
+            #                          c=pc_labels_int,
+            #                          cmap='Spectral', edgecolor='k')
+            #     colors = [scatter.cmap(scatter.norm(i)) for i in integer_map.keys()]
+            #     custom_lines = [plt.Line2D([], [], ls='', marker='.', mec='k', mfc=c, mew=.1, ms=20) for c in
+            #                     colors]
+            #     ax.legend(custom_lines, [j for j in integer_map.values()], loc='center left',
+            #               bbox_to_anchor=(1.0, .5))
+            #     ax.set_xlabel('PC1')
+            #     ax.set_ylabel('PC2')
+            #     ax.set_zlabel('PC3')
+            #     plt.savefig('%s_res_energy_pca.png' % _path)
 
         # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
         if save_trajectories:
