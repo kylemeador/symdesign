@@ -2656,14 +2656,9 @@ class PoseDirectory:  # (JobResources):
         self.log.debug('Viable designs remaining after cleaning:\n\t%s' % ', '.join(viable_designs))
         other_pose_metrics['observations'] = len(viable_designs)
         pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
+
         # Find protocols for protocol specific data processing
-        print('protocol_s', protocol_s)
-        # unique_protocols = protocol_s.unique().tolist()
-        # print('unique_protocols', unique_protocols)
-        # protocol_dict = {idx: protocol for idx, protocol in enumerate(unique_protocols)}
-        # print('protocol_dict', protocol_dict)
         designs_by_protocol = protocol_s.groupby(protocol_s).groups
-        print('designs_by_protocol', designs_by_protocol)
         # remove refine and consensus if present as there was no design done over multiple protocols
         # Todo change if we did multiple rounds of these protocols
         designs_by_protocol.pop(PUtils.refine, None)
@@ -3081,12 +3076,6 @@ class PoseDirectory:  # (JobResources):
         # residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
         #                       left_index=True, right_index=True)
         index_residues = list(self.interface_design_residues)
-        # print('residue_df')
-        # print(residue_df.loc[:, idx_slice[index_residues, :]])
-        # print('per_residue_df')
-        # print(per_residue_df.loc[:, idx_slice[index_residues, :]])
-        # residue_df = pd.concat([residue_df.loc[:, idx_slice[index_residues, :]],
-        #                         per_residue_df.loc[:, idx_slice[index_residues, :]]], axis=1)
         residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
                               per_residue_df.loc[:, idx_slice[index_residues, :]],
                               left_index=True, right_index=True)
@@ -3282,15 +3271,10 @@ class PoseDirectory:  # (JobResources):
         # change statistic names for all df that are not groupby means for the final trajectory dataframe
         print('protocol_stats')
         print('Before', protocol_stats[1].index)
-        print('Before', protocol_stats[idx].index.to_series())
-        std_rename = {protocol: f'{protocol}_{std}' for protocol in unique_design_protocols}
-        print('std_rename', std_rename)
-        print('rename index', protocol_stats[1].rename(index=std_rename))
-        print('rename axis 1', protocol_stats[1].rename(std_rename, axis=1))
-        print('to_series().map', protocol_stats[1].index.to_series().map(std_rename))
         for idx, stat in enumerate(stats_metrics):
             if stat != mean:
-                protocol_stats[idx].index = protocol_stats[idx].rename(index=std_rename)
+                protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
+                                                                        for protocol in unique_design_protocols})
         print('After', protocol_stats[1].index)
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
