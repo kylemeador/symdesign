@@ -822,10 +822,10 @@ class FragmentDatabaseFactory:
         if fragment_db:
             return fragment_db
         elif source == biological_interfaces:
-            logger.info(f'Initializing "{source}" "{FragmentDatabase.__name__}"')
+            logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
             self._databases[source] = unpickle(biological_fragment_db_pickle)
         else:
-            logger.info(f'Initializing "{source}" "{FragmentDatabase.__name__}"')
+            logger.info(f'Initializing {source} {FragmentDatabase.__name__}')
             self._databases[source] = FragmentDatabase(source=source, **kwargs)
             return self._databases[source]
 

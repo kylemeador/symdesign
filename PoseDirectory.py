@@ -70,6 +70,7 @@ class PoseDirectory:  # (JobResources):
     def __init__(self, design_path, pose_id=None, root=None, **kwargs):
         #        project=None, specific_design=None, dock=False, construct_pose=False,
         self.job_resources = kwargs.get('job_resources', None)
+        print(self.job_resources)
         print(self.fragment_db)
 
         # PoseDirectory flags
