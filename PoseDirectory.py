@@ -3071,10 +3071,15 @@ class PoseDirectory:  # (JobResources):
         # Merge interface design specific residue metrics with total per residue metrics
         # residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
         #                       left_index=True, right_index=True)
-        print(residue_df)
-        print(per_residue_df)
-        residue_df = pd.merge(residue_df.loc[:, idx_slice[self.interface_design_residues, :]],
-                              per_residue_df.loc[:, idx_slice[self.interface_design_residues, :]],
+        index_residues = list(self.interface_design_residues)
+        print('residue_df')
+        print(residue_df.loc[:, idx_slice[index_residues, :]])
+        print('per_residue_df')
+        print(per_residue_df.loc[:, idx_slice[index_residues, :]])
+        residue_df = pd.concat([residue_df.loc[:, idx_slice[index_residues, :]],
+                                per_residue_df.loc[:, idx_slice[index_residues, :]]], axis=1)
+        residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
+                              per_residue_df.loc[:, idx_slice[index_residues, :]],
                               left_index=True, right_index=True)
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
@@ -3116,53 +3121,53 @@ class PoseDirectory:  # (JobResources):
         #     residue_df.loc[:, idx_slice[self.interface_residues, 'local_density']].mean(axis=1)
 
         # Make buried surface area (bsa) columns
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_design_residues,
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues,
                                                                  'sasa_hydrophobic_bound']]
                                      .rename(columns={'sasa_hydrophobic_bound': 'bsa_hydrophobic'}) -
-                                     residue_df.loc[:, idx_slice[self.interface_design_residues,
+                                     residue_df.loc[:, idx_slice[index_residues,
                                                                  'sasa_hydrophobic_complex']]
                                      .rename(columns={'sasa_hydrophobic_complex': 'bsa_hydrophobic'}))
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_design_residues, 'sasa_polar_bound']]
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_bound']]
                                      .rename(columns={'sasa_polar_bound': 'bsa_polar'}) -
-                                     residue_df.loc[:, idx_slice[self.interface_design_residues, 'sasa_polar_complex']]
+                                     residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_complex']]
                                      .rename(columns={'sasa_polar_complex': 'bsa_polar'}))
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_design_residues, 'bsa_hydrophobic']]
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues, 'bsa_hydrophobic']]
                                      .rename(columns={'bsa_hydrophobic': 'bsa_total'}) +
-                                     residue_df.loc[:, idx_slice[self.interface_design_residues, 'bsa_polar']]
+                                     residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']]
                                      .rename(columns={'bsa_polar': 'bsa_total'}))
         scores_df['interface_area_polar'] = \
-            residue_df.loc[:, idx_slice[self.interface_design_residues, 'bsa_polar']].sum(axis=1)
+            residue_df.loc[:, idx_slice[index_residues, 'bsa_polar']].sum(axis=1)
         scores_df['interface_area_hydrophobic'] = \
-            residue_df.loc[:, idx_slice[self.interface_design_residues, 'bsa_hydrophobic']].sum(axis=1)
+            residue_df.loc[:, idx_slice[index_residues, 'bsa_hydrophobic']].sum(axis=1)
         # scores_df['interface_area_total'] = \
-        #     residue_df.loc[not_pose_source_indices, idx_slice[self.interface_design_residues, 'bsa_total']].sum(axis=1)
+        #     residue_df.loc[not_pose_source_indices, idx_slice[index_residues, 'bsa_total']].sum(axis=1)
         scores_df['interface_area_total'] = scores_df['interface_area_polar'] + scores_df['interface_area_hydrophobic']
         # make sasa_complex_total columns
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_design_residues,
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues,
                                                                  'sasa_hydrophobic_bound']]
                                      .rename(columns={'sasa_hydrophobic_bound': 'sasa_total_bound'}) +
-                                     residue_df.loc[:, idx_slice[self.interface_design_residues, 'sasa_polar_bound']]
+                                     residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_bound']]
                                      .rename(columns={'sasa_polar_bound': 'sasa_total_bound'}))
-        residue_df = residue_df.join(residue_df.loc[:, idx_slice[self.interface_design_residues,
+        residue_df = residue_df.join(residue_df.loc[:, idx_slice[index_residues,
                                                                  'sasa_hydrophobic_complex']]
                                      .rename(columns={'sasa_hydrophobic_complex': 'sasa_total_complex'}) +
-                                     residue_df.loc[:, idx_slice[self.interface_design_residues, 'sasa_polar_complex']]
+                                     residue_df.loc[:, idx_slice[index_residues, 'sasa_polar_complex']]
                                      .rename(columns={'sasa_polar_complex': 'sasa_total_complex'}))
         # find the proportion of the residue surface area that is solvent accessible versus buried in the interface
         sasa_assembly_df = \
-            residue_df.loc[:, idx_slice[self.interface_design_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
+            residue_df.loc[:, idx_slice[index_residues, 'sasa_total_complex']].droplevel(-1, axis=1)
         bsa_assembly_df = \
-            residue_df.loc[:, idx_slice[self.interface_design_residues, 'bsa_total']].droplevel(-1, axis=1)
+            residue_df.loc[:, idx_slice[index_residues, 'bsa_total']].droplevel(-1, axis=1)
         total_surface_area_df = sasa_assembly_df + bsa_assembly_df
         # ratio_df = bsa_assembly_df / total_surface_area_df
         scores_df['interface_area_to_residue_surface_ratio'] = (bsa_assembly_df / total_surface_area_df).mean(axis=1)
 
         # find the relative sasa of the complex and the unbound fraction
         buried_interface_residues = \
-            np.asarray(residue_df.loc[:, idx_slice[self.interface_design_residues, 'bsa_total']] > 0)
-        core_or_interior = residue_df.loc[:, idx_slice[self.interface_design_residues, 'sasa_relative_complex']] < 0.25
+            np.asarray(residue_df.loc[:, idx_slice[index_residues, 'bsa_total']] > 0)
+        core_or_interior = residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_complex']] < 0.25
         support_not_rim_or_core = \
-            residue_df.loc[:, idx_slice[self.interface_design_residues, 'sasa_relative_bound']] < 0.25
+            residue_df.loc[:, idx_slice[index_residues, 'sasa_relative_bound']] < 0.25
         core_residues = np.logical_and(core_or_interior, buried_interface_residues).rename(
             columns={'sasa_relative_complex': 'core'})  # .replace({False: 0, True: 1}) maybe... shouldn't be necessary
         interior_residues = np.logical_and(core_or_interior, ~buried_interface_residues).rename(
@@ -3536,7 +3541,7 @@ class PoseDirectory:  # (JobResources):
             # collapse_ax1.plot(scaled_contact_order)
             # contact_ax.vlines(self.pose.chain_breaks, 0, 1, transform=contact_ax.get_xaxis_transform(),
             #                   label='Entity Breaks', colors='#cccccc')  # , grey)
-            # contact_ax.vlines(design_residues_l, 0, 0.05, transform=contact_ax.get_xaxis_transform(),
+            # contact_ax.vlines(index_residues, 0, 0.05, transform=contact_ax.get_xaxis_transform(),
             #                   label='Design Residues', colors='#f89938', lw=2)  # , orange)
             contact_ax.set_ylabel('Contact Order')
             # contact_ax.set_xlim(0, pose_length)
@@ -3565,8 +3570,7 @@ class PoseDirectory:  # (JobResources):
             # linestyles={'solid', 'dashed', 'dashdot', 'dotted'}
             collapse_ax.vlines(self.pose.chain_breaks, 0, 1, transform=collapse_ax.get_xaxis_transform(),
                                label='Entity Breaks', colors='#cccccc')  # , grey)
-            design_residues_l = list(self.interface_design_residues)
-            collapse_ax.vlines(design_residues_l, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
+            collapse_ax.vlines(index_residues, 0, 0.05, transform=collapse_ax.get_xaxis_transform(),
                                label='Design Residues', colors='#f89938', lw=2)  # , orange)
             # Plot horizontal significance
             collapse_ax.hlines([collapse_significance_threshold], 0, 1, transform=collapse_ax.get_yaxis_transform(),
@@ -3623,7 +3627,7 @@ class PoseDirectory:  # (JobResources):
             # errat_ax.legend(loc='lower center', bbox_to_anchor=(0., 1.))
             errat_ax.vlines(self.pose.chain_breaks, 0, 1, transform=errat_ax.get_xaxis_transform(),
                             label='Entity Breaks', colors='#cccccc')  # , grey)
-            errat_ax.vlines(design_residues_l, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
+            errat_ax.vlines(index_residues, 0, 0.05, transform=errat_ax.get_xaxis_transform(),
                             label='Design Residues', colors='#f89938', lw=2)  # , orange)
             # Plot horizontal significance
             errat_ax.hlines([errat_2_sigma], 0, 1, transform=errat_ax.get_yaxis_transform(),
