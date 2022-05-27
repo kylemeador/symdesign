@@ -12,7 +12,7 @@ from PathUtils import submodule_guide, submodule_help, force_flags, fragment_dbs
     clustered_poses, interface_design, no_evolution_constraint, no_hbnet, no_term_constraint, number_of_trajectories, \
     nstruct, structure_background, scout, interface_metrics, optimize_designs, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, analysis_file, select_sequences, generate_fragments, program_name, nano, \
-    program_command, analysis, select_poses, output_fragments, output_oligomers
+    program_command, analysis, select_poses, output_fragments, output_oligomers, protocol
 from ProteinExpression import expression_tags
 from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
@@ -556,7 +556,7 @@ parser_select_poses_arguments = {
                        help='Should poses be selected based on their ranking in the total pose pool?\nThis will select '
                             'the top poses based on the average of all designs in\nthat pose for the metrics specified '
                             'unless --protocol is invoked,\nthen the protocol average will be used instead'),
-    ('--protocol',): dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter metrics?'),
+    (f'--{protocol}',): dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter metrics?'),
     ('-sn', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
                                      help='Number of poses to return\nDefault=No Limit'),
     ('-ss', '--selection_string'): dict(type=str, metavar='string',
@@ -620,7 +620,7 @@ parser_select_sequences_arguments = {
     ('-opt', '--optimize_species'): dict(type=str, default='e_coli',
                                          help='The organism where expression will occur and nucleotide usage should be '
                                               'optimized\nDefault=%(default)s'),
-    ('--protocol',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
+    (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
     ('-ssg', '--skip_sequence_generation'): dict(action='store_true',
                                                  help='Should sequence generation be skipped? Only structures will be '
                                                       'selected\nDefault=%(default)s'),

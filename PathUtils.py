@@ -30,12 +30,13 @@ select_sequences = 'select_sequences'
 no_evolution_constraint = 'no_evolution_constraint'
 no_term_constraint = 'no_term_constraint'
 structure_background = 'structure_background'
+protocol = 'protocol'
+groups = 'protocol'
 number_of_trajectories = 'number_of_trajectories'
 force_flags = 'force_flags'
 current_energy_function = 'REF2015'
 no_hbnet = 'no_hbnet'
 scout = 'scout'
-groups = 'protocol'
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
@@ -221,7 +222,7 @@ sym_weights = 'ref2015_sym.wts_patch'
 solvent_weights = 'ref2015_solvent.wts_patch'
 solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
-protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
+# protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 
 # help and warnings
