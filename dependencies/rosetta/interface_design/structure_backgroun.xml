@@ -1,7 +1,6 @@
 <ROSETTASCRIPTS>
 
 	<MOVERS>
-		<AddJobPairData name="job_info" key="protocol" value="no_constraint" value_type="string"/>
 		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="5">
 			<ROSETTASCRIPTS>
 
@@ -130,6 +129,7 @@
 
 			</ROSETTASCRIPTS>
         </MultiplePoseMover>
+		<AddJobPairData name="job_info" key="protocol" value="structure_background" value_type="string"/>
 	</MOVERS>
 
 	<PROTOCOLS>
