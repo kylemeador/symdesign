@@ -296,15 +296,23 @@
 	</FILTERS>
 
 	<MOVERS>
-		<ParsedProtocol name="sym_metrics">
-			<Add mover_name="S_run_metrics_complex"/>
-			<Add filter_name="R_S_full_stability_complex"/>
-			<Add filter_name="R_S_favor_residue_energy"/>
-<!--			<Add filter_name="R_S_fsp_total_stability"/>-->
-			<Add filter_name="R_S_coordinate_constraint"/>
-			<Add filter_name="R_S_interaction_energy_per_residue"/>
-		</ParsedProtocol>
-        <ParsedProtocol name="asymmetric_metrics">
+<!--		<ParsedProtocol name="sym_metrics">-->
+<!--			<Add mover_name="S_run_metrics_complex"/>-->
+<!--			<Add filter_name="R_S_full_stability_complex"/>-->
+<!--			<Add filter_name="R_S_favor_residue_energy"/>-->
+<!--&lt;!&ndash;			<Add filter_name="R_S_fsp_total_stability"/>&ndash;&gt;-->
+<!--			<Add filter_name="R_S_coordinate_constraint"/>-->
+<!--			<Add filter_name="R_S_interaction_energy_per_residue"/>-->
+<!--		</ParsedProtocol>-->
+<!--        <ParsedProtocol name="asymmetric_metrics">-->
+<!--			<Add mover_name="run_metrics_complex"/>-->
+<!--			<Add filter_name="R_full_stability_complex"/>-->
+<!--			<Add filter_name="R_favor_residue_energy"/>-->
+<!--&lt;!&ndash;			<Add filter_name="R_fsp_total_stability"/>&ndash;&gt;-->
+<!--			<Add filter_name="R_coordinate_constraint"/>-->
+<!--			<Add filter_name="R_interaction_energy_per_residue"/>-->
+<!--		</ParsedProtocol>-->
+		<ParsedProtocol name="metrics">
 			<Add mover_name="run_metrics_complex"/>
 			<Add filter_name="R_full_stability_complex"/>
 			<Add filter_name="R_favor_residue_energy"/>
@@ -320,7 +328,7 @@
 	</FILTERS>
 	<MOVERS>
 		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
-		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>
+<!--		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>-->
 	</MOVERS>
 
 	<PROTOCOLS>
