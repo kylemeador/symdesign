@@ -1,21 +1,16 @@
 <ROSETTASCRIPTS>
 
 	<SCOREFXNS>
-		# patched version of 2015, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
 		<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
+		# patched version of 2015, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
+<!--		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>-->
 	</SCOREFXNS>
-
-	<FILTERS>
-		<Time name="time"/>
-	</FILTERS>
 
 	<MOVERS>
 		<AddJobPairData name="job_info" key="protocol" value="refine" value_type="string"/>
-		<FastRelax name="sym_refine" disable_design="true" scorefxn="2015_nano_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>
-		<FastRelax name="asymmetric_refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>
-		<!-- TODO use when symmetric energy is fixed...-->
-		<!--		<FastRelax name="refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>-->
+<!--		<FastRelax name="sym_refine" disable_design="true" scorefxn="2015_nano_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>-->
+<!--		<FastRelax name="asymmetric_refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>-->
+		<FastRelax name="refine" disable_design="true" scorefxn="2015_cst" relaxscript="MonomerRelax2019" repeats="5" ramp_down_constraints="false"/>
 	</MOVERS>
 
 	# Symmetry set up section
@@ -24,15 +19,13 @@
 	</FILTERS>
 	<MOVERS>
 		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
-		<If name="refine" filter_name="read_sym" true_mover_name="sym_refine" false_mover_name="asymmetric_refine" />
+<!--		<If name="refine" filter_name="read_sym" true_mover_name="sym_refine" false_mover_name="asymmetric_refine" />-->
 	</MOVERS>
 
 	<PROTOCOLS>
-		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry"/>
 		<Add mover_name="refine"/>
 		<Add mover_name="job_info"/>
-		<Add filter_name="time"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>

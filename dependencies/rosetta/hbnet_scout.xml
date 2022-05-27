@@ -41,7 +41,7 @@
 		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
 		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
 		# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissible residues
-		<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
+		<DesignRestrictions name="design_start_task"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
 		# restrict all non-interface residues to no repacking and no design
 		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 		<OperateOnResidueSubset name="not_core_no_repack" selector="not_core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
@@ -54,21 +54,6 @@
 		<SeqprofConsensus chain_num="1" name="pssm_cutoff1" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 		<SeqprofConsensus chain_num="2" name="pssm_cutoff2" min_aa_probability="-9" convert_scores_to_probabilities="0" probability_larger_than_current="0" keep_native="1" filename="%%design_profile%%"/> # TODO use_occurrence_data="1" on docs is an option as of 5/13/21. Not present in 2020.11.61179_bundle
 	</TASKOPERATIONS>
-
-	<SIMPLE_METRICS>
-		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-<!--TODO 2015		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>-->
-		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
-<!--		<SelectedResidueCountMetric name="M_core_residue_count" residue_selector="core_residues"/>-->
-		# Todo make cache use true!
-		<ResidueSummaryMetric name="M_interface_residue_mean_energy" custom_type="" metric="M_int_energy_per_res" action="mean"/> # action_value="(real)" epsilon="0.0001" use_cached_data="true" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)"
-<!--TODO 2015		<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015" custom_type="" force_rescore="false"/>-->
-		<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano" custom_type="" force_rescore="false"/>
-<!--		<CalculatorMetric name="M_interaction_energy_density_metric" equation="E / Number" custom_type="filter_core_pack">-->
-<!--			<Var name="E" reported="M_interaction_energy"/> #  metric="M_interaction_energy"-->
-<!--			<Var name="Number" reported="M_core_residue_count"/>-->
-<!--		</CalculatorMetric>--> # Todo not supported in cassini release version
-	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
 <!--		<MoveMapFactory name="core_map" bb="0" chi="1">-->
@@ -92,8 +77,8 @@
 		<SavePoseMover name="save_core_pack" restore_pose="0" reference_name="core_pack"/>
 		<SavePoseMover name="restore_core_pack" restore_pose="1" reference_name="core_pack"/>
 		# set all interface residues to GLY, leave everything else untouched
-<!--TODO 2015		<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>-->
-		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
+		<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>
+<!--		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>-->
 
 <!--		# the main routine to perform metropolis criteria monte carlo-->
 <!--		<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,pssm_cutoff,des_around_total,hbnet_rtr" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
@@ -119,8 +104,8 @@
 		# using -ex1-ex2 might need threshold=-0.75
 		# need to ensure a scorefunction with csts "on"
 		# may not need required_residues which gets pulled from design around total. start_selector would prevent much downside though
-<!--TODO 2015		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="50000" scorefxn="2015_cst" write_network_pdbs="0" write_cst_files="0"/>-->
-		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="50000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="0"/>
+		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="50000" scorefxn="2015_cst" write_network_pdbs="0" write_cst_files="0"/>
+<!--		<HBNet name="hbnet" hb_threshold="-0.65" start_selector="core_residues" task_operations="init,vrt,pssm_cutoff1,pssm_cutoff2,des_around_total" min_network_size="3" max_unsat_Hpol="1" monte_carlo="true" total_num_mc_runs="50000" scorefxn="2015_nano_cst" write_network_pdbs="0" write_cst_files="0"/>-->
         <MultiplePoseMover name="hbnet_corepack" max_input_poses="250"> # scale to 500?
 			# only use _cst scorefxn during design to make sure the constraints automatically turned on by HBNet are respected
 			<ROSETTASCRIPTS>
@@ -224,12 +209,12 @@
 				<SIMPLE_METRICS>
 					<SelectedResidueCountMetric name="M_core_design_residue_count" residue_selector="hbnet_or_interface_neighbors_or_core"/>
 					# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-<!--TODO 2015					<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015" custom_type="" force_rescore="false"/>-->
-					<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano" custom_type="" force_rescore="false"/>
+					<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_cst" custom_type="" force_rescore="false"/>
+<!--					<InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano_cst" custom_type="" force_rescore="false"/>-->
 <!--					<CalculatorMetric name="M_interaction_energy_density_metric" equation="E / Number" custom_type="filter_core_pack">-->
 <!--						<Var name="E" reported="M_interaction_energy"/> #  metric="M_interaction_energy"-->
 <!--						<Var name="Number" reported="M_core_design_residue_count"/>-->
-<!--					</CalculatorMetric>--> # Todo not supported in my release
+<!--					</CalculatorMetric>--> # Todo not supported in powerpanda release
 				</SIMPLE_METRICS>
 
 <!--				<IMPORT movers="extract_asymmetric_unit"/> # movers="design_block" shape_complementarity-->
@@ -252,9 +237,9 @@
 					<ExtractAsymmetricUnit name="extract_asymmetric_unit" keep_virtual="0"/>
 					# the main routine to perform metropolis criteria monte carlo
 					# evolution_cutoff, fssm_cutoff have an and effect when applied to core fragment residue possibilities due to the nature of task_operations
-<!--TODO 2015					<FastDesign name="hbnet_core_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,design_hbnet_interface_neighbors_and_core" movemap_factory="hbnet_interface_neighbors_or_core_map" scorefxn="2015_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
-					<FastDesign name="hbnet_core_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,design_hbnet_interface_neighbors_and_core" movemap_factory="hbnet_interface_neighbors_or_core_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
-					<RunSimpleMetrics name="run_core_design_metrics" metrics="M_interaction_energy" prefix="" suffix="" override="false"/> # M_core_design_residue_count
+					<FastDesign name="hbnet_core_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,design_hbnet_interface_neighbors_and_core" movemap_factory="hbnet_interface_neighbors_or_core_map" scorefxn="2015_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+<!--					<FastDesign name="hbnet_core_design" task_operations="init,vrt,evolution_cutoff1,fssm_cutoff1,evolution_cutoff2,fssm_cutoff2,hbnet_rtr,design_hbnet_interface_neighbors_and_core" movemap_factory="hbnet_interface_neighbors_or_core_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--					<RunSimpleMetrics name="run_core_design_metrics" metrics="M_interaction_energy" prefix="" suffix="" override="false"/> # M_core_design_residue_count-->
 <!--					<RunSimpleMetrics name="run_core_design_average_residue_energy" metrics="M_interaction_energy_density_metric" prefix="" suffix="" override="false"/>-->
 					<FilterReportAsPoseExtraScoresMover name="RP_shape_complementarity_hbnet_core" report_as="sc_hbnet_core" filter_name="shape_complementarity_hbnet_core"/>
 					<FilterReportAsPoseExtraScoresMover name="RP_interaction_energy_density" report_as="ie_density_hbnet_core" filter_name="interaction_energy_density"/>
@@ -267,7 +252,6 @@
 <!--					<Add mover_name="design_block"/>-->
 					<Add mover_name="hbnet_core_design"/> # packing should reach ideal levels here
 <!--					<Add filter_name="shape_complementarity_hbnet_core" report_at_end="false"/> # if not, throw away, move on-->
-<!--					<Add filter_name="time"/>-->
 <!--					<Add mover_name="RP_shape_complementarity_hbnet_core"/> # THIS DOESN'T FILTER, it is saved to pose and bad SC will be thrown out in "trim" step-->
 <!--&lt;!&ndash;					<Add mover_name="run_core_design_metrics"/>&ndash;&gt;-->
 <!--					<Add mover_name="RP_core_design_residue_count"/>-->
@@ -285,14 +269,10 @@
 	</MOVERS>
 
 	<FILTERS>
-		<Time name="time"/>
 		<ReadPoseExtraScoreFilter name="read_sc_hbnet_core" term_name="sc_hbnet_core" threshold="-1"/>
 		<ReadPoseExtraScoreFilter name="read_interaction_energy_density" term_name="ie_density_hbnet_core" threshold="-1"/>
 		<ReadPoseExtraScoreFilter name="read_interface_residue_count" term_name="residue_count_hbnet_core" threshold="-1"/>
-<!--		<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.65" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter-->
-		<ShapeComplementarity name="shape_complementarity_core" min_sc="0.70" min_interface="0" residue_selector1="core_interface1_sym" residue_selector2="core_interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-		<ShapeComplementarity name="shape_complementarity" min_sc="0.65" min_interface="0" residue_selector1="interface1_sym" residue_selector2="interface2_sym" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-<!--		<SimpleMetricFilter name="interaction_energy" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
+<!--		<ShapeComplementarity name="shape_complementarity_hbnet_core" min_sc="0.65" min_interface="0" residue_selector1="hbnet_corepack_interface1" residue_selector2="hbnet_corepack_interface2" write_median_dist="1" max_median_dist="0"/> #Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter--><!--		<SimpleMetricFilter name="interaction_energy" metric="M_interaction_energy" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
 <!--		<SimpleMetricFilter name="interaction_energy_density" metric="M_interaction_energy_density_metric" comparison_type="lt" cutoff="0" confidence="1"/> # epsilon=".0001" use_cached_data="(false bool)" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
 <!--		<CalculatorFilter name="interaction_energy_density" equation="E / IA" threshold="(&real 0)" >-->
 <!--		  <Var name="E" filter="interaction_energy"/>-->
@@ -310,7 +290,6 @@
 	</MOVERS>
 
 	<PROTOCOLS>
-<!--		<Add mover_name="SOMETHINGSMISSING"/>-->
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
 		<Add mover_name="job_info"/>
