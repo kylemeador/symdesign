@@ -3,14 +3,13 @@
 	<MOVERS>
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
-			<AtomPairConstraintGenerator name="atom_pair_cst_gen" residue_selector="hbnet_residues" max_distance="3.3" sd="0.4" ca_only="0" min_seq_sep="2"/> # meant to recapitulate the constraints imposed by the HBNet protocol when the pose is reconstructed
 		</AddConstraints>
-		<Subroutine name="hbnet_design_profile" xml_fname="%%scripts%%/interface_design/hbnet_design_profile.xml"/>
+		<Subroutine name="design_profile" xml_fname="%%scripts%%/interface_design/design_profile.xml"/>
 	</MOVERS>
 
 	# Symmetry set up section
 	<FILTERS>
-		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is -1, asymmetric is 0
+		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/>
 	</FILTERS>
 	<MOVERS>
 		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
@@ -21,7 +20,7 @@
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
 <!--		<Add mover_name="job_info"/>--> # added in sub-protocol
-		<Add mover_name="hbnet_design_profile"/>
+		<Add mover_name="design_profile"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
