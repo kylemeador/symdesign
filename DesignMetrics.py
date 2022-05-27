@@ -7,7 +7,7 @@ from typing import Dict, List, Set, Union
 import numpy as np
 import pandas as pd
 
-from PathUtils import groups, reference_name
+from PathUtils import groups, reference_name, structure_background, design_profile, hbnet_design_profile
 from SymDesignUtils import start_log, DesignError, index_intersection, handle_errors, \
     pretty_format_table, digit_translate_table
 from Query.utils import input_string, validate_type, verify_choice, header_string
@@ -105,7 +105,7 @@ master_metrics = {'average_fragment_z_score':
                   'divergence_interface_per_residue':
                       {'description': 'The Jensen-Shannon divergence of interface residues from the typical interface '
                                       'background', 'direction': 'min', 'function': 'rank', 'filter': True},
-                  'energy_distance_from_no_constraint_mean':
+                  'energy_distance_from_structure_background_mean':
                       {'description': 'The distance of the design\'s per residue energy from a design with no '
                                       'constraint on amino acid selection', 'direction': 'min', 'function': 'rank',
                        'filter': True},
@@ -715,9 +715,8 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
                  'hbond_bb_sc', 'hbond_lr_bb', 'hbond_sc', 'hbond_sr_bb', 'ref']
 
 # Current protocols in use in design.xml
-protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'no_constraint_switch']
-background_protocol = 'no_constraint'
-protocols_of_interest = {'design_profile', 'no_constraint', 'hbnet_design_profile'}  # Todo adapt to any user protocol!
+protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'structure_background_switch']
+protocols_of_interest = {design_profile, structure_background, hbnet_design_profile}  # Todo adapt to any user protocol!
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models
 
 protocol_column_types = ['mean', 'sequence_design']  # 'stats',

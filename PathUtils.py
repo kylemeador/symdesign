@@ -30,6 +30,7 @@ select_sequences = 'select_sequences'
 no_evolution_constraint = 'no_evolution_constraint'
 no_term_constraint = 'no_term_constraint'
 structure_background = 'structure_background'
+hbnet_design_profile = 'hbnet_design_profile'
 protocol = 'protocol'
 groups = 'protocol'
 number_of_trajectories = 'number_of_trajectories'
@@ -57,7 +58,7 @@ if not rosetta:
 nstruct = 20
 stage = {1: refine, 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
-         11: 'all_to_cluster', 12: scout, 13: 'hbnet_design_profile', 14: structure_background}
+         11: 'all_to_cluster', 12: scout, 13: hbnet_design_profile, 14: structure_background}
 stage_f = {refine: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
            stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
            stage[5]: {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
