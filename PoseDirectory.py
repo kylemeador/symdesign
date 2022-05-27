@@ -2607,8 +2607,10 @@ class PoseDirectory:  # (JobResources):
             # Remove unneeded columns
             # Todo remove not DEV
             protocol_s = scores_df.pop(PUtils.groups)
-            scout_change_indices = [idx for idx in protocol_s[protocol_s.isna()].index if 'scout' in idx]
-            protocol_s[scout_change_indices] = 'scout'
+            scout_indices = [idx for idx in protocol_s[protocol_s.isna()].index if 'scout' in idx]
+            protocol_s[scout_indices] = PUtils.scout
+            structure_bkgnd_indices = [idx for idx in protocol_s[protocol_s.isna()].index if 'no_constraint' in idx]
+            protocol_s[structure_bkgnd_indices] = PUtils.structure_background
             # Todo Done remove
             # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
 
