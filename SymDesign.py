@@ -487,10 +487,10 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                         'member' % PUtils.select_poses)
 
         # Set up sbatch scripts for processed Poses
-        design_stage = PUtils.stage[12] if getattr(args, PUtils.scout, None) \
-            else (PUtils.stage[2] if getattr(args, PUtils.no_hbnet, None)
-                  else (PUtils.stage[14] if getattr(args, PUtils.structure_background, None)
-                        else PUtils.stage[13]))  # hbnet_design_profile
+        design_stage = PUtils.scout if getattr(args, PUtils.scout, None) \
+            else (PUtils.interface_design if getattr(args, PUtils.no_hbnet, None)
+                  else (PUtils.structure_backgroun if getattr(args, PUtils.structure_background, None)
+                        else PUtils.hbnet_design_profile))
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano, PUtils.refine: PUtils.refine,
                         PUtils.interface_metrics: PUtils.interface_metrics,
                         'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],

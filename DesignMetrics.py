@@ -714,7 +714,7 @@ rosetta_terms = ['lk_ball_wtd', 'omega', 'p_aa_pp', 'pro_close', 'rama_prepro', 
                  'fa_atr', 'fa_dun', 'fa_elec', 'fa_intra_rep', 'fa_intra_sol_xover4', 'fa_rep', 'fa_sol',
                  'hbond_bb_sc', 'hbond_lr_bb', 'hbond_sc', 'hbond_sr_bb', 'ref']
 
-# Current protocols in use in design.xml
+# Current protocols in use in interface_design.xml
 protocols = ['design_profile_switch', 'favor_profile_switch', 'limit_to_profile_switch', 'structure_background_switch']
 protocols_of_interest = {design_profile, structure_background, hbnet_design_profile}  # Todo adapt to any user protocol!
 # protocols_of_interest = ['combo_profile', 'limit_to_profile', 'no_constraint']  # Used for P432 models

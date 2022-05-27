@@ -1559,10 +1559,10 @@ class PoseDirectory:  # (JobResources):
             self.run_in_shell = False
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
-                          % (PUtils.stage[3], '_DEV' if self.development else ''))]
-        entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
-                                              % (PUtils.stage[3], '_DEV' if self.development else ''))]
+            [os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
+                          % (PUtils.interface_metrics, '_DEV' if self.development else ''))]
+        entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
+                                              % ('_DEV' if self.development else ''))]
         metric_cmds = [metric_cmd_bound]
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
         # for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
@@ -1582,7 +1582,7 @@ class PoseDirectory:  # (JobResources):
                 metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()  # wait for command to complete
         else:
-            write_shell_script(list2cmdline(generate_files_cmd), name='interface_%s' % PUtils.stage[3],
+            write_shell_script(list2cmdline(generate_files_cmd), name=PUtils.interface_metrics,
                                out_path=self.scripts, additional=[list2cmdline(command) for command in metric_cmds])
 
     def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
@@ -1677,13 +1677,13 @@ class PoseDirectory:  # (JobResources):
         """
         # Set up the command base (rosetta bin and database paths)
         if self.scout:
-            protocol, protocol_xml1 = PUtils.stage[12], PUtils.stage[12]
+            protocol, protocol_xml1 = PUtils.scout, PUtils.scout
             nstruct_instruct = ['-no_nstruct_label', 'true']
             generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
             metrics_flags = 'repack=no'
             additional_cmds, out_file = [], []
         elif self.structure_background:
-            protocol, protocol_xml1 = PUtils.stage[14], PUtils.stage[14]
+            protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
             nstruct_instruct = ['-no_nstruct_label', 'true']
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
@@ -1692,7 +1692,7 @@ class PoseDirectory:  # (JobResources):
             metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         elif self.no_hbnet:  # run the legacy protocol
-            protocol, protocol_xml1 = PUtils.stage[2], PUtils.stage[2]
+            protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
@@ -1701,7 +1701,7 @@ class PoseDirectory:  # (JobResources):
             metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         else:  # run hbnet_design_profile protocol
-            protocol, protocol_xml1 = PUtils.stage[13], 'hbnet_scout'  # PUtils.stage[14]
+            protocol, protocol_xml1 = PUtils.hbnet_design_profile, 'hbnet_scout'
             nstruct_instruct = ['-no_nstruct_label', 'true']
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
@@ -1734,11 +1734,11 @@ class PoseDirectory:  # (JobResources):
                 consensus_cmd = main_cmd + relax_flags_cmdline + \
                     ['@%s' % self.flags, '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
-                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.stage[5]),
-                     '-parser:script_vars', 'switch=%s' % PUtils.stage[5]]
+                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.consensus),
+                     '-parser:script_vars', 'switch=%s' % PUtils.consensus]
                 self.log.info('Consensus Command: %s' % list2cmdline(consensus_cmd))
                 if not self.run_in_shell:
-                    write_shell_script(list2cmdline(consensus_cmd), name=PUtils.stage[5], out_path=self.scripts)
+                    write_shell_script(list2cmdline(consensus_cmd), name=PUtils.consensus, out_path=self.scripts)
                 else:
                     consensus_process = Popen(consensus_cmd)
                     consensus_process.communicate()
@@ -2174,10 +2174,10 @@ class PoseDirectory:  # (JobResources):
                 self.run_in_shell = False
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-                [os.path.join(PUtils.rosetta_scripts, 'interface_%s%s.xml'
-                              % (PUtils.stage[3], '_DEV' if self.development else ''))]
-            entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, '%s_entity%s.xml'
-                                                  % (PUtils.stage[3], '_DEV' if self.development else ''))]
+                [os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
+                              % (PUtils.interface_metrics, '_DEV' if self.development else ''))]
+            entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
+                                                  % ('_DEV' if self.development else ''))]
             metric_cmds = [metric_cmd_bound]
             metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
             # for idx, entity in enumerate(self.pose.entities, 1):
@@ -2664,7 +2664,7 @@ class PoseDirectory:  # (JobResources):
         # remove refine and consensus if present as there was no design done over multiple protocols
         # Todo change if we did multiple rounds of these protocols
         designs_by_protocol.pop(PUtils.refine, None)
-        designs_by_protocol.pop(PUtils.stage[5], None)
+        designs_by_protocol.pop(PUtils.consensus, None)
         # Get unique protocols
         unique_design_protocols = set(designs_by_protocol.keys())
         self.log.info('Unique Design Protocols: %s' % ', '.join(unique_design_protocols))
@@ -3246,7 +3246,7 @@ class PoseDirectory:  # (JobResources):
         other_metrics_s = pd.Series(other_pose_metrics)
         # remove this drop for consensus or refine if they are run multiple times
         trajectory_df = \
-            scores_df.sort_index().drop([pose_source, PUtils.refine, PUtils.stage[5]], axis=0, errors='ignore')
+            scores_df.sort_index().drop([pose_source, PUtils.refine, PUtils.consensus], axis=0, errors='ignore')
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         scores_df[PUtils.groups] = protocol_s
@@ -3255,7 +3255,7 @@ class PoseDirectory:  # (JobResources):
         # designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
         #                        for protocol, indices in protocol_groups.indices.items()}
         # designs_by_protocol.pop(PUtils.refine, None)  # remove refine if present
-        # designs_by_protocol.pop(PUtils.stage[5], None)  # remove consensus if present
+        # designs_by_protocol.pop(PUtils.consensus, None)  # remove consensus if present
         # # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
         # #                        for protocol, indices in protocol_groups.indices.items()}
 

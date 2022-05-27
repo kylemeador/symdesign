@@ -38,6 +38,7 @@ force_flags = 'force_flags'
 current_energy_function = 'REF2015'
 no_hbnet = 'no_hbnet'
 scout = 'scout'
+consensus = 'consensus'
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
@@ -56,7 +57,7 @@ if not rosetta:
           % ', '.join(search_strings))
 
 nstruct = 20
-stage = {1: refine, 2: 'design', 3: 'metrics', 4: 'analysis', 5: 'consensus',
+stage = {1: refine, 2: interface_design, 3: 'metrics', 4: 'analysis', 5: consensus,
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
          11: 'all_to_cluster', 12: scout, 13: hbnet_design_profile, 14: structure_background}
 stage_f = {refine: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
