@@ -12,16 +12,16 @@
 			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
 		</AddConstraints>
         <AddJobPairData name="job_info" key="protocol" value="consensus" value_type="string"/>
-<!--TODO 2015		<FastRelax name="interface_relax" disable_design="true" scorefxn="2015_cst" relaxscript="InterfaceRelax2019" repeats="5" ramp_down_constraints="false"/>-->
-		<FastRelax name="interface_relax" disable_design="true" scorefxn="2015_nano_cst" relaxscript="InterfaceRelax2019" repeats="5" ramp_down_constraints="false"/>
+		<FastRelax name="interface_relax" disable_design="true" scorefxn="2015_cst" relaxscript="InterfaceRelax2019" repeats="5" ramp_down_constraints="false"/>
+<!--		<FastRelax name="interface_relax" disable_design="true" scorefxn="2015_nano_cst" relaxscript="InterfaceRelax2019" repeats="5" ramp_down_constraints="false"/>-->
 		# Pull subroutines in from other files
 <!--		<Subroutine name="metrics_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>-->
 		# switch reporting
 <!--		<SwitchMover name="relax_switch" movers="%%switch%%" selected="%%switch%%"/>-->
 	</MOVERS>
-		# Symmetry set up section
+
+	# Symmetry set up section
 	<FILTERS>
-		<Time name="time"/>
 		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is -1, asymmetric is 0
 	</FILTERS>
 
@@ -31,13 +31,11 @@
 	</MOVERS>
 
 	<PROTOCOLS>
-		<Add filter_name="time" report_at_end="false"/>
 		<Add mover_name="symmetry"/>
 		<Add mover_name="add_csts"/>
 		<Add mover_name="job_info"/>
 		<Add mover_name="interface_relax"/>
 		<!--		<Add mover_name="metrics_interface_bound"/>-->
-		<Add filter_name="time"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>

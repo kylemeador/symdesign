@@ -34,14 +34,14 @@
 					# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
 					<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
 					# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues
-					<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
+					<DesignRestrictions name="design_start_task"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
 					# restrict all non-interface residues to no repacking and no design
 					<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 				</TASKOPERATIONS>
 
 				<MOVERS>
-<!--TODO 2015					<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>-->
-					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
+					<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>
+<!--					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>-->
 				</MOVERS>
 
 				<PROTOCOLS>
@@ -50,6 +50,7 @@
 
 			</ROSETTASCRIPTS>
 		</MultipleOutputWrapper>
+
 		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="5">
 			<ROSETTASCRIPTS>
 
@@ -85,8 +86,6 @@
 					<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
 					# standard operation to restrict all residues to repacking
 					<RestrictToRepacking name="rtr"/>
-					# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues
-					<DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
 					# restrict all non-interface residues to no repacking and no design
 					<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
 					# only use residues around specified resnums for design and repacking. The shell indicates a distance at which the mover searches for resnum neighbors to operate on
@@ -103,18 +102,15 @@
 				</MOVE_MAP_FACTORIES>
 
 				<MOVERS>
-					# set all interface residues to GLY, leave everything else untouched
-					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
-<!--TODO 2015					<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>-->
 					# the main routine to perform metropolis criteria monte carlo
-					<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
-<!--TODO 2015					<FastDesign name="int_design" scorefxn="2015_cst" disable_design="false" task_operations="init,vrt,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+					<FastDesign name="int_design" scorefxn="2015_cst" disable_design="false" task_operations="init,vrt,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+<!--					<FastDesign name="int_design" scorefxn="2015_nano_cst" disable_design="false" task_operations="init,vrt,des_around_total" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" delete_virtual_residues_after_FastRelax="false" movemap_factory="design_map"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
 					# sample all rotamers to find minimum
-					<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>
-<!--TODO 2015					<SymRotamerTrialsMover name="RT" scorefxn="2015_cst" task_operations="init,rtr"/>-->
+					<SymRotamerTrialsMover name="RT" scorefxn="2015_cst" task_operations="init,rtr"/>
+<!--					<SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>-->
 					# minimize all residues in design_map (move map)
-					<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"
-<!--TODO 2015					<SymMinMover name="min" scorefxn="2015_cst" movemap_factory="design_map"/> # bb="0" chi="1"-->
+					<SymMinMover name="min" scorefxn="2015_cst" movemap_factory="design_map"/> # bb="0" chi="1"
+<!--					<SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="design_map"/> # bb="0" chi="1"-->
 					# the main protocol to loop over for interface design
 					<ParsedProtocol name="rotamer_trials_min_mover">
 						<Add mover_name="RT"/>

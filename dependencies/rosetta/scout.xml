@@ -68,7 +68,7 @@
         <RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
         # standard operation to restrict all residues to repacking
         <RestrictToRepacking name="rtr"/>
-        <DesignRestrictions name="design_start"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
+        <DesignRestrictions name="design_start_task"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
         <OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
         <OperateOnResidueSubset name="core_no_pack" selector="core_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
         <OperateOnResidueSubset name="rim_no_pack" selector="rim_residues"> <PreventRepackingRLT/> </OperateOnResidueSubset>
@@ -92,8 +92,8 @@
     <SIMPLE_METRICS>
         <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
         # calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-<!--TODO 2015        <InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015" custom_type="" force_rescore="false"/>-->
-        <InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano" custom_type="" force_rescore="false"/>
+        <InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_cst" custom_type="" force_rescore="false"/>
+<!--        <InteractionEnergyMetric name="M_interaction_energy" residue_selector="interface1_sym" residue_selector2="interface2_sym" scorefxn="2015_nano_cst" custom_type="" force_rescore="false"/>-->
 <!--					<CalculatorMetric name="M_interaction_energy_density_metric" equation="E / Number" custom_type="filter_core_pack">-->
 <!--						<Var name="E" reported="M_interaction_energy"/> #  metric="M_interaction_energy"-->
 <!--						<Var name="Number" reported="M_core_design_residue_count"/>-->
@@ -116,26 +116,24 @@
 
     <MOVERS>
         <AddJobPairData name="job_info" key="protocol" value="scout" value_type="string"/>
-        # generates symmetry for the system in question using %%sdf%% or %%dist%%
-		<SetupForSymmetry name="make_point_group" definition="%%sdf%%" set_global_symmetry_at_parsetime="0"/>
-		<MakeLayerMover name="make_layer" contact_dist="%%dist%%"/>
-		<MakeLatticeMover name="make_lattice" contact_dist="%%dist%%"/>
-        <SwitchMover name="symmetry_switch" movers="make_point_group,make_layer,make_lattice,null" selected="%%symmetry%%"/>
-		# set all interface residues to GLY, leave everything else untouched
-<!--TODO 2015		<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>-->
-		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start,not_designable_no_repack"/>
+        <AddConstraints name="add_csts">
+			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
+		</AddConstraints>
+        # set all interface residues to GLY, leave everything else untouched
+		<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>
+<!--		<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>-->
         # the main routine to perform metropolis criteria monte carlo. init specifies -ex1,-ex2 should be used
-<!--TODO 2015        <FastDesign name="core_design" task_operations="init,vrt,fssm_cutoff1,fssm_cutoff2,des_around_total,rim_no_pack" movemap_factory="scout_map" scorefxn="2015" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
-<!--        <FastDesign name="rim_design" task_operations="ex1,vrt,evolution_cutoff1,evolution_cutoff2,des_around_total,core_no_pack" movemap_factory="scout_map" scorefxn="2015" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
-        <FastDesign name="core_design" task_operations="init,vrt,fssm_cutoff1,fssm_cutoff2,des_around_total,rim_no_pack" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
-        <FastDesign name="rim_design" task_operations="ex1,vrt,evolution_cutoff1,evolution_cutoff2,des_around_total,core_no_pack" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
-<!--        <FastDesign name="int_design" task_operations="vrt,design_cutoff1,design_cutoff2,des_around_total" movemap_factory="scout_map" scorefxn="2015_nano" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+        <FastDesign name="core_design" task_operations="init,vrt,fssm_cutoff1,fssm_cutoff2,des_around_total,rim_no_pack" movemap_factory="scout_map" scorefxn="2015_cst" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+        <FastDesign name="rim_design" task_operations="ex1,vrt,evolution_cutoff1,evolution_cutoff2,des_around_total,core_no_pack" movemap_factory="scout_map" scorefxn="2015_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"
+<!--        <FastDesign name="core_design" task_operations="init,vrt,fssm_cutoff1,fssm_cutoff2,des_around_total,rim_no_pack" movemap_factory="scout_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="InterfaceDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--        <FastDesign name="rim_design" task_operations="ex1,vrt,evolution_cutoff1,evolution_cutoff2,des_around_total,core_no_pack" movemap_factory="scout_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
+<!--        <FastDesign name="int_design" task_operations="vrt,design_cutoff1,design_cutoff2,des_around_total" movemap_factory="scout_map" scorefxn="2015_nano_cst" repeats="1" relaxscript="PolarDesign2019" ramp_down_constraints="false" disable_design="false" delete_virtual_residues_after_FastRelax="false"/> # cgs="coord_cst_gen" min_type="lbfgs_armijo_nonmonotone" bondangle="false" bondlength="false"-->
         # sample all rotamers to find minimum
-<!--TODO 2015        <SymRotamerTrialsMover name="RT" scorefxn="2015" task_operations="init,rtr"/>-->
-        <SymRotamerTrialsMover name="RT" scorefxn="2015_nano" task_operations="init,rtr"/>
+        <SymRotamerTrialsMover name="RT" scorefxn="2015_cst" task_operations="init,rtr"/>
+<!--        <SymRotamerTrialsMover name="RT" scorefxn="2015_nano_cst" task_operations="init,rtr"/>-->
         # minimize all residues in design_map (move map)
-<!--TODO 2015        <SymMinMover name="min" scorefxn="2015" movemap_factory="scout_map"/> # bb="0" chi="1"-->
-        <SymMinMover name="min" scorefxn="2015_nano" movemap_factory="scout_map"/> # bb="0" chi="1"
+        <SymMinMover name="min" scorefxn="2015_cst" movemap_factory="scout_map"/> # bb="0" chi="1"
+<!--        <SymMinMover name="min" scorefxn="2015_nano_cst" movemap_factory="scout_map"/> # bb="0" chi="1"-->
         # the main protocol to loop over for interface design
         <ParsedProtocol name="rotamer_trials_min_mover">
             <Add mover_name="RT"/>
@@ -169,9 +167,8 @@
 
 	<PROTOCOLS>
 		<Add mover_name="symmetry"/>
-        <!--        <Add mover_name="symmetry_switch"/>-->
+        <Add mover_name="add_csts"/>
         <Add mover_name="job_info"/>
-        <!--        <Add mover_name="scout_switch"/>-->
         <Add mover_name="design_start"/>
         <Add mover_name="core_design"/>
         <!--        <Add mover_name="RP_shape_complementarity_core"/> # save info to pose-->
