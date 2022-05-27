@@ -2409,7 +2409,7 @@ class PoseDirectory:  # (JobResources):
 
         res_file = self.pose.pdb.make_resfile(directives, out_path=self.data, include=wt, background=background)
 
-        protocol = 'optimize_design'
+        protocol = PUtils.optimize_designs
         protocol_xml1 = protocol
         # nstruct_instruct = ['-no_nstruct_label', 'true']
         nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
