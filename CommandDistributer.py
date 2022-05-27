@@ -11,7 +11,7 @@ from typing import Union, List
 
 from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
     program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, sym_weights, \
-    solvent_weights_sym, solvent_weights
+    solvent_weights_sym, solvent_weights, scout, consensus
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors, \
     calculate_mp_cores
 
@@ -69,26 +69,25 @@ rosetta_variables = [('scripts', rosetta_scripts), ('sym_score_patch', sym_weigh
                      ('solvent_score_patch', solvent_weights)]
 # Those jobs having a scale of 2 utilize two threads. Therefore, two commands are selected from a supplied commands list
 # and are launched inside a python environment once the SLURM controller starts a SBATCH array job
-process_scale = {refine: 2, interface_design: 2, stage[2]: 2, stage[3]: 2, stage[5]: 2, nano: 2,
+process_scale = {refine: 2, interface_design: 2, stage[3]: 2, consensus: 2, nano: 2,
                  stage[6]: 1, stage[7]: 1, stage[8]: 1, stage[9]: 1, stage[10]: 1,
                  stage[11]: 1, stage[12]: 2, stage[13]: 2, optimize_designs: 2,
                  'metrics_bound': 2, interface_metrics: 2, 'hhblits': 1, 'bmdca': 2}
 # Cluster Dependencies and Multiprocessing
 sbatch_templates = {refine: os.path.join(sbatch_template_dir, refine),
-                    interface_design: os.path.join(sbatch_template_dir, stage[2]),
-                    stage[2]: os.path.join(sbatch_template_dir, stage[2]),
-                    stage[12]: os.path.join(sbatch_template_dir, stage[2]),
-                    stage[3]: os.path.join(sbatch_template_dir, stage[2]),
+                    interface_design: os.path.join(sbatch_template_dir, interface_design),
+                    scout: os.path.join(sbatch_template_dir, interface_design),
+                    stage[3]: os.path.join(sbatch_template_dir, interface_design),
                     stage[4]: os.path.join(sbatch_template_dir, refine),
-                    stage[5]: os.path.join(sbatch_template_dir, refine),
+                    consensus: os.path.join(sbatch_template_dir, refine),
                     nano: os.path.join(sbatch_template_dir, nano),
                     stage[6]: os.path.join(sbatch_template_dir, stage[6]),
                     stage[7]: os.path.join(sbatch_template_dir, stage[6]),
                     stage[8]: os.path.join(sbatch_template_dir, stage[6]),
                     stage[9]: os.path.join(sbatch_template_dir, stage[6]),
-                    'metrics_bound': os.path.join(sbatch_template_dir, stage[2]),
-                    'interface_metrics': os.path.join(sbatch_template_dir, stage[2]),
-                    'optimize_designs': os.path.join(sbatch_template_dir, 'hhblits'),
+                    'metrics_bound': os.path.join(sbatch_template_dir, interface_design),
+                    interface_metrics: os.path.join(sbatch_template_dir, interface_design),
+                    optimize_designs: os.path.join(sbatch_template_dir, 'hhblits'),
                     'hhblits': os.path.join(sbatch_template_dir, 'hhblits'),
                     'bmdca': os.path.join(sbatch_template_dir, 'bmdca')
                     }
