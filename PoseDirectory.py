@@ -39,7 +39,7 @@ from Pose import Pose, MultiModel, Models  # , Model
 from DesignMetrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms, \
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, mutation_conserved, per_res_metric, \
     significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
-    protocol_specific_columns, rank_dataframe_by_metric_weights, background_protocol, filter_df_for_index_by_value, \
+    protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
@@ -3288,9 +3288,9 @@ class PoseDirectory:  # (JobResources):
         pvalue_df = pd.DataFrame()
         scout_protocols = list(filter(re.compile('.*scout').match, protocol_s.unique().tolist()))
         similarity_protocols = unique_design_protocols.difference([PUtils.refine] + scout_protocols)
-        if background_protocol not in unique_design_protocols:
+        if PUtils.structure_background not in unique_design_protocols:
             self.log.warning('Missing background protocol "%s". No protocol significance measurements available '
-                             'for this pose' % background_protocol)
+                             'for this pose' % PUtils.structure_background)
         elif len(similarity_protocols) == 1:  # measure significance
             self.log.info('Can\'t measure protocol significance, only one protocol of interest')
         # missing_protocols = protocols_of_interest.difference(unique_design_protocols)
@@ -3352,12 +3352,14 @@ class PoseDirectory:  # (JobResources):
                 if stat == mean:
                     # for each measurement in residue_energy_pc_df, need to take the distance between it and the
                     # structure background mean (if structure background, is the mean is useful too?)
-                    background_distance = cdist(residue_energy_pc,
-                                                grouped_pc_energy_df.loc[background_protocol, :].values[np.newaxis, :])
+                    background_distance = \
+                        cdist(residue_energy_pc,
+                              grouped_pc_energy_df.loc[PUtils.structure_background, :].values[np.newaxis, :])
                     trajectory_df = \
                         pd.concat([trajectory_df,
                                    pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
-                                             name='energy_distance_from_%s_mean' % background_protocol)], axis=1)
+                                             name='energy_distance_from_%s_mean' % PUtils.structure_background)],
+                                  axis=1)
 
                     # if renaming is necessary
                     # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
