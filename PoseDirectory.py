@@ -2567,7 +2567,8 @@ class PoseDirectory:  # (JobResources):
                 # design_info.update({residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
                 #                          'hbond': 0} for residue in entity.residues})
             scores_df['number_hbonds'] = 0
-            protocol_s = scores_df.pop(PUtils.groups)
+            protocol_s = scores_df.pop(PUtils.groups).copy()
+            missing_group_indices = protocol_s.isna()
             remove_columns = rosetta_terms + unnecessary
             residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
@@ -2610,12 +2611,13 @@ class PoseDirectory:  # (JobResources):
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             assert metric_set == set(), 'Missing required metrics: "%s"' % ', '.join(metric_set)
-            # Remove unneeded columns
+            # Format protocol columns
+            protocol_s = scores_df.pop(PUtils.groups).copy()
+            missing_group_indices = protocol_s.isna()
             # Todo remove not DEV
-            protocol_s = scores_df.pop(PUtils.groups)
-            scout_indices = [idx for idx in protocol_s[protocol_s.isna()].index if 'scout' in idx]
+            scout_indices = [idx for idx in protocol_s[missing_group_indices].index if 'scout' in idx]
             protocol_s[scout_indices] = PUtils.scout
-            structure_bkgnd_indices = [idx for idx in protocol_s[protocol_s.isna()].index if 'no_constraint' in idx]
+            structure_bkgnd_indices = [idx for idx in protocol_s[missing_group_indices].index if 'no_constraint' in idx]
             protocol_s[structure_bkgnd_indices] = PUtils.structure_background
             # Todo Done remove
             # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
@@ -2657,7 +2659,9 @@ class PoseDirectory:  # (JobResources):
             # entity_sequences = \
             #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
             #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
-        # Find designs where required data is present
+        # Drop designs where required data is present
+        protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
+        scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
         viable_designs = scores_df.index.to_list()
         assert viable_designs, 'No viable designs remain after processing!'
