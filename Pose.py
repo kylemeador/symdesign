@@ -2101,10 +2101,10 @@ class SymmetricModel(Model):
             current_best_minimal_central_offset = float('inf')
             # sym_group_setting_matrices = point_group_setting_matrix_members[self.point_group_symmetry].get(sym_group)
             for setting_matrix_idx in point_group_setting_matrix_members[self.point_group_symmetry].get(sym_group, []):
-                # self.log.critical('Setting_matrix_idx = %d' % setting_matrix_idx)
+                self.log.critical('Setting_matrix_idx = %d' % setting_matrix_idx)
                 temp_model_coms = np.matmul(center_of_mass_symmetric_entities[group_idx],
                                             np.transpose(inv_setting_matrices[setting_matrix_idx]))
-                # self.log.critical('temp_model_coms = %s' % temp_model_coms)
+                self.log.critical('temp_model_coms = %s' % temp_model_coms)
                 # find groups of COMs with equal z heights
                 possible_height_groups = {}
                 for idx, com in enumerate(temp_model_coms.round(decimals=2)):  # 2 decimals may be required precision
@@ -2191,7 +2191,7 @@ class SymmetricModel(Model):
             for group_idx, indices in enumerate(asu_indices):
                 all_coms.append(center_of_mass_symmetric_entities[group_idx][indices])
                 # pdist()
-            # self.log.critical('all_coms: %s' % all_coms)
+            self.log.critical('all_coms: %s' % all_coms)
             idx = 0
             asu_indices_combinations = []
             asu_indices_index, asu_coms_index = [], []
@@ -2206,7 +2206,7 @@ class SymmetricModel(Model):
                         dist = com2 - com1
                         com_offsets[idx] = np.sqrt(dist.dot(dist))
                         idx += 1
-            # self.log.critical('com_offsets: %s' % com_offsets)
+            self.log.critical('com_offsets: %s' % com_offsets)
             minimal_com_distance_index = com_offsets.argmin()
             entity_index1, com_index1, entity_index2, com_index2 = asu_indices_combinations[minimal_com_distance_index]
             # entity_index1, entity_index2 = asu_indices_index[minimal_com_distance_index]
