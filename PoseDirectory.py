@@ -790,6 +790,7 @@ class PoseDirectory:  # (JobResources):
             A list with the transformations of each Entity in the Pose according to the symmetry
         """
         try:
+            print('self._pose_transformation1', self._pose_transformation)
             return self._pose_transformation
         except AttributeError:
             if self.symmetric:
@@ -798,6 +799,7 @@ class PoseDirectory:  # (JobResources):
                 except FileNotFoundError:
                     try:
                         self._pose_transformation = self.pose.assign_pose_transformation()
+                        print('self._pose_transformation2', self._pose_transformation)
                     except DesignError:
                         # Todo
                         #  This must be something outside of the realm of possibilities of Nanohedra symmetry groups
@@ -809,12 +811,14 @@ class PoseDirectory:  # (JobResources):
                                           'transformation which is likely not what you want...' % self.pose_file)
                         self._pose_transformation = \
                             [dict(rotation=identity_matrix, translation=None) for _ in self.pose.entities]
+                        print('self._pose_transformation3', self._pose_transformation)
                     # raise FileNotFoundError('There was no pose transformation file specified at %s' % self.pose_file)
             else:
                 # Todo would have to measure the transformation from the standard Database orientation to the pose
                 #  oritentation. This is useful if the design files are not written and the design was loaded from a
                 #  file originally, but accessing after it is loaded from the database and using a ._pose_transformation
                 self._pose_transformation = []
+                print('self._pose_transformation4', self._pose_transformation)
             self.info['pose_transformation'] = self._pose_transformation
             # self.log.debug('Using transformation parameters:\n\t%s'
             #                % '\n\t'.join(pretty_format_table(self._pose_transformation.items())))
