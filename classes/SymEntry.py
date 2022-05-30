@@ -906,19 +906,24 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
         An instance of the SymEntry
     """
     # logger.debug('Symmetry parsing split: %s' % clean_split)
-    if not sym_entry:
-        symmetry = symmetry.strip()
-        if len(symmetry) > 3:
-            sym_map = [split.strip('}:') for split in symmetry.split('{')]
-        elif len(symmetry) == 3:  # Probably Rosetta formatting
-            sym_map = [symmetry[0], '%s' % symmetry[1], '%s' % symmetry[2]]
-            # clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
-        elif symmetry in ['T', 'O', 'I']:
-            logger.warning('This functionality is not working properly yet!')
-            sym_map = [symmetry, symmetry]
-        else:  # C2, D6, C35
-            raise ValueError('%s is not a supported symmetry yet!' % symmetry)
+    if not sym_map:  # find sym_map from symmetry
+        if symmetry:
+            symmetry = symmetry.strip()
+            if len(symmetry) > 3:
+                sym_map = [split.strip('}:') for split in symmetry.split('{')]
+            elif len(symmetry) == 3:  # Probably Rosetta formatting
+                sym_map = [symmetry[0], '%s' % symmetry[1], '%s' % symmetry[2]]
+                # clean_split = ('%s C%s C%s' % (symmetry_string[0], symmetry_string[-1], symmetry_string[1])).split()
+            elif symmetry in ['T', 'O', 'I']:
+                logger.warning('This functionality is not working properly yet!')
+                sym_map = [symmetry, symmetry]
+            else:  # C2, D6, C35
+                raise ValueError('%s is not a supported symmetry yet!' % symmetry)
+        else:
+            raise DesignError('%s: Can\'t initialize without symmetry or sym_map!'
+                              % parse_symmetry_to_sym_entry.__name__)
 
+    if not sym_entry:
         try:
             sym_entry = dictionary_lookup(all_sym_entry_dict, sym_map)
             if not isinstance(sym_entry, int):

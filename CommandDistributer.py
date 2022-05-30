@@ -9,9 +9,9 @@ import subprocess
 from itertools import repeat, chain
 from typing import Union, List
 
-from PathUtils import stage, sbatch_template_dir, nano, rosetta, rosetta_extras, dalphaball, submodule_help, cmd_dist, \
-    program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, sym_weights, \
-    solvent_weights_sym, solvent_weights, scout, consensus
+from PathUtils import stage, sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
+    cmd_dist, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
+    sym_weights, solvent_weights_sym, solvent_weights, scout, consensus
 from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors, \
     calculate_mp_cores
 
@@ -38,8 +38,8 @@ extras_flags = {'default': [],
                 'mpi': [],
                 'cxx11threadmpi': ['-multithreading:total_threads ' + str(num_thread_per_process)]}
 # Todo modify .linuxgccrelease depending on os
-script_cmd = [os.path.join(rosetta, 'source', 'bin', 'rosetta_scripts.%s.linuxgccrelease' % rosetta_extras),
-              '-database', os.path.join(rosetta, 'database')]
+script_cmd = [os.path.join(rosetta_main, 'source', 'bin', 'rosetta_scripts.%s.linuxgccrelease' % rosetta_extras),
+              '-database', os.path.join(rosetta_main, 'database')]
 rosetta_flags = extras_flags[rosetta_extras] + \
     ['-ex1', '-ex2', '-extrachi_cutoff 5', '-ignore_unrecognized_res', '-ignore_zero_occupancy false',
      # '-overwrite',

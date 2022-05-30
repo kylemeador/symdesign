@@ -8,6 +8,7 @@ rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_document
 rosetta_extras_url = 'https://www.rosettacommons.org/docs/latest/rosetta_basics/running-rosetta-with-options#running-' \
                      'rosetta-with-multiple-threads'
 rosetta_variable_dictionary = {0: 'ROSETTA', 1: 'Rosetta', 2: 'rosetta'}
+# Todo use search_env_for_variable() to accomplsh this
 
 
 def set_up_instructions():
