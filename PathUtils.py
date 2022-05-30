@@ -1,7 +1,4 @@
 import os
-# if nanohedra is outside of symdesign source folder
-# import sys
-# sys.path.append('..\\dependency_dir')
 
 
 # Project strings and file names
@@ -39,30 +36,33 @@ current_energy_function = 'REF2015'
 no_hbnet = 'no_hbnet'
 scout = 'scout'
 consensus = 'consensus'
-# orient_exe = 'orient_oligomer.f'  # Non_compiled
-orient_exe = 'orient_oligomer'
 hhblits = 'hhblits'
-rosetta_str = 'ROSETTA'
+rosetta_str = 'rosetta'
 string_ops = [str.upper, str.lower, str.title]
-rosetta = None
-i = 0
-search_strings = []
-while i < 3 and not rosetta:
-    search_strings.append(string_ops[i](rosetta_str))
-    rosetta = os.environ.get(search_strings[i])
-    i += 1
 
-if not rosetta:
-    print('No environmental variable specifying Rosetta software location found at %s. Rosetta inaccessible'
-          % ', '.join(search_strings))
+
+def search_env_for_variable(search_variable: str) -> str:
+    env_variable = None
+    i = 0
+    search_strings = []
+    while not env_variable:
+        search_strings.append(string_ops[i](search_variable))
+        env_variable = os.environ.get(search_strings[i])
+
+    if not env_variable:
+        print(f'No environmental variable specifying {search_variable} software location at {", ".join(search_strings)}'
+              f'. {search_variable} inaccessible.')
+
+    return env_variable
+
 
 nstruct = 20
 stage = {1: refine, 2: interface_design, 3: 'metrics', 4: 'analysis', 5: consensus,
          6: 'rmsd_calculation', 7: 'all_to_all', 8: 'rmsd_clustering', 9: 'rmsd_to_cluster', 10: 'rmsd',
          11: 'all_to_cluster', 12: scout, 13: hbnet_design_profile, 14: structure_background}
-stage_f = {refine: {'path': '*_refine.pdb', 'len': 1}, stage[2]: {'path': '*_design_*.pdb', 'len': nstruct},
+stage_f = {refine: {'path': '*_refine.pdb', 'len': 1}, interface_design: {'path': '*_design_*.pdb', 'len': nstruct},
            stage[3]: {'path': '', 'len': None}, stage[4]: {'path': '', 'len': None},
-           stage[5]: {'path': '*_consensus.pdb', 'len': 1}, 'nanohedra': {'path': '', 'len': None},
+           consensus: {'path': '*_consensus.pdb', 'len': 1}, nano: {'path': '', 'len': None},
            stage[6]: {'path': '', 'len': None}, stage[7]: {'path': '', 'len': None},
            stage[8]: {'path': '', 'len': None}, stage[9]: {'path': '', 'len': None},
            stage[10]: {'path': '', 'len': None}, stage[11]: {'path': '', 'len': None}}
@@ -121,39 +121,21 @@ nanohedra_memory = 30000000000  # 30Gb
 source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
 readme = os.path.join(source, 'README.md')
 command = os.path.join(source, 'SymDesign.py')
-# filter_designs = os.path.join(source, 'DesignMetrics.py')
 cmd_dist = os.path.join(source, 'CommandDistributer.py')
 dependency_dir = os.path.join(source, 'dependencies')
 sym_op_location = os.path.join(dependency_dir, 'symmetry_operators')
 point_group_symmetry_operator_location = os.path.join(sym_op_location, 'point_group_operators.pkl')
 space_group_symmetry_operator_location = os.path.join(sym_op_location, 'space_group_operators.pkl')
-# nanohedra_source = os.path.join(dependency_dir, nano)
 nanohedra_main = os.path.join(source, '%s.py' % nano.title())
 nanohedra_dock_file = os.path.join(source, 'FragDock.py')
-# nanohedra_main = os.path.join(nanohedra_source, '%s.py' % nano)
-# Nanohedra inheritance
-# Free SASA Executable Path
-free_sasa_exe_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
-free_sasa_configuration_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0.config')
-# free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
-binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_lookup_40.npz')
-# Stop Inheritance ####
-orient_dir = os.path.join(dependency_dir, 'orient')
-orient_exe_path = os.path.join(orient_dir, orient_exe)
-errat_exe_path = os.path.join(dependency_dir, 'errat', 'errat')
-orient_log_file = 'orient_oligomer_log.txt'
-stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
-bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
-ialign_exe_path = os.path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
 binaries = os.path.join(dependency_dir, 'bin')
 models_to_multimodel_exe = os.path.join(binaries, 'models_to_multimodel.py')
 list_pdb_files = os.path.join(binaries, 'list_files_in_directory.py')
 hbnet_sort = os.path.join(binaries, 'sort_hbnet_silent_file_results.sh')
 sbatch_template_dir = os.path.join(dependency_dir, 'sbatch')
 disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
-reformat_msa_exe_path = os.path.join(dependency_dir, 'hh-suite', 'scripts', 'reformat.pl')
-install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 data_dir = os.path.join(source, data)
+binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_lookup_40.npz')
 reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')
 # reference_aa_pickle = os.path.join(data_dir, 'AAreference.pkl')
 reference_residues_pkl = os.path.join(data_dir, 'AAreferenceResidues.pkl')
@@ -203,20 +185,40 @@ full_fragment_db = os.path.join(fragment_db, bio+xtal)
 frag_directory = {biological_interfaces: biological_fragment_db, bio: bio_fragment_db, xtal: xtal_fragment_db,
                   bio+xtal: full_fragment_db}
 # Nanohedra Specific
-monofrag_cluster_rep_dirpath = os.path.join(fragment_db, "Top5MonoFragClustersRepresentativeCentered")
-intfrag_cluster_rep_dirpath = os.path.join(fragment_db, "Top75percent_IJK_ClusterRepresentatives_1A")
-intfrag_cluster_info_dirpath = os.path.join(fragment_db, "IJK_ClusteredInterfaceFragmentDBInfo_1A")
+monofrag_cluster_rep_dirpath = os.path.join(fragment_db, 'Top5MonoFragClustersRepresentativeCentered')
+intfrag_cluster_rep_dirpath = os.path.join(fragment_db, 'Top75percent_IJK_ClusterRepresentatives_1A')
+intfrag_cluster_info_dirpath = os.path.join(fragment_db, 'IJK_ClusteredInterfaceFragmentDBInfo_1A')
 
 # External Program Dependencies
-make_symmdef = os.path.join(rosetta, 'source/src/apps/public/symmetry/make_symmdef_file.pl')
-# Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
-dalphaball = os.path.join(rosetta, 'source/external/DAlpahBall/DAlphaBall.gcc')
-alignmentdb = os.path.join(dependency_dir, 'ncbi_databases/uniref90')
+# Free SASA Executable Path
+free_sasa_exe_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
+free_sasa_configuration_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0.config')
+# free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
+
+orient_dir = os.path.join(dependency_dir, 'orient')
+# orient_exe = 'orient_oligomer.f'  # Non_compiled
+orient_exe = 'orient_oligomer'
+orient_exe_path = os.path.join(orient_dir, orient_exe)
+orient_log_file = 'orient_oligomer_log.txt'
+errat_exe_path = os.path.join(dependency_dir, 'errat', 'errat')
+stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
+bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
+ialign_exe_path = os.path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
+# Set up for alignment programs
+reformat_msa_exe_path = os.path.join(dependency_dir, 'hh-suite', 'scripts', 'reformat.pl')
+alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
 # alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
 # TODO set up hh-suite in source or elsewhere on system and dynamically modify config file
-uniclustdb = os.path.join(dependency_dir, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
+hhblits_exe = search_env_for_variable(hhblits)
+uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
 # uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
-# Rosetta Scripts and Misc Files
+install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
+# Rosetta
+rosetta_main = search_env_for_variable(rosetta_str)
+make_symmdef = os.path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
+# Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
+dalphaball = os.path.join(rosetta_main, 'source', 'external', 'DAlpahBall', 'DAlphaBall.gcc')
+# Rosetta Scripts and Misc Files'
 rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
 symmetry_def_file_dir = 'rosetta_symmetry_definition_files'
 symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
@@ -224,7 +226,7 @@ sym_weights = 'ref2015_sym.wts_patch'
 solvent_weights = 'ref2015_solvent.wts_patch'
 solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
-# protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
+symmetry_protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 
 # help and warnings
@@ -233,4 +235,4 @@ warn_missing_symmetry = \
 
 
 def help(module):  # command is SymDesign.py
-    return '\'%s %s -h\' for help' % (command, module)
+    return '"%s %s -h" for help' % (command, module)

@@ -1415,8 +1415,12 @@ class PoseDirectory:  # (JobResources):
         if self.nanohedra_output and not self.construct_pose:  # don't write anything as we are just querying Nanohedra
             return
         self.make_path(self.data)
-        if self.info != self._info:  # if the state has changed from the original version
+        # try:
+        # Todo make better patch for numpy.ndarray compare value of array is ambiguous
+        if self.info.keys() != self._info.keys():  # if the state has changed from the original version
             pickle_object(self.info, self.serialized_info, out_path='')
+        # except ValueError:
+        #     print(self.info)
 
     def prepare_rosetta_flags(self, symmetry_protocol: Optional[str] = None, sym_def_file: Optional[str] = None,
                               pdb_out_path: Optional[str] = None, out_path: Union[str, bytes] = os.getcwd()) -> str:
@@ -1525,6 +1529,8 @@ class PoseDirectory:  # (JobResources):
                     ([entity_sdf] if entity_sdf != '' else [])
                 self.log.info('Metrics Command for Entity %s: %s' % (name, list2cmdline(metric_cmd)))
                 entity_metric_commands.append(metric_cmd)
+
+        return entity_metric_commands
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -1659,7 +1665,7 @@ class PoseDirectory:  # (JobResources):
         """
         if self.design_dimension is not None:  # symmetric, could be 0
             # self.log.debug('Design has Symmetry Entry Number: %s (Laniado & Yeates, 2020)' % str(self.sym_entry_number))
-            self.symmetry_protocol = PUtils.protocol[self.design_dimension]
+            self.symmetry_protocol = PUtils.symmetry_protocol[self.design_dimension]
             self.log.info('Symmetry Option: %s' % self.symmetry_protocol)
             self.sym_def_file = self.sym_entry.sdf_lookup()
         else:  # asymmetric
@@ -3286,7 +3292,7 @@ class PoseDirectory:  # (JobResources):
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
-        scout_protocols = list(filter(re.compile('.*scout').match, protocol_s.unique().tolist()))
+        scout_protocols = list(filter(re.compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
         similarity_protocols = unique_design_protocols.difference([PUtils.refine] + scout_protocols)
         if PUtils.structure_background not in unique_design_protocols:
             self.log.warning('Missing background protocol "%s". No protocol significance measurements available '

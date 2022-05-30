@@ -354,7 +354,7 @@ parser_options_arguments = {
                                                     help='If provided, the name of the directory to output all created '
                                                          'files.\nOtherwise, one will be generated based on the time, '
                                                          'input, and module'),
-    ('-Of', '--output_file'): dict(type=str, default=default_path_file,
+    ('-Of', '--output_file'): dict(type=str,  # default=default_path_file,
                                    help='If provided, the name of the output pose file.\nOtherwise, one will be '
                                         'generated based on the time, input, and module'),
     # Todo invert the default

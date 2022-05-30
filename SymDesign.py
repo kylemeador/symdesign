@@ -489,7 +489,7 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
         # Set up sbatch scripts for processed Poses
         design_stage = PUtils.scout if getattr(args, PUtils.scout, None) \
             else (PUtils.interface_design if getattr(args, PUtils.no_hbnet, None)
-                  else (PUtils.structure_backgroun if getattr(args, PUtils.structure_background, None)
+                  else (PUtils.structure_background if getattr(args, PUtils.structure_background, None)
                         else PUtils.hbnet_design_profile))
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano, PUtils.refine: PUtils.refine,
                         PUtils.interface_metrics: PUtils.interface_metrics,
@@ -766,7 +766,7 @@ if __name__ == '__main__':
     # Initialize common resources
     # -----------------------------------------------------------------------------------------------------------------
     # Check if output already exists  # or provide --overwrite
-    if os.path.exists(args.output_file):
+    if args.output_file and os.path.exists(args.output_file):
         logger.critical('The specified output file "%s" already exists, this will overwrite your old data! Please '
                         'specify a new name with with -of/--output_file' % args.output_file)
         exit(1)
@@ -825,7 +825,7 @@ if __name__ == '__main__':
             pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
                                                            directives=directives, **queried_flags)
                                 for pose, design, directives in design_specification.return_directives()]
-            location = f'{args.directory} & {args.specification_file}'
+            location = f'{os.path.basename(args.directory)}&{args.specification_file}'
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           projects=args.project, singles=args.single)
@@ -934,6 +934,10 @@ if __name__ == '__main__':
                 #     bmdca_cmds.append([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
                 #                        '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
             if hhblits_cmds:
+                if not os.access(PUtils.hhblits_exe, os.X_OK):
+                    print(f'Couldn\'t locate the {PUtils.hhblits} executable. Ensure the executable file '
+                          f'{PUtils.hhblits_exe} exists then try your job again.')
+                    exit()
                 # prepare files for running hhblits commands
                 instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
                 info_messages.append(instructions)
@@ -951,8 +955,7 @@ if __name__ == '__main__':
                                             finishing_commands=[list2cmdline(reformat_msa_cmd1),
                                                                 list2cmdline(reformat_msa_cmd2)])
                 hhblits_sbatch_message = \
-                    'Once you are satisfied, enter the following to distribute hhblits jobs:\n\tsbatch %s' \
-                    % hhblits_sbatch
+                    f'Enter the following to distribute {PUtils.hhblits} jobs:\n\tsbatch %s' % hhblits_sbatch
                 info_messages.append(hhblits_sbatch_message)
                 load_resources = True
             else:
@@ -1156,7 +1159,12 @@ if __name__ == '__main__':
         # job.resources = None
         # design_source = os.path.basename(example_directory.project_designs)
         # job = JobResources(queried_flags['output_directory'])
+        pre_refine = None
+        pre_loop_model = None
         pass
+    # TEMP PATCH
+    job.pre_refine = pre_refine
+    job.pre_loop_model = pre_loop_model
     # -----------------------------------------------------------------------------------------------------------------
     # Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------

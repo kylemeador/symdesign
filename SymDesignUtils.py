@@ -925,6 +925,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
             all_paths = get_symdesign_dirs(base=base_directory, projects=projects, singles=singles)
         elif directory:  # This is probably an uninitialized project. Grab all .pdb files
             all_paths = get_all_file_paths(directory, extension='.pdb')
+            directory = os.path.basename(directory)  # This is for the location variable return
         else:  # function was called with all set to None. This shouldn't happen
             raise RuntimeError('Can\'t collect_designs when no arguments were passed!')
 
