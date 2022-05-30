@@ -2061,8 +2061,7 @@ class SymmetricModel(Model):
         individual symmetric components in the global symmetry
 
         Returns:
-            (list[dict]): The specific transformation dictionaries which place each Entity with proper symmetry axis in
-                the Pose
+            The specific transformation dictionaries which place each Entity with proper symmetry axis in the Pose
         """
         if not self.symmetry:
             raise DesignError('Must set a global symmetry to assign pose transformation!')
@@ -2088,9 +2087,11 @@ class SymmetricModel(Model):
             # find groups for which the oligomeric parameters do not apply or exist by nature of orientation [T, O, I]
             if sym_group == self.symmetry:  # molecule should be oriented already and expand matrices handle oligomers
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
+                asu_indices.append(center_of_mass_symmetric_entities[group_idx])
                 continue
             elif sym_group == 'C1':  # no oligomer possible
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
+                asu_indices.append(center_of_mass_symmetric_entities[group_idx])
                 continue
             # search through the sub_symmetry group setting matrices that make up the resulting point group symmetry
             # apply setting matrix to the entity centers of mass indexed to the proper group number
@@ -2104,7 +2105,7 @@ class SymmetricModel(Model):
                 self.log.critical('Setting_matrix_idx = %d' % setting_matrix_idx)
                 temp_model_coms = np.matmul(center_of_mass_symmetric_entities[group_idx],
                                             np.transpose(inv_setting_matrices[setting_matrix_idx]))
-                self.log.critical('temp_model_coms = %s' % temp_model_coms)
+                # self.log.critical('temp_model_coms = %s' % temp_model_coms)
                 # find groups of COMs with equal z heights
                 possible_height_groups = {}
                 for idx, com in enumerate(temp_model_coms.round(decimals=2)):  # 2 decimals may be required precision
@@ -2123,14 +2124,14 @@ class SymmetricModel(Model):
                     if len(indices) == group_subunit_number:
                         x = (temp_model_coms[indices] - [0, 0, height])[0]  # get first point. Norms are equivalent
                         central_offset = np.sqrt(x.dot(x))  # np.abs()
-                        self.log.debug('central_offset = %f' % central_offset)
+                        # self.log.debug('central_offset = %f' % central_offset)
                         if central_offset < minimal_central_offset:
                             minimal_central_offset = central_offset
                             centrally_disposed_group_height = height
-                            self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
+                            # self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
                         elif central_offset == minimal_central_offset and centrally_disposed_group_height < 0 < height:
                             centrally_disposed_group_height = height
-                            self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
+                            # self.log.debug('centrally_disposed_group_height = %d' % centrally_disposed_group_height)
                         else:  # The central offset is larger
                             pass
                 # if a viable group was found save the group COM as an internal_tx and setting_matrix used to find it
@@ -2191,7 +2192,7 @@ class SymmetricModel(Model):
             for group_idx, indices in enumerate(asu_indices):
                 all_coms.append(center_of_mass_symmetric_entities[group_idx][indices])
                 # pdist()
-            self.log.critical('all_coms: %s' % all_coms)
+            # self.log.critical('all_coms: %s' % all_coms)
             idx = 0
             asu_indices_combinations = []
             asu_indices_index, asu_coms_index = [], []
@@ -2206,7 +2207,7 @@ class SymmetricModel(Model):
                         dist = com2 - com1
                         com_offsets[idx] = np.sqrt(dist.dot(dist))
                         idx += 1
-            self.log.critical('com_offsets: %s' % com_offsets)
+            # self.log.critical('com_offsets: %s' % com_offsets)
             minimal_com_distance_index = com_offsets.argmin()
             entity_index1, com_index1, entity_index2, com_index2 = asu_indices_combinations[minimal_com_distance_index]
             # entity_index1, entity_index2 = asu_indices_index[minimal_com_distance_index]
