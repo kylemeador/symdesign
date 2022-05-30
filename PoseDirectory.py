@@ -2362,9 +2362,10 @@ class PoseDirectory:  # (JobResources):
             elif self.no_term_constraint:
                 pass
             else:
-                raise DesignError('Fragments were specified during design, but observations have not been yet been '
-                                  'generated for this Design! Try with the flag --generate_fragments or run %s'
-                                  % PUtils.generate_fragments)
+                self.generate_interface_fragments()
+                # raise DesignError('Fragments were specified during design, but observations have not been yet been '
+                #                   'generated for this Design! Try with the flag --generate_fragments or run %s'
+                #                   % PUtils.generate_fragments)
             self.make_path(self.data)
             # creates all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             self.pose.interface_design(evolution=not self.no_evolution_constraint,
