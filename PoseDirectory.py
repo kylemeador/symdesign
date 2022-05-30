@@ -1981,8 +1981,6 @@ class PoseDirectory:  # (JobResources):
             # generate oligomers for each entity in the pose
             for idx, entity in enumerate(self.pose.entities):
                 if entity.number_of_monomers != self.sym_entry.group_subunit_numbers[idx]:
-                    print('self.sym_entry.groups', self.sym_entry.groups)
-                    print('self.pose_transformation', self.pose_transformation)
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
                 # write out new oligomers to the PoseDirectory
                 if self.write_oligomers:

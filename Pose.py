@@ -2087,11 +2087,11 @@ class SymmetricModel(Model):
             # find groups for which the oligomeric parameters do not apply or exist by nature of orientation [T, O, I]
             if sym_group == self.symmetry:  # molecule should be oriented already and expand matrices handle oligomers
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
-                asu_indices.append(center_of_mass_symmetric_entities[group_idx])
+                asu_indices.append(list(range(len(center_of_mass_symmetric_entities[group_idx]))))
                 continue
             elif sym_group == 'C1':  # no oligomer possible
                 transform_solutions.append(dict())  # rotation=rot, translation=tx
-                asu_indices.append(center_of_mass_symmetric_entities[group_idx])
+                asu_indices.append(list(range(len(center_of_mass_symmetric_entities[group_idx]))))
                 continue
             # search through the sub_symmetry group setting matrices that make up the resulting point group symmetry
             # apply setting matrix to the entity centers of mass indexed to the proper group number
