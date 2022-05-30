@@ -368,19 +368,22 @@ class SequenceProfile:
             else:
                 success = True
 
-    def add_evolutionary_profile(self, out_path=os.getcwd(), profile_source='hhblits', file=None, force=False):
+    def add_evolutionary_profile(self, out_path: str | bytes = os.getcwd(), profile_source: str = PUtils.hhblits,
+                                 file: str | bytes = None, force: bool = False):
         """Add the evolutionary profile to the entity. Profile is generated through a position specific search of
         homologous protein sequences (evolutionary)
 
-        Keyword Args:
-            out_path=os.getcwd() (str): Location where sequence files should be written
-            profile_source='hhblits' (str): One of 'hhblits' or 'psiblast'
+        Args:
+            out_path: Location where sequence files should be written
+            profile_source: One of 'hhblits' or 'psiblast'
+            file: Location where profile file should be loaded from
+            force: Whether to force generation of a new profile
         Sets:
             self.evolutionary_profile
         """
         if profile_source not in ['hhblits', 'psiblast']:
-            raise DesignError('%s: Profile generation only possible from \'hhblits\' or \'psiblast\', not %s'
-                              % (self.add_evolutionary_profile.__name__, profile_source))
+            raise DesignError(f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
+                              f'"{PUtils.hhblits}" or "psiblast", not {profile_source}')
         if file:
             self.pssm_file = file
         else:  # Check to see if the files of interest already exist
@@ -398,7 +401,7 @@ class SequenceProfile:
                 if not os.path.exists(temp_file):  # No work on this pssm file has been initiated
                     # Create blocking file to prevent excess work
                     with open(temp_file, 'w') as f:
-                        self.log.info('Fetching \'%s\' sequence data.\n' % self.name)
+                        self.log.info('Fetching "%s" sequence data' % self.name)
                     self.log.debug('%s Evolutionary Profile not yet created.' % self.name)
                     if profile_source == 'psiblast':
                         self.log.info('Generating PSSM Evolutionary Profile for %s' % self.name)
@@ -409,9 +412,9 @@ class SequenceProfile:
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
                 else:  # Block is in place, another process is working
-                    self.log.info('Waiting for \'%s\' profile generation...' % self.name)
+                    self.log.info('Waiting for "%s" profile generation...' % self.name)
                     while not os.path.exists(self.pssm_file):
-                        if int(time.time()) - int(os.path.getmtime(temp_file)) > 1800:  # > 30 minutes have passed
+                        if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             os.remove(temp_file)
                             raise DesignError('%s: Generation of the profile for %s took longer than the time '
                                               'limit. Job killed!'

@@ -3348,16 +3348,21 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 entity.add_profile(null=True)
             else:  # add a real profile
                 if self.source_db:
+                    profiles_path = self.source_db.hhblits_profiles.location
                     entity.sequence_file = self.source_db.sequences.retrieve_file(name=entity.name)
                     entity.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=entity.name)
-                    if not entity.pssm_file:
+                    if not entity.evolutionary_profile:
+                        entity.add_evolutionary_profile(out_path=profiles_path)
+
+                    if not entity.pssm_file:  # still no file found. this is likely broken
+                        raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
+                                          f'protocol you must generate the profile!')
                         entity.pssm_file = self.source_db.hhblits_profiles.retrieve_file(name=entity.name)
                     if len(entity.evolutionary_profile) != entity.number_of_residues:
                         # profile was made with reference or the sequence has inserts and deletions of equal length
                         # A more stringent check could move through the evolutionary_profile[idx]['type'] key versus the
                         # entity.sequence[idx]
                         entity.fit_evolutionary_profile_to_structure()
-                    profiles_path = self.source_db.hhblits_profiles.location
                 else:
                     profiles_path = des_dir.profiles
 
