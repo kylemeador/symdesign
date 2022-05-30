@@ -994,7 +994,7 @@ class SymmetricModel(Model):
         # self.sym_entry = None
         # self.symmetry = None  # also defined in PDB as self.space_group
         # self.point_group_symmetry = None
-        self.oligomeric_equivalent_model_idxs = {}
+        self.oligomeric_equivalent_model_idxs: dict[Entity, list[int]] = {}
         # self.output_asu = True
         self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
 
@@ -1584,7 +1584,7 @@ class SymmetricModel(Model):
             # chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
             chain_center_of_mass = chain.center_of_mass
             # print('Chain', chain_center_of_mass.astype(int))
-            for model_num in range(self.number_of_symmetry_mates):
+            for model_num in range(self.number_of_symmetry_mates):  # Todo modify this to be with symmetric coms
                 sym_model_center_of_mass = \
                     np.matmul(entity_center_of_mass_divisor,
                               self.symmetric_coords[(model_num * number_of_atoms) + entity_start:
@@ -3098,8 +3098,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             # even if entity1 == entity2, only need to expand the entity2 fragments due to surface/ghost frag mechanics
             # asu frag subtraction is unnecessary THIS IS ALL WRONG DEPENDING ON THE CONTEXT
             if entity1 == entity2:
-                skip_models = self.oligomeric_equivalent_model_idxs[entity1]
-                self.log.info('Skipping oligomeric models %s' % skip_models)
+                # We don't want interactions with the intra-oligomeric contacts
+                if entity1.is_oligomeric:  # remove oligomeric protomers (contains asu)
+                    skip_models = self.oligomeric_equivalent_model_idxs[entity1]
+                    self.log.info('Skipping oligomeric models %s' % skip_models)
+                else:  # probably a C1
+                    skip_models = []
             else:
                 skip_models = []
             surface_frags2_nested = [self.return_symmetry_mates(frag) for frag in surface_frags2]
