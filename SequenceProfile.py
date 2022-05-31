@@ -543,7 +543,7 @@ class SequenceProfile:
                 return_command: bool = False, **kwargs) -> str | None:
         """Generate an position specific scoring matrix from HHblits using Hidden Markov Models
 
-        Keyword Args:
+        Args:
             out_path: Disk location where generated file should be written
             threads: Number of cpu's to use for the process
             return_command: Whether to simply return the hhblits command
@@ -567,6 +567,8 @@ class SequenceProfile:
 
         self.log.info('%s Profile Command: %s' % (self.name, subprocess.list2cmdline(cmd)))
         p = subprocess.Popen(cmd)
+        if p.returncode != 0:
+            raise DesignError(f'Profile generation for {self.name} got stuck')
         p.communicate()
         p = subprocess.Popen([PUtils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc'])
         p.communicate()

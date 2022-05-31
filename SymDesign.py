@@ -897,7 +897,7 @@ if __name__ == '__main__':
             for symmetry, entities in zip(symmetry_map, required_entities):
                 if not entities:
                     continue
-                elif not symmetry or symmetry == 'C1':
+                elif not symmetry:
                     logger.info('PDB files are being processed without consideration for symmetry: %s'
                                 % ', '.join(entities))
                     continue
