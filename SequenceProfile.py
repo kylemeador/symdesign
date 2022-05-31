@@ -567,9 +567,12 @@ class SequenceProfile:
 
         self.log.info('%s Profile Command: %s' % (self.name, subprocess.list2cmdline(cmd)))
         p = subprocess.Popen(cmd)
-        if p.returncode != 0:
-            raise DesignError(f'Profile generation for {self.name} got stuck. See the error for details -> {p.stderr}')
         p.communicate()
+        if p.returncode != 0:
+            temp_file = os.path.join(out_path, '%s.hold' % self.name)
+            if os.path.exists(temp_file):  # remove hold file blocking progress
+                os.remove(temp_file)
+            raise DesignError(f'Profile generation for {self.name} got stuck. See the error for details -> {p.stderr}')  #  {p.stdout}')  #
         p = subprocess.Popen([PUtils.reformat_msa_exe_path, self.a3m_file, self.msa_file, '-num', '-uc'])
         p.communicate()
         p = subprocess.Popen([PUtils.reformat_msa_exe_path, self.a3m_file, fasta_msa, '-M', 'first', '-r'])
