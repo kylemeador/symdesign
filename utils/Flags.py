@@ -345,8 +345,8 @@ parser_options_arguments = {
     ('-l', '--load_database'): dict(action='store_true',
                                     help='Whether to fetch and store resources for each Structure in the sequence/'
                                          'structure database\nDefault=%(default)s'),
-    ('--mpi',): dict(type=int, default=0, description='If commands should be run as MPI parallel processes, how many '
-                                                      'processes should be invoked for each job?\nDefault=%(default)s'),
+    ('--mpi',): dict(type=int, default=0, help='If commands should be run as MPI parallel processes, how many '
+                                               'processes should be invoked for each job?\nDefault=%(default)s'),
     ('-M', '--multi_processing'): dict(action='store_true',
                                        help='Should job be run with multiple processors?\nDefault=%(default)s'),
     ('-N', '--nanohedra_output'): dict(action='store_true',
