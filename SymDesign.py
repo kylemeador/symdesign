@@ -897,12 +897,17 @@ if __name__ == '__main__':
             # Select entities, orient them, then load each entity to all_entities for further database processing
             symmetry_map = example_directory.sym_entry.groups if example_directory.sym_entry else repeat(None)
             for symmetry, entities in zip(symmetry_map, required_entities):
-                if not entities:
+                if not entities:  # useful in a case where symmetry groups are the same
                     continue
-                elif not symmetry or symmetry == 'C1':
+                elif not symmetry:  # or symmetry == 'C1':
                     logger.info('PDB files are being processed without consideration for symmetry: %s'
                                 % ', '.join(entities))
+                    raise RuntimeError('This is not implemented!')
+                    all_entities.extend()
                     continue
+                elif symmetry == 'C1':
+                    logger.info('PDB files are being processed with C1 symmetry: %s'
+                                % ', '.join(entities))
                     # example_directory.transform_d[idx]['translation'] = -center_of_mass
                     # example_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
                 else:
@@ -1171,6 +1176,11 @@ if __name__ == '__main__':
     # Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
     # Format computational requirements
+    if args.module in [PUtils.nano, PUtils.interface_design]:  # Todo make possible for all
+        if args.run_in_shell:
+            logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
+        else:
+            logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
     if args.multi_processing:
         # Calculate the number of cores to use depending on computer resources
         cores = SDUtils.calculate_mp_cores(cores=args.cores)  # mpi=args.mpi, Todo
@@ -1201,12 +1211,6 @@ if __name__ == '__main__':
                             'designing with evolution)! Please allocate the job to a computer with more memory or the '
                             'process will fail. Otherwise, select --%s' % PUtils.no_evolution_constraint)
             exit(1)
-
-    if args.module in [PUtils.nano, PUtils.interface_design]:
-        if args.run_in_shell:
-            logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
-        else:
-            logger.info('Writing modeling commands out to file, no modeling will occur until commands are executed')
     # -----------------------------------------------------------------------------------------------------------------
     # Parse SubModule specific commands
     # -----------------------------------------------------------------------------------------------------------------
