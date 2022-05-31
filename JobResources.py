@@ -191,7 +191,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
                 # write out file for the orient database
                 if symmetry == 'C1':  # translate the monomer to the origin
-                    entity = pdb.entities[0]
+                    entity = pdb.entities[0]  # may be an issue if we passed a hetero dimer and treated as a C1
                     entity.translate(-entity.center_of_mass)
                     # entity.name = entry_entity
                     orient_file = entity.write(out_path=os.path.join(orient_dir, entry_entity_base))
