@@ -3326,10 +3326,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 self.generate_interface_fragments(out_path=des_dir.frags, write_fragments=write_fragments)
             else:  # No fragment query, add existing fragment information to the pose
                 if fragment_source is None:
-                    raise DesignError('Fragments were set for design but there were none found! Try including '
-                                      '--query_fragments in your input flags and rerun this command or generate '
-                                      'them separately with \'%s %s\''
-                                      % (PUtils.program_command, PUtils.generate_fragments))
+                    raise DesignError(f'Fragments were set for design but there were none found! Try including '
+                                      f'--{PUtils.generate_fragments} in your input flags and rerun this command or '
+                                      f'generate them separately with "{PUtils.program_command} '
+                                      f'{PUtils.generate_fragments}"')
 
                 self.log.debug('Fragment data found from prior query. Solving query index by Pose numbering/Entity '
                                'matching')
@@ -3342,7 +3342,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     entity.assign_fragments(fragments=fragment_info,
                                             alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
         for entity in self.entities:
-            # entity.retrieve_sequence_from_api(entity_id=entity)  # Todo
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
             if entity not in self.active_entities:  # we shouldn't design, add a null profile instead
                 entity.add_profile(null=True)
@@ -3353,7 +3352,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     entity.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=entity.name)
                     if not entity.evolutionary_profile:
                         entity.add_evolutionary_profile(out_path=profiles_path)
-                    else:
+                    else:  # ensure the file is attached as well
                         entity.pssm_file = self.source_db.hhblits_profiles.retrieve_file(name=entity.name)
 
                     if not entity.pssm_file:  # still no file found. this is likely broken

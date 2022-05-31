@@ -4,6 +4,7 @@ import re
 from functools import wraps
 # from math import ceil, sqrt
 import shutil
+from logging import Logger
 from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
@@ -48,7 +49,7 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from utils.SymmetryUtils import identity_matrix, origin
-from JobResources import FragmentDatabase
+from JobResources import FragmentDatabase, JobResources
 
 # Globals
 logger = start_log(name=__name__)
@@ -69,63 +70,63 @@ class PoseDirectory:  # (JobResources):
 
     def __init__(self, design_path, pose_id=None, root=None, **kwargs):
         #        project=None, specific_design=None, dock=False, construct_pose=False,
-        self.job_resources = kwargs.get('job_resources', None)
+        self.job_resources: JobResources | None = kwargs.get('job_resources', None)
 
         # PoseDirectory flags
-        self.construct_pose = kwargs.get('construct_pose', False)
-        self.debug = kwargs.get('debug', False)
+        self.construct_pose: bool = kwargs.get('construct_pose', False)
+        self.debug: bool = kwargs.get('debug', False)
         # self.dock = kwargs.get('dock', False)
         self.initialized = None
-        self.log = None
+        self.log: Logger = None
         # self.master_db = kwargs.get('master_db', None)
-        self.nanohedra_output = kwargs.get('nanohedra_output', False)
+        self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
         if pose_id:
             self.directory_string_to_path(root, design_path)  # sets self.path
-            self.source_path = self.path
+            self.source_path: str = self.path
         else:
-            self.source_path = os.path.abspath(design_path)
-        self.name = os.path.splitext(os.path.basename(self.source_path))[0]
+            self.source_path: str = os.path.abspath(design_path)
+        self.name: str = os.path.splitext(os.path.basename(self.source_path))[0]
         # PoseDirectory path attributes
         # self.scores = None  # /program_root/Projects/project_Designs/design/scores
-        self.scores_file = None  # /program_root/Projects/project_Designs/design/data/name.sc
-        self.data = None  # /program_root/Projects/project_Designs/design/data
-        self.designs = None  # /program_root/Projects/project_Designs/design/designs
+        self.scores_file: str | None = None  # /program_root/Projects/project_Designs/design/data/name.sc
+        self.data: str | None = None  # /program_root/Projects/project_Designs/design/data
+        self.designs: str | None = None  # /program_root/Projects/project_Designs/design/designs
         # self.sdf_dir = None  # path/to/directory/sdf/
-        self.frags = None  # /program_root/Projects/project_Designs/design/matching_fragments
-        self.flags = None  # /program_root/Projects/project_Designs/design/scripts/flags
-        self.frag_file = None  # /program_root/Projects/project_Designs/design/
-        self.output_directory = kwargs.get('output_directory', None)
-        self.pose_file = None  # /program_root/Projects/project_Designs/design/
-        self.scripts = None  # /program_root/Projects/project_Designs/design/scripts
-        self.serialized_info = None  # /program_root/Projects/project_Designs/design/data/info.pkl
-        self.asu_path = None  # /program_root/Projects/project_Designs/design/design_name_clean_asu.pdb
-        self.assembly_path = None  # /program_root/Projects/project_Designs/design/design_name_assembly.pdb
-        self.refine_pdb = None
+        self.frags: str | None = None  # /program_root/Projects/project_Designs/design/matching_fragments
+        self.flags: str | None = None  # /program_root/Projects/project_Designs/design/scripts/flags
+        self.frag_file: str | None = None  # /program_root/Projects/project_Designs/design/
+        self.output_directory: str | None = kwargs.get('output_directory', None)
+        self.pose_file: str | None = None  # /program_root/Projects/project_Designs/design/
+        self.scripts: str | None = None  # /program_root/Projects/project_Designs/design/scripts
+        self.serialized_info: str | None = None  # /program_root/Projects/project_Designs/design/data/info.pkl
+        self.asu_path: str | None = None  # /program_root/Projects/project_Designs/design/design_name_clean_asu.pdb
+        self.assembly_path: str | None = None  # /program_root/Projects/project_Designs/design/design_name_assembly.pdb
+        self.refine_pdb: str | None = None
         # self._fragment_database = {}
         # self._evolutionary_profile = {}
         # self._design_profile = {}
         # self._fragment_data = {}
         # program_root/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
-        self.refined_pdb = None  # /program_root/Projects/project_Designs/design/design_name_refined.pdb
-        self.scouted_pdb = None  # /program_root/Projects/project_Designs/design/designs/design_name_scouted.pdb
-        self.consensus_pdb = None  # /program_root/Projects/project_Designs/design/design_name_for_consensus.pdb
+        self.refined_pdb: str | None = None  # /program_root/Projects/project_Designs/design/design_name_refined.pdb
+        self.scouted_pdb: str | None = None  # /program_root/Projects/project_Designs/design/designs/design_name_scouted.pdb
+        self.consensus_pdb: str | None = None  # /program_root/Projects/project_Designs/design/design_name_for_consensus.pdb
         # /program_root/Projects/project_Designs/design/designs/design_name_for_consensus.pdb
-        self.consensus_design_pdb = None
-        self.pdb_list = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
-        self.design_profile_file = None  # /program_root/Projects/project_Designs/design/data/design.pssm
-        self.evolutionary_profile_file = None  # /program_root/Projects/project_Designs/design/data/evolutionary.pssm
+        self.consensus_design_pdb: str | None = None
+        self.pdb_list: str | None = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
+        self.design_profile_file: str | None = None  # /program_root/Projects/project_Designs/design/data/design.pssm
+        self.evolutionary_profile_file: str | None = None  # /program_root/Projects/project_Designs/design/data/evolutionary.pssm
         # self.fragment_data_pkl = None  # /program_root/Projects/project_Designs/design/data/%s_fragment_profile.pkl
 
         # Symmetry attributes
         # self._pose_transformation = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
         # self.cryst_record = None
         # self.expand_matrices = None
-        # Todo monitor if energy mechansims are modified for crystal set ups and adjust parameter accordingly
-        self.modify_sym_energy = True if self.design_dimension in [2, 3] else False
-        self.sym_def_file = None  # The symmetry definition file for the entire Pose
-        self.symmetry_protocol = None
         if 'sym_entry' in kwargs:
             self.sym_entry = kwargs['sym_entry']
+        # Todo monitor if energy mechansims are modified for crystal set ups and adjust parameter accordingly
+        self.modify_sym_energy: bool = True if self.design_dimension in [2, 3] else False
+        self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
+        self.symmetry_protocol: str | None = None
         # elif 'sym_entry_number' in kwargs:
         #     self.sym_entry = symmetry_factory(kwargs['sym_entry_specification'])
         # if symmetry:
@@ -138,57 +139,57 @@ class PoseDirectory:  # (JobResources):
         # self.uc_dimensions = None
 
         # Design flags  # Todo move to JobResources
-        self.consensus = kwargs.get('consensus', None)  # Whether to run consensus or not
-        self.interface_design_residues: Set[int] = False  # (set[int])
-        self.no_term_constraint = kwargs.get(PUtils.no_term_constraint, True)
-        self.directives = kwargs.get('directives', {})
-        self.no_evolution_constraint = kwargs.get(PUtils.no_evolution_constraint, True)
+        self.interface_design_residues: bool | set[int] = False  # the residue numbers in the pose interface
+        self.directives: dict[int, str] = kwargs.get('directives', {})
+        self.specific_design: str = kwargs.get('specific_design', None)
+        self.consensus: bool = kwargs.get(PUtils.consensus, False)  # Whether to run consensus or not
+        self.no_term_constraint: bool = kwargs.get(PUtils.no_term_constraint, True)
+        self.no_evolution_constraint: bool = kwargs.get(PUtils.no_evolution_constraint, True)
         # self.fragment_file = None
         # self.fragment_type = PUtils.biological_interfaces  # default for now, can be found in fragment_db
-        self.force_flags = kwargs.get(PUtils.force_flags, False)
-        self.fuse_chains = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
-        self.ignore_clashes = kwargs.get('ignore_clashes', False)
-        self.increment_chains = kwargs.get('increment_chains', False)
-        self.mpi = kwargs.get('mpi', False)
-        self.no_hbnet = kwargs.get(PUtils.no_hbnet, False)
-        self.number_of_trajectories = kwargs.get(PUtils.number_of_trajectories, PUtils.nstruct)
-        self.output_assembly = kwargs.get('output_assembly', False)
-        self.run_in_shell = kwargs.get('run_in_shell', False)
-        self.pre_refine = False
-        self.pre_loop_model = False
-        self.query_fragments = kwargs.get(PUtils.generate_fragments, False)
-        self.scout = kwargs.get(PUtils.scout, False)
-        self.sequence_background = kwargs.get('sequence_background', False)
-        self.specific_design = kwargs.get('specific_design', None)
-        self.specific_protocol = kwargs.get('specific_protocol', False)
-        self.structure_background = kwargs.get(PUtils.structure_background, False)
-        self.write_frags = kwargs.get(PUtils.output_fragments, True)
-        self.write_oligomers = kwargs.get(PUtils.output_oligomers, False)
+        self.force_flags: bool = kwargs.get(PUtils.force_flags, False)
+        self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
+        self.ignore_clashes: bool = kwargs.get('ignore_clashes', False)
+        self.increment_chains: bool = kwargs.get('increment_chains', False)
+        self.mpi: int = kwargs.get('mpi', 0)
+        self.no_hbnet: bool = kwargs.get(PUtils.no_hbnet, False)
+        self.number_of_trajectories: int = kwargs.get(PUtils.number_of_trajectories, PUtils.nstruct)
+        self.output_assembly: bool = kwargs.get('output_assembly', False)
+        self.run_in_shell: bool = kwargs.get('run_in_shell', False)
+        self.pre_refine: bool = False
+        self.pre_loop_model: bool = False
+        self.generate_fragments: bool = kwargs.get(PUtils.generate_fragments, False)
+        self.scout: bool = kwargs.get(PUtils.scout, False)
+        # self.sequence_background = kwargs.get('sequence_background', False)
+        self.specific_protocol: str = kwargs.get('specific_protocol', False)
+        self.structure_background: bool = kwargs.get(PUtils.structure_background, False)
+        self.write_frags: bool = kwargs.get(PUtils.output_fragments, True)
+        self.write_oligomers: bool = kwargs.get(PUtils.output_oligomers, False)
         # Development Flags
-        self.command_only = kwargs.get('command_only', False)  # Whether to reissue commands, only if run_in_shell=False
-        self.development = kwargs.get('development', False)
+        self.command_only: bool = kwargs.get('command_only', False)  # Whether to reissue commands, only if run_in_shell=False
+        self.development: bool = kwargs.get('development', False)
 
         # Analysis flags
-        self.skip_logging = kwargs.get('skip_logging', False)
-        self.copy_nanohedra = kwargs.get('copy_nanohedra', False)  # no construction specific flags
-        self.nanohedra_root = None
+        self.skip_logging: bool = kwargs.get('skip_logging', False)
+        self.copy_nanohedra: bool = kwargs.get('copy_nanohedra', False)  # no construction specific flags
+        self.nanohedra_root: str = None
 
         # Design attributes
-        self.composition = None  # building_blocks (4ftd_5tch)
-        self.background_profile = kwargs.get('background_profile', PUtils.design_profile)  # by default, grab design profile
-        self.interface_residue_ids = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
-        self.design_selector = kwargs.get('design_selector', None)
-        self.entity_names = []
-        self.fragment_observations = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
-        self.info = {}  # internal state info
-        self._info = {}  # internal state info at load time
-        self.init_pdb = None  # used if the design has never been initialized previously
-        self.interface_residues = []
+        self.composition: str = None  # building_blocks (4ftd_5tch)
+        self.background_profile: str = kwargs.get('background_profile', PUtils.design_profile)  # by default, grab design profile
+        self.interface_residue_ids: dict[str, str] = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
+        self.design_selector: dict[str, dict] = kwargs.get('design_selector', None)
+        self.entity_names: list[str] = []
+        self.fragment_observations: list[dict] = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
+        self.info: dict = {}  # internal state info
+        self._info: dict = {}  # internal state info at load time
+        self.init_pdb: PDB | None = None  # used if the pose structure has never been initialized previously
+        self.interface_residues: list[int] | bool = False
         # self.oligomer_names = []
-        self.oligomers = []
-        self.pose = None  # contains the design's Pose object
-        self.pose_id = None
-        self.source = None
+        self.oligomers: list[Structure] = []
+        self.pose: Pose | None = None  # contains the design's Pose object
+        self.pose_id: str = None
+        self.source: str = None
 
         # Metric attributes TODO MOVE Metrics
         self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
@@ -1750,9 +1751,8 @@ class PoseDirectory:  # (JobResources):
                     consensus_process = Popen(consensus_cmd)
                     consensus_process.communicate()
             else:
-                self.log.critical('Cannot run consensus design without fragment info and none was found.'
-                                  ' Did you mean to design with -generate_fragments False? You will need to run with'
-                                  '\'True\' if you want to use fragments')
+                self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
+                                  f' Did you mean to exclude --{PUtils.generate_fragments}?')
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
@@ -1927,7 +1927,7 @@ class PoseDirectory:  # (JobResources):
             for idx, name in enumerate(self.entity_names, 1):
                 oligomer_files.extend(sorted(glob(os.path.join(path, '%s*.pdb*' % name))))  # first * is PoseDirectory
             assert len(oligomer_files) == idx, \
-                'Incorrect number of oligomers! Expected %d, %d found. Matched files from \'%s\':\n\t%s' \
+                'Incorrect number of oligomers! Expected %d, %d found. Matched files from "%s":\n\t%s' \
                 % (idx, len(oligomer_files), os.path.join(path, '*.pdb*'), oligomer_files)
 
             self.oligomers.clear()  # for every call we should reset the list
@@ -2140,7 +2140,7 @@ class PoseDirectory:  # (JobResources):
 
             # self.pose.pdb.write(out_path=self.refine_pdb)
             self.pose.write(out_path=self.refine_pdb)
-            self.log.debug('Cleaned PDB for %s: \'%s\'' % (self.refine_pdb, stage.title()))
+            self.log.debug('Cleaned PDB for %s: "%s"' % (self.refine_pdb, stage.title()))
             flags = os.path.join(self.scripts, 'flags')
             flag_dir = self.scripts
             pdb_out_path = self.designs
@@ -2277,10 +2277,10 @@ class PoseDirectory:  # (JobResources):
         """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
-        if not self.fragment_db:
-            self.log.warning('There was no FragmentDatabase passed to the Design. But fragment information was '
-                             'requested. Each design is loading a separate FragmentDatabase instance. To maximize '
-                             'efficiency, pass --%s' % PUtils.generate_fragments)
+        # if not self.fragment_db:
+        #     self.log.warning('There was no FragmentDatabase passed to the pose, ut fragment information was '
+        #                      'requested. Each design is loading a separate FragmentDatabase instance. To maximize '
+        #                      'efficiency, pass --%s' % PUtils.generate_fragments)
         self.identify_interface()
         self.make_path(self.frags, condition=self.write_frags)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
@@ -2353,7 +2353,7 @@ class PoseDirectory:  # (JobResources):
             pass
         else:
             self.identify_interface()
-            if self.query_fragments:
+            if self.generate_fragments:
                 self.make_path(self.frags)
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
@@ -2362,16 +2362,14 @@ class PoseDirectory:  # (JobResources):
             elif self.no_term_constraint:
                 pass
             else:
-                self.generate_interface_fragments()
-                # raise DesignError('Fragments were specified during design, but observations have not been yet been '
-                #                   'generated for this Design! Try with the flag --generate_fragments or run %s'
-                #                   % PUtils.generate_fragments)
+                # self.generate_interface_fragments()
+                raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
+                                  f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
             self.make_path(self.data)
             # creates all files which store the evolutionary_profile and/or fragment_profile -> design_profile
-            self.pose.interface_design(evolution=not self.no_evolution_constraint,
-                                       fragments=not self.no_term_constraint,
-                                       query_fragments=self.query_fragments, fragment_source=self.fragment_observations,
-                                       write_fragments=self.write_frags, des_dir=self)
+            self.pose.interface_design(evolution=not self.no_evolution_constraint, des_dir=self,
+                                       fragments=not self.no_term_constraint, query_fragments=self.generate_fragments,
+                                       fragment_source=self.fragment_observations, write_fragments=self.write_frags)
             self.make_path(self.designs)
             self.fragment_observations = self.pose.return_fragment_observations()
             self.info['fragments'] = self.fragment_observations
@@ -2501,7 +2499,7 @@ class PoseDirectory:  # (JobResources):
         else:  # we only need to load pose as we already calculated interface
             self.load_pose()
         self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.interface_design_residues))))
-        if self.query_fragments:
+        if self.generate_fragments:
             self.make_path(self.frags, condition=self.write_frags)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
 

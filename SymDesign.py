@@ -789,12 +789,14 @@ if __name__ == '__main__':
     queried_flags['job_resources'] = job
 
     # Set up Databases
-    if queried_flags.get(PUtils.generate_fragments, None) or not queried_flags.get('no_term_constraint', None) \
-            or args.module in [PUtils.nano, PUtils.generate_fragments]:
-        # logger.info('Initializing %s FragmentDatabase' % PUtils.biological_interfaces)
-        # fragment_db = SDUtils.unpickle(PUtils.biological_fragment_db_pickle)
-        fragment_db = fragment_factory(source=args.fragment_database)
-        euler_lookup = EulerLookup()
+    if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design] or \
+            queried_flags.get(PUtils.generate_fragments, None):  # Todo remove, only in interface_design_analysis
+        if queried_flags.get('no_term_constraint', None):
+            fragment_db, euler_lookup = None, None
+        else:
+            queried_flags[PUtils.generate_fragments] = True
+            fragment_db = fragment_factory(source=args.fragment_database)
+            euler_lookup = EulerLookup()
     else:
         fragment_db, euler_lookup = None, None
 
@@ -1266,7 +1268,7 @@ if __name__ == '__main__':
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == PUtils.generate_fragments:  # Todo or queried_flags.get(PUtils.generate_fragments):
+    elif args.module == PUtils.generate_fragments:
         if args.multi_processing:
             results = SDUtils.mp_map(PoseDirectory.generate_interface_fragments, pose_directories, processes=cores)
         else:
