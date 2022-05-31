@@ -1562,7 +1562,7 @@ class PoseDirectory:  # (JobResources):
                      #  -run:score_only true?
                      '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
         #              '-in:file:native', self.refined_pdb,
-        if self.mpi:
+        if self.mpi > 0:
             main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
             self.run_in_shell = False
 
@@ -1651,7 +1651,7 @@ class PoseDirectory:  # (JobResources):
 
         cmd += ['@%s' % flags, '-in:file:%s' % ('l' if file_list else 's'), pdb_input, '-in:file:native', native] + \
             score + suffix + trajectories + ['-parser:protocol', script] + variables
-        if self.mpi:
+        if self.mpi > 0:
             cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + cmd
             self.run_in_shell = False
 
@@ -1774,7 +1774,7 @@ class PoseDirectory:  # (JobResources):
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
-        if self.mpi and not self.scout:
+        if self.mpi > 0 and not self.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + entity_cmd
             self.run_in_shell = False
@@ -2176,7 +2176,7 @@ class PoseDirectory:  # (JobResources):
             #                            nullify -native from flags v
             main_cmd += ['-in:file:s', refined_pdb, '@%s' % flags, '-in:file:native', refine_pdb,
                          '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
-            if self.mpi:
+            if self.mpi > 0:
                 main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
                 self.run_in_shell = False
 
@@ -2448,7 +2448,7 @@ class PoseDirectory:  # (JobResources):
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
-        if self.mpi:
+        if self.mpi > 0:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + entity_cmd
             self.run_in_shell = False
