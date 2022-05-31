@@ -167,7 +167,10 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 pdb = PDB.from_file(file_path, name=file_name)  # , log=None)
                 if entity:  # replace pdb from fetched file with the entity pdb
                     # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
+                    print(entry_entity)
                     entity = pdb.entity(entry_entity)
+                    print(type(entity))
+                    print(','.join(entity.name for entity in pdb.entities))
                     if symmetry == 'C1':  # write out only entity
                         entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
                     else:  # write out the entity as parsed. since this is assembly we should get the correct state
