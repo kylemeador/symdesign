@@ -511,15 +511,16 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                 sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module,
                                          number_of_commands=len(success))
             logger.critical(sbatch_warning)
-            if args.module == PUtils.interface_design and not job.pre_refine:  # must refine before design
-                refine_file = SDUtils.write_commands([os.path.join(design.scripts, '%s.sh' % PUtils.refine)
+            global pre_refine
+            if args.module == PUtils.interface_design and not pre_refine:  # False, so should refine before design
+                refine_file = SDUtils.write_commands([os.path.join(design.scripts, f'{PUtils.refine}.sh')
                                                       for design in success], out_path=job_paths,
                                                      name='_'.join((SDUtils.starttime, PUtils.refine, design_source)))
                 sbatch_refine_file = distribute(file=refine_file, out_path=job.sbatch_scripts, scale=PUtils.refine)
-                logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s\nTHEN:\n\tsbatch '
-                            '%s' % (sbatch_refine_file, sbatch_file))
+                logger.info(f'Once you are satisfied, enter the following to distribute:\n\tsbatch {sbatch_refine_file}'
+                            f'\nTHEN:\n\tsbatch {sbatch_file}')
             else:
-                logger.info('Once you are satisfied, enter the following to distribute:\n\tsbatch %s' % sbatch_file)
+                logger.info(f'Once you are satisfied, enter the following to distribute:\n\tsbatch {sbatch_file}')
 
     # test for the size of each of the designdirectories
     if pose_directories:
@@ -826,6 +827,7 @@ if __name__ == '__main__':
     location: str | None = None
     all_dock_directories, entity_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
+    pre_refine, pre_loop_model = None, None  # set below if needed
     if initialize:
         if args.range:
             low, high = map(float, args.range.split('-'))
@@ -1007,9 +1009,7 @@ if __name__ == '__main__':
             else:
                 bmdca_sbatch, reformat_sbatch = None, None
 
-            if args.preprocessed:  # indicate to skip set up
-                pre_refine, pre_loop_model = None, None
-            else:
+            if not args.preprocessed:
                 preprocess_instructions, pre_refine, pre_loop_model = \
                     job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
                                                                  script_out_path=job.sbatch_scripts,
@@ -1032,11 +1032,7 @@ if __name__ == '__main__':
 
             if args.preprocessed:  # ensure we report to PoseDirectory the results after skiping set up
                 pre_refine = True
-                pre_loop_model = None
-        else:
-            # currently these don't do anything
-            pre_refine = None  # False
-            pre_loop_model = None  # False
+                pre_loop_model = True
 
         if args.multi_processing:  # and not args.skip_master_db:
             logger.info('Loading Database for multiprocessing fork')
@@ -1045,7 +1041,7 @@ if __name__ == '__main__':
             # Todo tweak behavior of these two parameters. Need Queue based PoseDirectory
             # SDUtils.mp_map(PoseDirectory.set_up_design_directory, pose_directories, processes=cores)
             # SDUtils.mp_map(PoseDirectory.link_master_database, pose_directories, processes=cores)
-        # else:  # for now just do in series
+        # set up in series
         for design in pose_directories:
             design.set_up_design_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
@@ -1058,24 +1054,6 @@ if __name__ == '__main__':
 
     elif args.module == PUtils.nano:
         logger.critical('Setting up inputs for %s Docking' % PUtils.nano)
-        # if args.directory or args.file:
-        #     all_dock_directories, location = SDUtils.collect_nanohedra_designs(files=args.file,
-        #                                                                        directory=args.directory, dock=True)
-        #     pose_directories = [PoseDirectory.from_nanohedra(dock_dir, dock=True,  # mode=args.directory_type,
-        #                                                          project=args.project, **queried_flags)
-        #                           for dock_dir in all_dock_directories]
-        #     if not pose_directories:
-        #         raise SDUtils.DesignError('No docking directories/files were found!\n'
-        #                                   'Please specify --directory1, and/or --directory2 or --directory or '
-        #                                   '--file. See %s' % PUtils.help(args.module))
-        #     # master_directory = next(iter(pose_directories))
-        #     logger.info('%d unique building block docking combinations found in "%s"'
-        #                 % (len(pose_directories), location))
-        # else:
-        # if args.output_directory:
-        #     master_directory = JobResources(queried_flags['output_directory'])
-        # else:
-        #     master_directory = JobResources(os.path.join(os.getcwd(), PUtils.program_output))
         # Todo make current with sql ambitions
         # make master output directory.           sym_entry is required, so this won't fail v
         job.docking_master_dir = os.path.join(job.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
@@ -1172,16 +1150,13 @@ if __name__ == '__main__':
         entity_pairs = list(product(entities1, entities2))
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
-    else:  # this logic is possible with select_poses without --metric
+    else:
+        # this logic is possible with args.module in
+        # PUtils.nano, 'multicistronic', or select_poses with --metric or --dataframe
         # job.resources = None
         # design_source = os.path.basename(example_directory.project_designs)
-        # job = JobResources(queried_flags['output_directory'])
-        pre_refine = None
-        pre_loop_model = None
         pass
-    # TEMP PATCH
-    job.pre_refine = pre_refine
-    job.pre_loop_model = pre_loop_model
+
     # -----------------------------------------------------------------------------------------------------------------
     # Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
@@ -1569,8 +1544,8 @@ if __name__ == '__main__':
             elif args.metric == 'fragments_matched':
                 metric_design_dir_pairs = [(des_dir.number_of_fragments, des_dir.path)
                                            for des_dir in pose_directories]
-            else:
-                raise SDUtils.DesignError('The metric "%s" is not supported!' % args.metric)
+            # else:
+            #     raise SDUtils.DesignError('The metric "%s" is not supported!' % args.metric)
 
             logger.debug('Sorting designs according to "%s"' % args.metric)
             metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
@@ -1586,8 +1561,8 @@ if __name__ == '__main__':
                 designs_file = os.path.join(job.job_paths, '%s_%s_%s_pose.scores' % default_output_tuple)
                 with open(designs_file, 'w') as f:
                     f.write(top_designs_string % '\n\t'.join(results_strings))
-                logger.info('Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
-                            '"%s" for the remainder' % designs_file)
+                logger.info(f'Stdout performed a cutoff of ranked Designs at ranking 500. See the output design file '
+                            f'"{designs_file}" for the remainder')
 
             terminate(output=False)
         # else:
