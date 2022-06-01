@@ -512,7 +512,7 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                                          number_of_commands=len(success))
             logger.critical(sbatch_warning)
             global pre_refine
-            if args.module == PUtils.interface_design and not pre_refine:  # False, so should refine before design
+            if args.module == PUtils.interface_design and pre_refine is False:  # False, so should refine before design
                 refine_file = SDUtils.write_commands([os.path.join(design.scripts, f'{PUtils.refine}.sh')
                                                       for design in success], out_path=job_paths,
                                                      name='_'.join((SDUtils.starttime, PUtils.refine, design_source)))
