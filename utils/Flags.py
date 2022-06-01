@@ -463,30 +463,30 @@ parser_optimize_designs_arguments = {
                                                'optimization\nDefault=%(default)s')
 }
 # ---------------------------------------------------
-parser_custom = dict(custom_script=dict(help='Set up a custom RosettaScripts.xml for poses.\nThe custom script will '
-                                             'be run in every pose specified using specified options'))
-# parser_custom = subparsers.add_parser('custom_script', help='Set up a custom RosettaScripts.xml for poses. The custom script will be run in every pose specified using specified options')
-parser_custom_script_arguments = {
-    ('-l', '--file_list'): dict(action='store_true',
-                                help='Whether to use already produced designs in the "designs/" directory'
-                                     '\nDefault=%(default)s'),
-    ('-n', '--native'): dict(type=str, choices=['source', 'asu_path', 'assembly_path', 'refine_pdb', 'refined_pdb',
-                                                'consensus_pdb', 'consensus_design_pdb'], default='refined_pdb',
-                             help='What structure to use as a "native" structure for Rosetta reference calculations\n'
-                                  'Default=%(default)s'),
-    ('--score_only',): dict(action='store_true', help='Whether to only score the design(s)\nDefault=%(default)s'),
-    ('script',): dict(type=os.path.abspath, help='The location of the custom script'),
-    ('--suffix',): dict(type=str, metavar='SUFFIX',
-                        help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. "decoy_SUFFIX") '
-                             'to identify this protocol. No extension will be included'),
-    ('-v', '--variables'): dict(type=str, nargs='*',
-                                help='Additional variables that should be populated in the script.\nProvide a list of '
-                                     'such variables with the format "variable1=value variable2=value". Where variable1'
-                                     ' is a RosettaScripts %%%%variable1%%%% and value is a known value. For variables '
-                                     'that must be calculated on the fly for each design, please modify the Pose.py '
-                                     'class to produce a method that can generate an attribute with the specified name')
-    # Todo ' either a know value or an attribute available to the Pose object'
-}
+# parser_custom = dict(custom_script=dict(help='Set up a custom RosettaScripts.xml for poses.\nThe custom script will '
+#                                              'be run in every pose specified using specified options'))
+# # parser_custom = subparsers.add_parser('custom_script', help='Set up a custom RosettaScripts.xml for poses. The custom script will be run in every pose specified using specified options')
+# parser_custom_script_arguments = {
+#     ('-l', '--file_list'): dict(action='store_true',
+#                                 help='Whether to use already produced designs in the "designs/" directory'
+#                                      '\nDefault=%(default)s'),
+#     ('-n', '--native'): dict(type=str, choices=['source', 'asu_path', 'assembly_path', 'refine_pdb', 'refined_pdb',
+#                                                 'consensus_pdb', 'consensus_design_pdb'], default='refined_pdb',
+#                              help='What structure to use as a "native" structure for Rosetta reference calculations\n'
+#                                   'Default=%(default)s'),
+#     ('--score_only',): dict(action='store_true', help='Whether to only score the design(s)\nDefault=%(default)s'),
+#     ('script',): dict(type=os.path.abspath, help='The location of the custom script'),
+#     ('--suffix',): dict(type=str, metavar='SUFFIX',
+#                         help='Append to each output file (decoy in .sc and .pdb) the script name (i.e. "decoy_SUFFIX") '
+#                              'to identify this protocol. No extension will be included'),
+#     ('-v', '--variables'): dict(type=str, nargs='*',
+#                                 help='Additional variables that should be populated in the script.\nProvide a list of '
+#                                      'such variables with the format "variable1=value variable2=value". Where variable1'
+#                                      ' is a RosettaScripts %%%%variable1%%%% and value is a known value. For variables '
+#                                      'that must be calculated on the fly for each design, please modify the Pose.py '
+#                                      'class to produce a method that can generate an attribute with the specified name')
+#     # Todo ' either a know value or an attribute available to the Pose object'
+# }
 # ---------------------------------------------------
 parser_analysis = dict(analysis=dict(help='Analyze all poses specified generating a suite of metrics'))
 # parser_analysis = subparsers.add_parser(analysis, help='Analyze all poses specified. %s --guide %s will inform you about the various metrics available to analyze.' % (program_command, analysis))

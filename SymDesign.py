@@ -493,7 +493,7 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
                         else PUtils.hbnet_design_profile))
         module_files = {PUtils.interface_design: design_stage, PUtils.nano: PUtils.nano, PUtils.refine: PUtils.refine,
                         PUtils.interface_metrics: PUtils.interface_metrics,
-                        'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
+                        # 'custom_script': os.path.splitext(os.path.basename(getattr(args, 'script', 'c/custom')))[0],
                         PUtils.optimize_designs: PUtils.optimize_designs}
         stage = module_files.get(args.module)
         if stage and not args.run_in_shell:
@@ -630,8 +630,8 @@ if __name__ == '__main__':
             logger.info(interface_design_guide)
         elif args.module == PUtils.interface_metrics:
             logger.info(interface_metrics_guide)
-        elif args.module == 'custom_script':
-            logger.info()
+        # elif args.module == 'custom_script':
+        #     logger.info()
         elif args.module == PUtils.optimize_designs:
             logger.info(optimize_designs_guide)
         elif args.module == PUtils.refine:
@@ -718,12 +718,12 @@ if __name__ == '__main__':
             queried_flags[PUtils.sym_entry] = parse_symmetry_to_sym_entry(symmetry=queried_flags['symmetry'])
     sym_entry = queried_flags[PUtils.sym_entry]
 
-    initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,  # PUtils.refine,
-                          PUtils.optimize_designs, 'custom_script']  # PUtils.analysis,
+    initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics, PUtils.optimize_designs]
+    #                       PUtils.analysis, 'custom_script', PUtils.refine]
     # TODO consolidate these checks
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'expand_asu',
                        PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
-                       'check_clashes', 'custom_script']:  # , 'find_asu', 'status', 'visualize'
+                       'check_clashes']:  # , 'custom_script', 'find_asu', 'status', 'visualize'
         initialize, queried_flags['construct_pose'] = True, True  # set up design directories
     elif args.module in [PUtils.analysis, PUtils.cluster_poses, PUtils.select_poses, PUtils.select_sequences]:
         # analysis types can be run from nanohedra_output, so we ensure that we don't construct new
