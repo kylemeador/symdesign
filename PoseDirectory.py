@@ -150,6 +150,8 @@ class PoseDirectory:  # (JobResources):
         self.oligomers: list[Structure] = []
         self.pose: Pose | None = None  # contains the design's Pose object
         self.pose_id: str | None = None
+        self.pre_refine: bool = kwargs.get('pre_refine', True)
+        self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
         self.source: str | None = None
         self.specific_design: str = kwargs.get('specific_design', None)
 
@@ -452,13 +454,13 @@ class PoseDirectory:  # (JobResources):
     def run_in_shell(self) -> bool:
         return self.job_resources.run_in_shell
 
-    @property
-    def pre_refine(self) -> bool:
-        return self.job_resources.pre_refine
-
-    @property
-    def pre_loop_model(self) -> bool:
-        return self.job_resources.pre_loop_model
+    # @property
+    # def pre_refine(self) -> bool:
+    #     return self.job_resources.pre_refine
+    #
+    # @property
+    # def pre_loop_model(self) -> bool:
+    #     return self.job_resources.pre_loop_model
 
     @property
     def generate_fragments(self) -> bool:
@@ -876,7 +878,7 @@ class PoseDirectory:  # (JobResources):
             return self._pose_transformation
         except AttributeError:
             if self.symmetric:
-                try:
+                try:  # this may be a Nanohedra output
                     self._pose_transformation = self.retrieve_pose_transformation_from_file()
                 except FileNotFoundError:
                     try:
@@ -909,7 +911,7 @@ class PoseDirectory:  # (JobResources):
             self._pose_transformation = transform
             self.info['pose_transformation'] = self._pose_transformation
         else:
-            raise ValueError('The attribute pose_transformation must be a list, not %s' % type(transform))
+            raise ValueError(f'The attribute pose_transformation must be a list, not {type(transform)}')
 
     # def rotation_parameters(self):
     #     return self.rot_range_deg_pdb1, self.rot_range_deg_pdb2, self.rot_step_deg1, self.rot_step_deg2
@@ -1060,12 +1062,14 @@ class PoseDirectory:  # (JobResources):
             pre_loop_model: Whether the Pose had loops modeled previously (before loading)
         """
         self.start_log()
-        if pre_refine is not None and 'pre_refine' not in self.info:
-            self.pre_refine = pre_refine
-            self.info['pre_refine'] = self.pre_refine  # this may have just been set
-        if pre_loop_model is not None and 'pre_loop_model' not in self.info:
-            self.pre_loop_model = pre_loop_model
-            self.info['pre_loop_model'] = self.pre_loop_model
+        if not self.initialized:  # we haven't fully initialized this PoseDirectory before
+            # __init__ assumes structures have been refined so this would set false for the most part
+            if pre_refine is not None:  # either True or False
+                # self.pre_refine = pre_refine
+                self.info['pre_refine'] = pre_refine  # this may have just been set
+            if pre_loop_model is not None:  # either True or False
+                # self.pre_loop_model = pre_loop_model
+                self.info['pre_loop_model'] = pre_loop_model
 
         # Todo if I use output_identifier for design, it opens up a can of worms. Maybe it is better to include only for
         #  specific modules
@@ -1083,6 +1087,9 @@ class PoseDirectory:  # (JobResources):
         self.consensus_pdb = '%s_for_consensus.pdb' % os.path.splitext(self.asu_path)[0]
         self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
         self.pdb_list = os.path.join(self.scripts, 'design_files.txt')
+        self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
+        self.evolutionary_profile_file = os.path.join(self.data, 'evolutionary.pssm')
+        self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
         if self.nanohedra_output:
             self.pose_file = os.path.join(self.source_path, PUtils.pose_file)
             self.frag_file = os.path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
@@ -1100,6 +1107,10 @@ class PoseDirectory:  # (JobResources):
         else:
             self.pose_file = os.path.join(self.path, PUtils.pose_file)
             self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
+            self.pre_refine = self.info.get('pre_refine', True)
+            self.pre_loop_model = self.info.get('pre_loop_model', True)
+            self.entity_names = self.info.get('entity_names', [])
+            self.oligomer_names = self.info.get('oligomer_names', [])
             if os.path.exists(self.serialized_info):  # Pose has already been processed, gather state data
                 try:
                     serial_info = unpickle(self.serialized_info)
@@ -1165,15 +1176,12 @@ class PoseDirectory:  # (JobResources):
                         del self._pose_transformation
                 self.pickle_info()
                 # End temporary patch
-                self.pre_refine = self.info.get('pre_refine', True)
-                self.pre_loop_model = self.info.get('pre_loop_model', True)
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-                self.entity_names = self.info.get('entity_names', [])
-                self.oligomer_names = self.info.get('oligomer_names', [])
                 self.interface_design_residues = self.info.get('interface_design_residues', False)  # (set[int])
                 self.interface_residue_ids = self.info.get('interface_residue_ids', {})
                 self.interface_residues = self.info.get('interface_residues', False)
             else:  # we are constructing for the first time. Save all relevant information
+                # Todo move to .pdb __init__?
                 self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
                 self.info['entity_names'] = self.entity_names
 
@@ -1215,12 +1223,6 @@ class PoseDirectory:  # (JobResources):
         else:  # if the PoseDirectory is loaded as .pdb, the source should be loaded already
             # self.source = self.init_pdb
             pass
-
-        # design specific files
-        self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
-        self.evolutionary_profile_file = os.path.join(self.data, 'evolutionary.pssm')
-        self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
-        # self.fragment_data_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
 
     @property
     def symmetry_definition_files(self) -> List:
@@ -2113,7 +2115,7 @@ class PoseDirectory:  # (JobResources):
             #                      ' ID\'s are %s' % ((fusion_nterm, fusion_cterm), ','.join(new_asu.chain_ids)))
         self.pose.write(out_path=self.asu_path)
         self.info['pre_refine'] = self.pre_refine
-        self.log.info('Cleaned PDB: "%s"' % self.asu_path)
+        self.log.info(f'Cleaned PDB: "{self.asu_path}"')
 
     @handle_design_errors(errors=(DesignError,))
     @close_logs
