@@ -2395,7 +2395,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.split_interface_ss_elements = {}  # {1: [0,1,2] , 2: [9,13,19]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
-        self.ignore_clashes = kwargs.get('ignore_clashes', False)
+        self.ignore_clashes = kwargs.get(PUtils.ignore_clashes, False)
         self.design_selector = kwargs.get('design_selector', {})
 
         # Model init will handle Structure set up if a PDB/PDB_file is present
@@ -2451,7 +2451,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # self.coords = pdb._coords
         if not self.ignore_clashes:  # TODO add this check to SymmetricModel initialization
             if pdb.is_clash():
-                raise DesignError('%s contains Backbone clashes and is not being considered further!' % self.name)
+                raise DesignError(f'{self.name} contains Backbone clashes and is not being considered further!')
         # self.pdbs_d[pdb.name] = pdb
         self.create_design_selector()  # **self.design_selector) TODO rework this whole mechanism
 

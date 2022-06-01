@@ -1,7 +1,6 @@
 import argparse
 import os
 import sys
-from copy import copy
 from typing import Dict
 
 from psutil import cpu_count
@@ -12,7 +11,8 @@ from PathUtils import submodule_guide, submodule_help, force_flags, fragment_dbs
     clustered_poses, interface_design, no_evolution_constraint, no_hbnet, no_term_constraint, number_of_trajectories, \
     nstruct, structure_background, scout, interface_metrics, optimize_designs, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, analysis_file, select_sequences, generate_fragments, program_name, nano, \
-    program_command, analysis, select_poses, output_fragments, output_oligomers, protocol
+    program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes
 from ProteinExpression import expression_tags
 from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
@@ -20,152 +20,98 @@ from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clea
 from SequenceProfile import read_fasta_file
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
-# Todo separate into types of options, aka fragments, residue selection, symmetry
-global_flags = {
-    # 'symmetry': {'type': str, 'default': None,
-    #             'description': 'The symmetry to use for the Design. Symmetry won\'t be assigned%sif not provided '
-    #                            'unless Design targets are %s.py outputs' % (terminal_formatter, nano.title())},
-    #             'nanohedra_output': {'type': bool, 'default': False,
-    #                                  'description': 'Whether the design targets are the result of %s output.%sUse this'
-    #                                                 ' flag to set up a %s project from docked poses%sor to analyze the '
-    #                                                 'output of %s.%sAfter a %s directory is initialized with '
-    #                                                 '--nanohedra_output True,%syou may submit future jobs containing '
-    #                                                 'these designs without this flag'
-    #                                                 % (terminal_formatter, nano.title(), terminal_formatter,
-    #                                                    program_name, terminal_formatter, nano.title(),
-    #                                                    terminal_formatter, program_name)},
-    #             'skip_logging': {'type': bool, 'default': False, 'description': 'Whether logging should be suspended'},
-    #             'range': {'type': str, 'default': None,
-    #                              'description': 'Whether to subset selected designs by a range of percentage values'},
-    'mpi': {'type': int, 'default': None,
-            'description': 'If commands should be run as MPI parallel processes, how many processes should '
-                           'be invoked for each job?'},
-    }
 design_flags = {
-    # 'design_with_evolution': {'type': bool, 'default': True,
-    #                           'description': 'Whether to design with evolutionary amino acid frequency info'},
-    # 'no_term_constraint': {'type': bool, 'default': True,
-    #                           'description': 'Whether to design with fragment amino acid frequency info'},
-    # 'fragments_exist': {'type': bool, 'default': True,
-    #                     'description': 'If fragment data has been generated for the design,%s'
-    #                                    'If nanohedra_output is True, this is also True'
-    #                                    % terminal_formatter},
-    # generate_fragments: {'type': bool, 'default': False,
-    #                        'description': 'Whether fragments should be generated fresh for each Pose'},
-    # 'write_fragments': {'type': bool, 'default': True,
-    #                     'description': 'Whether fragments should be written to file for each Pose'},
-    # 'output_assembly': {'type': bool, 'default': False,
-    #                     'description': 'If symmetric, whether the expanded assembly should be output.%s'
-    #                                    '2- and 3-D materials will be output with a single unit cell.'
-    #                                    % terminal_formatter},
-    # 'number_of_trajectories': {'type': int, 'default': nstruct,
-    #                            'description': 'The number of individual design trajectories to be run for each design'
-    #                                           '%sThis determines how many sequence sampling runs are used.'
-    #                                           % terminal_formatter},
     'require_design_at_residues':
         {'type': str, 'default': None,
          'description': 'Regardless of participation in an interface,%sif certain residues should be included in'
                         'design, specify the%sresidue POSE numbers as a comma separated string.%s'
-                        'Ex: \'23,24,35,41,100-110,267,289-293\' Ranges are allowed'
+                        'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'
                         % (terminal_formatter, terminal_formatter, terminal_formatter)},
     'select_designable_residues_by_sequence':
         {'type': str, 'default': None,
          'description': 'If design should occur ONLY at certain residues,%sspecify the location of a .fasta file '
-                        'containing the design selection.%sRun \'%s --single my_pdb_file.pdb design_selector\' '
+                        'containing the design selection.%sRun "%s --single my_pdb_file.pdb design_selector" '
                         'to set this up.'
                         % (terminal_formatter, terminal_formatter, program_command)},
     'select_designable_residues_by_pdb_number':
         {'type': str, 'default': None,
          'description': 'If design should occur ONLY at certain residues,%sspecify the residue PDB number(s) '
                         'as a comma separated string.%sRanges are allowed '
-                        'Ex: \'40-45,170-180,227,231\'' % (terminal_formatter, terminal_formatter)},
+                        'Ex: "40-45,170-180,227,231"' % (terminal_formatter, terminal_formatter)},
     'select_designable_residues_by_pose_number':
         {'type': str, 'default': None,
          'description': 'If design should occur ONLY at certain residues,%sspecify the residue POSE number(s) '
                         'as a comma separated string.%sRanges are allowed '
-                        'Ex: \'23,24,35,41,100-110,267,289-293\'' % (terminal_formatter, terminal_formatter)},
+                        'Ex: "23,24,35,41,100-110,267,289-293"' % (terminal_formatter, terminal_formatter)},
     'select_designable_chains':
         {'type': str, 'default': None,
          'description': 'If a design should occur ONLY at certain chains,%sprovide the chain ID\'s as a comma '
-                        'separated string.%sEx: \'A,C,D\'' % (terminal_formatter, terminal_formatter)},
+                        'separated string.%sEx: "A,C,D"' % (terminal_formatter, terminal_formatter)},
     'mask_designable_residues_by_sequence':
         {'type': str, 'default': None,
          'description': 'If design should NOT occur at certain residues,%sspecify the location of a .fasta file '
-                        'containing the design mask.%sRun \'%s --single my_pdb_file.pdb design_selector\' '
+                        'containing the design mask.%sRun "%s --single my_pdb_file.pdb design_selector" '
                         'to set this up.'
                         % (terminal_formatter, terminal_formatter, program_command)},
     'mask_designable_residues_by_pdb_number':
         {'type': str, 'default': None,
          'description': 'If design should NOT occur at certain residues,%sspecify the residue PDB number(s) '
-                        'as a comma separated string.%sEx: \'27-35,118,281\' Ranges are allowed'
+                        'as a comma separated string.%sEx: "27-35,118,281" Ranges are allowed'
                         % (terminal_formatter, terminal_formatter)},
     'mask_designable_residues_by_pose_number':
         {'type': str, 'default': None,
          'description': 'If design should NOT occur at certain residues,%sspecify the residue POSE number(s) '
-                        'as a comma separated string.%sEx: \'27-35,118,281\' Ranges are allowed'
+                        'as a comma separated string.%sEx: "27-35,118,281" Ranges are allowed'
                         % (terminal_formatter, terminal_formatter)},
     'mask_designable_chains':
         {'type': str, 'default': None,
          'description': 'If a design should NOT occur at certain chains,%sprovide the chain ID\'s as a comma '
-                        'separated string.%sEx: \'C\'' % (terminal_formatter, terminal_formatter)}
-    # 'input_location': '(str) Specify a file with a list of input files or a directory where input files are '
-    #                   'located. If the input is a %s.py output, specifying the master output directory is '
-    #                   'sufficient' % nano
+                        'separated string.%sEx: "C"' % (terminal_formatter, terminal_formatter)}
     }
-filter_flags = {}
-
-design = copy(global_flags)
-design.update(design_flags)
-filters = copy(global_flags)
-filters.update(filter_flags)
-all_flags = copy(design)
-all_flags.update(filters)
-flags = {interface_design: design, None: all_flags}
-#        'analysis': global_flags, 'filter': filters, 'sequence_selection': global_flags,
 
 
-def process_residue_selector_flags(design_flags):
+def process_residue_selector_flags(flags):
     # Pull nanohedra_output and mask_design_using_sequence out of flags
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
     entity_req, chain_req, residues_req, residues_pdb_req = None, None, set(), set()
-    if 'require_design_at_pdb_residues' in design_flags and design_flags['require_design_at_pdb_residues']:
+    if 'require_design_at_pdb_residues' in flags and flags['require_design_at_pdb_residues']:
         residues_pdb_req = residues_pdb_req.union(
-            format_index_string(design_flags['require_design_at_pdb_residues']))
-    if 'require_design_at_residues' in design_flags and design_flags['require_design_at_residues']:
+            format_index_string(flags['require_design_at_pdb_residues']))
+    if 'require_design_at_residues' in flags and flags['require_design_at_residues']:
         residues_req = residues_req.union(
-            format_index_string(design_flags['require_design_at_residues']))
+            format_index_string(flags['require_design_at_residues']))
     # -------------------
     pdb_select, entity_select, chain_select, residue_select, residue_pdb_select = None, None, None, set(), set()
-    if 'select_designable_residues_by_sequence' in design_flags \
-            and design_flags['select_designable_residues_by_sequence']:
+    if 'select_designable_residues_by_sequence' in flags \
+            and flags['select_designable_residues_by_sequence']:
         residue_select = residue_select.union(
-            generate_sequence_mask(design_flags['select_designable_residues_by_sequence']))
-    if 'select_designable_residues_by_pdb_number' in design_flags \
-            and design_flags['select_designable_residues_by_pdb_number']:
+            generate_sequence_mask(flags['select_designable_residues_by_sequence']))
+    if 'select_designable_residues_by_pdb_number' in flags \
+            and flags['select_designable_residues_by_pdb_number']:
         residue_pdb_select = residue_pdb_select.union(
-            format_index_string(design_flags['select_designable_residues_by_pdb_number']))
-    if 'select_designable_residues_by_pose_number' in design_flags \
-            and design_flags['select_designable_residues_by_pose_number']:
+            format_index_string(flags['select_designable_residues_by_pdb_number']))
+    if 'select_designable_residues_by_pose_number' in flags \
+            and flags['select_designable_residues_by_pose_number']:
         residue_select = residue_select.union(
-            format_index_string(design_flags['select_designable_residues_by_pose_number']))
-    if 'select_designable_chains' in design_flags and design_flags['select_designable_chains']:
-        chain_select = generate_chain_mask(design_flags['select_designable_chains'])
+            format_index_string(flags['select_designable_residues_by_pose_number']))
+    if 'select_designable_chains' in flags and flags['select_designable_chains']:
+        chain_select = generate_chain_mask(flags['select_designable_chains'])
     # -------------------
     pdb_mask, entity_mask, chain_mask, residue_mask, residue_pdb_mask = None, None, None, set(), set()
-    if 'mask_designable_residues_by_sequence' in design_flags \
-            and design_flags['mask_designable_residues_by_sequence']:
+    if 'mask_designable_residues_by_sequence' in flags \
+            and flags['mask_designable_residues_by_sequence']:
         residue_mask = residue_mask.union(
-            generate_sequence_mask(design_flags['mask_designable_residues_by_sequence']))
-    if 'mask_designable_residues_by_pdb_number' in design_flags \
-            and design_flags['mask_designable_residues_by_pdb_number']:
+            generate_sequence_mask(flags['mask_designable_residues_by_sequence']))
+    if 'mask_designable_residues_by_pdb_number' in flags \
+            and flags['mask_designable_residues_by_pdb_number']:
         residue_pdb_mask = residue_pdb_mask.union(
-            format_index_string(design_flags['mask_designable_residues_by_pdb_number']))
-    if 'mask_designable_residues_by_pose_number' in design_flags \
-            and design_flags['mask_designable_residues_by_pose_number']:
+            format_index_string(flags['mask_designable_residues_by_pdb_number']))
+    if 'mask_designable_residues_by_pose_number' in flags \
+            and flags['mask_designable_residues_by_pose_number']:
         residue_mask = residue_mask.union(
-            format_index_string(design_flags['mask_designable_residues_by_pose_number']))
-    if 'mask_designable_chains' in design_flags and design_flags['mask_designable_chains']:
-        chain_mask = generate_chain_mask(design_flags['mask_designable_chains'])
+            format_index_string(flags['mask_designable_residues_by_pose_number']))
+    if 'mask_designable_chains' in flags and flags['mask_designable_chains']:
+        chain_mask = generate_chain_mask(flags['mask_designable_chains'])
     # -------------------
     return {'design_selector':
             {'selection': {'pdbs': pdb_select, 'entities': entity_select,
@@ -177,25 +123,26 @@ def process_residue_selector_flags(design_flags):
                           'residues': residues_req, 'pdb_residues': residues_pdb_req}}}
 
 
-def return_default_flags(mode):
-    if mode in flags:
-        return dict(zip(flags[mode].keys(), [value_format['default'] for value_format in flags[mode].values()]))
-    else:
-        return dict(zip(all_flags.keys(), [value_format['default'] for value_format in all_flags.values()]))
+def return_default_flags():
+    # mode_flags = flags.get(mode, design_flags)
+    # if mode_flags:
+    return dict(zip(design_flags.keys(), [value_format['default'] for value_format in design_flags.values()]))
+    # else:
+    #     return dict(zip(all_flags.keys(), [value_format['default'] for value_format in all_flags.values()]))
 
 
 @handle_errors(errors=KeyboardInterrupt)
 def query_user_for_flags(mode=interface_design, template=False):
-    flags_file = '%s.flags' % mode
-    flag_output = return_default_flags(mode)
+    flags_file = f'{mode}.flags'
+    flag_output = return_default_flags()
     write_file = False
-    print('\n%s' % header_string % 'Generate %s Flags' % program_name)
+    print('\n%s' % header_string % f'Generate {program_name} Flags')
     if template:
         write_file = True
-        print('Writing template to %s' % flags_file)
+        print(f'Writing template to {flags_file}')
 
     flags_header = [('Flag', 'Default', 'Description')]
-    flags_description = list((flag, values['default'], values['description']) for flag, values in flags[mode].items())
+    flags_description = list((flag, values['default'], values['description']) for flag, values in design_flags.items())
     while not write_file:
         flags_table = pretty_format_table(flags_header + flags_description)
         # logger.info('Starting with options:\n\t%s' % '\n\t'.join(options_table))
@@ -211,35 +158,35 @@ def query_user_for_flags(mode=interface_design, template=False):
         flags_input = input('\nEnter the numbers corresponding to the flags your design requires. Ex: \'1 3 6\'%s'
                             % input_string)
         flag_numbers = flags_input.split()
-        chosen_flags = [list(flags[mode].keys())[flag - 1] for flag in map(int, flag_numbers)
-                        if len(flags[mode].keys()) >= flag > 0]
+        chosen_flags = [list(design_flags.keys())[flag - 1] for flag in map(int, flag_numbers)
+                        if len(design_flags.keys()) >= flag > 0]
         value_array = []
         for idx, flag in enumerate(chosen_flags):
             valid = False
             while not valid:
                 arg_value = input('\tFor \'%s\' what %s value should be used? Default is \'%s\'%s'
-                                  % (flag, flags[mode][flag]['type'], flags[mode][flag]['default'], input_string))
-                if flags[mode][flag]['type'] == bool:
+                                  % (flag, design_flags[flag]['type'], design_flags[flag]['default'], input_string))
+                if design_flags[flag]['type'] == bool:
                     if arg_value == '':
                         arg_value = 'None'
-                    if isinstance(eval(arg_value.title()), flags[mode][flag]['type']):
+                    if isinstance(eval(arg_value.title()), design_flags[flag]['type']):
                         value_array.append(arg_value.title())
                         valid = True
                     else:
                         print('%s %s is not a valid choice of type %s!'
-                              % (invalid_string, arg_value, flags[mode][flag]['type']))
-                elif flags[mode][flag]['type'] == str:
+                              % (invalid_string, arg_value, design_flags[flag]['type']))
+                elif design_flags[flag]['type'] == str:
                     if arg_value == '':
                         arg_value = None
                     value_array.append(arg_value)
                     valid = True
-                elif flags[mode][flag]['type'] == int:
+                elif design_flags[flag]['type'] == int:
                     if arg_value.isdigit():
                         value_array.append(arg_value)
                         valid = True
                     else:
                         print('%s %s is not a valid choice of type %s!'
-                              % (invalid_string, arg_value, flags[mode][flag]['type']))
+                              % (invalid_string, arg_value, design_flags[flag]['type']))
 
         flag_input = zip(chosen_flags, value_array)  # flag value (key), user input (str)
         while True:
@@ -259,9 +206,7 @@ def query_user_for_flags(mode=interface_design, template=False):
 
 def load_flags(file):
     with open(file, 'r') as f:
-        flags = {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
-
-    return flags
+        return {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
 
 
 def generate_sequence_mask(fasta_file):
@@ -330,18 +275,24 @@ parser_options_arguments = {
                              help='The name of a pair of chains to fuse during design.\nPairs should be separated'
                                   ' by a colon, with the n-terminal\npreceeding the c-terminal chain new instances by a'
                                   ' space\nEx --fuse_chains A:B C:D'),
-    ('-F', '--%s' % force_flags): dict(action='store_true',
-                                       help='Force generation of a new flags file to update script parameters'
-                                            '\nDefault=%(default)s'),
-    ('-gf', '--%s' % generate_fragments): dict(action='store_true',
-                                               help='Generate fragment overlap for poses of interest'
-                                                    '\nDefault=%(default)s'),
+    ('-F', f'--{force_flags}'): dict(action='store_true',
+                                     help='Force generation of a new flags file to update script parameters'
+                                          '\nDefault=%(default)s'),
+    ('-gf', f'--{generate_fragments}'): dict(action='store_true',
+                                             help='Generate fragment overlap for poses of interest'
+                                                  '\nDefault=%(default)s'),
     ('-i', '--fragment_database'): dict(type=str, choices=fragment_dbs, default=biological_interfaces,
                                         help='Database to match fragments for interface specific scoring matrices\n'
                                              'Default=%(default)s'),
-    ('-ic', '--ignore_clashes'): dict(action='store_true',
-                                      help='Whether errors raised from identified clashes should be ignored and allowed'
-                                           ' to process\nDefault=%(default)s'),
+    ('-ic', f'--{ignore_clashes}'): dict(action='store_true',
+                                         help='Whether ANY identified backbone/Cb clash should be ignored and '
+                                              'allowed to process\nDefault=%(default)s'),
+    ('-ipc', f'--{ignore_pose_clashes}'): dict(action='store_true',
+                                               help='Whether asu/pose clashes should be '
+                                                    'ignored and allowed to process\nDefault=%(default)s'),
+    ('-isc', f'--{ignore_symmetric_clashes}'): dict(action='store_true',
+                                                    help='Whether symmetric clashes should be ignored and allowed'
+                                                         ' to process\nDefault=%(default)s'),
     ('-l', '--load_database'): dict(action='store_true',
                                     help='Whether to fetch and store resources for each Structure in the sequence/'
                                          'structure database\nDefault=%(default)s'),
@@ -360,10 +311,14 @@ parser_options_arguments = {
                                    help='If provided, the name of the output pose file.\nOtherwise, one will be '
                                         'generated based on the time, input, and module'),
     # Todo invert the default
-    ('-OF', '--%s' % output_fragments): dict(action='store_true', help='For any fragments generated, write them as '
-                                                                       'structures along with the Pose'),
-    ('-Oo', '--%s' % output_oligomers): dict(action='store_true',
-                                             help='For any oligomers generated, write them along with the Pose'),
+    ('-OF', f'--{output_fragments}'): dict(action='store_true', help='For any fragments generated, write them as '
+                                                                     'structures along with the Pose'),
+    ('-Oo', f'--{output_oligomers}'): dict(action='store_true',
+                                           help='For any oligomers generated, write them along with the Pose'),
+    ('-P', '--preprocessed'): dict(action='store_true',
+                                   help=f'Whether the designs of interest have been preprocessed for the '
+                                        f'{current_energy_function} energy function and/or missing loops\n'
+                                        f'Default=%(default)s'),
     ('-r', '--range'): dict(type=float, default=None,
                             help='The range of poses to consider from a larger chunk of work to complete.\nSpecify a '
                                  '%% of work between the values of 0 to 100, then separate the range by a single "-"\n'
@@ -372,9 +327,9 @@ parser_options_arguments = {
                                    help='Should commands be executed at %(prog)s runtime?\nIn most cases, it won\'t '
                                         'maximize cassini\'s computational resources.\nAll computation may'
                                         'fail on a single trajectory mistake.\nDefault=%(default)s'),
-    ('-e', '--entry', '--%s' % sym_entry): dict(type=int, default=None, dest='sym_entry',
-                                                help='The entry number of %s docking combinations to use'
-                                                     % nano.title()),
+    ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,
+                                              help='The entry number of %s docking combinations to use'
+                                                   % nano.title()),
     ('--set_up',): dict(action='store_true',
                         help='Show the %(prog)s set up instructions\nDefault=%(default)s'),  # Todo allow SetUp.py main
     ('--skip_logging',): dict(action='store_true',
@@ -407,9 +362,9 @@ parser_refine_arguments = {
 parser_nanohedra = dict(nanohedra=dict(help='Run or submit jobs to %s.py' % nano.title()))
 # parser_dock = subparsers.add_parser(nano, help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, or -q to specify PDB Entity codes, building block directories, or query the PDB for building blocks to dock' % nano.title())
 parser_nanohedra_arguments = {
-    ('-e', '--entry', '--%s' % sym_entry): dict(type=int, default=None, dest='sym_entry', required=True,
-                                                help='The entry number of %s docking combinations to use'
-                                                     % nano.title()),
+    ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry, required=True,
+                                              help='The entry number of %s docking combinations to use'
+                                                   % nano.title()),
     ('-mv', '--match_value'): dict(type=float, default=0.5, dest='high_quality_match_value',
                                    help='What is the minimum match score required for a high quality fragment?'),
     ('-iz', '--initial_z_value'): dict(type=float, default=1.,
@@ -430,17 +385,17 @@ parser_nanohedra_arguments = {
     ('-r2', '--rotation_step2'): dict(type=float, default=3.,
                                       help='The number of degrees to increment the rotational degrees of freedom '
                                            'search\nDefault=%(default)s'),
-    ('-suc', '--output_surrounding_uc'): dict(action='store_true',
-                                              help='Whether the surrounding unit cells should be output? Only for '
-                                                   'infinite materials\nDefault=%(default)s')
+    ('-Os', '--output_surrounding_uc'): dict(action='store_true',
+                                             help='Whether the surrounding unit cells should be output? Only for '
+                                                  'infinite materials\nDefault=%(default)s')
 }
 # parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
 parser_nanohedra_mutual1_group = dict(required=True)
 parser_nanohedra_mutual1_arguments = {
     ('-c1', '--pdb_codes1'): dict(type=os.path.abspath, default=None,
                                   help='File with list of PDB_entity codes for component 1'),
-    ('-o1', '-%s' % nano_entity_flag1): dict(type=os.path.abspath, default=None,
-                                             help='Disk location where the first oligomer(s) are located'),
+    ('-o1', f'--{nano_entity_flag1}'): dict(type=os.path.abspath, default=None,
+                                            help='Disk location where the first oligomer(s) are located'),
     ('-qc', '--query_codes'): dict(action='store_true', help='Search the PDB API for corresponding codes')
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
@@ -448,8 +403,8 @@ parser_nanohedra_mutual2_group = dict(required=False)
 parser_nanohedra_mutual2_arguments = {
     ('-c2', '--pdb_codes2'): dict(type=os.path.abspath,
                                   help='File with list of PDB_entity codes for component 2', default=None),
-    ('-o2', '-%s' % nano_entity_flag2): dict(type=os.path.abspath, default=None,
-                                             help='Disk location where the second oligomer(s) are located'),
+    ('-o2', f'--{nano_entity_flag2}'): dict(type=os.path.abspath, default=None,
+                                            help='Disk location where the second oligomer(s) are located'),
 }
 # ---------------------------------------------------
 parser_cluster = dict(cluster_poses=dict(help='Cluster all poses by their spatial or interfacial similarity.\nThis is'
@@ -457,7 +412,7 @@ parser_cluster = dict(cluster_poses=dict(help='Cluster all poses by their spatia
 # parser_cluster = subparsers.add_parser(cluster_poses, help='Cluster all poses by their spatial similarity. This can remove redundancy or be useful in identifying conformationally flexible docked configurations')
 parser_cluster_poses_arguments = {
     ('-m', '--mode'): dict(type=str, choices=['transform', 'ialign'], default='transform'),
-    ('-of', '--output_file'): dict(type=str, default=clustered_poses,
+    ('-Of', '--output_file'): dict(type=str, default=clustered_poses,
                                    help='Name of the output .pkl file containing pose clusters Will be saved to the '
                                         '%s folder of the output.\nDefault=%s'
                                         % (data.title(), clustered_poses % ('LOCATION', 'TIMESTAMP')))
@@ -469,23 +424,23 @@ parser_design = dict(interface_design=dict(help='Gather poses of interest and fo
                                                 'or neither.'))
 # parser_design = subparsers.add_parser(interface_design, help='Gather poses of interest and format for design using sequence constraints in Rosetta. Constrain using evolutionary profiles of homologous sequences and/or fragment profiles extracted from the PDB or neither.')
 parser_interface_design_arguments = {
-    ('-nec', '--%s' % no_evolution_constraint): dict(action='store_true',
-                                                     help='Whether to skip evolutionary constraints during design'
-                                                          '\nDefault=%(default)s'),
-    ('-nhb', '--%s' % no_hbnet): dict(action='store_true', help='Whether to skip hydrogen bond networks in the design'
-                                                                '\nDefault=%(default)s'),
-    ('-ntc', '--%s' % no_term_constraint): dict(action='store_true',
-                                                help='Whether to skip tertiary motif constraints during design'
+    ('-nec', f'--{no_evolution_constraint}'): dict(action='store_true',
+                                                   help='Whether to skip evolutionary constraints during design'
+                                                        '\nDefault=%(default)s'),
+    ('-nhb', f'--{no_hbnet}'): dict(action='store_true', help='Whether to skip hydrogen bond networks in the design'
+                                                              '\nDefault=%(default)s'),
+    ('-ntc', f'--{no_term_constraint}'): dict(action='store_true',
+                                              help='Whether to skip tertiary motif constraints during design'
+                                                   '\nDefault=%(default)s'),
+    ('-n', f'--{number_of_trajectories}'): dict(type=int, default=nstruct,
+                                                help='How many unique sequences should be generated for each input?'
                                                      '\nDefault=%(default)s'),
-    ('-n', '--%s' % number_of_trajectories): dict(type=int, default=nstruct,
-                                                  help='How many unique sequences should be generated for each input?'
-                                                       '\nDefault=%(default)s'),
-    ('-sb', '--%s' % structure_background): dict(action='store_true',
-                                                 help='Whether to skip all constraints and measure the structure in an '
-                                                      'optimal context\nDefault=%(default)s'),
-    ('-sc', '--%s' % scout): dict(action='store_true',
-                                  help='Whether to set up a low resolution scouting protocol to survey designability'
-                                       '\nDefault=%(default)s')
+    ('-sb', f'--{structure_background}'): dict(action='store_true',
+                                               help='Whether to skip all constraints and measure the structure in an '
+                                                    'optimal context\nDefault=%(default)s'),
+    ('-sc', f'--{scout}'): dict(action='store_true',
+                                help='Whether to set up a low resolution scouting protocol to survey designability'
+                                     '\nDefault=%(default)s')
 }
 # ---------------------------------------------------
 parser_metrics = dict(interface_metrics=dict(help='Set up RosettaScript to analyze interface metrics from a pose'))

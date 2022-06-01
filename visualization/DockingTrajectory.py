@@ -76,7 +76,8 @@ if __name__ == '__main__':
     assert all_poses, 'No %s directories found within \'%s\'! Please ensure correct location' \
                       % (PUtils.nano.title(), location)
 
-    all_design_directories = PoseDirectory.set_up_directory_objects(all_poses, symmetry=args.design_string)
+    all_design_directories = [PoseDirectory.PoseDirectory.from_nanohedra(design_path, symmetry=args.design_string)
+                              for design_path in all_poses]
     logger.info('%d Poses found in \'%s\'' % (len(all_poses), location))
     logger.info('All pose specific logs are located in corresponding directories, ex:\n%s' %
                 os.path.join(all_design_directories[0].path, os.path.basename(all_design_directories[0].path) + '.log'))

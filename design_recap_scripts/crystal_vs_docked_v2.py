@@ -103,7 +103,8 @@ def main():
 
     # Retrieve all directories for the docked directory output
     all_poses, location = SDUtils.collect_designs(directory=docked_poses_dirpath)  # , file=args.file)
-    all_design_directories = DesignDirectory.set_up_directory_objects(all_poses)  # , symmetry=args.design_string)
+    all_design_directories = [PoseDirectory.PoseDirectory.from_nanohedra(design_path)
+                              for design_path in all_poses]  # , symmetry=args.design_string)
 
     # find the chain and residue numbers at the interface of the reference pose
     ref1_chain_id_residue_d, ref2_chain_id_residue_d = interface_chains_and_resnums(ref_pdb1, ref_pdb2, cb_distance=9.0)

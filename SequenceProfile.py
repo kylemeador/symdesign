@@ -381,7 +381,7 @@ class SequenceProfile:
         Sets:
             self.evolutionary_profile
         """
-        if profile_source not in ['hhblits', 'psiblast']:
+        if profile_source not in [PUtils.hhblits, 'psiblast']:
             raise DesignError(f'{self.add_evolutionary_profile.__name__}: Profile generation only possible from '
                               f'"{PUtils.hhblits}" or "psiblast", not {profile_source}')
         if file:
@@ -403,12 +403,12 @@ class SequenceProfile:
                     with open(temp_file, 'w') as f:
                         self.log.info('Fetching "%s" sequence data' % self.name)
                     self.log.debug('%s Evolutionary Profile not yet created.' % self.name)
-                    if profile_source == 'psiblast':
-                        self.log.info('Generating PSSM Evolutionary Profile for %s' % self.name)
-                        self.psiblast(out_path=out_path)
-                    else:
+                    if profile_source == PUtils.hhblits:
                         self.log.info('Generating HHM Evolutionary Profile for %s' % self.name)
                         self.hhblits(out_path=out_path)
+                    else:
+                        self.log.info('Generating PSSM Evolutionary Profile for %s' % self.name)
+                        self.psiblast(out_path=out_path)
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
                 else:  # Block is in place, another process is working
@@ -421,10 +421,10 @@ class SequenceProfile:
                                               % (self.add_evolutionary_profile.__name__, self.name))
                         time.sleep(20)
 
-        if profile_source == 'psiblast':
-            self.parse_psiblast_pssm()
-        else:
+        if profile_source == PUtils.hhblits:
             self.parse_hhblits_pssm()
+        else:
+            self.parse_psiblast_pssm()
 
     def null_pssm(self):
         """Take the contents of a pssm file, parse, and input into a sequence dictionary.
@@ -554,7 +554,8 @@ class SequenceProfile:
         self.a3m_file = os.path.join(out_path, '%s.a3m' % str(self.name))
         # self.msa_file = os.path.join(out_path, '%s.fasta' % str(self.name))
         self.msa_file = os.path.join(out_path, '%s.sto' % str(self.name))  # preferred
-        fasta_msa = os.path.join(out_path, '%s.fasta' % str(self.name))
+        # this location breaks with SymDesign norm so we should modify it Todo clean
+        fasta_msa = os.path.join(os.path.dirname(out_path), 'sequences', '%s.fasta' % str(self.name))
         # todo for higher performance set up https://www.howtoforge.com/storing-files-directories-in-memory-with-tmpfs
         cmd = [PUtils.hhblits_exe, '-d', PUtils.uniclustdb, '-i', self.sequence_file,
                '-ohhm', self.pssm_file, '-oa3m', self.a3m_file,  # '-Ofas', self.msa_file,

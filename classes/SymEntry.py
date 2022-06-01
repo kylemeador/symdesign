@@ -638,7 +638,12 @@ class SymEntry:
             if symmetry == file:
                 return os.path.join(PUtils.symmetry_def_files, file + ext)
 
-        raise DesignError('Error locating symmetry definition file at "%s" for SymEntry: %s'
+        symmetry = self.resulting_symmetry
+        for file, ext in map(os.path.splitext, os.listdir(PUtils.symmetry_def_files)):
+            if symmetry == file:
+                return os.path.join(PUtils.symmetry_def_files, file + ext)
+
+        raise DesignError('Couldn\'t locate correct symmetry definition file at "%s" for SymEntry: %s'
                           % (PUtils.symmetry_def_files, self.entry_number))
 
 
@@ -955,7 +960,7 @@ def sdf_lookup(symmetry: Optional[str] = None) -> Union[str, bytes]:
         if symmetry == file:
             return os.path.join(PUtils.symmetry_def_files, file + ext)
 
-    raise DesignError('Error locating symmetry definition file at "%s" for symmetry: %s'
+    raise DesignError('Couldn\'t locate correct symmetry definition file at "%s" for symmetry: %s'
                       % (PUtils.symmetry_def_files, symmetry))
 
 

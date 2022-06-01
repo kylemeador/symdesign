@@ -16,7 +16,7 @@ from sklearn.neighbors import BallTree
 from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 
-from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio, reference_aa_file, reference_residues_pkl
+from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from SequenceProfile import generate_alignment
 from Structure import Structure, Chain, Entity, Atom, Residues, Structures, superposition3d, Atoms, Residue, Coords
@@ -293,13 +293,8 @@ class PDB(Structure):
                 seq_res_lines.append(line[11:])
             elif remark == 'REMARK':
                 remark_number = line[slice_number]
-                if remark_number == '   2 ':  # 6:11 ' RESOLUTION'
-                    try:
-                        self.resolution = float(line[22:30].strip().split()[0])
-                    except ValueError:
-                        self.resolution = None
                 # elif line[:18] == 'REMARK 350   BIOMT':
-                elif remark_number == ' 350 ':  # 6:11  '   BIOMT'
+                if remark_number == ' 350 ':  # 6:11  '   BIOMT'
                     self.biomt_header += line
                     # integration of the REMARK 350 BIOMT
                     # REMARK 350
@@ -314,13 +309,21 @@ class PDB(Structure):
                     # REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000
                     # REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000
                     # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
-                    _, _, biomt, operation_number, x, y, z, tx = line.split()
+                    try:
+                        _, _, biomt, operation_number, x, y, z, tx = line.split()
+                    except ValueError:  # not enough values to unpack
+                        continue
                     if biomt == 'BIOMT':
                         if operation_number != current_operation:  # we reached a new transformation matrix
                             current_operation = operation_number
                             self.biomt.append([])
                         # add the transformation to the current matrix
                         self.biomt[-1].append(list(map(float, [x, y, z, tx])))
+                elif remark_number == '   2 ':  # 6:11 ' RESOLUTION'
+                    try:
+                        self.resolution = float(line[22:30].strip().split()[0])
+                    except (IndexError, ValueError):
+                        self.resolution = None
             elif 'DBREF' in remark:
                 chain = line[12:14].strip().upper()
                 if line[5:6] == '2':
@@ -352,7 +355,8 @@ class PDB(Structure):
         if not atom_info:
             raise DesignError('The file %s has no atom records!' % self.filepath)
 
-        self.process_pdb(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords, seqres=seq_res_lines, **kwargs)
+        self.process_pdb(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords,
+                         seqres=seq_res_lines, **kwargs)
 
     def process_pdb(self, atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
                     coords: Union[List[List], np.ndarray, Coords] = None, pose_format: bool = False,
@@ -928,9 +932,9 @@ class PDB(Structure):
                 self.api_entry['assembly'] = get_pdb_info_by_assembly(self.name)
             if self.api_entry:
                 return  # True
-            self.log.debug('PDB code \'%s\' was not found with the PDB API.' % self.name)
+            self.log.debug('PDB code "%s" was not found with the PDB API.' % self.name)
         else:
-            self.log.debug('PDB code \'%s\' is not of the required format and will not be found with the PDB API'
+            self.log.debug('PDB code "%s" is not of the required format and will not be found with the PDB API'
                            % self.name)
         return  # False
         # if not self.api_entry and self.name and len(self.name) == 4:
@@ -988,8 +992,8 @@ class PDB(Structure):
                                         for ent_idx, chains in self.api_entry.get('entity').items()]
                 # check to see that the entity_info is in line with the number of chains already parsed
                 found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
-                if len(self.chain_ids) != len(found_entity_chains):
-                    self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
+                # if len(self.chain_ids) != len(found_entity_chains):
+                #     self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
             else:  # Still nothing, then API didn't work for pdb_name. Solve by atom information
                 self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
                 if query_by_sequence and not entity_names:
@@ -997,14 +1001,14 @@ class PDB(Structure):
                         pdb_api_name = retrieve_entity_id_by_sequence(data['sequence'])
                         if pdb_api_name:
                             pdb_api_name = pdb_api_name.lower()
-                            self.log.info('Entity %d now named \'%s\', as found by PDB API sequence search'
+                            self.log.info('Entity %d now named "%s", as found by PDB API sequence search'
                                           % (data['name'], pdb_api_name))
                             data['name'] = pdb_api_name
         if entity_names:
             for idx, data in enumerate(self.entity_info):
                 try:
                     data['name'] = entity_names[idx]
-                    self.log.debug('Entity %d now named \'%s\', as directed by supplied entity_names'
+                    self.log.debug('Entity %d now named "%s", as directed by supplied entity_names'
                                    % (idx + 1, entity_names[idx]))
                 except IndexError:
                     raise IndexError('The number of indices in entity_names (%d) must equal the number of entities (%d)'
@@ -1014,25 +1018,28 @@ class PDB(Structure):
         for data in self.entity_info:
             # v make Chain objects (if they are names)
             chains = [self.chain(chain) if isinstance(chain, str) else chain for chain in data.get('chains')]
+            data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             # get uniprot ID if the file is from the PDB and has a DBREF remark
-            # try:
-            accession = self.dbref.get(chains[0].chain_id, None)
+            try:
+                accession = self.dbref.get(data['chains'][0].chain_id, None)
+            except IndexError:  # we didn't find any chains. It may be a nucleotide structure
+                continue
             # except (IndexError, AttributeError):
             #     raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s '
             #                       'api_entry=%s, multimodel_chain_ids=%s'
             #                       % (self.name, self.create_entities.__name__, self.entity_info, self.assembly,
             #                          self.multimodel, self.api_entry, self.multimodel_chain_ids))
             data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
-            data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
+            # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
             data['name'] = '%s_%d' % (self.name, data['name']) if isinstance(data['name'], int) else data['name']
             self.entities.append(Entity.from_chains(**data, log=self._log))
 
-    def get_entity_info_from_atoms(self, tolerance=0.9, **kwargs):
+    def get_entity_info_from_atoms(self, tolerance: float = 0.9, **kwargs):
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
 
-        Keyword Args:
-            tolerance=0.1 (float): The acceptable difference between chains to consider them the same Entity.
+        Args:
+            tolerance: The acceptable difference between chains to consider them the same Entity.
                 Tuning this parameter is necessary if you have chains which should be considered different entities,
                 but are fairly similar. Alternatively, the use of a structural match could be used.
                 For example, when each chain in an ASU is structurally deviating, but they all share the same sequence
@@ -1577,7 +1584,7 @@ def fetch_pdb_file(pdb_code: str, asu: bool = True, location: Union[str, bytes] 
     if os.path.exists(location) and asu:
         get_pdb = (lambda pdb_code, location=None, **kwargs:  # asu=None, assembly=None, out_dir=None
                    sorted(glob(os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))))
-        logger.debug('Searching for PDB file at \'%s\'' % os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))
+        logger.debug('Searching for PDB file at "%s"' % os.path.join(location, 'pdb%s.ent' % pdb_code.lower()))
         # Cassini format is above, KM local pdb and the escher PDB mirror is below
         # get_pdb = (lambda pdb_code, asu=None, assembly=None, out_dir=None:
         #            glob(os.path.join(pdb_db, subdirectory(pdb_code), '%s.pdb' % pdb_code)))
@@ -1637,10 +1644,13 @@ def query_qs_bio(pdb_entry_id: str) -> int:
         assembly = biological_assemblies[0]
     else:
         assembly = 1
-        logger.warning('No confirmed biological assembly for entry %s'
-                       ' using PDB default assembly %d' % (pdb_entry_id, assembly))
+        logger.warning(f'No confirmed biological assembly for entry {pdb_entry_id},'
+                       f' using PDB default assembly {assembly}')
 
     return assembly
+
+
+# from PathUtils import reference_aa_file, reference_residues_pkl
 # ref_aa = PDB.from_file(reference_aa_file, log=None, entities=False)
 # from shutil import move
 # move(reference_residues_pkl, '%s.bak' % reference_residues_pkl)
