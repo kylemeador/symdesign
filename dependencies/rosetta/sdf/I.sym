@@ -246,66 +246,66 @@ connect_virtual JC57 C57 B57
 connect_virtual JC58 C58 B58
 connect_virtual JC59 C59 B59
 connect_virtual JC60 C60 B60
-connect_virtual JB1 B1 SUBUNIT COM
-connect_virtual JB2 B2 SUBUNIT COM
-connect_virtual JB3 B3 SUBUNIT COM
-connect_virtual JB4 B4 SUBUNIT COM
-connect_virtual JB5 B5 SUBUNIT COM
-connect_virtual JB6 B6 SUBUNIT COM
-connect_virtual JB7 B7 SUBUNIT COM
-connect_virtual JB8 B8 SUBUNIT COM
-connect_virtual JB9 B9 SUBUNIT COM
-connect_virtual JB10 B10 SUBUNIT COM
-connect_virtual JB11 B11 SUBUNIT COM
-connect_virtual JB12 B12 SUBUNIT COM
-connect_virtual JB13 B13 SUBUNIT COM
-connect_virtual JB14 B14 SUBUNIT COM
-connect_virtual JB15 B15 SUBUNIT COM
-connect_virtual JB16 B16 SUBUNIT COM
-connect_virtual JB17 B17 SUBUNIT COM
-connect_virtual JB18 B18 SUBUNIT COM
-connect_virtual JB19 B19 SUBUNIT COM
-connect_virtual JB20 B20 SUBUNIT COM
-connect_virtual JB21 B21 SUBUNIT COM
-connect_virtual JB22 B22 SUBUNIT COM
-connect_virtual JB23 B23 SUBUNIT COM
-connect_virtual JB24 B24 SUBUNIT COM
-connect_virtual JB25 B25 SUBUNIT COM
-connect_virtual JB26 B26 SUBUNIT COM
-connect_virtual JB27 B27 SUBUNIT COM
-connect_virtual JB28 B28 SUBUNIT COM
-connect_virtual JB29 B29 SUBUNIT COM
-connect_virtual JB30 B30 SUBUNIT COM
-connect_virtual JB31 B31 SUBUNIT COM
-connect_virtual JB32 B32 SUBUNIT COM
-connect_virtual JB33 B33 SUBUNIT COM
-connect_virtual JB34 B34 SUBUNIT COM
-connect_virtual JB35 B35 SUBUNIT COM
-connect_virtual JB36 B36 SUBUNIT COM
-connect_virtual JB37 B37 SUBUNIT COM
-connect_virtual JB38 B38 SUBUNIT COM
-connect_virtual JB39 B39 SUBUNIT COM
-connect_virtual JB40 B40 SUBUNIT COM
-connect_virtual JB41 B41 SUBUNIT COM
-connect_virtual JB42 B42 SUBUNIT COM
-connect_virtual JB43 B43 SUBUNIT COM
-connect_virtual JB44 B44 SUBUNIT COM
-connect_virtual JB45 B45 SUBUNIT COM
-connect_virtual JB46 B46 SUBUNIT COM
-connect_virtual JB47 B47 SUBUNIT COM
-connect_virtual JB48 B48 SUBUNIT COM
-connect_virtual JB49 B49 SUBUNIT COM
-connect_virtual JB50 B50 SUBUNIT COM
-connect_virtual JB51 B51 SUBUNIT COM
-connect_virtual JB52 B52 SUBUNIT COM
-connect_virtual JB53 B53 SUBUNIT COM
-connect_virtual JB54 B54 SUBUNIT COM
-connect_virtual JB55 B55 SUBUNIT COM
-connect_virtual JB56 B56 SUBUNIT COM
-connect_virtual JB57 B57 SUBUNIT COM
-connect_virtual JB58 B58 SUBUNIT COM
-connect_virtual JB59 B59 SUBUNIT COM
-connect_virtual JB60 B60 SUBUNIT COM
+connect_virtual JB1 B1 SUBUNIT
+connect_virtual JB2 B2 SUBUNIT
+connect_virtual JB3 B3 SUBUNIT
+connect_virtual JB4 B4 SUBUNIT
+connect_virtual JB5 B5 SUBUNIT
+connect_virtual JB6 B6 SUBUNIT
+connect_virtual JB7 B7 SUBUNIT
+connect_virtual JB8 B8 SUBUNIT
+connect_virtual JB9 B9 SUBUNIT
+connect_virtual JB10 B10 SUBUNIT
+connect_virtual JB11 B11 SUBUNIT
+connect_virtual JB12 B12 SUBUNIT
+connect_virtual JB13 B13 SUBUNIT
+connect_virtual JB14 B14 SUBUNIT
+connect_virtual JB15 B15 SUBUNIT
+connect_virtual JB16 B16 SUBUNIT
+connect_virtual JB17 B17 SUBUNIT
+connect_virtual JB18 B18 SUBUNIT
+connect_virtual JB19 B19 SUBUNIT
+connect_virtual JB20 B20 SUBUNIT
+connect_virtual JB21 B21 SUBUNIT
+connect_virtual JB22 B22 SUBUNIT
+connect_virtual JB23 B23 SUBUNIT
+connect_virtual JB24 B24 SUBUNIT
+connect_virtual JB25 B25 SUBUNIT
+connect_virtual JB26 B26 SUBUNIT
+connect_virtual JB27 B27 SUBUNIT
+connect_virtual JB28 B28 SUBUNIT
+connect_virtual JB29 B29 SUBUNIT
+connect_virtual JB30 B30 SUBUNIT
+connect_virtual JB31 B31 SUBUNIT
+connect_virtual JB32 B32 SUBUNIT
+connect_virtual JB33 B33 SUBUNIT
+connect_virtual JB34 B34 SUBUNIT
+connect_virtual JB35 B35 SUBUNIT
+connect_virtual JB36 B36 SUBUNIT
+connect_virtual JB37 B37 SUBUNIT
+connect_virtual JB38 B38 SUBUNIT
+connect_virtual JB39 B39 SUBUNIT
+connect_virtual JB40 B40 SUBUNIT
+connect_virtual JB41 B41 SUBUNIT
+connect_virtual JB42 B42 SUBUNIT
+connect_virtual JB43 B43 SUBUNIT
+connect_virtual JB44 B44 SUBUNIT
+connect_virtual JB45 B45 SUBUNIT
+connect_virtual JB46 B46 SUBUNIT
+connect_virtual JB47 B47 SUBUNIT
+connect_virtual JB48 B48 SUBUNIT
+connect_virtual JB49 B49 SUBUNIT
+connect_virtual JB50 B50 SUBUNIT
+connect_virtual JB51 B51 SUBUNIT
+connect_virtual JB52 B52 SUBUNIT
+connect_virtual JB53 B53 SUBUNIT
+connect_virtual JB54 B54 SUBUNIT
+connect_virtual JB55 B55 SUBUNIT
+connect_virtual JB56 B56 SUBUNIT
+connect_virtual JB57 B57 SUBUNIT
+connect_virtual JB58 B58 SUBUNIT
+connect_virtual JB59 B59 SUBUNIT
+connect_virtual JB60 B60 SUBUNIT
 set_dof JGC x y z angle_x angle_y angle_z
 set_jump_group JGC JC1 JC2 JC3 JC4 JC5 JC6 JC7 JC8 JC9 JC10 JC11 JC12 JC13 JC14 JC15 JC16 JC17 JC18 JC19 JC20 JC21 JC22 JC23 JC24 JC25 JC26 JC27 JC28 JC29 JC30 JC31 JC32 JC33 JC34 JC35 JC36 JC37 JC38 JC39 JC40 JC41 JC42 JC43 JC44 JC45 JC46 JC47 JC48 JC49 JC50 JC51 JC52 JC53 JC54 JC55 JC56 JC57 JC58 JC59 JC60
 set_jump_group JGB JB1 JB2 JB3 JB4 JB5 JB6 JB7 JB8 JB9 JB10 JB11 JB12 JB13 JB14 JB15 JB16 JB17 JB18 JB19 JB20 JB21 JB22 JB23 JB24 JB25 JB26 JB27 JB28 JB29 JB30 JB31 JB32 JB33 JB34 JB35 JB36 JB37 JB38 JB39 JB40 JB41 JB42 JB43 JB44 JB45 JB46 JB47 JB48 JB49 JB50 JB51 JB52 JB53 JB54 JB55 JB56 JB57 JB58 JB59 JB60

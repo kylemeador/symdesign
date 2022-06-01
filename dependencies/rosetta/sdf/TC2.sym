@@ -54,18 +54,18 @@ connect_virtual JP51 P5 B51
 connect_virtual JP52 P5 B52
 connect_virtual JP61 P6 B61
 connect_virtual JP62 P6 B62
-connect_virtual JB11 B11 SUBUNIT COM
-connect_virtual JB12 B12 SUBUNIT COM
-connect_virtual JB21 B21 SUBUNIT COM
-connect_virtual JB22 B22 SUBUNIT COM
-connect_virtual JB31 B31 SUBUNIT COM
-connect_virtual JB32 B32 SUBUNIT COM
-connect_virtual JB41 B41 SUBUNIT COM
-connect_virtual JB42 B42 SUBUNIT COM
-connect_virtual JB51 B51 SUBUNIT COM
-connect_virtual JB52 B52 SUBUNIT COM
-connect_virtual JB61 B61 SUBUNIT COM
-connect_virtual JB62 B62 SUBUNIT COM
+connect_virtual JB11 B11 SUBUNIT
+connect_virtual JB12 B12 SUBUNIT
+connect_virtual JB21 B21 SUBUNIT
+connect_virtual JB22 B22 SUBUNIT
+connect_virtual JB31 B31 SUBUNIT
+connect_virtual JB32 B32 SUBUNIT
+connect_virtual JB41 B41 SUBUNIT
+connect_virtual JB42 B42 SUBUNIT
+connect_virtual JB51 B51 SUBUNIT
+connect_virtual JB52 B52 SUBUNIT
+connect_virtual JB61 B61 SUBUNIT
+connect_virtual JB62 B62 SUBUNIT
 #
 set_dof JP1 x angle_x
 set_jump_group JGP JP1 JP2 JP3 JP4 JP5 JP6

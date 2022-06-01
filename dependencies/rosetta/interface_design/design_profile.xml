@@ -2,7 +2,7 @@
 	
 	<MOVERS>
 		<AddJobPairData name="job_info" key="protocol" value="design_profile" value_type="string"/>
-		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="5">
+		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>
@@ -51,7 +51,7 @@
 			</ROSETTASCRIPTS>
 		</MultipleOutputWrapper>
 
-		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="5">
+		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="%%script_nstruct%%">
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>

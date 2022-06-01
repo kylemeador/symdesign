@@ -46,18 +46,18 @@ connect_virtual JP33 P3 B33
 connect_virtual JP41 P4 B41
 connect_virtual JP42 P4 B42
 connect_virtual JP43 P4 B43
-connect_virtual JB11 B11 SUBUNIT COM
-connect_virtual JB12 B12 SUBUNIT COM
-connect_virtual JB13 B13 SUBUNIT COM
-connect_virtual JB21 B21 SUBUNIT COM
-connect_virtual JB22 B22 SUBUNIT COM
-connect_virtual JB23 B23 SUBUNIT COM
-connect_virtual JB31 B31 SUBUNIT COM
-connect_virtual JB32 B32 SUBUNIT COM
-connect_virtual JB33 B33 SUBUNIT COM
-connect_virtual JB41 B41 SUBUNIT COM
-connect_virtual JB42 B42 SUBUNIT COM
-connect_virtual JB43 B43 SUBUNIT COM
+connect_virtual JB11 B11 SUBUNIT
+connect_virtual JB12 B12 SUBUNIT
+connect_virtual JB13 B13 SUBUNIT
+connect_virtual JB21 B21 SUBUNIT
+connect_virtual JB22 B22 SUBUNIT
+connect_virtual JB23 B23 SUBUNIT
+connect_virtual JB31 B31 SUBUNIT
+connect_virtual JB32 B32 SUBUNIT
+connect_virtual JB33 B33 SUBUNIT
+connect_virtual JB41 B41 SUBUNIT
+connect_virtual JB42 B42 SUBUNIT
+connect_virtual JB43 B43 SUBUNIT
 #
 set_dof JP1 x angle_x
 set_jump_group JGP JP1 JP2 JP3 JP4

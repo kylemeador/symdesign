@@ -54,30 +54,30 @@ xyz B23 -1,-1,-1 -1,2,-1 0,0,0  #  0,0,1 0,1,0 0,0,0
 xyz C24 -1,-1,-1 2,-1,-1 0,0,0  #  0,0,1 0,-1,0 0,0,0
 xyz B24 -1,-1,-1 2,-1,-1 0,0,0  #  0,0,1 0,-1,0 0,0,0
 virtual_coordinates_stop
-connect_virtual JB1 B1 SUBUNIT COM
-connect_virtual JB2 B2 SUBUNIT COM
-connect_virtual JB3 B3 SUBUNIT COM
-connect_virtual JB4 B4 SUBUNIT COM
-connect_virtual JB5 B5 SUBUNIT COM
-connect_virtual JB6 B6 SUBUNIT COM
-connect_virtual JB7 B7 SUBUNIT COM
-connect_virtual JB8 B8 SUBUNIT COM
-connect_virtual JB9 B9 SUBUNIT COM
-connect_virtual JB10 B10 SUBUNIT COM
-connect_virtual JB11 B11 SUBUNIT COM
-connect_virtual JB12 B12 SUBUNIT COM
-connect_virtual JB13 B13 SUBUNIT COM
-connect_virtual JB14 B14 SUBUNIT COM
-connect_virtual JB15 B15 SUBUNIT COM
-connect_virtual JB16 B16 SUBUNIT COM
-connect_virtual JB17 B17 SUBUNIT COM
-connect_virtual JB18 B18 SUBUNIT COM
-connect_virtual JB19 B19 SUBUNIT COM
-connect_virtual JB20 B20 SUBUNIT COM
-connect_virtual JB21 B21 SUBUNIT COM
-connect_virtual JB22 B22 SUBUNIT COM
-connect_virtual JB23 B23 SUBUNIT COM
-connect_virtual JB24 B24 SUBUNIT COM
+connect_virtual JB1 B1 SUBUNIT
+connect_virtual JB2 B2 SUBUNIT
+connect_virtual JB3 B3 SUBUNIT
+connect_virtual JB4 B4 SUBUNIT
+connect_virtual JB5 B5 SUBUNIT
+connect_virtual JB6 B6 SUBUNIT
+connect_virtual JB7 B7 SUBUNIT
+connect_virtual JB8 B8 SUBUNIT
+connect_virtual JB9 B9 SUBUNIT
+connect_virtual JB10 B10 SUBUNIT
+connect_virtual JB11 B11 SUBUNIT
+connect_virtual JB12 B12 SUBUNIT
+connect_virtual JB13 B13 SUBUNIT
+connect_virtual JB14 B14 SUBUNIT
+connect_virtual JB15 B15 SUBUNIT
+connect_virtual JB16 B16 SUBUNIT
+connect_virtual JB17 B17 SUBUNIT
+connect_virtual JB18 B18 SUBUNIT
+connect_virtual JB19 B19 SUBUNIT
+connect_virtual JB20 B20 SUBUNIT
+connect_virtual JB21 B21 SUBUNIT
+connect_virtual JB22 B22 SUBUNIT
+connect_virtual JB23 B23 SUBUNIT
+connect_virtual JB24 B24 SUBUNIT
 connect_virtual JC1 C1 B1
 connect_virtual JC2 C2 B2
 connect_virtual JC3 C3 B3

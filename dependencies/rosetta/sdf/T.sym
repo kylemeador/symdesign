@@ -43,18 +43,18 @@ connect_virtual JC9  C9 B9
 connect_virtual JC10 C10 B10
 connect_virtual JC11 C11 B11
 connect_virtual JC12 C12 B12
-connect_virtual JB1 B1 SUBUNIT COM
-connect_virtual JB2 B2 SUBUNIT COM
-connect_virtual JB3 B3 SUBUNIT COM
-connect_virtual JB4 B4 SUBUNIT COM
-connect_virtual JB5 B5 SUBUNIT COM
-connect_virtual JB6 B6 SUBUNIT COM
-connect_virtual JB7 B7 SUBUNIT COM
-connect_virtual JB8 B8 SUBUNIT COM
-connect_virtual JB9 B9 SUBUNIT COM
-connect_virtual JB10 B10 SUBUNIT COM
-connect_virtual JB11 B11 SUBUNIT COM
-connect_virtual JB12 B12 SUBUNIT COM
+connect_virtual JB1 B1 SUBUNIT
+connect_virtual JB2 B2 SUBUNIT
+connect_virtual JB3 B3 SUBUNIT
+connect_virtual JB4 B4 SUBUNIT
+connect_virtual JB5 B5 SUBUNIT
+connect_virtual JB6 B6 SUBUNIT
+connect_virtual JB7 B7 SUBUNIT
+connect_virtual JB8 B8 SUBUNIT
+connect_virtual JB9 B9 SUBUNIT
+connect_virtual JB10 B10 SUBUNIT
+connect_virtual JB11 B11 SUBUNIT
+connect_virtual JB12 B12 SUBUNIT
 connect_virtual J2 C1 C2
 connect_virtual J3 C1 C3
 connect_virtual J4 C1 C4
