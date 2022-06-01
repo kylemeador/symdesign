@@ -274,17 +274,17 @@ class PoseDirectory:  # (JobResources):
                 self.make_path(self.project_designs)
                 self.make_path(self.path)
                 shutil.copy(self.source_path, self.path)
+            # Todo remove this mechanism here... requires reconfiguration of self.start_log
             # need to start here if I want to load pose through normal mechanism... ugh
             # sets self.entity_names if PoseDirectory was created and the .pdb name is specified again
-            self.set_up_design_directory()
-            if not self.entity_names:
+            self.initialized = True  # set temporarily for set_up_design_directory check
+            self.set_up_design_directory()  # start self.log, set self.entity_names if pose has been loaded...
+            if not self.entity_names:  # none were provided at start up
                 self.initialized = False
                 self.init_pdb = PDB.from_file(self.source_path, log=self.log)
                 self.entity_names = [entity.name for entity in self.init_pdb.entities]
-                # self.load_pose()  # load the source pdb to find the entity_names
-                # self.entity_names = [entity.name for entity in self.pose.entities]
             else:  # when --directory flag used, but the directory is already in SymDesignOutput
-                self.initialized = True
+                self.initialized = True  # Todo remove as self.entity_names may have been provided, but init didnt occur
             # self.set_up_design_directory()
         else:  # initialize PoseDirectory with existing /program_root/projects/project/design
             self.initialized = True
@@ -1009,49 +1009,6 @@ class PoseDirectory:  # (JobResources):
                 self.path = os.path.join(root, 'Projects', pose_id.replace('_%s-' % PUtils.pose_directory,
                                                                            '_%s%s' % (PUtils.pose_directory, os.sep)))
 
-    # def link_master_directory(self, master_db=None):  # UNUSED. Could be useful in case where root is unknown
-    #     """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes
-    #
-    #     Keyword Args:
-    #         master_db=None (JobResources):
-    #     """
-    #     # if not os.path.exists(self.program_root):
-    #     #     raise DesignError('Path does not exist!\n\t%s' % self.program_root)
-    #     if master_db:
-    #         self.master_db = master_db
-    #
-    #     if self.master_db:
-    #         self.protein_data = self.master_db.protein_data
-    #         self.pdbs = self.master_db.pdbs
-    #         self.orient_dir = self.master_db.orient_dir
-    #         self.orient_asu_dir = self.master_db.orient_asu_dir
-    #         self.refine_dir = self.master_db.refine_dir
-    #         self.full_model_dir = self.master_db.full_model_dir
-    #         self.stride_dir = self.master_db.stride_dir
-    #         # self.sdf_dir = self.master_db.sdf_dir
-    #         self.sequence_info = self.master_db.sequence_info
-    #         self.sequences = self.master_db.sequences
-    #         self.profiles = self.master_db.profiles
-    #         self.clustered_poses = self.master_db.clustered_poses
-    #         self.job_paths = self.master_db.job_paths
-    #         self.sbatch_scripts = self.master_db.sbatch_scripts
-    #         self.all_scores = self.master_db.all_scores
-    #
-    # def link_database(self, resource_db=None, fragment_db=None, design_db=None, score_db=None):
-    #     """Connect the design to the master Database object to fetch shared resources"""
-    #     if resource_db:
-    #         self.resources = resource_db
-    #         if self.pose:
-    #             self.pose.source_db = resource_db
-    #     if fragment_db:
-    #         self.fragment_db = fragment_db
-    #         if self.pose:
-    #             self.pose.fragment_db = fragment_db
-    #     # if design_db and isinstance(design_db, FragmentDatabase):
-    #     #     self.design_db = design_db
-    #     # if score_db and isinstance(score_db, FragmentDatabase):
-    #     #     self.score_db = score_db
-
     @handle_design_errors(errors=(DesignError, ))
     @close_logs
     def set_up_design_directory(self, pre_refine: Optional[bool] = None, pre_loop_model: Optional[bool] = None):
@@ -1061,7 +1018,7 @@ class PoseDirectory:  # (JobResources):
             pre_refine: Whether the Pose has been refined previously (before loading)
             pre_loop_model: Whether the Pose had loops modeled previously (before loading)
         """
-        self.start_log()
+        self.start_log()  # can I remove from this section?
         if not self.initialized:  # we haven't fully initialized this PoseDirectory before
             # __init__ assumes structures have been refined so this would set false for the most part
             if pre_refine is not None:  # either True or False
@@ -1197,20 +1154,19 @@ class PoseDirectory:  # (JobResources):
 
         # configure standard pose loading mechanism with self.source
         if self.specific_design:
-            matching_designs = sorted(glob(os.path.join(self.designs, '*%s.pdb' % self.specific_design)))
-            self.specific_design = self.name + '_' + self.specific_design
+            matching_designs = sorted(glob(os.path.join(self.designs, f'*{self.specific_design}.pdb')))
             if matching_designs:
                 for matching_design in matching_designs:
                     if os.path.exists(matching_design):
                         self.specific_design_path = matching_design
                         break
                 if len(matching_designs) > 1:
-                    self.log.warning('Found %d matching designs to your specified design, choosing the first %s'
-                                     % (len(matching_designs), matching_designs[0]))
+                    self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design, '
+                                     f'choosing the first {matching_designs[0]}')
             else:
-                raise DesignError('Couldn\'t locate a design matching the specific_design name %s'
-                                  % self.specific_design)
-
+                raise DesignError(f'Couldn\'t locate a specific_design matching the name "*{self.specific_design}.pdb"')
+            # format specific_design to a pose ID compatible format
+            self.specific_design = f'{self.name}_{self.specific_design}'
             self.source = self.specific_design_path
         elif not self.source:
             if os.path.exists(self.asu_path):  # standard mechanism of loading the pose
