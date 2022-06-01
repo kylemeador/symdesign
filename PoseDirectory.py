@@ -2364,18 +2364,17 @@ class PoseDirectory:  # (JobResources):
             pass
         else:
             self.identify_interface()
-            if self.generate_fragments:
-                self.make_path(self.frags)
+            if self.no_term_constraint:
+                pass
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
-            elif not self.no_term_constraint and not self.fragment_observations and os.path.exists(self.frag_file):
+            elif os.path.exists(self.frag_file):
                 self.retrieve_fragment_info_from_file()
-            elif self.no_term_constraint:
-                pass
-            else:
-                # self.generate_interface_fragments()
-                raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
-                                  f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
+            else:  # self.generate_fragments:
+                self.make_path(self.frags, condition=self.write_frags)
+            # self.generate_interface_fragments()
+                # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
+                #                   f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
             self.make_path(self.data)
             # creates all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             self.pose.interface_design(evolution=not self.no_evolution_constraint, des_dir=self,
@@ -2510,7 +2509,7 @@ class PoseDirectory:  # (JobResources):
         else:  # we only need to load pose as we already calculated interface
             self.load_pose()
         self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.interface_design_residues))))
-        if self.generate_fragments:
+        if (not self.fragment_observations and self.fragment_observations != list()) and self.generate_fragments:
             self.make_path(self.frags, condition=self.write_frags)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
 

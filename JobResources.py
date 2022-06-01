@@ -929,7 +929,7 @@ class JobResources:
         self.run_in_shell: bool = kwargs.get('run_in_shell', False)
         # self.pre_refine: bool = kwargs.get('pre_refine', True)
         # self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
-        self.generate_fragments: bool = kwargs.get(generate_fragments, False)
+        self.generate_fragments: bool = kwargs.get(generate_fragments, True)
         self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         self.structure_background: bool = kwargs.get(structure_background, False)
@@ -945,6 +945,9 @@ class JobResources:
         if self.nanohedra_output and not self.construct_pose:  # no construction specific flags
             self.write_frags = False
             self.write_oligomers = False
+
+        if self.no_term_constraint:
+            self.generate_fragments = False
 
     @staticmethod
     def make_path(path: Union[str, bytes], condition: bool = True):
