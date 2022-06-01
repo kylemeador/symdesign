@@ -5,7 +5,6 @@ E = 12*B114*(B11:B12)4*(B11:B13)4*(B11:B21)4*(B11:B22)4*(B11:B23)4*(B11:B31)4*(B
 anchor_residue COM
 #
 virtual_coordinates_start
-#
 xyz C1  1,1,1 1,1,-2 0,0,0
 xyz P1  1,1,1 1,1,-2 0,0,0
 xyz B11 1,1,1 1,1,-2 0,0,0
@@ -28,37 +27,37 @@ xyz B42 1,-1,-1 1,-1,2 0,0,0
 xyz B43 1,-1,-1 1,2,-1 0,0,0
 virtual_coordinates_stop
 #
-connect_virtual JP1 C1 P1
-connect_virtual JP11 P1 B11
-connect_virtual JB11 B11 SUBUNIT COM
-connect_virtual JP12 P1 B12
-connect_virtual JB12 B12 SUBUNIT COM
-connect_virtual JP13 P1 B13
-connect_virtual JB13 B13 SUBUNIT COM
 connect_virtual JC2 C1 C2
-connect_virtual JP2 C2 P2
-connect_virtual JP21 P2 B21
-connect_virtual JB21 B21 SUBUNIT COM
-connect_virtual JP22 P2 B22
-connect_virtual JB22 B22 SUBUNIT COM
-connect_virtual JP23 P2 B23
-connect_virtual JB23 B23 SUBUNIT COM
 connect_virtual JC3 C1 C3
-connect_virtual JP3 C3 P3
-connect_virtual JP31 P3 B31
-connect_virtual JB31 B31 SUBUNIT COM
-connect_virtual JP32 P3 B32
-connect_virtual JB32 B32 SUBUNIT COM
-connect_virtual JP33 P3 B33
-connect_virtual JB33 B33 SUBUNIT COM
 connect_virtual JC4 C1 C4
+connect_virtual JP1 C1 P1
+connect_virtual JP2 C2 P2
+connect_virtual JP3 C3 P3
 connect_virtual JP4 C4 P4
+connect_virtual JP11 P1 B11
+connect_virtual JP12 P1 B12
+connect_virtual JP13 P1 B13
+connect_virtual JP21 P2 B21
+connect_virtual JP22 P2 B22
+connect_virtual JP23 P2 B23
+connect_virtual JP31 P3 B31
+connect_virtual JP32 P3 B32
+connect_virtual JP33 P3 B33
 connect_virtual JP41 P4 B41
-connect_virtual JB41 B41 SUBUNIT COM
 connect_virtual JP42 P4 B42
-connect_virtual JB42 B42 SUBUNIT COM
 connect_virtual JP43 P4 B43
-connect_virtual JB43 B43 SUBUNIT COM
+connect_virtual JB11 B11 SUBUNIT
+connect_virtual JB12 B12 SUBUNIT
+connect_virtual JB13 B13 SUBUNIT
+connect_virtual JB21 B21 SUBUNIT
+connect_virtual JB22 B22 SUBUNIT
+connect_virtual JB23 B23 SUBUNIT
+connect_virtual JB31 B31 SUBUNIT
+connect_virtual JB32 B32 SUBUNIT
+connect_virtual JB33 B33 SUBUNIT
+connect_virtual JB41 B41 SUBUNIT
+connect_virtual JB42 B42 SUBUNIT
+connect_virtual JB43 B43 SUBUNIT
 #
 set_dof JP1 x angle_x
 set_jump_group JGP JP1 JP2 JP3 JP4

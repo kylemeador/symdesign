@@ -85,30 +85,30 @@ connect_virtual JP73 P7 B73
 connect_virtual JP81 P8 B81
 connect_virtual JP82 P8 B82
 connect_virtual JP83 P8 B83
-connect_virtual JB11 B11 SUBUNIT COM
-connect_virtual JB12 B12 SUBUNIT COM
-connect_virtual JB13 B13 SUBUNIT COM
-connect_virtual JB21 B21 SUBUNIT COM
-connect_virtual JB22 B22 SUBUNIT COM
-connect_virtual JB23 B23 SUBUNIT COM
-connect_virtual JB31 B31 SUBUNIT COM
-connect_virtual JB32 B32 SUBUNIT COM
-connect_virtual JB33 B33 SUBUNIT COM
-connect_virtual JB41 B41 SUBUNIT COM
-connect_virtual JB42 B42 SUBUNIT COM
-connect_virtual JB43 B43 SUBUNIT COM
-connect_virtual JB51 B51 SUBUNIT COM
-connect_virtual JB52 B52 SUBUNIT COM
-connect_virtual JB53 B53 SUBUNIT COM
-connect_virtual JB61 B61 SUBUNIT COM
-connect_virtual JB62 B62 SUBUNIT COM
-connect_virtual JB63 B63 SUBUNIT COM
-connect_virtual JB71 B71 SUBUNIT COM
-connect_virtual JB72 B72 SUBUNIT COM
-connect_virtual JB73 B73 SUBUNIT COM
-connect_virtual JB81 B81 SUBUNIT COM
-connect_virtual JB82 B82 SUBUNIT COM
-connect_virtual JB83 B83 SUBUNIT COM
+connect_virtual JB11 B11 SUBUNIT
+connect_virtual JB12 B12 SUBUNIT
+connect_virtual JB13 B13 SUBUNIT
+connect_virtual JB21 B21 SUBUNIT
+connect_virtual JB22 B22 SUBUNIT
+connect_virtual JB23 B23 SUBUNIT
+connect_virtual JB31 B31 SUBUNIT
+connect_virtual JB32 B32 SUBUNIT
+connect_virtual JB33 B33 SUBUNIT
+connect_virtual JB41 B41 SUBUNIT
+connect_virtual JB42 B42 SUBUNIT
+connect_virtual JB43 B43 SUBUNIT
+connect_virtual JB51 B51 SUBUNIT
+connect_virtual JB52 B52 SUBUNIT
+connect_virtual JB53 B53 SUBUNIT
+connect_virtual JB61 B61 SUBUNIT
+connect_virtual JB62 B62 SUBUNIT
+connect_virtual JB63 B63 SUBUNIT
+connect_virtual JB71 B71 SUBUNIT
+connect_virtual JB72 B72 SUBUNIT
+connect_virtual JB73 B73 SUBUNIT
+connect_virtual JB81 B81 SUBUNIT
+connect_virtual JB82 B82 SUBUNIT
+connect_virtual JB83 B83 SUBUNIT
 set_dof JP1 x angle_x
 set_jump_group JGP JC1 JC2 JC3 JC4 JC5 JC6 JC7 JC8 JC9 JC10 JC11 JC12
 set_jump_group JGB JB11 JB12 JB13 JB21 JB22 JB23 JB31 JB32 JB33 JB41 JB42 JB43 JB51 JB52 JB53 JB61 JB62 JB63 JB71 JB72 JB73 JB81 JB82 JB83

@@ -98,30 +98,30 @@ connect_virtual JP111 P11 B111
 connect_virtual JP112 P11 B112
 connect_virtual JP121 P12 B121
 connect_virtual JP122 P12 B122
-connect_virtual JB11 B11 SUBUNIT COM
-connect_virtual JB12 B12 SUBUNIT COM
-connect_virtual JB21 B21 SUBUNIT COM
-connect_virtual JB22 B22 SUBUNIT COM
-connect_virtual JB31 B31 SUBUNIT COM
-connect_virtual JB32 B32 SUBUNIT COM
-connect_virtual JB41 B41 SUBUNIT COM
-connect_virtual JB42 B42 SUBUNIT COM
-connect_virtual JB51 B51 SUBUNIT COM
-connect_virtual JB52 B52 SUBUNIT COM
-connect_virtual JB61 B61 SUBUNIT COM
-connect_virtual JB62 B62 SUBUNIT COM
-connect_virtual JB71 B71 SUBUNIT COM
-connect_virtual JB72 B72 SUBUNIT COM
-connect_virtual JB81 B81 SUBUNIT COM
-connect_virtual JB82 B82 SUBUNIT COM
-connect_virtual JB91 B91 SUBUNIT COM
-connect_virtual JB92 B92 SUBUNIT COM
-connect_virtual JB101 B101 SUBUNIT COM
-connect_virtual JB102 B102 SUBUNIT COM
-connect_virtual JB111 B111 SUBUNIT COM
-connect_virtual JB112 B112 SUBUNIT COM
-connect_virtual JB121 B121 SUBUNIT COM
-connect_virtual JB122 B122 SUBUNIT COM
+connect_virtual JB11 B11 SUBUNIT
+connect_virtual JB12 B12 SUBUNIT
+connect_virtual JB21 B21 SUBUNIT
+connect_virtual JB22 B22 SUBUNIT
+connect_virtual JB31 B31 SUBUNIT
+connect_virtual JB32 B32 SUBUNIT
+connect_virtual JB41 B41 SUBUNIT
+connect_virtual JB42 B42 SUBUNIT
+connect_virtual JB51 B51 SUBUNIT
+connect_virtual JB52 B52 SUBUNIT
+connect_virtual JB61 B61 SUBUNIT
+connect_virtual JB62 B62 SUBUNIT
+connect_virtual JB71 B71 SUBUNIT
+connect_virtual JB72 B72 SUBUNIT
+connect_virtual JB81 B81 SUBUNIT
+connect_virtual JB82 B82 SUBUNIT
+connect_virtual JB91 B91 SUBUNIT
+connect_virtual JB92 B92 SUBUNIT
+connect_virtual JB101 B101 SUBUNIT
+connect_virtual JB102 B102 SUBUNIT
+connect_virtual JB111 B111 SUBUNIT
+connect_virtual JB112 B112 SUBUNIT
+connect_virtual JB121 B121 SUBUNIT
+connect_virtual JB122 B122 SUBUNIT
 set_dof JP1 x angle_x
 set_jump_group JGP JC1 JC2 JC3 JC4 JC5 JC6 JC7 JC8 JC9 JC10 JC11 JC12
 set_jump_group JGB JB11 JB12 JB21 JB22 JB31 JB32 JB41 JB42 JB51 JB52 JB61 JB62 JB71 JB72 JB81 JB82 JB91 JB92 JB101 JB102 JB111 JB112 JB121 JB122

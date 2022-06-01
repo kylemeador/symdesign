@@ -208,66 +208,66 @@ connect_virtual JPT18_2 PT18   BT18_2
 connect_virtual JPT19_0 PT19   BT19_0
 connect_virtual JPT19_1 PT19   BT19_1
 connect_virtual JPT19_2 PT19   BT19_2
-connect_virtual JBT00_0 BT00_0 SUBUNIT COM
-connect_virtual JBT00_1 BT00_1 SUBUNIT COM
-connect_virtual JBT00_2 BT00_2 SUBUNIT COM
-connect_virtual JBT01_0 BT01_0 SUBUNIT COM
-connect_virtual JBT01_1 BT01_1 SUBUNIT COM
-connect_virtual JBT01_2 BT01_2 SUBUNIT COM
-connect_virtual JBT02_0 BT02_0 SUBUNIT COM
-connect_virtual JBT02_1 BT02_1 SUBUNIT COM
-connect_virtual JBT02_2 BT02_2 SUBUNIT COM
-connect_virtual JBT03_0 BT03_0 SUBUNIT COM
-connect_virtual JBT03_1 BT03_1 SUBUNIT COM
-connect_virtual JBT03_2 BT03_2 SUBUNIT COM
-connect_virtual JBT04_0 BT04_0 SUBUNIT COM
-connect_virtual JBT04_1 BT04_1 SUBUNIT COM
-connect_virtual JBT04_2 BT04_2 SUBUNIT COM
-connect_virtual JBT05_0 BT05_0 SUBUNIT COM
-connect_virtual JBT05_1 BT05_1 SUBUNIT COM
-connect_virtual JBT05_2 BT05_2 SUBUNIT COM
-connect_virtual JBT06_0 BT06_0 SUBUNIT COM
-connect_virtual JBT06_1 BT06_1 SUBUNIT COM
-connect_virtual JBT06_2 BT06_2 SUBUNIT COM
-connect_virtual JBT07_0 BT07_0 SUBUNIT COM
-connect_virtual JBT07_1 BT07_1 SUBUNIT COM
-connect_virtual JBT07_2 BT07_2 SUBUNIT COM
-connect_virtual JBT08_0 BT08_0 SUBUNIT COM
-connect_virtual JBT08_1 BT08_1 SUBUNIT COM
-connect_virtual JBT08_2 BT08_2 SUBUNIT COM
-connect_virtual JBT09_0 BT09_0 SUBUNIT COM
-connect_virtual JBT09_1 BT09_1 SUBUNIT COM
-connect_virtual JBT09_2 BT09_2 SUBUNIT COM
-connect_virtual JBT10_0 BT10_0 SUBUNIT COM
-connect_virtual JBT10_1 BT10_1 SUBUNIT COM
-connect_virtual JBT10_2 BT10_2 SUBUNIT COM
-connect_virtual JBT11_0 BT11_0 SUBUNIT COM
-connect_virtual JBT11_1 BT11_1 SUBUNIT COM
-connect_virtual JBT11_2 BT11_2 SUBUNIT COM
-connect_virtual JBT12_0 BT12_0 SUBUNIT COM
-connect_virtual JBT12_1 BT12_1 SUBUNIT COM
-connect_virtual JBT12_2 BT12_2 SUBUNIT COM
-connect_virtual JBT13_0 BT13_0 SUBUNIT COM
-connect_virtual JBT13_1 BT13_1 SUBUNIT COM
-connect_virtual JBT13_2 BT13_2 SUBUNIT COM
-connect_virtual JBT14_0 BT14_0 SUBUNIT COM
-connect_virtual JBT14_1 BT14_1 SUBUNIT COM
-connect_virtual JBT14_2 BT14_2 SUBUNIT COM
-connect_virtual JBT15_0 BT15_0 SUBUNIT COM
-connect_virtual JBT15_1 BT15_1 SUBUNIT COM
-connect_virtual JBT15_2 BT15_2 SUBUNIT COM
-connect_virtual JBT16_0 BT16_0 SUBUNIT COM
-connect_virtual JBT16_1 BT16_1 SUBUNIT COM
-connect_virtual JBT16_2 BT16_2 SUBUNIT COM
-connect_virtual JBT17_0 BT17_0 SUBUNIT COM
-connect_virtual JBT17_1 BT17_1 SUBUNIT COM
-connect_virtual JBT17_2 BT17_2 SUBUNIT COM
-connect_virtual JBT18_0 BT18_0 SUBUNIT COM
-connect_virtual JBT18_1 BT18_1 SUBUNIT COM
-connect_virtual JBT18_2 BT18_2 SUBUNIT COM
-connect_virtual JBT19_0 BT19_0 SUBUNIT COM
-connect_virtual JBT19_1 BT19_1 SUBUNIT COM
-connect_virtual JBT19_2 BT19_2 SUBUNIT COM
+connect_virtual JBT00_0 BT00_0 SUBUNIT
+connect_virtual JBT00_1 BT00_1 SUBUNIT
+connect_virtual JBT00_2 BT00_2 SUBUNIT
+connect_virtual JBT01_0 BT01_0 SUBUNIT
+connect_virtual JBT01_1 BT01_1 SUBUNIT
+connect_virtual JBT01_2 BT01_2 SUBUNIT
+connect_virtual JBT02_0 BT02_0 SUBUNIT
+connect_virtual JBT02_1 BT02_1 SUBUNIT
+connect_virtual JBT02_2 BT02_2 SUBUNIT
+connect_virtual JBT03_0 BT03_0 SUBUNIT
+connect_virtual JBT03_1 BT03_1 SUBUNIT
+connect_virtual JBT03_2 BT03_2 SUBUNIT
+connect_virtual JBT04_0 BT04_0 SUBUNIT
+connect_virtual JBT04_1 BT04_1 SUBUNIT
+connect_virtual JBT04_2 BT04_2 SUBUNIT
+connect_virtual JBT05_0 BT05_0 SUBUNIT
+connect_virtual JBT05_1 BT05_1 SUBUNIT
+connect_virtual JBT05_2 BT05_2 SUBUNIT
+connect_virtual JBT06_0 BT06_0 SUBUNIT
+connect_virtual JBT06_1 BT06_1 SUBUNIT
+connect_virtual JBT06_2 BT06_2 SUBUNIT
+connect_virtual JBT07_0 BT07_0 SUBUNIT
+connect_virtual JBT07_1 BT07_1 SUBUNIT
+connect_virtual JBT07_2 BT07_2 SUBUNIT
+connect_virtual JBT08_0 BT08_0 SUBUNIT
+connect_virtual JBT08_1 BT08_1 SUBUNIT
+connect_virtual JBT08_2 BT08_2 SUBUNIT
+connect_virtual JBT09_0 BT09_0 SUBUNIT
+connect_virtual JBT09_1 BT09_1 SUBUNIT
+connect_virtual JBT09_2 BT09_2 SUBUNIT
+connect_virtual JBT10_0 BT10_0 SUBUNIT
+connect_virtual JBT10_1 BT10_1 SUBUNIT
+connect_virtual JBT10_2 BT10_2 SUBUNIT
+connect_virtual JBT11_0 BT11_0 SUBUNIT
+connect_virtual JBT11_1 BT11_1 SUBUNIT
+connect_virtual JBT11_2 BT11_2 SUBUNIT
+connect_virtual JBT12_0 BT12_0 SUBUNIT
+connect_virtual JBT12_1 BT12_1 SUBUNIT
+connect_virtual JBT12_2 BT12_2 SUBUNIT
+connect_virtual JBT13_0 BT13_0 SUBUNIT
+connect_virtual JBT13_1 BT13_1 SUBUNIT
+connect_virtual JBT13_2 BT13_2 SUBUNIT
+connect_virtual JBT14_0 BT14_0 SUBUNIT
+connect_virtual JBT14_1 BT14_1 SUBUNIT
+connect_virtual JBT14_2 BT14_2 SUBUNIT
+connect_virtual JBT15_0 BT15_0 SUBUNIT
+connect_virtual JBT15_1 BT15_1 SUBUNIT
+connect_virtual JBT15_2 BT15_2 SUBUNIT
+connect_virtual JBT16_0 BT16_0 SUBUNIT
+connect_virtual JBT16_1 BT16_1 SUBUNIT
+connect_virtual JBT16_2 BT16_2 SUBUNIT
+connect_virtual JBT17_0 BT17_0 SUBUNIT
+connect_virtual JBT17_1 BT17_1 SUBUNIT
+connect_virtual JBT17_2 BT17_2 SUBUNIT
+connect_virtual JBT18_0 BT18_0 SUBUNIT
+connect_virtual JBT18_1 BT18_1 SUBUNIT
+connect_virtual JBT18_2 BT18_2 SUBUNIT
+connect_virtual JBT19_0 BT19_0 SUBUNIT
+connect_virtual JBT19_1 BT19_1 SUBUNIT
+connect_virtual JBT19_2 BT19_2 SUBUNIT
 set_dof JCT00 x angle_x
 set_jump_group JGCT JCT00 JCT01 JCT02 JCT03 JCT04 JCT05 JCT06 JCT07 JCT08 JCT09 JCT10 JCT11 JCT12 JCT13 JCT14 JCT15 JCT16 JCT17 JCT18 JCT19
 set_jump_group JGBT JBT00_0 JBT00_1 JBT00_2 JBT01_0 JBT01_1 JBT01_2 JBT02_0 JBT02_1 JBT02_2 JBT03_0 JBT03_1 JBT03_2 JBT04_0 JBT04_1 JBT04_2 JBT05_0 JBT05_1 JBT05_2 JBT06_0 JBT06_1 JBT06_2 JBT07_0 JBT07_1 JBT07_2 JBT08_0 JBT08_1 JBT08_2 JBT09_0 JBT09_1 JBT09_2 JBT10_0 JBT10_1 JBT10_2 JBT11_0 JBT11_1 JBT11_2 JBT12_0 JBT12_1 JBT12_2 JBT13_0 JBT13_1 JBT13_2 JBT14_0 JBT14_1 JBT14_2 JBT15_0 JBT15_1 JBT15_2 JBT16_0 JBT16_1 JBT16_2 JBT17_0 JBT17_1 JBT17_2 JBT18_0 JBT18_1 JBT18_2 JBT19_0 JBT19_1 JBT19_2
