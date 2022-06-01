@@ -278,9 +278,9 @@ parser_options_arguments = {
     ('-F', f'--{force_flags}'): dict(action='store_true',
                                      help='Force generation of a new flags file to update script parameters'
                                           '\nDefault=%(default)s'),
-    ('-gf', f'--{generate_fragments}'): dict(action='store_true',
-                                             help='Generate fragment overlap for poses of interest'
-                                                  '\nDefault=%(default)s'),
+    # ('-gf', f'--{generate_fragments}'): dict(action='store_true',
+    #                                          help='Generate interface fragment observations for poses of interest'
+    #                                               '\nDefault=%(default)s'),
     ('-i', '--fragment_database'): dict(type=str, choices=fragment_dbs, default=biological_interfaces,
                                         help='Database to match fragments for interface specific scoring matrices\n'
                                              'Default=%(default)s'),

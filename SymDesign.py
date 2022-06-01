@@ -806,12 +806,10 @@ if __name__ == '__main__':
     queried_flags['job_resources'] = job
 
     # Set up Databases
-    if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design] or \
-            queried_flags.get(PUtils.generate_fragments, None):  # Todo remove, only in interface_design_analysis
-        if queried_flags.get('no_term_constraint', None):
+    if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design]:
+        if job.no_term_constraint:
             fragment_db, euler_lookup = None, None
         else:
-            queried_flags[PUtils.generate_fragments] = True
             fragment_db = fragment_factory(source=args.fragment_database)
             euler_lookup = EulerLookup()
     else:

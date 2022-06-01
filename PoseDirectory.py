@@ -1279,9 +1279,8 @@ class PoseDirectory:  # (JobResources):
             frag_metrics = fragment_metric_template
         # fragments haven't been attempted on this pose
         elif self.fragment_observations is None:  # should this ever happen?
-            self.log.warning('There were no fragments generated for this Design! If this isn\'t what you expected, '
-                             'ensure that you haven\'t disabled it with "--%s" or explicitly request it with --%s'
-                             % (PUtils.no_term_constraint, PUtils.generate_fragments))
+            self.log.warning(f'There were no fragments generated for this Design! If this isn\'t what you expected, '
+                             f'ensure that you haven\'t disabled it with "--{PUtils.no_term_constraint}"')
             frag_metrics = fragment_metric_template
 
         self.center_residue_numbers = frag_metrics['center_residues']
@@ -1763,7 +1762,7 @@ class PoseDirectory:  # (JobResources):
                     consensus_process.communicate()
             else:
                 self.log.critical(f'Cannot run consensus design without fragment info and none was found.'
-                                  f' Did you mean to exclude --{PUtils.generate_fragments}?')
+                                  f' Did you mean include --{PUtils.no_term_constraint}?')  # Todo may not be included
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
@@ -2288,10 +2287,6 @@ class PoseDirectory:  # (JobResources):
         """For the design info given by a PoseDirectory source, initialize the Pose then generate interfacial fragment
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
-        # if not self.fragment_db:
-        #     self.log.warning('There was no FragmentDatabase passed to the pose, ut fragment information was '
-        #                      'requested. Each design is loading a separate FragmentDatabase instance. To maximize '
-        #                      'efficiency, pass --%s' % PUtils.generate_fragments)
         self.identify_interface()
         self.make_path(self.frags, condition=self.write_frags)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)

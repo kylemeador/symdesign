@@ -3326,8 +3326,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 self.generate_interface_fragments(out_path=des_dir.frags, write_fragments=write_fragments)
             else:  # No fragment query, add existing fragment information to the pose
                 if fragment_source is None:
-                    raise DesignError(f'Fragments were set for design but there were none found! Try including '
-                                      f'--{PUtils.generate_fragments} in your input flags and rerun this command or '
+                    raise DesignError(f'Fragments were set for design but there were none found! Try excluding '
+                                      f'--{PUtils.no_term_constraint} in your input flags and rerun this command, or '
                                       f'generate them separately with "{PUtils.program_command} '
                                       f'{PUtils.generate_fragments}"')
 
