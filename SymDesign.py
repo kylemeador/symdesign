@@ -30,11 +30,10 @@ import SymDesignUtils as SDUtils
 from Query.PDB import retrieve_pdb_entries_by_advanced_query
 from Query.utils import input_string, bool_d, validate_input, boolean_choice, invalid_string
 from utils.CmdLineArgParseUtils import query_mode
-from utils import Flags
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from classes.EulerLookup import EulerLookup
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
-from PoseDirectory import PoseDirectory, get_sym_entry_from_nanohedra_directory
+from PoseDirectory import PoseDirectory
 from JobResources import JobResources, fragment_factory
 from PDB import PDB, orient_pdb_file
 from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
@@ -43,7 +42,8 @@ from ProteinExpression import find_expression_tags, find_matching_expression_tag
     default_multicistronic_sequence
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
-from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module
+from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module, \
+    process_residue_selector_flags, return_default_flags
 from utils.GeneralUtils import write_docking_parameters
 from utils.SetUp import set_up_instructions
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
@@ -583,6 +583,19 @@ def generate_sequence_template(pdb_file):
     return write_fasta(sequences, file_name='%s_residue_selector_sequence' % os.path.splitext(pdb.filepath)[0])
 
 
+def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
+    try:
+        with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
+            for line in f.readlines():
+                if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
+                    return SymEntry(int(line.split(':')[-1]))  # sym_map inclusion?
+    except FileNotFoundError:
+        raise FileNotFoundError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
+                                % os.path.join(nanohedra_dir, PUtils.master_log))
+    raise SDUtils.DesignError('The Nanohedra Output docking file %s is malformed. Missing required info Nanohedra Entry'
+                              ' Number' % os.path.join(nanohedra_dir, PUtils.master_log))
+
+
 if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Process optional program flags
@@ -683,27 +696,27 @@ if __name__ == '__main__':
     if additional_args:
         exit('\nSuspending run. Found flag(s) that are not recognized program wide: %s\nPlease correct (try adding '
              '--help if unsure), and resubmit your command\n' % ', '.join(additional_args))
-    default_flags = Flags.return_default_flags(args.module)
+    default_flags = return_default_flags()
     formatted_flags = format_additional_flags(additional_args)
     default_flags.update(formatted_flags)
 
     # Add additional program flags to queried_flags
     queried_flags = vars(args)
     queried_flags.update(default_flags)
-    queried_flags.update(Flags.process_residue_selector_flags(queried_flags))
+    queried_flags.update(process_residue_selector_flags(queried_flags))
     # We have to ensure that if the user has provided it, the symmetry is correct
-    if queried_flags['symmetry'] and queried_flags.get('sym_entry'):
-        queried_flags['sym_entry'] = \
-            parse_symmetry_to_sym_entry(sym_entry=queried_flags['sym_entry'], symmetry=queried_flags['symmetry'])
-    elif queried_flags.get('sym_entry'):
-        queried_flags['sym_entry'] = SymEntry(int(queried_flags['sym_entry']))
+    if queried_flags['symmetry'] and queried_flags.get(PUtils.sym_entry):
+        queried_flags[PUtils.sym_entry] = \
+            parse_symmetry_to_sym_entry(sym_entry=queried_flags[PUtils.sym_entry], symmetry=queried_flags['symmetry'])
+    elif queried_flags.get(PUtils.sym_entry):
+        queried_flags[PUtils.sym_entry] = SymEntry(int(queried_flags[PUtils.sym_entry]))
     elif queried_flags['symmetry']:
         if queried_flags['symmetry'].lower()[:5] == 'cryst':
             # the symmetry information is in the pdb header
             queried_flags['symmetry'] = 'cryst'
         else:  # queried_flags['symmetry'] in possible_symmetries:
-            queried_flags['sym_entry'] = parse_symmetry_to_sym_entry(symmetry=queried_flags['symmetry'])
-    sym_entry = queried_flags['sym_entry']
+            queried_flags[PUtils.sym_entry] = parse_symmetry_to_sym_entry(symmetry=queried_flags['symmetry'])
+    sym_entry = queried_flags[PUtils.sym_entry]
 
     initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics,  # PUtils.refine,
                           PUtils.optimize_designs, 'custom_script']  # PUtils.analysis,
@@ -712,10 +725,8 @@ if __name__ == '__main__':
                        PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
                        'check_clashes', 'custom_script']:  # , 'find_asu', 'status', 'visualize'
         initialize, queried_flags['construct_pose'] = True, True  # set up design directories
-    elif args.module in [PUtils.analysis, PUtils.cluster_poses]:
-        # analysis could be run from Nanohedra docking, so we ensure that we don't construct new
-        initialize, queried_flags['construct_pose'] = True, False
-    elif args.module in [PUtils.select_poses, PUtils.select_sequences]:
+    elif args.module in [PUtils.analysis, PUtils.cluster_poses, PUtils.select_poses, PUtils.select_sequences]:
+        # analysis types can be run from nanohedra_output, so we ensure that we don't construct new
         initialize, queried_flags['construct_pose'] = True, False
         if args.module == PUtils.select_poses:
             if args.dataframe:  # when selecting by a dataframe, don't initialize, proper input is handled in module
@@ -758,34 +769,38 @@ if __name__ == '__main__':
             if value is not None:
                 reported_args[custom_arg] = value
 
-        sym_entry = reported_args.pop('sym_entry', None)
-        if sym_entry:
-            reported_args['sym_entry'] = sym_entry.entry_number
+        flags_sym_entry = reported_args.pop(PUtils.sym_entry, None)
+        if flags_sym_entry:
+            reported_args[PUtils.sym_entry] = flags_sym_entry.entry_number
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(reported_args.items())))
     # -----------------------------------------------------------------------------------------------------------------
     # Initialize common resources
     # -----------------------------------------------------------------------------------------------------------------
     # Check if output already exists  # or provide --overwrite
     if args.output_file and os.path.exists(args.output_file):
-        logger.critical('The specified output file "%s" already exists, this will overwrite your old data! Please '
-                        'specify a new name with with -of/--output_file' % args.output_file)
+        logger.critical(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
+                        f'data! Please specify a new name with with -Of/--output_file')
         exit(1)
-    # elif os.path.exists(args.output_directory):  # Todo is this necessary?
-    #     logger.critical('The specified output directory "%s" already exists, this will overwrite your old data! Please '
-    #                     'specify a new one with with -od/--output_directory' % args.output_file)
+    # elif args.output_directory and os.path.exists(args.output_directory):  # Todo is this necessary?
+    #     logger.critical(f'The specified output directory "{args.output_file}" already exists, this will overwrite
+    #                     f'your old data! Please specify a new one with with -Od/--output_directory')
     #     exit(1)
 
-    # Set up JobResources
+    # Set up JobResources which handles flags and shared program objects necessary for processing and i/o
     symdesign_directory = SDUtils.get_base_symdesign_dir(args.directory)
-    if symdesign_directory:  # SymDesignOutput
-        job = JobResources(symdesign_directory)
-    elif args.output_directory:
-        job = JobResources(queried_flags['output_directory'])
-    else:
-        symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
-        SDUtils.make_path(symdesign_directory)
-        job = JobResources(symdesign_directory)
-    logger.info('Using JobResources from Database located at "%s"' % job.protein_data)
+    if not symdesign_directory:  # Not from SymDesignOutput
+        if args.output_directory:  # use a user specified directory
+            # if args.output_directory == '':
+            #     symdesign_directory = '%s_%s_%s_poses' % default_output_tuple
+            # else:
+            queried_flags['output_directory'] = True
+            symdesign_directory = args.output_directory
+        else:
+            symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
+        os.makedirs(symdesign_directory, exist_ok=True)
+
+    job = JobResources(symdesign_directory, **queried_flags)
+    logger.info(f'Using JobResources from Database located at "{job.protein_data}"')
     queried_flags['job_resources'] = job
 
     # Set up Databases
@@ -806,19 +821,31 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (PoseDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
-    all_poses: List[Union[str, bytes]] = None
+    all_poses: List[Union[str, bytes]] | None = None
     pose_directories: List[PoseDirectory] = []
-    location: str = None
+    location: str | None = None
     all_dock_directories, entity_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
     if initialize:
-        # if not args.file and not args.directory and not args.project and not args.single and not args.specification_file:
-        #     raise SDUtils.DesignError(
-        #         'No designs were specified! Please specify --directory, --file, --specification_file,'
-        #         ' --project, or --single to locate designs of interest and run your command again')
-        logger.info('Setting up input files for %s' % args.module)
-        if args.nanohedra_output:
+        if args.range:
+            low, high = map(float, args.range.split('-'))
+            low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
+            if low_range < 0 or high_range > len(all_poses):
+                raise SDUtils.DesignError('The input --range is outside of the acceptable bounds [0-100]')
+            logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
+
+        logger.info(f'Setting up input files for {args.module}')
+        if args.nanohedra_output:  # Nanohedra directory
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
+            if all_poses:
+                if all_poses[0].count(os.sep) == 0:
+                    job.nanohedra_root = args.directory
+                else:
+                    job.nanohedra_root = f'{os.sep}{os.path.join(*all_poses[0].split(os.sep)[:-4])}'
+                if not sym_entry:
+                    queried_flags[PUtils.sym_entry] = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
+                pose_directories = [PoseDirectory.from_nanohedra(pose, **queried_flags)
+                                    for pose in all_poses[low_range:high_range]]
         elif args.specification_file:  # Todo, combine this with collect_designs
             if not args.directory:
                 raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
@@ -831,56 +858,34 @@ if __name__ == '__main__':
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           projects=args.project, singles=args.single)
-        if args.range:
-            low, high = map(float, args.range.split('-'))
-            low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
-            if low_range < 0 or high_range > len(all_poses):
-                raise SDUtils.DesignError('The input --range is outside of the acceptable bounds [0-100]')
-            logger.info('Selecting poses within range: %d-%d' % (low_range if low_range else 1, high_range))
-
-        if all_poses:  # TODO fetch a state from files that have already been SymDesigned...
-            if all_poses[0].count(os.sep) == 0:
-                # assume that we have received pose-IDs and process accordingly
-                # TODO another case, the list of files could be in the current directory that SymDesign was run in...
-                if args.nanohedra_output:
-                    queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(args.directory)
-                pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, **queried_flags)
-                                    for pose in all_poses[low_range:high_range]]
-            elif args.nanohedra_output:
-                base_directory = '%s%s' % (os.sep, os.path.join(*all_poses[0].split(os.sep)[:-4]))
-                queried_flags['sym_entry'] = get_sym_entry_from_nanohedra_directory(base_directory)
-                pose_directories = [PoseDirectory.from_nanohedra(pose, **queried_flags)
-                                    for pose in all_poses[low_range:high_range]]
-            else:
-                pose_directories = [PoseDirectory.from_file(pose, **queried_flags)
-                                    for pose in all_poses[low_range:high_range]]
+            if all_poses:
+                if all_poses[0].count(os.sep) == 0:
+                    # TODO in the case the list of files is in the current directory where SymDesign was run...
+                    # assume that we have received pose-IDs and process accordingly
+                    pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, **queried_flags)
+                                        for pose in all_poses[low_range:high_range]]
+                else:
+                    pose_directories = [PoseDirectory.from_file(pose, **queried_flags)
+                                        for pose in all_poses[low_range:high_range]]
         if not pose_directories:
-            raise SDUtils.DesignError('No %s directories found within "%s"! Please ensure correct location'
-                                      % (PUtils.program_name, location))
+            raise SDUtils.DesignError(f'No {PUtils.program_name} directories found within "{location}"! Please ensure '
+                                      f'correct location')
         # Todo could make after collect_designs? Pass to all pose_directories
         #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
         example_directory = next(iter(pose_directories))
         # example_directory = JobResources(pose_directories[0].program_root)
-        if not location:
-            design_source = os.path.basename(example_directory.project_designs)
-        else:
-            design_source = os.path.splitext(os.path.basename(location))[0]
+        # if not location:
+        #     design_source = os.path.basename(example_directory.project_designs)
+        # else:
+        design_source = os.path.splitext(os.path.basename(location))[0]
         default_output_tuple = (SDUtils.starttime, args.module, design_source)
 
-        # must make the output_directory before set_up_design_directory is called
-        if args.output_directory is not None:
-            if args.output_directory == '':
-                designs_directory = '%s_%s_%s_poses' % default_output_tuple
-            else:
-                designs_directory = args.output_directory
-            os.makedirs(designs_directory, exist_ok=True)
-        # Todo logic error when initialization occurs with module that doens't call this, subsequent runs are missing
+        # Todo logic error when initialization occurs with module that doesn't call this, subsequent runs are missing
         #  directories/resources that haven't been made
         # check to see that proper files have been created if doing design
         # including orientation, refinement, loop modeling, hhblits, bmdca?
-        # example_directory.initialized = True  # Todo remove this
-        if not example_directory.initialized and args.module in initialize_modules \
-                or args.nanohedra_output or args.load_database:
+        initialized = example_directory.initialized
+        if not initialized and args.module in initialize_modules or args.nanohedra_output or args.load_database:
             # if args.load_database:  # Todo why is this set_up_design_directory here?
             #     for design in pose_directories:
             #         design.set_up_design_directory()
@@ -889,31 +894,36 @@ if __name__ == '__main__':
             orient_dir = job.orient_dir
             orient_asu_dir = job.orient_asu_dir
             stride_dir = job.stride_dir
-            logger.critical('The requested poses require preprocessing before design modules should be used')
-            # Collect all entities required for processing the given commands
-            required_entities = list(map(set, list(zip(*[design.entity_names for design in pose_directories]))))
-            all_entities = []
             load_resources = False
-            # Select entities, orient them, then load each entity to all_entities for further database processing
-            symmetry_map = example_directory.sym_entry.groups if example_directory.sym_entry else repeat(None)
-            for symmetry, entities in zip(symmetry_map, required_entities):
-                if not entities:  # useful in a case where symmetry groups are the same
-                    continue
-                elif not symmetry:  # or symmetry == 'C1':
-                    logger.info('PDB files are being processed without consideration for symmetry: %s'
-                                % ', '.join(entities))
-                    raise RuntimeError('This is not implemented!')
-                    all_entities.extend()
-                    continue
-                elif symmetry == 'C1':
-                    logger.info('PDB files are being processed with C1 symmetry: %s'
-                                % ', '.join(entities))
-                    # example_directory.transform_d[idx]['translation'] = -center_of_mass
-                    # example_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
-                else:
-                    logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
-                                % (symmetry, orient_dir, ', '.join(entities)))
-                all_entities.extend(job.resources.orient_entities(entities, symmetry=symmetry))
+            if args.preprocessed:
+                all_entities, found_entity_names = [], []
+                for entity in [entity for design in pose_directories for entity in design.init_pdb.entities]:
+                    if entity.name not in found_entity_names:
+                        all_entities.append(entity)
+                        found_entity_names.append(entity.name)
+            else:
+                logger.critical('The requested poses require preprocessing before design modules should be used')
+                # Collect all entities required for processing the given commands
+                required_entities = list(map(set, list(zip(*[design.entity_names for design in pose_directories]))))
+                all_entities = []
+                # Select entities, orient them, then load each entity to all_entities for further database processing
+                symmetry_map = sym_entry.groups if sym_entry else repeat(None)
+                for symmetry, entities in zip(symmetry_map, required_entities):
+                    if not entities:  # useful in a case where symmetry groups are the same
+                        continue
+                    elif not symmetry:
+                        logger.info('PDB files are being processed without consideration for symmetry: %s'
+                                    % ', '.join(entities))
+                        raise RuntimeError('This is not implemented!')
+                        all_entities.extend()
+                        continue
+                    elif symmetry == 'C1':
+                        logger.info('PDB files are being processed with C1 symmetry: %s'
+                                    % ', '.join(entities))
+                    else:
+                        logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
+                                    % (symmetry, orient_dir, ', '.join(entities)))
+                    all_entities.extend(job.resources.orient_entities(entities, symmetry=symmetry))
 
             info_messages = []
             # set up the hhblits and profile bmdca for each input entity
@@ -997,20 +1007,32 @@ if __name__ == '__main__':
             else:
                 bmdca_sbatch, reformat_sbatch = None, None
 
-            preprocess_instructions, pre_refine, pre_loop_model = \
-                job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
-                                                             script_out_path=job.sbatch_scripts,
-                                                             batch_commands=not args.run_in_shell)
+            if args.preprocessed:  # indicate to skip set up
+                pre_refine, pre_loop_model = None, None
+            else:
+                preprocess_instructions, pre_refine, pre_loop_model = \
+                    job.resources.preprocess_entities_for_design(all_entities, load_resources=load_resources,
+                                                                 script_out_path=job.sbatch_scripts,
+                                                                 batch_commands=not args.run_in_shell)
+                info_messages += preprocess_instructions
+
             if load_resources or pre_refine or pre_loop_model:  # entity processing commands are needed
-                logger.critical(sbatch_warning)
-                for message in info_messages + preprocess_instructions:
-                    logger.info(message)
-                print('\n')
-                logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
-                            % (PUtils.program_name, ' '.join(sys.argv)))
-                terminate(output=False)
-                # After completion of sbatch, the next time initialized, there will be no refine files left allowing
-                # initialization to proceed
+                if info_messages:
+                    logger.critical(sbatch_warning)
+                    for message in info_messages:
+                        logger.info(message)
+                    print('\n')
+                    logger.info(f'After completion of sbatch script(s), re-run your {PUtils.program_name} command:\n\t'
+                                f'python {" ".join(sys.argv)}')
+                    terminate(output=False)
+                    # After completion of sbatch, the next time initialized, there will be no refine files left allowing
+                    # initialization to proceed
+                else:
+                    raise SDUtils.DesignError('This shouldn\'t have happened!')
+
+            if args.preprocessed:  # ensure we report to PoseDirectory the results after skiping set up
+                pre_refine = True
+                pre_loop_model = None
         else:
             # currently these don't do anything
             pre_refine = None  # False
@@ -1027,12 +1049,12 @@ if __name__ == '__main__':
         for design in pose_directories:
             design.set_up_design_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
-        logger.info('%d unique poses found in "%s"' % (len(pose_directories), location))
-        if not args.debug and not queried_flags['skip_logging']:
+        logger.info(f'{len(pose_directories)} unique poses found in "{location}"')
+        if not job.debug and not job.skip_logging:
             example_log = getattr(example_directory.log.handlers[0], 'baseFilename', None)
             if example_log:
-                logger.info('All design specific logs are located in their corresponding directories.\n\tEx: %s'
-                            % example_log)
+                logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
+                            f'{example_log}')
 
     elif args.module == PUtils.nano:
         logger.critical('Setting up inputs for %s Docking' % PUtils.nano)
@@ -1117,19 +1139,6 @@ if __name__ == '__main__':
         elif args.pdb_codes2:
             # Collect all entities required for processing the given commands
             entities2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
-            # Select entities, orient them, then load each entity to all_entities for further database processing
-            # for symmetry, entities in zip(symmetry_map, required_entities):
-            #     if not entities:
-            #         continue
-            #     elif not symmetry or symmetry == 'C1':
-            #         logger.info('PDB files are being processed without consideration for symmetry: %s'
-            #                     % ', '.join(entities))
-            #         continue
-            #         # example_directory.transform_d[idx]['translation'] = -center_of_mass
-            #         # example_directory.transform_d[idx]['rotation'] = some_guide_coord_based_rotation
-            #     else:
-            #         logger.info('Ensuring PDB files are oriented with %s symmetry (stored at %s): %s'
-            #                     % (symmetry, job.orient_dir, ', '.join(entities)))
         elif args.query_codes:
             pass
         else:
@@ -1137,6 +1146,7 @@ if __name__ == '__main__':
             # if not entities2:
             logger.info('No additional entities requested for docking, treating as single component')
             single_component_design = True
+        # Select entities, orient them, then load each entity to all_entities for further database processing
         all_entities.extend(job.resources.orient_entities(entities2, symmetry=symmetry_map[1]))
 
         info_messages = []
@@ -1149,8 +1159,8 @@ if __name__ == '__main__':
             for message in info_messages + preprocess_instructions:
                 logger.info(message)
             print('\n')
-            logger.info('After completion of sbatch script(s), re-run your %s command:\n\tpython %s\n'
-                        % (PUtils.program_name, ' '.join(sys.argv)))
+            logger.info(f'After completion of sbatch script(s), re-run your {PUtils.program_name} command:\n\tpython '
+                        f'{" ".join(sys.argv)}')
             terminate(output=False)
             # After completion of sbatch, the next time command is entered docking will proceed
 

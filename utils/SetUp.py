@@ -126,3 +126,5 @@ if __name__ == '__main__':
           % PUtils.command)
 
 # TODO Set up SymDesign.py and ProcessRosettaCommands.sh depending on status of PathUtils
+# Todo ensure that FreeSASA is built. May need to investigate this option
+#  --disable-threads

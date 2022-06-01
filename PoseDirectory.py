@@ -8,7 +8,7 @@ from logging import Logger
 from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
-from typing import Union, Dict, List, Optional, Tuple, Callable, Any, Iterable, Set
+from typing import Union, Dict, List, Optional, Tuple, Callable, Any, Iterable
 # from textwrap import fill
 
 import matplotlib.pyplot as plt
@@ -37,7 +37,7 @@ from CommandDistributer import reference_average_residue_weight, run_cmds, scrip
     rosetta_variables, relax_flags_cmdline
 from PDB import PDB
 from Pose import Pose, MultiModel, Models  # , Model
-from DesignMetrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms, \
+from DesignMetrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms,\
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, mutation_conserved, per_res_metric, \
     significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
@@ -66,20 +66,16 @@ variance = 0.8
 
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 class PoseDirectory:  # (JobResources):
+    initialized: bool
     fragment_db: Optional[FragmentDatabase]
 
-    def __init__(self, design_path, pose_id=None, root=None, **kwargs):
-        #        project=None, specific_design=None, dock=False, construct_pose=False,
+    def __init__(self, design_path: str, pose_id: bool = False, root: str = None, **kwargs):
         self.job_resources: JobResources | None = kwargs.get('job_resources', None)
 
         # PoseDirectory flags
-        self.construct_pose: bool = kwargs.get('construct_pose', False)
-        self.debug: bool = kwargs.get('debug', False)
         # self.dock = kwargs.get('dock', False)
-        self.initialized = None
-        self.log: Logger = None
+        self.log: Logger | None = None
         # self.master_db = kwargs.get('master_db', None)
-        self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
         if pose_id:
             self.directory_string_to_path(root, design_path)  # sets self.path
             self.source_path: str = self.path
@@ -95,7 +91,6 @@ class PoseDirectory:  # (JobResources):
         self.frags: str | None = None  # /program_root/Projects/project_Designs/design/matching_fragments
         self.flags: str | None = None  # /program_root/Projects/project_Designs/design/scripts/flags
         self.frag_file: str | None = None  # /program_root/Projects/project_Designs/design/
-        self.output_directory: str | None = kwargs.get('output_directory', None)
         self.pose_file: str | None = None  # /program_root/Projects/project_Designs/design/
         self.scripts: str | None = None  # /program_root/Projects/project_Designs/design/scripts
         self.serialized_info: str | None = None  # /program_root/Projects/project_Designs/design/data/info.pkl
@@ -121,8 +116,8 @@ class PoseDirectory:  # (JobResources):
         # self._pose_transformation = {}  # dict[pdb# (1, 2)] = {'rotation': matrix, 'translation': vector}
         # self.cryst_record = None
         # self.expand_matrices = None
-        if 'sym_entry' in kwargs:
-            self.sym_entry = kwargs['sym_entry']
+        if PUtils.sym_entry in kwargs:
+            self.sym_entry = kwargs[PUtils.sym_entry]
         # Todo monitor if energy mechansims are modified for crystal set ups and adjust parameter accordingly
         self.modify_sym_energy: bool = True if self.design_dimension in [2, 3] else False
         self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
@@ -138,58 +133,25 @@ class PoseDirectory:  # (JobResources):
         #         self.sym_entry = space_group_to_sym_entry[cryst_record_d['space_group']]
         # self.uc_dimensions = None
 
-        # Design flags  # Todo move to JobResources
-        self.interface_design_residues: bool | set[int] = False  # the residue numbers in the pose interface
-        self.directives: dict[int, str] = kwargs.get('directives', {})
-        self.specific_design: str = kwargs.get('specific_design', None)
-        self.consensus: bool = kwargs.get(PUtils.consensus, False)  # Whether to run consensus or not
-        self.no_term_constraint: bool = kwargs.get(PUtils.no_term_constraint, True)
-        self.no_evolution_constraint: bool = kwargs.get(PUtils.no_evolution_constraint, True)
-        # self.fragment_file = None
-        # self.fragment_type = PUtils.biological_interfaces  # default for now, can be found in fragment_db
-        self.force_flags: bool = kwargs.get(PUtils.force_flags, False)
-        self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
-        self.ignore_clashes: bool = kwargs.get('ignore_clashes', False)
-        self.increment_chains: bool = kwargs.get('increment_chains', False)
-        self.mpi: int = kwargs.get('mpi', 0)
-        self.no_hbnet: bool = kwargs.get(PUtils.no_hbnet, False)
-        self.number_of_trajectories: int = kwargs.get(PUtils.number_of_trajectories, PUtils.nstruct)
-        self.output_assembly: bool = kwargs.get('output_assembly', False)
-        self.run_in_shell: bool = kwargs.get('run_in_shell', False)
-        self.pre_refine: bool = False
-        self.pre_loop_model: bool = False
-        self.generate_fragments: bool = kwargs.get(PUtils.generate_fragments, False)
-        self.scout: bool = kwargs.get(PUtils.scout, False)
-        # self.sequence_background = kwargs.get('sequence_background', False)
-        self.specific_protocol: str = kwargs.get('specific_protocol', False)
-        self.structure_background: bool = kwargs.get(PUtils.structure_background, False)
-        self.write_frags: bool = kwargs.get(PUtils.output_fragments, True)
-        self.write_oligomers: bool = kwargs.get(PUtils.output_oligomers, False)
-        # Development Flags
-        self.command_only: bool = kwargs.get('command_only', False)  # Whether to reissue commands, only if run_in_shell=False
-        self.development: bool = kwargs.get('development', False)
-
-        # Analysis flags
-        self.skip_logging: bool = kwargs.get('skip_logging', False)
-        self.copy_nanohedra: bool = kwargs.get('copy_nanohedra', False)  # no construction specific flags
-        self.nanohedra_root: str = None
-
         # Design attributes
-        self.composition: str = None  # building_blocks (4ftd_5tch)
         self.background_profile: str = kwargs.get('background_profile', PUtils.design_profile)  # by default, grab design profile
+        self.composition: str | None = None  # building_blocks (4ftd_5tch)
+        self.directives: dict[int, str] = kwargs.get('directives', {})
         self.interface_residue_ids: dict[str, str] = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self.design_selector: dict[str, dict] = kwargs.get('design_selector', None)
         self.entity_names: list[str] = []
-        self.fragment_observations: list[dict] = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
+        self.fragment_observations: list[dict] | None = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
         self.init_pdb: PDB | None = None  # used if the pose structure has never been initialized previously
+        self.interface_design_residues: bool | set[int] = False  # the residue numbers in the pose interface
         self.interface_residues: list[int] | bool = False
         # self.oligomer_names = []
         self.oligomers: list[Structure] = []
         self.pose: Pose | None = None  # contains the design's Pose object
-        self.pose_id: str = None
-        self.source: str = None
+        self.pose_id: str | None = None
+        self.source: str | None = None
+        self.specific_design: str = kwargs.get('specific_design', None)
 
         # Metric attributes TODO MOVE Metrics
         self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
@@ -215,7 +177,7 @@ class PoseDirectory:  # (JobResources):
         if self.nanohedra_output:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
             if not os.path.exists(self.source_path):
-                raise FileNotFoundError('The specified PoseDirectory "%s" was not found!' % self.source_path)
+                raise FileNotFoundError(f'The specified PoseDirectory "{self.source_path}" was not found!')
             # self.canonical_pdb1 = None  # canonical pdb orientation
             # self.canonical_pdb2 = None
             # self.rot_step_deg1 = None
@@ -256,10 +218,8 @@ class PoseDirectory:  # (JobResources):
             #             except ValueError:
             #                 continue
             #         return
-            # else:  # if self.construct_pose:
             self.initialized = False
             path_components = self.source_path.split(os.sep)
-            self.nanohedra_root = os.sep.join(path_components[:-4])  # path_components[-5]
             # design_symmetry (P432)
             # path_components[-3] are the oligomeric names
             self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
@@ -271,69 +231,67 @@ class PoseDirectory:  # (JobResources):
             self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
             self.name = self.pose_id
             if self.output_directory:
-                # self.make_path(self.output_directory)
-                self.program_root = self.output_directory  # os.getcwd()
+                # self.program_root = self.output_directory  # os.getcwd()
                 self.projects = ''
-                self.project_designs = self.output_directory  # ''
-                self.path = self.output_directory
+                self.project_designs = ''
+                self.path = self.program_root
                 # ^ /output_directory<- self.path /design.pdb
             else:
-                self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
+                # self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
-                self.project_designs = \
-                    os.path.join(self.projects, '%s_%s' % (path_components[-5], PUtils.pose_directory))
+                self.project_designs = os.path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
                 self.path = os.path.join(self.project_designs, self.name)
-                self.make_path(self.program_root)
+                # self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
             # copy the master log
             if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
                 shutil.copy(os.path.join(self.nanohedra_root, PUtils.master_log), self.project_designs)
 
-            self.make_path(self.path, condition=(self.copy_nanohedra or self.construct_pose))
-
-            if not self.construct_pose:  # no construction specific flags
-                self.write_frags = False
+            self.make_path(self.path, condition=self.construct_pose)
         elif '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
-            self.initialized = False
             if not os.path.exists(self.source_path):
-                raise FileNotFoundError('The file "%s" couldn\'t be located! Ensure this location is correct.')
+                raise FileNotFoundError(f'The file "{self.source_path}" couldn\'t be located! Ensure this location is '
+                                        f'correct')
             self.source = self.source_path
             if self.output_directory:
-                self.make_path(self.output_directory)
-                self.program_root = self.output_directory  # os.getcwd()
+                # self.program_root = self.output_directory  # os.getcwd()
                 self.projects = ''
                 self.project_designs = ''
-                self.path = self.output_directory
+                self.path = self.program_root
                 # ^ /output_directory<- self.path /design.pdb
             else:
-                self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
+                # self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
                 self.projects = os.path.join(self.program_root, PUtils.projects)
                 self.project_designs = os.path.join(self.projects, '%s_%s' % (self.source_path.split(os.sep)[-2],
                                                                               PUtils.pose_directory))
                 self.path = os.path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
-                self.make_path(self.program_root)
+                # self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
                 self.make_path(self.path)
                 shutil.copy(self.source_path, self.path)
             # need to start here if I want to load pose through normal mechanism... ugh
+            # sets self.entity_names if PoseDirectory was created and the .pdb name is specified again
             self.set_up_design_directory()
             if not self.entity_names:
+                self.initialized = False
                 self.init_pdb = PDB.from_file(self.source_path, log=self.log)
                 self.entity_names = [entity.name for entity in self.init_pdb.entities]
                 # self.load_pose()  # load the source pdb to find the entity_names
                 # self.entity_names = [entity.name for entity in self.pose.entities]
+            else:  # when --directory flag used, but the directory is already in SymDesignOutput
+                self.initialized = True
             # self.set_up_design_directory()
         else:  # initialize PoseDirectory with existing /program_root/projects/project/design
             self.initialized = True
             self.path = self.source_path
             if not os.path.exists(self.path):
-                raise FileNotFoundError('The specified PoseDirectory "%s" was not found!' % self.source_path)
+                raise FileNotFoundError(f'The specified PoseDirectory "{self.source_path}" was not found!')
             self.project_designs = os.path.dirname(self.path)
             self.projects = os.path.dirname(self.project_designs)
-            self.program_root = os.path.dirname(self.projects)
+            # self.program_root = os.path.dirname(self.projects)
 
     @classmethod
     def from_nanohedra(cls, design_path, project=None, **kwargs):
@@ -395,6 +353,10 @@ class PoseDirectory:  # (JobResources):
         return self.job_resources.profiles  # program_root/SequenceInfo/profiles
 
     @property
+    def program_root(self):
+        return self.job_resources.program_root  # program_root
+
+    @property
     def protein_data(self):
         return self.job_resources.protein_data  # program_root/Data
 
@@ -421,6 +383,126 @@ class PoseDirectory:  # (JobResources):
     @property
     def sbatch_scripts(self):
         return self.job_resources.sbatch_scripts  # program_root/Scripts
+
+    @property
+    def consensus(self) -> bool:
+        return self.job_resources.consensus
+
+    @property
+    def construct_pose(self) -> bool:
+        return self.job_resources.construct_pose
+
+    @property
+    def debug(self) -> bool:
+        return self.job_resources.debug
+
+    @property
+    def no_term_constraint(self) -> bool:
+        return self.job_resources.no_term_constraint
+
+    @property
+    def no_evolution_constraint(self) -> bool:
+        return self.job_resources.no_evolution_constraint
+
+    @property
+    def output_directory(self) -> bool:
+        return self.job_resources.output_directory
+
+    @property
+    def force_flags(self) -> bool:
+        return self.job_resources.force_flags
+
+    @property
+    def fuse_chains(self) -> list:
+        return self.job_resources.fuse_chains
+
+    @property
+    def ignore_clashes(self) -> bool:
+        return self.job_resources.ignore_clashes
+
+    @property
+    def ignore_pose_clashes(self) -> bool:
+        return self.job_resources.ignore_pose_clashes
+
+    @property
+    def ignore_symmetric_clashes(self) -> bool:
+        return self.job_resources.ignore_symmetric_clashes
+
+    @property
+    def increment_chains(self) -> bool:
+        return self.job_resources.increment_chains
+
+    @property
+    def mpi(self) -> int:
+        return self.job_resources.mpi
+
+    @property
+    def no_hbnet(self) -> bool:
+        return self.job_resources.no_hbnet
+
+    @property
+    def number_of_trajectories(self) -> int:
+        return self.job_resources.number_of_trajectories
+
+    @property
+    def output_assembly(self) -> bool:
+        return self.job_resources.output_assembly
+
+    @property
+    def run_in_shell(self) -> bool:
+        return self.job_resources.run_in_shell
+
+    @property
+    def pre_refine(self) -> bool:
+        return self.job_resources.pre_refine
+
+    @property
+    def pre_loop_model(self) -> bool:
+        return self.job_resources.pre_loop_model
+
+    @property
+    def generate_fragments(self) -> bool:
+        return self.job_resources.generate_fragments
+
+    @property
+    def scout(self) -> bool:
+        return self.job_resources.scout
+
+    @property
+    def specific_protocol(self) -> str:
+        return self.job_resources.specific_protocol
+
+    @property
+    def structure_background(self) -> bool:
+        return self.job_resources.structure_background
+
+    @property
+    def write_frags(self) -> bool:
+        return self.job_resources.write_frags
+
+    @property
+    def write_oligomers(self) -> bool:
+        return self.job_resources.write_oligomers
+
+    @property
+    def command_only(self) -> bool:
+        return self.job_resources.command_only
+
+    @property
+    def development(self) -> bool:
+        return self.job_resources.development
+
+    @property
+    def skip_logging(self) -> bool:
+        return self.job_resources.skip_logging
+
+    @property
+    def nanohedra_output(self) -> bool:
+        return self.job_resources.nanohedra_output
+
+    @property
+    def nanohedra_root(self) -> str:
+        return self.job_resources.nanohedra_root
 
     # @property
     # def design_sequences(self):
@@ -903,10 +985,8 @@ class PoseDirectory:  # (JobResources):
             handler = 2  # to a file
             propagate, no_log_name = True, True
 
-        if self.skip_logging:  # set up null_logger
+        if self.skip_logging or (self.nanohedra_output and not self.construct_pose):  # set up null_logger
             self.log = null_log
-        elif self.nanohedra_output and not self.construct_pose:
-            self.log = start_log(name=str(self), handler=3, propagate=True, no_log_name=no_log_name)
         else:
             self.log = start_log(name=str(self), handler=handler, level=level,
                                  location=os.path.join(self.path, self.name), propagate=propagate,
@@ -1006,11 +1086,7 @@ class PoseDirectory:  # (JobResources):
         if self.nanohedra_output:
             self.pose_file = os.path.join(self.source_path, PUtils.pose_file)
             self.frag_file = os.path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
-            if self.copy_nanohedra:  # copy nanohedra output directory to the design directory
-                if os.path.exists(self.frags):  # only present if a copy or generate fragments command is issued
-                    raise DesignError('The directory %s already exists! Can\'t complete set up without an overwrite!')
-                shutil.copytree(self.source_path, self.path)
-            elif self.construct_pose:
+            if self.construct_pose:
                 if not os.path.exists(os.path.join(self.path, PUtils.pose_file)):
                     shutil.copy(self.pose_file, self.path)
                     shutil.copy(self.frag_file, self.path)
@@ -1089,8 +1165,8 @@ class PoseDirectory:  # (JobResources):
                         del self._pose_transformation
                 self.pickle_info()
                 # End temporary patch
-                self.pre_refine = self.info.get('pre_refine', False)
-                self.pre_loop_model = self.info.get('pre_loop_model', False)
+                self.pre_refine = self.info.get('pre_refine', True)
+                self.pre_loop_model = self.info.get('pre_loop_model', True)
                 self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
                 self.entity_names = self.info.get('entity_names', [])
                 self.oligomer_names = self.info.get('oligomer_names', [])
@@ -1688,25 +1764,29 @@ class PoseDirectory:  # (JobResources):
             protocol, protocol_xml1 = PUtils.scout, PUtils.scout
             nstruct_instruct = ['-no_nstruct_label', 'true']
             generate_files_cmd, metrics_pdb = [], ['-in:file:s', self.scouted_pdb]
-            metrics_flags = 'repack=no'
+            # metrics_flags = 'repack=no'
             additional_cmds, out_file = [], []
         elif self.structure_background:
             protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
-            nstruct_instruct = ['-no_nstruct_label', 'true']
+            nstruct_instruct = ['-no_nstruct_label', 'true'] + \
+                               ['-parser:script_vars', f'script_nstruct={self.number_of_trajectories}']
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
-            metrics_flags = 'repack=yes'
+            # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         elif self.no_hbnet:  # run the legacy protocol
             protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
+            # Todo make sure that this is accurate!
+            # nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)] + \
+            #                    ['-parser:script_vars', f'script_nstruct={self.number_of_trajectories}']
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
-            metrics_flags = 'repack=yes'
+            # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         else:  # run hbnet_design_profile protocol
             protocol, protocol_xml1 = PUtils.hbnet_design_profile, 'hbnet_scout'
@@ -1715,7 +1795,7 @@ class PoseDirectory:  # (JobResources):
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
-            metrics_flags = 'repack=yes'
+            # metrics_flags = 'repack=yes'
             out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
                         '-out:file:silent_struct_type', 'binary']
             additional_cmds = \
@@ -1758,7 +1838,7 @@ class PoseDirectory:  # (JobResources):
         design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
             ['@%s' % self.flags, '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
              '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1),
-             '-out:suffix', '_%s' % protocol] + nstruct_instruct + out_file
+             '-out:suffix', '_%s' % protocol] + out_file + nstruct_instruct
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
             additional_cmds.append(
                 main_cmd +
@@ -1977,7 +2057,7 @@ class PoseDirectory:  # (JobResources):
             self.pose = Pose.from_asu(pdb, sym_entry=self.sym_entry, name='%s-asu' % str(self),
                                       design_selector=self.design_selector, log=self.log,
                                       source_db=self.resources, fragment_db=self.fragment_db,
-                                      euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+                                      euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
             # generate oligomers for each entity in the pose
             for idx, entity in enumerate(self.pose.entities):
                 if entity.number_of_monomers != self.sym_entry.group_subunit_numbers[idx]:
@@ -1989,7 +2069,7 @@ class PoseDirectory:  # (JobResources):
             self.pose = Pose.from_pdb(pdb, name=str(self),
                                       design_selector=self.design_selector, log=self.log,
                                       source_db=self.resources, fragment_db=self.fragment_db,
-                                      euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+                                      euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
         # then modify numbering to ensure standard and accurate use during protocols
         self.pose.pdb.renumber_structure()
         if not self.entity_names:  # store the entity names if they were never generated
@@ -1999,7 +2079,7 @@ class PoseDirectory:  # (JobResources):
 
         # Save renumbered PDB to clean_asu.pdb
         if not self.asu_path or not os.path.exists(self.asu_path):
-            if self.nanohedra_output and not self.construct_pose or self.output_directory:
+            if (self.nanohedra_output and not self.construct_pose) or self.output_directory:
                 return
 
             self.save_asu()
@@ -2239,16 +2319,16 @@ class PoseDirectory:  # (JobResources):
         self.save_asu()  # force saving the Pose.asu
 
     def symmetric_assembly_is_clash(self):
-        """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Design level for clashes and raise
+        """Wrapper around the Pose symmetric_assembly_is_clash() to check at the Pose level for clashes and raise
         DesignError if any are found, otherwise, continue with protocol
         """
         if self.pose.symmetric_assembly_is_clash():
-            if self.ignore_clashes:
+            if self.ignore_symmetric_clashes:
                 self.log.critical('The Symmetric Assembly contains clashes! %s is not viable.' % self.asu_path)
             else:
-                raise DesignError('The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
-                                  'would like to generate the Assembly anyway, re-submit the command with '
-                                  '--ignore_clashes')
+                raise DesignError(f'The Symmetric Assembly contains clashes! Design won\'t be considered. If you '
+                                  f'would like to generate the Assembly anyway, re-submit the command with '
+                                  f'--{PUtils.ignore_symmetric_clashes}')
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
@@ -2752,12 +2832,12 @@ class PoseDirectory:  # (JobResources):
                 design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
                                             design_selector=self.design_selector, log=self.log,
                                             source_db=self.resources, fragment_db=self.fragment_db,
-                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
             else:
                 design_pose = Pose.from_pdb(structure, name='%s-asu' % structure.name,
                                             design_selector=self.design_selector, log=self.log,
                                             source_db=self.resources, fragment_db=self.fragment_db,
-                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_clashes)
+                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
 
             # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
             #                                            ,symmetry=self.design_symmetry)
@@ -3839,33 +3919,3 @@ class PoseDirectory:  # (JobResources):
         else:
             # TODO integrate with designDB?
             return self.path.replace(self.projects + os.sep, '').replace(os.sep, '-')
-
-
-def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
-    try:
-        with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
-            for line in f.readlines():
-                if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                    return SymEntry(int(line.split(':')[-1]))  # sym_map inclusion?
-    except FileNotFoundError:
-        raise FileNotFoundError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
-                                % os.path.join(nanohedra_dir, PUtils.master_log))
-    raise DesignError('The Nanohedra Output docking file %s is malformed. Missing required info Nanohedra Entry Number'
-                      % os.path.join(nanohedra_dir, PUtils.master_log))
-
-
-def set_up_directory_objects(design_list, mode=PUtils.interface_design, project=None):
-    """Create PoseDirectory objects from a directory iterable. Add program_root if using PoseDirectory strings"""
-    return [PoseDirectory.from_nanohedra(design_path, nanohedra_output=True, mode=mode, project=project)
-            for design_path in design_list]
-
-
-def set_up_pseudo_design_dir(path, directory, score):  # changed 9/30/20 to locate paths of interest at .path
-    pseudo_dir = PoseDirectory(path, nanohedra_output=False)
-    # pseudo_dir.path = os.path.dirname(wildtype)
-    pseudo_dir.composition = os.path.dirname(path)
-    pseudo_dir.designs = directory
-    pseudo_dir.scores = os.path.dirname(score)
-    pseudo_dir.all_scores = os.getcwd()
-
-    return pseudo_dir

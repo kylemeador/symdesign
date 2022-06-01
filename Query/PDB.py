@@ -723,7 +723,8 @@ def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data ret
 
     entity_chain_d, ref_d, db_d = {}, {}, {}
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
-    for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
+    # for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
+    for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count']) + 1):
         entity_ref_d = get_pdb_info_by_entity('%s_%d' % (entry, entity_idx))
         ref_d.update(entity_ref_d)
         entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
@@ -734,13 +735,13 @@ def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data ret
     return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d, 'struct': struct_d, 'method': exptl_method}
 
 
-def get_pdb_info_by_entity(entity_id) -> Dict:
+def get_pdb_info_by_entity(entity_id: str) -> Dict:
     """Query the PDB API for an EntityID and return the associated chains and reference dictionary
 
     Args:
-        entity_id (str): The EntityID with the format (PDBCode_Integer)
+        entity_id: The EntityID with the format (PDBCode_Integer)
     Returns:
-        (dict): {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+        {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
     entity_json = query_entity_id(entity_id)
     if entity_json:

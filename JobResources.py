@@ -9,7 +9,10 @@ import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
 from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, nano, biological_interfaces, \
-    biological_fragment_db_pickle, all_scores, projects, sequence_info, data
+    biological_fragment_db_pickle, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
+    structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
+    ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
+    no_term_constraint, consensus
 import SymDesignUtils as SDUtils
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
 from PDB import PDB, fetch_pdb_file, query_qs_bio
@@ -167,9 +170,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 pdb = PDB.from_file(file_path, name=file_name)  # , log=None)
                 if entity:  # replace pdb from fetched file with the entity pdb
                     # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
-                    print(entry_entity)
                     entity = pdb.entity(entry_entity)
-                    print(type(entity))
                     print(','.join(entity.name for entity in pdb.entities))
                     if symmetry == 'C1':  # write out only entity
                         entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
@@ -236,14 +237,14 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 entity.filepath = oriented_asu.filepath
                 all_entities.append(entity)
 
-        orient_log.error('The Entit%sunable to be oriented properly'
+        orient_log.error('The Entit%s unable to be oriented properly'
                          % ('ies %s were' if len(non_viable_structures) > 1 else 'y %s was'
                                                                                 % ', '.join(non_viable_structures)))
         return all_entities
 
-    def preprocess_entities_for_design(self, entities: List[Entity], script_out_path: os.PathLike = os.getcwd(),
+    def preprocess_entities_for_design(self, entities: list[Entity], script_out_path: str | bytes = os.getcwd(),
                                        load_resources: bool = False, batch_commands: bool = True) -> \
-            Tuple[List, bool, bool]:
+            tuple[list, bool, bool]:
         """Assess whether Entity objects require any processing prior to design calculations.
         Processing includes relaxation into the energy function and/or modelling missing loops and segments
 
@@ -282,7 +283,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
         # query user and set up commands to perform refinement on missing entities
         info_messages = []
-        pre_refine = True
+        pre_refine = False
         if entities_to_refine:  # if files found unrefined, we should proceed
             logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
                         ' into the Rosetta ScoreFunction for optimized sequence design: %s'
@@ -291,9 +292,11 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                   'containing them, it is highly recommended you perform refinement')
             if not boolean_choice():
                 print('To confirm, asymmetric units are going to be generated with unrefined coordinates. Confirm '
-                      'with \'y\' to ensure this is what you want')
-                if boolean_choice():
-                    pre_refine = False
+                      'with "y" to ensure this is what you want')
+                if not boolean_choice():
+                    pre_refine = True
+            else:
+                pre_refine = True
             if pre_refine:
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
@@ -331,7 +334,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 load_resources = True
 
         # query user and set up commands to perform loop modelling on missing entities
-        pre_loop_model = True
+        pre_loop_model = False
         if entities_to_loop_model:
             logger.info('The following structures have not been modelled for disorder. Missing loops will '
                         'be built for optimized sequence design: %s'
@@ -340,9 +343,11 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                   'design with them, it is highly recommended you perform loop modelling to avoid designed clashes')
             if not boolean_choice():
                 print('To confirm, asymmetric units are going to be generated without disordered loops. Confirm '
-                      'with \'y\' to ensure this is what you want')
-                if boolean_choice():
-                    pre_loop_model = False
+                      'with "y" to ensure this is what you want')
+                if not boolean_choice():
+                    pre_loop_model = True
+            else:
+                pre_loop_model = True
             if pre_loop_model:
                 # Generate sbatch refine command
                 flags_file = os.path.join(full_model_dir, 'loop_model_flags')
@@ -845,7 +850,7 @@ class FragmentDatabaseFactory:
 
 
 fragment_factory = FragmentDatabaseFactory()
-# fragment_factory.set(biological_interfaces, unpickle(PUtils.biological_fragment_db_pickle))
+# fragment_factory.set(biological_interfaces, unpickle(biological_fragment_db_pickle))
 
 
 class JobResources:
@@ -900,6 +905,46 @@ class JobResources:
         self.symmetry_factory = symmetry_factory
         self.fragment_db: FragmentDatabase | None = None
         self.euler_lookup: EulerLookup | None = None
+
+        # Program flags
+        self.consensus: bool = kwargs.get(consensus, False)  # Whether to run consensus
+        self.construct_pose: bool = kwargs.get('construct_pose', False)  # whether to construct Nanohedra pose
+        self.debug: bool = kwargs.get('debug', False)
+        self.force_flags: bool = kwargs.get(force_flags, False)
+        self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
+        self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
+        if self.ignore_clashes:
+            self.ignore_pose_clashes, self.ignore_symmetric_clashes = True, True
+        else:
+            self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
+            self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
+        self.increment_chains: bool = kwargs.get('increment_chains', False)
+        self.mpi: int = kwargs.get('mpi', 0)
+        self.no_evolution_constraint: bool = kwargs.get(no_evolution_constraint, False)
+        self.no_hbnet: bool = kwargs.get(no_hbnet, False)
+        self.no_term_constraint: bool = kwargs.get(no_term_constraint, False)
+        self.number_of_trajectories: int = kwargs.get(number_of_trajectories, nstruct)
+        self.output_directory: bool = kwargs.get('output_directory', False)
+        self.output_assembly: bool = kwargs.get('output_assembly', False)
+        self.run_in_shell: bool = kwargs.get('run_in_shell', False)
+        self.pre_refine: bool = kwargs.get('pre_refine', True)
+        self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
+        self.generate_fragments: bool = kwargs.get(generate_fragments, False)
+        self.scout: bool = kwargs.get(scout, False)
+        self.specific_protocol: str = kwargs.get('specific_protocol', False)
+        self.structure_background: bool = kwargs.get(structure_background, False)
+        self.write_frags: bool = kwargs.get(output_fragments, True)
+        self.write_oligomers: bool = kwargs.get(output_oligomers, False)
+        self.skip_logging: bool = kwargs.get('skip_logging', False)
+        self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
+        self.nanohedra_root: str | None = None
+        # Development Flags
+        self.command_only: bool = kwargs.get('command_only', False)  # Whether to reissue commands, only if run_in_shell=False
+        self.development: bool = kwargs.get('development', False)
+
+        if self.nanohedra_output and not self.construct_pose:  # no construction specific flags
+            self.write_frags = False
+            self.write_oligomers = False
 
     @staticmethod
     def make_path(path: Union[str, bytes], condition: bool = True):

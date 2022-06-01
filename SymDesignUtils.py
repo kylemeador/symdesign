@@ -117,8 +117,8 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
 
     Args:
         name: The name of the logger. By default the root logger is returned
-        handler: Whether to handle to stream (1-default) or a file (2)
-        level: What level of messages to emit (1-debug, 2-info (default), 3-warning, 4-error, 5-critical)
+        handler: Whether to handle to stream (1), a file (2), or a NullHandler (3+)
+        level: What level of messages to emit (1-debug, 2-info, 3-warning, 4-error, 5-critical)
         location: If a FileHandler is used (handler=2) where should file be written? .log is appended to the filename
         propagate: Whether to propagate messages to parent loggers (such as root or parent.current_logger)
         format_log: Whether to format the log with logger specific formatting otherwise use message format
@@ -821,8 +821,8 @@ def get_all_file_paths(directory: Union[str, bytes], extension: str = None) -> L
                 for file in files]
 
 
-def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> Tuple[List, str]:
-    """Grab all poses from an input Nanohedra output
+def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> tuple[list, str]:
+    """Grab all poses from a Nanohedra directory via a file or a directory
 
     Args:
         files: Iterable with disk location of files containing design directories
@@ -835,7 +835,7 @@ def collect_nanohedra_designs(files: Sequence = None, directory: str = None, doc
         all_paths = []
         for file in files:
             if not os.path.exists(file):
-                logger.critical('No \'%s\' file found! Please ensure correct location/name!' % file)
+                logger.critical(f'No "{file}" file found! Please ensure correct location/name!')
                 exit()
             if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
                 all_paths.append(file)
@@ -846,7 +846,7 @@ def collect_nanohedra_designs(files: Sequence = None, directory: str = None, doc
                         paths = map(str.rstrip, [location.strip() for location in f.readlines()
                                                  if location.strip() != ''], repeat(os.sep))
                 except IsADirectoryError:
-                    raise DesignError('%s is a directory not a file. Did you mean to run with --file?' % file)
+                    raise DesignError(f'{file} is a directory not a file. Did you mean to run with --directory?')
                 all_paths.extend(paths)
     elif directory:
         if dock:
@@ -931,7 +931,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
 
     location = (files or directory or projects or singles)
 
-    return sorted(set(all_paths)), location if isinstance(location, str) else location[0]
+    return sorted(set(all_paths)), location if isinstance(location, str) else location[0]  # grab first index
 
 
 def get_base_symdesign_dir(directory: str = None) -> Union[None, str]:

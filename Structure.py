@@ -3944,8 +3944,8 @@ class Entity(Chain, SequenceProfile):
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
-            self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. chain_ids has %d'
-                           % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
+            self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. '
+                           'chain_ids has %d' % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
             for idx, chain in enumerate(self._chains):
                 # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
@@ -4051,9 +4051,9 @@ class Entity(Chain, SequenceProfile):
         try:
             return self._oligomer
         except AttributeError:
-            if not self.is_oligomeric:
-                self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
-                                 'instead' % self.name)
+            # if not self.is_oligomeric:
+            #     self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
+            #                      'instead' % self.name)
             self._oligomer = self.chains
             # self._oligomer = Structures(self.chains)
             return self._oligomer

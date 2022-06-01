@@ -28,6 +28,9 @@ no_evolution_constraint = 'no_evolution_constraint'
 no_term_constraint = 'no_term_constraint'
 structure_background = 'structure_background'
 hbnet_design_profile = 'hbnet_design_profile'
+ignore_clashes = 'ignore_clashes'
+ignore_pose_clashes = 'ignore_pose_clashes'
+ignore_symmetric_clashes = 'ignore_symmetric_clashes'
 protocol = 'protocol'
 groups = 'protocol'
 number_of_trajectories = 'number_of_trajectories'
@@ -45,9 +48,14 @@ def search_env_for_variable(search_variable: str) -> str:
     env_variable = None
     i = 0
     search_strings = []
-    while not env_variable:
-        search_strings.append(string_ops[i](search_variable))
-        env_variable = os.environ.get(search_strings[i])
+    try:
+        string_op_it = iter(string_ops)
+        while not env_variable:
+            string = next(string_op_it)(search_variable)
+            search_strings.append(string)
+            env_variable = os.environ.get(string)
+    except StopIteration:
+        pass
 
     if not env_variable:
         print(f'No environmental variable specifying {search_variable} software location at {", ".join(search_strings)}'
@@ -90,7 +98,7 @@ fragment_profile = 'fragment_profile'
 protein_data = 'ProteinData'
 sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
 # profiles = 'profiles'
-pose_directory = 'Designs'
+pose_directory = 'Poses'
 
 data = 'data'
 pdbs_outdir = 'designs'  # was rosetta_pdbs/ 1/25/21
