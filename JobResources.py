@@ -933,7 +933,7 @@ class JobResources:
         self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         self.structure_background: bool = kwargs.get(structure_background, False)
-        self.write_frags: bool = kwargs.get(output_fragments, True)
+        self.write_frags: bool = kwargs.get(output_fragments, True)  # todo, if generate_fragments module, ensure True
         self.write_oligomers: bool = kwargs.get(output_oligomers, False)
         self.skip_logging: bool = kwargs.get('skip_logging', False)
         self.nanohedra_output: bool = kwargs.get('nanohedra_output', False)
