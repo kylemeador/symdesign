@@ -730,12 +730,13 @@ if __name__ == '__main__':
         # analysis types can be run from nanohedra_output, so we ensure that we don't construct new
         initialize, queried_flags['construct_pose'] = True, False
         if args.module == PUtils.select_poses:
-            if args.dataframe:  # when selecting by a dataframe, don't initialize, proper input is handled in module
+            # when selecting by dataframe or metric, don't initialize, input is handled in module protocol
+            if args.dataframe or args.metric:
                 initialize = False
         if args.module == PUtils.select_sequences and args.select_number == sys.maxsize and not args.total:
             # change default number to a single sequence/pose when not doing a total selection
             args.select_number = 1
-    else:  # [PUtils.nano, 'flags', 'residue_selector', 'multicistronic']
+    else:  # [PUtils.nano, 'multicistronic']
         initialize = False
         if getattr(args, 'query', None):  # run nanohedra query mode
             query_flags = [__file__, '-query'] + additional_args
@@ -903,6 +904,7 @@ if __name__ == '__main__':
                     if entity.name not in found_entity_names:
                         all_entities.append(entity)
                         found_entity_names.append(entity.name)
+                # Todo save all the Entities to the StructureDatabase
             else:
                 logger.critical('The requested poses require preprocessing before design modules should be used')
                 # Collect all entities required for processing the given commands
@@ -1547,7 +1549,7 @@ if __name__ == '__main__':
             # else:
             #     raise SDUtils.DesignError('The metric "%s" is not supported!' % args.metric)
 
-            logger.debug('Sorting designs according to "%s"' % args.metric)
+            logger.debug(f'Sorting designs according to "{args.metric}"')
             metric_design_dir_pairs = [(score, path) for score, path in metric_design_dir_pairs if score]
             sorted_metric_design_dir_pairs = sorted(metric_design_dir_pairs, key=lambda pair: (pair[0] or 0),
                                                     reverse=True)
@@ -1556,7 +1558,7 @@ if __name__ == '__main__':
             results_strings = ['%.2f\t%s' % tup for tup in sorted_metric_design_dir_pairs]
             logger.info(top_designs_string % '\n\t'.join(results_strings[:500]))
             if len(pose_directories) > 500:
-                design_source = 'top_%s' % args.metric
+                design_source = f'top_{args.metric}'
                 default_output_tuple = (SDUtils.starttime, args.module, design_source)
                 designs_file = os.path.join(job.job_paths, '%s_%s_%s_pose.scores' % default_output_tuple)
                 with open(designs_file, 'w') as f:
