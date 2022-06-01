@@ -1401,40 +1401,35 @@ class PoseDirectory:  # (JobResources):
         Returns:
             The pose transformation arrays as found in the pose_file
         """
-        try:
-            with open(self.pose_file, 'r') as f:
-                pose_transformation = {}
-                for line in f.readlines():
-                    # all parsing lacks PDB number suffix such as PDB1 or PDB2 for hard coding in dict key
-                    if line[:20] == 'ROT/DEGEN MATRIX PDB':
-                        # data = eval(line[22:].strip())
-                        data = [[float(item) for item in group.split(', ')]
-                                for group in line[22:].strip().strip('[]').split('], [')]
-                        pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
-                    elif line[:15] == 'INTERNAL Tx PDB':
-                        try:  # This may have values of None
-                            data = np.array([float(item) for item in line[17:].strip().strip('[]').split(', ')])
-                        except ValueError:  # we received a string which is not a float
-                            data = origin
-                        pose_transformation[int(line[15:16])]['translation'] = data
-                    elif line[:18] == 'SETTING MATRIX PDB':
-                        # data = eval(line[20:].strip())
-                        data = [[float(item) for item in group.split(', ')]
-                                for group in line[20:].strip().strip('[]').split('], [')]
-                        pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
-                    elif line[:22] == 'REFERENCE FRAME Tx PDB':
-                        try:  # This may have values of None
-                            data = np.array([float(item) for item in line[24:].strip().strip('[]').split(', ')])
-                        except ValueError:  # we received a string which is not a float
-                            data = origin
-                        pose_transformation[int(line[22:23])]['translation2'] = data
-                    # elif 'CRYST1 RECORD:' in line:
-                    #     cryst_record = line[15:].strip()
-                    #     self.cryst_record = None if cryst_record == 'None' else cryst_record
 
-            return [pose_transformation[idx] for idx, _ in enumerate(pose_transformation, 1)]
-        except TypeError:
-            raise FileNotFoundError('The specified pose metrics file was not declared and cannot be found!')
+        with open(self.pose_file, 'r') as f:
+            pose_transformation = {}
+            for line in f.readlines():
+                # all parsing lacks PDB number suffix such as PDB1 or PDB2 for hard coding in dict key
+                if line[:20] == 'ROT/DEGEN MATRIX PDB':
+                    # data = eval(line[22:].strip())
+                    data = [[float(item) for item in group.split(', ')]
+                            for group in line[22:].strip().strip('[]').split('], [')]
+                    pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
+                elif line[:15] == 'INTERNAL Tx PDB':
+                    try:  # This may have values of None
+                        data = np.array([float(item) for item in line[17:].strip().strip('[]').split(', ')])
+                    except ValueError:  # we received a string which is not a float
+                        data = origin
+                    pose_transformation[int(line[15:16])]['translation'] = data
+                elif line[:18] == 'SETTING MATRIX PDB':
+                    # data = eval(line[20:].strip())
+                    data = [[float(item) for item in group.split(', ')]
+                            for group in line[20:].strip().strip('[]').split('], [')]
+                    pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
+                elif line[:22] == 'REFERENCE FRAME Tx PDB':
+                    try:  # This may have values of None
+                        data = np.array([float(item) for item in line[24:].strip().strip('[]').split(', ')])
+                    except ValueError:  # we received a string which is not a float
+                        data = origin
+                    pose_transformation[int(line[22:23])]['translation2'] = data
+
+        return [pose_transformation[idx] for idx, _ in enumerate(pose_transformation, 1)]
 
     def retrieve_pose_metrics_from_file(self) -> List[Dict]:
         """Gather information for the docked Pose from a Nanohedra output. Includes coarse fragment metrics
@@ -1442,53 +1437,31 @@ class PoseDirectory:  # (JobResources):
         Returns:
             pose_transformation operations
         """
-        try:
-            with open(self.pose_file, 'r') as f:
-                pose_transformation = {}
-                for line in f.readlines():
-                    if line[:15] == 'DOCKED POSE ID:':
-                        self.pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').\
-                            replace('_TX_', '-tx_')
-                    elif line[:38] == 'Unique Mono Fragments Matched (z<=1): ':
-                        self.high_quality_int_residues_matched = int(line[38:].strip())
-                    # number of interface residues with fragment overlap potential from other oligomer
-                    elif line[:31] == 'Unique Mono Fragments Matched: ':
-                        self.central_residues_with_fragment_overlap = int(line[31:].strip())
-                    # number of interface residues with 2 residues on either side of central residue
-                    elif line[:36] == 'Unique Mono Fragments at Interface: ':
-                        self.fragment_residues_total = int(line[36:].strip())
-                    elif line[:25] == 'Interface Matched (%): ':  # matched / at interface * 100
-                        self.percent_overlapping_fragment = float(line[25:].strip()) / 100
-                    elif line[:20] == 'ROT/DEGEN MATRIX PDB':
-                        data = eval(line[22:].strip())  # Todo remove eval(), this is a program vulnerability
-                        pose_transformation[int(line[20:21])] = {'rotation': np.array(data)}
-                    elif line[:15] == 'INTERNAL Tx PDB':  # all below parsing lacks PDB number suffix such as PDB1 or PDB2
-                        data = eval(line[17:].strip())
-                        if data:  # == 'None'
-                            pose_transformation[int(line[15:16])]['translation'] = np.array(data)
-                        else:
-                            pose_transformation[int(line[15:16])]['translation'] = np.array([0, 0, 0])
-                    elif line[:18] == 'SETTING MATRIX PDB':
-                        data = eval(line[20:].strip())
-                        pose_transformation[int(line[18:19])]['rotation2'] = np.array(data)
-                    elif line[:22] == 'REFERENCE FRAME Tx PDB':
-                        data = eval(line[24:].strip())
-                        if data:
-                            pose_transformation[int(line[22:23])]['translation2'] = np.array(data)
-                        else:
-                            pose_transformation[int(line[22:23])]['translation2'] = np.array([0, 0, 0])
-                    elif 'Nanohedra Score:' in line:  # res_lev_sum_score
-                        self.all_residue_score = float(line[16:].rstrip())
-                    # elif 'CRYST1 RECORD:' in line:
-                    #     cryst_record = line[15:].strip()
-                    #     self.cryst_record = None if cryst_record == 'None' else cryst_record
-                    # elif line[:31] == 'Canonical Orientation PDB1 Path':
-                    #     self.canonical_pdb1 = line[:31].strip()
-                    # elif line[:31] == 'Canonical Orientation PDB2 Path':
-                    #     self.canonical_pdb2 = line[:31].strip()
-            return [pose_transformation[idx] for idx, _ in enumerate(pose_transformation, 1)]
-        except TypeError:
-            raise FileNotFoundError('The specified pose metrics file was not declared and cannot be found!')
+        with open(self.pose_file, 'r') as f:
+            for line in f.readlines():
+                if line[:15] == 'DOCKED POSE ID:':
+                    self.pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').\
+                        replace('_TX_', '-tx_')
+                elif line[:38] == 'Unique Mono Fragments Matched (z<=1): ':
+                    self.high_quality_int_residues_matched = int(line[38:].strip())
+                # number of interface residues with fragment overlap potential from other oligomer
+                elif line[:31] == 'Unique Mono Fragments Matched: ':
+                    self.central_residues_with_fragment_overlap = int(line[31:].strip())
+                # number of interface residues with 2 residues on either side of central residue
+                elif line[:36] == 'Unique Mono Fragments at Interface: ':
+                    self.fragment_residues_total = int(line[36:].strip())
+                elif line[:25] == 'Interface Matched (%): ':  # matched / at interface * 100
+                    self.percent_overlapping_fragment = float(line[25:].strip()) / 100
+                elif 'Nanohedra Score:' in line:  # res_lev_sum_score
+                    self.all_residue_score = float(line[16:].rstrip())
+                # elif 'CRYST1 RECORD:' in line:
+                #     cryst_record = line[15:].strip()
+                #     self.cryst_record = None if cryst_record == 'None' else cryst_record
+                # elif line[:31] == 'Canonical Orientation PDB1 Path':
+                #     self.canonical_pdb1 = line[:31].strip()
+                # elif line[:31] == 'Canonical Orientation PDB2 Path':
+                #     self.canonical_pdb2 = line[:31].strip()
+            return self.retrieve_pose_transformation_from_file()
 
     def pickle_info(self):
         """Write any design attributes that should persist over program run time to serialized file"""
