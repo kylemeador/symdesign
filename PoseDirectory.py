@@ -1698,8 +1698,7 @@ class PoseDirectory:  # (JobResources):
             additional_cmds, out_file = [], []
         elif self.structure_background:
             protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
-            nstruct_instruct = ['-no_nstruct_label', 'true'] + \
-                               ['-parser:script_vars', f'script_nstruct={self.number_of_trajectories}']
+            nstruct_instruct = ['-parser:script_vars', f'script_nstruct={self.number_of_trajectories}']
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
