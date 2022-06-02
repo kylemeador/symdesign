@@ -411,6 +411,10 @@ class PoseDirectory:  # (JobResources):
         return self.job_resources.output_directory
 
     @property
+    def overwrite(self) -> bool:
+        return self.job_resources.overwrite
+
+    @property
     def force_flags(self) -> bool:
         return self.job_resources.force_flags
 
@@ -1765,9 +1769,9 @@ class PoseDirectory:  # (JobResources):
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
-            ['@%s' % self.flags, '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1),
-             '-out:suffix', '_%s' % protocol] + out_file + nstruct_instruct
+            [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
+             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml'),
+             '-out:suffix', f'_{protocol}'] + (['-overwrite'] if self.overwrite else []) + out_file + nstruct_instruct
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
             additional_cmds.append(
                 main_cmd +
