@@ -1,7 +1,6 @@
 <ROSETTASCRIPTS>
 
 	<MOVERS>
-<!--		<AdditionalOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">-->
 		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">
 			<ROSETTASCRIPTS>
 
@@ -41,7 +40,6 @@
 
 				<MOVERS>
 					<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>
-<!--					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>-->
 				</MOVERS>
 
 				<PROTOCOLS>
@@ -49,7 +47,6 @@
 				</PROTOCOLS>
 
 			</ROSETTASCRIPTS>
-<!--		</AdditionalOutputWrapper>-->
 		</MultipleOutputWrapper>
 
 		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="%%script_nstruct%%" cached="true">
