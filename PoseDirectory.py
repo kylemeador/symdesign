@@ -1702,7 +1702,7 @@ class PoseDirectory:  # (JobResources):
             additional_cmds, out_file = [], []
         elif self.structure_background:
             protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
-            nstruct_instruct = ['-parser:script_vars', f'script_nstruct={self.number_of_trajectories}']
+            nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
@@ -1711,9 +1711,6 @@ class PoseDirectory:  # (JobResources):
             additional_cmds, out_file = [], []
         elif self.no_hbnet:  # run the legacy protocol
             protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
-            # Todo make sure that this is accurate!
-            # nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)] + \
-            #                    ['-parser:script_vars', f'script_nstruct={self.number_of_trajectories}']
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
             design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
@@ -1778,8 +1775,8 @@ class PoseDirectory:  # (JobResources):
                 (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) +
                 ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), '@%s' % self.flags,
                  '-in:file:silent_struct_type', 'binary',
-                 # '-out:suffix', '_%s' % protocol,
-                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)])  # + nstruct_instruct)
+                 # '-out:suffix', '_%s' % protocol,  adding no_nstruct_label true as only hbnet uses this mechanism
+                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)] + nstruct_instruct)
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
