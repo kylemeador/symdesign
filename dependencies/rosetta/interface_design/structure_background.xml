@@ -126,7 +126,7 @@
 	</MOVERS>
 
 	<PROTOCOLS>
-		<Add mover_name="job_info"/
+		<Add mover_name="job_info"/>
 		<Add mover_name="design_start"/>
 		<Add mover_name="design_block"/>
 		<Add mover_name="measure_interface_bound"/>
