@@ -1,8 +1,8 @@
 <ROSETTASCRIPTS>
 
 	<MOVERS>
-		<AdditionalOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">
-<!--		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">-->
+<!--		<AdditionalOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">-->
+		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>
@@ -49,10 +49,10 @@
 				</PROTOCOLS>
 
 			</ROSETTASCRIPTS>
-		</AdditionalOutputWrapper>
-<!--	</MultipleOutputWrapper>-->
+<!--		</AdditionalOutputWrapper>-->
+		</MultipleOutputWrapper>
 
-		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="%%script_nstruct%%">
+		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="%%script_nstruct%%" cached="true">
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>
