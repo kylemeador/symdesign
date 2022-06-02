@@ -1,58 +1,96 @@
 <ROSETTASCRIPTS>
 
+	<SCOREFXNS>
+		<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
+		# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
+		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+	</SCOREFXNS>
+
+	<RESIDUE_SELECTORS>
+		# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
+		<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		# same, but for residues from chain "B"
+		<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		# combined group of all identified interface residues
+		<Or name="tot_interface" selectors="interface1,interface2"/>
+		# the negation of all interface residues
+		<Not name="not_interface" selector="tot_interface"/>
+		# other residues that may be designable
+		<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
+		# all designable residues
+		<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
+		# the negation of all designable residues
+		<Not name="not_designable" selector="all_designable"/>
+	</RESIDUE_SELECTORS>
+
+	<TASKOPERATIONS>
+		# standard task operation to pull in commandline options
+		<InitializeFromCommandline name="init"/>
+		# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
+		<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
+		# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues
+		<DesignRestrictions name="design_start_task"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
+		# restrict all non-interface residues to no repacking and no design
+		<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
+	</TASKOPERATIONS>
+
 	<MOVERS>
 <!--		<AdditionalOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">-->
+<!--		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">-->
+<!--			<ROSETTASCRIPTS>-->
+
+<!--				<SCOREFXNS>-->
+<!--					<ScoreFunction name="2015_cst" weights="ref2015_cst"/>-->
+<!--					# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy-->
+<!--					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>-->
+<!--				</SCOREFXNS>-->
+
+<!--				<RESIDUE_SELECTORS>-->
+<!--					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...-->
+<!--					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--					# same, but for residues from chain "B"-->
+<!--					<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--					# combined group of all identified interface residues-->
+<!--					<Or name="tot_interface" selectors="interface1,interface2"/>-->
+<!--					# the negation of all interface residues-->
+<!--					<Not name="not_interface" selector="tot_interface"/>-->
+<!--					# other residues that may be designable-->
+<!--					<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>-->
+<!--					# all designable residues-->
+<!--					<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>-->
+<!--					# the negation of all designable residues-->
+<!--					<Not name="not_designable" selector="all_designable"/>-->
+<!--				</RESIDUE_SELECTORS>-->
+
+<!--				<TASKOPERATIONS>-->
+<!--					# standard task operation to pull in commandline options-->
+<!--					<InitializeFromCommandline name="init"/>-->
+<!--					# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless-->
+<!--					<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>-->
+<!--					# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues-->
+<!--					<DesignRestrictions name="design_start_task"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>-->
+<!--					# restrict all non-interface residues to no repacking and no design-->
+<!--					<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>-->
+<!--				</TASKOPERATIONS>-->
+
+<!--				<MOVERS>-->
+<!--					<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>-->
+<!--&lt;!&ndash;					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>&ndash;&gt;-->
+<!--				</MOVERS>-->
+
+<!--				<PROTOCOLS>-->
+<!--					<Add mover_name="design_start"/>-->
+<!--				</PROTOCOLS>-->
+
+<!--			</ROSETTASCRIPTS>-->
+<!--&lt;!&ndash;		</AdditionalOutputWrapper>&ndash;&gt;-->
+<!--		</MultipleOutputWrapper>-->
+
 		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">
-			<ROSETTASCRIPTS>
-
-				<SCOREFXNS>
-					<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
-					# patched version of above, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-					<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
-				</SCOREFXNS>
-
-				<RESIDUE_SELECTORS>
-					# used for selecting residues on one side of the interface from chain "A". all resnums are listed 23A,54A,65A,90A,etc...
-					<Index name="interface1" resnums="%%interface1%%" error_on_out_of_bounds_index="0" reverse="0"/>
-					# same, but for residues from chain "B"
-					<Index name="interface2" resnums="%%interface2%%" error_on_out_of_bounds_index="0" reverse="0"/>
-					# combined group of all identified interface residues
-					<Or name="tot_interface" selectors="interface1,interface2"/>
-					# the negation of all interface residues
-					<Not name="not_interface" selector="tot_interface"/>
-					# other residues that may be designable
-					<Index name="non_interface_designable" resnums="%%required_residues%%" error_on_out_of_bounds_index="0" reverse="0"/>
-					# all designable residues
-					<Or name="all_designable" selectors="tot_interface,non_interface_designable"/>
-					# the negation of all designable residues
-					<Not name="not_designable" selector="all_designable"/>
-				</RESIDUE_SELECTORS>
-
-				<TASKOPERATIONS>
-					# standard task operation to pull in commandline options
-					<InitializeFromCommandline name="init"/>
-					# restrict movement of any virtual residues made during symmetry protocol. don't think these are allowed to move unless degrees of freedom are modified, but safe option nonetheless
-					<RestrictIdentities name="vrt" identities="XXX" prevent_repacking="1"/>
-					# make a design restriction at the beginning of design to make all designable interface residues Gly. They will be modified afterwards by other permissable residues
-					<DesignRestrictions name="design_start_task"> <Action residue_selector="all_designable" aas="G"/> </DesignRestrictions>
-					# restrict all non-interface residues to no repacking and no design
-					<OperateOnResidueSubset name="not_designable_no_repack" selector="not_designable"> <PreventRepackingRLT/> </OperateOnResidueSubset>
-				</TASKOPERATIONS>
-
-				<MOVERS>
-					<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>
-<!--					<SymPackRotamersMover name="design_start" scorefxn="2015_nano_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>-->
-				</MOVERS>
-
-				<PROTOCOLS>
-					<Add mover_name="design_start"/>
-				</PROTOCOLS>
-
-			</ROSETTASCRIPTS>
-<!--		</AdditionalOutputWrapper>-->
+			<SymPackRotamersMover name="design_start" scorefxn="2015_cst" task_operations="init,vrt,design_start_task,not_designable_no_repack"/>
 		</MultipleOutputWrapper>
 
-		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="%%script_nstruct%%" cached="true">
+		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="%%script_nstruct%%"> # cached="true">
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>
