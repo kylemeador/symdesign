@@ -119,16 +119,29 @@
 						<Add mover_name="int_design"/>
 						<Add mover_name="rotamer_trials_min_mover"/>
 					</ParsedProtocol>
-					<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
+<!--					<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>-->
 				</MOVERS>
 
 				<PROTOCOLS>
 					<Add mover_name="design_block"/>
-					<Add mover_name="measure_interface_bound"/>
+<!--					<Add mover_name="measure_interface_bound"/>-->
 				</PROTOCOLS>
 
 			</ROSETTASCRIPTS>
         </MultiplePoseMover>
+
+        <MultiplePoseMover name="multiple_interface_measurement">
+			<ROSETTASCRIPTS>
+				<MOVERS>
+					<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
+				</MOVERS>
+
+				<PROTOCOLS>
+					<Add mover_name="measure_interface_bound"/>
+				</PROTOCOLS>
+			</ROSETTASCRIPTS>
+		</MultiplePoseMover>
+
 		<AddJobPairData name="job_info" key="protocol" value="structure_background" value_type="string"/>
 	</MOVERS>
 
@@ -136,6 +149,7 @@
 		<Add mover_name="job_info"/>
 		<Add mover_name="generate_multiple_poses"/>
 		<Add mover_name="design_with_interface_metrics"/>
+		<Add mover_name="multiple_interface_measurement"/>
 	</PROTOCOLS>
 
 </ROSETTASCRIPTS>
