@@ -1,7 +1,8 @@
 <ROSETTASCRIPTS>
 
 	<MOVERS>
-		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">
+		<AdditionalOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">
+<!--		<MultipleOutputWrapper name="generate_multiple_poses" max_output_poses="%%script_nstruct%%">-->
 			<ROSETTASCRIPTS>
 
 				<SCOREFXNS>
@@ -48,7 +49,8 @@
 				</PROTOCOLS>
 
 			</ROSETTASCRIPTS>
-		</MultipleOutputWrapper>
+		</AdditionalOutputWrapper>
+<!--	</MultipleOutputWrapper>-->
 
 		<MultiplePoseMover name="design_with_interface_metrics" max_input_poses="%%script_nstruct%%">
 			<ROSETTASCRIPTS>
@@ -132,6 +134,7 @@
 
         <MultiplePoseMover name="multiple_interface_measurement" max_input_poses="%%script_nstruct%%">
 			<ROSETTASCRIPTS>
+
 				<MOVERS>
 					<Subroutine name="measure_interface_bound" xml_fname="%%scripts%%/metrics_scripts/metrics_interface_bound.xml"/>
 				</MOVERS>
@@ -139,6 +142,7 @@
 				<PROTOCOLS>
 					<Add mover_name="measure_interface_bound"/>
 				</PROTOCOLS>
+
 			</ROSETTASCRIPTS>
 		</MultiplePoseMover>
 
