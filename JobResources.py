@@ -924,6 +924,7 @@ class JobResources:
         self.no_hbnet: bool = kwargs.get(no_hbnet, False)
         self.no_term_constraint: bool = kwargs.get(no_term_constraint, False)
         self.number_of_trajectories: int = kwargs.get(number_of_trajectories, nstruct)
+        self.overwrite: bool = kwargs.get('overwrite', False)
         self.output_directory: bool = kwargs.get('output_directory', False)
         self.output_assembly: bool = kwargs.get('output_assembly', False)
         self.run_in_shell: bool = kwargs.get('run_in_shell', False)

@@ -435,6 +435,8 @@ parser_interface_design_arguments = {
     ('-n', f'--{number_of_trajectories}'): dict(type=int, default=nstruct,
                                                 help='How many unique sequences should be generated for each input?'
                                                      '\nDefault=%(default)s'),
+    ('--overwrite',): dict(action='store_true',
+                           help='Whether to overwrite existing structures upon job fullfillment\nDefault=%(default)s'),
     ('-sb', f'--{structure_background}'): dict(action='store_true',
                                                help='Whether to skip all constraints and measure the structure in an '
                                                     'optimal context\nDefault=%(default)s'),
