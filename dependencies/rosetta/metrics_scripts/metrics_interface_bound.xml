@@ -322,14 +322,14 @@
 		</ParsedProtocol>
 	</MOVERS>
 
-	# Symmetry set up section
-	<FILTERS>
-		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is -1, asymmetric is 0
-	</FILTERS>
-	<MOVERS>
-		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>
-<!--		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>-->
-	</MOVERS>
+<!--	# Symmetry set up section-->
+<!--	<FILTERS>-->
+<!--		<ReadPoseExtraScoreFilter name="read_sym" term_name="sym_status" threshold="-0.5"/> # symmetric is -1, asymmetric is 0-->
+<!--	</FILTERS>-->
+<!--	<MOVERS>-->
+<!--		<Subroutine name="symmetry" xml_fname="%%scripts%%/symmetry.xml"/>-->
+<!--&lt;!&ndash;		<If name="metrics" filter_name="read_sym" true_mover_name="sym_metrics" false_mover_name="asymmetric_metrics"/>&ndash;&gt;-->
+<!--	</MOVERS>-->
 
 	<PROTOCOLS>
 <!--		<Add mover_name="if_symmetry"/>-->
