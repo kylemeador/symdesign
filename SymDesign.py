@@ -524,17 +524,7 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
 
     # test for the size of each of the designdirectories
     if pose_directories:
-        print('Before fragments\naverage_design_directory_size equals %f' %
-              (float(psutil.virtual_memory().used) / len(pose_directories)))
-        global fragment_db
-        try:
-            del fragment_db
-            del job.fragment_db
-        except (NameError, AttributeError) as error:
-            print(error)
-        time.sleep(10)  # let the garbage collector get rid of any ties
-        print('After fragments\naverage_design_directory_size equals %f' %
-              (float(psutil.virtual_memory().used) / len(pose_directories)))
+        print('Average_design_directory_size equals %f' % (float(psutil.virtual_memory().used) / len(pose_directories)))
 
     print('\n')
     exit(exit_code)
@@ -806,7 +796,7 @@ if __name__ == '__main__':
     queried_flags['job_resources'] = job
 
     # Set up Databases
-    if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design]:
+    if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design, PUtils.analysis]:
         if job.no_term_constraint:
             fragment_db, euler_lookup = None, None
         else:
@@ -832,7 +822,7 @@ if __name__ == '__main__':
             low, high = map(float, args.range.split('-'))
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
             if low_range < 0 or high_range > len(all_poses):
-                raise SDUtils.DesignError('The input --range is outside of the acceptable bounds [0-100]')
+                raise ValueError('The input -r/--range is outside of the acceptable bounds [0-100]')
             logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
 
         logger.info(f'Setting up input files for {args.module}')
