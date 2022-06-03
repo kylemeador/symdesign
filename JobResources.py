@@ -356,6 +356,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     flags = copy(rosetta_flags) + loop_model_flags
                     # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                     flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
+                    variables = [('script_nstruct', '100')]
+                    flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
                     with open(flags_file, 'w') as f:
                         f.write('%s\n' % '\n'.join(flags))
                 loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
