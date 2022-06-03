@@ -1438,7 +1438,7 @@ class PoseDirectory:  # (JobResources):
                               pdb_out_path: Optional[str] = None, out_path: Union[str, bytes] = os.getcwd()) -> str:
         """Prepare a protocol specific Rosetta flags file with program specific variables
 
-        Keyword Args:
+        Args:
             symmetry_protocol: The type of symmetric protocol (specifying design dimension) to use for Rosetta jobs
             sym_def_file: A Rosetta specific file specifying the symmetry system
             pdb_out_path: Disk location to write the resulting design files
@@ -1501,7 +1501,7 @@ class PoseDirectory:  # (JobResources):
         else:
             flags.extend(['-out:path:pdb %s' % self.designs, '-scorefile %s' % self.scores_file])
         flags.append('-in:file:native %s' % self.refined_pdb)
-        flags.append('-parser:script_vars %s' % ' '.join('%s=%s' % tuple(map(str, var_val)) for var_val in variables))
+        flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
 
         out_file = os.path.join(out_path, 'flags')
         with open(out_file, 'w') as f:
