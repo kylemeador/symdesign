@@ -708,6 +708,8 @@ if __name__ == '__main__':
         else:  # queried_flags['symmetry'] in possible_symmetries:
             queried_flags[PUtils.sym_entry] = parse_symmetry_to_sym_entry(symmetry=queried_flags['symmetry'])
     sym_entry = queried_flags[PUtils.sym_entry]
+    if not isinstance(sym_entry, SymEntry):  # remove if not an actual SymEntry
+        queried_flags.pop(PUtils.sym_entry)
 
     initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics, PUtils.optimize_designs]
     #                       PUtils.analysis, 'custom_script', PUtils.refine]

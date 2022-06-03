@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 import copy
 import re
@@ -119,11 +120,9 @@ class PoseDirectory:  # (JobResources):
         if PUtils.sym_entry in kwargs:
             self.sym_entry = kwargs[PUtils.sym_entry]
         # Todo monitor if energy mechansims are modified for crystal set ups and adjust parameter accordingly
-        self.modify_sym_energy: bool = True if self.design_dimension in [2, 3] else False
+        # self.modify_sym_energy: bool = True if self.design_dimension in [2, 3] else False
         self.sym_def_file: str | None = None  # The symmetry definition file for the entire Pose
         self.symmetry_protocol: str | None = None
-        # elif 'sym_entry_number' in kwargs:
-        #     self.sym_entry = symmetry_factory(kwargs['sym_entry_specification'])
         # if symmetry:
         #     if symmetry == 'cryst':
         #         raise DesignError('This functionality is not possible yet. Please pass --symmetry by Symmetry Entry'
@@ -144,7 +143,7 @@ class PoseDirectory:  # (JobResources):
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
         self.init_pdb: PDB | None = None  # used if the pose structure has never been initialized previously
-        self.interface_design_residues: bool | set[int] = False  # the residue numbers in the pose interface
+        self.interface_design_residues: set[int] | bool = False  # the residue numbers in the pose interface
         self.interface_residues: list[int] | bool = False
         # self.oligomer_names = []
         self.oligomers: list[Structure] = []
@@ -760,34 +759,35 @@ class PoseDirectory:  # (JobResources):
         else:
             metrics['design_dimension'] = 'asymmetric'
 
-        total_residue_counts = []
+        # total_residue_counts = []
         minimum_radius, maximum_radius = float('inf'), 0
-        for ent_idx, entity in enumerate(self.pose.entities, 1):
-            ent_com = entity.distance_to_reference()
+        for idx, entity in enumerate(self.pose.entities, 1):
             min_rad = entity.distance_to_reference(measure='min')
-            max_rad = entity.distance_to_reference(measure='max')
-            # distances.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
-            # distances[entity] = np.array([ent_idx, ent_com, min_rad, max_rad, entity.number_of_residues])
-            total_residue_counts.append(entity.number_of_residues)
-            metrics.update({
-                'entity_%d_symmetry' % ent_idx: entity.symmetry if entity.is_oligomeric else 'monomer',
-                'entity_%d_name' % ent_idx: entity.name,
-                'entity_%d_number_of_residues' % ent_idx: entity.number_of_residues,
-                'entity_%d_radius' % ent_idx: ent_com,
-                'entity_%d_min_radius' % ent_idx: min_rad, 'entity_%d_max_radius' % ent_idx: max_rad,
-                'entity_%d_n_terminal_helix' % ent_idx: entity.is_termini_helical(),
-                'entity_%d_c_terminal_helix' % ent_idx: entity.is_termini_helical(termini='c'),
-                'entity_%d_n_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(),
-                'entity_%d_c_terminal_orientation' % ent_idx: entity.termini_proximity_from_reference(termini='c'),
-                'entity_%d_thermophile' % ent_idx: is_uniprot_thermophilic(entity.uniprot_id)})
             if min_rad < minimum_radius:
                 minimum_radius = min_rad
+            max_rad = entity.distance_to_reference(measure='max')
             if max_rad > maximum_radius:
                 maximum_radius = max_rad
+            # distances.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
+            # distances[entity] = np.array([ent_idx, ent_com, min_rad, max_rad, entity.number_of_residues])
+            # total_residue_counts.append(entity.number_of_residues)
+            ent_com = entity.distance_to_reference()
+            metrics.update({
+                f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric else 'asymmetric',
+                f'entity_{idx}_name': entity.name,
+                f'entity_{idx}_number_of_residues': entity.number_of_residues,
+                f'entity_{idx}_radius': ent_com,
+                f'entity_{idx}_min_radius': min_rad, f'entity_{idx}_max_radius': max_rad,
+                f'entity_{idx}_n_terminal_helix': entity.is_termini_helical(),
+                f'entity_{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
+                f'entity_{idx}_n_terminal_orientation': entity.termini_proximity_from_reference(),
+                f'entity_{idx}_c_terminal_orientation': entity.termini_proximity_from_reference(termini='c'),
+                f'entity_{idx}_thermophile': is_uniprot_thermophilic(entity.uniprot_id)})
 
         metrics['entity_minimum_radius'] = minimum_radius
         metrics['entity_maximum_radius'] = maximum_radius
-        metrics['entity_residue_length_total'] = sum(total_residue_counts)
+        metrics['entity_residue_length_total'] = \
+            sum(metrics[f'entity_{idx + 1}_number_of_residues'] for idx in range(self.pose.number_of_entities))
         # # for distances1, distances2 in combinations(distances, 2):
         # for entity1, entity2 in combinations(self.pose.entities, 2):
         #     # entity_indices = (int(distances1[0]), int(distances2[0]))  # this is a sloppy conversion rn, but oh well
@@ -1520,12 +1520,13 @@ class PoseDirectory:  # (JobResources):
         if self.pose.entities == 1:  # no unbound state to query!
             return []
         else:
-            number_of_entities = len(self.entity_names)  # not dependent on Pose load
-            if len(self.symmetry_definition_files) != number_of_entities or self.force_flags:
+            # not dependent on Pose load
+            if len(self.symmetry_definition_files) != len(self.entity_names) or self.force_flags:
                 self.load_pose()  # Need to initialize the pose so each entity can get sdf created
                 for entity in self.pose.entities:
                     if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-                        entity.make_sdf(out_path=self.data, modify_sym_energy_for_cryst=self.modify_sym_energy)
+                        entity.make_sdf(out_path=self.data,
+                                        modify_sym_energy_for_cryst=True if self.design_dimension in [2, 3] else False)
                     else:
                         shutil.copy(os.path.join(PUtils.symmetry_def_files, 'C1.sym'),
                                     os.path.join(self.data, '%s.sdf' % entity.name))
@@ -2317,7 +2318,7 @@ class PoseDirectory:  # (JobResources):
         self.interface_design_residues = set()  # update False to set() or replace set() and add new residues
         for number, residues_entities in self.pose.split_interface_residues.items():
             self.interface_residue_ids['interface%d' % number] = \
-                ','.join('%d%s' % (residue.number, entity.chain_id) for residue, entity in residues_entities)
+                ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
             self.interface_design_residues.update([residue.number for residue, _ in residues_entities])
 
         self.interface_residues = []  # update False to list or replace list and add new residues
@@ -2554,34 +2555,9 @@ class PoseDirectory:  # (JobResources):
         residue_info = {pose_source: pose_source_residue_info}
         job_key = 'no_energy'
         stat_s, sim_series = pd.Series(dtype=float), []
-        if not os.path.exists(self.scores_file):  # Rosetta scores file isn't present
-            self.log.debug('Missing design scores file at %s' % self.scores_file)
-            # Todo add relevant missing scores such as those specified as 0 below
-            # Todo may need to put source_df in scores file alternative
-            source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
-            design_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
-            scores_df = pd.concat([source_df, design_df])
-            for idx, entity in enumerate(self.pose.entities, 1):
-                scores_df['buns_%d_unbound' % idx] = 0
-                scores_df['interface_energy_%d_bound' % idx] = 0
-                scores_df['interface_energy_%d_unbound' % idx] = 0
-                scores_df['solvation_energy_%d_bound' % idx] = 0
-                scores_df['solvation_energy_%d_unbound' % idx] = 0
-                scores_df['interface_connectivity_%d' % idx] = 0
-                # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
-                # design_info.update({residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
-                #                          'hbond': 0} for residue in entity.residues})
-            scores_df['number_hbonds'] = 0
-            protocol_s = scores_df.pop(PUtils.groups).copy()
-            missing_group_indices = protocol_s.isna()
-            remove_columns = rosetta_terms + unnecessary
-            residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
-            # Todo generate energy scores internally which matches output from residue_processing
-            # interface_hbonds = dirty_hbond_processing(all_design_scores)
-            # residue_info = self.pose.rosetta_residue_processing(all_design_scores)
-            # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
-            #                                     hbonds=interface_hbonds)
-        else:  # Get the scores from the score file on design trajectory metrics
+        if os.path.exists(self.scores_file):  # Rosetta scores file is present
+            design_was_performed = True
+            # Get the scores from the score file on design trajectory metrics
             source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df['buns_%d_unbound' % idx] = 0
@@ -2590,8 +2566,21 @@ class PoseDirectory:  # (JobResources):
                 source_df['solvation_energy_%d_bound' % idx] = 0
                 source_df['solvation_energy_%d_unbound' % idx] = 0
                 source_df['interface_connectivity_%d' % idx] = 0
+            source_df['buried_unsatisfied_hbonds'] = 0
+            source_df['contact_count'] = 0
+            source_df['favor_residue_energy'] = 0
+            source_df['interface_energy_complex'] = 0
+            source_df['interaction_energy_complex'] = 0
+            source_df['interaction_energy_per_residue'] = \
+                source_df['interaction_energy_complex'] / len(self.interface_design_residues)
+            source_df['interface_separation'] = 0
             source_df['number_hbonds'] = 0
-            self.log.debug('Found design scores in file: %s' % self.scores_file)
+            source_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
+            source_df['rosetta_reference_energy'] = 0
+            source_df['shape_complementarity'] = 0
+            source_df['solvation_energy'] = 0
+            source_df['solvation_energy_complex'] = 0
+            self.log.debug(f'Found design scores in file: {self.scores_file}')
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Remove designs with scores but no structures
@@ -2664,6 +2653,48 @@ class PoseDirectory:  # (JobResources):
             # entity_sequences = \
             #     {entity: {design: sequence[entity.n_terminal_residue.number - 1:entity.c_terminal_residue.number]
             #               for design, sequence in pose_sequences.items()} for entity in self.pose.entities}
+        else:
+            self.log.debug(f'Missing design scores file at {self.scores_file}')
+            design_was_performed = True
+            # Todo add relevant missing scores such as those specified as 0 below
+            # Todo may need to put source_df in scores file alternative
+            source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
+            design_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
+            scores_df = pd.concat([source_df, design_df])
+            for idx, entity in enumerate(self.pose.entities, 1):
+                scores_df['buns_%d_unbound' % idx] = 0
+                scores_df['interface_energy_%d_bound' % idx] = 0
+                scores_df['interface_energy_%d_unbound' % idx] = 0
+                scores_df['solvation_energy_%d_bound' % idx] = 0
+                scores_df['solvation_energy_%d_unbound' % idx] = 0
+                scores_df['interface_connectivity_%d' % idx] = 0
+                # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
+                # design_info.update({residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
+                #                          'hbond': 0} for residue in entity.residues})
+            scores_df['buried_unsatisfied_hbonds'] = 0
+            scores_df['contact_count'] = 0
+            scores_df['favor_residue_energy'] = 0
+            scores_df['interface_energy_complex'] = 0
+            scores_df['interaction_energy_complex'] = 0
+            scores_df['interaction_energy_per_residue'] = \
+                scores_df['interaction_energy_complex'] / len(self.interface_design_residues)
+            scores_df['interface_separation'] = 0
+            scores_df['number_hbonds'] = 0
+            scores_df['rmsd_complex'] = 0  # Todo calculate this here instead of Rosetta using superposition3d
+            scores_df['rosetta_reference_energy'] = 0
+            scores_df['shape_complementarity'] = 0
+            scores_df['solvation_energy'] = 0
+            scores_df['solvation_energy_complex'] = 0
+            protocol_s = scores_df.pop(PUtils.groups).copy()
+            missing_group_indices = protocol_s.isna()
+            remove_columns = rosetta_terms + unnecessary
+            residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
+            # Todo generate energy scores internally which matches output from residue_processing
+            # interface_hbonds = dirty_hbond_processing(all_design_scores)
+            # residue_info = self.pose.rosetta_residue_processing(all_design_scores)
+            # residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
+            #                                     hbonds=interface_hbonds)
+
         # Drop designs where required data is present
         protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
         scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
@@ -2693,43 +2724,24 @@ class PoseDirectory:  # (JobResources):
         per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {}, 'contact_order': {},
                             'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
                             'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
-        # 'local_density': {},
+        interface_local_density, atomic_deviation = {pose_source: self.pose.interface_local_density()}, {}
         pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
-        # Favor errat/collapse measurement on a per Entity basis because the wild type is assuming no interface present
-        # but the design has the interface
-        # atomic_deviation[wild_type] per_residue_errat = pose_assembly_minimally_contacting.errat(out_path=self.data)
-        # per_residue_data['errat_deviation'][pose_source] = per_residue_errat[:pose_length]
         # perform SASA measurements
         pose_assembly_minimally_contacting.get_sasa()
-        # per_residue_sasa = [residue.sasa for residue in structure.residues
-        #                     if residue.number in self.interface_design_residues]
-        per_residue_sasa_complex_apolar = \
-            [residue.sasa_apolar for residue in pose_assembly_minimally_contacting.residues[:pose_length]]
-        per_residue_sasa_complex_polar = \
-            [residue.sasa_polar for residue in pose_assembly_minimally_contacting.residues[:pose_length]]
-        per_residue_sasa_complex_relative = \
-            [residue.relative_sasa for residue in pose_assembly_minimally_contacting.residues[:pose_length]]
-        per_residue_data['sasa_hydrophobic_complex'][pose_source] = per_residue_sasa_complex_apolar
-        per_residue_data['sasa_polar_complex'][pose_source] = per_residue_sasa_complex_polar
-        per_residue_data['sasa_relative_complex'][pose_source] = per_residue_sasa_complex_relative
+        assembly_asu_residues = pose_assembly_minimally_contacting.residues[:pose_length]
+        per_residue_data['sasa_hydrophobic_complex'][pose_source] = \
+            [residue.sasa_apolar for residue in assembly_asu_residues]
+        per_residue_data['sasa_polar_complex'][pose_source] = [residue.sasa_polar for residue in assembly_asu_residues]
+        per_residue_data['sasa_relative_complex'][pose_source] = \
+            [residue.relative_sasa for residue in assembly_asu_residues]
+
+        # Grab metrics for the pose source. Checks if self.pose was designed
+        # Favor pose source errat/collapse on a per entity basis if design occurred
+        # As the pose source assumes no legit interface present while designs have an interface
         per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = [], [], []
-        # Grab metrics for the wild-type file. Assumes self.pose is from non-designed sequence
-        msa_metrics = True
-        source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], []
+        source_errat_accuracy, source_errat, source_contact_order, inverse_residue_contact_order_z = [], [], [], []
         for idx, entity in enumerate(self.pose.entities):
-            # we need to get the contact order, errat from the symmetric entity
-            # entity.oligomer.get_sasa()
-            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
-            entity_oligomer.get_sasa()
-            per_residue_sasa_unbound_apolar.extend(
-                [residue.sasa_apolar for residue in entity_oligomer.residues[:entity.number_of_residues]])
-            per_residue_sasa_unbound_polar.extend(
-                [residue.sasa_polar for residue in entity_oligomer.residues[:entity.number_of_residues]])
-            per_residue_sasa_unbound_relative.extend(
-                [residue.relative_sasa for residue in entity_oligomer.residues[:entity.number_of_residues]])
-            _, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
-            source_errat.append(oligomeric_errat[:entity.number_of_residues])
-            # Contact order is the same for every design in the Pose
+            # Contact order is the same for every design in the Pose and not dependent on pose
             # Todo clean this behavior up as it is not good if entity is used downstream...
             #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity...
             entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
@@ -2738,18 +2750,36 @@ class PoseDirectory:  # (JobResources):
             source_contact_order.append(contact_order)  # save the contact order for plotting
             residue_contact_order_z = z_score(contact_order, contact_order.mean(), contact_order.std())
             inverse_residue_contact_order_z.append(residue_contact_order_z * -1)
+            # Get errat from the symmetric Entity
+            # entity.oligomer.get_sasa()  # Todo when Entity.oligomer works
+            entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+            entity_oligomer.get_sasa()
+            oligomer_asu_residues = entity_oligomer.residues[:entity.number_of_residues]
+            per_residue_sasa_unbound_apolar.extend([residue.sasa_apolar for residue in oligomer_asu_residues])
+            per_residue_sasa_unbound_polar.extend([residue.sasa_polar for residue in oligomer_asu_residues])
+            per_residue_sasa_unbound_relative.extend([residue.relative_sasa for residue in oligomer_asu_residues])
+            if design_was_performed:  # we should respect input structure was not meant to be together
+                oligomer_errat_accuracy, oligomeric_errat = entity_oligomer.errat(out_path=self.data)
+                source_errat_accuracy.append(oligomer_errat_accuracy)
+                source_errat.append(oligomeric_errat[:entity.number_of_residues])
         per_residue_data['sasa_hydrophobic_bound'][pose_source] = per_residue_sasa_unbound_apolar
         per_residue_data['sasa_polar_bound'][pose_source] = per_residue_sasa_unbound_polar
         per_residue_data['sasa_relative_bound'][pose_source] = per_residue_sasa_unbound_relative
 
-        pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
-        per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
+        number_of_entities = self.pose.number_of_entities
+        if design_was_performed:
+            atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
+            pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+            per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
+        else:
+            atomic_deviation[pose_source], pose_per_residue_errat = pose_assembly_minimally_contacting.errat(out_path=self.data)
+            per_residue_data['errat_deviation'][pose_source] = pose_per_residue_errat[:pose_length]
+
         pose_source_contact_order_s = \
             pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
         per_residue_data['contact_order'][pose_source] = pose_source_contact_order_s
 
         # Compute structural measurements for all designs
-        interface_local_density, atomic_deviation = {}, {}
         for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
             if structure.name not in viable_designs:
                 continue
@@ -2783,15 +2813,13 @@ class PoseDirectory:  # (JobResources):
             per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
             # perform SASA measurements
             assembly_minimally_contacting.get_sasa()
-            per_residue_sasa_complex_apolar = \
-                [residue.sasa_apolar for residue in assembly_minimally_contacting.residues[:pose_length]]
-            per_residue_sasa_complex_polar = \
-                [residue.sasa_polar for residue in assembly_minimally_contacting.residues[:pose_length]]
-            per_residue_sasa_complex_relative = \
-                [residue.relative_sasa for residue in assembly_minimally_contacting.residues[:pose_length]]
-            per_residue_data['sasa_hydrophobic_complex'][structure.name] = per_residue_sasa_complex_apolar
-            per_residue_data['sasa_polar_complex'][structure.name] = per_residue_sasa_complex_polar
-            per_residue_data['sasa_relative_complex'][structure.name] = per_residue_sasa_complex_relative
+            assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
+            per_residue_data['sasa_hydrophobic_complex'][structure.name] = \
+                [residue.sasa_apolar for residue in assembly_asu_residues]
+            per_residue_data['sasa_polar_complex'][structure.name] = \
+                [residue.sasa_polar for residue in assembly_asu_residues]
+            per_residue_data['sasa_relative_complex'][structure.name] = \
+                [residue.relative_sasa for residue in assembly_asu_residues]
             per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
                 [], [], []
             for entity in structure.entities:
@@ -2816,6 +2844,7 @@ class PoseDirectory:  # (JobResources):
         # Calculate Reference sequence statistics
         entity_collapse_mean, entity_collapse_std, reference_collapse_bool, reference_collapse_z_score = [], [], [], []
         reference_collapse_concat = []  # used in figures if they are requested
+        msa_metrics = True
         for idx, entity in enumerate(self.pose.entities):
             reference_collapse = hydrophobic_collapse_index(entity_sequences[idx][PUtils.reference_name])
             reference_collapse_concat.append(reference_collapse)
@@ -3590,11 +3619,9 @@ class PoseDirectory:  # (JobResources):
             # Plot: Collapse description of total profile against each design
             if msa_metrics:
                 profile_mean_collapse_concatenated_s = \
-                    pd.concat([entity_collapse_mean[idx] for idx in range(self.pose.number_of_entities)],
-                              ignore_index=True)
+                    pd.concat([entity_collapse_mean[idx] for idx in range(number_of_entities)], ignore_index=True)
                 profile_std_collapse_concatenated_s = \
-                    pd.concat([entity_collapse_std[idx] for idx in range(self.pose.number_of_entities)],
-                              ignore_index=True)
+                    pd.concat([entity_collapse_std[idx] for idx in range(number_of_entities)], ignore_index=True)
                 profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
                 profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
                 collapse_graph_describe_df = pd.DataFrame({

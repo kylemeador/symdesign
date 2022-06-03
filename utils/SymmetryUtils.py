@@ -65,10 +65,10 @@ space_group_number_operations = \
      'I4122': 16, 'P4': 4, 'C222': 8, 'P222': 4, 'P213': 12, 'F4132': 96, 'P422': 8, 'P432': 24, 'F432': 96,
      'P4232': 24}
 cubic_point_groups = ['T', 'O', 'I']
-point_group_symmetry_operators = unpickle(point_group_symmetry_operator_location)
+point_group_symmetry_operators: np.ndarray = unpickle(point_group_symmetry_operator_location)
 # with format {'symmetry': rotations[N, 3, 3], ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
-space_group_symmetry_operators = unpickle(space_group_symmetry_operator_location)
+space_group_symmetry_operators: np.ndarray = unpickle(space_group_symmetry_operator_location)
 # with format {'symmetry': (rotations[N, 3, 3], translations[N, 1, 3]), ...}
 # where the rotations are pre-transposed to match requirements of np.matmul(coords, rotation)
 possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T', 'O32': 'O', 'O42': 'O', 'O43': 'O',
@@ -88,9 +88,7 @@ possible_symmetries = {'I32': 'I', 'I52': 'I', 'I53': 'I', 'T32': 'T', 'T33': 'T
                        # 'I:{C2}{C3}{C5}': 'I', 'I:{C3}{C2}{C5}': 'I', 'I:{C3}{C5}{C2}': 'I', 'I:{C5}{C3}{C2}': 'I',
                        # 'I:{C2}{C5}{C3}': 'I', 'I:{C5}{C2}{C3}': 'I',
                        'C2': 'C2', 'C3': 'C3', 'C4': 'C4', 'C5': 'C5', 'C6': 'C6',
-                       # 'D2': 'D2',
-                       'D3': 'D3',
-                       # 'D4': 'D4', 'D5': 'D5', 'D6': 'C6',
+                       'D2': 'D2', 'D3': 'D3', 'D4': 'D4', 'D5': 'D5', 'D6': 'C6',
                        # layer groups
                        # 'p6', 'p4', 'p3', 'p312', 'p4121', 'p622',
                        # space groups  # Todo
