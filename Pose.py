@@ -707,8 +707,8 @@ class Model:  # Todo (Structure)
         return self.pdb.number_of_chains
 
     @property
-    def chains(self) -> Iterable[Entity]:
-        return [chain for entity in self.entities for chain in entity.chains]
+    def chains(self) -> Iterable[Chain]:
+        return self.pdb.chains
 
     @property
     def chain_breaks(self) -> List[int]:
@@ -1253,6 +1253,10 @@ class SymmetricModel(Model):
                 PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
                                 cryst_record=self.cryst_record, entities=False)
             return self._assembly_minimally_contacting
+
+    @property
+    def chains(self) -> Iterable[Entity]:
+        return [chain for entity in self.entities for chain in entity.chains]
 
     def set_symmetry(self, sym_entry: SymEntry = None, symmetry: str = None, cryst1: str = None,
                      uc_dimensions: List[float] = None,  expand_matrices: Union[np.ndarray, List] = None,
@@ -2252,6 +2256,94 @@ class SymmetricModel(Model):
 
         return transform_solutions
 
+    def find_contacting_asu(self, distance: int = 8, **kwargs) -> list[Entity]:
+        """From the Pose Entities, find the maximal contacting Chain for each Entity
+
+        Args:
+            distance: The distance to check for contacts
+        Returns:
+            The minimal set of Entities containing the maximally touching configuration
+        """
+        entities = self.entities
+        if self.number_of_entities != 1:
+            idx = 0
+            chain_combinations: list[tuple[Entity, Entity]] = []
+            entity_combinations: list[tuple[Entity, Entity]] = []
+            contact_count = \
+                np.zeros(sum(map(prod, combinations((entity.number_of_monomers for entity in entities), 2))))
+            for entity1, entity2 in combinations(entities, 2):
+                for chain1 in entity1.chains:
+                    chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
+                    for chain2 in entity2.chains:
+                        entity_combinations.append((entity1, entity2))
+                        chain_combinations.append((chain1, chain2))
+                        contact_count[idx] = \
+                            chain_cb_coord_tree.two_point_correlation(chain2.get_cb_coords(), [distance])[0]
+                        idx += 1
+
+            max_contact_idx = contact_count.argmax()
+            additional_chains = []
+            max_chains = list(chain_combinations[max_contact_idx])
+            if len(max_chains) != self.number_of_entities:
+                # find the indices where either of the maximally contacting chains are utilized
+                selected_chain_indices = {idx for idx, chain_pair in enumerate(chain_combinations)
+                                          if max_chains[0] in chain_pair or max_chains[1] in chain_pair}
+                remaining_entities = set(entities).difference(entity_combinations[max_contact_idx])
+                for entity in remaining_entities:  # get the max contacts and the associated entity and chain indices
+                    # find the indices where the missing entity is utilized
+                    remaining_indices = \
+                        {idx for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair}
+                    # pair_position = [0 if entity_pair[0] == entity else 1
+                    #                  for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair]
+                    # only use those where found asu chains already occur
+                    viable_remaining_indices = list(remaining_indices.intersection(selected_chain_indices))
+                    # out of the viable indices where the selected chains are matched with the missing entity,
+                    # find the highest contact
+                    max_idx = contact_count[viable_remaining_indices].argmax()
+                    for entity_idx, entity_in_combo in enumerate(entity_combinations[viable_remaining_indices[max_idx]]):
+                        if entity == entity_in_combo:
+                            additional_chains.append(chain_combinations[viable_remaining_indices[max_idx]][entity_idx])
+
+            new_entities = max_chains + additional_chains
+            # print([(entity.name, entity.chain_id) for entity in entities])
+            # rearrange the entities to have the same order as provided
+            # for new_entity in new_entities:
+            #     print('NEW', new_entity.name, new_entity.chain)
+            # for entity in entities:
+            #     print('OLD', entity.name, entity.chain)
+            entities = [new_entity for entity in entities for new_entity in new_entities if entity == new_entity]
+            # print([(entity.name, entity.chain_id) for entity in entities])
+        return entities
+
+    def return_contacting_asu(self, **kwargs) -> PDB:
+        """From the Pose Entities, find the maximal contacting Chain for each of the entities and return the ASU
+
+        If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
+
+        Returns:
+            A PDB object with the minimal set of Entities containing the maximally touching configuration
+        """
+        entities = self.find_contacting_asu(**kwargs)
+        found_chain_ids = []
+        for entity in entities:
+            if entity.chain_id in found_chain_ids:
+                kwargs['rename_chains'] = True
+                break
+            else:
+                found_chain_ids.append(entity.chain_id)
+
+        return PDB.from_entities(entities, name='asu', log=self.log, biomt_header=self.format_biomt(),
+                                 cryst_record=self.cryst_record, **kwargs)
+
+    def set_contacting_asu(self, **kwargs):
+        """From the Pose Entities, find the maximal contacting Chain for each of the entities and set the Pose.asu
+
+        Sets:
+            self._pdb: To a PDB object with the minimal set of Entities containing the maximally touching configuration
+        """
+        entities = self.find_contacting_asu(**kwargs)
+        self._pdb = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)
+
     # def make_oligomers(self):
     #     """Generate oligomers for each Entity in the SymmetricModel"""
     #     for idx, entity in enumerate(self.entities):
@@ -2381,15 +2473,16 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
-    def __init__(self, **kwargs):  # asu=None, pdb=None,
-        # self.pdbs_d = {}
+    interface_residues: dict[tuple[Structure, Structure], tuple[list[Residue], list[Residue]]]
+
+    def __init__(self, **kwargs):
         self.fragment_pairs = []
         self.fragment_metrics = {}
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.required_indices = set()
         self.required_residues = None
-        self.interface_residues = {}  # {(entity1, entity2): ([entity1_residues], [entity2_residues]), ...}
+        self.interface_residues = {}
         self.source_db: JobResources = kwargs.get('source_db', None)
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
         self.split_interface_ss_elements = {}  # {1: [0,1,2] , 2: [9,13,19]]}
@@ -2491,9 +2584,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     # def chains(self):
     #     return [chain for entity in self.entities for chain in entity.chains]
 
-    @property
-    def active_chains(self):
-        return [chain for entity in self.active_entities for chain in entity.chains]
+    # @property
+    # def active_chains(self):  # Todo must separate into chains method from Model or SymmetricModel
+    #     return [chain for entity in self.active_entities for chain in entity.chains]
 
     # @property
     # def chain_breaks(self):
@@ -2513,7 +2606,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #
     # def chain(self, chain):  # TODO COMMENT OUT .pdb
     #     return self.pdb.entity_from_chain(chain)
-
+    #
     # def find_center_of_mass(self):
     #     """Retrieve the center of mass for the specified Structure"""
     #     if self.symmetry:
@@ -2522,7 +2615,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #     else:
     #         divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
     #         self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
-
+    #
     # def add_pdb(self, pdb):  # UNUSED
     #     """Add a PDB to the Pose PDB as well as the member PDB container"""
     #     # self.debug_pdb(tag='add_pdb')  # here, pdb chains are still in the oriented configuration
@@ -2538,94 +2631,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #                    % ', '.join(list(entity.name for entity in current_pdb_entities)))
     #
     #     self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb, log=self.log)
-
-    def find_contacting_asu(self, distance=8, **kwargs) -> Iterable[Entity]:
-        """From the Pose Entities, find the maximal contacting Chain for each of the entities
-
-        Keyword Args:
-            distance=8 (int): The distance to check for contacts
-        Returns:
-            (Iterable[Entity]): The minimal set of Entities containing the maximally touching configuration
-        """
-        entities = self.entities
-        if self.number_of_entities != 1:
-            idx = 0
-            chain_combinations, entity_combinations = [], []
-            contact_count = \
-                np.zeros(sum(map(prod, combinations((entity.number_of_monomers for entity in entities), 2))))
-            for entity1, entity2 in combinations(entities, 2):
-                for chain1 in entity1.chains:
-                    chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
-                    for chain2 in entity2.chains:
-                        entity_combinations.append((entity1, entity2))
-                        chain_combinations.append((chain1, chain2))
-                        contact_count[idx] = \
-                            chain_cb_coord_tree.two_point_correlation(chain2.get_cb_coords(), [distance])[0]
-                        idx += 1
-
-            max_contact_idx = contact_count.argmax()
-            additional_chains = []
-            max_chains = list(chain_combinations[max_contact_idx])
-            if len(max_chains) != self.number_of_entities:
-                # find the indices where either of the maximally contacting chains are utilized
-                selected_chain_indices = {idx for idx, chain_pair in enumerate(chain_combinations)
-                                          if max_chains[0] in chain_pair or max_chains[1] in chain_pair}
-                remaining_entities = set(entities).difference(entity_combinations[max_contact_idx])
-                for entity in remaining_entities:  # get the maximum contacts and the associated entity and chain indices
-                    # find the indices where the missing entity is utilized
-                    remaining_indices = \
-                        {idx for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair}
-                    # pair_position = [0 if entity_pair[0] == entity else 1
-                    #                  for idx, entity_pair in enumerate(entity_combinations) if entity in entity_pair]
-                    # only use those where found asu chains already occur
-                    viable_remaining_indices = list(remaining_indices.intersection(selected_chain_indices))
-                    # out of the viable indices where the selected chains are matched with the missing entity,
-                    # find the highest contact
-                    max_idx = contact_count[viable_remaining_indices].argmax()
-                    for entity_idx, entity_in_combo in enumerate(entity_combinations[viable_remaining_indices[max_idx]]):
-                        if entity == entity_in_combo:
-                            additional_chains.append(chain_combinations[viable_remaining_indices[max_idx]][entity_idx])
-
-            new_entities = max_chains + additional_chains
-            # print([(entity.name, entity.chain_id) for entity in entities])
-            # rearrange the entities to have the same order as provided
-            for new_entity in new_entities:
-                print('NEW', new_entity.name, new_entity.chain)
-            for entity in entities:
-                print('OLD', entity.name, entity.chain)
-            entities = [new_entity for entity in entities for new_entity in new_entities if entity == new_entity]
-            # print([(entity.name, entity.chain_id) for entity in entities])
-        return entities
-
-    def return_contacting_asu(self, **kwargs) -> PDB:
-        """From the Pose Entities, find the maximal contacting Chain for each of the entities and return the ASU
-
-        If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
-
-        Returns:
-            (PDB): A PDB object with the minimal set of Entities containing the maximally touching configuration
-        """
-        entities = self.find_contacting_asu(**kwargs)
-        found_chain_ids = []
-        for entity in entities:
-            if entity.chain_id in found_chain_ids:
-                kwargs['rename_chains'] = True
-                break
-            else:
-                found_chain_ids.append(entity.chain_id)
-
-        return PDB.from_entities(entities, name='asu', log=self.log, biomt_header=self.format_biomt(),
-                                 cryst_record=self.cryst_record, **kwargs)
-
-    def set_contacting_asu(self, **kwargs):
-        """From the Pose Entities, find the maximal contacting Chain for each of the entities and set the Pose.asu
-
-        Sets:
-            self._pdb: To a PDB object with the minimal set of Entities containing the maximally touching configuration
-        """
-        entities = self.find_contacting_asu(**kwargs)
-        self._pdb = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)
-
+    #
     # def handle_flags(self, design_selector=None, fragment_db=None, ignore_clashes=False, **kwargs):
     #     self.ignore_clashes = ignore_clashes
     #     if design_selector:
@@ -2992,7 +2998,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """Get pairs of heavy atom indices that are within a distance at the interface between two Entities
 
         Caution: Pose must have Coords representing all atoms! Residue pairs are found using CB indices from all atoms
-        Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized.
+
+        Symmetry aware. If symmetry is used, by default all atomic coordinates for entity2 are symmeterized
 
         Args:
             entity1: First Entity to measure interface between
@@ -3005,7 +3012,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if not residues1:
             return
         if not residues2:  # check if the interface is a self and all residues are in residues1
-            residues2 = copy(residues1)
+            residues2 = residues1
 
         entity1_indices = []
         for residue in residues1:
@@ -3017,6 +3024,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         if self.symmetry:  # get all symmetric indices
             coords_length = len(self.coords)
+            # coords_length = self.number_of_atoms  # Todo
             entity2_indices = [idx + (coords_length * model_number)
                                for model_number in range(self.number_of_symmetry_mates) for idx in entity2_indices]
 
@@ -3027,14 +3035,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                             for entity1_idx in entity1_contacts]
         return contacting_pairs
 
+    # Todo this matches the source equation right? Does it need a residue average, not an atom average?
     def interface_local_density(self, distance: float = 12.) -> float:
-        """Find the number of Atoms within a distance of each Atom in the Structure and add the density as an average
-           value over each Residue
+        """Returns the average density of heavy atoms which neighbor the Atoms in the Pose interface
 
         Args:
             distance: The cutoff distance with which Atoms should be included in local density
         Returns:
-            The local density around each interface
+            The local atom density around the interface
         """
         interface_indices1, interface_indices2 = [], []
         for entity1, entity2 in self.interface_residues:

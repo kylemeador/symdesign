@@ -1,5 +1,9 @@
 <ROSETTASCRIPTS>
 
+	<RESIDUE_SELECTORS>
+		<ResiduePDBInfoHasLabel name="hbnet_residues" property="HBNet"/>
+	</RESIDUE_SELECTORS>
+
 	<MOVERS>
 		<AddConstraints name="add_csts">
 			<CoordinateConstraintGenerator name="coord_cst_gen"/> # DEFAULTS -> native="false" sd="0.5" bounded="false" sidechain="false" ca_only="false" ambiguous_hnq="false" align_reference="false" bounded_width="0" sidechain="false" to constrain backbone heavy atoms, could try ca_only as well. bounded="false" makes constraint type harmonic
