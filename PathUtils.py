@@ -1,3 +1,4 @@
+from __future__ import annotations
 import os
 
 
@@ -44,7 +45,7 @@ rosetta_str = 'rosetta'
 string_ops = [str.upper, str.lower, str.title]
 
 
-def search_env_for_variable(search_variable: str) -> str:
+def search_env_for_variable(search_variable: str) -> str | None:
     env_variable = None
     i = 0
     search_strings = []
@@ -218,11 +219,13 @@ alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
 # alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
 # TODO set up hh-suite in source or elsewhere on system and dynamically modify config file
 hhblits_exe = search_env_for_variable(hhblits)
+hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
 uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
 # uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
 install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
 # Rosetta
 rosetta_main = search_env_for_variable(rosetta_str)
+rosetta_main = rosetta_main if rosetta_main else 'main'  # ensure not None
 make_symmdef = os.path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
 # Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
 dalphaball = os.path.join(rosetta_main, 'source', 'external', 'DAlpahBall', 'DAlphaBall.gcc')
