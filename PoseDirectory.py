@@ -3257,12 +3257,11 @@ class PoseDirectory:  # (JobResources):
         scores_df = columns_to_new_column(scores_df, summation_pairs)
         scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
         # add total_interface_residues for div_pairs and int_comp_similarity
-        scores_df['total_interface_residues'] = other_pose_metrics['total_interface_residues']
+        scores_df['total_interface_residues'] = other_pose_metrics.pop('total_interface_residues')
         scores_df = columns_to_new_column(scores_df, division_pairs, mode='truediv')
         scores_df['interface_composition_similarity'] = scores_df.apply(interface_composition_similarity, axis=1)
         # dropping 'total_interface_residues' after calculation as it is in other_pose_metrics
-        scores_df.drop(clean_up_intermediate_columns + ['total_interface_residues'], axis=1, inplace=True,
-                       errors='ignore')
+        scores_df.drop(clean_up_intermediate_columns, axis=1, inplace=True, errors='ignore')
         if scores_df.get('repacking') is not None:
             # set interface_bound_activation_energy = NaN where repacking is 0
             # Currently is -1 for True (Rosetta Filter quirk...)
@@ -3275,7 +3274,7 @@ class PoseDirectory:  # (JobResources):
         # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
         # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
         # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
-        residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
+        residue_df = residue_df.dropna(how='all', axis=1)  # remove completely empty columns such as obs_interface
         # fill in contact order for each design
         residue_df.fillna(residue_df.loc[pose_source, idx_slice[:, 'contact_order']], inplace=True)  # method='pad',
         residue_df.fillna(0., inplace=True)
@@ -3325,8 +3324,9 @@ class PoseDirectory:  # (JobResources):
         # if number_of_trajectories > 0:
         # add all docking and pose information to each trajectory
         pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
-        pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories), trajectory_df.index)), inplace=True)
-        trajectory_df = pd.concat([pose_metrics_df, trajectory_df], axis=1)
+        trajectory_df = pd.concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
+                                                                         trajectory_df.index)))
+                                  .drop(['observations'], axis=1), trajectory_df], axis=1)
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
