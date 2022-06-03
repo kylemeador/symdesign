@@ -302,27 +302,26 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 flags_file = os.path.join(refine_dir, 'refine_flags')
                 if not os.path.exists(flags_file):
                     flags = copy(rosetta_flags) + relax_flags
-                    flags.extend(['-out:path:pdb %s' % refine_dir, '-no_scorefile true'])
+                    flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
                     flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
                     variables = copy(rosetta_variables)
                     variables.append(('dist', 0))  # Todo modify if not point groups used
-                    flags.append('-parser:script_vars %s' % ' '.join(
-                        '%s=%s' % tuple(map(str, var_val)) for var_val in variables))
+                    flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
+
                     with open(flags_file, 'w') as f:
                         f.write('%s\n' % '\n'.join(flags))
 
-                refine_cmd = ['@%s' % flags_file, '-parser:protocol',
-                              os.path.join(rosetta_scripts, '%s.xml' % refine)]
+                refine_cmd = [f'@{flags_file}', '-parser:protocol', os.path.join(rosetta_scripts, f'{refine}.xml')]
                 refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
-                               ['sdf=%s' % sym_def_files[entity.symmetry],
-                                'symmetry=%s' % ('make_point_group' if entity.symmetry != 'C1' else 'asymmetric')]
+                               [f'sdf={sym_def_files[entity.symmetry]}',
+                                f'symmetry={"make_point_group" if entity.symmetry != "C1" else "asymmetric"}']
                                for entity in entities_to_refine]
                 if batch_commands:
                     commands_file = \
                         SDUtils.write_commands([list2cmdline(cmd) for cmd in refine_cmds], out_path=refine_dir,
-                                               name='%s-refine_entities' % SDUtils.starttime)
+                                               name=f'{SDUtils.starttime}-refine_entities')
                     refine_sbatch = distribute(file=commands_file, out_path=script_out_path, scale=refine,
-                                               log_file=os.path.join(refine_dir, '%s.log' % refine),
+                                               log_file=os.path.join(refine_dir, f'{refine}.log'),
                                                max_jobs=int(len(refine_cmds) / 2 + 0.5),
                                                number_of_commands=len(refine_cmds))
                     refine_sbatch_message = \
@@ -359,10 +358,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
                     with open(flags_file, 'w') as f:
                         f.write('%s\n' % '\n'.join(flags))
-
-                loop_model_cmd = ['@%s' % flags_file, '-parser:protocol',
-                                  os.path.join(rosetta_scripts, 'loop_model_ensemble.xml'),
-                                  '-parser:script_vars']
+                loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
+                                  os.path.join(rosetta_scripts, 'loop_model_ensemble.xml'), '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
                 logger.info('Preparing blueprint and loop files for entity:')
                 # out_paths, blueprints, loop_files = [], [], []
@@ -376,21 +373,21 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     entity_loop_file = entity.make_loop_file(out_path=full_model_dir)
 
                     entity_cmd = script_cmd + loop_model_cmd + \
-                        ['blueprint=%s' % entity_blueprint, 'loop_file=%s' % entity_loop_file,
-                         '-in:file:s', os.path.join(refine_dir, '%s.pdb' % entity.name), '-out:path:pdb',
+                        [f'blueprint={entity_blueprint}', f'loop_file={entity_loop_file}',
+                         '-in:file:s', os.path.join(refine_dir, f'{entity.name}.pdb'), '-out:path:pdb',
                          entity_out_path] + (['-symmetry:symmetry_definition', sym_def_files[entity.symmetry]]
                                              if entity.symmetry != 'C1' else [])
 
                     multimodel_cmd = ['python', models_to_multimodel_exe, '-d', entity_loop_file,
-                                      '-o', os.path.join(full_model_dir, '%s_ensemble.pdb' % entity)]
-                    copy_cmd = ['scp', os.path.join(entity_out_path, '%s_0001.pdb' % entity),
-                                os.path.join(full_model_dir, '%s.pdb' % entity)]
+                                      '-o', os.path.join(full_model_dir, f'{entity}_ensemble.pdb')]
+                    copy_cmd = ['scp', os.path.join(entity_out_path, f'{entity}_0001.pdb'),
+                                os.path.join(full_model_dir, f'{entity}.pdb')]
                     loop_model_cmds.append(
                         SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity.name, out_path=full_model_dir,
                                                    additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
                 if batch_commands:
                     loop_cmds_file = \
-                        SDUtils.write_commands(loop_model_cmds, name='%s-loop_model_entities' % SDUtils.starttime,
+                        SDUtils.write_commands(loop_model_cmds, name=f'{SDUtils.starttime}-loop_model_entities',
                                                out_path=full_model_dir)
                     loop_model_sbatch = distribute(file=loop_cmds_file, out_path=script_out_path, scale=refine,
                                                    log_file=os.path.join(full_model_dir, 'loop_model.log'),
