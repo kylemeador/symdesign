@@ -965,7 +965,7 @@ def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: D
         hbonds: {'0001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
-                  ...}, ...}
+                 ...}, ...}
     """
     if not hbonds:
         hbonds = {}
@@ -997,10 +997,13 @@ def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: D
             # set hbond data if available
             data['hbond'] = 1 if residue_number in design_hbonds else 0
             # compute the energy delta of each residue which requires summing the unbound energies
-            data['energy_delta'] = data['energy']['complex'] - sum(data['energy']['unbound'])
-            data['coordinate_constraint'] = data['energy'].get('cst', 0.)
-            data['residue_favored'] = data['energy'].get('fsp', 0.)
-            data.pop('energy')
+            data['bound'] = sum(data['bound'])
+            data['unbound'] = sum(data['unbound'])
+            data['energy_delta'] = data['complex'] - data['unbound']
+            # data['energy_bound_activation'] = data['bound'] - data['unbound']
+            data['coordinate_constraint'] = data.get('cst', 0.)
+            data['residue_favored'] = data.get('fsp', 0.)
+            # data.pop('energy')
             # if residue_data[residue_number]['energy'] <= hot_spot_energy:
             #     residue_data[residue_number]['hot_spot'] = 1
 
