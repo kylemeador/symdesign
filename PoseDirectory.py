@@ -3324,7 +3324,8 @@ class PoseDirectory:  # (JobResources):
                                                                         for protocol in unique_design_protocols})
         print('protocol_stats', protocol_stats)
         print('pose_stats', pd.concat(pose_stats, axis=1).T)
-        trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
+        trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] +
+                                  [df.dropna(how='all', axis=0) for df in protocol_stats])
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         number_of_trajectories = len(trajectory_df)
         # if number_of_trajectories > 0:
