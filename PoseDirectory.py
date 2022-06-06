@@ -2615,8 +2615,7 @@ class PoseDirectory:  # (JobResources):
             interface_hbonds = dirty_hbond_processing(all_viable_design_scores)
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_viable_design_scores, hbonds_columns)
-            number_hbonds_s = \
-                pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
+            number_hbonds_s = pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()})  #, name='number_hbonds')
             # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
             scores_df.loc[number_hbonds_s.index, 'number_hbonds'] = number_hbonds_s
             # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
@@ -2651,8 +2650,8 @@ class PoseDirectory:  # (JobResources):
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
             source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
-            design_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
-            scores_df = pd.concat([source_df, design_df])
+            scores_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
+            scores_df = pd.concat([source_df, scores_df])
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
                 source_df[f'interface_energy_{idx}_bound'] = 0
@@ -3061,16 +3060,15 @@ class PoseDirectory:  # (JobResources):
             # mutation_frequencies = filter_dictionary_keys(pose_alignment['frequencies'], interface_residues)
             # Calculate Jensen Shannon Divergence using different SSM occurrence data and design mutations
             #                                              both mut_freq and profile_background[profile] are one-indexed
-            divergence = {'divergence_%s' % profile: position_specific_jsd(mutation_frequencies, background)
+            divergence = {f'divergence_{profile}': position_specific_jsd(mutation_frequencies, background)
                           for profile, background in profile_background.items()}
             interface_bkgd = self.fragment_db.get_db_aa_frequencies()
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
-            divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
-                                for divergence_type, stat in divergence.items()}
-            pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
-
+            pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
+                                           for divergence_type, stat in divergence.items()},
+                                          name=('sequence_design', 'pose'))
             if designs_by_protocol:  # were multiple designs generated with each protocol?
                 # find the divergence within each protocol
                 divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
@@ -3079,20 +3077,23 @@ class PoseDirectory:  # (JobResources):
                     protocol_alignment = msa_from_dictionary({design: pose_sequences[design] for design in designs})
                     protocol_mutation_freq = filter_dictionary_keys(protocol_alignment.frequencies,
                                                                     self.interface_design_residues)
-                    protocol_res_dict = {'divergence_%s' % profile: position_specific_jsd(protocol_mutation_freq, bkgnd)
+                    protocol_res_dict = {f'divergence_{profile}': position_specific_jsd(protocol_mutation_freq, bkgnd)
                                          for profile, bkgnd in profile_background.items()}  # ^ both are 1-idx
                     if interface_bkgd:
                         protocol_res_dict['divergence_interface'] = \
                             jensen_shannon_divergence(protocol_mutation_freq, interface_bkgd)
                     # Get per residue divergence metric by protocol
-                    for divergence, sequence_info in protocol_res_dict.items():
-                        divergence_by_protocol[protocol]['%s_per_residue' % divergence] = per_res_metric(sequence_info)
-                        # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
-                        # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
+                    divergence_by_protocol[protocol] = {f'{divergence}_per_residue': per_res_metric(sequence_info)
+                                                        for divergence, sequence_info in protocol_res_dict.items()}
+                    # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
+                    # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
 
+                protocol_divergence_s = pd.DataFrame(divergence_by_protocol).unstack()
+                print('new', protocol_divergence_s)
                 protocol_divergence_s = pd.concat(
                     [pd.Series(divergence) for divergence in divergence_by_protocol.values()],
                     keys=list(zip(repeat('sequence_design'), divergence_by_protocol)))
+                print('old', protocol_divergence_s)
             else:
                 protocol_divergence_s = pd.Series(dtype=float)
             divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
@@ -3156,7 +3157,8 @@ class PoseDirectory:  # (JobResources):
             dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
                                                index=list(entity_sequences[0].keys()), columns=residue_indices)
             # get all design names                                         ^
-            dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy']).swaplevel(0, 1, axis=1)
+            # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
+            dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
             # merge with per_residue_df
             residue_df = pd.merge(residue_df, dca_concatenated_df, left_index=True, right_index=True)
 
@@ -3373,11 +3375,10 @@ class PoseDirectory:  # (JobResources):
             pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_residue_info, sequence_difference))
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
             # Make principal components (PC) DataFrame
-            residue_energy_pc_df = \
-                pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
-                             columns=['pc%d' % idx for idx, _ in enumerate(res_pca.components_, 1)])
+            residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
+                                                columns=[f'pc{idx}' for idx in range(1, len(res_pca.components_) + 1)])
             seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
-                                     columns=['pc%d' % idx for idx, _ in enumerate(seq_pca.components_, 1)])
+                                     columns=[f'pc{idx}' for idx in range(1, len(seq_pca.components_) + 1)])
             # Compute the euclidean distance
             # pairwise_pca_distance_np = pdist(seq_pc)
             # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
