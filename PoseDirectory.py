@@ -3068,9 +3068,12 @@ class PoseDirectory:  # (JobResources):
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
-            pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
-                                           for divergence_type, stat in divergence.items()},
-                                          name=('sequence_design', 'pose'))
+            divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
+                                for divergence_type, stat in divergence.items()}
+            pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
+            # pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
+            #                                for divergence_type, stat in divergence.items()},
+            #                               name=('sequence_design', 'pose'))
             if designs_by_protocol:  # were multiple designs generated with each protocol?
                 # find the divergence within each protocol
                 divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
@@ -3394,10 +3397,10 @@ class PoseDirectory:  # (JobResources):
             # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
 
             # Merge PC DataFrames with labels
-            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-            seq_pc_df[PUtils.groups] = protocol_s
-            # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-            residue_energy_pc_df[PUtils.groups] = protocol_s
+            seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+            # seq_pc_df[PUtils.groups] = protocol_s
+            residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
+            # residue_energy_pc_df[PUtils.groups] = protocol_s
             # Next group the labels
             sequence_groups = seq_pc_df.groupby(PUtils.groups)
             residue_energy_groups = residue_energy_pc_df.groupby(PUtils.groups)
