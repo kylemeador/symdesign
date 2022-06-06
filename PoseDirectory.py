@@ -3327,7 +3327,7 @@ class PoseDirectory:  # (JobResources):
         # trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # remove std rows if their is no stdev
         trajectory_df = pd.concat([trajectory_df] +
-                                  [df.T.dropna(how='all', axis=0) for df in pose_stats] +
+                                  [s.dropna(how='all', axis=0).to_frame().T for s in pose_stats] +
                                   [df.dropna(how='all', axis=0) for df in protocol_stats])
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         number_of_trajectories = len(trajectory_df)
