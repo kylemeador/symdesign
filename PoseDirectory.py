@@ -3093,7 +3093,7 @@ class PoseDirectory:  # (JobResources):
                 # dfd.columns = pd.MultiIndex.from_frame(new)
                 # protocol_divergence_s = pd.DataFrame(divergence_by_protocol).unstack()
                 protocol_divergence_s = \
-                    pd.concat(pd.DataFrame(divergence_by_protocol).unstack(), keys=['sequence_design'])
+                    pd.concat([pd.DataFrame(divergence_by_protocol).unstack()], keys=['sequence_design'])
                 print('new', protocol_divergence_s)
                 protocol_divergence_s = pd.concat(
                     [pd.Series(divergence) for divergence in divergence_by_protocol.values()],
@@ -3302,6 +3302,7 @@ class PoseDirectory:  # (JobResources):
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         scores_df[PUtils.groups] = protocol_s
+        # scores_df = pd.concat([protocol_s, scores_df], axis=1)
         protocol_groups = scores_df.groupby(PUtils.groups)
         # # protocol_groups = trajectory_df.groupby(groups)
         # designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
