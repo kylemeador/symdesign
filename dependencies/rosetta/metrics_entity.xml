@@ -51,14 +51,16 @@
 		# find the per residue energy of residues in a residue_selector
 		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015"/>
+		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>
+		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
 		# sasa is now measured with freesasa
 		# gather the per residue SASA of a residue selection
 <!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="hydrophobic_sasa"/>-->
 <!--		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="polar_sasa"/>-->
 <!--		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="all_sasa"/>-->
 		# summarize the energy metrics from above
-		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum"/>
-		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum"/>
+		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_bound"/>/>
+		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_bound"/>/>
 		<ResidueSummaryMetric name="S_M_int_energy_total_unbound" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/>
 		<ResidueSummaryMetric name="M_int_energy_total_unbound" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/>
 <!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_%%entity%%_unbound"/>-->
@@ -108,13 +110,17 @@
 <!--		<RunSimpleMetrics name="run_metrics_hydrophobic_sasa_bound" metrics="M_sasa_hydrophobic_per_res" prefix="" suffix="_hydrophobic_%%entity%%_unbound" override="false"/> # unbound label on these is for residue_processing() although they represent bound state-->
 <!--		<RunSimpleMetrics name="run_metrics_polar_sasa_bound" metrics="M_sasa_polar_per_res" prefix="" suffix="_polar_%%entity%%_unbound" override="false"/>-->
 <!--		<RunSimpleMetrics name="run_metrics_sasa_bound" metrics="M_sasa_total_per_res" prefix="" suffix="_total_%%entity%%_unbound" override="false"/>-->
-		<RunSimpleMetrics name="S_run_metrics_bound" metrics="M_int_hbonds_res_selector,S_M_int_energy_total,S_M_solvation_energy" prefix="" suffix="_%%entity%%_bound" override="false"/>
-		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%entity%%_bound" override="false"/>
+		<RunSimpleMetrics name="S_run_metrics_bound" metrics="M_int_hbonds_res_selector,S_M_int_energy_per_res,S_M_int_energy_total,S_M_solvation_energy" prefix="" suffix="_%%entity%%_bound" override="false"/>
+		<RunSimpleMetrics name="run_metrics_bound" metrics="M_int_hbonds_res_selector,M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_%%entity%%_bound" override="false"/>
+		<RunSimpleMetrics name="S_run_solv_metrics_bound" metrics="S_M_solvation_energy_per_res" prefix="" suffix="solv_%%entity%%_bound" override="false"/>
+		<RunSimpleMetrics name="run_solv_metrics_bound" metrics="M_solvation_energy_per_res" prefix="" suffix="solv_%%entity%%_bound" override="false"/>
 <!--		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_hydrophobic" metrics="M_sasa_hydrophobic" prefix="" suffix="_hydrophobic_%%entity%%_bound" override="false"/>-->
 <!--		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_polar" metrics="M_sasa_polar" prefix="" suffix="_polar_%%entity%%_bound" override="false"/>-->
 <!--		<RunSimpleMetrics name="run_metrics_bound_sum_sasa_total" metrics="M_sasa_total" prefix="" suffix="_total_%%entity%%_bound" override="false"/>-->
 		<RunSimpleMetrics name="S_run_metrics_unbound" metrics="S_M_int_energy_per_res,S_M_int_energy_total_unbound,S_M_solvation_energy" prefix="" suffix="_%%entity%%_unbound" override="false"/>
 		<RunSimpleMetrics name="run_metrics_unbound" metrics="M_int_energy_per_res,M_int_energy_total_unbound,M_solvation_energy" prefix="" suffix="_%%entity%%_unbound" override="false"/>
+		<RunSimpleMetrics name="S_run_solv_metrics_unbound" metrics="S_M_solvation_energy_per_res" prefix="" suffix="solv_%%entity%%_unbound" override="false"/>
+		<RunSimpleMetrics name="run_solv_metrics_unbound" metrics="M_solvation_energy_per_res" prefix="" suffix="solv_%%entity%%_unbound" override="false"/>
 		# remove selected regions from the pose
 <!--		<DeleteRegionMover name="measure_entity" residue_selector="not_entity"/>-->
 		<ConvertRealToVirtualMover name="measure_entity" residue_selector="not_entity"/>
@@ -168,10 +174,12 @@
 <!--		</ParsedProtocol>-->
 		<ParsedProtocol name="metrics">
 			<Add mover_name="run_metrics_bound"/>
+			<Add mover_name="run_solv_metrics_bound"/>
 			<Add filter_name="R_buns_%%entity%%_unbound"/>
 			<Add mover_name="repack_interface"/> # Unused in P432 for minimization of the unbound state
 			<Add filter_name="R_interface_connectivity_%%entity%%"/>
 			<Add mover_name="run_metrics_unbound"/>
+			<Add mover_name="run_solv_metrics_unbound"/>
 		</ParsedProtocol>
 	</MOVERS>
 

@@ -86,10 +86,12 @@
 		# used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
 		# find the per residue energy of residues in a residue_selector
 		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
+		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>
 		<PerResidueEnergyMetric name="S_M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_nano_cst"/>
 		<PerResidueEnergyMetric name="S_M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_nano_cst_fsp"/>
- 		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015"/>
+		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015"/>
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>
+		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
 		<PerResidueEnergyMetric name="M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_cst"/>
 		<PerResidueEnergyMetric name="M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_cst"/>
 		# summarize the energy metrics from above
@@ -105,6 +107,8 @@
 	<MOVERS>
 		<RunSimpleMetrics name="S_run_metrics_complex" metrics="S_M_interaction_energy,S_M_int_energy_per_res,S_M_int_energy_total,S_M_solvation_energy" prefix="" suffix="_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_complex" metrics="M_interaction_energy,M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_complex" override="false"/>
+		<RunSimpleMetrics name="S_run_solv_metrics_complex" metrics="S_M_solvation_energy_per_res" prefix="" suffix="solv_complex" override="false"/>
+		<RunSimpleMetrics name="run_solv_metrics_complex" metrics="M_solvation_energy_per_res" prefix="" suffix="solv_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics" metrics="M_int_hbonds_res_selector,M_rmsd" prefix="" suffix="_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_sequence" metrics="M_sequence" prefix="final_" suffix="" override="false"/>
 		# M_hbond_count,M_sasa,M_sasa_per_res,M_sasa_hydrophobic_per_res,M_sasa_polar_per_res,M_sasa_summary_hydrophobic,M_sasa_summary_polar,M_sasa_summary_total,M_tot_int_energy,M_int_hbonds
@@ -156,6 +160,7 @@
 	<MOVERS>
 		<ParsedProtocol name="metrics">
 			<Add mover_name="run_metrics_complex"/>
+			<Add mover_name="run_solv_metrics_complex"/>
 			<Add filter_name="R_full_stability_complex"/>
 			<Add filter_name="R_favor_residue_energy"/>
 			<Add filter_name="R_coordinate_constraint"/>
