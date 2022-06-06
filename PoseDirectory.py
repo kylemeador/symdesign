@@ -3088,7 +3088,12 @@ class PoseDirectory:  # (JobResources):
                     # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
                     # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
 
-                protocol_divergence_s = pd.DataFrame(divergence_by_protocol).unstack()
+                # new = dfd.columns.to_frame()
+                # new.insert(0, 'new2_level_name', new_level_values)
+                # dfd.columns = pd.MultiIndex.from_frame(new)
+                # protocol_divergence_s = pd.DataFrame(divergence_by_protocol).unstack()
+                protocol_divergence_s = \
+                    pd.concat(pd.DataFrame(divergence_by_protocol).unstack(), keys=['sequence_design'])
                 print('new', protocol_divergence_s)
                 protocol_divergence_s = pd.concat(
                     [pd.Series(divergence) for divergence in divergence_by_protocol.values()],
@@ -3710,10 +3715,6 @@ class PoseDirectory:  # (JobResources):
         pose_s.sort_index(level=0, inplace=True, sort_remaining=False)  # ascending=False
         pose_s.name = str(self)
 
-        del residue_df
-        del per_residue_df
-        del scores_df
-        del trajectory_df
         return pose_s
 
     @handle_design_errors(errors=(DesignError, AssertionError))
