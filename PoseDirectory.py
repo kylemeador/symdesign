@@ -3541,6 +3541,7 @@ class PoseDirectory:  # (JobResources):
             residue_df.sort_index(inplace=True)
             # residue_df = residue_df.sort_index(level=0, axis=1, sort_remaining=False)
             residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+            residue_df[(PUtils.groups, PUtils.groups)] = 0  # not what we care about?
             residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
             # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
             if merge_residue_data:
