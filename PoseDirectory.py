@@ -3397,10 +3397,10 @@ class PoseDirectory:  # (JobResources):
             # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
 
             # Merge PC DataFrames with labels
-            seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-            # seq_pc_df[PUtils.groups] = protocol_s
-            residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
-            # residue_energy_pc_df[PUtils.groups] = protocol_s
+            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+            seq_pc_df[PUtils.groups] = protocol_s
+            # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
+            residue_energy_pc_df[PUtils.groups] = protocol_s
             # Next group the labels
             sequence_groups = seq_pc_df.groupby(PUtils.groups)
             residue_energy_groups = residue_energy_pc_df.groupby(PUtils.groups)
