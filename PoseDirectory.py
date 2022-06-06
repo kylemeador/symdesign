@@ -3070,10 +3070,10 @@ class PoseDirectory:  # (JobResources):
             # Get pose sequence divergence
             divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
                                 for divergence_type, stat in divergence.items()}
-            pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
-            # pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
-            #                                for divergence_type, stat in divergence.items()},
-            #                               name=('sequence_design', 'pose'))
+            # pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
+            pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
+                                           for divergence_type, stat in divergence.items()},
+                                          name=('sequence_design', 'pose'))
             if designs_by_protocol:  # were multiple designs generated with each protocol?
                 # find the divergence within each protocol
                 divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
@@ -3090,20 +3090,11 @@ class PoseDirectory:  # (JobResources):
                     # Get per residue divergence metric by protocol
                     divergence_by_protocol[protocol] = {f'{divergence}_per_residue': per_res_metric(sequence_info)
                                                         for divergence, sequence_info in protocol_res_dict.items()}
-                    # stats_by_protocol[protocol]['%s_per_residue' % key] = per_res_metric(sequence_info)
-                    # {protocol: 'jsd_per_res': 0.747, 'int_jsd_per_res': 0.412}, ...}
-
                 # new = dfd.columns.to_frame()
                 # new.insert(0, 'new2_level_name', new_level_values)
                 # dfd.columns = pd.MultiIndex.from_frame(new)
-                # protocol_divergence_s = pd.DataFrame(divergence_by_protocol).unstack()
                 protocol_divergence_s = \
                     pd.concat([pd.DataFrame(divergence_by_protocol).unstack()], keys=['sequence_design'])
-                # print('new', protocol_divergence_s)
-                # protocol_divergence_s = pd.concat(
-                #     [pd.Series(divergence) for divergence in divergence_by_protocol.values()],
-                #     keys=list(zip(repeat('sequence_design'), divergence_by_protocol)))
-                # print('old', protocol_divergence_s)
             else:
                 protocol_divergence_s = pd.Series(dtype=float)
             divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
