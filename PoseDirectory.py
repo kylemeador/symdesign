@@ -3068,12 +3068,12 @@ class PoseDirectory:  # (JobResources):
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
-            divergence_stats = {'%s_per_residue' % divergence_type: per_res_metric(stat)
-                                for divergence_type, stat in divergence.items()}
-            # pose_divergence_s = pd.concat([pd.Series(divergence_stats)], keys=[('sequence_design', 'pose')])
-            pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
-                                           for divergence_type, stat in divergence.items()},
-                                          name=('sequence_design', 'pose'))
+            pose_divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
+                                                      for divergence_type, stat in divergence.items()})],
+                                          keys=[('sequence_design', 'pose')])
+            # pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
+            #                                for divergence_type, stat in divergence.items()},
+            #                               name=('sequence_design', 'pose'))
             if designs_by_protocol:  # were multiple designs generated with each protocol?
                 # find the divergence within each protocol
                 divergence_by_protocol = {protocol: {} for protocol in designs_by_protocol}
@@ -3279,7 +3279,7 @@ class PoseDirectory:  # (JobResources):
         # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
         # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
         # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
-        residue_df = residue_df.dropna(how='all', axis=1)  # remove completely empty columns such as obs_interface
+        residue_df = residue_df.dropna(how='all', axis=1).copy()  # remove completely empty columns like obs_interface
         # fill in contact order for each design
         residue_df.fillna(residue_df.loc[pose_source, idx_slice[:, 'contact_order']], inplace=True)  # method='pad',
         residue_df.fillna(0., inplace=True)
@@ -3539,8 +3539,8 @@ class PoseDirectory:  # (JobResources):
         if save_trajectories:
             trajectory_df.sort_index(inplace=True, axis=1)
             residue_df.sort_index(inplace=True)
-            residue_df = residue_df.sort_index(level=0, axis=1, sort_remaining=False).copy()
-            # residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+            # residue_df = residue_df.sort_index(level=0, axis=1, sort_remaining=False)
+            residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
             residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
             # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
             if merge_residue_data:
