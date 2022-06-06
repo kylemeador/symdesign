@@ -737,15 +737,16 @@ fragment_metric_template = {'center_residues': set(), 'total_residues': set(),
                             'percent_fragment_coil': 0.0}
 
 
-def read_scores(file, key='decoy'):
-    """Take a json formatted score.sc file and incorporate into dictionary of dictionaries with 'key' value as outer key
+def read_scores(file: str | bytes, key: str = 'decoy') -> dict[str, dict[str, str]]:
+    """Take a json formatted metrics file and incorporate entries into nested dictionaries with "key" as outer key
+
+    Automatically formats scores according to conventional metric naming scheme, ex: "R_", "S_", or "M_" prefix removal
 
     Args:
-        file (str): Location on disk of scorefile
-    Keyword Args:
-        key='decoy' (str): Name of the json key to use as outer dictionary identifier
+        file: Location on disk of scorefile
+        key: Name of the json key to use as outer dictionary identifier
     Returns:
-        (dict): {design_name: {all_score_metric_keys: all_score_metric_values}, ...}
+        {design_name: {metric_key: metric_value, ...}, ...}
     """
     with open(file, 'r') as f:
         scores = {}
