@@ -3324,10 +3324,10 @@ class PoseDirectory:  # (JobResources):
             if stat != mean:
                 protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
                                                                         for protocol in unique_design_protocols})
-        print('protocol_stats', protocol_stats)
-        print('pose_stats', pd.concat(pose_stats, axis=1).T)
         # trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
-        trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] +
+        # remove std rows if their is no stdev
+        trajectory_df = pd.concat([trajectory_df] +
+                                  [df.T.dropna(how='all', axis=0) for df in pose_stats] +
                                   [df.dropna(how='all', axis=0) for df in protocol_stats])
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         number_of_trajectories = len(trajectory_df)
