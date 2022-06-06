@@ -2606,16 +2606,6 @@ class PoseDirectory:  # (JobResources):
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
             assert metric_set == set(), 'Missing required metrics: "%s"' % ', '.join(metric_set)
-            # Format protocol columns
-            protocol_s = scores_df.pop(PUtils.groups).copy()
-            missing_group_indices = protocol_s.isna()
-            # Todo remove not DEV
-            scout_indices = [idx for idx in protocol_s[missing_group_indices].index if 'scout' in idx]
-            protocol_s[scout_indices] = PUtils.scout
-            structure_bkgnd_indices = [idx for idx in protocol_s[missing_group_indices].index if 'no_constraint' in idx]
-            protocol_s[structure_bkgnd_indices] = PUtils.structure_background
-            # Todo Done remove
-            # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
@@ -2688,8 +2678,6 @@ class PoseDirectory:  # (JobResources):
             scores_df['shape_complementarity'] = 0
             scores_df['solvation_energy'] = 0
             scores_df['solvation_energy_complex'] = 0
-            protocol_s = scores_df.pop(PUtils.groups).copy()
-            missing_group_indices = protocol_s.isna()
             remove_columns = rosetta_terms + unnecessary
             residue_info.update({struct_name: pose_source_residue_info for struct_name in scores_df.index.to_list()})
             # Todo generate energy scores internally which matches output from residue_processing
@@ -2699,8 +2687,18 @@ class PoseDirectory:  # (JobResources):
             #                                     hbonds=interface_hbonds)
 
         # Drop designs where required data is present
-        protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
-        scores_df.drop(missing_group_indices, axis=0, inplace=True, errors='ignore')
+        # Format protocol columns
+        missing_group_indices = scores_df[PUtils.groups].isna()
+        # Todo remove not DEV
+        scout_indices = [idx for idx in scores_df[missing_group_indices].index if 'scout' in idx]
+        scores_df.loc[scout_indices, PUtils.groups] = PUtils.scout
+        structure_bkgnd_indices = [idx for idx in scores_df[missing_group_indices].index if 'no_constraint' in idx]
+        scores_df.loc[structure_bkgnd_indices, PUtils.groups] = PUtils.structure_background
+        # Todo Done remove
+        # protocol_s.replace({'combo_profile': PUtils.design_profile}, inplace=True)  # ensure proper profile name
+
+        scores_df.drop(scores_df[PUtils.groups].isna(), axis=0, inplace=True, errors='ignore')
+        # protocol_s.drop(missing_group_indices, inplace=True, errors='ignore')
         scores_df.drop(remove_columns, axis=1, inplace=True, errors='ignore')
         viable_designs = scores_df.index.to_list()
         assert viable_designs, 'No viable designs remain after processing!'
@@ -2709,6 +2707,7 @@ class PoseDirectory:  # (JobResources):
         pose_sequences = filter_dictionary_keys(pose_sequences, viable_designs)
 
         # Find protocols for protocol specific data processing
+        protocol_s = scores_df.pop(PUtils.groups).copy()
         designs_by_protocol = protocol_s.groupby(protocol_s).groups
         # remove refine and consensus if present as there was no design done over multiple protocols
         # Todo change if we did multiple rounds of these protocols
@@ -3384,8 +3383,10 @@ class PoseDirectory:  # (JobResources):
             # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
 
             # Merge PC DataFrames with labels
-            seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
-            residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
+            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+            seq_pc_df[PUtils.groups] = protocol_s
+            # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
+            residue_energy_pc_df[PUtils.groups] = protocol_s
             # Next group the labels
             sequence_groups = seq_pc_df.groupby(PUtils.groups)
             residue_energy_groups = residue_energy_pc_df.groupby(PUtils.groups)
@@ -3533,7 +3534,7 @@ class PoseDirectory:  # (JobResources):
         if save_trajectories:
             trajectory_df.sort_index(inplace=True, axis=1)
             residue_df.sort_index(inplace=True)
-            residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
+            residue_df = residue_df.sort_index(level=0, axis=1, sort_remaining=False)
             residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
             # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
             if merge_residue_data:
