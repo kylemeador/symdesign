@@ -3240,18 +3240,34 @@ class PoseDirectory:  # (JobResources):
 
         # Calculate new metrics from combinations of other metrics
         scores_columns = scores_df.columns.to_list()
-        self.log.debug('Metrics present: %s' % scores_columns)
+        self.log.debug(f'Metrics present: {scores_columns}')
         # sum columns using list[0] + list[1] + list[n]
+        complex_df = residue_df.loc[:, idx_slice[:, 'complex']]
+        bound_df = residue_df.loc[:, idx_slice[:, 'bound']]
+        unbound_df = residue_df.loc[:, idx_slice[:, 'unbound']]
+        solvation_complex_df = residue_df.loc[:, idx_slice[:, 'solv_complex']]
+        solvation_bound_df = residue_df.loc[:, idx_slice[:, 'solv_bound']]
+        solvation_unbound_df = residue_df.loc[:, idx_slice[:, 'solv_unbound']]
+        scores_df['interface_energy_complex'] = complex_df.sum(axis=1)
+        scores_df['interface_energy_bound'] = bound_df.sum(axis=1)
+        scores_df['interface_energy_unbound'] = unbound_df.sum(axis=1)
+        scores_df['interface_solvation_energy_complex'] = solvation_complex_df.sum(axis=1)
+        scores_df['interface_solvation_energy_bound'] = solvation_bound_df.sum(axis=1)
+        scores_df['interface_solvation_energy_unbound'] = solvation_unbound_df.sum(axis=1)
+        residue_df = residue_df.drop([column for columns in [complex_df.columns, bound_df.columns, unbound_df.columns,
+                                                             solvation_complex_df.columns, solvation_bound_df.columns,
+                                                             solvation_unbound_df.columns]
+                                      for column in columns], axis=1)
         summation_pairs = \
             {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
-             'interface_energy_bound':
-                 list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-             'interface_energy_unbound':
-                 list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
-             'solvation_energy_bound':
-                 list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
-             'solvation_energy_unbound':
-                 list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             # 'interface_energy_bound':
+             #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             # 'interface_energy_unbound':
+             #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             # 'interface_solvation_energy_bound':
+             #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             # 'interface_solvation_energy_unbound':
+             #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
              'interface_connectivity':
                  list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
              }
