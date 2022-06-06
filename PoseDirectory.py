@@ -2615,7 +2615,9 @@ class PoseDirectory:  # (JobResources):
             interface_hbonds = dirty_hbond_processing(all_viable_design_scores)
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_viable_design_scores, hbonds_columns)
-            number_hbonds_s = pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()})  #, name='number_hbonds')
+            number_hbonds_s = \
+                pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
+            # number_hbonds_s = pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()})  #, name='number_hbonds')
             # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
             scores_df.loc[number_hbonds_s.index, 'number_hbonds'] = number_hbonds_s
             # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
