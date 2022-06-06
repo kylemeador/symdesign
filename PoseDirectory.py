@@ -2556,17 +2556,19 @@ class PoseDirectory:  # (JobResources):
         job_key = 'no_energy'
         stat_s, sim_series = pd.Series(dtype=float), []
         if os.path.exists(self.scores_file):  # Rosetta scores file is present
+            self.log.debug(f'Found design scores in file: {self.scores_file}')
             design_was_performed = True
             # Get the scores from the score file on design trajectory metrics
             source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
             for idx, entity in enumerate(self.pose.entities, 1):
-                source_df['buns_%d_unbound' % idx] = 0
-                source_df['interface_energy_%d_bound' % idx] = 0
-                source_df['interface_energy_%d_unbound' % idx] = 0
-                source_df['solvation_energy_%d_bound' % idx] = 0
-                source_df['solvation_energy_%d_unbound' % idx] = 0
-                source_df['interface_connectivity_%d' % idx] = 0
-            source_df['buried_unsatisfied_hbonds'] = 0
+                source_df[f'buns_{idx}_unbound'] = 0
+                source_df[f'interface_energy_{idx}_bound'] = 0
+                source_df[f'interface_energy_{idx}_unbound'] = 0
+                source_df[f'solvation_energy_{idx}_bound'] = 0
+                source_df[f'solvation_energy_{idx}_unbound'] = 0
+                source_df[f'interface_connectivity_{idx}'] = 0
+            source_df['buns_complex'] = 0
+            # source_df['buns_unbound'] = 0
             source_df['contact_count'] = 0
             source_df['favor_residue_energy'] = 0
             source_df['interface_energy_complex'] = 0
@@ -2580,7 +2582,6 @@ class PoseDirectory:  # (JobResources):
             source_df['shape_complementarity'] = 0
             source_df['solvation_energy'] = 0
             source_df['solvation_energy_complex'] = 0
-            self.log.debug(f'Found design scores in file: {self.scores_file}')
             all_design_scores = read_scores(self.scores_file)
             self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
             # Remove designs with scores but no structures
@@ -2627,7 +2628,8 @@ class PoseDirectory:  # (JobResources):
             number_hbonds_s = \
                 pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
             # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
-            scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
+            scores_df.loc[number_hbonds_s.index, 'number_hbonds'] = number_hbonds_s
+            # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
             residue_info.update(self.pose.rosetta_residue_processing(all_viable_design_scores))
             residue_info = process_residue_info(residue_info, simplify_mutation_dict(all_mutations),
@@ -2662,16 +2664,17 @@ class PoseDirectory:  # (JobResources):
             design_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
             scores_df = pd.concat([source_df, design_df])
             for idx, entity in enumerate(self.pose.entities, 1):
-                scores_df['buns_%d_unbound' % idx] = 0
-                scores_df['interface_energy_%d_bound' % idx] = 0
-                scores_df['interface_energy_%d_unbound' % idx] = 0
-                scores_df['solvation_energy_%d_bound' % idx] = 0
-                scores_df['solvation_energy_%d_unbound' % idx] = 0
-                scores_df['interface_connectivity_%d' % idx] = 0
+                source_df[f'buns_{idx}_unbound'] = 0
+                source_df[f'interface_energy_{idx}_bound'] = 0
+                source_df[f'interface_energy_{idx}_unbound'] = 0
+                source_df[f'solvation_energy_{idx}_bound'] = 0
+                source_df[f'solvation_energy_{idx}_unbound'] = 0
+                source_df[f'interface_connectivity_{idx}'] = 0
                 # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
                 # design_info.update({residue.number: {'energy_delta': 0., 'type': protein_letters_3to1.get(residue.type.title()),
                 #                          'hbond': 0} for residue in entity.residues})
-            scores_df['buried_unsatisfied_hbonds'] = 0
+            source_df['buns_complex'] = 0
+            # source_df['buns_unbound'] = 0
             scores_df['contact_count'] = 0
             scores_df['favor_residue_energy'] = 0
             scores_df['interface_energy_complex'] = 0
@@ -3289,7 +3292,7 @@ class PoseDirectory:  # (JobResources):
         other_metrics_s = pd.Series(other_pose_metrics)
         # remove this drop for consensus or refine if they are run multiple times
         trajectory_df = \
-            scores_df.sort_index().drop([pose_source, PUtils.refine, PUtils.consensus], axis=0, errors='ignore')
+            scores_df.drop([pose_source, PUtils.refine, PUtils.consensus], axis=0, errors='ignore').sort_index()
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         scores_df[PUtils.groups] = protocol_s
@@ -3318,23 +3321,26 @@ class PoseDirectory:  # (JobResources):
             if stat != mean:
                 protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
                                                                         for protocol in unique_design_protocols})
+        print('protocol_stats', protocol_stats)
+        print('pose_stats', pd.concat(pose_stats, axis=1).T)
         trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         number_of_trajectories = len(trajectory_df)
         # if number_of_trajectories > 0:
-        # add all docking and pose information to each trajectory
+        # add all docking and pose information to each trajectory, dropping the pose observations
         pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
         trajectory_df = pd.concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
                                                                          trajectory_df.index)))
                                   .drop(['observations'], axis=1), trajectory_df], axis=1)
+        trajectory_df = trajectory_df.fillna({'observations': 1})
 
         # Calculate protocol significance
         pvalue_df = pd.DataFrame()
         scout_protocols = list(filter(re.compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
         similarity_protocols = unique_design_protocols.difference([PUtils.refine] + scout_protocols)
         if PUtils.structure_background not in unique_design_protocols:
-            self.log.warning('Missing background protocol "%s". No protocol significance measurements available '
-                             'for this pose' % PUtils.structure_background)
+            self.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
+                          f'measurements available for this pose')
         elif len(similarity_protocols) == 1:  # measure significance
             self.log.info('Can\'t measure protocol significance, only one protocol of interest')
         # missing_protocols = protocols_of_interest.difference(unique_design_protocols)
