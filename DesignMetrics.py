@@ -644,12 +644,13 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interf
                                  'sasa_polar_bound', 'sasa_polar_1_bound', 'sasa_polar_2_bound',
                                  'sasa_total_bound', 'sasa_total_1_bound', 'sasa_total_2_bound',
                                  'buns_complex', 'buns_unbound', 'buns_1_unbound', 'buns_2_unbound',
+                                 'solvation_energy', 'solvation_energy_complex',
                                  'solvation_energy_1_bound', 'solvation_energy_2_bound', 'solvation_energy_1_unbound',
                                  'solvation_energy_2_unbound',
                                  'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
                                  'interface_energy_2_unbound',
                                  'interface_solvation_energy_bound', 'interface_solvation_energy_bound',
-                                 'interface_solvation_energy_unbound',
+                                 'interface_solvation_energy_unbound', 'interface_solvation_energy_complex'
                                  ]
 protocol_specific_columns = ['HBNet_NumUnsatHpol', 'HBNet_Saturation', 'HBNet_Score']
 # Some of these are unneeded now, but hanging around in case renaming occurred
