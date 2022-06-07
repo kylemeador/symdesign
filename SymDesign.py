@@ -436,9 +436,8 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
     exit_code = 0
     if exceptions:
         print('\n')
-        logger.warning('Exceptions were thrown for %d designs. Check their logs for further details\n\t%s' %
-                       (len(exceptions), '\n\t'.join('%s: %s' % (str(design.path), _error)
-                                                     for (design, _error) in exceptions)))
+        logger.warning(f'Exceptions were thrown for {len(exceptions)} designs. Check their logs for further details\n\t'
+                       f'%s' % ('\n\t'.join(f'{design.path}: {_error}' for design, _error in exceptions)))
         print('\n')
         # exit_code = 1
 
@@ -453,38 +452,38 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
         if args.output_file and args.module not in [PUtils.analysis, PUtils.cluster_poses]:
             designs_file = args.output_file
         else:
-            designs_file = os.path.join(job_paths, PUtils.default_path_file % default_output_tuple)
+            scratch_designs = os.path.join(job_paths, PUtils.default_path_file % default_output_tuple).split('_pose')
+            designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
 
         if pose_directories:  # pose_directories is empty list when nano
             with open(designs_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(design.path for design in success))
-            logger.critical('The file "%s" contains the locations of all designs in your current project that passed '
-                            'internal checks/filtering. Utilize this file to interact with %s designs in future '
-                            'commands for this project such as:\n\t%s --file %s MODULE\n'
-                            % (designs_file, PUtils.program_name, PUtils.program_command, designs_file))
+            logger.critical(f'The file "{designs_file}" contains the locations of every poses that passed checks or '
+                            f'filtering for this job. Utilize this file to interact with these poses in future commands'
+                            f' such as:\n\t{PUtils.program_command} --file {designs_file} MODULE\n')
 
         if args.module == PUtils.analysis:
             all_scores = job.all_scores
             # Save Design DataFrame
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
-            args.output_file = args.output_file if args.output_file.endswith('.csv') else '%s.csv' % args.output_file
+            args.output_file = args.output_file if args.output_file.endswith('.csv') else f'{args.output_file}.csv'
             design_df.to_csv(args.output_file)
-            logger.info('Analysis of all poses written to %s' % args.output_file)
+            logger.info(f'Analysis of all poses written to {args.output_file}')
             if args.save:
-                logger.info('Analysis of all Trajectories and Residues written to %s' % all_scores)
+                logger.info(f'Analysis of all Trajectories and Residues written to {all_scores}')
         elif args.module == PUtils.cluster_poses:
             logger.info('Clustering analysis results in the following similar poses:\nRepresentatives\n\tMembers\n')
             for representative, members, in results.items():
-                print('%s\n\t%s' % (representative, '\n\t'.join(map(str, members))))
-            logger.info('Found %d unique clusters from %d pose inputs. All clusters stored in %s'
-                        % (len(pose_cluster_map), len(pose_directories), pose_cluster_file))
+                print(f'{representative}\n\t%s' % ('\n\t'.join(map(str, members))))
+            logger.info(f'Found {len(pose_cluster_map)} unique clusters from {len(pose_directories)} pose inputs. All '
+                        f'clusters stored in {pose_cluster_file}')
             logger.info('Each cluster above has one representative which identifies with each of the members. If '
                         'clustering was performed by transformation or interface_residues, then the representative is '
                         'the most similar to all members. If clustering was performed by ialign, then the '
                         'representative is randomly chosen.')
-            logger.info('To utilize the above clustering, during %s, using the option --cluster_map, will apply '
-                        'clustering to poses to select a cluster representative based on the most favorable cluster '
-                        'member' % PUtils.select_poses)
+            logger.info(f'To utilize the above clustering, during {PUtils.select_poses}, using the option --cluster_map'
+                        f', will apply clustering to poses to select a cluster representative based on the most '
+                        f'favorable cluster member')
 
         # Set up sbatch scripts for processed Poses
         design_stage = PUtils.scout if getattr(args, PUtils.scout, None) \
@@ -851,7 +850,7 @@ if __name__ == '__main__':
             pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
                                                            directives=directives, **queried_flags)
                                 for pose, design, directives in design_specification.return_directives()]
-            location = f'{os.path.basename(args.directory)}&{args.specification_file}'
+            location = args.specification_file
         else:
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           projects=args.project, singles=args.single)
