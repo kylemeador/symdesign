@@ -732,7 +732,7 @@ if __name__ == '__main__':
         initialize = False
         if getattr(args, 'query', None):  # run nanohedra query mode
             query_flags = [__file__, '-query'] + additional_args
-            logger.debug('Query %s.py with: %s' % (PUtils.nano.title(), ', '.join(query_flags)))
+            logger.debug(f'Query {PUtils.nano.title()}.py with: {", ".join(query_flags)}')
             query_mode(query_flags)
             terminate(output=False)
 
@@ -1489,7 +1489,7 @@ if __name__ == '__main__':
                     if number_chosen == args.select_number:
                         break
 
-            # drop the specific design for the dataframe. If they want the design, they should run select designs
+            # drop the specific design for the dataframe. If they want the design, they should run select_sequences
             save_poses_df = \
                 selected_poses_df.loc[selected_indices, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:  # Figure out poses from a specification file, filters, and weights
@@ -1564,22 +1564,21 @@ if __name__ == '__main__':
         #     exit()
 
         if args.filter or args.weight:
-            new_dataframe = os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
-                                         % (SDUtils.starttime, 'Filtered' if args.filter else '',
-                                            'Weighted' if args.weight else ''))
+            new_dataframe = os.path.join(program_root, f'{SDUtils.starttime}-{"Filtered" if args.filter else ""}'
+                                                       f'{"Weighted" if args.weight else ""}PoseMetrics.csv')
         else:
-            new_dataframe = os.path.join(program_root, '%s-DesignPoseMetrics.csv' % SDUtils.starttime)
+            new_dataframe = os.path.join(program_root, f'{SDUtils.starttime}-PoseMetrics.csv')
 
-        logger.info('%d poses were selected' % len(selected_poses_df))  # :\n\t%s , '\n\t'.join(selected_poses)))
+        logger.info(f'{len(selected_poses_df)} poses were selected')
         if len(selected_poses_df) != len(df):
             selected_poses_df.to_csv(new_dataframe)
-            logger.info('Newly selected DataFrame was written to %s' % new_dataframe)
+            logger.info(f'New DataFrame with selected poses was written to {new_dataframe}')
 
         # Sort results according to clustered poses if clustering exists
         if args.cluster_map:
             cluster_map = args.cluster_map
         else:  # Todo PUtils.clustered_poses is not right...
-            cluster_map = os.path.join(job.protein_data, '%s.pkl' % PUtils.clustered_poses)
+            cluster_map = os.path.join(job.protein_data, f'{PUtils.clustered_poses}.pkl')
 
         if os.path.exists(cluster_map):
             pose_cluster_map = SDUtils.unpickle(cluster_map)
@@ -1673,8 +1672,8 @@ if __name__ == '__main__':
                 design.identify_interface()  # calls design.load_pose()
                 interface = design.pose.return_interface()
                 design_interfaces.append(
-                    # interface.write(out_path=os.path.join(temp_file_dir, '%s_interface.pdb' % design.name)))  # Todo reinstate
-                    interface.write(out_path=os.path.join(temp_file_dir, '%s.pdb' % design.name)))
+                    # interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}_interface.pdb')))  # Todo reinstate
+                    interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}.pdb')))
 
             design_directory_pairs = list(combinations(pose_directories, 2))
             design_pairs = []
@@ -1726,7 +1725,7 @@ if __name__ == '__main__':
                 for composition_group in compositions.values():
                     pose_cluster_map.update(cluster_designs(composition_group))
         else:
-            exit('%s is not a viable mode!' % args.mode)
+            exit(f'{args.mode} is not a viable mode!')
 
         if pose_cluster_map:
             if args.output_file:
@@ -1735,7 +1734,7 @@ if __name__ == '__main__':
                 pose_cluster_file = SDUtils.pickle_object(pose_cluster_map,
                                                           PUtils.clustered_poses % (location, SDUtils.starttime),
                                                           out_path=job.clustered_poses)
-            logger.info('Cluster map written to %s' % pose_cluster_file)
+            logger.info(f'Cluster map written to {pose_cluster_file}')
         else:
             logger.info('No significant clusters were located! Clustering ended')
 
@@ -1756,8 +1755,8 @@ if __name__ == '__main__':
                                                           protocol=args.protocol, function=args.weight_function)
             selected_designs = selected_poses_df.index.to_list()
             if args.allow_multiple_poses:
-                logger.info('Choosing maximum %d designs as specified, from the top ranked designs regardless of pose'
-                            % args.select_number)
+                logger.info(f'Choosing {args.select_number} designs, from the top ranked designs '
+                            f'regardless of pose')
                 results = selected_designs[:args.select_number]
             else:
                 logger.info('Choosing maximum %d designs as specified, with only one design allowed per pose'
@@ -1773,12 +1772,7 @@ if __name__ == '__main__':
                             break
             logger.info('%d designs were selected' % len(results))
 
-            if args.filter or args.weight:
-                new_dataframe = os.path.join(program_root, '%s-%s%sDesignPoseMetrics.csv'
-                                             % (SDUtils.starttime, 'Filtered' if args.filter else '',
-                                                'Weighted' if args.weight else ''))
-            else:
-                new_dataframe = os.path.join(program_root, '%s-DesignPoseMetrics.csv' % SDUtils.starttime)
+            logger.info(f'{len(results)} designs were selected')
             # include only the found index names to the saved dataframe
             save_poses_df = selected_poses_df.loc[results, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:
@@ -1824,28 +1818,33 @@ if __name__ == '__main__':
 
         # Format selected sequences for output
         if not args.selection_string:
-            args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
+            args.selection_string = f'{os.path.basename(os.path.splitext(location)[0])}_'
         else:
             args.selection_string += '_'
-        outdir = os.path.join(os.path.dirname(program_root), '%sSelectedDesigns' % args.selection_string)
+        outdir = os.path.join(os.path.dirname(program_root), f'{args.selection_string}SelectedDesigns')
         # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
         os.makedirs(outdir, exist_ok=True)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
 
         if save_poses_df is not None:
-            selection_trajectory_df_file = os.path.join(outdir, 'TrajectoryMetrics.csv')
-            save_poses_df.to_csv(selection_trajectory_df_file)
-            logger.info('New DataFrame with selected designs was written to %s' % selection_trajectory_df_file)
+            if args.filter or args.weight:
+                new_dataframe = os.path.join(outdir, f'{SDUtils.starttime}-{"Filtered" if args.filter else ""}'
+                                                     f'{"Weighted" if args.weight else ""}DesignMetrics.csv')
+            else:
+                new_dataframe = os.path.join(outdir, f'{SDUtils.starttime}-DesignMetrics.csv')
+            save_poses_df.to_csv(new_dataframe)
+            logger.info(f'New DataFrame with selected designs was written to {new_dataframe}')
 
-        logger.info('Relevant design files are being copied to the new directory: %s' % outdir)
+        logger.info(f'Relevant design files are being copied to the new directory: {outdir}')
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
         for des_dir, design in results:
-            file_path = os.path.join(des_dir.designs, '*%s*' % design)
+            file_path = os.path.join(des_dir.designs, f'*{design}*')
             file = sorted(glob(file_path))
             if not file:  # add to exceptions
-                exceptions.append((des_dir.path, 'No file found for "%s"' % file_path))
+                exceptions.append((des_dir.path, f'No file found for "{file_path}"'))
                 continue
-            if not os.path.exists(os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design))):
-                shutil.copy(file[0], os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design)))  # [i])))
+            out_path = os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design))
+            if not os.path.exists(out_path):
+                shutil.copy(file[0], out_path)  # [i])))
                 # shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
                 # shutil.copy(des_dir.residues, os.path.join(outdir_res, os.path.basename(des_dir.residues)))
             # try:
