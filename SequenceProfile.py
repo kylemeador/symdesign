@@ -228,8 +228,11 @@ class SequenceProfile:
     #     self.profile_length = len(self.profile)
 
     @property
-    def msa(self) -> MultipleSequenceAlignment:
-        return self._msa
+    def msa(self) -> MultipleSequenceAlignment | None:
+        try:
+            return self._msa
+        except AttributeError:
+            return
 
     @msa.setter
     def msa(self, msa: MultipleSequenceAlignment):
