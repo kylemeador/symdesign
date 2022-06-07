@@ -1758,19 +1758,23 @@ if __name__ == '__main__':
                 logger.info(f'Choosing {args.select_number} designs, from the top ranked designs '
                             f'regardless of pose')
                 results = selected_designs[:args.select_number]
-            else:
-                logger.info('Choosing maximum %d designs as specified, with only one design allowed per pose'
-                            % args.select_number)
+            else:  # elif args.designs_per_pose:
+                logger.info(f'Choosing {args.select_number} designs, with {args.designs_per_pose} designs per pose')
                 number_chosen = 0
-                results, selected_poses = [], set()
-                for design_directory, design in selected_designs:
-                    if design_directory not in selected_poses:
-                        selected_poses.add(design_directory)
-                        results.append((design_directory, design))
-                        number_chosen += 1
-                        if number_chosen == args.select_number:
-                            break
-            logger.info('%d designs were selected' % len(results))
+                selected_poses = {}
+                for pose_directory, design in selected_designs:
+                    designs = selected_poses.get(pose_directory, None)
+                    if designs:
+                        if len(designs) >= args.designs_per_pose:
+                            continue  # we already have too many, continue with search. No need to check as no addition
+                        selected_poses[pose_directory].add(design)
+                    else:
+                        selected_poses[pose_directory] = {design}
+                    number_chosen += 1
+                    if number_chosen == args.select_number:
+                        results = [(pose_dir, design) for pose_dir, designs in selected_poses.items()
+                                   for design in designs]
+                        break
 
             logger.info(f'{len(results)} designs were selected')
             # include only the found index names to the saved dataframe
