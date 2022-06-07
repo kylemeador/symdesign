@@ -193,7 +193,7 @@ class SequenceProfile:
         self.a3m_file: Optional[Union[str, bytes]] = None
         self.h_fields: np.ndarray = None
         self.j_couplings: np.ndarray = None
-        self.msa: Optional[MultipleSequenceAlignment] = None
+        # self.msa: Optional[MultipleSequenceAlignment] = None
         self.msa_file: Optional[Union[str, bytes]] = None
         self.pssm_file: Optional[Union[str, bytes]] = None
         # self.sequence_source = None
