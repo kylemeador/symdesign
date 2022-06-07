@@ -8,7 +8,7 @@ import subprocess
 import time
 from copy import deepcopy, copy
 # from glob import glob
-from typing import Sequence, Any, Iterable
+from typing import Dict, Union, Sequence, List, Any, Optional
 
 import numpy as np
 import pandas as pd
@@ -45,17 +45,17 @@ subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
     numerical_translation = dict(zip('-ACDEFGHIKLMNPQRSTVWY', range(21)))
 
-    def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None, alphabet: str = '-' + extended_protein_letters,
-                 weight_alignment_by_sequence: bool = False, sequence_weights: dict = None, **kwargs):
+    def __init__(self, alignment=None, aligned_sequence=None, alphabet='-' + extended_protein_letters,
+                 weight_alignment_by_sequence=False, sequence_weights=None, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
         gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
         probability of residue i in the specific column more accurately.
-        Args:
-            alignment: "Array" of SeqRecords
-            aligned_sequence: Provide the sequence on which the alignment is based, otherwise the first
+        Keyword Args:
+            bio_alignment=None ((Bio.Align.MultipleSeqAlignment)): "Array" of SeqRecords
+            aligned_sequence=None (str): Provide the sequence on which the alignment is based, otherwise the first
             sequence will be used
-            alphabet: '-ACDEFGHIKLMNPQRSTVWYBXZJUO'
+            alphabet=extended_protein_letters (str): '-ACDEFGHIKLMNPQRSTVWYBXZJUO'
             weight_alignment_by_sequence=False (bool): If weighting should be performed. Use in cases of
                 unrepresentative sequence population in the MSA
             sequence_weights=None (dict): If the alignment should be weighted, and weights are already available, the
@@ -105,14 +105,14 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
         try:
             return cls(alignment=read_alignment(file, alignment_type='stockholm'), **kwargs)
         except FileNotFoundError:
-            raise DesignError(f'The multiple sequence alignemnt file "{file}" doesn\'t exist')
+            raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
 
     @classmethod
     def from_fasta(cls, file):
         try:
             return cls(alignment=read_alignment(file))
         except FileNotFoundError:
-            raise DesignError(f'The multiple sequence alignemnt file "{file}" doesn\'t exist')
+            raise DesignError('The file requested \'%s\'for multiple sequence alignemnt doesn\'t exist' % file)
 
     def msa_to_prob_distribution(self):
         """Find the Alignment probability distribution
@@ -179,25 +179,25 @@ class SequenceProfile:
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        self.evolutionary_profile: dict = {}  # position specific scoring matrix
+        self.evolutionary_profile: Dict = {}  # position specific scoring matrix
         # self.design_pssm_file = None
-        self.profile: dict = {}  # design specific scoring matrix
+        self.profile: Dict = {}  # design specific scoring matrix
         self.fragment_db = None
-        self.fragment_queries: dict = {}
+        self.fragment_queries: Dict = {}
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
-        self.fragment_map: dict | None = None  # {}
-        self.alpha: dict = {}
-        self.fragment_profile: dict = {}
+        self.fragment_map: Optional[Dict] = None  # {}
+        self.alpha: Dict = {}
+        self.fragment_profile: Dict = {}
         # self.fragment_pssm_file = None
         # self.interface_data_file = None
-        self.a3m_file: str | bytes | None = None
-        self.h_fields: np.ndarray | None = None
-        self.j_couplings: np.ndarray | None = None
+        self.a3m_file: Optional[Union[str, bytes]] = None
+        self.h_fields: np.ndarray = None
+        self.j_couplings: np.ndarray = None
         # self.msa: Optional[MultipleSequenceAlignment] = None
-        self.msa_file: str | bytes | None = None
-        self.pssm_file: str | bytes | None = None
+        self.msa_file: Optional[Union[str, bytes]] = None
+        self.pssm_file: Optional[Union[str, bytes]] = None
         # self.sequence_source = None
-        self.sequence_file: str | bytes | None = None
+        self.sequence_file: Optional[Union[str, bytes]] = None
 
     @classmethod
     def from_structure(cls, structure=None):
@@ -329,8 +329,8 @@ class SequenceProfile:
         rerun, second, success = False, False, False
         while not success:
             if self.profile_length != len(self.evolutionary_profile):
-                self.log.warning(f'{self.name}: Profile and Pose are different lengths!\nProfile='
-                                 f'{len(self.evolutionary_profile)}, Pose={self.profile_length}')
+                self.log.warning('%s: Profile and Pose are different lengths!\nProfile=%d, Pose=%d'
+                                 % (self.name, len(self.evolutionary_profile), self.profile_length))
                 rerun = True
 
             if not rerun:
@@ -348,9 +348,9 @@ class SequenceProfile:
                         # Otherwise, generating evolutionary profiles from individual files will be required which
                         # don't contain a reference sequence and therefore have their own caveats. Warning the user
                         # will allow the user to understand what is happening at least
-                        self.log.warning(f'Profile ({self.pssm_file}) and Pose ({self.sequence_file}) sequences '
-                                         f'mismatched!\n\tResidue {residue.number}: Profile={profile_res_type}, '
-                                         f'Pose={pose_res_type}')
+                        self.log.warning(
+                            'Profile (%s) and Pose (%s) sequences mismatched!\n\tResidue %d: Profile=%s, Pose=%s'
+                            % (self.pssm_file, self.sequence_file, residue.number, profile_res_type, pose_res_type))
                         if self.evolutionary_profile[idx][pose_res_type] > 0:  # The residue choice isn't horrible...
                             self.log.critical('The evolutionary profile must have been generated from a different file,'
                                               ' however the evolutionary information contained is still viable. The '
@@ -371,7 +371,7 @@ class SequenceProfile:
                 if second:
                     raise DesignError('Profile Generation got stuck, design aborted')
                 else:
-                    self.log.info(f'Generating a new profile for {self.name}')
+                    self.log.info('Generating a new profile for %s' % self.name)
                     self.add_evolutionary_profile(force=True, out_path=os.path.dirname(self.pssm_file))
                     second = True
             else:
@@ -400,33 +400,34 @@ class SequenceProfile:
             if not self.sequence_file:  # not made/provided before add_evolutionary_profile, make new one at out_path
                 self.write_fasta_file(self.reference_sequence, name=self.name, out_path=out_path)
             elif not os.path.exists(self.sequence_file) or force:
-                self.log.debug(f'{self.name} Sequence={self.reference_sequence}')
+                self.log.debug('%s Sequence=%s' % (self.name, self.reference_sequence))
                 self.write_fasta_file(self.reference_sequence, name=self.sequence_file, out_path='')
-                self.log.debug(f'{self.name} fasta file: {self.sequence_file}')
+                self.log.debug('%s fasta file: %s' % (self.name, self.sequence_file))
 
-            temp_file = os.path.join(out_path, f'{self.name}.hold')
-            self.pssm_file = os.path.join(out_path, f'{self.name}.hmm')
+            temp_file = os.path.join(out_path, '%s.hold' % self.name)
+            self.pssm_file = os.path.join(out_path, '%s.hmm' % self.name)
             if not os.path.exists(self.pssm_file) or force:
                 if not os.path.exists(temp_file):  # No work on this pssm file has been initiated
                     # Create blocking file to prevent excess work
                     with open(temp_file, 'w') as f:
-                        self.log.info(f'Fetching "{self.name}" sequence data')
-                    self.log.debug(f'{self.name} Evolutionary Profile not yet created')
+                        self.log.info('Fetching "%s" sequence data' % self.name)
+                    self.log.debug('%s Evolutionary Profile not yet created.' % self.name)
                     if profile_source == PUtils.hhblits:
-                        self.log.info(f'Generating HHM Evolutionary Profile for {self.name}')
+                        self.log.info('Generating HHM Evolutionary Profile for %s' % self.name)
                         self.hhblits(out_path=out_path)
                     else:
-                        self.log.info(f'Generating PSSM Evolutionary Profile for {self.name}')
+                        self.log.info('Generating PSSM Evolutionary Profile for %s' % self.name)
                         self.psiblast(out_path=out_path)
                     if os.path.exists(temp_file):
                         os.remove(temp_file)
                 else:  # Block is in place, another process is working
-                    self.log.info(f'Waiting for "{self.name}" profile generation...')
+                    self.log.info('Waiting for "%s" profile generation...' % self.name)
                     while not os.path.exists(self.pssm_file):
                         if int(time.time()) - int(os.path.getmtime(temp_file)) > 5400:  # > 1 hr 30 minutes have passed
                             os.remove(temp_file)
-                            raise DesignError(f'{self.add_evolutionary_profile.__name__}: Generation of the profile for'
-                                              f' {self.name} took longer than the time limit. Job killed!')
+                            raise DesignError('%s: Generation of the profile for %s took longer than the time '
+                                              'limit. Job killed!'
+                                              % (self.add_evolutionary_profile.__name__, self.name))
                         time.sleep(20)
 
         if profile_source == PUtils.hhblits:
@@ -451,13 +452,18 @@ class SequenceProfile:
             self.evolutionary_profile[residue_number]['weight'] = 0.0
 
     def fit_evolutionary_profile_to_structure(self):
-        """From an evolutionary profile generated according to a reference sequence, align the profile to the Structure
-        sequence, removing information for residues not present in the Structure
+        """From an evolutionary profile input according to a protein reference sequence, align the profile to the
+        structure sequence, removing all information for residues not present in the structure
 
         Sets:
             (dict) self.evolutionary_profile
         """
+        # self.retrieve_info_from_api()
+        # grab the reference sequence used for translation (expression)
+        # if not self.reference_sequence:
+        #     self.retrieve_sequence_from_api(entity_id=self.name)
         # generate the disordered indices which are positions in reference that are missing in structure
+        # disorder = generate_mutations(self.structure_sequence, self.reference_sequence, only_gaps=True)
         disorder = self.disorder
         # removal of these positions from .evolutionary_profile will produce a properly indexed profile
         new_idx = 1
@@ -1394,7 +1400,7 @@ class SequenceProfile:
 
     @staticmethod
     def populate_design_dictionary(n: int, alphabet: Sequence, dtype: str = 'int', zero_index: bool = False) -> \
-            dict[int, dict[str, Any]]:
+            Dict[int, Dict[str, Any]]:
         """Return a dictionary with n elements, each integer key containing another dictionary with the items in
         alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is a dictionary.
         dtype can be any viable type [list, set, tuple, int, etc.]. If dtype is int or float, 0 will be initial value
@@ -1560,7 +1566,7 @@ def overlap_consensus(issm, aa_set):
     return consensus
 
 
-def get_db_statistics(database: str | bytes) -> dict:
+def get_db_statistics(database: Union[str, bytes]) -> Dict:
     """Retrieve summary statistics for a specific fragment database
 
     Args:
@@ -1576,7 +1582,7 @@ def get_db_statistics(database: str | bytes) -> dict:
     return {}
 
 
-def get_db_aa_frequencies(database: str | bytes) -> dict[protein_letters, float]:
+def get_db_aa_frequencies(database: Union[str, bytes]) -> Dict[protein_letters, float]:
     """Retrieve database specific interface background AA frequencies
 
     Args:
@@ -2339,31 +2345,30 @@ def return_consensus_design(frequency_sorted_msa):
                 frequency_sorted_msa[residue] = None
 
 
-def position_specific_jsd(msa: dict[int, dict[str, float]], background: dict[int, dict[str, float]]) -> \
-        dict[int, float]:
+def position_specific_jsd(msa, background):
     """Generate the Jensen-Shannon Divergence for a dictionary of residues versus a specific background frequency
 
-    Both msa and background must be the same index
+    Both msa_dictionary and background must be the same index
     Args:
-        msa: {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
-        background: {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
-            Containing residue index with inner dictionary of single amino acid types
+        msa (dict): {15: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 16: {}, ...}
+        background (dict): {0: {'A': 0, 'R': 0, ...}, 1: {}, ...}
+            Must contain residue index with inner dictionary of single amino acid types
     Returns:
-        divergence_dict: {15: 0.732, 16: 0.552, ...}
+        divergence_dict (dict): {15: 0.732, 16: 0.552, ...}
     """
     return {idx: distribution_divergence(freq, background[idx]) for idx, freq in msa.items() if idx in background}
 
 
-def distribution_divergence(frequencies: dict[str, float], bgd_frequencies: dict[str, float], lambda_: float = 0.5) -> \
-        float:
+def distribution_divergence(frequencies, bgd_frequencies, lambda_=0.5):
     """Calculate residue specific Jensen-Shannon Divergence value
 
     Args:
-        frequencies: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
-        bgd_frequencies: {'A': 0, 'R': 0, ...}
-        lambda_: Value bounded between 0 and 1
+        frequencies (dict): {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}
+        bgd_frequencies (dict): {'A': 0, 'R': 0, ...}
+    Keyword Args:
+        jsd_lambda=0.5 (float): Value bounded between 0 and 1
     Returns:
-        Bounded between 0 and 1. 1 is more divergent from background frequencies
+        (float): Bounded between 0 and 1. 1 is more divergent from background frequencies
     """
     sum_prob1, sum_prob2 = 0, 0
     for item, frequency in frequencies.items():
@@ -2379,7 +2384,7 @@ def distribution_divergence(frequencies: dict[str, float], bgd_frequencies: dict
                 try:
                     prob2 = (bgd_frequency * log(bgd_frequency / r, 2))
                     sum_prob2 += prob2
-                except (ValueError, RuntimeWarning):  # math DomainError doesn't raise, instead RunTimeWarn
+                except (ValueError, RuntimeWarning):  # math domain error which doesn't manifest as one, instead RunTimeWarn
                     pass  # continue
                 try:
                     prob1 = (frequency * log(frequency / r, 2))
@@ -2392,45 +2397,46 @@ def distribution_divergence(frequencies: dict[str, float], bgd_frequencies: dict
     return lambda_ * sum_prob1 + (1 - lambda_) * sum_prob2
 
 
-def msa_from_dictionary(named_sequences: dict[str, str]) -> MultipleSequenceAlignment:
-    """Create a MultipleSequenceAlignment from a dictionary of named sequences
-
+def msa_from_dictionary(named_sequences):
+    """Create a BioPython Multiple Sequence Alignment from a collection of sequences a dictionary
     Args:
-        named_sequences: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+        named_sequences (dict): {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
     Returns:
-        The MultipleSequenceAlignment object for the provided sequences
+        (MultipleSequenceAlignment):
+        # (Bio.Align.MultipleSeqAlignment): [SeqRecord(Seq('MNTEELQVAAFEI...', ...), id="Alpha"),
+        #                                    SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
     """
     return MultipleSequenceAlignment(MultipleSeqAlignment([SeqRecord(Seq(sequence),
                                                                      annotations={'molecule_type': 'Protein'}, id=name)
                                                            for name, sequence in named_sequences.items()]))
 
 
-def msa_from_seq_records(seq_records: Iterable[SeqRecord]) -> MultipleSeqAlignment:
-    """Create a BioPython Multiple Sequence Alignment from a SeqRecord Iterable
-
+def msa_from_seq_records(seq_records):
+    """Create a BioPython Multiple Sequence Alignment from a collection of sequences a dictionary
     Args:
-        seq_records: {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
+        seq_records (Iterator[SeqRecord]): {name: sequence, ...} ex: {'clean_asu': 'MNTEELQVAAFEI...', ...}
     Returns:
-        [SeqRecord(Seq('MNTEELQVAAFEI...', ...), id="Alpha"),
-         SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
+        (Bio.Align.MultipleSeqAlignment): [SeqRecord(Seq('MNTEELQVAAFEI...', ...), id="Alpha"),
+                                           SeqRecord(Seq('MNTEEL-VAAFEI...', ...), id="Beta"), ...]
     """
     return MultipleSeqAlignment(seq_records)
 
 
-def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], find_orf: bool = True) -> str:
+def make_mutations(seq, mutations, find_orf=True):
     """Modify a sequence to contain mutations specified by a mutation dictionary
 
     Args:
-        sequence: 'Wild-type' sequence to mutate
-        mutations: {mutation_index: {'from': AA, 'to': AA}, ...}
-        find_orf: Whether to find the correct ORF for the mutations and the seq
+        seq (str): 'Wild-type' sequence to mutate
+        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...}
+    Keyword Args:
+        find_orf=True (bool): Whether or not to find the correct ORF for the mutations and the seq
     Returns:
-        seq: The mutated sequence
+        seq (str): The mutated sequence
     """
     # Seq can be either list or string
     if find_orf:
-        offset = -find_orf_offset(sequence, mutations)
-        logger.info(f'Found ORF. Offset = {-offset}')
+        offset = -find_orf_offset(seq, mutations)
+        logger.info('Found ORF. Offset = %d' % -offset)
     else:
         offset = index_offset
 
@@ -2445,19 +2451,19 @@ def make_mutations(sequence: Sequence, mutations: dict[int, dict[str, str]], fin
         except IndexError:
             logger.error(key - offset)
     if index_errors:
-        logger.warning(f'{make_mutations.__name__} index errors: {", ".join(map(str, index_errors))}')
+        logger.warning('Index errors:\n%s' % str(index_errors))
 
     return seq
 
 
-def find_orf_offset(sequence: Sequence,  mutations: dict[int, dict[str, str]]) -> int:
+def find_orf_offset(sequence, mutations):
     """Using a sequence and mutation data, find the open reading frame that matches mutations closest
 
     Args:
-        sequence: Sequence to search for ORF in 1 letter format
-        mutations: {mutation_index: {'from': AA, 'to': AA}, ...} One-indexed sequence dictionary
+        sequence (str): Sequence to search for ORF in 1 letter format
+        mutations (dict): {mutation_index: {'from': AA, 'to': AA}, ...} One-indexed sequence dictionary
     Returns:
-        The zero-indexed integer to offset the provided sequence to best match the provided mutations
+        (int): The zero-indexed integer to offset the provided sequence to best match the provided mutations
     """
     unsolvable = False
     orf_start_idx = 0
@@ -2528,7 +2534,7 @@ Alignment = namedtuple('Alignment', 'seqA, seqB, score, start, end')
 
 
 def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62', local: bool = False,
-                       top_aligment: bool = True) -> Alignment | list[Alignment]:
+                       top_aligment: bool = True) -> Union[Alignment, List[Alignment]]:
     """Use Biopython's pairwise2 to generate a global alignment
 
     Args:
@@ -2538,7 +2544,7 @@ def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62',
         local: Whether to run a local alignment. Only use for generally similar sequences!
         top_aligment: Only include the highest scoring alignment
     Returns:
-        The resulting alignment
+        Union[Bio.pairwise2.Alignment, List]
     """
     if local:
         _type = 'local'
@@ -2556,7 +2562,7 @@ def generate_alignment(seq1: Sequence, seq2: Sequence, matrix: str = 'BLOSUM62',
 
 def generate_mutations(reference: Sequence, query: Sequence, offset: bool = True, blanks: bool = False,
                        remove_termini: bool = True, remove_query_gaps: bool = True, only_gaps: bool = False,
-                       zero_index: bool = False, return_all: bool = False) -> dict[int, dict[str, str]]:
+                       zero_index: bool = False, return_all: bool = False) -> Dict[int, Dict[str, str]]:
     """Create mutation data in a typical A5K format. One-indexed dictionary keys with the index matching the reference
      sequence index. Sequence mutations accessed by "from" and "to" keys. By default, all gaped sequences are excluded
      from returned mutation dictionary
@@ -3177,8 +3183,8 @@ def generate_multiple_mutations(reference, sequences, pose_num=True):
     return mutations
 
 
-def generate_mutations_from_reference(reference: str, sequences: dict[str, str]) -> \
-        dict[str, dict[int, dict[str, str]]]:
+def generate_mutations_from_reference(reference: str, sequences: Dict[str, str]) -> \
+        Dict[str, Dict[int, Dict[str, str]]]:
     """Generate mutation data from multiple sequences dictionaries with regard to a single reference
 
     Args:
