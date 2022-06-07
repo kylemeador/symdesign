@@ -2549,8 +2549,10 @@ class PoseDirectory:  # (JobResources):
         #                         for chain, named_sequences in entity_sequences.items()}
         entity_energies = [0. for ent in self.pose.entities]
         pose_source_residue_info = \
-            {residue.number: {'energy': {'complex': 0., 'unbound': copy.copy(entity_energies), 'fsp': 0., 'cst': 0.},
-                              'type': protein_letters_3to1.get(residue.type.title()), 'hbond': 0}
+            {residue.number: {'complex': 0., 'bound': copy.copy(entity_energies), 'unbound': copy.copy(entity_energies),
+                              'solv_complex': 0., 'solv_bound': copy.copy(entity_energies),
+                              'solv_unbound': copy.copy(entity_energies),
+                              'fsp': 0., 'cst': 0., 'type': protein_letters_3to1.get(residue.type.title()), 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
         residue_info = {pose_source: pose_source_residue_info}
         job_key = 'no_energy'
@@ -2860,9 +2862,9 @@ class PoseDirectory:  # (JobResources):
             # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
             if msa_metrics:
                 if not entity.msa:
-                    self.log.info('Metrics relying on a multiple sequence alignment are not being collected as '
-                                  'there is no MSA found. These include: %s'
-                                  % ', '.join(multiple_sequence_alignment_dependent_metrics))
+                    self.log.info(f'Metrics relying on a multiple sequence alignment are not being collected as '
+                                  f'there is no MSA found. These include: '
+                                  f'{", ".join(multiple_sequence_alignment_dependent_metrics)}')
                     # set anything found to null values
                     entity_collapse_mean, entity_collapse_std, reference_collapse_z_score = [], [], []
                     msa_metrics = False
@@ -3049,11 +3051,11 @@ class PoseDirectory:  # (JobResources):
             pose_observed_bkd = {profile: {design: per_res_metric(freq) for design, freq in design_obs_freqs.items()}
                                  for profile, design_obs_freqs in observation_d.items()}
             for profile, observed_frequencies in pose_observed_bkd.items():
-                scores_df['observed_%s' % profile] = pd.Series(observed_frequencies)
+                scores_df[f'observed_{profile}'] = pd.Series(observed_frequencies)
             # Add observation information into the residue dictionary
             for design, info in residue_info.items():
                 residue_info[design] = \
-                    weave_sequence_dict(base_dict=info, **{'observed_%s' % profile: design_obs_freqs[design]
+                    weave_sequence_dict(base_dict=info, **{f'observed_{profile}': design_obs_freqs[design]
                                                            for profile, design_obs_freqs in observation_d.items()})
             # Calculate sequence statistics
             # first for entire pose

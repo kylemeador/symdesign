@@ -3589,10 +3589,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0., 'cst': 0.}, ...},
              ...}
         """
-        energy_template = {'complex': 0., 'fsp': 0., 'cst': 0.,
-                           'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities],
-                           'solv_complex': 0.,
-                           'solv_unbound': [0. for _ in self.entities], 'solv_bound': [0. for _ in self.entities]}
+        energy_template = {'complex': 0., 'bound': [0. for _ in self.entities], 'unbound': [0. for _ in self.entities],
+                           'solv_complex': 0., 'solv_bound': [0. for _ in self.entities],
+                           'solv_unbound': [0. for _ in self.entities], 'fsp': 0., 'cst': 0.}
         # residue_template = {'energy': {'complex': 0., 'fsp': 0., 'cst': 0.,
         #                                'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities]}}
         pose_length = self.number_of_residues
