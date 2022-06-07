@@ -958,11 +958,12 @@ def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: D
     """Process energy metrics from per residue info and incorporate mutation and hydrogen bond measurements
 
     Args:
-        design_residue_scores: {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0.,
-                                             'cst': 0.}, ...}, ...}
+        design_residue_scores: {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
+                                             'solv_complex': -2.71, 'solv_bound': [-1.9, 0], 'solv_unbound': [-1.9, 0],
+                                             'fsp': 0., 'cst': 0.}, ...}, ...}
         mutations: {'reference': {mutation_index: {'from': 'A', 'to: 'K'}, ...},
-                    '0001': {mutation_index: {}, ...}, ...}
-        hbonds: {'0001': [34, 54, 67, 68, 106, 178], ...}
+                    '001': {mutation_index: {}, ...}, ...}
+        hbonds: {'001': [34, 54, 67, 68, 106, 178], ...}
     Returns:
         {'001': {15: {'type': 'T', 'energy_delta': -2.71, 'coordinate_constraint': 0. 'residue_favored': 0., 'hbond': 0}
                  ...}, ...}
