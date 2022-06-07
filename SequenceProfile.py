@@ -233,8 +233,11 @@ class SequenceProfile:
 
     @msa.setter
     def msa(self, msa: MultipleSequenceAlignment):
-        self._msa = copy(msa)
-        self.fit_msa_to_structure()
+        if isinstance(msa, MultipleSequenceAlignment):
+            self._msa = copy(msa)
+            self.fit_msa_to_structure()
+        else:
+            self.log.warning(f'The passed msa isn\'t of the required type {MultipleSequenceAlignment.__name__}')
     # def disorder(self):
     #     try:
     #         return self._disorder
