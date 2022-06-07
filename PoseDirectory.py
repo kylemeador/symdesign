@@ -1,10 +1,10 @@
 from __future__ import annotations
-import os
-import copy
-import re
+from os import path, sep, getcwd, remove, stat, makedirs  # walk
+from copy import copy
+from re import compile as re_compile
 from functools import wraps
 # from math import ceil, sqrt
-import shutil
+from shutil import copy as shcopy
 from logging import Logger
 from subprocess import Popen, list2cmdline
 from glob import glob
@@ -15,7 +15,7 @@ from typing import Union, Dict, List, Optional, Tuple, Callable, Any, Iterable
 import matplotlib.pyplot as plt
 # import seaborn as sns
 import numpy as np
-import pandas as pd
+from pandas import DataFrame, Series, MultiIndex, IndexSlice, concat, merge, read_csv
 # from matplotlib.axes import Axes
 # from mpl_toolkits.mplot3d import Axes3D
 from Bio.Data.IUPACData import protein_letters_3to1, protein_letters_1to3
@@ -81,8 +81,8 @@ class PoseDirectory:  # (JobResources):
             self.directory_string_to_path(root, design_path)  # sets self.path
             self.source_path: str = self.path
         else:
-            self.source_path: str = os.path.abspath(design_path)
-        self.name: str = os.path.splitext(os.path.basename(self.source_path))[0]
+            self.source_path: str = path.abspath(design_path)
+        self.name: str = path.splitext(path.basename(self.source_path))[0]
         # PoseDirectory path attributes
         # self.scores = None  # /program_root/Projects/project_Designs/design/scores
         self.scores_file: str | None = None  # /program_root/Projects/project_Designs/design/data/name.sc
@@ -177,7 +177,7 @@ class PoseDirectory:  # (JobResources):
 
         if self.nanohedra_output:
             # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
-            if not os.path.exists(self.source_path):
+            if not path.exists(self.source_path):
                 raise FileNotFoundError(f'The specified PoseDirectory "{self.source_path}" was not found!')
             # self.canonical_pdb1 = None  # canonical pdb orientation
             # self.canonical_pdb2 = None
@@ -187,92 +187,92 @@ class PoseDirectory:  # (JobResources):
             # if self.dock:  # Todo DockDirectory
             #     # Saves the path of the docking directory as PoseDirectory.path attribute. Try to populate further
             #     # using typical directory structuring
-            #     # self.program_root = glob(os.path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implement?
+            #     # self.program_root = glob(path.join(path, 'NanohedraEntry*DockedPoses*'))  # TODO final implement?
             #     self.program_root = self.source_path  # Assuming that output directory (^ or v) of Nanohedra was passed
             #     # v for design_recap
-            #     # self.program_root = glob(os.path.join(self.path, 'NanohedraEntry*DockedPoses%s'
+            #     # self.program_root = glob(path.join(self.path, 'NanohedraEntry*DockedPoses%s'
             #     #                                                   % str(program_root or '')))
-            #     # self.nano_master_log = os.path.join(self.program_root, PUtils.master_log)
-            #     # self.log = [os.path.join(_sym, PUtils.master_log) for _sym in self.program_root]
+            #     # self.nano_master_log = path.join(self.program_root, PUtils.master_log)
+            #     # self.log = [path.join(_sym, PUtils.master_log) for _sym in self.program_root]
             #     # for k, _sym in enumerate(self.program_root):
-            #     # for k, _sym in enumerate(next(os.walk(self.program_root))):
+            #     # for k, _sym in enumerate(next(walk(self.program_root))):
             #     # self.building_blocks.append(list())
             #     # self.building_block_logs.append(list())
             #     # get all dirs from walk('NanohedraEntry*DockedPoses/) Format: [[], [], ...]
-            #     # for bb_dir in next(os.walk(_sym))[1]:
+            #     # for bb_dir in next(walk(_sym))[1]:
             #     # v used in dock_dir set up
             #     self.building_block_logs = []
             #     self.building_block_dirs = []
-            #     for bb_dir in next(os.walk(self.program_root))[1]:  # [1] grabs dirs from os.walk, yields only top level
-            #         if os.path.exists(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
+            #     for bb_dir in next(walk(self.program_root))[1]:  # [1] grabs dirs from walk, yields only top level
+            #         if path.exists(path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir)):  # TODO PUtils?
             #             self.building_block_dirs.append(bb_dir)
             #             # self.building_block_dirs[k].append(bb_dir)
-            #             self.building_block_logs.append(os.path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
-            #             # self.building_block_logs[k].append(os.path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
+            #             self.building_block_logs.append(path.join(self.program_root, bb_dir, '%s_log.txt' % bb_dir))
+            #             # self.building_block_logs[k].append(path.join(_sym, bb_dir, '%s_log.txt' % bb_dir))
             #
             #     # TODO generators for the various directory levels using the stored directory pieces
             #     def get_building_block_dir(self, building_block):
             #         for sym_idx, symm in enumerate(self.program_root):
             #             try:
             #                 bb_idx = self.building_block_dirs[sym_idx].index(building_block)
-            #                 return os.path.join(self.program_root[sym_idx], self.building_block_dirs[sym_idx][bb_idx])
+            #                 return path.join(self.program_root[sym_idx], self.building_block_dirs[sym_idx][bb_idx])
             #             except ValueError:
             #                 continue
             #         return
             self.initialized = False
-            path_components = self.source_path.split(os.sep)
+            path_components = self.source_path.split(sep)
             # design_symmetry (P432)
             # path_components[-3] are the oligomeric names
             self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
             # design_symmetry/building_blocks (P432/4ftd_5tch)
-            self.oligomer_names = list(map(str.lower, os.path.basename(self.composition).split('_')))
+            self.oligomer_names = list(map(str.lower, path.basename(self.composition).split('_')))
             self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # assumes the entity is the first
             # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
-            #     .replace(os.sep, '-')
-            self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing os.sep
+            #     .replace(sep, '-')
+            self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing sep
             self.name = self.pose_id
             if self.output_directory:
-                # self.program_root = self.output_directory  # os.getcwd()
+                # self.program_root = self.output_directory  # getcwd()
                 self.projects = ''
                 self.project_designs = ''
                 self.path = self.program_root
                 # ^ /output_directory<- self.path /design.pdb
             else:
-                # self.program_root = os.path.join(os.getcwd(), PUtils.program_output)
-                self.projects = os.path.join(self.program_root, PUtils.projects)
-                self.project_designs = os.path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
-                self.path = os.path.join(self.project_designs, self.name)
+                # self.program_root = path.join(getcwd(), PUtils.program_output)
+                self.projects = path.join(self.program_root, PUtils.projects)
+                self.project_designs = path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
+                self.path = path.join(self.project_designs, self.name)
                 # self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
             # copy the master log
-            if not os.path.exists(os.path.join(self.project_designs, PUtils.master_log)):
-                shutil.copy(os.path.join(self.nanohedra_root, PUtils.master_log), self.project_designs)
+            if not path.exists(path.join(self.project_designs, PUtils.master_log)):
+                shcopy(path.join(self.nanohedra_root, PUtils.master_log), self.project_designs)
 
             self.make_path(self.path, condition=self.construct_pose)
         elif '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
-            if not os.path.exists(self.source_path):
+            if not path.exists(self.source_path):
                 raise FileNotFoundError(f'The file "{self.source_path}" couldn\'t be located! Ensure this location is '
                                         f'correct')
             self.source = self.source_path
             if self.output_directory:
-                # self.program_root = self.output_directory  # os.getcwd()
+                # self.program_root = self.output_directory  # getcwd()
                 self.projects = ''
                 self.project_designs = ''
                 self.path = self.program_root
                 # ^ /output_directory<- self.path /design.pdb
             else:
-                # self.program_root = os.path.join(os.getcwd(), PUtils.program_output)  # symmetry.rstrip(os.sep)
-                self.projects = os.path.join(self.program_root, PUtils.projects)
-                self.project_designs = os.path.join(self.projects, '%s_%s' % (self.source_path.split(os.sep)[-2],
+                # self.program_root = path.join(getcwd(), PUtils.program_output)  # symmetry.rstrip(sep)
+                self.projects = path.join(self.program_root, PUtils.projects)
+                self.project_designs = path.join(self.projects, '%s_%s' % (self.source_path.split(sep)[-2],
                                                                               PUtils.pose_directory))
-                self.path = os.path.join(self.project_designs, self.name)
+                self.path = path.join(self.project_designs, self.name)
                 # ^ /program_root/projects/project/design<- self.path /design.pdb
                 # self.make_path(self.program_root)
                 self.make_path(self.projects)
                 self.make_path(self.project_designs)
                 self.make_path(self.path)
-                shutil.copy(self.source_path, self.path)
+                shcopy(self.source_path, self.path)
             # Todo remove this mechanism here... requires reconfiguration of self.start_log
             # need to start here if I want to load pose through normal mechanism... ugh
             # sets self.entity_names if PoseDirectory was created and the .pdb name is specified again
@@ -288,11 +288,11 @@ class PoseDirectory:  # (JobResources):
         else:  # initialize PoseDirectory with existing /program_root/projects/project/design
             self.initialized = True
             self.path = self.source_path
-            if not os.path.exists(self.path):
+            if not path.exists(self.path):
                 raise FileNotFoundError(f'The specified PoseDirectory "{self.source_path}" was not found!')
-            self.project_designs = os.path.dirname(self.path)
-            self.projects = os.path.dirname(self.project_designs)
-            # self.program_root = os.path.dirname(self.projects)
+            self.project_designs = path.dirname(self.path)
+            self.projects = path.dirname(self.project_designs)
+            # self.program_root = path.dirname(self.projects)
 
     @classmethod
     def from_nanohedra(cls, design_path, project=None, **kwargs):
@@ -591,15 +591,15 @@ class PoseDirectory:  # (JobResources):
 
     @property
     def trajectories(self) -> Union[str, bytes]:
-        return os.path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
+        return path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
 
     @property
     def residues(self) -> Union[str, bytes]:
-        return os.path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
+        return path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
 
     @property
     def design_sequences(self) -> Union[str, bytes]:
-        return os.path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
+        return path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
 
     # SequenceProfile based attributes
     @property
@@ -660,7 +660,7 @@ class PoseDirectory:  # (JobResources):
             return self._fragment_data
         except AttributeError:
             try:
-                frag_pkl = os.path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
+                frag_pkl = path.join(self.data, '%s_%s.pkl' % (self.fragment_source, PUtils.fragment_profile))
                 self._fragment_data = self.info['fragment_data'] if 'fragment_data' in self.info else unpickle(frag_pkl)
             except FileNotFoundError:
                 # fragment_profile is removed of all entries that are not fragment populated.
@@ -832,10 +832,10 @@ class PoseDirectory:  # (JobResources):
         """
         # self.pose.get_assembly_symmetry_mates()
         if not self.pose.assembly.sasa:
-            # self.pose.assembly.write(os.path.join(self.data, 'ASSEMBLY_DEBUG.pdb'))
+            # self.pose.assembly.write(path.join(self.data, 'ASSEMBLY_DEBUG.pdb'))
             self.pose.assembly.get_sasa()
 
-        # self.pose.assembly.write(out_path=os.path.join(self.path, 'POSE_ASSEMBLY.pdb'))
+        # self.pose.assembly.write(out_path=path.join(self.path, 'POSE_ASSEMBLY.pdb'))
         entity_chain = self.pose.assembly.chain(entity.chain_id)
         n_term, c_term = False, False
         # Todo add reference when in a crystalline environment  # reference=pose_transformation[idx].get('translation2')
@@ -995,7 +995,7 @@ class PoseDirectory:  # (JobResources):
             self.log = null_log
         else:
             self.log = start_log(name=str(self), handler=handler, level=level,
-                                 location=os.path.join(self.path, self.name), propagate=propagate,
+                                 location=path.join(self.path, self.name), propagate=propagate,
                                  no_log_name=no_log_name)
 
     def directory_string_to_path(self, root: Union[str, bytes], pose_id: str):
@@ -1004,14 +1004,14 @@ class PoseDirectory:  # (JobResources):
         assert root, 'No root directory attribute! Cannot create a path from a pose_id without a root directory!' \
                      ' Ensure you initialized with the keyword argument root="directory"'
         if self.nanohedra_output:
-            self.path = os.path.join(root, pose_id.replace('-', os.sep))
+            self.path = path.join(root, pose_id.replace('-', sep))
         else:
             # Dev only
             if '_Designs-' in pose_id:
-                self.path = os.path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % os.sep))
+                self.path = path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % sep))
             else:
-                self.path = os.path.join(root, 'Projects', pose_id.replace('_%s-' % PUtils.pose_directory,
-                                                                           '_%s%s' % (PUtils.pose_directory, os.sep)))
+                self.path = path.join(root, 'Projects', pose_id.replace('_%s-' % PUtils.pose_directory,
+                                                                        '_%s%s' % (PUtils.pose_directory, sep)))
 
     @handle_design_errors(errors=(DesignError, ))
     @close_logs
@@ -1035,29 +1035,29 @@ class PoseDirectory:  # (JobResources):
         # Todo if I use output_identifier for design, it opens up a can of worms. Maybe it is better to include only for
         #  specific modules
         self.output_identifier = '%s_' % self.name if self.output_directory else ''
-        self.designs = os.path.join(self.path, PUtils.pdbs_outdir)
-        self.scripts = os.path.join(self.path, '%s%s' % (self.output_identifier, PUtils.scripts))
-        self.frags = os.path.join(self.path, '%s%s' % (self.output_identifier, PUtils.frag_dir))
-        self.flags = os.path.join(self.scripts, 'flags')  # '%sflags' % self.output_identifier)
-        self.data = os.path.join(self.path, '%s%s' % (self.output_identifier, PUtils.data))
-        self.scores_file = os.path.join(self.data, '%s.sc' % self.name)
-        self.serialized_info = os.path.join(self.data, 'info.pkl')  # '%sinfo.pkl' % self.output_identifier)
-        self.asu_path = os.path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
-        self.assembly_path = os.path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
-        self.refine_pdb = '%s_for_refine.pdb' % os.path.splitext(self.asu_path)[0]
-        self.consensus_pdb = '%s_for_consensus.pdb' % os.path.splitext(self.asu_path)[0]
-        self.consensus_design_pdb = os.path.join(self.designs, os.path.basename(self.consensus_pdb))
-        self.pdb_list = os.path.join(self.scripts, 'design_files.txt')
-        self.design_profile_file = os.path.join(self.data, 'design.pssm')  # os.path.abspath(self.path), 'data'
-        self.evolutionary_profile_file = os.path.join(self.data, 'evolutionary.pssm')
-        self.fragment_profile_file = os.path.join(self.data, 'fragment.pssm')
+        self.designs = path.join(self.path, PUtils.pdbs_outdir)
+        self.scripts = path.join(self.path, '%s%s' % (self.output_identifier, PUtils.scripts))
+        self.frags = path.join(self.path, '%s%s' % (self.output_identifier, PUtils.frag_dir))
+        self.flags = path.join(self.scripts, 'flags')  # '%sflags' % self.output_identifier)
+        self.data = path.join(self.path, '%s%s' % (self.output_identifier, PUtils.data))
+        self.scores_file = path.join(self.data, '%s.sc' % self.name)
+        self.serialized_info = path.join(self.data, 'info.pkl')  # '%sinfo.pkl' % self.output_identifier)
+        self.asu_path = path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
+        self.assembly_path = path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
+        self.refine_pdb = '%s_for_refine.pdb' % path.splitext(self.asu_path)[0]
+        self.consensus_pdb = '%s_for_consensus.pdb' % path.splitext(self.asu_path)[0]
+        self.consensus_design_pdb = path.join(self.designs, path.basename(self.consensus_pdb))
+        self.pdb_list = path.join(self.scripts, 'design_files.txt')
+        self.design_profile_file = path.join(self.data, 'design.pssm')  # path.abspath(self.path), 'data'
+        self.evolutionary_profile_file = path.join(self.data, 'evolutionary.pssm')
+        self.fragment_profile_file = path.join(self.data, 'fragment.pssm')
         if self.nanohedra_output:
-            self.pose_file = os.path.join(self.source_path, PUtils.pose_file)
-            self.frag_file = os.path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
+            self.pose_file = path.join(self.source_path, PUtils.pose_file)
+            self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
             if self.construct_pose:
-                if not os.path.exists(os.path.join(self.path, PUtils.pose_file)):
-                    shutil.copy(self.pose_file, self.path)
-                    shutil.copy(self.frag_file, self.path)
+                if not path.exists(path.join(self.path, PUtils.pose_file)):
+                    shcopy(self.pose_file, self.path)
+                    shcopy(self.frag_file, self.path)
                 self.info['nanohedra'] = True
                 self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
                 # self.info['sym_entry'] = self.sym_entry
@@ -1066,13 +1066,13 @@ class PoseDirectory:  # (JobResources):
                 self.info['entity_names'] = self.entity_names
                 self.pickle_info()  # save this info on the first copy so that we don't have to construct again
         else:
-            self.pose_file = os.path.join(self.path, PUtils.pose_file)
-            self.frag_file = os.path.join(self.frags, PUtils.frag_text_file)
+            self.pose_file = path.join(self.path, PUtils.pose_file)
+            self.frag_file = path.join(self.frags, PUtils.frag_text_file)
             self.pre_refine = self.info.get('pre_refine', True)
             self.pre_loop_model = self.info.get('pre_loop_model', True)
             self.entity_names = self.info.get('entity_names', [])
             self.oligomer_names = self.info.get('oligomer_names', [])
-            if os.path.exists(self.serialized_info):  # Pose has already been processed, gather state data
+            if path.exists(self.serialized_info):  # Pose has already been processed, gather state data
                 try:
                     serial_info = unpickle(self.serialized_info)
                     if not self.info:  # empty dict
@@ -1088,10 +1088,10 @@ class PoseDirectory:  # (JobResources):
                     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
                     self.log.critical('Removing %s' % self.serialized_info)
                     # raise error
-                    os.remove(self.serialized_info)
-                if os.stat(self.serialized_info).st_size > 10000:
+                    remove(self.serialized_info)
+                if stat(self.serialized_info).st_size > 10000:
                     print('Found pickled file with huge size %d. fragment_database being removed'
-                          % os.stat(self.serialized_info).st_size)
+                          % stat(self.serialized_info).st_size)
                     self.info['fragment_source'] = \
                         getattr(self.info.get('fragment_database'), 'source', PUtils.biological_interfaces)
                     self.pickle_info()  # save immediately so we don't have this issue with reading again!
@@ -1128,7 +1128,7 @@ class PoseDirectory:  # (JobResources):
                 if fragment_data and not isinstance(fragment_data, dict):  # this is a .pkl file
                     try:
                         self.info['fragment_data'] = unpickle(fragment_data)
-                        os.remove(fragment_data)
+                        remove(fragment_data)
                     except FileNotFoundError:
                         self.info.pop('fragment_data')
                 if 'pose_transformation' in self.info:
@@ -1150,18 +1150,18 @@ class PoseDirectory:  # (JobResources):
         if self.pre_refine:
             self.refined_pdb = self.asu_path
             self.scouted_pdb = \
-                '%s_scout.pdb' % os.path.join(self.designs, os.path.basename(os.path.splitext(self.refined_pdb)[0]))
+                '%s_scout.pdb' % path.join(self.designs, path.basename(path.splitext(self.refined_pdb)[0]))
         else:
-            self.refined_pdb = os.path.join(self.designs, os.path.basename(self.refine_pdb))
-            self.scouted_pdb = '%s_scout.pdb' % os.path.splitext(self.refined_pdb)[0]
+            self.refined_pdb = path.join(self.designs, path.basename(self.refine_pdb))
+            self.scouted_pdb = '%s_scout.pdb' % path.splitext(self.refined_pdb)[0]
         # check if the source of the pdb files was loop modelled upon loading
 
         # configure standard pose loading mechanism with self.source
         if self.specific_design:
-            matching_designs = sorted(glob(os.path.join(self.designs, f'*{self.specific_design}.pdb')))
+            matching_designs = sorted(glob(path.join(self.designs, f'*{self.specific_design}.pdb')))
             if matching_designs:
                 for matching_design in matching_designs:
-                    if os.path.exists(matching_design):
+                    if path.exists(matching_design):
                         self.specific_design_path = matching_design
                         break
                 if len(matching_designs) > 1:
@@ -1173,11 +1173,11 @@ class PoseDirectory:  # (JobResources):
             self.specific_design = f'{self.name}_{self.specific_design}'
             self.source = self.specific_design_path
         elif not self.source:
-            if os.path.exists(self.asu_path):  # standard mechanism of loading the pose
+            if path.exists(self.asu_path):  # standard mechanism of loading the pose
                 self.source = self.asu_path
             else:
                 try:
-                    self.source = sorted(glob(os.path.join(self.path, '%s.pdb' % self.name)))[0]
+                    self.source = sorted(glob(path.join(self.path, '%s.pdb' % self.name)))[0]
                 except IndexError:  # glob found no files
                     self.source = None
         else:  # if the PoseDirectory is loaded as .pdb, the source should be loaded already
@@ -1190,7 +1190,7 @@ class PoseDirectory:  # (JobResources):
         try:
             return self._symmetry_definition_files
         except AttributeError:
-            self._symmetry_definition_files = sorted(glob(os.path.join(self.data, '*.sdf')))
+            self._symmetry_definition_files = sorted(glob(path.join(self.data, '*.sdf')))
             return self._symmetry_definition_files
 
     def get_wildtype_file(self) -> Union[str, bytes]:
@@ -1202,8 +1202,8 @@ class PoseDirectory:  # (JobResources):
 
     def get_designs(self) -> List[Union[str, bytes]]:  # design_type: str = PUtils.interface_design
         """Return the paths of all design files in a PoseDirectory"""
-        return sorted(glob(os.path.join(self.designs, '*.pdb')))
-        # return sorted(glob(os.path.join(self.designs, '*%s*.pdb' % design_type)))
+        return sorted(glob(path.join(self.designs, '*.pdb')))
+        # return sorted(glob(path.join(self.designs, '*%s*.pdb' % design_type)))
 
     # def return_symmetry_stats(self):  # Depreciated
     #     return len(symm for symm in self.program_root)
@@ -1257,7 +1257,7 @@ class PoseDirectory:  # (JobResources):
         if self.fragment_observations:  # check if fragment generation has been populated somewhere
             frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
             # frag_metrics = self.pose.return_fragment_metrics(fragments=self.fragment_observations)
-        elif os.path.exists(self.frag_file):  # try to pull them from disk
+        elif path.exists(self.frag_file):  # try to pull them from disk
             self.log.debug('Fragment observations found on disk. Adding to the Design state')
             self.retrieve_fragment_info_from_file()
             frag_metrics = format_fragment_metrics(calculate_match_metrics(self.fragment_observations))
@@ -1435,7 +1435,7 @@ class PoseDirectory:  # (JobResources):
         #     print(self.info)
 
     def prepare_rosetta_flags(self, symmetry_protocol: Optional[str] = None, sym_def_file: Optional[str] = None,
-                              pdb_out_path: Optional[str] = None, out_path: Union[str, bytes] = os.getcwd()) -> str:
+                              pdb_out_path: Optional[str] = None, out_path: Union[str, bytes] = getcwd()) -> str:
         """Prepare a protocol specific Rosetta flags file with program specific variables
 
         Args:
@@ -1495,7 +1495,7 @@ class PoseDirectory:  # (JobResources):
         else:  # get an out of bounds index
             variables.extend([('core_residues', out_of_bounds_residue)])
 
-        flags = copy.copy(rosetta_flags)
+        flags = copy(rosetta_flags)
         if pdb_out_path:
             flags.extend(['-out:path:pdb %s' % pdb_out_path, '-scorefile %s' % self.scores_file])
         else:
@@ -1503,7 +1503,7 @@ class PoseDirectory:  # (JobResources):
         flags.append('-in:file:native %s' % self.refined_pdb)
         flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
 
-        out_file = os.path.join(out_path, 'flags')
+        out_file = path.join(out_path, 'flags')
         with open(out_file, 'w') as f:
             f.write('%s\n' % '\n'.join(flags))
 
@@ -1528,13 +1528,13 @@ class PoseDirectory:  # (JobResources):
                         entity.make_sdf(out_path=self.data,
                                         modify_sym_energy_for_cryst=True if self.design_dimension in [2, 3] else False)
                     else:
-                        shutil.copy(os.path.join(PUtils.symmetry_def_files, 'C1.sym'),
-                                    os.path.join(self.data, '%s.sdf' % entity.name))
+                        shcopy(path.join(PUtils.symmetry_def_files, 'C1.sym'),
+                                    path.join(self.data, '%s.sdf' % entity.name))
 
             entity_metric_commands = []
             for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
                 if self.symmetric:
-                    entity_sdf = 'sdf=%s' % os.path.join(self.data, '%s.sdf' % name)
+                    entity_sdf = 'sdf=%s' % path.join(self.data, '%s.sdf' % name)
                     entity_sym = 'symmetry=make_point_group'
                 else:
                     entity_sdf, entity_sym = '', 'symmetry=asymmetric'
@@ -1551,20 +1551,20 @@ class PoseDirectory:  # (JobResources):
     def interface_metrics(self):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
-        main_cmd = copy.copy(script_cmd)
+        main_cmd = copy(script_cmd)
         if self.interface_residues is False or self.interface_design_residues is False:
             # need these ^ for making flags so get them v
             self.identify_interface()
 
         # interface_secondary_structure
-        if not os.path.exists(self.flags) or self.force_flags:
+        if not path.exists(self.flags) or self.force_flags:
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # <-$ needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug('Pose flags written to: %s' % self.flags)
 
-        pdb_list = os.path.join(self.scripts, 'design_files%s.txt' %
+        pdb_list = path.join(self.scripts, 'design_files%s.txt' %
                                 ('_%s' % self.specific_protocol if self.specific_protocol else ''))
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list] + \
             (['-s', self.specific_protocol] if self.specific_protocol else [])
@@ -1578,15 +1578,15 @@ class PoseDirectory:  # (JobResources):
             self.run_in_shell = False
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
+            [path.join(PUtils.rosetta_scripts, '%s%s.xml'
                           % (PUtils.interface_metrics, '_DEV' if self.development else ''))]
-        entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
+        entity_cmd = main_cmd + [path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
                                               % ('_DEV' if self.development else ''))]
         metric_cmds = [metric_cmd_bound]
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
         # for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
         #     if self.symmetric:
-        #         entity_sdf = 'sdf=%s' % os.path.join(self.data, '%s.sdf' % name)
+        #         entity_sdf = 'sdf=%s' % path.join(self.data, '%s.sdf' % name)
         #         entity_sym = 'symmetry=make_point_group'
         #     else:
         #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
@@ -1608,10 +1608,10 @@ class PoseDirectory:  # (JobResources):
                               score_only=None, variables=None, **kwargs):
         """Generate a custom script to dispatch to the design using a variety of parameters"""
         raise DesignError('This module is outdated, please update it to use')  # Todo reflect modern metrics collection
-        cmd = copy.copy(script_cmd)
-        script_name = os.path.splitext(os.path.basename(script))[0]
-        flags = os.path.join(self.scripts, 'flags')
-        if not os.path.exists(self.flags) or self.force_flags:  # Generate a new flags_design file
+        cmd = copy(script_cmd)
+        script_name = path.splitext(path.basename(script))[0]
+        flags = path.join(self.scripts, 'flags')
+        if not path.exists(self.flags) or self.force_flags:  # Generate a new flags_design file
             # Need to assign the designable residues for each entity to a interface1 or interface2 variable
             self.identify_interface()
             # self.prepare_symmetry_for_rosetta()
@@ -1623,7 +1623,7 @@ class PoseDirectory:  # (JobResources):
         cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
 
         if file_list:
-            pdb_input = os.path.join(self.scripts, 'design_files.txt')
+            pdb_input = path.join(self.scripts, 'design_files.txt')
             generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_input]
         else:
             pdb_input = self.refined_pdb
@@ -1704,7 +1704,7 @@ class PoseDirectory:  # (JobResources):
         elif self.structure_background:
             protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
-            design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
+            design_list_file = path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
@@ -1713,7 +1713,7 @@ class PoseDirectory:  # (JobResources):
         elif self.no_hbnet:  # run the legacy protocol
             protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
-            design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
+            design_list_file = path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
@@ -1722,26 +1722,26 @@ class PoseDirectory:  # (JobResources):
         else:  # run hbnet_design_profile protocol
             protocol, protocol_xml1 = PUtils.hbnet_design_profile, 'hbnet_scout'
             nstruct_instruct = ['-no_nstruct_label', 'true']
-            design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
+            design_list_file = path.join(self.scripts, 'design_files_%s.txt' % protocol)
             generate_files_cmd = \
                 ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
             metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
-            out_file = ['-out:file:silent', os.path.join(self.data, 'hbnet_silent.o'),
+            out_file = ['-out:file:silent', path.join(self.data, 'hbnet_silent.o'),
                         '-out:file:silent_struct_type', 'binary']
             additional_cmds = \
-                [[PUtils.hbnet_sort, os.path.join(self.data, 'hbnet_silent.o'), str(self.number_of_trajectories)]]
-            # silent_file = os.path.join(self.data, 'hbnet_silent.o')
+                [[PUtils.hbnet_sort, path.join(self.data, 'hbnet_silent.o'), str(self.number_of_trajectories)]]
+            # silent_file = path.join(self.data, 'hbnet_silent.o')
             # additional_commands = \
             #     [
-            #      # ['grep', '^SCORE', silent_file, '>', os.path.join(self.data, 'hbnet_scores.sc')],
-            #      main_cmd + [os.path.join(self.data, 'hbnet_selected.o')]
-            #      [os.path.join(self.data, 'hbnet_selected.tags')]
+            #      # ['grep', '^SCORE', silent_file, '>', path.join(self.data, 'hbnet_scores.sc')],
+            #      main_cmd + [path.join(self.data, 'hbnet_selected.o')]
+            #      [path.join(self.data, 'hbnet_selected.tags')]
             #     ]
 
-        main_cmd = copy.copy(script_cmd)
+        main_cmd = copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        if not os.path.exists(self.flags) or self.force_flags:
+        if not path.exists(self.flags) or self.force_flags:
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
@@ -1753,7 +1753,7 @@ class PoseDirectory:  # (JobResources):
                 consensus_cmd = main_cmd + relax_flags_cmdline + \
                     ['@%s' % self.flags, '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
-                     '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.consensus),
+                     '-parser:protocol', path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.consensus),
                      '-parser:script_vars', 'switch=%s' % PUtils.consensus]
                 self.log.info('Consensus Command: %s' % list2cmdline(consensus_cmd))
                 if not self.run_in_shell:
@@ -1767,23 +1767,23 @@ class PoseDirectory:  # (JobResources):
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
-            [f'@{self.flags}', '-in:file:s', self.scouted_pdb if os.path.exists(self.scouted_pdb) else self.refined_pdb,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml'),
+            [f'@{self.flags}', '-in:file:s', self.scouted_pdb if path.exists(self.scouted_pdb) else self.refined_pdb,
+             '-parser:protocol', path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml'),
              '-out:suffix', f'_{protocol}'] + (['-overwrite'] if self.overwrite else []) + out_file + nstruct_instruct
         if additional_cmds:  # this is where hbnet_design_profile.xml is set up, which could be just design_profile.xml
             additional_cmds.append(
                 main_cmd +
                 (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) +
-                ['-in:file:silent', os.path.join(self.data, 'hbnet_selected.o'), '@%s' % self.flags,
+                ['-in:file:silent', path.join(self.data, 'hbnet_selected.o'), '@%s' % self.flags,
                  '-in:file:silent_struct_type', 'binary',
                  # '-out:suffix', '_%s' % protocol,  adding no_nstruct_label true as only hbnet uses this mechanism
-                 '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)] + nstruct_instruct)
+                 '-parser:protocol', path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)] + nstruct_instruct)
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         entity_cmd = script_cmd + metrics_pdb + \
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
+             '-parser:protocol', path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
         if self.mpi > 0 and not self.scout:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
@@ -1822,8 +1822,8 @@ class PoseDirectory:  # (JobResources):
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
-            out_path = os.path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
-            if not os.path.exists(out_path):
+            out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            if not path.exists(out_path):
                 header = True
             else:
                 header = False
@@ -1906,44 +1906,44 @@ class PoseDirectory:  # (JobResources):
                         source_idx += 1
                         self.log.error('Falling back to source %s' % source_preference[source_idx])
                         if source_preference[source_idx] == 'design':
-                            file = glob(os.path.join(self.path, '%s*.pdb*' % name))
+                            file = glob(path.join(self.path, '%s*.pdb*' % name))
                             if file and len(file) == 1:
                                 self.oligomers.append(PDB.from_file(file[0], log=self.log,
-                                                                    name=os.path.splitext(os.path.basename(file))[0]))
+                                                                    name=path.splitext(path.basename(file))[0]))
                             else:
                                 raise DesignError('Couldn\'t located the specified oligomer %s' % name)
             if source_idx == 0:
                 self.pre_refine = True
         else:  # Todo consolidate this with above as far as iterative mechanism
             if refined:  # prioritize the refined version
-                path = self.refine_dir
+                out_dir = self.refine_dir
                 for name in self.entity_names:
-                    if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % name))[0]):
+                    if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
                         oriented = True  # fall back to the oriented version
                         self.log.debug('Couldn\'t find oligomers in the refined directory')
                         break
                 self.pre_refine = True if not oriented else False
             if oriented:
-                path = self.orient_dir
+                out_dir = self.orient_dir
                 for name in self.entity_names:
-                    if not os.path.exists(glob(os.path.join(self.refine_dir, '%s.pdb*' % name))[0]):
-                        path = self.path
+                    if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
+                        out_dir = self.path
                         self.log.debug('Couldn\'t find oligomers in the oriented directory')
 
             if not refined and not oriented:
-                path = self.path
+                out_dir = self.path
 
             idx = 2  # initialize as 2. it doesn't matter if no names are found, but nominally it should be 2 for now
             oligomer_files = []
             for idx, name in enumerate(self.entity_names, 1):
-                oligomer_files.extend(sorted(glob(os.path.join(path, '%s*.pdb*' % name))))  # first * is PoseDirectory
+                oligomer_files.extend(sorted(glob(path.join(out_dir, f'{name}*.pdb*'))))  # first * is PoseDirectory
             assert len(oligomer_files) == idx, \
                 'Incorrect number of oligomers! Expected %d, %d found. Matched files from "%s":\n\t%s' \
-                % (idx, len(oligomer_files), os.path.join(path, '*.pdb*'), oligomer_files)
+                % (idx, len(oligomer_files), path.join(out_dir, '*.pdb*'), oligomer_files)
 
             self.oligomers.clear()  # for every call we should reset the list
             for file in oligomer_files:
-                self.oligomers.append(PDB.from_file(file, name=os.path.splitext(os.path.basename(file))[0],
+                self.oligomers.append(PDB.from_file(file, name=path.splitext(path.basename(file))[0],
                                                     log=self.log))
         self.log.debug('%d matching oligomers found' % len(self.oligomers))
         assert len(self.oligomers) == len(self.entity_names), \
@@ -1963,7 +1963,7 @@ class PoseDirectory:  # (JobResources):
             return
 
         rename_chains = True  # because the result of entities, we should rename
-        if not entities and not self.source or not os.path.exists(self.source):  # Todo minimize I/O with transform...
+        if not entities and not self.source or not path.exists(self.source):  # Todo minimize I/O with transform...
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             self.log.info('No source file found. Fetching source from Database and transforming to Pose')
             self.transform_oligomers_to_pose()
@@ -1995,7 +1995,7 @@ class PoseDirectory:  # (JobResources):
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
                 # write out new oligomers to the PoseDirectory
                 if self.write_oligomers:
-                    entity.write_oligomer(out_path=os.path.join(self.path, '%s_oligomer.pdb' % entity.name))
+                    entity.write_oligomer(out_path=path.join(self.path, '%s_oligomer.pdb' % entity.name))
         else:
             self.pose = Pose.from_pdb(pdb, name=str(self),
                                       design_selector=self.design_selector, log=self.log,
@@ -2009,7 +2009,7 @@ class PoseDirectory:  # (JobResources):
             self.info['entity_names'] = self.entity_names
 
         # Save renumbered PDB to clean_asu.pdb
-        if not self.asu_path or not os.path.exists(self.asu_path):
+        if not self.asu_path or not path.exists(self.asu_path):
             if (self.nanohedra_output and not self.construct_pose) or self.output_directory:
                 return
 
@@ -2065,7 +2065,7 @@ class PoseDirectory:  # (JobResources):
         prior_clashes = 0
         for idx, state in enumerate(multimodel, 1):
             clashes += (1 if state.is_clash() else 0)
-            state.write(out_path=os.path.join(self.path, 'state_%d.pdb' % idx))
+            state.write(out_path=path.join(self.path, 'state_%d.pdb' % idx))
             print('State %d - Clashes: %s' % (idx, 'YES' if clashes > prior_clashes else 'NO'))
             prior_clashes = clashes
 
@@ -2105,7 +2105,7 @@ class PoseDirectory:  # (JobResources):
             if to_design_directory:
                 out_path = self.assembly_path
             else:
-                out_path = os.path.join(self.orient_dir, '%s.pdb' % pdb.name)
+                out_path = path.join(self.orient_dir, '%s.pdb' % pdb.name)
                 self.make_path(self.orient_dir)
 
             pdb.orient(symmetry=self.design_symmetry)
@@ -2125,7 +2125,7 @@ class PoseDirectory:  # (JobResources):
     @remove_structure_memory
     def refine(self, to_design_directory=False, interface_to_alanine=True, gather_metrics=False):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
-        main_cmd = copy.copy(script_cmd)
+        main_cmd = copy(script_cmd)
         stage = PUtils.refine
         if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
             # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
@@ -2138,7 +2138,7 @@ class PoseDirectory:  # (JobResources):
             # except DesignError:  # Todo handle when no interface residues are found and we just want refinement
             #     pass
             if interface_to_alanine:  # Mutate all design positions to Ala before the Refinement
-                # mutated_pdb = copy.copy(self.pose.pdb)  # copy method implemented, but incompatible!
+                # mutated_pdb = copy(self.pose.pdb)  # copy method implemented, but incompatible!
                 # Have to use self.pose.pdb as Residue objects in entity_residues are from self.pose.pdb and not copy()!
                 for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
                     if interface_residue_sets[0]:  # check that there are residues present
@@ -2152,21 +2152,21 @@ class PoseDirectory:  # (JobResources):
             # self.pose.pdb.write(out_path=self.refine_pdb)
             self.pose.write(out_path=self.refine_pdb)
             self.log.debug('Cleaned PDB for %s: "%s"' % (self.refine_pdb, stage.title()))
-            flags = os.path.join(self.scripts, 'flags')
+            flags = path.join(self.scripts, 'flags')
             flag_dir = self.scripts
             pdb_out_path = self.designs
             refine_pdb = self.refine_pdb
             refined_pdb = self.refined_pdb
             additional_flags = []
         else:  # protocol to refine input structures, place in a common location, then transform for many jobs to source
-            flags = os.path.join(self.refine_dir, 'refine_flags')
+            flags = path.join(self.refine_dir, 'refine_flags')
             flag_dir = self.refine_dir
-            pdb_out_path = self.refine_dir  # os.path.join(self.refine_dir, '%s.pdb' % self.name)
+            pdb_out_path = self.refine_dir  # path.join(self.refine_dir, '%s.pdb' % self.name)
             refine_pdb = self.source
-            refined_pdb = os.path.join(pdb_out_path, refine_pdb)
+            refined_pdb = path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
 
-        if not os.path.exists(self.flags) or self.force_flags:  # Generate a new flags file
+        if not path.exists(self.flags) or self.force_flags:  # Generate a new flags file
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(flag_dir)
@@ -2179,7 +2179,7 @@ class PoseDirectory:  # (JobResources):
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
             ['@%s' % flags, '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
              '-in:file:native', refine_pdb,  # native is here to block flag file version, not actually useful for refine
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % stage),
+             '-parser:protocol', path.join(PUtils.rosetta_scripts, '%s.xml' % stage),
              '-parser:script_vars', 'switch=%s' % stage]
         self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
 
@@ -2192,9 +2192,9 @@ class PoseDirectory:  # (JobResources):
                 self.run_in_shell = False
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-                [os.path.join(PUtils.rosetta_scripts, '%s%s.xml'
+                [path.join(PUtils.rosetta_scripts, '%s%s.xml'
                               % (PUtils.interface_metrics, '_DEV' if self.development else ''))]
-            entity_cmd = main_cmd + [os.path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
+            entity_cmd = main_cmd + [path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
                                                   % ('_DEV' if self.development else ''))]
             metric_cmds = [metric_cmd_bound]
             metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
@@ -2234,7 +2234,7 @@ class PoseDirectory:  # (JobResources):
         the minimal unit of Entities that are in contact
         """
         if self.symmetric:  # if the symmetry isn't known then this wouldn't be a great option
-            if os.path.exists(self.assembly_path):
+            if path.exists(self.assembly_path):
                 self.load_pose(source=self.assembly_path)
             else:
                 self.load_pose()
@@ -2364,7 +2364,7 @@ class PoseDirectory:  # (JobResources):
                 pass
             elif self.fragment_observations or self.fragment_observations == list():
                 pass  # fragment generation was run and maybe succeeded. If not ^
-            elif os.path.exists(self.frag_file):
+            elif path.exists(self.frag_file):
                 self.retrieve_fragment_info_from_file()
             else:  # self.generate_fragments:
                 self.make_path(self.frags, condition=self.write_frags)
@@ -2381,7 +2381,7 @@ class PoseDirectory:  # (JobResources):
             self.info['fragments'] = self.fragment_observations
             self.info['fragment_source'] = self.fragment_source
 
-        if not self.pre_refine and not os.path.exists(self.refined_pdb):
+        if not self.pre_refine and not path.exists(self.refined_pdb):
             self.refine(to_design_directory=True)
 
         self.rosetta_interface_design()
@@ -2425,13 +2425,13 @@ class PoseDirectory:  # (JobResources):
         protocol_xml1 = protocol
         # nstruct_instruct = ['-no_nstruct_label', 'true']
         nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
-        design_list_file = os.path.join(self.scripts, 'design_files_%s.txt' % protocol)
+        design_list_file = path.join(self.scripts, 'design_files_%s.txt' % protocol)
         generate_files_cmd = \
             ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
 
-        main_cmd = copy.copy(script_cmd)
+        main_cmd = copy(script_cmd)
         main_cmd += ['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []
-        if not os.path.exists(self.flags) or self.force_flags:
+        if not path.exists(self.flags) or self.force_flags:
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
@@ -2444,7 +2444,7 @@ class PoseDirectory:  # (JobResources):
             (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
             ['-in:file:s', self.specific_design_path if self.specific_design_path else self.refined_pdb,
              '@%s' % self.flags, '-out:suffix', '_%s' % protocol, '-packing:resfile', res_file,
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct
+             '-parser:protocol', path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct
 
         # metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
@@ -2452,7 +2452,7 @@ class PoseDirectory:  # (JobResources):
         # metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
         entity_cmd = main_cmd + ['-in:file:l', design_list_file] + \
             ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
-             '-parser:protocol', os.path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
+             '-parser:protocol', path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
         if self.mpi > 0:
             design_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + design_cmd
@@ -2490,7 +2490,7 @@ class PoseDirectory:  # (JobResources):
     @close_logs
     @remove_structure_memory
     def interface_design_analysis(self, merge_residue_data: bool = False, save_trajectories: bool = True, figures: bool = False) \
-            -> pd.Series:
+            -> Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
 
         Args:
@@ -2515,7 +2515,7 @@ class PoseDirectory:  # (JobResources):
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
         design_structures = []
         for file in self.get_designs():
-            # decoy_name = os.path.splitext(os.path.basename(file))[0]  # name should match scored designs...
+            # decoy_name = path.splitext(path.basename(file))[0]  # name should match scored designs...
             #                     pass names if available v
             design = PDB.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True)
             # pose format should already be the case, but lets make sure
@@ -2525,7 +2525,7 @@ class PoseDirectory:  # (JobResources):
             design_structures.append(design)
 
         # initialize empty design dataframes
-        idx_slice = pd.IndexSlice
+        idx_slice = IndexSlice
         pose_length = self.pose.number_of_residues
         residue_indices = list(range(1, pose_length + 1))
         pose_source = 'pose_source'
@@ -2556,12 +2556,12 @@ class PoseDirectory:  # (JobResources):
              for entity in self.pose.entities for residue in entity.residues}
         residue_info = {pose_source: pose_source_residue_info}
         job_key = 'no_energy'
-        stat_s, sim_series = pd.Series(dtype=float), []
-        if os.path.exists(self.scores_file):  # Rosetta scores file is present
+        stat_s, sim_series = Series(dtype=float), []
+        if path.exists(self.scores_file):  # Rosetta scores file is present
             self.log.debug(f'Found design scores in file: {self.scores_file}')
             design_was_performed = True
             # Get the scores from the score file on design trajectory metrics
-            source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
+            source_df = DataFrame({pose_source: {PUtils.groups: job_key}}).T
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
                 source_df[f'interface_energy_{idx}_bound'] = 0
@@ -2594,8 +2594,8 @@ class PoseDirectory:  # (JobResources):
                 except KeyError:  # structure wasn't scored, we will remove this later
                     pass
             # Create protocol dataframe
-            scores_df = pd.DataFrame(all_viable_design_scores).T
-            scores_df = pd.concat([source_df, scores_df])
+            scores_df = DataFrame(all_viable_design_scores).T
+            scores_df = concat([source_df, scores_df])
             # Gather all columns into specific types for processing and formatting
             per_res_columns, hbonds_columns = [], []
             for column in scores_df.columns.to_list():
@@ -2618,9 +2618,9 @@ class PoseDirectory:  # (JobResources):
             # can't use hbond_processing (clean) in the case there is a design without metrics... columns not found!
             # interface_hbonds = hbond_processing(all_viable_design_scores, hbonds_columns)
             number_hbonds_s = \
-                pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
-            # number_hbonds_s = pd.Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()})  #, name='number_hbonds')
-            # scores_df = pd.merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
+                Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()}, name='number_hbonds')
+            # number_hbonds_s = Series({design: len(hbonds) for design, hbonds in interface_hbonds.items()})  #, name='number_hbonds')
+            # scores_df = merge(scores_df, number_hbonds_s, left_index=True, right_index=True)
             scores_df.loc[number_hbonds_s.index, 'number_hbonds'] = number_hbonds_s
             # scores_df = scores_df.assign(number_hbonds=number_hbonds_s)
             # residue_info = {'energy': {'complex': 0., 'unbound': 0.}, 'type': None, 'hbond': 0}
@@ -2653,9 +2653,9 @@ class PoseDirectory:  # (JobResources):
             design_was_performed = True
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
-            source_df = pd.DataFrame({pose_source: {PUtils.groups: job_key}}).T
-            scores_df = pd.DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
-            scores_df = pd.concat([source_df, scores_df])
+            source_df = DataFrame({pose_source: {PUtils.groups: job_key}}).T
+            scores_df = DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
+            scores_df = concat([source_df, scores_df])
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
                 source_df[f'interface_energy_{idx}_bound'] = 0
@@ -2774,14 +2774,14 @@ class PoseDirectory:  # (JobResources):
         number_of_entities = self.pose.number_of_entities
         if design_was_performed:
             atomic_deviation[pose_source] = sum(source_errat_accuracy) / float(number_of_entities)
-            pose_source_errat_s = pd.Series(np.concatenate(source_errat), index=residue_indices)
+            pose_source_errat_s = Series(np.concatenate(source_errat), index=residue_indices)
             per_residue_data['errat_deviation'][pose_source] = pose_source_errat_s
         else:
             atomic_deviation[pose_source], pose_per_residue_errat = pose_assembly_minimally_contacting.errat(out_path=self.data)
             per_residue_data['errat_deviation'][pose_source] = pose_per_residue_errat[:pose_length]
 
         pose_source_contact_order_s = \
-            pd.Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
+            Series(np.concatenate(source_contact_order), index=residue_indices, name='contact_order')
         per_residue_data['contact_order'][pose_source] = pose_source_contact_order_s
 
         # Compute structural measurements for all designs
@@ -2841,8 +2841,8 @@ class PoseDirectory:  # (JobResources):
             per_residue_data['sasa_polar_bound'][structure.name] = per_residue_sasa_unbound_polar
             per_residue_data['sasa_relative_bound'][structure.name] = per_residue_sasa_unbound_relative
 
-        scores_df['errat_accuracy'] = pd.Series(atomic_deviation)
-        scores_df['interface_local_density'] = pd.Series(interface_local_density)
+        scores_df['errat_accuracy'] = Series(atomic_deviation)
+        scores_df['interface_local_density'] = Series(interface_local_density)
 
         # Calculate hydrophobic collapse for each design
         # Measure the wild type (reference) entity versus modified entity(ies) to find the hci delta
@@ -2987,8 +2987,8 @@ class PoseDirectory:  # (JobResources):
                     global_collapse_z_sum.append(global_collapse_z.sum())
 
             # add the total and concatenated metrics to analysis structures
-            # collapse_concatenated = pd.Series(np.concatenate(collapse_concatenated), name=design)
-            per_residue_data['hydrophobic_collapse'][design] = pd.Series(np.concatenate(collapse_concatenated),
+            # collapse_concatenated = Series(np.concatenate(collapse_concatenated), name=design)
+            per_residue_data['hydrophobic_collapse'][design] = Series(np.concatenate(collapse_concatenated),
                                                                          name=design)
             folding_and_collapse['new_collapse_islands'][design] = sum(new_collapse_islands)
             # takes into account new collapse positions contact order and measures the deviation of collapse and
@@ -3000,9 +3000,9 @@ class PoseDirectory:  # (JobResources):
             folding_and_collapse['sequential_collapse_z_sum'][design] = sum(sequential_collapse_z_sum)
             folding_and_collapse['global_collapse_z_sum'][design] = sum(global_collapse_z_sum)
 
-        pose_collapse_df = pd.DataFrame(folding_and_collapse)
+        pose_collapse_df = DataFrame(folding_and_collapse)
         # turn per_residue_data into a dataframe matching residue_df orientation
-        per_residue_df = pd.concat({measure: pd.DataFrame(data, index=residue_indices)
+        per_residue_df = concat({measure: DataFrame(data, index=residue_indices)
                                     for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
         # With the per_residue_df constructed with reference, many metric instances should remove this entry
         # not_pose_source_indices = per_residue_df.index != pose_source  # PUtils.reference_name
@@ -3043,7 +3043,7 @@ class PoseDirectory:  # (JobResources):
             self.log.info('Design has no fragment information')
 
         if not profile_background:
-            divergence_s = pd.Series(dtype=float)
+            divergence_s = Series(dtype=float)
         else:
             # Calculate amino acid observation percent from residue_info and background SSM's
             observation_d = {profile: {design: mutation_conserved(info, background)
@@ -3053,7 +3053,7 @@ class PoseDirectory:  # (JobResources):
             pose_observed_bkd = {profile: {design: per_res_metric(freq) for design, freq in design_obs_freqs.items()}
                                  for profile, design_obs_freqs in observation_d.items()}
             for profile, observed_frequencies in pose_observed_bkd.items():
-                scores_df['observed_%s' % profile] = pd.Series(observed_frequencies)
+                scores_df['observed_%s' % profile] = Series(observed_frequencies)
             # Add observation information into the residue dictionary
             for design, info in residue_info.items():
                 residue_info[design] = \
@@ -3072,10 +3072,10 @@ class PoseDirectory:  # (JobResources):
             if interface_bkgd:
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
-            pose_divergence_s = pd.concat([pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
+            pose_divergence_s = concat([Series({f'{divergence_type}_per_residue': per_res_metric(stat)
                                                       for divergence_type, stat in divergence.items()})],
                                           keys=[('sequence_design', 'pose')])
-            # pose_divergence_s = pd.Series({f'{divergence_type}_per_residue': per_res_metric(stat)
+            # pose_divergence_s = Series({f'{divergence_type}_per_residue': per_res_metric(stat)
             #                                for divergence_type, stat in divergence.items()},
             #                               name=('sequence_design', 'pose'))
             if designs_by_protocol:  # were multiple designs generated with each protocol?
@@ -3096,16 +3096,16 @@ class PoseDirectory:  # (JobResources):
                                                         for divergence, sequence_info in protocol_res_dict.items()}
                 # new = dfd.columns.to_frame()
                 # new.insert(0, 'new2_level_name', new_level_values)
-                # dfd.columns = pd.MultiIndex.from_frame(new)
+                # dfd.columns = MultiIndex.from_frame(new)
                 protocol_divergence_s = \
-                    pd.concat([pd.DataFrame(divergence_by_protocol).unstack()], keys=['sequence_design'])
+                    concat([DataFrame(divergence_by_protocol).unstack()], keys=['sequence_design'])
             else:
-                protocol_divergence_s = pd.Series(dtype=float)
-            divergence_s = pd.concat([protocol_divergence_s, pose_divergence_s])
+                protocol_divergence_s = Series(dtype=float)
+            divergence_s = concat([protocol_divergence_s, pose_divergence_s])
 
         # reference_mutations = cleaned_mutations.pop(PUtils.reference_name, None)  # save the reference
         scores_df['number_of_mutations'] = \
-            pd.Series({design: len(mutations) for design, mutations in all_mutations.items()})
+            Series({design: len(mutations) for design, mutations in all_mutations.items()})
         scores_df['percent_mutations'] = \
             scores_df['number_of_mutations'] / other_pose_metrics['entity_residue_length_total']
         # residue_indices_per_entity = self.pose.residue_indices_per_entity
@@ -3113,8 +3113,8 @@ class PoseDirectory:  # (JobResources):
         for idx, (entity, entity_indices) in enumerate(zip(self.pose.entities, self.pose.residue_indices_per_entity), 1):
             # entity_indices = residue_indices_per_entity[idx]
             scores_df['entity_%d_number_of_mutations' % idx] = \
-                pd.Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
-                           for design, mutations in all_mutations.items()})
+                Series({design: len([residue_idx for residue_idx in mutations if residue_idx in entity_indices])
+                        for design, mutations in all_mutations.items()})
             scores_df['entity_%d_percent_mutations' % idx] = \
                 scores_df['entity_%d_number_of_mutations' % idx] / \
                 other_pose_metrics['entity_%d_number_of_residues' % idx]
@@ -3123,21 +3123,21 @@ class PoseDirectory:  # (JobResources):
         other_pose_metrics['entity_thermophilicity'] = sum(is_thermophilic) / idx  # get the average
 
         # Process mutational frequencies, H-bond, and Residue energy metrics to dataframe
-        residue_df = pd.concat({design: pd.DataFrame(info) for design, info in residue_info.items()}).unstack()
+        residue_df = concat({design: DataFrame(info) for design, info in residue_info.items()}).unstack()
         # returns multi-index column with residue number as first (top) column index, metric as second index
         # during residue_df unstack, all residues with missing dicts are copied as nan
         # Merge interface design specific residue metrics with total per residue metrics
-        # residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
+        # residue_df = merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
         #                       left_index=True, right_index=True)
         index_residues = list(self.interface_design_residues)
-        residue_df = pd.merge(residue_df.loc[:, idx_slice[index_residues, :]],
-                              per_residue_df.loc[:, idx_slice[index_residues, :]],
-                              left_index=True, right_index=True)
+        residue_df = merge(residue_df.loc[:, idx_slice[index_residues, :]],
+                           per_residue_df.loc[:, idx_slice[index_residues, :]],
+                           left_index=True, right_index=True)
 
         # entity_alignment = multi_chain_alignment(entity_sequences)
         # entity_alignments = \
         #     {idx: msa_from_dictionary(design_sequences) for idx, design_sequences in entity_sequences.items()}
-        # pose_collapse_ = pd.concat(pd.DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
+        # pose_collapse_ = concat(DataFrame(folding_and_collapse), axis=1, keys=[('sequence_design', 'pose')])
         dca_design_residues_concat = []
         dca_succeed = True
         # dca_background_energies, dca_design_energies = [], []
@@ -3159,15 +3159,15 @@ class PoseDirectory:  # (JobResources):
 
         if dca_succeed:
             # concatenate along columns, adding residue index to column, design name to row
-            dca_concatenated_df = pd.DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
+            dca_concatenated_df = DataFrame(np.concatenate(dca_design_residues_concat, axis=1),
                                                index=list(entity_sequences[0].keys()), columns=residue_indices)
             # get all design names                                         ^
-            # dca_concatenated_df.columns = pd.MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
-            dca_concatenated_df = pd.concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
+            # dca_concatenated_df.columns = MultiIndex.from_product([dca_concatenated_df.columns, ['dca_energy']])
+            dca_concatenated_df = concat([dca_concatenated_df], keys=['dca_energy'], axis=1).swaplevel(0, 1, axis=1)
             # merge with per_residue_df
-            residue_df = pd.merge(residue_df, dca_concatenated_df, left_index=True, right_index=True)
+            residue_df = merge(residue_df, dca_concatenated_df, left_index=True, right_index=True)
 
-        # residue_df = pd.merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
+        # residue_df = merge(residue_df, per_residue_df.loc[:, idx_slice[residue_df.columns.levels[0], :]],
         #                       left_index=True, right_index=True)
         # Add local_density information to scores_df
         # scores_df['interface_local_density'] = \
@@ -3224,7 +3224,7 @@ class PoseDirectory:  # (JobResources):
         surface_residues = np.logical_xor(rim_or_surface, buried_interface_residues).rename(
             columns={'sasa_relative_bound': 'surface'})
 
-        residue_df = pd.concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
+        residue_df = concat([residue_df, core_residues, interior_residues, support_residues, rim_residues,
                                 surface_residues], axis=1)
         # Check if any columns are > 50% interior (value can be 0 or 1). If so, return True for that column
         # interior_residue_df = residue_df.loc[:, idx_slice[:, 'interior']]
@@ -3263,22 +3263,22 @@ class PoseDirectory:  # (JobResources):
                                                              solvation_unbound_df.columns]
                                       for column in columns], axis=1)
         summation_pairs = \
-            {'buns_unbound': list(filter(re.compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
+            {'buns_unbound': list(filter(re_compile('buns_[0-9]+_unbound$').match, scores_columns)),  # Rosetta
              # 'interface_energy_bound':
-             #     list(filter(re.compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             #     list(filter(re_compile('interface_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
              # 'interface_energy_unbound':
-             #     list(filter(re.compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             #     list(filter(re_compile('interface_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
              # 'interface_solvation_energy_bound':
-             #     list(filter(re.compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
+             #     list(filter(re_compile('solvation_energy_[0-9]+_bound').match, scores_columns)),  # Rosetta
              # 'interface_solvation_energy_unbound':
-             #     list(filter(re.compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
+             #     list(filter(re_compile('solvation_energy_[0-9]+_unbound').match, scores_columns)),  # Rosetta
              'interface_connectivity':
-                 list(filter(re.compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
+                 list(filter(re_compile('interface_connectivity_[0-9]+').match, scores_columns)),  # Rosetta
              }
         # 'sasa_hydrophobic_bound':
-        #     list(filter(re.compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
-        # 'sasa_polar_bound': list(filter(re.compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
-        # 'sasa_total_bound': list(filter(re.compile('sasa_total_[0-9]+_bound').match, scores_columns))}
+        #     list(filter(re_compile('sasa_hydrophobic_[0-9]+_bound').match, scores_columns)),
+        # 'sasa_polar_bound': list(filter(re_compile('sasa_polar_[0-9]+_bound').match, scores_columns)),
+        # 'sasa_total_bound': list(filter(re_compile('sasa_total_[0-9]+_bound').match, scores_columns))}
         scores_df = columns_to_new_column(scores_df, summation_pairs)
         scores_df = columns_to_new_column(scores_df, delta_pairs, mode='sub')
         # add total_interface_residues for div_pairs and int_comp_similarity
@@ -3306,12 +3306,12 @@ class PoseDirectory:  # (JobResources):
         # residue_indices_no_frags = residue_df.columns[residue_df.isna().all(axis=0)]
 
         # POSE ANALYSIS
-        scores_df = pd.concat([scores_df, pose_collapse_df], axis=1)
+        scores_df = concat([scores_df, pose_collapse_df], axis=1)
         scores_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns
         # refine is not considered sequence design and destroys mean. remove v
         # trajectory_df = scores_df.sort_index().drop(PUtils.refine, axis=0, errors='ignore')
         # consensus cst_weights are very large and destroy the mean.
-        other_metrics_s = pd.Series(other_pose_metrics)
+        other_metrics_s = Series(other_pose_metrics)
         # remove this drop for consensus or refine if they are run multiple times
         trajectory_df = \
             scores_df.drop([pose_source, PUtils.refine, PUtils.consensus], axis=0, errors='ignore').sort_index()
@@ -3334,34 +3334,34 @@ class PoseDirectory:  # (JobResources):
 
         # format stats_s for final pose_s Series
         protocol_stats[stats_metrics.index(mean)]['observations'] = protocol_groups.size()
-        protocol_stats_s = pd.concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
-        pose_stats_s = pd.concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
-        stat_s = pd.concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
+        protocol_stats_s = concat([stat_df.T.unstack() for stat_df in protocol_stats], keys=stats_metrics)
+        pose_stats_s = concat(pose_stats, keys=list(zip(stats_metrics, repeat('pose'))))
+        stat_s = concat([protocol_stats_s.dropna(), pose_stats_s.dropna()])  # dropna removes NaN metrics
 
         # change statistic names for all df that are not groupby means for the final trajectory dataframe
         for idx, stat in enumerate(stats_metrics):
             if stat != mean:
                 protocol_stats[idx] = protocol_stats[idx].rename(index={protocol: f'{protocol}_{stat}'
                                                                         for protocol in unique_design_protocols})
-        # trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
+        # trajectory_df = concat([trajectory_df, concat(pose_stats, axis=1).T] + protocol_stats)
         # remove std rows if their is no stdev
-        trajectory_df = pd.concat([trajectory_df] +
+        trajectory_df = concat([trajectory_df] +
                                   [s.dropna(how='all', axis=0).to_frame().T for s in pose_stats] +
                                   [df.dropna(how='all', axis=0) for df in protocol_stats])
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         number_of_trajectories = len(trajectory_df)
         # if number_of_trajectories > 0:
         # add all docking and pose information to each trajectory, dropping the pose observations
-        pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
-        trajectory_df = pd.concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
+        pose_metrics_df = concat([other_metrics_s] * number_of_trajectories, axis=1).T
+        trajectory_df = concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
                                                                          trajectory_df.index)))
                                   .drop(['observations'], axis=1), trajectory_df], axis=1)
         trajectory_df = trajectory_df.fillna({'observations': 1})
 
         # Calculate protocol significance
-        pvalue_df = pd.DataFrame()
-        scout_protocols = list(filter(re.compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
-        similarity_protocols = unique_design_protocols.difference([PUtils.refine] + scout_protocols)
+        pvalue_df = DataFrame()
+        scout_protocols = list(filter(re_compile(f'.*{PUtils.scout}').match, protocol_s.unique().tolist()))
+        similarity_protocols = unique_design_protocols.difference([PUtils.refine, job_key] + scout_protocols)
         if PUtils.structure_background not in unique_design_protocols:
             self.log.info(f'Missing background protocol "{PUtils.structure_background}". No protocol significance '
                           f'measurements available for this pose')
@@ -3384,7 +3384,7 @@ class PoseDirectory:  # (JobResources):
                 pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
                                                                 group1_size=len(designs_by_protocol[prot1]))
             pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
-            trajectory_df = pd.concat([trajectory_df, pd.concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
+            trajectory_df = concat([trajectory_df, concat([pvalue_df], keys=['similarity']).swaplevel(0, 1)])
 
             # Compute residue energy/sequence differences between each protocol
             residue_energy_df = residue_df.loc[:, idx_slice[:, 'energy_delta']]
@@ -3401,18 +3401,18 @@ class PoseDirectory:  # (JobResources):
             pairwise_sequence_diff_np = scaler.fit_transform(all_vs_all(designed_residue_info, sequence_difference))
             seq_pc = seq_pca.fit_transform(pairwise_sequence_diff_np)
             # Make principal components (PC) DataFrame
-            residue_energy_pc_df = pd.DataFrame(residue_energy_pc, index=residue_energy_df.index,
-                                                columns=[f'pc{idx}' for idx in range(1, len(res_pca.components_) + 1)])
-            seq_pc_df = pd.DataFrame(seq_pc, index=list(residue_info.keys()),
-                                     columns=[f'pc{idx}' for idx in range(1, len(seq_pca.components_) + 1)])
+            residue_energy_pc_df = DataFrame(residue_energy_pc, index=residue_energy_df.index,
+                                             columns=[f'pc{idx}' for idx in range(1, len(res_pca.components_) + 1)])
+            seq_pc_df = DataFrame(seq_pc, index=list(residue_info.keys()),
+                                  columns=[f'pc{idx}' for idx in range(1, len(seq_pca.components_) + 1)])
             # Compute the euclidean distance
             # pairwise_pca_distance_np = pdist(seq_pc)
             # pairwise_pca_distance_np = SDUtils.all_vs_all(seq_pc, euclidean)
 
             # Merge PC DataFrames with labels
-            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+            # seq_pc_df = merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
             seq_pc_df[PUtils.groups] = protocol_s
-            # residue_energy_pc_df = pd.merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
+            # residue_energy_pc_df = merge(protocol_s, residue_energy_pc_df, left_index=True, right_index=True)
             residue_energy_pc_df[PUtils.groups] = protocol_s
             # Next group the labels
             sequence_groups = seq_pc_df.groupby(PUtils.groups)
@@ -3434,10 +3434,9 @@ class PoseDirectory:  # (JobResources):
                         cdist(residue_energy_pc,
                               grouped_pc_energy_df.loc[PUtils.structure_background, :].values[np.newaxis, :])
                     trajectory_df = \
-                        pd.concat([trajectory_df,
-                                   pd.Series(background_distance.flatten(), index=residue_energy_pc_df.index,
-                                             name='energy_distance_from_%s_mean' % PUtils.structure_background)],
-                                  axis=1)
+                        concat([trajectory_df,
+                                Series(background_distance.flatten(), index=residue_energy_pc_df.index,
+                                       name='energy_distance_from_%s_mean' % PUtils.structure_background)], axis=1)
 
                     # if renaming is necessary
                     # protocol_stats_s[stat].index = protocol_stats_s[stat].index.to_series().map(
@@ -3449,9 +3448,9 @@ class PoseDirectory:  # (JobResources):
                     #                             for k in seq_pca_mean_distance_vector)
                     # find similarity between each protocol by taking row average of all p-values for each metric
                     # mean_pvalue_s = pvalue_df.mean(axis=1)  # protocol pair : mean significance Series
-                    # mean_pvalue_s.index = pd.MultiIndex.from_tuples(mean_pvalue_s.index)
+                    # mean_pvalue_s.index = MultiIndex.from_tuples(mean_pvalue_s.index)
                     # sim_measures['similarity'] = mean_pvalue_s
-                    similarity_stat.index = pd.MultiIndex.from_tuples(similarity_stat.index)
+                    similarity_stat.index = MultiIndex.from_tuples(similarity_stat.index)
                     sim_measures['similarity'] = similarity_stat
 
                     # for vector_idx, seq_dist in enumerate(seq_pca_mean_distance_vector):
@@ -3474,24 +3473,24 @@ class PoseDirectory:  # (JobResources):
                     # sim_stdev['energy_distance'] = grouped_pc_energy_df
 
             # Find the significance between each pair of protocols
-            protocol_sig_s = pd.concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
-                                       keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
+            protocol_sig_s = concat([pvalue_df.loc[[pair], :].squeeze() for pair in pvalue_df.index.to_list()],
+                                    keys=[tuple(pair) for pair in pvalue_df.index.to_list()])
             # squeeze turns the column headers into series indices. Keys appends to make a multi-index
 
             # Find total protocol similarity for different metrics
             # for measure, values in sim_measures.items():
-            #     # measure_s = pd.Series({pair: similarity for pair, similarity in values.items()})
-            #     # measure_s = pd.Series(values)
-            #     similarity_sum['protocol_%s_sum' % measure] = pd.Series(values).sum()
-            similarity_sum = {'protocol_%s_sum' % measure: pd.Series(values).sum()
+            #     # measure_s = Series({pair: similarity for pair, similarity in values.items()})
+            #     # measure_s = Series(values)
+            #     similarity_sum['protocol_%s_sum' % measure] = Series(values).sum()
+            similarity_sum = {'protocol_%s_sum' % measure: Series(values).sum()
                               for measure, values in sim_measures.items()}
-            similarity_sum_s = pd.concat([pd.Series(similarity_sum)], keys=[('sequence_design', 'pose')])
+            similarity_sum_s = concat([Series(similarity_sum)], keys=[('sequence_design', 'pose')])
 
             # Process similarity between protocols
-            sim_measures_s = pd.concat([pd.Series(values) for values in sim_measures.values()],
+            sim_measures_s = concat([Series(values) for values in sim_measures.values()],
                                        keys=list(sim_measures.keys()))
             # # Todo test
-            # sim_stdev_s = pd.concat(list(sim_stdev.values()),
+            # sim_stdev_s = concat(list(sim_stdev.values()),
             #                         keys=list(zip(repeat('std'), sim_stdev.keys()))).swaplevel(1, 2)
             # sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s, sim_stdev_s]
             sim_series = [protocol_sig_s, similarity_sum_s, sim_measures_s]
@@ -3499,7 +3498,7 @@ class PoseDirectory:  # (JobResources):
             # if figures:  # Todo ensure output is as expected then move below
             #     protocols_by_design = {design: protocol for protocol, designs in designs_by_protocol.items()
             #                            for design in designs}
-            #     _path = os.path.join(self.all_scores, str(self))
+            #     _path = path.join(self.all_scores, str(self))
             #     # Set up Labels & Plot the PC data
             #     protocol_map = {protocol: i for i, protocol in enumerate(designs_by_protocol)}
             #     integer_map = {i: protocol for (protocol, i) in protocol_map.items()}
@@ -3565,8 +3564,8 @@ class PoseDirectory:  # (JobResources):
             residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
             # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
             if merge_residue_data:
-                trajectory_df = pd.concat([trajectory_df], axis=1, keys=['metrics'])
-                trajectory_df = pd.merge(trajectory_df, residue_df, left_index=True, right_index=True)
+                trajectory_df = concat([trajectory_df], axis=1, keys=['metrics'])
+                trajectory_df = merge(trajectory_df, residue_df, left_index=True, right_index=True)
             else:
                 residue_df.to_csv(self.residues)
             trajectory_df.to_csv(self.trajectories)
@@ -3575,10 +3574,10 @@ class PoseDirectory:  # (JobResources):
         # Create figures
         if figures:  # for plotting collapse profile, errat data, contact order
             # Plot: Format the collapse data with residues as index and each design as column
-            # collapse_graph_df = pd.DataFrame(per_residue_data['hydrophobic_collapse'])
+            # collapse_graph_df = DataFrame(per_residue_data['hydrophobic_collapse'])
             collapse_graph_df = per_residue_df.loc[:, idx_slice[:, 'hydrophobic_collapse']].droplevel(-1, axis=1)
             reference_collapse_concatenated_s = \
-                pd.Series(np.concatenate(reference_collapse_concat), name=PUtils.reference_name)
+                Series(np.concatenate(reference_collapse_concat), name=PUtils.reference_name)
             collapse_graph_df[PUtils.reference_name] = reference_collapse_concatenated_s
             # collapse_graph_df.columns += 1  # offset index to residue numbering
             # collapse_graph_df.sort_index(axis=1, inplace=True)
@@ -3614,8 +3613,8 @@ class PoseDirectory:  # (JobResources):
             contact_ax.set_ylabel('Contact Order')
             # contact_ax.set_xlim(0, pose_length)
             contact_ax.set_ylim(0, None)
-            # contact_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
-            # collapse_ax1.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse+contact.png'))
+            # contact_ax.figure.savefig(path.join(self.data, 'hydrophobic_collapse+contact.png'))
+            # collapse_ax1.figure.savefig(path.join(self.data, 'hydrophobic_collapse+contact.png'))
 
             # Get the plot of each collapse profile into a matplotlib axes
             # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
@@ -3648,17 +3647,17 @@ class PoseDirectory:  # (JobResources):
             # collapse_ax.set_prop_cycle(color_cycler)
             # ax.autoscale(True)
             # collapse_ax.figure.tight_layout()  # no standardization
-            # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
+            # collapse_ax.figure.savefig(path.join(self.data, 'hydrophobic_collapse.png'))  # no standardization
 
             # Plot: Collapse description of total profile against each design
             if msa_metrics:
                 profile_mean_collapse_concatenated_s = \
-                    pd.concat([entity_collapse_mean[idx] for idx in range(number_of_entities)], ignore_index=True)
+                    concat([entity_collapse_mean[idx] for idx in range(number_of_entities)], ignore_index=True)
                 profile_std_collapse_concatenated_s = \
-                    pd.concat([entity_collapse_std[idx] for idx in range(number_of_entities)], ignore_index=True)
+                    concat([entity_collapse_std[idx] for idx in range(number_of_entities)], ignore_index=True)
                 profile_mean_collapse_concatenated_s.index += 1  # offset index to residue numbering
                 profile_std_collapse_concatenated_s.index += 1  # offset index to residue numbering
-                collapse_graph_describe_df = pd.DataFrame({
+                collapse_graph_describe_df = DataFrame({
                     'std_min': profile_mean_collapse_concatenated_s - profile_std_collapse_concatenated_s,
                     'std_max': profile_mean_collapse_concatenated_s + profile_std_collapse_concatenated_s,
                 })
@@ -3666,10 +3665,10 @@ class PoseDirectory:  # (JobResources):
                 collapse_graph_describe_df['Residue Number'] = collapse_graph_describe_df.index
                 collapse_ax.vlines('Residue Number', 'std_min', 'std_max', data=collapse_graph_describe_df,
                                    color='#e6e6fa', linestyle='-', lw=1, alpha=0.8)  # lavender
-                # collapse_ax.figure.savefig(os.path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
+                # collapse_ax.figure.savefig(path.join(self.data, 'hydrophobic_collapse_versus_profile.png'))
 
             # Plot: Errat Accuracy
-            # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
+            # errat_graph_df = DataFrame(per_residue_data['errat_deviation'])
             # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
             # errat_graph_df = errat_df
             # wt_errat_concatenated_s = Series(np.concatenate(list(source_errat.values())), name='clean_asu')
@@ -3702,7 +3701,7 @@ class PoseDirectory:  # (JobResources):
             errat_ax.set_ylabel('Errat Score')
             # errat_ax.autoscale(True)
             # errat_ax.figure.tight_layout()
-            # errat_ax.figure.savefig(os.path.join(self.data, 'errat.png'))
+            # errat_ax.figure.savefig(path.join(self.data, 'errat.png'))
             collapse_handles, collapse_labels = collapse_ax.get_legend_handles_labels()
             contact_handles, contact_labels = contact_ax.get_legend_handles_labels()
             # errat_handles, errat_labels = errat_ax.get_legend_handles_labels()
@@ -3721,13 +3720,13 @@ class PoseDirectory:  # (JobResources):
             plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand')
             #            bbox_transform=plt.gcf().transFigure)  # , bbox_transform=collapse_ax.transAxes)
             fig.tight_layout()
-            fig.savefig(os.path.join(self.data, 'DesignMetricsPerResidues.png'))
+            fig.savefig(path.join(self.data, 'DesignMetricsPerResidues.png'))
 
         # After parsing data sources
-        other_metrics_s = pd.concat([other_metrics_s], keys=[('dock', 'pose')])
+        other_metrics_s = concat([other_metrics_s], keys=[('dock', 'pose')])
 
         # CONSTRUCT: Create pose series and format index names
-        pose_s = pd.concat([other_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
+        pose_s = concat([other_metrics_s, stat_s, divergence_s] + sim_series).swaplevel(0, 1)
         # Remove pose specific metrics from pose_s, sort, and name protocol_mean_df
         pose_s.drop([PUtils.groups], level=2, inplace=True, errors='ignore')
         pose_s.sort_index(level=2, inplace=True, sort_remaining=False)  # ascending=True, sort_remaining=True)
@@ -3755,7 +3754,7 @@ class PoseDirectory:  # (JobResources):
             The selected sequences found
         """
         # Load relevant data from the design directory
-        trajectory_df = pd.read_csv(self.trajectories, index_col=0, header=[0])
+        trajectory_df = read_csv(self.trajectories, index_col=0, header=[0])
         trajectory_df.dropna(inplace=True)
         if protocols:
             designs = []
@@ -3784,9 +3783,9 @@ class PoseDirectory:  # (JobResources):
 
             return design_list[:number]
         else:
-            # sequences_pickle = glob(os.path.join(self.all_scores, '%s_Sequences.pkl' % str(self)))
+            # sequences_pickle = glob(path.join(self.all_scores, '%s_Sequences.pkl' % str(self)))
             # assert len(sequences_pickle) == 1, 'Couldn\'t find files for %s' % \
-            #                                    os.path.join(self.all_scores, '%s_Sequences.pkl' % str(self))
+            #                                    path.join(self.all_scores, '%s_Sequences.pkl' % str(self))
             #
             # chain_sequences = SDUtils.unpickle(sequences_pickle[0])
             # {chain: {name: sequence, ...}, ...}
@@ -3843,19 +3842,19 @@ class PoseDirectory:  # (JobResources):
                              for idx, count in enumerate(seq_neighbor_counts) if count == num_neighbors}
             self.log.info('The final sequence(s) and file(s):\nNeighbors\tDesign\n%s'
                           # % '\n'.join('%d %s' % (top_neighbor_counts.index(neighbors) + SDUtils.index_offset,
-                          % '\n'.join('\t%d\t%s' % (neighbors, os.path.join(self.designs, design))
+                          % '\n'.join('\t%d\t%s' % (neighbors, path.join(self.designs, design))
                                       for design, neighbors in final_designs.items()))
 
-            # self.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, os.path.join(self.designs, seq))
+            # self.log.info('Corresponding PDB file(s):\n%s' % '\n'.join('%d %s' % (i, path.join(self.designs, seq))
             #                                                         for i, seq in enumerate(final_designs, 1)))
 
             # Compute the highest density cluster using DBSCAN algorithm
             # seq_cluster = DBSCAN(eps=epsilon)
             # seq_cluster.fit(pairwise_sequence_diff_np)
             #
-            # seq_pc_df = pd.DataFrame(seq_pc, index=designs, columns=['pc' + str(x + SDUtils.index_offset)
+            # seq_pc_df = DataFrame(seq_pc, index=designs, columns=['pc' + str(x + SDUtils.index_offset)
             #                                                          for x in range(len(seq_pca.components_))])
-            # seq_pc_df = pd.merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
+            # seq_pc_df = merge(protocol_s, seq_pc_df, left_index=True, right_index=True)
 
             # If final designs contains more sequences than specified, find the one with the lowest energy
             if len(final_designs) > number:
@@ -3876,7 +3875,7 @@ class PoseDirectory:  # (JobResources):
             condition: A condition to check before the path production is executed
         """
         if condition:
-            os.makedirs(path, exist_ok=True)
+            makedirs(path, exist_ok=True)
 
     handle_design_errors = staticmethod(handle_design_errors)
     close_logs = staticmethod(close_logs)
@@ -3895,9 +3894,9 @@ class PoseDirectory:  # (JobResources):
 
     def __str__(self) -> str:
         if self.nanohedra_output:
-            return self.source_path.replace(self.nanohedra_root + os.sep, '').replace(os.sep, '-')
+            return self.source_path.replace(self.nanohedra_root + sep, '').replace(sep, '-')
         elif self.output_directory:
             return self.name
         else:
             # TODO integrate with designDB?
-            return self.path.replace(self.projects + os.sep, '').replace(os.sep, '-')
+            return self.path.replace(self.projects + sep, '').replace(sep, '-')
