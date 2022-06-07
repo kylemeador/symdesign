@@ -433,24 +433,24 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Measure of fit between two surfaces from Lawrence and Colman 1993 at interface '
                                       'core fragment positions',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
-                  'solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - complex
+                  'interface_solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - complex
                       {'description': 'The free energy resulting from hydration of the separated interface surfaces. '
                                       'Positive values indicate poorly soluble surfaces upon dissociation',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
-                  'solvation_energy_activation':  # unbound - bound
+                  'interface_solvation_energy_activation':  # unbound - bound
                       {'description': 'The free energy of solvation resulting from packing the bound, uncomplexed state'
                                       ' to an unbound, uncomplexed state. Positive values indicate a tendency towards '
                                       'the bound configuration',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
-                  'solvation_energy_bound':
+                  'interface_solvation_energy_bound':
                       {'description': 'The desolvation free energy of the separated interface surfaces. Positive values'
                                       ' indicate energy is required to desolvate',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
-                  'solvation_energy_complex':
+                  'interface_solvation_energy_complex':
                       {'description': 'The desolvation free energy of the complexed interface. Positive values'
                                       ' indicate energy is required to desolvate',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
-                  'solvation_energy_unbound':
+                  'interface_solvation_energy_unbound':
                       {'description': 'The desolvation free energy of the separated, repacked, interface surfaces. '
                                       'Positive values indicate energy is required to desolvate',
                        'direction': 'min', 'function': 'rank\n', 'filter': True},
@@ -555,12 +555,12 @@ nanohedra_metrics = ['nanohedra_score_normalized', 'nanohedra_score_center_norma
 necessary_metrics = {'buns_complex', 'buns_1_unbound', 'contact_count', 'coordinate_constraint',
                      'favor_residue_energy', 'hbonds_res_selection_complex', 'hbonds_res_selection_1_bound',
                      'interface_connectivity_1',
-                     'interface_separation', 'interface_energy_1_bound',
-                     'interface_energy_1_unbound',  'interface_energy_complex',
+                     'interface_separation',
+                     # 'interface_energy_1_bound', 'interface_energy_1_unbound',  'interface_energy_complex',
                      'interaction_energy_complex', groups, 'rosetta_reference_energy', 'shape_complementarity',
                      # 'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                      # 'sasa_hydrophobic_1_bound', 'sasa_polar_1_bound', 'sasa_total_1_bound',
-                     'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
+                     # 'solvation_energy_complex', 'solvation_energy_1_bound', 'solvation_energy_1_unbound'
                      }
 #                      'buns_2_unbound',
 #                      'hbonds_res_selection_2_bound', 'interface_connectivity_2',
@@ -594,8 +594,8 @@ final_metrics = {'buried_unsatisfied_hbonds', 'contact_count', 'core', 'coordina
                  'percent_residues_fragment_center',
                  'percent_residues_fragment_total', 'percent_rim', 'percent_support',
                  'protocol_energy_distance_sum', 'protocol_similarity_sum', 'protocol_seq_distance_sum',
-                 'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'solvation_energy',
-                 'solvation_energy_activation', 'support',
+                 'rosetta_reference_energy', 'rim', 'rmsd', 'shape_complementarity', 'interface_solvation_energy',
+                 'interface_solvation_energy_activation', 'support',
                  'symmetry', 'total_non_fragment_interface_residues'}
 #                  'buns_heavy_total', 'buns_hpol_total', 'buns_total',
 #                These are missing the bb_hb contribution and are inaccurate
@@ -637,7 +637,7 @@ columns_to_rename = {'shape_complementarity_median_dist': 'interface_separation'
                      # 'R_int_connectivity_2': 'interface_connectivity_2',
                      }
 #                      'total_score': 'REU', 'decoy': 'design', 'symmetry_switch': 'symmetry',
-
+# Todo clean up these columns for master branch...
 clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interface_energy_bound', Todo make _3_..., _4_
                                  'sasa_hydrophobic_complex', 'sasa_polar_complex', 'sasa_total_complex',
                                  'sasa_hydrophobic_bound', 'sasa_hydrophobic_1_bound', 'sasa_hydrophobic_2_bound',
@@ -648,6 +648,8 @@ clean_up_intermediate_columns = ['int_energy_no_intra_residue_score',  # 'interf
                                  'solvation_energy_2_unbound',
                                  'interface_energy_1_bound', 'interface_energy_1_unbound', 'interface_energy_2_bound',
                                  'interface_energy_2_unbound',
+                                 'interface_solvation_energy_bound', 'interface_solvation_energy_bound',
+                                 'interface_solvation_energy_unbound',
                                  ]
 protocol_specific_columns = ['HBNet_NumUnsatHpol', 'HBNet_Saturation', 'HBNet_Score']
 # Some of these are unneeded now, but hanging around in case renaming occurred
@@ -689,8 +691,8 @@ delta_pairs = {'buried_unsatisfied_hbonds': ('buns_complex', 'buns_unbound'),  #
                'interface_energy': ('interface_energy_complex', 'interface_energy_unbound'),  # Rosetta
                # 'interface_energy_no_intra_residue_score': ('interface_energy_complex', 'interface_energy_bound'),
                'interface_bound_activation_energy': ('interface_energy_bound', 'interface_energy_unbound'),  # Rosetta
-               'solvation_energy': ('solvation_energy_unbound', 'solvation_energy_complex'),  # Rosetta
-               'solvation_energy_activation': ('solvation_energy_unbound', 'solvation_energy_bound'),  # Rosetta
+               'interface_solvation_energy': ('interface_solvation_energy_unbound', 'interface_solvation_energy_complex'),  # Rosetta
+               'interface_solvation_energy_activation': ('interface_solvation_energy_unbound', 'interface_solvation_energy_bound'),  # Rosetta
                # 'interface_area_hydrophobic': ('sasa_hydrophobic_bound', 'sasa_hydrophobic_complex'),
                # 'interface_area_polar': ('sasa_polar_bound', 'sasa_polar_complex'),
                # 'interface_area_total': ('sasa_total_bound', 'sasa_total_complex')
@@ -723,7 +725,7 @@ protocol_column_types = ['mean', 'sequence_design']  # 'stats',
 # Specific columns of interest to distinguish between design trajectories
 significance_columns = ['buried_unsatisfied_hbonds',
                         'contact_count', 'interface_energy', 'interface_area_total', 'number_hbonds',
-                        'percent_interface_area_hydrophobic', 'shape_complementarity', 'solvation_energy']
+                        'percent_interface_area_hydrophobic', 'shape_complementarity', 'interface_solvation_energy']
 # sequence_columns = ['divergence_evolution_per_residue', 'divergence_fragment_per_residue',
 #                     'observed_evolution', 'observed_fragment']
 multiple_sequence_alignment_dependent_metrics = \
