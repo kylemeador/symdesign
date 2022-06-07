@@ -3325,9 +3325,9 @@ class PoseDirectory:  # (JobResources):
         # designs_by_protocol.pop(PUtils.consensus, None)  # remove consensus if present
         # # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
         # #                        for protocol, indices in protocol_groups.indices.items()}
-        numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-        print_df = trajectory_df.select_dtypes(exclude=numerics)
-        print(print_df)
+        # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+        # print_df = trajectory_df.select_dtypes(exclude=numerics)
+        # print(print_df)
 
         pose_stats, protocol_stats = [], []
         for idx, stat in enumerate(stats_metrics):

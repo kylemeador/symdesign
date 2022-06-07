@@ -1000,6 +1000,8 @@ def process_residue_info(design_residue_scores: Dict, mutations: Dict, hbonds: D
             # compute the energy delta of each residue which requires summing the unbound energies
             data['bound'] = sum(data['bound'])
             data['unbound'] = sum(data['unbound'])
+            data['solv_bound'] = sum(data['solv_bound'])
+            data['solv_unbound'] = sum(data['solv_unbound'])
             data['energy_delta'] = data['complex'] - data['unbound']
             # data['energy_bound_activation'] = data['bound'] - data['unbound']
             data['coordinate_constraint'] = data.get('cst', 0.)
