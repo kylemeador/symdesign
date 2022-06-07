@@ -2549,7 +2549,9 @@ class PoseDirectory:  # (JobResources):
         #                         for chain, named_sequences in entity_sequences.items()}
         entity_energies = [0. for ent in self.pose.entities]
         pose_source_residue_info = \
-            {residue.number: {'energy': {'complex': 0., 'unbound': copy.copy(entity_energies), 'fsp': 0., 'cst': 0.},
+            {residue.number: {'complex': 0., 'bound': copy(entity_energies), 'unbound': copy(entity_energies),
+                              'solv_complex': 0., 'solv_bound': copy(entity_energies), 
+                              'solv_unbound': copy(entity_energies), 'fsp': 0., 'cst': 0.,
                               'type': protein_letters_3to1.get(residue.type.title()), 'hbond': 0}
              for entity in self.pose.entities for residue in entity.residues}
         residue_info = {pose_source: pose_source_residue_info}
