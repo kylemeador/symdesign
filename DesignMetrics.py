@@ -815,6 +815,8 @@ def columns_to_new_column(df, column_dict, mode='add'):
             df[new_column] = operator.attrgetter(mode)(operator)(df[column_set[0]], df[column_set[1]])
         except KeyError:
             pass
+        except IndexError:
+            raise IndexError(f'Tthe number of columns in the set {column_set} is not >= 2. {new_column} not possible!')
         if len(column_set) > 2 and mode in ['add', 'sub']:  # >2 values in set, perform repeated operations Ex: SUM, SUB
             for extra_column in column_set[2:]:  # perform an iteration for every N-2 items in the column_set
                 try:
