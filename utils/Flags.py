@@ -511,15 +511,15 @@ parser_select_poses = \
 # parser_select_poses = subparsers.add_parser(select_poses, help='Select poses based on specific metrics. Selection will be the result of a handful of metrics combined using --filter and/or --weights. For metric options see %s --guide. If a pose specification in the typical d, -f, -p, or -s form isn\'t provided, the arguments -df or -pf are required with -pf taking priority if both provided' % analysis)
 parser_select_poses_arguments = {
     ('--filter',): dict(action='store_true', help='Whether to filter pose selection using metrics'),
-    ('--total',): dict(action='store_true',
-                       help='Should poses be selected based on their ranking in the total pose pool?\nThis will select '
-                            'the top poses based on the average of all designs in\nthat pose for the metrics specified '
-                            'unless --protocol is invoked,\nthen the protocol average will be used instead'),
     (f'--{protocol}',): dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter metrics?'),
     ('-sn', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
                                      help='Number of poses to return\nDefault=No Limit'),
     ('-ss', '--selection_string'): dict(type=str, metavar='string',
-                                        help='String to prepend to output for custom pose selection name'),
+                                        help='String to prepend to selection output name'),
+    ('--total',): dict(action='store_true',
+                       help='Should poses be selected based on their ranking in the total pose pool?\nThis will select '
+                            'the top poses based on the average of all designs in\nthat pose for the metrics specified '
+                            'unless --protocol is invoked,\nthen the protocol average will be used instead'),
     ('--weight',): dict(action='store_true', help='Whether to weight pose selection results using metrics'
                                                   '\nDefault=%(default)s'),
     ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
@@ -551,18 +551,8 @@ parser_select_sequences_arguments = {
                                               help='Should tags be avoided at termini with helices?'
                                                    '\nDefault=%(default)s'),
     ('--csv',): dict(action='store_true', help='Write the sequences file as a .csv instead of the default .fasta'),
-    # Todo make work with list... choices=['single', 'all', 'none']
-    ('--tag_entities',): dict(type=str, help='If there are specific entities in the designs you want to tag,\n'
-                                             'indicate how tagging should occur. Viable options include:\n\tsingle '
-                                             '- a single entity\n\tall - all entities\n\tnone - no entities\n\tcomma'
-                                             ' separated list such as "1,0,1"\n\t\twhere "1" indicates a tag is '
-                                             'required\n\t\tand "0" indicates no tag is required'),
     ('--filter',): dict(action='store_true', help='Whether to filter sequence selection using metrics'
                                                   '\nDefault=%(default)s'),
-    ('--total',): dict(action='store_true',
-                       help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
-                            'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
-                            '--allow_multiple_poses is invoked\nDefault=%(default)s'),
     ('-m', '--multicistronic'): dict(action='store_true',
                                      help='Should nucleotide sequences by output in multicistronic format?\nBy default,'
                                           ' uses the pET-Duet intergeneic sequence containing a T7 promoter, LacO, and '
@@ -579,14 +569,57 @@ parser_select_sequences_arguments = {
     ('-opt', '--optimize_species'): dict(type=str, default='e_coli',
                                          help='The organism where expression will occur and nucleotide usage should be '
                                               'optimized\nDefault=%(default)s'),
+    ('-t', '--preferred_tag'): dict(type=str, choices=expression_tags.keys(), default='his_tag',
+                                    help='The name of your preferred expression tag\nDefault=%(default)s'),
     (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
     ('-ssg', '--skip_sequence_generation'): dict(action='store_true',
                                                  help='Should sequence generation be skipped? Only structures will be '
                                                       'selected\nDefault=%(default)s'),
     ('-ss', '--selection_string'): dict(type=str, metavar='string',
-                                        help='String to prepend to output for custom sequence selection name'),
-    ('-t', '--preferred_tag'): dict(type=str, choices=expression_tags.keys(), default='his_tag',
-                                    help='The name of your preferred expression tag\nDefault=%(default)s'),
+                                        help='String to prepend to selection output name'),
+    ('--sequences_per_pose',): dict(type=int, default=1, metavar='designs_per_pose',
+                                    help='What is the maximum number of sequences that should be selected from '
+                                         'each pose?\nDefault=%(default)s'),
+    # Todo make work with list... choices=['single', 'all', 'none']
+    ('--tag_entities',): dict(type=str, help='If there are specific entities in the designs you want to tag,\n'
+                                             'indicate how tagging should occur. Viable options include:\n\tsingle '
+                                             '- a single entity\n\tall - all entities\n\tnone - no entities\n\tcomma'
+                                             ' separated list such as "1,0,1"\n\t\twhere "1" indicates a tag is '
+                                             'required\n\t\tand "0" indicates no tag is required'),
+    ('--total',): dict(action='store_true',
+                       help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
+                            'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
+                            '--allow_multiple_poses is invoked\nDefault=%(default)s'),
+    ('--weight',): dict(action='store_true', help='Whether to weight sequence selection results using metrics'
+                                                  '\nDefault=%(default)s'),
+    ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
+                                       help='How to standardize metrics during selection weighting'
+                                            '\nDefault=%(default)s')
+}# ---------------------------------------------------
+parser_select_designs = dict(select_designs=dict(help=f'From the provided poses, select designs based on specified '
+                                                      f'selection criteria using metrics.\nEssentially shorthand for'
+                                                      f'{select_sequences} with --skip_sequence_generation'))
+parser_select_designs_arguments = {
+    ('-amp', '--allow_multiple_poses'): dict(action='store_true',
+                                             help='Allow multiple sequences to be selected from the same Pose when '
+                                                  'using --total\nBy default, --total filters the'
+                                                  ' selected sequences by a single Pose\nDefault=%(default)s'),
+    ('--designs_per_pose',): dict(type=int, default=1,
+                                  help='What is the maximum number of sequences that should be selected from '
+                                       'each pose?\nDefault=%(default)s'),
+    ('--filter',): dict(action='store_true', help='Whether to filter sequence selection using metrics'
+                                                  '\nDefault=%(default)s'),
+    ('-sn', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
+                                     help='Number of sequences to return\nIf total is True, returns the '
+                                          'specified number of sequences (Where Default=No Limit).\nOtherwise the '
+                                          'specified number will be selected from each pose (Where Default=1/pose)'),
+    (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
+    ('-ss', '--selection_string'): dict(type=str, metavar='string',
+                                        help='String to prepend to selection output name'),
+    ('--total',): dict(action='store_true',
+                       help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
+                            'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
+                            '--allow_multiple_poses is invoked\nDefault=%(default)s'),
     ('--weight',): dict(action='store_true', help='Whether to weight sequence selection results using metrics'
                                                   '\nDefault=%(default)s'),
     ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
@@ -704,6 +737,7 @@ module_parsers = dict(refine=parser_refine,
                       analysis=parser_analysis,
                       select_poses=parser_select_poses,
                       # select_poses_mutual=parser_select_poses_mutual_group,  # _mutual,
+                      select_designs=parser_select_designs,
                       select_sequences=parser_select_sequences,
                       multicistronic=parser_multicistronic,
                       # flags=parser_flags,
@@ -728,6 +762,7 @@ parser_arguments = dict(options_arguments=parser_options_arguments,
                         # custom_script_arguments=parser_custom_script_arguments,
                         analysis_arguments=parser_analysis_arguments,
                         select_poses_arguments=parser_select_poses_arguments,
+                        select_designs_arguments=parser_select_designs_arguments,
                         # select_poses_mutual_arguments=parser_select_poses_mutual_arguments, # mutually_exclusive_group
                         select_sequences_arguments=parser_select_sequences_arguments,
                         multicistronic_arguments=parser_multicistronic_arguments,

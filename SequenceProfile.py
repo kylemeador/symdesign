@@ -70,9 +70,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
             frequencies - {1: {'A': 0.05, 'C': 0.001, 'D': 0.1, ...}, 2: {}, ...},
             observations - {1: 210, 2:211, ...}}
         """
-        if not alignment:
-            pass
-        else:
+        if alignment:
             if not aligned_sequence:
                 aligned_sequence = str(alignment[0].seq)
             # Add Info to 'meta' record as needed and populate a amino acid count dict (one-indexed)
@@ -134,7 +132,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
         """Returns the query as a boolean array (1, length) where gaps ("-") are False"""
         try:
             return self._sequence_index[0]
-        except AttributeError:
+        except AttributeError:  # Todo self.array == b'-' is simpler and may be quicker...
             self._sequence_index = np.isin(self.array, b'-', invert=True)
             return self._sequence_index[0]
 
@@ -146,6 +144,10 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
         except AttributeError:
             self._sequence_index = np.isin(self.array, b'-', invert=True)
             return self._sequence_index
+
+    @sequence_indices.setter
+    def sequence_indices(self, sequence_indices: np.ndarray):
+        self._sequence_index = sequence_indices
 
     @property
     def numerical_alignment(self) -> np.ndarray:
@@ -225,7 +227,14 @@ class SequenceProfile:
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
 
-    # @property
+    @property
+    def msa(self) -> MultipleSequenceAlignment:
+        return self._msa
+
+    @msa.setter
+    def msa(self, msa: MultipleSequenceAlignment):
+        self._msa = copy(msa)
+        self.fit_msa_to_structure()
     # def disorder(self):
     #     try:
     #         return self._disorder
@@ -469,6 +478,21 @@ class SequenceProfile:
                           ''.join(res['type'] for res in structure_evolutionary_profile.values())))
         self.evolutionary_profile = structure_evolutionary_profile
 
+    def fit_msa_to_structure(self):
+        """From a multiple sequence alignment to the reference sequence, align the profile to the Structure sequence.
+        Removes the view of all data not present in the structure
+
+        Sets:
+            (np.ndarray) self.msa.sequence_indices
+        """
+        # generate the disordered indices which are positions in reference that are missing in structure
+        # disorder_indices = [index - 1 for index in self.disorder]
+        assert len(self.reference_sequence) == self.msa.query_length, \
+            'The reference_sequence and MultipleSequenceAlignment query should be the same length!'
+        sequence_indices = self.msa.sequence_indices
+        sequence_indices[:, [index - 1 for index in self.disorder]] = False
+        self.msa.sequence_indices = sequence_indices
+
     # def fit_secondary_structure_profile_to_structure(self):
     #     """
     #
@@ -680,15 +704,16 @@ class SequenceProfile:
                 self.profile[new_key] = position_profile
                 new_key += 1
 
-    def add_msa(self, msa: Union[str, MultipleSequenceAlignment] = None):
+    def add_msa(self, msa: str | MultipleSequenceAlignment = None):
         """Add a multiple sequence alignment to the profile
 
-        Keyword Args:
-            msa=None (Union[str, MultipleSequenceAlignment]): The multiple sequence alignment to use for collapse
+        Args:
+            msa: The multiple sequence alignment object or file to use for collapse
         """
         if msa:
             if isinstance(msa, MultipleSequenceAlignment):
                 self.msa = msa
+                return
             else:
                 self.msa_file = msa
 
@@ -701,12 +726,12 @@ class SequenceProfile:
             # self.msa = MultipleSequenceAlignment.from_fasta(self.msa_file)
         except FileNotFoundError:
             try:
-                self.msa = MultipleSequenceAlignment.from_fasta('%s.fasta' % os.path.splitext(self.msa_file)[0])
+                self.msa = MultipleSequenceAlignment.from_fasta(f'{os.path.splitext(self.msa_file)[0]}.fasta')
                 # self.msa = MultipleSequenceAlignment.from_stockholm('%s.sto' % os.path.splitext(self.msa_file)[0])
             except FileNotFoundError:
-                raise FileNotFoundError('No multiple sequence alignment exists at %s' % self.msa_file)
+                raise FileNotFoundError(f'No multiple sequence alignment exists at {self.msa_file}')
 
-    def collapse_profile(self, msa: Union[str, MultipleSequenceAlignment] = None) -> pd.DataFrame:
+    def collapse_profile(self, msa: str | MultipleSequenceAlignment = None) -> pd.DataFrame:
         """Make a profile out of the hydrophobic collapse index (HCI) for each sequence in a multiple sequence alignment
 
         Calculate HCI for each sequence (different lengths) into an array. For each msa sequence, make a gap array
