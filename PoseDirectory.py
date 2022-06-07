@@ -2504,7 +2504,7 @@ class PoseDirectory:  # (JobResources):
             self.identify_interface()
         else:  # we only need to load pose as we already calculated interface
             self.load_pose()
-        self.log.debug('Found design residues: %s' % ', '.join(map(str, sorted(self.interface_design_residues))))
+        self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residues)))}')
         if (not self.fragment_observations and self.fragment_observations != list()) and self.generate_fragments:
             self.make_path(self.frags, condition=self.write_frags)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
@@ -2583,7 +2583,7 @@ class PoseDirectory:  # (JobResources):
             source_df['solvation_energy'] = 0
             source_df['solvation_energy_complex'] = 0
             all_design_scores = read_scores(self.scores_file)
-            self.log.debug('All designs with scores: %s' % ', '.join(all_design_scores.keys()))
+            self.log.debug(f'All designs with scores: {", ".join(all_design_scores.keys())}')
             # Remove designs with scores but no structures
             all_viable_design_scores = {}
             for design in design_structures:
@@ -2605,7 +2605,7 @@ class PoseDirectory:  # (JobResources):
             # Check proper input
             metric_set = necessary_metrics.difference(set(scores_df.columns))
             # self.log.debug('Score columns present before required metric check: %s' % scores_df.columns.to_list())
-            assert metric_set == set(), 'Missing required metrics: "%s"' % ', '.join(metric_set)
+            assert metric_set == set(), f'Missing required metrics: "{", ".join(metric_set)}"'
 
             # Remove unnecessary (old scores) as well as Rosetta pose score terms besides ref (has been renamed above)
             # TODO learn know how to produce score terms in output score file. Not in FastRelax...
@@ -2855,6 +2855,7 @@ class PoseDirectory:  # (JobResources):
             reference_collapse_bool.append(np.where(reference_collapse > collapse_significance_threshold, 1, 0))
             # [0, 0, 0, 0, 1, 1, 0, 0, 1, 1, ...]
             # entity = self.resources.refined.retrieve_data(name=entity.name))  # Todo always use wild-type?
+            # set the entity.msa which makes a copy and adjusts for any disordered residues
             entity.msa = self.resources.alignments.retrieve_data(name=entity.name)
             # entity.h_fields = self.resources.bmdca_fields.retrieve_data(name=entity.name)  # Todo reinstate
             # entity.j_couplings = self.resources.bmdca_couplings.retrieve_data(name=entity.name)  # Todo reinstate
@@ -2868,6 +2869,7 @@ class PoseDirectory:  # (JobResources):
                     msa_metrics = False
                     continue
                 collapse = entity.collapse_profile()  # takes ~5-10 seconds depending on the size of the msa
+                # TODO must update the collapse profile (Prob SEQRES) to be the same size as the sequence (ATOM)
                 entity_collapse_mean.append(collapse.mean())
                 entity_collapse_std.append(collapse.std())
                 reference_collapse_z_score.append(z_score(reference_collapse, entity_collapse_mean[idx],
@@ -3295,7 +3297,7 @@ class PoseDirectory:  # (JobResources):
         # residue_df.drop(refine_index, axis=0, inplace=True, errors='ignore')
         # residue_info.pop(PUtils.refine, None)  # Remove refine from analysis
         # residues_no_frags = residue_df.columns[residue_df.isna().all(axis=0)].remove_unused_levels().levels[0]
-        residue_df = residue_df.dropna(how='all', axis=1)  # remove completely empty columns like obs_interface
+        residue_df.dropna(how='all', inplace=True, axis=1)  # remove completely empty columns such as obs_interface
         # fill in contact order for each design
         residue_df.fillna(residue_df.loc[pose_source, idx_slice[:, 'contact_order']], inplace=True)  # method='pad',
         residue_df = residue_df.fillna(0.).copy()
@@ -3314,7 +3316,6 @@ class PoseDirectory:  # (JobResources):
 
         # Get total design statistics for every sequence in the pose and every protocol specifically
         scores_df[PUtils.groups] = protocol_s
-        # scores_df = pd.concat([protocol_s, scores_df], axis=1)
         protocol_groups = scores_df.groupby(PUtils.groups)
         # # protocol_groups = trajectory_df.groupby(groups)
         # designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
@@ -3373,8 +3374,11 @@ class PoseDirectory:  # (JobResources):
             # for prot1, prot2 in combinations(sorted(protocols_of_interest), 2):
             for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
                 select_df = \
-                    trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2], significance_columns]
-                difference_s = trajectory_df.loc[prot1, :].sub(trajectory_df.loc[prot2, :])  # prot1/2 pull out mean
+                    trajectory_df.loc[[design for designs in [designs_by_protocol[prot1], designs_by_protocol[prot2]]
+                                       for design in designs], significance_columns]
+                # prot1/2 pull out means from trajectory_df by using the protocol name
+                difference_s = \
+                    trajectory_df.loc[prot1, significance_columns].sub(trajectory_df.loc[prot2, significance_columns])
                 pvalue_df[(prot1, prot2)] = df_permutation_test(select_df, difference_s, compare='mean',
                                                                 group1_size=len(designs_by_protocol[prot1]))
             pvalue_df = pvalue_df.T  # transpose significance pairs to indices and significance metrics to columns
@@ -3555,9 +3559,7 @@ class PoseDirectory:  # (JobResources):
         if save_trajectories:
             trajectory_df.sort_index(inplace=True, axis=1)
             residue_df.sort_index(inplace=True)
-            # residue_df = residue_df.sort_index(level=0, axis=1, sort_remaining=False)
             residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
-            residue_df[(PUtils.groups, PUtils.groups)] = 0  # not what we care about?
             residue_df[(PUtils.groups, PUtils.groups)] = protocol_s
             # residue_df.sort_index(inplace=True, key=lambda x: x.str.isdigit())  # put wt entry first
             if merge_residue_data:
@@ -3576,7 +3578,7 @@ class PoseDirectory:  # (JobResources):
             reference_collapse_concatenated_s = \
                 pd.Series(np.concatenate(reference_collapse_concat), name=PUtils.reference_name)
             collapse_graph_df[PUtils.reference_name] = reference_collapse_concatenated_s
-            collapse_graph_df.index += 1  # offset index to residue numbering
+            # collapse_graph_df.columns += 1  # offset index to residue numbering
             # collapse_graph_df.sort_index(axis=1, inplace=True)
             # graph_collapse = sns.lineplot(data=collapse_graph_df)
             # g = sns.FacetGrid(tip_sumstats, col="sex", row="smoker")
@@ -3616,7 +3618,7 @@ class PoseDirectory:  # (JobResources):
             # Get the plot of each collapse profile into a matplotlib axes
             # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax, figsize=figure_aspect_ratio)
             # collapse_ax = collapse_graph_df.plot.line(legend=False, ax=collapse_ax)
-            collapse_ax.plot(collapse_graph_df.values, label=collapse_graph_df.columns)
+            collapse_ax.plot(collapse_graph_df.T.values, label=collapse_graph_df.index)
             # collapse_ax = collapse_graph_df.plot.line(ax=collapse_ax)
             collapse_ax.xaxis.set_major_locator(MultipleLocator(20))
             collapse_ax.xaxis.set_major_formatter('{x:.0f}')
@@ -3627,7 +3629,7 @@ class PoseDirectory:  # (JobResources):
             # # CAN'T SET FacetGrid object for most matplotlib elements...
             # ax = graph_collapse.axes
             # ax = plt.gca()  # gca <- get current axis
-            # labels = [fill(column, legend_fill_value) for column in collapse_graph_df.columns]
+            # labels = [fill(index, legend_fill_value) for index in collapse_graph_df.index]
             # collapse_ax.legend(labels, loc='lower left', bbox_to_anchor=(0., 1))
             # collapse_ax.legend(loc='lower left', bbox_to_anchor=(0., 1))
             # Plot the chain break(s) and design residues
@@ -3667,15 +3669,15 @@ class PoseDirectory:  # (JobResources):
             # Plot: Errat Accuracy
             # errat_graph_df = pd.DataFrame(per_residue_data['errat_deviation'])
             # errat_graph_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-            errat_graph_df = errat_df
-            # wt_errat_concatenated_s = pd.Series(np.concatenate(list(source_errat.values())), name='clean_asu')
+            # errat_graph_df = errat_df
+            # wt_errat_concatenated_s = Series(np.concatenate(list(source_errat.values())), name='clean_asu')
             # errat_graph_df[pose_source] = pose_source_errat_s
-            errat_graph_df.index += 1  # offset index to residue numbering
-            errat_graph_df.sort_index(axis=1, inplace=True)
+            # errat_graph_df.columns += 1  # offset index to residue numbering
+            errat_df.sort_index(axis=0, inplace=True)
             # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax, figsize=figure_aspect_ratio)
             # errat_ax = errat_graph_df.plot.line(legend=False, ax=errat_ax)
             # errat_ax = errat_graph_df.plot.line(ax=errat_ax)
-            errat_ax.plot(errat_graph_df.values, label=collapse_graph_df.columns)
+            errat_ax.plot(errat_df.T.values, label=collapse_graph_df.index)
             errat_ax.xaxis.set_major_locator(MultipleLocator(20))
             errat_ax.xaxis.set_major_formatter('{x:.0f}')
             # For the minor ticks, use no labels; default NullFormatter.
@@ -3707,7 +3709,7 @@ class PoseDirectory:  # (JobResources):
             labels = collapse_labels + contact_labels
             # handles = errat_handles + contact_handles
             # labels = errat_labels + contact_labels
-            labels = [label.replace('%s_' % self.name, '') for label in labels]
+            labels = [label.replace(f'{self.name}_', '') for label in labels]
             # plt.legend(loc='upper right', bbox_to_anchor=(1, 1))  #, ncol=3, mode='expand')
             # print(labels)
             # plt.legend(handles, labels, loc='upper center', bbox_to_anchor=(0.5, -1.), ncol=3)  # , mode='expand'
