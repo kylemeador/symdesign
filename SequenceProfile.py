@@ -494,7 +494,8 @@ class SequenceProfile:
         # generate the disordered indices which are positions in reference that are missing in structure
         # disorder_indices = [index - 1 for index in self.disorder]
         assert len(self.reference_sequence) == self.msa.query_length, \
-            'The reference_sequence and MultipleSequenceAlignment query should be the same length!'
+            f'The {self.name} eference_sequence ({len(self.reference_sequence)}) and MultipleSequenceAlignment query ('\
+            f'{self.msa.query_length}) should be the same length!'
         sequence_indices = self.msa.sequence_indices
         sequence_indices[:, [index - 1 for index in self.disorder]] = False
         self.msa.sequence_indices = sequence_indices
