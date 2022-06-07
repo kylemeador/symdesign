@@ -71,17 +71,18 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         try:
             return getattr(self, name)
         except AttributeError:
-            raise AttributeError('There is no Database source named \'%s\' found. Possible sources are: %s'
-                                 % (name, ', '.join(self.__dict__)))
+            raise AttributeError(f'There is no Database source named "{name}" found. '
+                                 f'Possible sources are: {", ".join(self.__dict__)}')
 
-    def retrieve_data(self, source=None, name=None):
-        """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
-        file. Raise an error if source or file/SQL doesn't exist
+    def retrieve_data(self, source: str = None, name: str = None) -> object | None:
+        """Return the data requested by name from the specified source. Otherwise, load into the Database from a
+        specified location
 
-        Keyword Args:
-
+        Args:
+            source: The name of the data source to use
+            name: The name of the data to be retrieved. Will be found with location and extension attributes
         Returns:
-            (object): The object requested will depend on the source
+            If the data is available, the object requested will be returned, else None
         """
         object_db = self.source(source)
         data = getattr(object_db, name, None)
@@ -471,23 +472,22 @@ class DataStore:
             self.log.warning('No files found for "%s"' % path)
         return names
 
-    def retrieve_data(self, name=None):
-        """Return the data requested if loaded into source Database, otherwise, load into the Database from the located
-        file. Raise an error if source or file/SQL doesn't exist
+    def retrieve_data(self, name: str = None) -> object | None:
+        """Return the data requested by name. Otherwise, load into the Database from a specified location
 
-        Keyword Args:
-            name=None (str): The name of the data to be retrieved. Will be found with location and extension attributes
+        Args:
+            name: The name of the data to be retrieved. Will be found with location and extension attributes
         Returns:
-            (any[object, None]): If the data is available, the object requested will be returned, else None
+            If the data is available, the object requested will be returned, else None
         """
         data = getattr(self, name, None)
         if data:
-            self.log.debug('Info %s%s was retrieved from DataStore' % (name, self.extension))
+            self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
         else:
             setattr(self, name, self.load_data(name, log=None))  # attempt to store the new data as an attribute
             data = getattr(self, name)
             if data:
-                self.log.debug('Database file %s%s was loaded fresh' % (name, self.extension))
+                self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
 
         return data
 
