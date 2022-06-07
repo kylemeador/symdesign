@@ -3586,13 +3586,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             design_scores: {'001': {'buns': 2.0, 'per_res_energy_complex_15A': -2.71, ...,
                             'yhh_planarity':0.885, 'hbonds_res_selection_complex': '15A,21A,26A,35A,...'}, ...}
         Returns:
-            {'001': {15: {'type': 'T', 'energy': {'complex': -2.71, 'unbound': [-1.9, 0]}, 'fsp': 0., 'cst': 0.}, ...},
+            {'001': {15: {'complex': -2.71, 'bound': [-1.9, 0], 'unbound': [-1.9, 0],
+                          'solv_complex': -2.71, 'solv_bound': [-1.9, 0], 'solv_unbound': [-1.9, 0],
+                          'fsp': 0., 'cst': 0.},
+                     ...},
              ...}
         """
-        energy_template = {'complex': 0., 'fsp': 0., 'cst': 0.,
-                           'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities],
-                           'solv_complex': 0.,
-                           'solv_unbound': [0. for _ in self.entities], 'solv_bound': [0. for _ in self.entities]}
+        energy_template = {'complex': 0., 'bound': [0. for _ in self.entities], 'unbound': [0. for _ in self.entities],
+                           'solv_complex': 0., 'solv_bound': [0. for _ in self.entities],
+                           'solv_unbound': [0. for _ in self.entities], 'fsp': 0., 'cst': 0.}
         # residue_template = {'energy': {'complex': 0., 'fsp': 0., 'cst': 0.,
         #                                'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities]}}
         pose_length = self.number_of_residues
