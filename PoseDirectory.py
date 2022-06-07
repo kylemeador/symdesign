@@ -3347,11 +3347,11 @@ class PoseDirectory:  # (JobResources):
                                                                         for protocol in unique_design_protocols})
         # trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # remove std rows if their is no stdev
+        number_of_trajectories = len(trajectory_df)
         trajectory_df = pd.concat([trajectory_df] +
                                   [s.dropna(how='all', axis=0).to_frame().T for s in pose_stats] +
                                   [df.dropna(how='all', axis=0) for df in protocol_stats])
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
-        number_of_trajectories = len(trajectory_df)
         # if number_of_trajectories > 0:
         # add all docking and pose information to each trajectory, dropping the pose observations
         pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
