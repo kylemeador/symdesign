@@ -718,9 +718,13 @@ if __name__ == '__main__':
                        PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
                        'check_clashes']:  # , 'custom_script', 'find_asu', 'status', 'visualize'
         initialize, queried_flags['construct_pose'] = True, True  # set up design directories
-    elif args.module in [PUtils.analysis, PUtils.cluster_poses, PUtils.select_poses, PUtils.select_sequences]:
+    elif args.module in [PUtils.analysis, PUtils.cluster_poses,
+                         PUtils.select_poses, PUtils.select_designs, PUtils.select_sequences]:
         # analysis types can be run from nanohedra_output, so we ensure that we don't construct new
         initialize, queried_flags['construct_pose'] = True, False
+        if args.module == PUtils.select_designs:  # alias to module select_sequences with --skip_sequence_generation
+            args.module = PUtils.select_sequences
+            queried_flags['skip_sequence_generation'] = True
         if args.module == PUtils.select_poses:
             # when selecting by dataframe or metric, don't initialize, input is handled in module protocol
             if args.dataframe or args.metric:

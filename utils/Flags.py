@@ -595,6 +595,36 @@ parser_select_sequences_arguments = {
     ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
                                        help='How to standardize metrics during selection weighting'
                                             '\nDefault=%(default)s')
+}# ---------------------------------------------------
+parser_select_designs = dict(select_designs=dict(help=f'From the provided poses, select designs based on specified '
+                                                      f'selection criteria using metrics.\nEssentially shorthand for'
+                                                      f'{select_sequences} with --skip_sequence_generation'))
+parser_select_designs_arguments = {
+    ('-amp', '--allow_multiple_poses'): dict(action='store_true',
+                                             help='Allow multiple sequences to be selected from the same Pose when '
+                                                  'using --total\nBy default, --total filters the'
+                                                  ' selected sequences by a single Pose\nDefault=%(default)s'),
+    ('--designs_per_pose',): dict(type=int, default=1,
+                                  help='What is the maximum number of sequences that should be selected from '
+                                       'each pose?\nDefault=%(default)s'),
+    ('--filter',): dict(action='store_true', help='Whether to filter sequence selection using metrics'
+                                                  '\nDefault=%(default)s'),
+    ('-sn', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
+                                     help='Number of sequences to return\nIf total is True, returns the '
+                                          'specified number of sequences (Where Default=No Limit).\nOtherwise the '
+                                          'specified number will be selected from each pose (Where Default=1/pose)'),
+    (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
+    ('-ss', '--selection_string'): dict(type=str, metavar='string',
+                                        help='String to prepend to selection output name'),
+    ('--total',): dict(action='store_true',
+                       help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
+                            'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
+                            '--allow_multiple_poses is invoked\nDefault=%(default)s'),
+    ('--weight',): dict(action='store_true', help='Whether to weight sequence selection results using metrics'
+                                                  '\nDefault=%(default)s'),
+    ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
+                                       help='How to standardize metrics during selection weighting'
+                                            '\nDefault=%(default)s')
 }
 # ---------------------------------------------------
 parser_multicistronic = dict(multicistronic=dict(help='Generate nucleotide sequences for selected designs by codon '
@@ -707,6 +737,7 @@ module_parsers = dict(refine=parser_refine,
                       analysis=parser_analysis,
                       select_poses=parser_select_poses,
                       # select_poses_mutual=parser_select_poses_mutual_group,  # _mutual,
+                      select_designs=parser_select_designs,
                       select_sequences=parser_select_sequences,
                       multicistronic=parser_multicistronic,
                       # flags=parser_flags,
@@ -731,6 +762,7 @@ parser_arguments = dict(options_arguments=parser_options_arguments,
                         # custom_script_arguments=parser_custom_script_arguments,
                         analysis_arguments=parser_analysis_arguments,
                         select_poses_arguments=parser_select_poses_arguments,
+                        select_designs_arguments=parser_select_designs_arguments,
                         # select_poses_mutual_arguments=parser_select_poses_mutual_arguments, # mutually_exclusive_group
                         select_sequences_arguments=parser_select_sequences_arguments,
                         multicistronic_arguments=parser_multicistronic_arguments,
