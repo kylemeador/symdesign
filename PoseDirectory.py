@@ -1602,10 +1602,10 @@ class PoseDirectory:  # (JobResources):
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
             out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
-            if not path.exists(out_path):
-                header = True
-            else:
+            if path.exists(out_path):
                 header = False
+            else:
+                header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
     def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
@@ -1683,10 +1683,10 @@ class PoseDirectory:  # (JobResources):
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
             out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
-            if not path.exists(out_path):
-                header = True
-            else:
+            if path.exists(out_path):
                 header = False
+            else:
+                header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
     def prepare_symmetry_for_rosetta(self):
@@ -1835,10 +1835,10 @@ class PoseDirectory:  # (JobResources):
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
             out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
-            if not path.exists(out_path):
-                header = True
-            else:
+            if path.exists(out_path):
                 header = False
+            else:
+                header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
     def transform_oligomers_to_pose(self, refined: bool = True, oriented: bool = False, **kwargs):
@@ -2232,10 +2232,10 @@ class PoseDirectory:  # (JobResources):
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
             out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
-            if not path.exists(out_path):
-                header = True
-            else:
+            if path.exists(out_path):
                 header = False
+            else:
+                header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
@@ -2494,10 +2494,10 @@ class PoseDirectory:  # (JobResources):
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
             out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
-            if not path.exists(out_path):
-                header = True
-            else:
+            if path.exists(out_path):
                 header = False
+            else:
+                header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
