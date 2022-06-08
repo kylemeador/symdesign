@@ -856,11 +856,12 @@ if __name__ == '__main__':
                     queried_flags[PUtils.sym_entry] = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
                 pose_directories = [PoseDirectory.from_nanohedra(pose, **queried_flags)
                                     for pose in all_poses[low_range:high_range]]
-        elif args.specification_file:  # Todo, combine this with collect_designs
+        elif args.specification_file:
             if not args.directory:
                 raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
+            # Todo, combine this with collect_designs
+            #  this works for file locations as well! should I have a separate mechanism for each?
             design_specification = SDUtils.PoseSpecification(args.specification_file)
-            # Todo this works for file locations as well! should I have a separate mechanism for each?
             pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, specific_design=design,
                                                            directives=directives, **queried_flags)
                                 for pose, design, directives in design_specification.return_directives()]
@@ -869,9 +870,12 @@ if __name__ == '__main__':
             all_poses, location = SDUtils.collect_designs(files=args.file, directory=args.directory,
                                                           projects=args.project, singles=args.single)
             if all_poses:
-                if all_poses[0].count(os.sep) == 0:
-                    # TODO in the case the list of files is in the current directory where SymDesign was run...
+                if all_poses[0].count(os.sep) == 0:  # check to ensure -f wasn't used when -pf was meant
                     # assume that we have received pose-IDs and process accordingly
+                    if not args.directory:
+                        raise SDUtils.DesignError('Your input specification appears to be pose IDs, however no '
+                                                  '--directory location was passed. Please resubmit with --directory '
+                                                  'and use --pose_file or --specification_file with pose IDs')
                     pose_directories = [PoseDirectory.from_pose_id(pose, root=args.directory, **queried_flags)
                                         for pose in all_poses[low_range:high_range]]
                 else:
