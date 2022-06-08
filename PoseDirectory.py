@@ -3000,33 +3000,16 @@ class PoseDirectory:  # (JobResources):
             folding_and_collapse['global_collapse_z_sum'][design] = sum(global_collapse_z_sum)
 
         pose_collapse_df = pd.DataFrame(folding_and_collapse)
-        # turn per_residue_data into a dataframe matching residue_df orientation
+        # Convert per_residue_data into a dataframe matching residue_df orientation
         per_residue_df = pd.concat({measure: pd.DataFrame(data, index=residue_indices)
                                     for measure, data in per_residue_data.items()}).T.swaplevel(0, 1, axis=1)
-        # With the per_residue_df constructed with reference, many metric instances should remove this entry
-        # not_pose_source_indices = per_residue_df.index != pose_source  # PUtils.reference_name
-        # errat_df = per_residue_df.loc[not_pose_source_indices, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-        # include if errat score is < 2 std devs and isn't 0
+        # include in errat_deviation if errat score is < 2 std devs and isn't 0 to begin with
         source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
-        # print('SEPARATE', (pose_source_errat_s < errat_2_sigma)[30:40], (pose_source_errat_s != 0.)[30:40])
-        # print('LOGICAL AND\n', source_errat_inclusion_boolean[30:40])
-        # errat_sig_df = (errat_df > errat_2_sigma)
-        # find where designs deviate above wild-type errat scores
-        # print('errat_df', errat_df.iloc[:5, 30:40])
-        # print('pose_source_errat_s', pose_source_errat_s[30:40])
-        # print('SUBTRACTION', errat_df.sub(pose_source_errat_s, axis=1).iloc[:5, 30:40])
         errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
+        # find where designs deviate above wild-type errat scores
         errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
-        # print('errat_sig_df', errat_sig_df.iloc[:5, 30:40])
         # then select only those residues which are expressly important by the inclusion boolean
-        errat_design_significance = errat_sig_df.loc[:, source_errat_inclusion_boolean].any(axis=1)
-        # print('SIGNIFICANCE', errat_design_significance)
-        # errat_design_residue_significance = errat_sig_df.loc[:, source_errat_inclusion_boolean].any(axis=0)
-        # print('RESIDUE SIGNIFICANCE', errat_design_residue_significance[errat_design_residue_significance].index.tolist())
         pose_collapse_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
-        print(pose_collapse_df['errat_deviation'])
-        # significant_errat_residues = per_residue_df.index[].remove_unused_levels().levels[0].to_list()
-
         # Get design information including: interface residues, SSM's, and wild_type/design files
         profile_background = {}
         if self.design_profile:
@@ -3320,16 +3303,8 @@ class PoseDirectory:  # (JobResources):
         scores_df[PUtils.groups] = protocol_s
         # scores_df = pd.concat([protocol_s, scores_df], axis=1)
         protocol_groups = scores_df.groupby(PUtils.groups)
-        # # protocol_groups = trajectory_df.groupby(groups)
-        # designs_by_protocol = {protocol: scores_df.index[indices].values.tolist()  # <- df must be from same source
-        #                        for protocol, indices in protocol_groups.indices.items()}
-        # designs_by_protocol.pop(PUtils.refine, None)  # remove refine if present
-        # designs_by_protocol.pop(PUtils.consensus, None)  # remove consensus if present
-        # # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
-        # #                        for protocol, indices in protocol_groups.indices.items()}
-        numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-        print_df = trajectory_df.select_dtypes(exclude=numerics)
-        print(print_df)
+        # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+        # print(trajectory_df.select_dtypes(exclude=numerics))
 
         pose_stats, protocol_stats = [], []
         for idx, stat in enumerate(stats_metrics):
@@ -3352,18 +3327,9 @@ class PoseDirectory:  # (JobResources):
         number_of_trajectories = len(trajectory_df) + len(protocol_groups) + 1  # 1 for the mean
         final_trajectory_indices = trajectory_df.index.to_list() + unique_protocols + [mean]
         trajectory_df = pd.concat([trajectory_df] +
-                                  [df.dropna(how='all', axis=0) for df in protocol_stats] +  # don't add v if nothing
+                                  [df.dropna(how='all', axis=0) for df in protocol_stats] +  # v don't add if nothing
                                   [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
-        #                           [s.dropna(how='all', axis=0).to_frame().T for s in pose_stats])
-        # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-        for s in pose_stats:
-            print(pd.to_numeric(s).to_frame().T.select_dtypes(exclude=numerics))
-        for df in protocol_stats:
-            print(df.dropna(how='all', axis=0).select_dtypes(exclude=numerics))
-        # print_df = trajectory_df.select_dtypes(exclude=numerics)
-        # print(print_df)
-        # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
-        # if number_of_trajectories > 0:
+        # this concat ^ puts back pose_source, refine, consensus designs since protocol_stats is calculated on scores_df
         # add all docking and pose information to each trajectory, dropping the pose observations
         pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
         trajectory_df = pd.concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
@@ -3380,13 +3346,7 @@ class PoseDirectory:  # (JobResources):
                           f'measurements available for this pose')
         elif len(similarity_protocols) == 1:  # measure significance
             self.log.info('Can\'t measure protocol significance, only one protocol of interest')
-        # missing_protocols = protocols_of_interest.difference(unique_design_protocols)
-        # if missing_protocols:
-        #     self.log.warning('Missing protocol%s \'%s\'. No protocol significance measurements for this design!'
-        #                      % ('s' if len(missing_protocols) > 1 else '', ', '.join(missing_protocols)))
-        # elif len(protocols_of_interest) == 1:
         else:  # Test significance between all combinations of protocols by grabbing mean entries per protocol
-            # for prot1, prot2 in combinations(sorted(protocols_of_interest), 2):
             for prot1, prot2 in combinations(sorted(similarity_protocols), 2):
                 select_df = \
                     trajectory_df.loc[designs_by_protocol[prot1] + designs_by_protocol[prot2], significance_columns]
