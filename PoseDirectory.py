@@ -3006,7 +3006,6 @@ class PoseDirectory:  # (JobResources):
         # With the per_residue_df constructed with reference, many metric instances should remove this entry
         # not_pose_source_indices = per_residue_df.index != pose_source  # PUtils.reference_name
         # errat_df = per_residue_df.loc[not_pose_source_indices, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
-        errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         # include if errat score is < 2 std devs and isn't 0
         source_errat_inclusion_boolean = np.logical_and(pose_source_errat_s < errat_2_sigma, pose_source_errat_s != 0.)
         # print('SEPARATE', (pose_source_errat_s < errat_2_sigma)[30:40], (pose_source_errat_s != 0.)[30:40])
@@ -3016,6 +3015,7 @@ class PoseDirectory:  # (JobResources):
         # print('errat_df', errat_df.iloc[:5, 30:40])
         # print('pose_source_errat_s', pose_source_errat_s[30:40])
         # print('SUBTRACTION', errat_df.sub(pose_source_errat_s, axis=1).iloc[:5, 30:40])
+        errat_df = per_residue_df.loc[:, idx_slice[:, 'errat_deviation']].droplevel(-1, axis=1)
         errat_sig_df = (errat_df.sub(pose_source_errat_s, axis=1)) > errat_1_sigma  # axis=1 Series is column oriented
         # print('errat_sig_df', errat_sig_df.iloc[:5, 30:40])
         # then select only those residues which are expressly important by the inclusion boolean
@@ -3023,7 +3023,8 @@ class PoseDirectory:  # (JobResources):
         # print('SIGNIFICANCE', errat_design_significance)
         # errat_design_residue_significance = errat_sig_df.loc[:, source_errat_inclusion_boolean].any(axis=0)
         # print('RESIDUE SIGNIFICANCE', errat_design_residue_significance[errat_design_residue_significance].index.tolist())
-        pose_collapse_df['errat_deviation'] = errat_design_significance
+        pose_collapse_df['errat_deviation'] = (errat_sig_df.loc[:, source_errat_inclusion_boolean] * 1).sum(axis=1)
+        print(pose_collapse_df['errat_deviation'])
         # significant_errat_residues = per_residue_df.index[].remove_unused_levels().levels[0].to_list()
 
         # Get design information including: interface residues, SSM's, and wild_type/design files
