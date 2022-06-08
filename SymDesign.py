@@ -472,7 +472,7 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
             args.output_file = args.output_file if args.output_file.endswith('.csv') else f'{args.output_file}.csv'
             if not output_analysis:  # we want to append to existing file
-                if path.exists(args.output_file):
+                if os.path.exists(args.output_file):
                     header = False
                 else:  # file doesn't exist, add header
                     header = True
