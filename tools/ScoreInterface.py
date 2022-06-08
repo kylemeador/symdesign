@@ -5,8 +5,8 @@ from itertools import repeat
 import pandas as pd
 
 from JobResources import fragment_factory
-from Pose import Pose
 from PathUtils import biological_interfaces
+from Pose import Pose
 from SymDesignUtils import start_log, unpickle, get_all_file_paths, to_iterable, mp_starmap, set_logging_to_debug
 from classes.EulerLookup import EulerLookup
 

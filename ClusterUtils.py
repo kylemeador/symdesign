@@ -6,24 +6,23 @@ from warnings import catch_warnings, simplefilter
 
 import numpy
 import numpy as np
+import pandas as pd
+from sklearn.cluster import DBSCAN
+from sklearn.linear_model import MultiTaskLassoCV, LassoCV, MultiTaskElasticNetCV, ElasticNetCV
+from sklearn.metrics import median_absolute_error  # r2_score,
 # from sklearn.decomposition import PCA
 # from scipy.spatial.distance import euclidean, pdist
 from sklearn.model_selection import train_test_split
-from sklearn.preprocessing import StandardScaler
-from sklearn.linear_model import MultiTaskLassoCV, LassoCV, MultiTaskElasticNetCV, ElasticNetCV
-from sklearn.metrics import median_absolute_error  # r2_score,
-from sklearn.cluster import DBSCAN
 from sklearn.neighbors import NearestNeighbors
-import pandas as pd
+from sklearn.preprocessing import StandardScaler
 
-from PoseDirectory import PoseDirectory
-from PathUtils import ialign_exe_path
-from SymDesignUtils import index_intersection, mp_map, sym, rmsd_threshold, digit_translate_table, start_log
 #     handle_design_errors, DesignError
 from DesignMetrics import prioritize_design_indices, nanohedra_metrics  # query_user_for_metrics,
+from PathUtils import ialign_exe_path
+from PoseDirectory import PoseDirectory
 from Structure import superposition3d
+from SymDesignUtils import index_intersection, mp_map, sym, rmsd_threshold, digit_translate_table, start_log
 from utils.GeneralUtils import transform_coordinate_sets
-
 
 # globals
 logger = start_log(name=__name__)

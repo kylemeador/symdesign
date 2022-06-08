@@ -1,8 +1,9 @@
-import os
 import argparse
+import os
+
+import numpy as np
 
 from SymDesignUtils import to_iterable, io_save
-import numpy as np
 
 
 def set_overlap(_set):

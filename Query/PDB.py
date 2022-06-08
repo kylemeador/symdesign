@@ -1,9 +1,9 @@
 import argparse
 import os
+import sys
 import time
 from copy import deepcopy
 from json import dumps, load
-import sys
 from typing import Union, List, Dict, Optional
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,7 +12,7 @@ sys.path.append(parent_dir)
 
 import requests
 
-from SymDesignUtils import start_log, io_save, unpickle, pickle_object, DesignError, ex_path
+from SymDesignUtils import start_log, io_save, unpickle, pickle_object, ex_path
 from Query.utils import input_string, confirmation_string, bool_d, validate_input, invalid_string, header_string, \
     format_string, connection_exception_handler
 

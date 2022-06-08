@@ -1,8 +1,7 @@
 from typing import Any, Optional
 
-from SymDesignUtils import start_log
 from Query.utils import connection_exception_handler
-
+from SymDesignUtils import start_log
 
 # Globals
 logger = start_log(name=__name__)

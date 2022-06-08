@@ -3,7 +3,7 @@ from typing import Any, Optional
 
 import requests
 
-from SymDesignUtils import DesignError, start_log
+from SymDesignUtils import start_log
 
 # Globals
 logger = start_log(name=__name__)

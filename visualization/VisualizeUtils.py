@@ -1,13 +1,14 @@
 from __future__ import annotations
+
 import os
-import re
 import sys
-from pickle import load
 from glob import glob
+from pickle import load
 
 # import pandas as pd
 # import numpy as np
 from pymol import finish_launching, cmd, stored
+
 finish_launching(['pymol', '-q'])
 # finish_launching()
 # from Pose import Pose

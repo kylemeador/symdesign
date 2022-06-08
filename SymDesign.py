@@ -7,41 +7,41 @@ import copy
 import datetime
 import os
 import shutil
-from argparse import _SubParsersAction
-from subprocess import Popen, list2cmdline
 import sys
 import time
+from argparse import _SubParsersAction
+from csv import reader
 from glob import glob
 from itertools import repeat, product, combinations, chain
 from json import loads, dumps
-from csv import reader
+from subprocess import Popen, list2cmdline
 from typing import List, Any, Union, Dict
 
 import pandas as pd
 import psutil
+from Bio.Data.IUPACData import protein_letters
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio.Data.IUPACData import protein_letters
-from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
 
-from FragDock import nanohedra_dock
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from Query.PDB import retrieve_pdb_entries_by_advanced_query
-from Query.utils import input_string, bool_d, validate_input, boolean_choice, invalid_string
-from utils.CmdLineArgParseUtils import query_mode
-from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
-from classes.EulerLookup import EulerLookup
+from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
-from PoseDirectory import PoseDirectory
+from DesignMetrics import prioritize_design_indices, query_user_for_metrics
+from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
+from FragDock import nanohedra_dock
 from JobResources import JobResources, fragment_factory
 from PDB import PDB, orient_pdb_file
-from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
+from PoseDirectory import PoseDirectory
 from ProteinExpression import find_expression_tags, find_matching_expression_tags, add_expression_tag, \
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
-from DesignMetrics import prioritize_design_indices, query_user_for_metrics
+from Query.PDB import retrieve_pdb_entries_by_advanced_query
+from Query.utils import input_string, bool_d, validate_input, boolean_choice, invalid_string
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
+from classes.EulerLookup import EulerLookup
+from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
+from utils.CmdLineArgParseUtils import query_mode
 from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module, \
     process_residue_selector_flags, return_default_flags
 from utils.GeneralUtils import write_docking_parameters

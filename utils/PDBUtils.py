@@ -1,12 +1,12 @@
 import warnings
 
-import numpy as np
-from sklearn.neighbors import BallTree
 import Bio.PDB
+import numpy as np
 from Bio.PDB.Atom import Atom as BioPDBAtom, PDBConstructionWarning
+from sklearn.neighbors import BallTree
+
 from PDB import PDB
 from SymDesignUtils import start_log
-
 
 # Globals
 warnings.simplefilter('ignore', PDBConstructionWarning)

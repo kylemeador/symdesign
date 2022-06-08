@@ -1,12 +1,12 @@
 import math
 import os
-import warnings
-from collections import namedtuple
-from itertools import chain  # repeat
-from math import floor, exp, log, log2
 import subprocess
 import time
+import warnings
+from collections import namedtuple
 from copy import deepcopy, copy
+from itertools import chain  # repeat
+from math import floor, exp, log, log2
 # from glob import glob
 from typing import Dict, Union, Sequence, List, Any, Optional
 
@@ -14,13 +14,14 @@ import numpy as np
 import pandas as pd
 from Bio import pairwise2, SeqIO, AlignIO
 from Bio.Align import MultipleSeqAlignment, substitution_matrices
+from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protein_letters_3to1
 from Bio.Seq import Seq
 from Bio.SeqRecord import SeqRecord
-from Bio.Data.IUPACData import protein_letters, extended_protein_letters, protein_letters_3to1
 
 import CommandDistributer
 import PathUtils as PUtils
 from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log, pretty_format_table
+
 # import dependencies.bmdca as bmdca
 
 # Globals

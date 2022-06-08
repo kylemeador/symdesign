@@ -2,8 +2,8 @@ import argparse
 import os
 from json import loads, dumps
 
-import PoseDirectory
 import PathUtils as PUtils
+import PoseDirectory
 import SymDesignUtils as SDUtils
 
 

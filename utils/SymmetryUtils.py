@@ -6,7 +6,6 @@ import numpy as np
 from PathUtils import sym_op_location, point_group_symmetry_operator_location, space_group_symmetry_operator_location
 from SymDesignUtils import unpickle, pickle_object
 
-
 chiral_space_groups = [
     'P1',  # TRICLINIC
     'P121', 'P1211', 'C121',  # MONOCLINIC

@@ -10,7 +10,7 @@ from requests import get, post
 
 from PDB import PDB
 from PathUtils import pisa_db
-from SymDesignUtils import pickle_object, to_iterable, remove_duplicates, io_save, start_log # logger,
+from SymDesignUtils import pickle_object, to_iterable, remove_duplicates, io_save, start_log  # logger,
 
 # from interface_analysis.InterfaceSorting import logger
 

@@ -7,13 +7,12 @@ python ProfileScripts.py -f [output_file.name] [-s] [-t]
 To profile memory (RAM) usage, run your script with the command format:
 python -m memory_profiler [SCRIPT] [ARGS] > output_file.name
 """
-import os
 import argparse
+import os
 import pstats
 from pstats import SortKey
 
 import SymDesignUtils as SDUtils
-
 
 if __name__ == '__main__':
     parser = argparse.ArgumentParser()

@@ -1,6 +1,6 @@
 from __future__ import annotations
-import os
 
+import os
 
 # Project strings and file names
 program_name = 'SymDesign'

@@ -3,8 +3,6 @@ import math
 import os
 
 from PDB import PDB
-
-
 # from Stride import Stride
 from Structure import superposition3d
 
