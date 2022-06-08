@@ -581,7 +581,7 @@ parser_select_sequences_arguments = {
                                                       'selected\nDefault=%(default)s'),
     ('-ss', '--selection_string'): dict(type=str, metavar='string',
                                         help='String to prepend to selection output name'),
-    ('--sequences_per_pose',): dict(type=int, default=1, metavar='designs_per_pose',
+    ('--sequences_per_pose',): dict(type=int, default=1, dest='designs_per_pose',
                                     help='What is the maximum number of sequences that should be selected from '
                                          'each pose?\nDefault=%(default)s'),
     # Todo make work with list... choices=['single', 'all', 'none']

@@ -593,15 +593,15 @@ class PoseDirectory:  # (JobResources):
 
     @property
     def trajectories(self) -> Union[str, bytes]:
-        return path.join(self.all_scores, '%s_Trajectories.csv' % self.__str__())
+        return path.join(self.all_scores, f'{self}_Trajectories.csv')
 
     @property
     def residues(self) -> Union[str, bytes]:
-        return path.join(self.all_scores, '%s_Residues.csv' % self.__str__())
+        return path.join(self.all_scores, f'{self}_Residues.csv')
 
     @property
     def design_sequences(self) -> Union[str, bytes]:
-        return path.join(self.all_scores, '%s_Sequences.pkl' % self.__str__())
+        return path.join(self.all_scores, f'{self}_Sequences.pkl')
 
     # SequenceProfile based attributes
     @property
@@ -1519,10 +1519,10 @@ class PoseDirectory:  # (JobResources):
         Returns:
             The formatted command for every Entity in the Pose
         """
-        if self.pose.entities == 1:  # no unbound state to query!
+        # self.entity_names not dependent on Pose load
+        if len(self.entity_names) == 1:  # no unbound state to query!
             return []
         else:
-            # not dependent on Pose load
             if len(self.symmetry_definition_files) != len(self.entity_names) or self.force_flags:
                 self.load_pose()  # Need to initialize the pose so each entity can get sdf created
                 for entity in self.pose.entities:
@@ -2518,6 +2518,9 @@ class PoseDirectory:  # (JobResources):
             self.identify_interface()
         else:  # we only need to load pose as we already calculated interface
             self.load_pose()
+            # Todo not correct!
+            # self.pose.interface_residues = self.interface_residues
+            self.identify_interface()
         self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residues)))}')
         if (not self.fragment_observations and self.fragment_observations != list()) and self.generate_fragments:
             self.make_path(self.frags, condition=self.write_frags)
@@ -3004,7 +3007,7 @@ class PoseDirectory:  # (JobResources):
             # add the total and concatenated metrics to analysis structures
             # collapse_concatenated = Series(np.concatenate(collapse_concatenated), name=design)
             per_residue_data['hydrophobic_collapse'][design] = Series(np.concatenate(collapse_concatenated),
-                                                                         name=design)
+                                                                      name=design)
             folding_and_collapse['new_collapse_islands'][design] = sum(new_collapse_islands)
             # takes into account new collapse positions contact order and measures the deviation of collapse and
             # contact order to indicate the potential effect to folding
@@ -3072,8 +3075,8 @@ class PoseDirectory:  # (JobResources):
                 divergence['divergence_interface'] = jensen_shannon_divergence(mutation_frequencies, interface_bkgd)
             # Get pose sequence divergence
             pose_divergence_s = concat([Series({f'{divergence_type}_per_residue': per_res_metric(stat)
-                                                      for divergence_type, stat in divergence.items()})],
-                                          keys=[('sequence_design', 'pose')])
+                                                for divergence_type, stat in divergence.items()})],
+                                       keys=[('sequence_design', 'pose')])
             # pose_divergence_s = Series({f'{divergence_type}_per_residue': per_res_metric(stat)
             #                                for divergence_type, stat in divergence.items()},
             #                               name=('sequence_design', 'pose'))
@@ -3349,7 +3352,7 @@ class PoseDirectory:  # (JobResources):
         pose_metrics_df = concat([other_metrics_s] * number_of_trajectories, axis=1).T
         trajectory_df = concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
                                                                       final_trajectory_indices)))
-                                  .drop(['observations'], axis=1), trajectory_df], axis=1)
+                               .drop(['observations'], axis=1), trajectory_df], axis=1)
         trajectory_df = trajectory_df.fillna({'observations': 1})
 
         # Calculate protocol significance
