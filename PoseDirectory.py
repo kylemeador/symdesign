@@ -2714,6 +2714,7 @@ class PoseDirectory:  # (JobResources):
         designs_by_protocol = protocol_s.groupby(protocol_s).groups
         # remove refine and consensus if present as there was no design done over multiple protocols
         # Todo change if we did multiple rounds of these protocols
+        unique_protocols = list(designs_by_protocol.keys())
         designs_by_protocol.pop(PUtils.refine, None)
         designs_by_protocol.pop(PUtils.consensus, None)
         # Get unique protocols
@@ -3347,16 +3348,17 @@ class PoseDirectory:  # (JobResources):
                                                                         for protocol in unique_design_protocols})
         # trajectory_df = pd.concat([trajectory_df, pd.concat(pose_stats, axis=1).T] + protocol_stats)
         # remove std rows if their is no stdev
-        number_of_trajectories = len(trajectory_df)
+        number_of_trajectories = len(trajectory_df) + len(protocol_groups) + 1  # 1 for the mean
+        final_trajectory_indices = trajectory_df.index.to_list() + unique_protocols + [mean]
         trajectory_df = pd.concat([trajectory_df] +
-                                  [s.dropna(how='all', axis=0).to_frame().T for s in pose_stats] +
-                                  [df.dropna(how='all', axis=0) for df in protocol_stats])
+                                  [df.dropna(how='all', axis=0) for df in protocol_stats] +
+                                  [s.dropna(how='all', axis=1).to_frame().T for s in pose_stats])
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         # if number_of_trajectories > 0:
         # add all docking and pose information to each trajectory, dropping the pose observations
         pose_metrics_df = pd.concat([other_metrics_s] * number_of_trajectories, axis=1).T
         trajectory_df = pd.concat([pose_metrics_df.rename(index=dict(zip(range(number_of_trajectories),
-                                                                         trajectory_df.index)))
+                                                                         final_trajectory_indices)))
                                   .drop(['observations'], axis=1), trajectory_df], axis=1)
         trajectory_df = trajectory_df.fillna({'observations': 1})
 
