@@ -1781,12 +1781,14 @@ if __name__ == '__main__':
             selected_poses_df = prioritize_design_indices(df, filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
             selected_designs = selected_poses_df.index.to_list()
+            args.select_number = len(selected_designs) if len(selected_designs) < args.select_number \
+                else args.select_number
             if args.allow_multiple_poses:
-                logger.info(f'Choosing {args.select_number} designs, from the top ranked designs '
-                            f'regardless of pose')
+                logger.info(f'Choosing {args.select_number} designs, from the top ranked designs regardless of pose')
                 results = selected_designs[:args.select_number]
             else:  # elif args.designs_per_pose:
-                logger.info(f'Choosing {args.select_number} designs, with {args.designs_per_pose} designs per pose')
+                logger.info(f'Choosing up to {args.select_number} designs, with {args.designs_per_pose} designs per '
+                            f'pose')
                 number_chosen = 0
                 selected_poses = {}
                 for pose_directory, design in selected_designs:
@@ -1799,11 +1801,10 @@ if __name__ == '__main__':
                         selected_poses[pose_directory] = {design}
                     number_chosen += 1
                     if number_chosen == args.select_number:
-                        results = [(pose_dir, design) for pose_dir, designs in selected_poses.items()
-                                   for design in designs]
                         break
 
-            logger.info(f'{len(results)} designs were selected')
+                results = [(pose_dir, design) for pose_dir, designs in selected_poses.items() for design in designs]
+
             # include only the found index names to the saved dataframe
             save_poses_df = selected_poses_df.loc[results, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         elif args.specification_file:
@@ -1812,7 +1813,7 @@ if __name__ == '__main__':
             selected_poses_df = prioritize_design_indices(df.loc[results, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
             # specify the result order according to any filtering and weighting
-            # results = selected_poses_df.index.to_list()  TODO reinstate
+            results = selected_poses_df.index.to_list()[:args.select_number]
             save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
         else:  # select designed sequences from each pose provided (PoseDirectory)
             trajectory_df = None  # currently used to get the column headers
@@ -1835,7 +1836,7 @@ if __name__ == '__main__':
                 # sequence_weights = {'buns_per_ang': 0.2, 'observed_evolution': 0.3, 'shape_complementarity': 0.25,
                 #                     'int_energy_res_summary_delta': 0.25}
                 zipped_args = zip(pose_directories, repeat(sequence_filters), repeat(sequence_weights),
-                                  repeat(args.select_number), repeat(args.protocol))
+                                  repeat(args.designs_per_pose), repeat(args.protocol))
                 # result_mp = zip(*SDUtils.mp_starmap(Ams.select_sequences, zipped_args, processes=cores))
                 result_mp = SDUtils.mp_starmap(PoseDirectory.select_sequences, zipped_args, processes=cores)
                 # results - contains tuple of (PoseDirectory, design index) for each sequence
@@ -1843,9 +1844,12 @@ if __name__ == '__main__':
                 results = {design: results for design, result in zip(pose_directories, result_mp)}
             else:
                 results = {design: design.select_sequences(filters=sequence_filters, weights=sequence_weights,
-                                                           number=args.select_number, protocols=args.protocol)
+                                                           number=args.designs_per_pose, protocols=args.protocol)
                            for design in pose_directories}
+            results = results[:args.select_number]
             save_poses_df = None  # Todo make possible!
+
+        logger.info(f'{len(results)} designs were selected')
 
         # Format selected sequences for output
         if not args.selection_string:
@@ -1856,7 +1860,7 @@ if __name__ == '__main__':
         # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
         os.makedirs(outdir, exist_ok=True)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
 
-        if save_poses_df is not None:
+        if save_poses_df is not None:  # Todo make work if DataFrame is empty...
             if args.filter or args.weight:
                 new_dataframe = os.path.join(outdir, f'{SDUtils.starttime}-{"Filtered" if args.filter else ""}'
                                                      f'{"Weighted" if args.weight else ""}DesignMetrics.csv')
@@ -1867,13 +1871,13 @@ if __name__ == '__main__':
 
         logger.info(f'Relevant design files are being copied to the new directory: {outdir}')
         # Create new output of designed PDB's  # TODO attach the state to these files somehow for further SymDesign use
-        for des_dir, design in results:
-            file_path = os.path.join(des_dir.designs, f'*{design}*')
+        for pose_dir, design in results:
+            file_path = os.path.join(pose_dir.designs, f'*{design}*')
             file = sorted(glob(file_path))
             if not file:  # add to exceptions
-                exceptions.append((des_dir.path, f'No file found for "{file_path}"'))
+                exceptions.append((pose_dir.path, f'No file found for "{file_path}"'))
                 continue
-            out_path = os.path.join(outdir, '%s_design_%s.pdb' % (str(des_dir), design))
+            out_path = os.path.join(outdir, f'{pose_dir}_design_{design}.pdb')
             if not os.path.exists(out_path):
                 shutil.copy(file[0], out_path)  # [i])))
                 # shutil.copy(des_dir.trajectories, os.path.join(outdir_traj, os.path.basename(des_dir.trajectories)))
@@ -1886,12 +1890,13 @@ if __name__ == '__main__':
             # except FileExistsError:
             #     pass
 
-        # Format sequences for expression
-        args.output_file = os.path.join(outdir, '%sSelectedDesigns.paths' % args.selection_string)
-        pose_directories = [des_dir for des_dir, design in results]
+        # Check if sequences should be generated
         if args.skip_sequence_generation:
             terminate(output=False)
         else:
+            # Format sequences for expression
+            args.output_file = os.path.join(outdir, f'{args.selection_string}SelectedDesigns.paths')
+            pose_directories = [des_dir for des_dir, design in results]
             with open(args.output_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(des_dir.path for des_dir in pose_directories))
 
