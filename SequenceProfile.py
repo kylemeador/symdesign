@@ -228,13 +228,19 @@ class SequenceProfile:
     #     self.profile_length = len(self.profile)
 
     @property
-    def msa(self) -> MultipleSequenceAlignment:
-        return self._msa
+    def msa(self) -> MultipleSequenceAlignment | None:
+        try:
+            return self._msa
+        except AttributeError:
+            return
 
     @msa.setter
     def msa(self, msa: MultipleSequenceAlignment):
-        self._msa = copy(msa)
-        self.fit_msa_to_structure()
+        if isinstance(msa, MultipleSequenceAlignment):
+            self._msa = copy(msa)
+            self.fit_msa_to_structure()
+        else:
+            self.log.warning(f'The passed msa isn\'t of the required type {MultipleSequenceAlignment.__name__}')
     # def disorder(self):
     #     try:
     #         return self._disorder
@@ -482,7 +488,8 @@ class SequenceProfile:
         # generate the disordered indices which are positions in reference that are missing in structure
         # disorder_indices = [index - 1 for index in self.disorder]
         assert len(self.reference_sequence) == self.msa.query_length, \
-            'The reference_sequence and MultipleSequenceAlignment query should be the same length!'
+            f'The {self.name} reference_sequence ({len(self.reference_sequence)}) and MultipleSequenceAlignment query ' \
+            f'({self.msa.query_length}) should be the same length!'
         sequence_indices = self.msa.sequence_indices
         sequence_indices[:, [index - 1 for index in self.disorder]] = False
         self.msa.sequence_indices = sequence_indices

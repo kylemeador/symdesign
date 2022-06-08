@@ -3609,6 +3609,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             for key, value in scores.items():
                 if not key.startswith('per_res_'):
                     continue
+                # per_res_energysolv_complex_15W or per_res_energysolv_2_bound_415B
                 metadata = key.strip('_').split('_')
                 # remove chain_id in rosetta_numbering="False"
                 # if we have enough chains, weird chain characters appear "per_res_energy_complex_19_" which mess up
@@ -3618,12 +3619,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     if not warn:
                         warn = True
                         logger.warning(
-                            'Encountered %s which has residue number > the pose length (%d). If this system is '
-                            'NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
+                            f'Encountered {key} which has residue number > the pose length ({pose_length}). If this '
+                            'system is NOT a large symmetric system and output_as_pdb_nums="true" was used in Rosetta '
                             'PerResidue SimpleMetrics, there is an error in processing that requires your '
                             'debugging. Otherwise, this is likely a numerical chain and will be treated under '
                             'that assumption. Always ensure that output_as_pdb_nums="true" is set'
-                            % (key, pose_length))
+                        )
                     residue_number = residue_number[:-1]
                 if residue_number not in residue_data:
                     residue_data[residue_number] = deepcopy(energy_template)  # deepcopy(residue_template)
