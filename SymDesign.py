@@ -3,6 +3,8 @@ Module for distribution of SymDesign commands. Includes pose initialization, dis
 SLURM computational clusters, analysis of designed poses, and sequence selection of completed structures.
 
 """
+from __future__ import annotations
+
 import copy
 import datetime
 import os
@@ -15,7 +17,7 @@ from glob import glob
 from itertools import repeat, product, combinations, chain
 from json import loads, dumps
 from subprocess import Popen, list2cmdline
-from typing import List, Any, Union, Dict
+from typing import Any
 
 import pandas as pd
 import psutil
@@ -408,7 +410,7 @@ sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, c
                  ' understand the variables or ask for help if you are still unsure.'
 
 
-def terminate(results: Union[List[Any], Dict] = None, output: bool = True, **kwargs):
+def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
     """Format designs passing output parameters and report program exceptions
 
     Args:
@@ -828,8 +830,8 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (PoseDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
-    all_poses: List[Union[str, bytes]] | None = None
-    pose_directories: List[PoseDirectory] = []
+    all_poses: list[str | bytes] | None = None
+    pose_directories: list[PoseDirectory] = []
     location: str | None = None
     all_dock_directories, entity_pairs = None, None
     low, high, low_range, high_range = None, None, None, None
