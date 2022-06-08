@@ -937,19 +937,26 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
     return sorted(set(all_paths)), location if isinstance(location, str) else location[0]  # grab first index
 
 
-def get_base_symdesign_dir(directory: str = None) -> Union[None, str]:
+def get_base_symdesign_dir(search_path: str = None) -> str | bytes | None:
+    """Find the program_output variable in the specified path and return the path to it
+
+    Args:
+        search_path: The path to search
+    Returns:
+        The path of the identified program root
+    """
     base_dir = None
-    if not directory:
+    if not search_path:
         pass
-    elif PUtils.program_output in directory:   # directory1/SymDesignOutput/directory2/directory3
-        for idx, dirname in enumerate(directory.split(os.sep), 1):
+    elif PUtils.program_output in search_path:   # directory1/SymDesignOutput/directory2/directory3
+        for idx, dirname in enumerate(search_path.split(os.sep), 1):
             if dirname == PUtils.program_output:
-                base_dir = f'{os.sep}{os.path.join(*directory.split(os.sep)[:idx])}'
+                base_dir = f'{os.sep}{os.path.join(*search_path.split(os.sep)[:idx])}'
                 break
-    elif PUtils.program_output in os.listdir(directory):  # directory_provided/SymDesignOutput
-        for sub_directory in os.listdir(directory):
+    elif PUtils.program_output in os.listdir(search_path):  # directory_provided/SymDesignOutput
+        for sub_directory in os.listdir(search_path):
             if sub_directory == PUtils.program_output:
-                base_dir = os.path.join(directory, sub_directory)
+                base_dir = os.path.join(search_path, sub_directory)
                 break
 
     return base_dir

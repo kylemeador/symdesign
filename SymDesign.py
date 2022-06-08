@@ -797,18 +797,21 @@ if __name__ == '__main__':
     #     exit(1)
 
     # Set up JobResources which handles flags and shared program objects necessary for processing and i/o
-    symdesign_directory = SDUtils.get_base_symdesign_dir(args.directory)
-    if not symdesign_directory:  # Not from SymDesignOutput
-        if args.output_directory:  # use a user specified directory
-            # if args.output_directory == '':
-            #     symdesign_directory = '%s_%s_%s_poses' % default_output_tuple
-            # else:
-            queried_flags['output_directory'] = True
-            symdesign_directory = args.output_directory
-        else:
-            # Todo this is wrong if the run was started
-            symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
-        os.makedirs(symdesign_directory, exist_ok=True)
+    symdesign_directory = SDUtils.get_base_symdesign_dir((args.directory or args.project or args.single or os.getcwd()))
+    if not symdesign_directory:  # check if there is a file and see if we can solve there
+        if args.file:
+            with open(args.file, 'r') as f:
+                symdesign_directory = SDUtils.get_base_symdesign_dir(f.readline())
+        else:  # Probably not from SymDesignOutput
+            if args.output_directory:  # use a user specified directory
+                # if args.output_directory == '':
+                #     symdesign_directory = '%s_%s_%s_poses' % default_output_tuple
+                # else:
+                queried_flags['output_directory'] = True
+                symdesign_directory = args.output_directory
+            else:  # assume new input and make in the current directory
+                symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
+            os.makedirs(symdesign_directory, exist_ok=True)
 
     job = JobResources(symdesign_directory, **queried_flags)
     logger.info(f'Using JobResources from Database located at "{job.protein_data}"')
