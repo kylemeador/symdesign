@@ -1,15 +1,16 @@
 from __future__ import annotations
 
-import os
+from os import path, environ
 
 # Project strings and file names
 program_name = 'SymDesign'
-program_output = '%sOutput' % program_name
+program_exe = path.join(path.dirname(__file__), f'{program_name}.py')
+program_output = f'{program_name}Output'
 projects = 'Projects'
-program_command = 'python SymDesign.py'
-submodule_guide = '%s MODULE --guide' % program_command
-submodule_help = '%s MODULE --help' % program_command
-guide_string = '%s guide. Enter \'%s --guide\'' % (program_name, program_command)
+program_command = f'python {program_exe}'
+submodule_guide = f'{program_command} MODULE --guide'
+submodule_help = f'{program_command} MODULE --help'
+guide_string = f'{program_name} guide. Enter "{program_command} --guide"'
 sym_entry = 'sym_entry'
 output_oligomers = 'output_oligomers'
 output_fragments = 'output_fragments'
@@ -34,7 +35,7 @@ ignore_clashes = 'ignore_clashes'
 ignore_pose_clashes = 'ignore_pose_clashes'
 ignore_symmetric_clashes = 'ignore_symmetric_clashes'
 protocol = 'protocol'
-groups = 'protocol'
+groups = protocol
 number_of_trajectories = 'number_of_trajectories'
 force_flags = 'force_flags'
 current_energy_function = 'REF2015'
@@ -55,7 +56,7 @@ def search_env_for_variable(search_variable: str) -> str | None:
         while not env_variable:
             string = next(string_op_it)(search_variable)
             search_strings.append(string)
-            env_variable = os.environ.get(string)
+            env_variable = environ.get(string)
     except StopIteration:
         pass
 
@@ -92,7 +93,7 @@ assembly = 'assembly.pdb'
 frag_dir = 'matching_fragments'  # was 'matching_fragments_representatives' in v0
 frag_text_file = 'frag_match_info_file.txt'
 docked_pose_file = 'docked_pose_info_file.txt'
-frag_file = os.path.join(frag_dir, frag_text_file)
+frag_file = path.join(frag_dir, frag_text_file)
 pose_file = 'docked_pose_info_file.txt'
 design_profile = 'design_profile'
 evolutionary_profile = 'evolutionary_profile'
@@ -128,40 +129,40 @@ baseline_program_memory = 3000000000  # 3GB
 nanohedra_memory = 30000000000  # 30Gb
 
 # Project paths
-source = os.path.dirname(os.path.realpath(__file__))  # reveals master symdesign folder
-readme = os.path.join(source, 'README.md')
-command = os.path.join(source, 'SymDesign.py')
-cmd_dist = os.path.join(source, 'CommandDistributer.py')
-dependency_dir = os.path.join(source, 'dependencies')
-sym_op_location = os.path.join(dependency_dir, 'symmetry_operators')
-point_group_symmetry_operator_location = os.path.join(sym_op_location, 'point_group_operators.pkl')
-space_group_symmetry_operator_location = os.path.join(sym_op_location, 'space_group_operators.pkl')
-nanohedra_main = os.path.join(source, '%s.py' % nano.title())
-nanohedra_dock_file = os.path.join(source, 'FragDock.py')
-binaries = os.path.join(dependency_dir, 'bin')
-models_to_multimodel_exe = os.path.join(binaries, 'models_to_multimodel.py')
-list_pdb_files = os.path.join(binaries, 'list_files_in_directory.py')
-hbnet_sort = os.path.join(binaries, 'sort_hbnet_silent_file_results.sh')
-sbatch_template_dir = os.path.join(dependency_dir, 'sbatch')
-disbatch = os.path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
-data_dir = os.path.join(source, data)
-binary_lookup_table_path = os.path.join(dependency_dir, 'euler_lookup', 'euler_lookup_40.npz')
-reference_aa_file = os.path.join(data_dir, 'AAreference.pdb')
-# reference_aa_pickle = os.path.join(data_dir, 'AAreference.pkl')
-reference_residues_pkl = os.path.join(data_dir, 'AAreferenceResidues.pkl')
-uniprot_pdb_map = os.path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
-# filter_and_sort = os.path.join(data_dir, 'filter_and_sort_df.csv')
-pdb_uniprot_map = os.path.join(data_dir, 'pdb_uniprot_map')  # TODO
-# uniprot_pdb_map = os.path.join(data_dir, 'uniprot_pdb_map')  # TODO
-affinity_tags = os.path.join(data_dir, 'modified-affinity-tags.csv')
-database = os.path.join(data_dir, 'databases')
-pdb_db = os.path.join(database, 'pdbDB')  # pointer to pdb database
-pisa_db = os.path.join(database, 'pisaDB')  # pointer to pisa database
+source = path.dirname(path.realpath(__file__))  # reveals master symdesign folder
+readme = path.join(source, 'README.md')
+command = path.join(source, 'SymDesign.py')
+cmd_dist = path.join(source, 'CommandDistributer.py')
+dependency_dir = path.join(source, 'dependencies')
+sym_op_location = path.join(dependency_dir, 'symmetry_operators')
+point_group_symmetry_operator_location = path.join(sym_op_location, 'point_group_operators.pkl')
+space_group_symmetry_operator_location = path.join(sym_op_location, 'space_group_operators.pkl')
+nanohedra_main = path.join(source, f'{nano.title()}.py')
+nanohedra_dock_file = path.join(source, 'FragDock.py')
+binaries = path.join(dependency_dir, 'bin')
+models_to_multimodel_exe = path.join(binaries, 'models_to_multimodel.py')
+list_pdb_files = path.join(binaries, 'list_files_in_directory.py')
+hbnet_sort = path.join(binaries, 'sort_hbnet_silent_file_results.sh')
+sbatch_template_dir = path.join(dependency_dir, 'sbatch')
+disbatch = path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
+data_dir = path.join(source, data)
+binary_lookup_table_path = path.join(dependency_dir, 'euler_lookup', 'euler_lookup_40.npz')
+reference_aa_file = path.join(data_dir, 'AAreference.pdb')
+# reference_aa_pickle = path.join(data_dir, 'AAreference.pkl')
+reference_residues_pkl = path.join(data_dir, 'AAreferenceResidues.pkl')
+uniprot_pdb_map = path.join(data_dir, '200121_UniProtPDBMasterDict.pkl')
+# filter_and_sort = path.join(data_dir, 'filter_and_sort_df.csv')
+pdb_uniprot_map = path.join(data_dir, 'pdb_uniprot_map')  # TODO
+# uniprot_pdb_map = path.join(data_dir, 'uniprot_pdb_map')  # TODO
+affinity_tags = path.join(data_dir, 'modified-affinity-tags.csv')
+database = path.join(data_dir, 'databases')
+pdb_db = path.join(database, 'pdbDB')  # pointer to pdb database
+pisa_db = path.join(database, 'pisaDB')  # pointer to pisa database
 # Todo
-#  qsbio = os.path.join(data_dir, 'QSbioAssemblies.pkl')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
-# qs_bio = os.path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
-qs_bio = os.path.join(data_dir, 'QSbioHighConfidenceAssemblies.pkl')
-qs_bio_monomers_file = os.path.join(data_dir, 'QSbio_Monomers.csv')
+#  qsbio = path.join(data_dir, 'QSbioAssemblies.pkl')  # 200121_QSbio_GreaterThanHigh_Assemblies.pkl
+# qs_bio = path.join(data_dir, 'QSbio_GreaterThanHigh_Assemblies.pkl')
+qs_bio = path.join(data_dir, 'QSbioHighConfidenceAssemblies.pkl')
+qs_bio_monomers_file = path.join(data_dir, 'QSbio_Monomers.csv')
 
 # TODO script this file creation ?
 #  qsbio_data_url = 'https://www.weizmann.ac.il/sb/faculty_pages/ELevy/downloads/QSbio.xlsx'
@@ -178,8 +179,8 @@ qs_bio_monomers_file = os.path.join(data_dir, 'QSbio_Monomers.csv')
 #      qs_bio[pdb_code] = set(int(ass_id) for ass_id in qs_bio[pdb_code])
 
 # Fragment Database
-fragment_db = os.path.join(database, 'fragment_db')
-# fragment_db = os.path.join(database, 'fragment_DB')  # TODO when full MySQL DB is operational
+fragment_db = path.join(database, 'fragment_db')
+# fragment_db = path.join(database, 'fragment_DB')  # TODO when full MySQL DB is operational
 biological_interfaces = 'biological_interfaces'
 bio = 'bio'
 xtal = 'xtal'
@@ -187,63 +188,62 @@ bio_xtal = 'bio_xtal'
 fragment_dbs = [biological_interfaces,
                 # bio, xtal, bio_xtal
                 ]
-biological_fragment_db = os.path.join(fragment_db, biological_interfaces)  # TODO change this directory style
-biological_fragment_db_pickle = os.path.join(fragment_db, '%s.pkl' % biological_interfaces)
-bio_fragment_db = os.path.join(fragment_db, bio)
-xtal_fragment_db = os.path.join(fragment_db, xtal)
-full_fragment_db = os.path.join(fragment_db, bio+xtal)
+biological_fragment_db = path.join(fragment_db, biological_interfaces)  # TODO change this directory style
+biological_fragment_db_pickle = path.join(fragment_db, f'{biological_interfaces}.pkl')
+bio_fragment_db = path.join(fragment_db, bio)
+xtal_fragment_db = path.join(fragment_db, xtal)
+full_fragment_db = path.join(fragment_db, bio+xtal)
 frag_directory = {biological_interfaces: biological_fragment_db, bio: bio_fragment_db, xtal: xtal_fragment_db,
                   bio+xtal: full_fragment_db}
 # Nanohedra Specific
-monofrag_cluster_rep_dirpath = os.path.join(fragment_db, 'Top5MonoFragClustersRepresentativeCentered')
-intfrag_cluster_rep_dirpath = os.path.join(fragment_db, 'Top75percent_IJK_ClusterRepresentatives_1A')
-intfrag_cluster_info_dirpath = os.path.join(fragment_db, 'IJK_ClusteredInterfaceFragmentDBInfo_1A')
+monofrag_cluster_rep_dirpath = path.join(fragment_db, 'Top5MonoFragClustersRepresentativeCentered')
+intfrag_cluster_rep_dirpath = path.join(fragment_db, 'Top75percent_IJK_ClusterRepresentatives_1A')
+intfrag_cluster_info_dirpath = path.join(fragment_db, 'IJK_ClusteredInterfaceFragmentDBInfo_1A')
 
 # External Program Dependencies
 # Free SASA Executable Path
-free_sasa_exe_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
-free_sasa_configuration_path = os.path.join(dependency_dir, 'sasa', 'freesasa-2.0.config')
-# free_sasa_exe_path = os.path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
+free_sasa_exe_path = path.join(dependency_dir, 'sasa', 'freesasa-2.0', 'src', 'freesasa')
+free_sasa_configuration_path = path.join(dependency_dir, 'sasa', 'freesasa-2.0.config')
+# free_sasa_exe_path = path.join(nanohedra_source, "sasa", "freesasa-2.0", "src", "freesasa")
 
-orient_dir = os.path.join(dependency_dir, 'orient')
+orient_dir = path.join(dependency_dir, 'orient')
 # orient_exe = 'orient_oligomer.f'  # Non_compiled
 orient_exe = 'orient_oligomer'
-orient_exe_path = os.path.join(orient_dir, orient_exe)
+orient_exe_path = path.join(orient_dir, orient_exe)
 orient_log_file = 'orient_oligomer_log.txt'
-errat_exe_path = os.path.join(dependency_dir, 'errat', 'errat')
-stride_exe_path = os.path.join(dependency_dir, 'stride', 'stride')
-bmdca_exe_path = os.path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
-ialign_exe_path = os.path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
+errat_exe_path = path.join(dependency_dir, 'errat', 'errat')
+stride_exe_path = path.join(dependency_dir, 'stride', 'stride')
+bmdca_exe_path = path.join(dependency_dir, 'bmDCA', 'src', 'bmdca')
+ialign_exe_path = path.join(dependency_dir, 'ialign', 'bin', 'ialign.pl')
 # Set up for alignment programs
-reformat_msa_exe_path = os.path.join(dependency_dir, 'hh-suite', 'scripts', 'reformat.pl')
-alignmentdb = os.path.join(dependency_dir, 'ncbi_databases', 'uniref90')
-# alignment_db = os.path.join(dependency_dir, 'databases/uniref90')  # TODO
+reformat_msa_exe_path = path.join(dependency_dir, 'hh-suite', 'scripts', 'reformat.pl')
+alignmentdb = path.join(dependency_dir, 'ncbi_databases', 'uniref90')
+# alignment_db = path.join(dependency_dir, 'databases/uniref90')  # TODO
 # TODO set up hh-suite in source or elsewhere on system and dynamically modify config file
 hhblits_exe = search_env_for_variable(hhblits)
 hhblits_exe = hhblits_exe if hhblits_exe else 'hhblits'  # ensure not None
-uniclustdb = os.path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
-# uniclust_db = os.path.join(database, 'hh-suite/databases', 'UniRef30_2020_02')  # TODO
-install_hhsuite = os.path.join(binaries, 'install_hhsuite.sh')
+uniclustdb = path.join(dependency_dir, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO make db dynamic at config
+# uniclust_db = path.join(database, 'hh-suite', 'databases', 'UniRef30_2020_02')  # TODO
+install_hhsuite = path.join(binaries, 'install_hhsuite.sh')
 # Rosetta
 rosetta_main = search_env_for_variable(rosetta_str)
 rosetta_main = rosetta_main if rosetta_main else 'main'  # ensure not None
-make_symmdef = os.path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
+make_symmdef = path.join(rosetta_main, 'source', 'src', 'apps', 'public', 'symmetry', 'make_symmdef_file.pl')
 # Todo v dependent on external compile. cd to the directory, then type "make" to compile the executable
-dalphaball = os.path.join(rosetta_main, 'source', 'external', 'DAlpahBall', 'DAlphaBall.gcc')
+dalphaball = path.join(rosetta_main, 'source', 'external', 'DAlpahBall', 'DAlphaBall.gcc')
 # Rosetta Scripts and Misc Files'
-rosetta_scripts = os.path.join(dependency_dir, 'rosetta')
+rosetta_scripts = path.join(dependency_dir, 'rosetta')
 symmetry_def_file_dir = 'rosetta_symmetry_definition_files'
-symmetry_def_files = os.path.join(rosetta_scripts, 'sdf')
+symmetry_def_files = path.join(rosetta_scripts, 'sdf')
 sym_weights = 'ref2015_sym.wts_patch'
 solvent_weights = 'ref2015_solvent.wts_patch'
 solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
-scout_symmdef = os.path.join(symmetry_def_files, 'scout_symmdef_file.pl')
+scout_symmdef = path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 symmetry_protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
 
 # help and warnings
-warn_missing_symmetry = \
-    'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--%s"' % ('%s', sym_entry)
+warn_missing_symmetry = f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{sym_entry}"'
 
 
 def help(module):  # command is SymDesign.py

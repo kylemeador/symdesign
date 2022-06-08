@@ -30,7 +30,8 @@ from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_
 # globals
 logger = start_log(name=__name__)
 seq_res_len = 52
-mutation_directives = ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
+mutation_directives = \
+    ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
 residue_properties = {'ALA': {'hydrophobic', 'apolar'},
                       'CYS': {'special', 'hydrophobic', 'apolar', 'polar', 'hbonding'},
                       'ASP': {'charged', 'polar', 'hbonding'},
