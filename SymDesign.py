@@ -408,15 +408,13 @@ sbatch_warning = 'Ensure the SBATCH script(s) below are correct. Specifically, c
                  ' understand the variables or ask for help if you are still unsure.'
 
 
-def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
+def terminate(results: Union[List[Any], Dict] = None, output: bool = True, **kwargs):
     """Format designs passing output parameters and report program exceptions
 
     Args:
         results: The returned results from the module run. By convention contains results and exceptions
         output: Whether the module used requires a file to be output
     """
-    global out_path
-    global design_source
     # save any information found during the design command to it's serialized state
     for design in pose_directories:
         design.pickle_info()
@@ -442,6 +440,8 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
         # exit_code = 1
 
     if success and output:
+        global out_path
+        global design_source
         job_paths = job.job_paths
         job.make_path(job_paths)
         if low and high:
@@ -451,11 +451,13 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
         default_output_tuple = (SDUtils.starttime, args.module, design_source)
         if args.output_file and args.module not in [PUtils.analysis, PUtils.cluster_poses]:
             designs_file = args.output_file
+            output_analysis = True
         else:
             scratch_designs = os.path.join(job_paths, PUtils.default_path_file % default_output_tuple).split('_pose')
             designs_file = f'{scratch_designs[0]}_pose{scratch_designs[-1]}'
+            output_analysis = kwargs.get('output_analysis', True)
 
-        if pose_directories:  # pose_directories is empty list when nano
+        if pose_directories and output_analysis:  # pose_directories is empty list when nano
             with open(designs_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(design.path for design in success))
             logger.critical(f'The file "{designs_file}" contains the locations of every poses that passed checks or '
@@ -467,7 +469,14 @@ def terminate(results: Union[List[Any], Dict] = None, output: bool = True):
             # Save Design DataFrame
             design_df = pd.DataFrame([result for result in results if not isinstance(result, BaseException)])
             args.output_file = args.output_file if args.output_file.endswith('.csv') else f'{args.output_file}.csv'
-            design_df.to_csv(args.output_file)
+            if not output_analysis:  # we want to append to existing file
+                if path.exists(args.output_file):
+                    header = False
+                else:  # file doesn't exist, add header
+                    header = True
+                design_df.to_csv(args.output_file, mode='a', header=header)
+            else:  # this creates a new file
+                design_df.to_csv(args.output_file)
             logger.info(f'Analysis of all poses written to {args.output_file}')
             if args.save:
                 logger.info(f'Analysis of all Trajectories and Residues written to {all_scores}')
@@ -774,7 +783,7 @@ if __name__ == '__main__':
     # Initialize common resources
     # -----------------------------------------------------------------------------------------------------------------
     # Check if output already exists  # or provide --overwrite
-    if args.output_file and os.path.exists(args.output_file):
+    if args.output_file and os.path.exists(args.output_file) and args.module not in PUtils.analysis:
         logger.critical(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
                         f'data! Please specify a new name with with -Of/--output_file')
         exit(1)
@@ -1400,12 +1409,12 @@ if __name__ == '__main__':
 
         terminate(results=results)
     # ---------------------------------------------------
-    elif args.module == PUtils.analysis:  # -o output, -f figures, -n no_save, -j join
-        if args.no_save:
-            args.save = False
-        else:
-            args.save = True
-        # job = next(iter(pose_directories))
+    elif args.module == PUtils.analysis:  # output, figures, save, join
+        # if args.no_save:
+        #     args.save = False
+        # else:
+        #     args.save = True
+
         # ensure analysis write directory exists
         job.make_path(job.all_scores)
         # Start pose analysis of all designed files
@@ -1421,10 +1430,10 @@ if __name__ == '__main__':
             # @profile  # memory_profiler
             # def run_single_analysis():
             for design in pose_directories:
-                results.append(design.interface_design_analysis(merge_residue_data=args.join,
-                                                                save_trajectories=args.save, figures=args.figures))
+                results.append(design.interface_design_analysis(merge_residue_data=args.join, save_metrics=args.save,
+                                                                figures=args.figures))
             # run_single_analysis()
-        terminate(results=results)
+        terminate(results=results, output_analysis=args.output)
     # ---------------------------------------------------
     # elif args.module == 'merge':  # -d2 directory2, -f2 file2, -i increment, -F force
     #     directory_pairs, failures = None, None

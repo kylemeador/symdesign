@@ -57,7 +57,7 @@ from utils.SymmetryUtils import identity_matrix, origin
 # Globals
 logger = start_log(name=__name__)
 idx_offset = 1
-design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
+# design_directory_modes = [PUtils.interface_design, 'dock', 'filter']
 cst_value = round(0.2 * reference_average_residue_weight, 2)
 mean, std = 'mean', 'std'
 stats_metrics = [mean, std]
@@ -1553,6 +1553,7 @@ class PoseDirectory:  # (JobResources):
     def interface_metrics(self):
         """Generate a script capable of running Rosetta interface metrics analysis on the bound and unbound states"""
         # metrics_flags = 'repack=yes'
+        protocol = PUtils.interface_metrics
         main_cmd = copy(script_cmd)
         if self.interface_residues is False or self.interface_design_residues is False:
             # need these ^ for making flags so get them v
@@ -1564,10 +1565,10 @@ class PoseDirectory:  # (JobResources):
             self.get_fragment_metrics()  # <-$ needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
-            self.log.debug('Pose flags written to: %s' % self.flags)
+            self.log.debug(f'Pose flags written to: {self.flags}')
 
         pdb_list = path.join(self.scripts, 'design_files%s.txt' %
-                                ('_%s' % self.specific_protocol if self.specific_protocol else ''))
+                             ('_%s' % self.specific_protocol if self.specific_protocol else ''))
         generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list] + \
             (['-s', self.specific_protocol] if self.specific_protocol else [])
         main_cmd += ['@%s' % self.flags, '-in:file:l', pdb_list,
@@ -1580,22 +1581,11 @@ class PoseDirectory:  # (JobResources):
             self.run_in_shell = False
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            [path.join(PUtils.rosetta_scripts, '%s%s.xml'
-                          % (PUtils.interface_metrics, '_DEV' if self.development else ''))]
+            [path.join(PUtils.rosetta_scripts, f'{protocol}{"_DEV" if self.development else ""}.xml')]
         entity_cmd = main_cmd + [path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
                                               % ('_DEV' if self.development else ''))]
         metric_cmds = [metric_cmd_bound]
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
-        # for idx, (entity, name) in enumerate(zip(self.pose.entities, self.entity_names), 1):
-        #     if self.symmetric:
-        #         entity_sdf = 'sdf=%s' % path.join(self.data, '%s.sdf' % name)
-        #         entity_sym = 'symmetry=make_point_group'
-        #     else:
-        #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-        #     _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
-        #         ([entity_sdf] if entity_sdf != '' else [])
-        #     self.log.info('Metrics Command for Entity %s: %s' % (name, list2cmdline(_metric_cmd)))
-        #     metric_cmds.append(_metric_cmd)
 
         # Create executable to gather interface Metrics on all Designs
         if self.run_in_shell:
@@ -1603,8 +1593,20 @@ class PoseDirectory:  # (JobResources):
                 metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()  # wait for command to complete
         else:
-            write_shell_script(list2cmdline(generate_files_cmd), name=PUtils.interface_metrics,
-                               out_path=self.scripts, additional=[list2cmdline(command) for command in metric_cmds])
+            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+                            '--output_file', path.join(self.all_scores, PUtils.analysis_file % (starttime, protocol))]
+            write_shell_script(list2cmdline(generate_files_cmd), name=PUtils.interface_metrics, out_path=self.scripts,
+                               additional=[list2cmdline(command) for command in metric_cmds] +
+                               analysis_cmd)
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if self.run_in_shell:
+            pose_s = self.interface_design_analysis()
+            out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            if not path.exists(out_path):
+                header = True
+            else:
+                header = False
+            pose_s.to_csv(out_path, mode='a', header=header)
 
     def custom_rosetta_script(self, script, file_list=None, native=None, suffix=None,
                               score_only=None, variables=None, **kwargs):
@@ -1668,8 +1670,24 @@ class PoseDirectory:  # (JobResources):
             cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + cmd
             self.run_in_shell = False
 
-        write_shell_script(list2cmdline(generate_files_cmd),
-                           name=script_name, out_path=self.scripts, additional=[list2cmdline(cmd)])
+        if self.run_in_shell:
+            raise NotImplementedError('Need to implement this feature')
+        else:
+            write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
+                               additional=[list2cmdline(cmd)])
+        # Todo  + analysis_cmd)
+        #  analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+        #                             '--output_file', path.join(self.all_scores, PUtils.analysis_file % (starttime, protocol))]
+
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if self.run_in_shell:
+            pose_s = self.interface_design_analysis()
+            out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            if not path.exists(out_path):
+                header = True
+            else:
+                header = False
+            pose_s.to_csv(out_path, mode='a', header=header)
 
     def prepare_symmetry_for_rosetta(self):
         """For the specified design, locate/make the symmetry files necessary for Rosetta input
@@ -1748,7 +1766,7 @@ class PoseDirectory:  # (JobResources):
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
-            self.log.debug('Pose flags written to: %s' % self.flags)
+            self.log.debug(f'Pose flags written to: {self.flags}')
 
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
             if not self.no_term_constraint:  # design_with_fragments
@@ -1776,10 +1794,10 @@ class PoseDirectory:  # (JobResources):
             additional_cmds.append(
                 main_cmd +
                 (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) +
-                ['-in:file:silent', path.join(self.data, 'hbnet_selected.o'), '@%s' % self.flags,
+                ['-in:file:silent', path.join(self.data, 'hbnet_selected.o'), f'@{self.flags}',
                  '-in:file:silent_struct_type', 'binary',
                  # '-out:suffix', '_%s' % protocol,  adding no_nstruct_label true as only hbnet uses this mechanism
-                 '-parser:protocol', path.join(PUtils.rosetta_scripts, '%s.xml' % protocol)] + nstruct_instruct)
+                 '-parser:protocol', path.join(PUtils.rosetta_scripts, f'{protocol}.xml')] + nstruct_instruct)
 
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
@@ -1792,20 +1810,9 @@ class PoseDirectory:  # (JobResources):
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + entity_cmd
             self.run_in_shell = False
 
-        self.log.info('Design Command: %s' % list2cmdline(design_cmd))
+        self.log.info(f'Design Command: {list2cmdline(design_cmd)}')
         metric_cmds = []
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
-        # for idx, entity in enumerate(self.pose.entities, 1):
-        #     if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-        #         entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
-        #                                                 modify_sym_energy_for_cryst=self.modify_sym_energy)
-        #         entity_sym = 'symmetry=make_point_group'
-        #     else:
-        #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-        #     _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
-        #         ([entity_sdf] if entity_sdf != '' else [])
-        #     self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
-        #     metric_cmds.append(_metric_cmd)
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.run_in_shell:
@@ -1815,10 +1822,13 @@ class PoseDirectory:  # (JobResources):
                 metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()
         else:
+            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+                            '--output_file', path.join(self.all_scores, PUtils.analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                           [list2cmdline(generate_files_cmd)] +
-                                          [list2cmdline(command) for command in metric_cmds])
+                                          [list2cmdline(command) for command in metric_cmds] +
+                               analysis_cmd)
             #                  status_wrap=self.serialized_info,
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
@@ -2128,7 +2138,7 @@ class PoseDirectory:  # (JobResources):
     def refine(self, to_design_directory=False, interface_to_alanine=True, gather_metrics=False):
         """Refine the source PDB using self.symmetry to specify any symmetry"""
         main_cmd = copy(script_cmd)
-        stage = PUtils.refine
+        protocol = PUtils.refine
         if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
             # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
             # Todo unnecessary? call self.load_pose with a flag for the type of file? how to reconcile with interface
@@ -2153,7 +2163,7 @@ class PoseDirectory:  # (JobResources):
 
             # self.pose.pdb.write(out_path=self.refine_pdb)
             self.pose.write(out_path=self.refine_pdb)
-            self.log.debug('Cleaned PDB for %s: "%s"' % (self.refine_pdb, stage.title()))
+            self.log.debug(f'Cleaned PDB for {protocol}: "{self.refine_pdb}"')
             flags = path.join(self.scripts, 'flags')
             flag_dir = self.scripts
             pdb_out_path = self.designs
@@ -2174,20 +2184,20 @@ class PoseDirectory:  # (JobResources):
             self.make_path(flag_dir)
             self.make_path(pdb_out_path)
             flags = self.prepare_rosetta_flags(out_path=flag_dir, pdb_out_path=pdb_out_path)
-            self.log.debug('Pose flags written to: %s' % flags)
+            self.log.debug(f'Pose flags written to: {flags}')
 
         # RELAX: Prepare command
         relax_cmd = main_cmd + relax_flags_cmdline + additional_flags + \
             (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
-            ['@%s' % flags, '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
+            [f'@{flags}', '-no_nstruct_label', 'true', '-in:file:s', refine_pdb,
              '-in:file:native', refine_pdb,  # native is here to block flag file version, not actually useful for refine
-             '-parser:protocol', path.join(PUtils.rosetta_scripts, '%s.xml' % stage),
-             '-parser:script_vars', 'switch=%s' % stage]
-        self.log.info('%s Command: %s' % (stage.title(), list2cmdline(relax_cmd)))
+             '-parser:protocol', path.join(PUtils.rosetta_scripts, f'{protocol}.xml'),
+             '-parser:script_vars', f'switch={protocol}']
+        self.log.info(f'{protocol.title()} Command: {list2cmdline(relax_cmd)}')
 
         if gather_metrics:
             #                            nullify -native from flags v
-            main_cmd += ['-in:file:s', refined_pdb, '@%s' % flags, '-in:file:native', refine_pdb,
+            main_cmd += ['-in:file:s', refined_pdb, f'@{flags}', '-in:file:native', refine_pdb,
                          '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
             if self.mpi > 0:
                 main_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + main_cmd
@@ -2195,22 +2205,11 @@ class PoseDirectory:  # (JobResources):
 
             metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
                 [path.join(PUtils.rosetta_scripts, '%s%s.xml'
-                              % (PUtils.interface_metrics, '_DEV' if self.development else ''))]
+                           % (PUtils.interface_metrics, '_DEV' if self.development else ''))]
             entity_cmd = main_cmd + [path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
-                                                  % ('_DEV' if self.development else ''))]
+                                               % ('_DEV' if self.development else ''))]
             metric_cmds = [metric_cmd_bound]
             metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
-            # for idx, entity in enumerate(self.pose.entities, 1):
-            #     if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-            #         entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
-            #                                                 modify_sym_energy_for_cryst=self.modify_sym_energy)
-            #         entity_sym = 'symmetry=make_point_group'
-            #     else:
-            #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-            #     _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
-            #         ([entity_sdf] if entity_sdf != '' else [])
-            #     self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
-            #     metric_cmds.append(_metric_cmd)
         else:
             metric_cmds = []
 
@@ -2223,9 +2222,21 @@ class PoseDirectory:  # (JobResources):
                     metrics_process = Popen(metric_cmd)
                     metrics_process.communicate()
         else:
-            write_shell_script(list2cmdline(relax_cmd), name=stage, out_path=flag_dir,
-                               additional=[list2cmdline(command) for command in metric_cmds])
+            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+                            '--output_file', path.join(self.all_scores, PUtils.analysis_file % (starttime, protocol))]
+            write_shell_script(list2cmdline(relax_cmd), name=protocol, out_path=flag_dir,
+                               additional=[list2cmdline(command) for command in metric_cmds] +
+                               analysis_cmd)
             #                  status_wrap=self.serialized_info)
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if self.run_in_shell:
+            pose_s = self.interface_design_analysis()
+            out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            if not path.exists(out_path):
+                header = True
+            else:
+                header = False
+            pose_s.to_csv(out_path, mode='a', header=header)
 
     @handle_design_errors(errors=(DesignError, AssertionError, FileNotFoundError))
     @close_logs
@@ -2438,22 +2449,22 @@ class PoseDirectory:  # (JobResources):
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
-            self.log.debug('Pose flags written to: %s' % self.flags)
+            self.log.debug(f'Pose flags written to: {self.flags}')
 
         # DESIGN: Prepare command and flags file
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + \
             (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
             ['-in:file:s', self.specific_design_path if self.specific_design_path else self.refined_pdb,
-             '@%s' % self.flags, '-out:suffix', '_%s' % protocol, '-packing:resfile', res_file,
-             '-parser:protocol', path.join(PUtils.rosetta_scripts, '%s.xml' % protocol_xml1)] + nstruct_instruct
+             f'@{self.flags}', '-out:suffix', f'_{protocol}', '-packing:resfile', res_file,
+             '-parser:protocol', path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml')] + nstruct_instruct
 
         # metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
         # METRICS: Can remove if SimpleMetrics adopts pose metric caching and restoration
         # Assumes all entity chains are renamed from A to Z for entities (1 to n)
         # metric_cmd = main_cmd + ['-in:file:s', self.specific_design if self.specific_design else self.refined_pdb] + \
         entity_cmd = main_cmd + ['-in:file:l', design_list_file] + \
-            ['@%s' % self.flags, '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
+            [f'@{self.flags}', '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true',
              '-parser:protocol', path.join(PUtils.rosetta_scripts, 'metrics_entity.xml')]
 
         if self.mpi > 0:
@@ -2461,20 +2472,9 @@ class PoseDirectory:  # (JobResources):
             entity_cmd = run_cmds[PUtils.rosetta_extras] + [str(self.mpi)] + entity_cmd
             self.run_in_shell = False
 
-        self.log.info('Design Command: %s' % list2cmdline(design_cmd))
+        self.log.info(f'Design Command: {list2cmdline(design_cmd)}')
         metric_cmds = []
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
-        # for idx, entity in enumerate(self.pose.entities, 1):
-        #     if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
-        #         entity_sdf = 'sdf=%s' % entity.make_sdf(out_path=self.data,
-        #                                                 modify_sym_energy_for_cryst=self.modify_sym_energy)
-        #         entity_sym = 'symmetry=make_point_group'
-        #     else:
-        #         entity_sdf, entity_sym = '', 'symmetry=asymmetric'
-        #     _metric_cmd = entity_cmd + ['-parser:script_vars', 'repack=yes', 'entity=%d' % idx, entity_sym] + \
-        #         ([entity_sdf] if entity_sdf != '' else [])
-        #     self.log.info('Metrics Command for Entity %s: %s' % (entity.name, list2cmdline(_metric_cmd)))
-        #     metric_cmds.append(_metric_cmd)
 
         # Create executable/Run FastDesign on Refined ASU with RosettaScripts. Then, gather Metrics
         if self.run_in_shell:
@@ -2484,20 +2484,32 @@ class PoseDirectory:  # (JobResources):
                 metrics_process = Popen(metric_cmd)
                 metrics_process.communicate()
         else:
+            analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
+                            '--output_file', path.join(self.all_scores, PUtils.analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(generate_files_cmd)] +
-                                          [list2cmdline(command) for command in metric_cmds])
+                                          [list2cmdline(command) for command in metric_cmds] +
+                               analysis_cmd)
+        # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
+        if self.run_in_shell:
+            pose_s = self.interface_design_analysis()
+            out_path = path.join(self.all_scores, PUtils.analysis_file % (starttime, 'All'))
+            if not path.exists(out_path):
+                header = True
+            else:
+                header = False
+            pose_s.to_csv(out_path, mode='a', header=header)
 
     @handle_design_errors(errors=(DesignError, AssertionError))
     @close_logs
     @remove_structure_memory
-    def interface_design_analysis(self, merge_residue_data: bool = False, save_trajectories: bool = True, figures: bool = False) \
-            -> Series:
+    def interface_design_analysis(self, merge_residue_data: bool = False, save_metrics: bool = True,
+                                  figures: bool = False) -> Series:
         """Retrieve all score information from a PoseDirectory and write results to .csv file
 
         Args:
             merge_residue_data: Whether to incorporate residue data into Pose DataFrame
-            save_trajectories: Whether to save trajectory and residue DataFrames
+            save_metrics: Whether to save trajectory and residue DataFrames
             figures: Whether to make and save pose figures
         Returns:
             Series containing summary metrics for all designs in the design directory
@@ -3533,7 +3545,7 @@ class PoseDirectory:  # (JobResources):
             #     plt.savefig('%s_res_energy_pca.png' % _path)
 
         # Format output and save Trajectory, Residue DataFrames, and PDB Sequences
-        if save_trajectories:
+        if save_metrics:
             trajectory_df.sort_index(inplace=True, axis=1)
             residue_df.sort_index(inplace=True)
             residue_df.sort_index(level=0, axis=1, inplace=True, sort_remaining=False)
