@@ -752,7 +752,10 @@ if __name__ == '__main__':
             query_mode(query_flags)
             terminate(output=False)
 
-    if args.module not in ['multicistronic']:  # Todo why is multicistronic here? 'flags', 'residue_selector',
+    if args.module in ['multicistronic']:  # PUtils.tools
+        # Todo should multicistronic be a tool? module->tools->parse others like list_overlap, flags, residue_selector
+        pass
+    else:  # display flags
         formatted_queried_flags = queried_flags.copy()
         # where input values should be reported instead of processed version, or the argument is not important
         for flag in ['design_selector', 'construct_pose']:
