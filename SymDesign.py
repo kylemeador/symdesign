@@ -47,7 +47,7 @@ from utils.Flags import argparsers, parser_entire, parser_options, parser_module
 from utils.GeneralUtils import write_docking_parameters
 from utils.SetUp import set_up_instructions
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
-    select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide
+    select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide
 
 
 def rename(des_dir, increment=PUtils.nstruct):
@@ -549,7 +549,7 @@ def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
             all_dfs.append(pd.read_csv(design.trajectories, index_col=0, header=[0]))
         except FileNotFoundError as error:
             # results[idx] = error
-            logger.warning('%s: No trajectory analysis found. Skipping' % str(design))
+            logger.warning(f'{design}: No trajectory analysis found. Skipping')
 
     if pose:
         for idx, df in enumerate(all_dfs):
@@ -639,6 +639,8 @@ if __name__ == '__main__':
             logger.info()
         elif args.module == PUtils.select_poses:
             logger.info(select_poses_guide)
+        elif args.module == PUtils.select_designs:
+            logger.info(select_designs_guide)
         elif args.module == PUtils.select_sequences:
             logger.info(select_sequences_guide)
         elif args.module == 'expand_asu':
@@ -802,6 +804,7 @@ if __name__ == '__main__':
             queried_flags['output_directory'] = True
             symdesign_directory = args.output_directory
         else:
+            # Todo this is wrong if the run was started
             symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
         os.makedirs(symdesign_directory, exist_ok=True)
 

@@ -905,7 +905,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
         all_paths = []
         for file in files:
             if not os.path.exists(file):
-                logger.critical('No "%s" file found! Please ensure correct location/name!' % file)
+                logger.critical(f'No "{file}" file found! Please ensure correct location/name!')
                 exit()
             if '.pdb' in file:  # single .pdb files were passed as input and should be loaded as such
                 all_paths.append(file)
@@ -916,7 +916,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
                         paths = map(str.rstrip, [location.strip() for location in f.readlines()
                                                  if location.strip() != ''], repeat(os.sep))
                 except IsADirectoryError:
-                    raise DesignError('%s is a directory not a file. Did you mean to run with --file?' % file)
+                    raise DesignError(f'{file} is a directory not a file. Did you mean to run with --file?')
                 all_paths.extend(paths)
     else:
         base_directory = get_base_symdesign_dir(directory)
@@ -944,7 +944,7 @@ def get_base_symdesign_dir(directory: str = None) -> Union[None, str]:
     elif PUtils.program_output in directory:   # directory1/SymDesignOutput/directory2/directory3
         for idx, dirname in enumerate(directory.split(os.sep), 1):
             if dirname == PUtils.program_output:
-                base_dir = '%s%s' % (os.sep, os.path.join(*directory.split(os.sep)[:idx]))
+                base_dir = f'{os.sep}{os.path.join(*directory.split(os.sep)[:idx])}'
                 break
     elif PUtils.program_output in os.listdir(directory):  # directory_provided/SymDesignOutput
         for sub_directory in os.listdir(directory):
