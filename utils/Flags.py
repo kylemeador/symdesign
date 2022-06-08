@@ -256,14 +256,6 @@ parser_options_group = dict(title='optional arguments',
                                         'runtime considerations, and programatic options for determining design '
                                         'outcomes' % program_name)
 parser_options_arguments = {
-    ('--guide',): dict(action='store_true',
-                       help='Access the %s guide! Display the program or module specific guide\nEx: "%s --guide" '
-                            'or "%s"' % (program_name, program_command, submodule_guide)),
-    ('-Oa', '--output_assembly'): dict(action='store_true',
-                                      help='Whether the assembly should be output? Infinite materials are output in a '
-                                           'unit cell\nDefault=%(default)s'),
-    ('--debug',): dict(action='store_true',
-                       help='Whether to log debugging messages to stdout\nDefault=%(default)s'),
     ('-c', '--cluster_map'): dict(type=os.path.abspath,
                                   help='The location of a serialized file containing spatially or interfacially '
                                        'clustered poses'),
@@ -271,6 +263,8 @@ parser_options_arguments = {
                             help='Number of cores to use during --multi_processing\nIf run on a cluster, the number of '
                                  'cores will reflect the cluster allocation, otherwise, will use #physical_cores - 1'
                                  '\nDefault=%(default)s'),
+    ('--debug',): dict(action='store_true',
+                       help='Whether to log debugging messages to stdout\nDefault=%(default)s'),
     ('--fuse_chains',): dict(type=str, nargs='*', default=[],
                              help='The name of a pair of chains to fuse during design.\nPairs should be separated'
                                   ' by a colon, with the n-terminal\npreceeding the c-terminal chain new instances by a'
@@ -281,6 +275,9 @@ parser_options_arguments = {
     # ('-gf', f'--{generate_fragments}'): dict(action='store_true',
     #                                          help='Generate interface fragment observations for poses of interest'
     #                                               '\nDefault=%(default)s'),
+    ('--guide',): dict(action='store_true',
+                       help='Access the %s guide! Display the program or module specific guide\nEx: "%s --guide" '
+                            'or "%s"' % (program_name, program_command, submodule_guide)),
     ('-i', '--fragment_database'): dict(type=str, choices=fragment_dbs, default=biological_interfaces,
                                         help='Database to match fragments for interface specific scoring matrices\n'
                                              'Default=%(default)s'),
@@ -301,8 +298,11 @@ parser_options_arguments = {
     ('-M', '--multi_processing'): dict(action='store_true',
                                        help='Should job be run with multiple processors?\nDefault=%(default)s'),
     ('-N', '--nanohedra_output'): dict(action='store_true',
-                                       help='Whether the directory in question is a Nanohedra docking output'
+                                       help='Is the directory in question is a Nanohedra docking output?'
                                             '\nDefault=%(default)s'),
+    ('-Oa', '--output_assembly'): dict(action='store_true',
+                                       help='Whether the assembly should be output? Infinite materials are output in a '
+                                            'unit cell\nDefault=%(default)s'),
     ('-Od', '--outdir', '--output_directory'): dict(type=os.path.abspath, dest='output_directory', default=None,
                                                     help='If provided, the name of the directory to output all created '
                                                          'files.\nOtherwise, one will be generated based on the time, '
@@ -487,7 +487,7 @@ parser_optimize_designs_arguments = {
 #                                      ' is a RosettaScripts %%%%variable1%%%% and value is a known value. For variables '
 #                                      'that must be calculated on the fly for each design, please modify the Pose.py '
 #                                      'class to produce a method that can generate an attribute with the specified name')
-#     # Todo ' either a know value or an attribute available to the Pose object'
+#     # Todo ' either a known value or an attribute available to the Pose object'
 # }
 # ---------------------------------------------------
 parser_analysis = dict(analysis=dict(help='Analyze all poses specified generating a suite of metrics'))
@@ -684,8 +684,8 @@ parser_rename_chains = dict(rename_chains=dict(help='For given poses, rename the
 # parser_residue_selector = dict(residue_selector=dict(help='Generate a residue selection for %s' % program_name))
 # # parser_residue_selector = subparsers.add_parser('residue_selector', help='Generate a residue selection for %s' % program_name)
 # ---------------------------------------------------
-directory_needed = 'Provide your working %s with -d to locate poses\nfrom a file utilizing pose IDs (-df, -pf, and ' \
-                   '-sf)' % program_output
+directory_needed = f'Provide your working {program_output} with -d to locate poses\nfrom a file utilizing pose IDs ' \
+                   f'(-df, -pf, and -sf)'
 parser_input_group = dict(title='input arguments',
                           description='Specify where/which poses should be included in processing.\n%s' % directory_needed)
 parser_input_arguments = {
