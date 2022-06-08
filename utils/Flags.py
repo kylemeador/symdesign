@@ -493,12 +493,16 @@ parser_optimize_designs_arguments = {
 parser_analysis = dict(analysis=dict(help='Analyze all poses specified generating a suite of metrics'))
 # parser_analysis = subparsers.add_parser(analysis, help='Analyze all poses specified. %s --guide %s will inform you about the various metrics available to analyze.' % (program_command, analysis))
 parser_analysis_arguments = {
+    ('--output',): dict(action=argparse.BooleanOptionalAction, default=True,
+                        help='Whether to output the --output_file? Use --no-output to prevent.\nDefault=%(default)s'),
     ('-Of', '--output_file'): dict(type=str, default=analysis_file,
                                    help='Name of the output .csv file containing pose metrics\nWill be saved to the '
                                         '%s folder of the output\nDefault=%s'
                                         % (all_scores, analysis_file % ('TIMESTAMP', 'LOCATION'))),
-    ('-N', '--no_save'): dict(action='store_true', help='Don\'t save trajectory information.\nDefault=%(default)s'),
-    ('--figures',): dict(action='store_true', help='Create and save figures for all poses?\nDefault=%(default)s'),
+    ('--save',): dict(action=argparse.BooleanOptionalAction, default=True,
+                      help='Save trajectory information? Use --no-save if False\nDefault=%(default)s'),
+    ('--figures',): dict(action=argparse.BooleanOptionalAction, default=False,
+                         help='Create figures for all poses?\nDefault=%(default)s'),
     ('-j', '--join'): dict(action='store_true', help='Join Trajectory and Residue Dataframes?\nDefault=%(default)s')
 }
 # ---------------------------------------------------
