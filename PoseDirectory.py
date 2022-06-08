@@ -3326,9 +3326,9 @@ class PoseDirectory:  # (JobResources):
         # designs_by_protocol.pop(PUtils.consensus, None)  # remove consensus if present
         # # designs_by_protocol = {protocol: trajectory_df.index[indices].values.tolist()
         # #                        for protocol, indices in protocol_groups.indices.items()}
-        # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
-        # print_df = trajectory_df.select_dtypes(exclude=numerics)
-        # print(print_df)
+        numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+        print_df = trajectory_df.select_dtypes(exclude=numerics)
+        print(print_df)
 
         pose_stats, protocol_stats = [], []
         for idx, stat in enumerate(stats_metrics):
@@ -3354,6 +3354,13 @@ class PoseDirectory:  # (JobResources):
                                   [df.dropna(how='all', axis=0) for df in protocol_stats] +  # don't add v if nothing
                                   [pd.to_numeric(s).to_frame().T for s in pose_stats if not all(s.isna())])
         #                           [s.dropna(how='all', axis=0).to_frame().T for s in pose_stats])
+        # numerics = ['int16', 'int32', 'int64', 'float16', 'float32', 'float64']
+        for s in pose_stats:
+            print(pd.to_numeric(s).to_frame().T.select_dtypes(exclude=numerics))
+        for df in protocol_stats:
+            print(df.dropna(how='all', axis=0).select_dtypes(exclude=numerics))
+        # print_df = trajectory_df.select_dtypes(exclude=numerics)
+        # print(print_df)
         # this concat puts back refine and consensus designs since protocol_stats is calculated on scores_df
         # if number_of_trajectories > 0:
         # add all docking and pose information to each trajectory, dropping the pose observations
