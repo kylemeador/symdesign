@@ -6,13 +6,13 @@
 		<ScoreFunction name="2015_cst" weights="ref2015_cst"/>
 		<ScoreFunction name="2015_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_score_patch%%"/>
 		# patched version of ref2015, reduces weights by 0.5 as the symmetric score function created with MakeLatticeMover and MakeLayerMover arbitrarily doubles monomeric energy
-		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>
-		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>
+<!--		<ScoreFunction name="2015_nano" weights="ref2015" patch="%%scripts%%/%%sym_score_patch%%"/>-->
+<!--		<ScoreFunction name="2015_nano_cst" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%"/>-->
 		# patched, with res_type weights for FSP use
-		<ScoreFunction name="2015_nano_cst_fsp" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%">
-			<Reweight scoretype="res_type_constraint" weight="0.5"/> # patch doesn't work here
-		</ScoreFunction>
-		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>
+<!--		<ScoreFunction name="2015_nano_cst_fsp" weights="ref2015_cst" patch="%%scripts%%/%%sym_score_patch%%">-->
+<!--			<Reweight scoretype="res_type_constraint" weight="0.5"/> # patch doesn't work here so manually add -->
+<!--		</ScoreFunction>-->
+<!--		<ScoreFunction name="2015_nano_solvation" weights="ref2015" patch="%%scripts%%/%%solvent_sym_score_patch%%"/>-->
 	</SCOREFXNS>
 
 	<RESIDUE_SELECTORS>
@@ -82,32 +82,32 @@
 		# gather the residues involved in a residue selector
 		<SelectedResiduesMetric name="M_int_hbonds_res_selector" custom_type="hbonds_res" rosetta_numbering="false" residue_selector="hbond_residues_sym"/>
 		# calculate the interaction energy metric between residues in two selections. I believe this in only the two body components to understand the interface component of energy
-		<InteractionEnergyMetric name="S_M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015_nano"/>
+<!--		<InteractionEnergyMetric name="S_M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015_nano"/>-->
+		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015"/>
 		# used to specify certain score terms to calculate on. include_rama_prepro_and_proclose="false". JD2 reports options invalid "scoretypes_only="" scoretypes_skip="""
 		# find the per residue energy of residues in a residue_selector
-		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>
-		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>
-		<PerResidueEnergyMetric name="S_M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_nano_cst"/>
-		<PerResidueEnergyMetric name="S_M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_nano_cst_fsp"/>
-		<InteractionEnergyMetric name="M_interaction_energy" custom_type="" force_rescore="false"  residue_selector="interface1" residue_selector2="interface2_sc" scorefxn="2015"/>
+<!--		<PerResidueEnergyMetric name="S_M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano"/>-->
+<!--		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>-->
+<!--		<PerResidueEnergyMetric name="S_M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_nano_cst"/>-->
+<!--		<PerResidueEnergyMetric name="S_M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_nano_cst_fsp"/>-->
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015"/>
 		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
 		<PerResidueEnergyMetric name="M_int_energy_cst_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="coordinate_constraint" scorefxn="2015_cst"/>
 		<PerResidueEnergyMetric name="M_int_energy_fsp_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="tot_interface_and_neighbor_sym" use_native="false" scoretype="res_type_constraint" scorefxn="2015_cst"/>
 		# summarize the energy metrics from above
-		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
-		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle
-		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano_solvation"/>
-		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_solvation"/>
+<!--		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle-->
+<!--		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_complex"/> # cache_prefix="" MISSING FROM 20.47 bundle-->
+<!--		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_nano_solvation"/>-->
+<!--		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015_solvation"/>-->
 		<RMSDMetric name="M_rmsd" custom_type="" residue_selector="tot_interface" residue_selector_ref="tot_interface" use_native="True" rmsd_type="rmsd_protein_bb_heavy"/>
         <SelectedResidueCountMetric name="M_interface_residue_count" residue_selector="tot_interface"/>
 		<SequenceMetric name="M_sequence" custom_type="" residue_selector="full_pose"/>
 	</SIMPLE_METRICS>
 
 	<MOVERS>
-		<RunSimpleMetrics name="S_run_metrics_complex" metrics="S_M_interaction_energy,S_M_int_energy_per_res,S_M_int_energy_total,S_M_solvation_energy" prefix="" suffix="_complex" override="false"/>
-		<RunSimpleMetrics name="run_metrics_complex" metrics="M_interaction_energy,M_int_energy_per_res,M_int_energy_total,M_solvation_energy" prefix="" suffix="_complex" override="false"/>
-		<RunSimpleMetrics name="S_run_solv_metrics_complex" metrics="S_M_solvation_energy_per_res" prefix="" suffix="solv_complex" override="false"/>
+<!--		<RunSimpleMetrics name="S_run_metrics_complex" metrics="S_M_interaction_energy,S_M_int_energy_per_res" prefix="" suffix="_complex" override="false"/>-->
+		<RunSimpleMetrics name="run_metrics_complex" metrics="M_interaction_energy,M_int_energy_per_res" prefix="" suffix="_complex" override="false"/>
+<!--		<RunSimpleMetrics name="S_run_solv_metrics_complex" metrics="S_M_solvation_energy_per_res" prefix="" suffix="solv_complex" override="false"/>-->
 		<RunSimpleMetrics name="run_solv_metrics_complex" metrics="M_solvation_energy_per_res" prefix="" suffix="solv_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics" metrics="M_int_hbonds_res_selector,M_rmsd" prefix="" suffix="_complex" override="false"/>
 		<RunSimpleMetrics name="run_metrics_sequence" metrics="M_sequence" prefix="final_" suffix="" override="false"/>
@@ -117,9 +117,9 @@
 	<FILTERS>
 		# Energy Filters
 		# report on the energy of particular scorefunctions and poses
-		<ScoreType name="S_full_stability_complex" scorefxn="2015_nano" score_type="total_score" threshold="100000" confidence="1.0"/>
-		<ScoreType name="S_favor_residue_energy" scorefxn="2015_nano_cst_fsp" score_type="res_type_constraint" threshold="100000" confidence="1.0"/>
-		<ScoreType name="S_coordinate_constraint" scorefxn="2015_nano_cst" score_type="coordinate_constraint" threshold="100000" confidence="1.0"/>
+<!--		<ScoreType name="S_full_stability_complex" scorefxn="2015_nano" score_type="total_score" threshold="100000" confidence="1.0"/>-->
+<!--		<ScoreType name="S_favor_residue_energy" scorefxn="2015_nano_cst_fsp" score_type="res_type_constraint" threshold="100000" confidence="1.0"/>-->
+<!--		<ScoreType name="S_coordinate_constraint" scorefxn="2015_nano_cst" score_type="coordinate_constraint" threshold="100000" confidence="1.0"/>-->
 	 	<ScoreType name="full_stability_complex" scorefxn="2015" score_type="total_score" threshold="100000" confidence="1.0"/>
 		<ScoreType name="favor_residue_energy" scorefxn="2015_cst" score_type="res_type_constraint" threshold="100000" confidence="1.0"/>
 		<ScoreType name="coordinate_constraint" scorefxn="2015_cst" score_type="coordinate_constraint" threshold="100000" confidence="1.0"/>
@@ -128,25 +128,25 @@
 		# find the number of carbon carbon contacts with specified residues
 		<AtomicContactCount name="contact_count" partition="none" taskA="design_around1,init,vrt,not_interface_or_neighbor_sym_no_repack" taskB="design_around2,init,vrt,not_interface_or_neighbor_sym_no_repack" distance="5.0" normalize_by_carbon_count="1"/>
 		<ShapeComplementarity name="shape_complementarity" min_sc="0.1" min_interface="0" residue_selector1="interface1" residue_selector2="interface2_sc" write_median_dist="1" max_median_dist="0"/> # Bug in max_median_dist turns it into minimum median distance. If this is fixed, make the max something like 100+ as we just want the distance, not to actually filter
-		<SimpleMetricFilter name="S_interaction_energy_filter" metric="S_M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
+<!--		<SimpleMetricFilter name="S_interaction_energy_filter" metric="S_M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"-->
 		<SimpleMetricFilter name="interaction_energy_filter" metric="M_interaction_energy" use_cached_data="true" cache_suffix="_complex" comparison_type="lt" cutoff="0" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
         <SimpleMetricFilter name="interface_residue_count" metric="M_interface_residue_count" comparison_type="gt" cutoff="10" confidence="0"/> # epsilon=".0001" cache_prefix="(string)" cache_suffix="(string)" fail_on_missing_cache="(true bool)" # match="(string)" use_sum_for_per_residue_real="(bool)" composite_action="(string)"
         <CalculatorFilter name="interaction_energy_per_residue" equation="E / Number"> # threshold="(real 0)"
             <Var name="E" filter="interaction_energy_filter"/>
             <Var name="Number" filter="interface_residue_count"/>
         </CalculatorFilter>
-		<CalculatorFilter name="S_interaction_energy_per_residue" equation="E / Number"> # threshold="(real 0)"
-            <Var name="E" filter="S_interaction_energy_filter"/>
-            <Var name="Number" filter="interface_residue_count"/>
-        </CalculatorFilter>
+<!--		<CalculatorFilter name="S_interaction_energy_per_residue" equation="E / Number"> # threshold="(real 0)"-->
+<!--            <Var name="E" filter="S_interaction_energy_filter"/>-->
+<!--            <Var name="Number" filter="interface_residue_count"/>-->
+<!--        </CalculatorFilter>-->
 		# TODO test for RMSD and buns_nano on more than 2 chains
 		# find the total number of unsatisfied hydrogen bonds in the specified interface. will be called at specific poses to determine BUNS at different locations in interface
 		<BuriedUnsatHbonds name="buns_complex" residue_selector="tot_interface_and_neighbor_sym" scorefxn="2015" report_all_heavy_atom_unsats="true" ignore_surface_res="true" confidence="1.0"/> # use_reporter_behavior="true" only_interface="false", ignore_surface_res="true" NOT relevant for own ddG style measurement
 		#  Nanohedra
-		<Report name="R_S_full_stability_complex"			filter="S_full_stability_complex"/>
-		<Report name="R_S_favor_residue_energy" 			filter="S_favor_residue_energy"/>
-		<Report name="R_S_coordinate_constraint" 			filter="S_coordinate_constraint"/>
-		<Report name="R_S_interaction_energy_per_residue"	filter="S_interaction_energy_per_residue"/>
+<!--		<Report name="R_S_full_stability_complex"			filter="S_full_stability_complex"/>-->
+<!--		<Report name="R_S_favor_residue_energy" 			filter="S_favor_residue_energy"/>-->
+<!--		<Report name="R_S_coordinate_constraint" 			filter="S_coordinate_constraint"/>-->
+<!--		<Report name="R_S_interaction_energy_per_residue"	filter="S_interaction_energy_per_residue"/>-->
 		# Non cryst outputs
 		<Report name="R_full_stability_complex"				filter="full_stability_complex"/>
 		<Report name="R_favor_residue_energy" 				filter="favor_residue_energy"/>
