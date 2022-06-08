@@ -1,7 +1,7 @@
-from logging import Logger
 import os
 import sys
 import time
+from logging import Logger
 from math import floor
 from typing import Union
 
@@ -10,21 +10,21 @@ from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
 from JobResources import FragmentDatabase, fragment_factory
+from PDB import PDB
 from PathUtils import frag_text_file, master_log, frag_dir, biological_interfaces
+from Pose import Pose
 from Structure import Structure  # superposition3d
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
     calculate_match, z_value_from_match_score, set_logging_to_debug
+from classes.EulerLookup import EulerLookup
+from classes.OptimalTx import OptimalTx
+from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
+from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_frag_match_info_file, write_docked_pose_info, \
     transform_coordinate_sets, get_rotation_step, write_docking_parameters
 from utils.PDBUtils import get_contacting_asu, get_interface_residues
 from utils.SymmetryUtils import generate_cryst1_record, get_central_asu
-from classes.EulerLookup import EulerLookup
-from classes.OptimalTx import OptimalTx
-from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
-from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
-from PDB import PDB
-from Pose import Pose
 
 # Globals
 logger = start_log(name=__name__, format_log=False, propagate=True)

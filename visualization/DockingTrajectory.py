@@ -3,8 +3,8 @@ import os
 from glob import glob
 from itertools import chain
 
-import PoseDirectory
 import PathUtils as PUtils
+import PoseDirectory
 import SymDesignUtils as SDUtils
 from PDB import PDB
 from Pose import Model

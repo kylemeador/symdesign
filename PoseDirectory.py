@@ -1,56 +1,58 @@
 from __future__ import annotations
-from os import path, sep, getcwd, remove, stat, makedirs  # walk
+
 from copy import copy
-from re import compile as re_compile
 from functools import wraps
-# from math import ceil, sqrt
-from shutil import copy as shcopy
-from logging import Logger
-from subprocess import Popen, list2cmdline
 from glob import glob
 from itertools import combinations, repeat  # chain as iter_chain
+from logging import Logger
+from os import path, sep, getcwd, remove, stat, makedirs  # walk
+from pickle import UnpicklingError
+from re import compile as re_compile
+# from math import ceil, sqrt
+from shutil import copy as shcopy
+from subprocess import Popen, list2cmdline
 from typing import Union, Dict, List, Optional, Tuple, Callable, Any, Iterable
-# from textwrap import fill
 
 import matplotlib.pyplot as plt
 # import seaborn as sns
 import numpy as np
-from pandas import DataFrame, Series, MultiIndex, IndexSlice, concat, merge, read_csv, to_numeric
 # from matplotlib.axes import Axes
 # from mpl_toolkits.mplot3d import Axes3D
 from Bio.Data.IUPACData import protein_letters_3to1, protein_letters_1to3
 from cycler import cycler
 from matplotlib.ticker import MultipleLocator
-from pickle import UnpicklingError
+from pandas import DataFrame, Series, MultiIndex, IndexSlice, concat, merge, read_csv, to_numeric
 from scipy.spatial.distance import pdist, cdist
 from sklearn.decomposition import PCA
-from sklearn.preprocessing import StandardScaler
 from sklearn.neighbors import BallTree
+from sklearn.preprocessing import StandardScaler
 
 import PathUtils as PUtils
-from Query.UniProt import is_uniprot_thermophilic
-from Structure import Structure  # , Structures
-from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
-    match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, \
-    condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime
 # from Query import Flags
 from CommandDistributer import reference_average_residue_weight, run_cmds, script_cmd, rosetta_flags, \
     rosetta_variables, relax_flags_cmdline
-from PDB import PDB
-from Pose import Pose, MultiModel, Models  # , Model
-from DesignMetrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms,\
+from DesignMetrics import read_scores, interface_composition_similarity, unnecessary, necessary_metrics, rosetta_terms, \
     columns_to_new_column, division_pairs, delta_pairs, dirty_hbond_processing, mutation_conserved, per_res_metric, \
     significance_columns, df_permutation_test, clean_up_intermediate_columns, fragment_metric_template, \
     protocol_specific_columns, rank_dataframe_by_metric_weights, filter_df_for_index_by_value, \
     multiple_sequence_alignment_dependent_metrics, format_fragment_metrics, calculate_match_metrics, \
     process_residue_info
+from JobResources import FragmentDatabase, JobResources
+from PDB import PDB
+from Pose import Pose, MultiModel, Models  # , Model
+from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
+from Structure import Structure  # , Structures
+from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
+    match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, \
+    condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
 from utils.SymmetryUtils import identity_matrix, origin
-from JobResources import FragmentDatabase, JobResources
+
+# from textwrap import fill
 
 # Globals
 logger = start_log(name=__name__)

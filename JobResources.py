@@ -1,23 +1,23 @@
-import os
 import math
-from glob import glob
+import os
 from copy import copy
+from glob import glob
 from subprocess import list2cmdline
 from typing import List, Tuple, Iterable, Dict, Union, Optional
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
-from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, nano, biological_interfaces, \
-    biological_fragment_db_pickle, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
-    structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
-    ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
-    no_term_constraint, consensus
 import SymDesignUtils as SDUtils
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
 from PDB import PDB, fetch_pdb_file, query_qs_bio
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
+from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, nano, biological_interfaces, \
+    biological_fragment_db_pickle, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
+    structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
+    ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
+    no_term_constraint, consensus
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
 from Structure import parse_stride, Entity
@@ -25,6 +25,7 @@ from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import sdf_lookup, symmetry_factory
 from utils.MysqlPython import Mysql
+
 # import dependencies.bmdca as bmdca
 
 

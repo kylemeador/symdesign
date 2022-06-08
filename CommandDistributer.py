@@ -12,7 +12,7 @@ from typing import Union, List
 from PathUtils import stage, sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
     cmd_dist, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
     sym_weights, solvent_weights_sym, solvent_weights, scout, consensus
-from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, handle_errors, \
+from SymDesignUtils import start_log, DesignError, collect_designs, mp_starmap, unpickle, pickle_object, \
     calculate_mp_cores
 
 # Globals

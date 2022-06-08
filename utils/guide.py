@@ -1,8 +1,8 @@
-from SymDesignUtils import pretty_format_table
-from PathUtils import no_term_constraint, no_evolution_constraint, no_hbnet, scout, program_command, select_sequences, \
-    program_name, structure_background, current_energy_function, number_of_trajectories, force_flags, interface_design,\
-    select_poses, analysis, protocol, select_designs
 from DesignMetrics import master_metrics, rosetta_required_metrics
+from PathUtils import no_term_constraint, no_evolution_constraint, no_hbnet, scout, program_command, select_sequences, \
+    program_name, structure_background, current_energy_function, number_of_trajectories, force_flags, interface_design, \
+    select_poses, analysis, protocol, select_designs
+from SymDesignUtils import pretty_format_table
 
 nltb = '\n\t'
 help_sentence = ' If you need guidance on structuring your job submission, include --help in any command.'

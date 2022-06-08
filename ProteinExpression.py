@@ -1,18 +1,19 @@
 """Add expression tags onto the termini of specific designs"""
 import csv
+
 # from itertools import chain as iter_chain  # combinations,
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
 
 import PathUtils as PUtils
-import SymDesignUtils as SDUtils
 # from PDB import PDB
 # import Pose
 import SequenceProfile
-from Query.PDB import get_entity_reference_sequence, pdb_id_matching_uniprot_id
-from Query.utils import input_string
+import SymDesignUtils as SDUtils
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
+from Query.PDB import get_entity_reference_sequence, pdb_id_matching_uniprot_id
+from Query.utils import input_string
 
 # Globals
 logger = SDUtils.start_log(name=__name__)

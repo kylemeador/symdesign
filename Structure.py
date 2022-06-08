@@ -1,27 +1,27 @@
-from collections import UserList, defaultdict
-from logging import Logger
 import os
 import subprocess
-from copy import copy  # , deepcopy
+from collections import UserList, defaultdict
 from collections.abc import Iterable
+from copy import copy  # , deepcopy
 from itertools import repeat
+from logging import Logger
 from math import ceil
 from random import random  # , randint
 from typing import Union, List, Dict, IO, Optional, Sequence, Container, Tuple
 
 import numpy as np
-from numpy.linalg import eigh, LinAlgError
-from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
-from scipy.spatial.transform import Rotation
 from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended, \
     protein_letters_1to3_extended
+from numpy.linalg import eigh, LinAlgError
+from scipy.spatial.transform import Rotation
+from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl, free_sasa_configuration_path
-# from ProteinExpression import find_expression_tags, remove_expression_tags
-from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, retrieve_entity_id_by_sequence
 from SequenceProfile import SequenceProfile, generate_mutations
+# from ProteinExpression import find_expression_tags, remove_expression_tags
+from SymDesignUtils import start_log, null_log, DesignError, unpickle
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate
 from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators, \

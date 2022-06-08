@@ -1,5 +1,4 @@
 import copy
-from logging import Logger
 import math
 import os
 import subprocess
@@ -7,14 +6,15 @@ from collections.abc import Iterable
 from copy import copy, deepcopy
 from glob import glob
 from itertools import chain as iter_chain  # repeat,
+from logging import Logger
 # from random import randint
 # from time import sleep
 from typing import Union, Dict, Sequence, List, Container, Optional
 
 import numpy as np
-from sklearn.neighbors import BallTree
 from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
+from sklearn.neighbors import BallTree
 
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly

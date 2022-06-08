@@ -1,7 +1,7 @@
 import os
 import subprocess
-import PathUtils as PUtils
 
+import PathUtils as PUtils
 
 rosetta_url = 'https://www.rosettacommons.org/software/license-and-download'
 rosetta_compile_url = 'https://www.rosettacommons.org/docs/latest/build_documentation/Build-Documentation'

@@ -7,12 +7,12 @@ import PathUtils as PUtils
 from FragDock import nanohedra_dock
 # from interface_analysis.Database import FragmentDB
 from JobResources import fragment_factory
-from classes.EulerLookup import EulerLookup
-from classes.SymEntry import SymEntry
 from PDB import orient_pdb_file
 from SymDesignUtils import get_all_file_paths, start_log, set_logging_to_debug
-from utils.GeneralUtils import write_docking_parameters, get_rotation_step
+from classes.EulerLookup import EulerLookup
+from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
+from utils.GeneralUtils import write_docking_parameters, get_rotation_step
 from utils.NanohedraManualUtils import print_usage
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.

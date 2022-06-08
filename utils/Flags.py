@@ -7,17 +7,17 @@ from psutil import cpu_count
 
 from DesignMetrics import metric_weight_functions
 from PathUtils import submodule_guide, submodule_help, force_flags, fragment_dbs, biological_interfaces, \
-    default_path_file, sym_entry, refine, program_output, nano_entity_flag1, nano_entity_flag2, cluster_poses, data, \
+    sym_entry, program_output, nano_entity_flag1, nano_entity_flag2, data, \
     clustered_poses, interface_design, no_evolution_constraint, no_hbnet, no_term_constraint, number_of_trajectories, \
-    nstruct, structure_background, scout, interface_metrics, optimize_designs, design_profile, evolutionary_profile, \
-    fragment_profile, all_scores, analysis_file, select_sequences, generate_fragments, program_name, nano, \
+    nstruct, structure_background, scout, design_profile, evolutionary_profile, \
+    fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
     ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes
 from ProteinExpression import expression_tags
 from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
+from SequenceProfile import read_fasta_file
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
     format_index_string, ex_path
-from SequenceProfile import read_fasta_file
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
 design_flags = {

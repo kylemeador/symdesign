@@ -1,29 +1,31 @@
 from __future__ import annotations
-import os
-from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, \
-    FileHandler, NullHandler, StreamHandler, Formatter, root
+
 import math
 import multiprocessing as mp
-import time
-from csv import reader, Dialect, QUOTE_MINIMAL
-from operator import getitem
-from string import digits
+import os
 import pickle
 import subprocess
+import time
+from collections import defaultdict
+from csv import reader, Dialect, QUOTE_MINIMAL
 from functools import reduce, wraps
 from glob import glob
 from itertools import repeat
 from json import loads, dumps
-from collections import defaultdict
+from logging import Logger, DEBUG, INFO, WARNING, ERROR, CRITICAL, getLogger, \
+    FileHandler, NullHandler, StreamHandler, Formatter, root
+from operator import getitem
+from string import digits
 from typing import List, Union, Iterable, Iterator, Tuple, Sequence, Any, Callable, Dict, DefaultDict
 
 import numpy as np
 import psutil
-# from numba import njit
-# from Bio.PDB import PDBParser, Superimposer
 
 # import CommandDistributer
 import PathUtils as PUtils
+
+# from numba import njit
+# from Bio.PDB import PDBParser, Superimposer
 # from Query.utils import validate_input
 
 # Globals

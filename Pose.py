@@ -1,10 +1,9 @@
-from logging import Logger
 import os
 from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
+from logging import Logger
 from math import sqrt, cos, sin, prod, ceil
 from typing import Set, List, Tuple, Iterable, Dict, Optional, IO, Union
-# from operator import itemgetter
 
 import numpy as np
 # from numba import njit, jit
@@ -13,22 +12,24 @@ from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
 
 import PathUtils as PUtils
-from SymDesignUtils import pickle_object, DesignError, calculate_overlap, z_value_from_match_score, \
+from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
+from JobResources import FragmentDB, fragment_factory, JobResources
+from PDB import PDB
+from SequenceProfile import SequenceProfile
+from Structure import Coords, Structure, Structures, Chain, Entity, Residue  # Atoms, Residues,
+from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, \
     start_log, null_log, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
     split_number_pairs_and_sort, digit_translate_table
-from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
+from classes.EulerLookup import EulerLookup
+from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members, \
     symmetry_combination_format
 from utils.GeneralUtils import write_frag_match_info_file, transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, space_group_cryst1_fmt_dict, layer_group_cryst1_fmt_dict, \
     generate_cryst1_record, space_group_number_operations, point_group_symmetry_operators, \
     space_group_symmetry_operators, possible_symmetries, rotation_range, setting_matrices, inv_setting_matrices, \
     origin, flip_x_matrix, identity_matrix
-from classes.EulerLookup import EulerLookup
-from PDB import PDB
-from SequenceProfile import SequenceProfile
-from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from Structure import Coords, Structure, Structures, Chain, Entity, Residue  # Atoms, Residues,
-from JobResources import FragmentDB, fragment_factory, JobResources
+
+# from operator import itemgetter
 
 # Globals
 logger = start_log(name=__name__)

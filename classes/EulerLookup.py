@@ -1,9 +1,10 @@
 import numpy as np
+
+from PathUtils import binary_lookup_table_path
+from SymDesignUtils import start_log
+
 # from numba import njit
 # from numba.experimental import jitclass
-
-from SymDesignUtils import start_log
-from PathUtils import binary_lookup_table_path
 logger = start_log(name=__name__, format_log=False)
 
 

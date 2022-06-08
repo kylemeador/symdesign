@@ -2,10 +2,11 @@ import os
 
 import numpy
 import numpy as np
-# from numba import njit
 
 from PathUtils import frag_text_file, docked_pose_file
 from SymDesignUtils import start_log
+
+# from numba import njit
 
 # Globals
 logger = start_log(name=__name__)

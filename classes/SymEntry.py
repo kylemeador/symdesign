@@ -8,7 +8,6 @@ from numpy import ndarray
 
 import PathUtils as PUtils
 from SymDesignUtils import start_log, dictionary_lookup, DesignError
-
 from utils.SymmetryUtils import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators, \
     all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, sub_symmetries, flip_y_matrix, \
     valid_symmetries
