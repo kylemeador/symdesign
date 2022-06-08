@@ -1567,11 +1567,11 @@ class PoseDirectory:  # (JobResources):
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
-        pdb_list = path.join(self.scripts, 'design_files%s.txt' %
-                             ('_%s' % self.specific_protocol if self.specific_protocol else ''))
-        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', pdb_list] + \
+        design_files = path.join(self.scripts,
+                                 f'design_files{f"_{self.specific_protocol}" if self.specific_protocol else ""}.txt')
+        generate_files_cmd = ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files] + \
             (['-s', self.specific_protocol] if self.specific_protocol else [])
-        main_cmd += ['@%s' % self.flags, '-in:file:l', pdb_list,
+        main_cmd += ['@%s' % self.flags, '-in:file:l', design_files,
                      # TODO out:file:score_only file is not respected if out:path:score_file given
                      #  -run:score_only true?
                      '-out:file:score_only', self.scores_file, '-no_nstruct_label', 'true', '-parser:protocol']
@@ -1582,8 +1582,8 @@ class PoseDirectory:  # (JobResources):
 
         metric_cmd_bound = main_cmd + (['-symmetry_definition', 'CRYST1'] if self.design_dimension > 0 else []) + \
             [path.join(PUtils.rosetta_scripts, f'{protocol}{"_DEV" if self.development else ""}.xml')]
-        entity_cmd = main_cmd + [path.join(PUtils.rosetta_scripts, 'metrics_entity%s.xml'
-                                              % ('_DEV' if self.development else ''))]
+        entity_cmd = main_cmd + [path.join(PUtils.rosetta_scripts,
+                                           f'metrics_entity{"_DEV" if self.development else ""}.xml')]
         metric_cmds = [metric_cmd_bound]
         metric_cmds.extend(self.generate_entity_metrics(entity_cmd))
 
@@ -1597,7 +1597,7 @@ class PoseDirectory:  # (JobResources):
                             '--output_file', path.join(self.all_scores, PUtils.analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(generate_files_cmd), name=PUtils.interface_metrics, out_path=self.scripts,
                                additional=[list2cmdline(command) for command in metric_cmds] +
-                               analysis_cmd)
+                                          [list2cmdline(analysis_cmd)])
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
@@ -1675,7 +1675,7 @@ class PoseDirectory:  # (JobResources):
         else:
             write_shell_script(list2cmdline(generate_files_cmd), name=script_name, out_path=self.scripts,
                                additional=[list2cmdline(cmd)])
-        # Todo  + analysis_cmd)
+        # Todo  + [list2cmdline(analysis_cmd)])
         #  analysis_cmd = ['python', PUtils.program_exe, PUtils.analysis, '--single', self.path, '--no-output',
         #                             '--output_file', path.join(self.all_scores, PUtils.analysis_file % (starttime, protocol))]
 
@@ -1724,28 +1724,28 @@ class PoseDirectory:  # (JobResources):
         elif self.structure_background:
             protocol, protocol_xml1 = PUtils.structure_background, PUtils.structure_background
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
-            design_list_file = path.join(self.scripts, 'design_files_%s.txt' % protocol)
+            design_files = path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
-            metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         elif self.no_hbnet:  # run the legacy protocol
             protocol, protocol_xml1 = PUtils.interface_design, PUtils.interface_design
             nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
-            design_list_file = path.join(self.scripts, 'design_files_%s.txt' % protocol)
+            design_files = path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
-            metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             additional_cmds, out_file = [], []
         else:  # run hbnet_design_profile protocol
             protocol, protocol_xml1 = PUtils.hbnet_design_profile, 'hbnet_scout'
             nstruct_instruct = ['-no_nstruct_label', 'true']
-            design_list_file = path.join(self.scripts, 'design_files_%s.txt' % protocol)
+            design_files = path.join(self.scripts, f'design_files_{protocol}.txt')
             generate_files_cmd = \
-                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
-            metrics_pdb = ['-in:file:l', design_list_file]  # self.pdb_list]
+                ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_files, '-s', '_' + protocol]
+            metrics_pdb = ['-in:file:l', design_files]  # self.pdb_list]
             # metrics_flags = 'repack=yes'
             out_file = ['-out:file:silent', path.join(self.data, 'hbnet_silent.o'),
                         '-out:file:silent_struct_type', 'binary']
@@ -1771,11 +1771,11 @@ class PoseDirectory:  # (JobResources):
         if self.consensus:  # Todo add consensus sbatch generator to the symdesign main
             if not self.no_term_constraint:  # design_with_fragments
                 consensus_cmd = main_cmd + relax_flags_cmdline + \
-                    ['@%s' % self.flags, '-in:file:s', self.consensus_pdb,
+                    [f'@%{self.flags}', '-in:file:s', self.consensus_pdb,
                      # '-in:file:native', self.refined_pdb,
-                     '-parser:protocol', path.join(PUtils.rosetta_scripts, '%s.xml' % PUtils.consensus),
-                     '-parser:script_vars', 'switch=%s' % PUtils.consensus]
-                self.log.info('Consensus Command: %s' % list2cmdline(consensus_cmd))
+                     '-parser:protocol', path.join(PUtils.rosetta_scripts, f'{PUtils.consensus}.xml'),
+                     '-parser:script_vars', f'switch={PUtils.consensus}']
+                self.log.info(f'Consensus Command: {list2cmdline(consensus_cmd)}')
                 if not self.run_in_shell:
                     write_shell_script(list2cmdline(consensus_cmd), name=PUtils.consensus, out_path=self.scripts)
                 else:
@@ -1828,7 +1828,7 @@ class PoseDirectory:  # (JobResources):
                                additional=[list2cmdline(command) for command in additional_cmds] +
                                           [list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
-                               analysis_cmd)
+                                          [list2cmdline(analysis_cmd)])
             #                  status_wrap=self.serialized_info,
 
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
@@ -2226,7 +2226,7 @@ class PoseDirectory:  # (JobResources):
                             '--output_file', path.join(self.all_scores, PUtils.analysis_file % (starttime, protocol))]
             write_shell_script(list2cmdline(relax_cmd), name=protocol, out_path=flag_dir,
                                additional=[list2cmdline(command) for command in metric_cmds] +
-                               analysis_cmd)
+                                          [list2cmdline(analysis_cmd)])
             #                  status_wrap=self.serialized_info)
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if self.run_in_shell:
@@ -2438,7 +2438,7 @@ class PoseDirectory:  # (JobResources):
         protocol_xml1 = protocol
         # nstruct_instruct = ['-no_nstruct_label', 'true']
         nstruct_instruct = ['-nstruct', str(self.number_of_trajectories)]
-        design_list_file = path.join(self.scripts, 'design_files_%s.txt' % protocol)
+        design_list_file = path.join(self.scripts, f'design_files_{protocol}.txt')
         generate_files_cmd = \
             ['python', PUtils.list_pdb_files, '-d', self.designs, '-o', design_list_file, '-s', '_' + protocol]
 
@@ -2489,7 +2489,7 @@ class PoseDirectory:  # (JobResources):
             write_shell_script(list2cmdline(design_cmd), name=protocol, out_path=self.scripts,
                                additional=[list2cmdline(generate_files_cmd)] +
                                           [list2cmdline(command) for command in metric_cmds] +
-                               analysis_cmd)
+                                          [list2cmdline(analysis_cmd)])
         # ANALYSIS: each output from the Design process based on score, Analyze Sequence Variation
         if self.run_in_shell:
             pose_s = self.interface_design_analysis()
