@@ -53,21 +53,6 @@
 		<PerResidueEnergyMetric name="M_int_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015"/>
 <!--		<PerResidueEnergyMetric name="S_M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors_sym" use_native="false" scoretype="total_score" scorefxn="2015_nano_solvation"/>-->
 		<PerResidueEnergyMetric name="M_solvation_energy_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_and_neighbors" use_native="false" scoretype="total_score" scorefxn="2015_solvation"/>
-		# sasa is now measured with freesasa
-		# gather the per residue SASA of a residue selection
-<!--		<PerResidueSasaMetric name="M_sasa_hydrophobic_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="hydrophobic_sasa"/>-->
-<!--		<PerResidueSasaMetric name="M_sasa_polar_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="polar_sasa"/>-->
-<!--		<PerResidueSasaMetric name="M_sasa_total_per_res" custom_type="per" output_as_pdb_nums="true" residue_selector="entity_interface_residues" mode="all_sasa"/>-->
-		# summarize the energy metrics from above
-		<ResidueSummaryMetric name="S_M_int_energy_total" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_bound"/>/>
-		<ResidueSummaryMetric name="M_int_energy_total" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_bound"/>/>
-		<ResidueSummaryMetric name="S_M_int_energy_total_unbound" custom_type="interface_energy" metric="S_M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/>
-		<ResidueSummaryMetric name="M_int_energy_total_unbound" custom_type="interface_energy" metric="M_int_energy_per_res" action="sum" use_cached_data="true" cache_suffix="_%%entity%%_unbound"/>
-<!--		<ResidueSummaryMetric name="M_sasa_hydrophobic" custom_type="sasa" metric="M_sasa_hydrophobic_per_res" action="sum" use_cached_data="true" cache_suffix="_hydrophobic_%%entity%%_unbound"/>-->
-<!--		<ResidueSummaryMetric name="M_sasa_polar" custom_type="sasa" metric="M_sasa_polar_per_res" action="sum" use_cached_data="true" cache_suffix="_polar_%%entity%%_unbound"/> # MOVE CUSTOM TYPE PREFIX FOR ALL SUMMARY DATA TO RunSimpleMetrics Suffix-->
-<!--		<ResidueSummaryMetric name="M_sasa_total" custom_type="sasa" metric="M_sasa_total_per_res" action="sum" use_cached_data="true" cache_suffix="_total_%%entity%%_unbound"/>-->
-		<TotalEnergyMetric name="S_M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors_sym" scorefxn="2015_nano_solvation"/>
-		<TotalEnergyMetric name="M_solvation_energy" custom_type="solvation" residue_selector="entity_interface_and_neighbors" scorefxn="2015_solvation"/>
 	</SIMPLE_METRICS>
 
 	<MOVE_MAP_FACTORIES>
