@@ -2413,6 +2413,13 @@ class PoseDirectory:  # (JobResources):
             # design_file=None (str): The name of a particular design file present in the designs output
             threshold: The threshold above which background amino acid frequencies are allowed for mutation
         """
+        # Todo Notes for PROSS implementation
+        #  I need to use a mover like FilterScan to measure all the energies for a particular residue and it's possible
+        #  mutational space. Using these measurements, I then need to choose only those ones which make a particular
+        #  energetic contribution to the structure and test these out using a FastDesign protocol where each is tried.
+        #  This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
+        #  bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
+        #  heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
         self.load_pose()
         # format all amino acids in self.interface_design_residues with frequencies above the threshold to a set
         # Todo, make threshold and return set of strings a property of a profile object
