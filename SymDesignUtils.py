@@ -975,7 +975,7 @@ def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Ite
     else:  # if single:
         for single, extension in map(os.path.splitext, singles):  # remove any extension
             paths.extend(glob(f'{single}{os.sep}'))  # single/
-    return map(os.path.dirname, map(os.path.abspath, paths))
+    return map(os.path.abspath, paths)
 
 
 class PoseSpecification(Dialect):
