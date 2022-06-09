@@ -413,7 +413,7 @@ parser_cluster = dict(cluster_poses=dict(help='Cluster all poses by their spatia
 parser_cluster_poses_arguments = {
     ('-m', '--mode'): dict(type=str, choices=['transform', 'ialign'], default='transform'),
     ('-Of', '--output_file'): dict(type=str, default=clustered_poses,
-                                   help='Name of the output .pkl file containing pose clusters Will be saved to the '
+                                   help='Name of the output .pkl file containing pose clusters. Will be saved to the '
                                         '%s folder of the output.\nDefault=%s'
                                         % (data.title(), clustered_poses % ('LOCATION', 'TIMESTAMP')))
 }
@@ -516,10 +516,9 @@ parser_select_poses = \
 parser_select_poses_arguments = {
     ('--filter',): dict(action='store_true', help='Whether to filter pose selection using metrics'),
     (f'--{protocol}',): dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter metrics?'),
-    ('-sn', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
-                                     help='Number of poses to return\nDefault=No Limit'),
-    ('-ss', '--selection_string'): dict(type=str, metavar='string',
-                                        help='String to prepend to selection output name'),
+    ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
+                                    help='Number of poses to return\nDefault=No Limit'),
+    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--total',): dict(action='store_true',
                        help='Should poses be selected based on their ranking in the total pose pool?\nThis will select '
                             'the top poses based on the average of all designs in\nthat pose for the metrics specified '
@@ -566,10 +565,10 @@ parser_select_sequences_arguments = {
                                                                'multicistronic expression output'),
     ('-n', '--nucleotide'): dict(action='store_true', help='Whether to output codon optimized nucleotide sequences'
                                                            '\nDefault=%(default)s'),
-    ('-sn', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
-                                     help='Number of sequences to return\nIf total is True, returns the '
-                                          'specified number of sequences (Where Default=No Limit).\nOtherwise the '
-                                          'specified number will be selected from each pose (Where Default=1/pose)'),
+    ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
+                                    help='Number of sequences to return\nIf total is True, returns the '
+                                         'specified number of sequences (Where Default=No Limit).\nOtherwise the '
+                                         'specified number will be selected from each pose (Where Default=1/pose)'),
     ('-opt', '--optimize_species'): dict(type=str, default='e_coli',
                                          help='The organism where expression will occur and nucleotide usage should be '
                                               'optimized\nDefault=%(default)s'),
@@ -579,8 +578,7 @@ parser_select_sequences_arguments = {
     ('-ssg', '--skip_sequence_generation'): dict(action='store_true',
                                                  help='Should sequence generation be skipped? Only structures will be '
                                                       'selected\nDefault=%(default)s'),
-    ('-ss', '--selection_string'): dict(type=str, metavar='string',
-                                        help='String to prepend to selection output name'),
+    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--sequences_per_pose',): dict(type=int, default=1, dest='designs_per_pose',
                                     help='What is the maximum number of sequences that should be selected from '
                                          'each pose?\nDefault=%(default)s'),
@@ -613,13 +611,12 @@ parser_select_designs_arguments = {
                                        'each pose?\nDefault=%(default)s'),
     ('--filter',): dict(action='store_true', help='Whether to filter sequence selection using metrics'
                                                   '\nDefault=%(default)s'),
-    ('-sn', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
-                                     help='Number of sequences to return\nIf total is True, returns the '
-                                          'specified number of sequences (Where Default=No Limit).\nOtherwise the '
-                                          'specified number will be selected from each pose (Where Default=1/pose)'),
+    ('-s', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
+                                    help='Number of sequences to return\nIf total is True, returns the '
+                                         'specified number of sequences (Where Default=No Limit).\nOtherwise the '
+                                         'specified number will be selected from each pose (Where Default=1/pose)'),
     (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
-    ('-ss', '--selection_string'): dict(type=str, metavar='string',
-                                        help='String to prepend to selection output name'),
+    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--total',): dict(action='store_true',
                        help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
                             'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
@@ -642,14 +639,12 @@ parser_multicistronic_arguments = {
     ('-ms', '--multicistronic_intergenic_sequence'): dict(type=str,
                                                           help='The sequence to use in the intergenic region of a '
                                                                'multicistronic expression output'),
-    ('-n', '--number_of_genes'): dict(type=int,
-                                      help='The number of protein sequences to concatenate into a multicistronic '
-                                           'expression output'),
+    ('-n', '--number_of_genes'): dict(type=int, help='The number of protein sequences to concatenate into a '
+                                                     'multicistronic expression output'),
     ('-opt', '--optimize_species'): dict(type=str, default='e_coli',
                                          help='The organism where expression will occur and nucleotide usage should be '
                                               'optimized\nDefault=%(default)s'),
-    ('-ss', '--selection_string'): dict(type=str, metavar='string',
-                                        help='String to prepend to output for custom sequence selection name')
+    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to sequence output file'),
 }
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
