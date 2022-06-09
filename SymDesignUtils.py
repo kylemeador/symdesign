@@ -968,14 +968,13 @@ def get_symdesign_dirs(base: str = None, projects: Iterable = None, singles: Ite
     """
     paths = []
     if base:
-        # base/Projects/*/*/
-        paths = glob('%s%s%s%s' % (base, '%s%s' % (os.sep, PUtils.projects), 2 * ('%s*' % os.sep), os.sep))
+        paths = glob(f'{base}{os.sep}{PUtils.projects}{os.sep}*{os.sep}*{os.sep}')  # base/Projects/*/*/
     elif projects:
         for project in projects:
-            paths.extend(glob('%s%s*%s' % (project, os.sep, os.sep)))  # project/*/
+            paths.extend(glob(f'{project}{os.sep}*{os.sep}'))  # project/*/
     else:  # if single:
-        for single, extension in map(os.path.splitext, singles):
-            paths.extend(glob('%s%s' % (single, os.sep)))  # single/
+        for single, extension in map(os.path.splitext, singles):  # remove any extension
+            paths.extend(glob(f'{single}{os.sep}'))  # single/
     return map(os.path.dirname, map(os.path.abspath, paths))
 
 
