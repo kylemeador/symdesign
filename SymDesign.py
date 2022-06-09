@@ -678,6 +678,7 @@ if __name__ == '__main__':
     argparser_order = [parser_input, parser_module]  # , parser_options]
     for argparser in argparser_order:
         args, additional_args = argparsers[argparser].parse_known_args(additional_args, args)
+        print(args)
     # args, additional_args = parser_module.parse_known_args()
     # args, additional_args = parser_input.parse_known_args(additional_args, args)
     if additional_args:
@@ -738,7 +739,7 @@ if __name__ == '__main__':
     #                     f'your old data! Please specify a new one with with -Od/--output_directory')
     #     exit(1)
 
-    # We have to ensure that if the user has provided it, the symmetry is correct
+    # Ensure symmetry is correct if the user has provided it
     if queried_flags['symmetry'] and queried_flags.get(PUtils.sym_entry):
         queried_flags[PUtils.sym_entry] = \
             parse_symmetry_to_sym_entry(sym_entry=queried_flags[PUtils.sym_entry], symmetry=queried_flags['symmetry'])
