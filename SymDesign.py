@@ -1847,11 +1847,11 @@ if __name__ == '__main__':
         logger.info(f'{len(results)} designs were selected')
 
         # Format selected sequences for output
-        if not args.selection_string:
-            args.selection_string = f'{os.path.basename(os.path.splitext(location)[0])}_'
+        if not args.prefix:
+            args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
         else:
-            args.selection_string += '_'
-        outdir = os.path.join(os.path.dirname(program_root), f'{args.selection_string}SelectedDesigns')
+            args.prefix += '_'
+        outdir = os.path.join(os.path.dirname(program_root), f'{args.prefix}SelectedDesigns')
         # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
         os.makedirs(outdir, exist_ok=True)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
 
@@ -1890,7 +1890,7 @@ if __name__ == '__main__':
             terminate(output=False)
         else:
             # Format sequences for expression
-            args.output_file = os.path.join(outdir, f'{args.selection_string}SelectedDesigns.paths')
+            args.output_file = os.path.join(outdir, f'{args.prefix}SelectedDesigns.paths')
             pose_directories = [des_dir for des_dir, design in results]
             with open(args.output_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(des_dir.path for des_dir in pose_directories))
@@ -2242,27 +2242,27 @@ if __name__ == '__main__':
 
         # Report Errors
         if codon_optimization_errors:
-            error_file = SDUtils.write_fasta_file(codon_optimization_errors,
-                                                  '%sOptimizationErrorProteinSequences' % args.selection_string,
-                                                  out_path=outdir, csv=args.csv)
+            error_file = \
+                SDUtils.write_fasta_file(codon_optimization_errors, f'{args.prefix}OptimizationErrorProteinSequences',
+                                         out_path=outdir, csv=args.csv)
         # Write output sequences to fasta file
-        seq_file = SDUtils.write_fasta_file(final_sequences, '%sSelectedSequences' % args.selection_string,
-                                            out_path=outdir, csv=args.csv)
-        logger.info('Final Design protein sequences written to %s' % seq_file)
-        seq_comparison_file = SDUtils.write_fasta_file(inserted_sequences, '%sSelectedSequencesExpressionAdditions'
-                                                       % args.selection_string, out_path=outdir, csv=args.csv)
-        logger.info('Final Expression sequence comparison to Design sequence written to %s' % seq_comparison_file)
+        seq_file = \
+            SDUtils.write_fasta_file(final_sequences, f'{args.prefix}SelectedSequences', out_path=outdir, csv=args.csv)
+        logger.info(f'Final Design protein sequences written to {seq_file}')
+        seq_comparison_file = \
+            SDUtils.write_fasta_file(inserted_sequences, f'{args.prefix}SelectedSequencesExpressionAdditions',
+                                     out_path=outdir, csv=args.csv)
+        logger.info(f'Final Expression sequence comparison to Design sequence written to {seq_comparison_file}')
         # check for protein or nucleotide output
         if args.nucleotide:
-            nucleotide_sequence_file = SDUtils.write_fasta_file(nucleotide_sequences, '%sSelectedSequencesNucleotide'
-                                                                % args.selection_string, out_path=outdir, csv=args.csv)
-            logger.info('Final Design nucleotide sequences written to %s' % nucleotide_sequence_file)
+            nucleotide_sequence_file = \
+                SDUtils.write_fasta_file(nucleotide_sequences, f'{args.prefix}SelectedSequencesNucleotide',
+                                         out_path=outdir, csv=args.csv)
+            logger.info(f'Final Design nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
     elif args.module == 'multicistronic':
-        if args.multicistronic_intergenic_sequence:
-            intergenic_sequence = args.multicistronic_intergenic_sequence
-        else:
-            intergenic_sequence = default_multicistronic_sequence
+        if not args.multicistronic_intergenic_sequence:
+            args.multicistronic_intergenic_sequence = default_multicistronic_sequence
 
         file = args.file[0]
         if file.endswith('.csv'):
@@ -2270,30 +2270,33 @@ if __name__ == '__main__':
                 design_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)
                                     for name, sequence in reader(f)]
                 #                    for name, sequence in zip(*reader(f))]
-        else:
+        elif file.endswith('.fasta'):
             design_sequences = list(read_fasta_file(file))
+        else:
+            raise NotImplementedError(f'Sequence file with extension {os.path.splitext(file)[-1]} is not supported!')
 
         nucleotide_sequences = {}
         for idx, group_start_idx in enumerate(list(range(len(design_sequences)))[::args.number_of_genes], 1):
             cistronic_sequence = \
                 optimize_protein_sequence(design_sequences[group_start_idx], species=args.optimize_species)
             for protein_sequence in design_sequences[group_start_idx + 1: group_start_idx + args.number_of_genes]:
-                cistronic_sequence += intergenic_sequence
+                cistronic_sequence += args.multicistronic_intergenic_sequence
                 cistronic_sequence += optimize_protein_sequence(protein_sequence, species=args.optimize_species)
-            new_name = '%s_cistronic' % design_sequences[group_start_idx].id
+            new_name = f'{design_sequences[group_start_idx].id}_cistronic'
             nucleotide_sequences[new_name] = cistronic_sequence
-            logger.info('Finished sequence %d - %s' % (idx, new_name))
+            logger.info(f'Finished sequence {idx} - {new_name}')
 
         location = file
-        if not args.selection_string:
-            args.selection_string = '%s_' % os.path.basename(os.path.splitext(location)[0])
+        if not args.prefix:
+            args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
         else:
-            args.selection_string += '_'
-        outdir = os.path.join(os.getcwd(), '%sSelectedDesigns' % args.selection_string)
+            args.prefix += '_'
+        # outdir = os.path.join(os.path.dirname(program_root), f'{args.prefix}SelectedDesigns')
 
-        nucleotide_sequence_file = SDUtils.write_fasta_file(nucleotide_sequences, '%sSelectedSequencesNucleotide'
-                                                            % args.selection_string, out_path=os.getcwd(), csv=args.csv)
-        logger.info('Final Design nucleotide sequences written to %s' % nucleotide_sequence_file)
+        nucleotide_sequence_file = \
+            SDUtils.write_fasta_file(nucleotide_sequences, f'{args.prefix}MulticistronicNucleotideSequences',
+                                     out_path=os.getcwd(), csv=args.csv)
+        logger.info(f'Multicistronic nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
     # elif args.module == 'rename_scores':
     #     rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
