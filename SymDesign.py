@@ -677,30 +677,11 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Process remaining flags and arguments for program initialization
     # -----------------------------------------------------------------------------------------------------------------
-    # # ensure module specific arguments are collected and argument help is printed in full
-    # entire_parser = argparsers[parser_entire]
-    # entire_parser.parse_known_args()
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    # print(args)
-    # if hasattr(args, 'sym_entry'):
-    #     print('Has sym_entry', args.sym_entry)
-    # if hasattr(args, 'output_file'):
-    #     print('Has output_file', args.output_file)
-    # argparser_order = [parser_module, parser_options, parser_input]
     argparser_order = [parser_options, parser_input]
     args, additional_args = argparsers[parser_module].parse_known_args()
-    idx = 1
     for argparser in argparser_order:
         args, additional_args = argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
-        print('idx', idx)
-        idx += 1
-    print('line2')
-        # if hasattr(args, 'sym_entry'):
-        #     print('Has sym_entry', args.sym_entry)
-        # if hasattr(args, 'output_file'):
-        #     print('Has output_file', args.output_file)
-    # args, additional_args = parser_module.parse_known_args()
-    # args, additional_args = parser_input.parse_known_args(additional_args, args)
     if additional_args:
         exit(f'\nSuspending run. Found flag(s) that are not recognized program wide: {", ".join(additional_args)}\n'
              f'Please correct (try adding --help if unsure), and resubmit your command\n')
@@ -806,7 +787,6 @@ if __name__ == '__main__':
         pass
     else:  # display flags
         formatted_queried_flags = queried_flags.copy()
-        print(queried_flags)
         # where input values should be reported instead of processed version, or the argument is not important
         for flag in ['design_selector', 'construct_pose']:
             formatted_queried_flags.pop(flag, None)
