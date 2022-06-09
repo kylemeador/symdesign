@@ -693,6 +693,7 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     symdesign_directory = SDUtils.get_base_symdesign_dir((args.directory or (args.project or args.single or [None])[0]
                                                           or os.getcwd()))
+    print(symdesign_directory)
     if not symdesign_directory:  # check if there is a file and see if we can solve there
         if args.file:
             with open(args.file, 'r') as f:
@@ -708,6 +709,7 @@ if __name__ == '__main__':
                 symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
             os.makedirs(symdesign_directory, exist_ok=True)
     # JobResources handles flags and shared program objects
+    print(symdesign_directory)
     job = JobResources(symdesign_directory, **queried_flags)
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
