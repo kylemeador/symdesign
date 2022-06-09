@@ -601,11 +601,15 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Process optional program flags
     # -----------------------------------------------------------------------------------------------------------------
-    args, additional_args = argparsers[parser_options].parse_known_args()  # additional_args, args)
+    # ensure module specific arguments are collected and argument help is printed in full
+    entire_parser = argparsers[parser_entire]
+    args, additional_args = entire_parser.parse_known_args()
+    # args, additional_args = argparsers[parser_options].parse_known_args()  # additional_args, args)
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
     if args.guide:  # or not args.module:
+    # if '--guide' in sys.argv:  # or not args.module:
         args, additional_args = argparsers[parser_guide_module].parse_known_args(additional_args, args)
         if args.module == PUtils.analysis:
             print(analysis_guide)
@@ -671,22 +675,22 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Process remaining flags and arguments for program initialization
     # -----------------------------------------------------------------------------------------------------------------
-    # ensure module specific arguments are collected and argument help is printed in full
-    entire_parser = argparsers[parser_entire]
-    entire_parser.parse_known_args()
+    # # ensure module specific arguments are collected and argument help is printed in full
+    # entire_parser = argparsers[parser_entire]
+    # entire_parser.parse_known_args()
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    print(args)
-    if hasattr(args, 'sym_entry'):
-        print('Has sym_entry', args.sym_entry)
-    if hasattr(args, 'output_file'):
-        print('Has output_file', args.output_file)
-    argparser_order = [parser_input, parser_module]  # , parser_options]
+    # print(args)
+    # if hasattr(args, 'sym_entry'):
+    #     print('Has sym_entry', args.sym_entry)
+    # if hasattr(args, 'output_file'):
+    #     print('Has output_file', args.output_file)
+    argparser_order = [parser_module, parser_options, parser_input]
     for argparser in argparser_order:
         args, additional_args = argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
-        if hasattr(args, 'sym_entry'):
-            print('Has sym_entry', args.sym_entry)
-        if hasattr(args, 'output_file'):
-            print('Has output_file', args.output_file)
+        # if hasattr(args, 'sym_entry'):
+        #     print('Has sym_entry', args.sym_entry)
+        # if hasattr(args, 'output_file'):
+        #     print('Has output_file', args.output_file)
     # args, additional_args = parser_module.parse_known_args()
     # args, additional_args = parser_input.parse_known_args(additional_args, args)
     if additional_args:
