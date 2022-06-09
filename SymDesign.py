@@ -785,6 +785,7 @@ if __name__ == '__main__':
         pass
     else:  # display flags
         formatted_queried_flags = queried_flags.copy()
+        print(queried_flags)
         # where input values should be reported instead of processed version, or the argument is not important
         for flag in ['design_selector', 'construct_pose']:
             formatted_queried_flags.pop(flag, None)
@@ -792,7 +793,7 @@ if __name__ == '__main__':
         reported_args = {}
         for group in entire_parser._action_groups:
             for arg in group._group_actions:
-                if isinstance(arg, _SubParsersAction):
+                if isinstance(arg, _SubParsersAction):  # we have a sup parser, recurse
                     for name, sub_parser in arg.choices.items():
                         for sub_group in sub_parser._action_groups:
                             for arg in sub_group._group_actions:
