@@ -496,7 +496,7 @@ parser_analysis_arguments = {
     ('--output',): dict(action=argparse.BooleanOptionalAction, default=True,
                         help='Whether to output the --output_file? Use --no-output to prevent.\nDefault=%(default)s'),
     ('-Of', '--output_file'): dict(type=str, default=analysis_file,
-                                   help='Name of the output .csv file containing pose metrics\nWill be saved to the '
+                                   help='Name of the output .csv file containing pose metrics.\nWill be saved to the '
                                         '%s folder of the output\nDefault=%s'
                                         % (all_scores, analysis_file % ('TIMESTAMP', 'LOCATION'))),
     ('--save',): dict(action=argparse.BooleanOptionalAction, default=True,
