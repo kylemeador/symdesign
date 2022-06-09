@@ -604,6 +604,8 @@ if __name__ == '__main__':
     # ensure module specific arguments are collected and argument help is printed in full
     entire_parser = argparsers[parser_entire]
     args, additional_args = entire_parser.parse_known_args()
+    print('line0')
+    print(args)
     # args, additional_args = argparsers[parser_options].parse_known_args()  # additional_args, args)
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide if requested
@@ -684,9 +686,15 @@ if __name__ == '__main__':
     #     print('Has sym_entry', args.sym_entry)
     # if hasattr(args, 'output_file'):
     #     print('Has output_file', args.output_file)
-    argparser_order = [parser_module, parser_options, parser_input]
+    # argparser_order = [parser_module, parser_options, parser_input]
+    argparser_order = [parser_options, parser_input]
+    args, additional_args = argparsers[parser_module].parse_known_args()
+    idx = 1
     for argparser in argparser_order:
         args, additional_args = argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
+        print('idx', idx)
+        idx += 1
+    print('line2')
         # if hasattr(args, 'sym_entry'):
         #     print('Has sym_entry', args.sym_entry)
         # if hasattr(args, 'output_file'):
