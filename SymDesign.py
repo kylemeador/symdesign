@@ -679,11 +679,14 @@ if __name__ == '__main__':
     if hasattr(args, 'sym_entry'):
         print('Has sym_entry', args.sym_entry)
     if hasattr(args, 'output_file'):
-        print('Has output_file', args.sym_entry)
+        print('Has output_file', args.output_file)
     argparser_order = [parser_input, parser_module]  # , parser_options]
     for argparser in argparser_order:
-        args, additional_args = argparsers[argparser].parse_known_args(additional_args, args)
-        print(args)
+        args, additional_args = argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
+        if hasattr(args, 'sym_entry'):
+            print('Has sym_entry', args.sym_entry)
+        if hasattr(args, 'output_file'):
+            print('Has output_file', args.output_file)
     # args, additional_args = parser_module.parse_known_args()
     # args, additional_args = parser_input.parse_known_args(additional_args, args)
     if additional_args:
