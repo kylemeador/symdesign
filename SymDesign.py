@@ -603,59 +603,43 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     args, additional_args = argparsers[parser_options].parse_known_args()  # additional_args, args)
     # -----------------------------------------------------------------------------------------------------------------
-    # Start Logging - Root logs to stream with level warning
-    # -----------------------------------------------------------------------------------------------------------------
-    if args.debug:
-        # Root logs to stream with level debug
-        logger = SDUtils.start_log(level=1)
-        SDUtils.set_logging_to_debug()
-        logger.debug('Debug mode. Produces verbose output and not written to any .log files')
-    else:
-        # Root logger logs to stream with level 'warning'
-        SDUtils.start_log(level=3, set_handler_level=True)
-        # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
-        SDUtils.start_log(handler=2, location=os.path.join(os.getcwd(), args.output_directory if args.output_directory else '', PUtils.program_name))
-        # SymDesign main logs to stream with level info
-        logger = SDUtils.start_log(name=PUtils.program_name, propagate=False)
-        # All Designs will log to specific file with level info unless -skip_logging is passed
-    # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
     if args.guide:  # or not args.module:
         args, additional_args = argparsers[parser_guide_module].parse_known_args(additional_args, args)
         if args.module == PUtils.analysis:
-            logger.info(analysis_guide)
+            print(analysis_guide)
         elif args.module == PUtils.cluster_poses:
-            logger.info(cluster_poses_guide)
+            print(cluster_poses_guide)
         elif args.module == PUtils.interface_design:
-            logger.info(interface_design_guide)
+            print(interface_design_guide)
         elif args.module == PUtils.interface_metrics:
-            logger.info(interface_metrics_guide)
+            print(interface_metrics_guide)
         # elif args.module == 'custom_script':
-        #     logger.info()
+        #     print()
         elif args.module == PUtils.optimize_designs:
-            logger.info(optimize_designs_guide)
+            print(optimize_designs_guide)
         elif args.module == PUtils.refine:
-            logger.info(refine_guide)
+            print(refine_guide)
         elif args.module == PUtils.nano:
-            logger.info()
+            print()
         elif args.module == PUtils.select_poses:
-            logger.info(select_poses_guide)
+            print(select_poses_guide)
         elif args.module == PUtils.select_designs:
-            logger.info(select_designs_guide)
+            print(select_designs_guide)
         elif args.module == PUtils.select_sequences:
-            logger.info(select_sequences_guide)
+            print(select_sequences_guide)
         elif args.module == 'expand_asu':
-            logger.info()
+            print()
         elif args.module == 'check_clashes':
-            logger.info()
+            print()
         elif args.module == 'residue_selector':
-            logger.info()
+            print()
         # elif args.module == 'visualize':
-        #     logger.info('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
-        #                 % (SDUtils.ex_path('pymol'), PUtils.program_command.replace('python ', ''),
-        #                    SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
-        #                    SDUtils.ex_path('design.paths')))
+        #     print('Usage: %s -r %s -- [-d %s, -df %s, -f %s] visualize --range 0-10'
+        #           % (SDUtils.ex_path('pymol'), PUtils.program_command.replace('python ', ''),
+        #              SDUtils.ex_path('pose_directory'), SDUtils.ex_path('DataFrame.csv'),
+        #              SDUtils.ex_path('design.paths')))
         else:  # print the full program readme
             with open(PUtils.readme, 'r') as f:
                 print(f.read(), end='')
@@ -697,16 +681,63 @@ if __name__ == '__main__':
     # args, additional_args = parser_module.parse_known_args()
     # args, additional_args = parser_input.parse_known_args(additional_args, args)
     if additional_args:
-        exit('\nSuspending run. Found flag(s) that are not recognized program wide: %s\nPlease correct (try adding '
-             '--help if unsure), and resubmit your command\n' % ', '.join(additional_args))
-    default_flags = return_default_flags()
-    formatted_flags = format_additional_flags(additional_args)
-    default_flags.update(formatted_flags)
+        exit(f'\nSuspending run. Found flag(s) that are not recognized program wide: {", ".join(additional_args)}\n'
+             f'Please correct (try adding --help if unsure), and resubmit your command\n')
 
     # Add additional program flags to queried_flags
     queried_flags = vars(args)
-    queried_flags.update(default_flags)
+    queried_flags.update(return_default_flags())
     queried_flags.update(process_residue_selector_flags(queried_flags))
+    # -----------------------------------------------------------------------------------------------------------------
+    # Initialize common job resources necessary for processing and i/o
+    # -----------------------------------------------------------------------------------------------------------------
+    symdesign_directory = SDUtils.get_base_symdesign_dir((args.directory or (args.project or args.single or [None])[0]
+                                                          or os.getcwd()))
+    if not symdesign_directory:  # check if there is a file and see if we can solve there
+        if args.file:
+            with open(args.file, 'r') as f:
+                symdesign_directory = SDUtils.get_base_symdesign_dir(f.readline())
+        else:  # Probably not from SymDesignOutput
+            if args.output_directory:  # use a user specified directory
+                # if args.output_directory == '':
+                #     symdesign_directory = '%s_%s_%s_poses' % default_output_tuple
+                # else:
+                queried_flags['output_directory'] = True
+                symdesign_directory = args.output_directory
+            else:  # assume new input and make in the current directory
+                symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
+            os.makedirs(symdesign_directory, exist_ok=True)
+    # JobResources handles flags and shared program objects
+    job = JobResources(symdesign_directory, **queried_flags)
+    # -----------------------------------------------------------------------------------------------------------------
+    # Start Logging - Root logs to stream with level warning
+    # -----------------------------------------------------------------------------------------------------------------
+    if args.debug:
+        # Root logs to stream with level debug
+        logger = SDUtils.start_log(level=1)
+        SDUtils.set_logging_to_debug()
+        logger.debug('Debug mode. Produces verbose output and not written to any .log files')
+    else:
+        # Root logger logs to stream with level 'warning'
+        SDUtils.start_log(level=3, set_handler_level=True)
+        # Root logger logs all emissions to a single file with level 'info'. Stream above still emits at 'warning'
+        SDUtils.start_log(handler=2, location=os.path.join(symdesign_directory, PUtils.program_name))
+        # SymDesign main logs to stream with level info
+        logger = SDUtils.start_log(name=PUtils.program_name, propagate=False)
+        # All Designs will log to specific file with level info unless -skip_logging is passed
+    # -----------------------------------------------------------------------------------------------------------------
+    # Process flags, create JobResources, report options
+    # -----------------------------------------------------------------------------------------------------------------
+    # Check if output already exists  # or provide --overwrite
+    if args.output_file and os.path.exists(args.output_file) and args.module not in PUtils.analysis:
+        logger.critical(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
+                        f'data! Please specify a new name with with -Of/--output_file')
+        exit(1)
+    # elif args.output_directory and os.path.exists(args.output_directory):  # Todo is this necessary?
+    #     logger.critical(f'The specified output directory "{args.output_file}" already exists, this will overwrite
+    #                     f'your old data! Please specify a new one with with -Od/--output_directory')
+    #     exit(1)
+
     # We have to ensure that if the user has provided it, the symmetry is correct
     if queried_flags['symmetry'] and queried_flags.get(PUtils.sym_entry):
         queried_flags[PUtils.sym_entry] = \
@@ -723,9 +754,6 @@ if __name__ == '__main__':
     if not isinstance(sym_entry, SymEntry):  # remove if not an actual SymEntry
         queried_flags.pop(PUtils.sym_entry)
 
-    initialize_modules = [PUtils.nano, PUtils.interface_design, PUtils.interface_metrics, PUtils.optimize_designs]
-    #                       PUtils.analysis, 'custom_script', PUtils.refine]
-    # TODO consolidate these checks
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'expand_asu',
                        PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
                        'check_clashes']:  # , 'custom_script', 'find_asu', 'status', 'visualize'
@@ -786,41 +814,10 @@ if __name__ == '__main__':
         if flags_sym_entry:
             reported_args[PUtils.sym_entry] = flags_sym_entry.entry_number
         logger.info('Starting with options:\n\t%s' % '\n\t'.join(SDUtils.pretty_format_table(reported_args.items())))
-    # -----------------------------------------------------------------------------------------------------------------
-    # Initialize common resources
-    # -----------------------------------------------------------------------------------------------------------------
-    # Check if output already exists  # or provide --overwrite
-    if args.output_file and os.path.exists(args.output_file) and args.module not in PUtils.analysis:
-        logger.critical(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
-                        f'data! Please specify a new name with with -Of/--output_file')
-        exit(1)
-    # elif args.output_directory and os.path.exists(args.output_directory):  # Todo is this necessary?
-    #     logger.critical(f'The specified output directory "{args.output_file}" already exists, this will overwrite
-    #                     f'your old data! Please specify a new one with with -Od/--output_directory')
-    #     exit(1)
-
-    # Set up JobResources which handles flags and shared program objects necessary for processing and i/o
-    symdesign_directory = SDUtils.get_base_symdesign_dir((args.directory or args.project or args.single or os.getcwd()))
-    if not symdesign_directory:  # check if there is a file and see if we can solve there
-        if args.file:
-            with open(args.file, 'r') as f:
-                symdesign_directory = SDUtils.get_base_symdesign_dir(f.readline())
-        else:  # Probably not from SymDesignOutput
-            if args.output_directory:  # use a user specified directory
-                # if args.output_directory == '':
-                #     symdesign_directory = '%s_%s_%s_poses' % default_output_tuple
-                # else:
-                queried_flags['output_directory'] = True
-                symdesign_directory = args.output_directory
-            else:  # assume new input and make in the current directory
-                symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
-            os.makedirs(symdesign_directory, exist_ok=True)
-
-    job = JobResources(symdesign_directory, **queried_flags)
-    logger.info(f'Using JobResources from Database located at "{job.protein_data}"')
-    queried_flags['job_resources'] = job
 
     # Set up Databases
+    logger.info(f'Using resources in Database located at "{job.protein_data}"')
+    queried_flags['job_resources'] = job
     if args.module in [PUtils.nano, PUtils.generate_fragments, PUtils.interface_design, PUtils.analysis]:
         if job.no_term_constraint:
             fragment_db, euler_lookup = None, None
@@ -832,7 +829,6 @@ if __name__ == '__main__':
 
     job.fragment_db = fragment_db
     job.euler_lookup = euler_lookup
-
     # -----------------------------------------------------------------------------------------------------------------
     # Grab all Designs (PoseDirectory) to be processed from either database, directory, project name, or file
     # -----------------------------------------------------------------------------------------------------------------
@@ -890,21 +886,18 @@ if __name__ == '__main__':
         if not pose_directories:
             raise SDUtils.DesignError(f'No {PUtils.program_name} directories found within "{location}"! Please ensure '
                                       f'correct location')
-        # Todo could make after collect_designs? Pass to all pose_directories
-        #  for file, take all_poses first file. I think prohibits multiple dirs, projects, single...
         example_directory = next(iter(pose_directories))
-        # example_directory = JobResources(pose_directories[0].program_root)
-        # if not location:
-        #     design_source = os.path.basename(example_directory.project_designs)
-        # else:
         design_source = os.path.splitext(os.path.basename(location))[0]
         default_output_tuple = (SDUtils.starttime, args.module, design_source)
 
         # Todo logic error when initialization occurs with module that doesn't call this, subsequent runs are missing
         #  directories/resources that haven't been made
-        # check to see that proper files have been created if doing design
-        # including orientation, refinement, loop modeling, hhblits, bmdca?
+        # check to see that proper files have been created including orient, refinement, loop modeling, hhblits, bmdca?
         initialized = example_directory.initialized
+        initialize_modules = \
+            [PUtils.interface_design, PUtils.interface_metrics, PUtils.optimize_designs, 'custom_script']
+        #      PUtils.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
+        #      PUtils.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
         if not initialized and args.module in initialize_modules or args.nanohedra_output or args.load_database:
             # if args.load_database:  # Todo why is this set_up_design_directory here?
             #     for design in pose_directories:
@@ -1170,8 +1163,7 @@ if __name__ == '__main__':
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
     else:
-        # this logic is possible with args.module in
-        # PUtils.nano, 'multicistronic', or select_poses with --metric or --dataframe
+        # this logic is possible with args.module in 'multicistronic', or select_poses with --metric or --dataframe
         # job.resources = None
         # design_source = os.path.basename(example_directory.project_designs)
         pass
@@ -1180,7 +1172,8 @@ if __name__ == '__main__':
     # Set up Job specific details and resources
     # -----------------------------------------------------------------------------------------------------------------
     # Format computational requirements
-    if args.module in [PUtils.nano, PUtils.interface_design]:  # Todo make possible for all
+    if args.module in [PUtils.nano, PUtils.refine, PUtils.interface_design, PUtils.interface_metrics,
+                       PUtils.optimize_designs, 'custom_script']:
         if args.run_in_shell:
             logger.info('Modeling will occur in this process, ensure you don\'t lose connection to the shell!')
         else:
@@ -1188,7 +1181,7 @@ if __name__ == '__main__':
     if args.multi_processing:
         # Calculate the number of cores to use depending on computer resources
         cores = SDUtils.calculate_mp_cores(cores=args.cores)  # mpi=args.mpi, Todo
-        logger.info('Starting multiprocessing using %d cores' % cores)
+        logger.info(f'Starting multiprocessing using {cores} cores')
     else:
         cores = 1
         logger.info('Starting processing. If single process is taking awhile, use --multi_processing during submission')
