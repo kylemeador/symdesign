@@ -675,6 +675,7 @@ if __name__ == '__main__':
     entire_parser = argparsers[parser_entire]
     entire_parser.parse_known_args()
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
+    print(args)
     argparser_order = [parser_input, parser_module]  # , parser_options]
     for argparser in argparser_order:
         args, additional_args = argparsers[argparser].parse_known_args(additional_args, args)
@@ -2298,21 +2299,6 @@ if __name__ == '__main__':
                                      out_path=os.getcwd(), csv=args.csv)
         logger.info(f'Multicistronic nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
-    # elif args.module == 'rename_scores':
-    #     rename = {'combo_profile_switch': 'limit_to_profile', 'favor_profile_switch': 'favor_frag_limit_to_profile'}
-    #     for des_directory in pose_directories:
-    #         SDUtils.rename_decoy_protocols(des_directory, rename)
-    # ---------------------------------------------------
-    # elif args.module == 'modify':  # -m mod
-    #     if args.multi_processing:
-    #         if args.mod == 'consolidate_degen':
-    #             exit('Operation impossible with flag "-mp"')
-    #
-    #     else:
-    #         if args.mod == 'consolidate_degen':
-    #             logger.info('Consolidating DEGEN directories')
-    #             accessed_dirs = [rsync_dir(pose_directory) for pose_directory in pose_directories]
-    # ---------------------------------------------------
     elif args.module == 'status':  # -n number, -s stage, -u update
         if args.update:
             for design in pose_directories:
@@ -2415,9 +2401,6 @@ if __name__ == '__main__':
 
         print('\nTo expand all designs to the proper symmetry, issue:\nPyMOL> expand name=all, symmetry=T'
               '\nYou should replace "T" with whatever symmetry your design is in\n')
-    # ---------------------------------------------------
-    # else:
-    #     exit('No module was selected! Did you include one? To get started, checkout the %s' % PUtils.guide_string)
     # -----------------------------------------------------------------------------------------------------------------
     # Finally run terminate(). Formats designs passing output parameters and report program exceptions
     # -----------------------------------------------------------------------------------------------------------------
