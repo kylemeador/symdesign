@@ -328,8 +328,7 @@ parser_options_arguments = {
                                         'maximize cassini\'s computational resources.\nAll computation may'
                                         'fail on a single trajectory mistake.\nDefault=%(default)s'),
     ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,
-                                              help='The entry number of %s docking combinations to use'
-                                                   % nano.title()),
+                                              help=f'The entry number of {nano.title()} docking combinations to use'),
     ('--set_up',): dict(action='store_true',
                         help='Show the %(prog)s set up instructions\nDefault=%(default)s'),  # Todo allow SetUp.py main
     ('--skip_logging',): dict(action='store_true',
@@ -359,12 +358,11 @@ parser_refine_arguments = {
                                             'refinement')
 }
 # ---------------------------------------------------
-parser_nanohedra = dict(nanohedra=dict(help='Run or submit jobs to %s.py' % nano.title()))
+parser_nanohedra = dict(nanohedra=dict(help=f'Run or submit jobs to {nano.title()}.py'))
 # parser_dock = subparsers.add_parser(nano, help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, or -q to specify PDB Entity codes, building block directories, or query the PDB for building blocks to dock' % nano.title())
 parser_nanohedra_arguments = {
     ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry, required=True,
-                                              help='The entry number of %s docking combinations to use'
-                                                   % nano.title()),
+                                              help=f'The entry number of {nano.title()} docking combinations to use'),
     ('-mv', '--match_value'): dict(type=float, default=0.5, dest='high_quality_match_value',
                                    help='What is the minimum match score required for a high quality fragment?'),
     ('-iz', '--initial_z_value'): dict(type=float, default=1.,
@@ -378,7 +376,8 @@ parser_nanohedra_arguments = {
                                                     help='Where should the output from commands be written?\nDefault=%s'
                                                          % ex_path(program_output, data.title(),
                                                                    'NanohedraEntry[ENTRYNUMBER]DockedPoses')),
-    ('-q', '--query'): dict(action='store_true', help='Run Nanohedra in query mode\nDefault=%(default)s'),
+    ('--query',): dict(action='store_true', help='Run Nanohedra in query mode\nDefault=%(default)s'),
+    # ('-q', '--query'): dict(action='store_true', help=f'Run {nano.title()} in query mode\nDefault=%(default)s'),
     ('-r1', '--rotation_step1'): dict(type=float, default=3.,
                                       help='The number of degrees to increment the rotational degrees of freedom '
                                            'search\nDefault=%(default)s'),
@@ -396,7 +395,7 @@ parser_nanohedra_mutual1_arguments = {
                                   help='File with list of PDB_entity codes for component 1'),
     ('-o1', f'--{nano_entity_flag1}'): dict(type=os.path.abspath, default=None,
                                             help='Disk location where the first oligomer(s) are located'),
-    ('-qc', '--query_codes'): dict(action='store_true', help='Search the PDB API for corresponding codes')
+    ('-Q', '--query_codes'): dict(action='store_true', help='Query the PDB API for corresponding codes')
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
 parser_nanohedra_mutual2_group = dict(required=False)
