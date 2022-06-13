@@ -1231,7 +1231,7 @@ def prioritize_design_indices(df: Union[pd.DataFrame, Union[str, bytes]], filter
         # final_df = pd.merge(weighted_df, simple_df, left_index=True, right_index=True)
         # final_df = pd.merge(weighted_df, df, left_index=True, right_index=True)
     else:
-        final_df = df.loc[simple_df.sort_values('interface_energy', ascending=True).index, :]
+        final_df = simple_df.loc[simple_df.sort_values('interface_energy', ascending=True).index, :]
 
     # final_df is sorted by the best value to the worst
     return final_df

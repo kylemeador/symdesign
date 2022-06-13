@@ -69,7 +69,9 @@ if __name__ == '__main__':
     # print('POSE IDS', pose_ids[:5])
 
     if not pose_ids:  # we don't have names generated from Nanohedra Docking
-        raise NotImplementedError('The format_pose_ids tool needs to be adapted for non-Nanohedra docking entries')
+        pose_ids = pose_id_lines
+        print(pose_ids[:5])
+        # raise NotImplementedError('The format_pose_ids tool needs to be adapted for non-Nanohedra docking entries')
 
     if args.keep_design_id:
         final_pose_ids = [project + pose_id for pose_id in map(str.strip, pose_ids) if pose_id != '']
