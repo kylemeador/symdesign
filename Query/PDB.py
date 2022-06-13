@@ -648,6 +648,7 @@ def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval t
 def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data retrieval to POST
     """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
 
+    Makes 1 + num_of_entities calls to the PDB API for information
     The following information is returned:
     All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
     {'rcsb_primary_citation', 'pdbx_vrpt_summary', 'pdbx_audit_revision_history', 'audit_author',
@@ -676,7 +677,7 @@ def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data ret
     # url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
     # ex. chain
     # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
-    entry_json = connection_exception_handler('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
+    entry_json = connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/entry/{entry}')
     if not entry_json:
         return
     # entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
@@ -725,7 +726,7 @@ def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data ret
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
     # for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
     for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count']) + 1):
-        entity_ref_d = get_pdb_info_by_entity('%s_%d' % (entry, entity_idx))
+        entity_ref_d = get_pdb_info_by_entity(f'{entry}_{entity_idx}')
         ref_d.update(entity_ref_d)
         entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}

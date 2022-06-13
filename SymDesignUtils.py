@@ -823,15 +823,16 @@ def get_all_file_paths(directory: Union[str, bytes], extension: str = None) -> L
                 for file in files]
 
 
-def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> tuple[list, str]:
+def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> \
+        tuple[list[str | bytes], str]:
     """Grab all poses from a Nanohedra directory via a file or a directory
 
     Args:
         files: Iterable with disk location of files containing design directories
         directory: Disk location of the program directory
-        dock: Whether the designs are in a docking run
+        dock: Whether the designs are in current docking run
     Returns:
-        All pose directories found, the location where they are located
+        The absolute paths to Nanohedra output directories for all pose directories found
     """
     if files:
         all_paths = []
@@ -884,8 +885,18 @@ def get_docked_directories(base_directory, directory_type='NanohedraEntry'):  # 
             if directory_type in _dir]
 
 
-def get_docked_dirs_from_base(base):
-    return sorted(set(map(os.path.dirname, glob('%s/*/*/*/*/' % base))))
+def get_docked_dirs_from_base(base: str) -> list[str | bytes]:
+    """Find every Nanohedra output base directory where each of the poses and files is contained
+
+    Args:
+        base: The base of the filepath corresponding to the Nanohedra master output directory
+
+    Returns:
+        The absolute path to every directory containing Nanohedra output
+    """
+    # base/building_blocks/degen/rot/tx/'
+    # abspath removes trailing separator as well
+    return sorted(set(map(os.path.abspath, glob(f'{base}{f"{os.sep}*" * 4}{os.sep}'))))
 
 
 def collect_designs(files: Sequence = None, directory: str = None, projects: Sequence = None, singles: Sequence = None)\

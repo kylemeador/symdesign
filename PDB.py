@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import copy
 import math
 import os
@@ -9,6 +11,7 @@ from itertools import chain as iter_chain  # repeat,
 from logging import Logger
 # from random import randint
 # from time import sleep
+from pathlib import Path
 from typing import Union, Dict, Sequence, List, Container, Optional
 
 import numpy as np
@@ -217,8 +220,8 @@ class PDB(Structure):
                 pdb_lines = f.readlines()
 
         path, extension = os.path.splitext(self.filepath)
-        if extension[-1].isdigit():  # pull the extension, last character
-            # If not a letter, then the file is an assembly, or the filename was provided weird
+        if extension[-1].isdigit():
+            # If last character is not a letter, then the file is an assembly, or the extension was provided weird
             self.assembly = True
 
         if not self.name:
@@ -617,15 +620,17 @@ class PDB(Structure):
         else:
             return self.chains
 
-    def chain(self, chain_name: str) -> Chain:
-        """Return the Chain object specified by the passed chain ID. If not found, return None
+    def chain(self, chain_id: str) -> Chain | None:
+        """Return the Chain object specified by the passed chain ID from the PDB object
+
+        Args:
+            chain_id: The name of the Entity to query
         Returns:
-            (Chain)
+            The Chain if one was found
         """
         for chain in self.chains:
-            if chain.name == chain_name:
+            if chain.name == chain_id:
                 return chain
-        return
 
     def write(self, **kwargs) -> Optional[str]:
         """Write PDB Atoms to a file specified by out_path or with a passed file_handle
@@ -690,14 +695,18 @@ class PDB(Structure):
         else:
             raise ValueError('%s: Cannot orient a Structure with only a single chain. No symmetry present!' % self.name)
 
-        orient_input = os.path.join(orient_dir, 'input.pdb')
-        orient_output = os.path.join(orient_dir, 'output.pdb')
+        # orient_input = os.path.join(orient_dir, 'input.pdb')
+        orient_input = Path(orient_dir, 'input.pdb')
+        # orient_output = os.path.join(orient_dir, 'output.pdb')
+        orient_output = Path(orient_dir, 'output.pdb')
 
         def clean_orient_input_output():
-            if os.path.exists(orient_input):
-                os.remove(orient_input)
-            if os.path.exists(orient_output):
-                os.remove(orient_output)
+            orient_input.unlink(missing_ok=True)
+            # if os.path.exists(orient_input):
+            #     os.remove(orient_input)
+            orient_output.unlink(missing_ok=True)
+            # if os.path.exists(orient_output):
+            #     os.remove(orient_output)
 
         clean_orient_input_output()
         # self.reindex_all_chain_residues()  TODO test efficacy. It could be that this screws up more than helps
@@ -910,43 +919,43 @@ class PDB(Structure):
                     continue
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
 
-    def retrieve_pdb_info_from_api(self):  # pdb_code=None
+    def retrieve_pdb_info_from_api(self):
         """Query the PDB API for information on the PDB code found as the PDB object .name attribute
 
-        Returns:
-            (dict): {'assembly': {1: ['A', 'B'], ...}
-                     'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-                     'entity': {1: ['A', 'B'], ...},
-                     'res': resolution,
-                     'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-                     }
+        Makes 1 + num_of_entities calls to the PDB API. If file is assembly, makes one more
+
+        Sets:
+            self.api_entry (dict): {'assembly': {1: ['A', 'B'], ...}
+                                    'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+                                    'entity': {1: ['A', 'B'], ...},
+                                    'res': resolution, 'struct': {'space': space_group, 'a_b_c': (a, b, c),
+                                                                  'ang_a_b_c': (ang_a, ang_b, ang_c)}
+                                    }
         """
         if self.api_entry:
             return
 
         if self.name and len(self.name) == 4:
-            # if not self.api_entry:
             self.api_entry = get_pdb_info_by_entry(self.name)
             if self.assembly:
                 # self.api_entry.update(get_pdb_info_by_assembly(self.name))
                 self.api_entry['assembly'] = get_pdb_info_by_assembly(self.name)
-            if self.api_entry:
-                return  # True
-            self.log.debug('PDB code "%s" was not found with the PDB API.' % self.name)
+            if not self.api_entry:
+                self.log.debug(f'PDB code "{self.name}" was not found with the PDB API')
         else:
-            self.log.debug('PDB code "%s" is not of the required format and will not be found with the PDB API'
-                           % self.name)
-        return  # False
-        # if not self.api_entry and self.name and len(self.name) == 4:
-        #     self.api_entry = get_pdb_info_by_entry(self.name)
-        # self.get_dbref_info_from_api()
-        # self.get_entity_info_from_api()
+            self.log.debug(f'PDB code "{self.name}" is not of the required format and wasn\'t queried from the PDB API')
 
-    def entity(self, entity_id: str) -> Union[Entity, None]:
+    def entity(self, entity_id: str) -> Entity | None:
+        """Retrieve an Entity by name from the PDB object
+
+        Args:
+            entity_id: The name of the Entity to query
+        Returns:
+            The Entity if one was found
+        """
         for entity in self.entities:
             if entity_id == entity.name:
                 return entity
-        return
 
     def create_entities(self, entity_names: Sequence = None, query_by_sequence: bool = True, **kwargs):
         """Create all Entities in the PDB object searching for the required information if it was not found during
@@ -956,8 +965,9 @@ class PDB(Structure):
 
         Args:
             entity_names: Names explicitly passed for the Entity instances. Length must equal number of entities.
-                Names will take precedence over query_by_sequence if passed.
-            query_by_sequence: Whether the PDB API should be queried for an Entity name by matching sequence
+                Names will take precedence over query_by_sequence if passed
+            query_by_sequence: Whether the PDB API should be queried for an Entity name by matching sequence. Only used
+                if entity_names not provided
         """
         if not self.entity_info:  # we didn't get the info from the file, so we have to try and piece together
             # the file is either from a program that has modified the original PDB file, was a model that hasn't been
@@ -965,7 +975,7 @@ class PDB(Structure):
             # final numeric suffix after the .pdb extension. If not, it may be an assembly file from another source, in
             # which case we have to solve by atomic info. If we have to solve by atomic info, then the number of
             # chains in the structure and the number of Entity chains will not be equal after prior attempts
-            self.retrieve_pdb_info_from_api()  # First try to set self.api_entry if possible. This is probably safe
+            self.retrieve_pdb_info_from_api()  # First try to set self.api_entry if possible
             if self.api_entry:  # self.api_entry = {'entity': {1: ['A', 'B'], ...}, ...}
                 if self.assembly:  # When PDB API is returning information on the asu and assembly is different
                     if self.multimodel:  # ensure the renaming of chains is handled correctly
@@ -991,7 +1001,7 @@ class PDB(Structure):
                     self.entity_info = [{'chains': chains, 'name': ent_idx}
                                         for ent_idx, chains in self.api_entry.get('entity').items()]
                 # check to see that the entity_info is in line with the number of chains already parsed
-                found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
+                # found_entity_chains = [chain for info in self.entity_info for chain in info.get('chains', [])]
                 # if len(self.chain_ids) != len(found_entity_chains):
                 #     self.get_entity_info_from_atoms(**kwargs)  # tolerance=0.9
             else:  # Still nothing, then API didn't work for pdb_name. Solve by atom information
@@ -1032,7 +1042,8 @@ class PDB(Structure):
             data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
-            data['name'] = '%s_%d' % (self.name, data['name']) if isinstance(data['name'], int) else data['name']
+            data_name = data["name"]
+            data['name'] = f'{self.name}_{data_name}' if isinstance(data_name, int) else data_name
             self.entities.append(Entity.from_chains(**data, log=self._log))
 
     def get_entity_info_from_atoms(self, tolerance: float = 0.9, **kwargs):
