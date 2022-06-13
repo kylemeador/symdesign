@@ -1608,6 +1608,11 @@ if __name__ == '__main__':
         else:
             new_dataframe = os.path.join(program_root, f'{SDUtils.starttime}-PoseMetrics.csv')
 
+        if args.total and args.save_total:
+            total_df = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
+            df.to_csv(total_df)
+            logger.info(f'Total Pose/Designs DataFrame was written to {total_df}')
+
         logger.info(f'{len(selected_poses_df)} poses were selected')
         if len(selected_poses_df) != len(df):
             selected_poses_df.to_csv(new_dataframe)
@@ -1895,10 +1900,11 @@ if __name__ == '__main__':
                 results = {pose_dir: pose_dir.select_sequences(filters=sequence_filters, weights=sequence_weights,
                                                                number=args.designs_per_pose, protocols=args.protocol)
                            for pose_dir in pose_directories}
+            loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
             # results = results[:args.select_number]  # Todo fix this dict list slice inconsistency
             save_poses_df = None  # Todo make possible!
 
-        logger.info(f'{len(results)} designs were selected')
+        logger.info(f'{len(loc_result)} designs were selected')
 
         # Format selected sequences for output
         if not args.prefix:
@@ -1908,6 +1914,10 @@ if __name__ == '__main__':
         outdir = os.path.join(os.path.dirname(program_root), f'{args.prefix}SelectedDesigns')
         # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
         os.makedirs(outdir, exist_ok=True)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
+        if args.total and args.save_total:
+            total_df = os.path.join(outdir, 'TotalPosesTrajectoryMetrics.csv')
+            df.to_csv(total_df)
+            logger.info(f'Total Pose/Designs DataFrame was written to {total_df}')
 
         if save_poses_df is not None:  # Todo make work if DataFrame is empty...
             if args.filter or args.weight:
@@ -2057,7 +2067,7 @@ if __name__ == '__main__':
                             else:  # mutation should be incremented by one
                                 mutations[mutation_index + 1] = mutations.pop(mutation_index)
 
-                    # Check for expression tag addition to the designed sequences
+                    # Check for expression tag addition to the designed sequences after disorder addition
                     inserted_design_sequence = design_entity.structure_sequence
                     selected_tag = {}
                     available_tags = find_expression_tags(inserted_design_sequence)
@@ -2245,6 +2255,8 @@ if __name__ == '__main__':
                     # If no MET start site, include one
                     if design_sequence[0] != 'M':
                         design_sequence = 'M%s' % design_sequence
+
+                    # If there is an unrecognized amino acid, modify
                     if 'X' in design_sequence:
                         logger.critical('An unrecognized amino acid was specified in the sequence %s. '
                                         'This requires manual intervention!' % design_string)

@@ -436,8 +436,8 @@ class PDB(Structure):
 
         if seqres:
             self.parse_seqres(seqres)
-        else:
-            self.design = True
+        # else:
+        #     self.design = True
 
         if entities:
             if isinstance(entities, (list, Structures)):  # create the instance from existing entities
@@ -772,13 +772,14 @@ class PDB(Structure):
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
 
-    def mutate_residue(self, residue=None, number=None, to='ALA', **kwargs):
+    def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs):
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
 
+        Args:
+            residue: A Residue object to mutate
+            number: A Residue number to select the Residue of interest with
+            to: The type of amino acid to mutate to
         Keyword Args:
-            residue=None (Residue): A Residue object to mutate
-            number=None (int): A Residue number to select the Residue of interest by
-            to='ALA' (str): The type of amino acid to mutate to
             pdb=False (bool): Whether to pull the Residue by PDB number
         """
         delete_indices = super().mutate_residue(residue=residue, number=number, to=to, **kwargs)
@@ -796,15 +797,14 @@ class PDB(Structure):
                 except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
                     continue
 
-    def insert_residue_type(self, residue_type, at=None, chain=None):
+    def insert_residue_type(self, residue_type: str, at: int = None, chain: str = None):
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
         No structural alignment is performed!
 
         Args:
-            residue_type (str): Either the 1 or 3 letter amino acid code for the residue in question
-        Keyword Args:
-            at=None (int): The pose numbered location which a new Residue should be inserted into the Structure
-            chain=None (str): The chain identifier to associate the new Residue with
+            residue_type: Either the 1 or 3 letter amino acid code for the residue in question
+            at: The pose numbered location which a new Residue should be inserted into the Structure
+            chain: The chain identifier to associate the new Residue with
         """
         new_residue = super().insert_residue_type(residue_type, at=at, chain=chain)
         # If other structures, must update their atom_indices!

@@ -370,7 +370,7 @@ master_metrics = {'average_fragment_z_score':
                        'direction': 'min', 'function': 'normalize', 'filter': True},
                   'percent_interface_area_polar':
                       {'description': 'The percent of interface area which is occupied by polar atoms',
-                       'direction': 'max', 'function': 'normalize', 'filter': True},
+                       'direction': 'min', 'function': 'normalize', 'filter': True},
                   'percent_mutations':
                       {'description': 'The percent of the design which has been mutated',
                        'direction': 'max', 'function': 'normalize', 'filter': True},

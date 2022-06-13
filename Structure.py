@@ -2092,11 +2092,14 @@ class Structure(StructureBase):
         Returns:
             The requested Residue objects
         """
-        if numbers and isinstance(numbers, Container):
-            number_source = 'number_pdb' if pdb else 'number'
-            return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
-        else:
-            return self.residues
+        if numbers:
+            if isinstance(numbers, Container):
+                number_source = 'number_pdb' if pdb else 'number'
+                return [residue for residue in self.residues if getattr(residue, number_source) in numbers]
+            else:
+                self.log.error(f'The passed residue numbers type "{type(numbers)}" must be a Container. Returning all '
+                               f'Residues instead')
+        return self.residues
 
     def set_residue_slice(self, residues):
         """Set the Structure Residues to Residues object. Set the Structure Atoms and atom_indices"""
@@ -2333,16 +2336,17 @@ class Structure(StructureBase):
     #                 break
     #     # self.renumber_atoms()  # should be unnecessary
 
-    def mutate_residue(self, residue=None, number=None, to='ALA', **kwargs):
-        """Mutate specific residue to a new residue type. Type can be 1 or 3 letter format
+    def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs) -> list[int]:
+        """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
 
+        Args:
+            residue: A Residue object to mutate
+            number: A Residue number to select the Residue of interest with
+            to: The type of amino acid to mutate to
         Keyword Args:
-            residue=None (Residue): A Residue object to mutate
-            number=None (int): A Residue number to select the Residue of interest by
-            to='ALA' (str): The type of amino acid to mutate to
             pdb=False (bool): Whether to pull the Residue by PDB number
         Returns:
-            (list[int]): The indices of the Atoms being removed from the Structure
+            The indices of the Atoms being removed from the Structure
         """
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         # if to.upper() in protein_letters_1to3:
@@ -2394,18 +2398,19 @@ class Structure(StructureBase):
 
         return delete_indices
 
-    def insert_residue_type(self, residue_type, at=None, chain=None):
+    def insert_residue_type(self, residue_type: str, at: int = None, chain: str = None) -> Residue:
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
         No structural alignment is performed!
 
         Args:
-            residue_type (str): Either the 1 or 3 letter amino acid code for the residue in question
-        Keyword Args:
-            at=None (int): The pose numbered location which a new Residue should be inserted into the Structure
-            chain=None (str): The chain identifier to associate the new Residue with
+            residue_type: Either the 1 or 3 letter amino acid code for the residue in question
+            at: The pose numbered location which a new Residue should be inserted into the Structure
+            chain: The chain identifier to associate the new Residue with
+        Returns:
+            The newly inserted Residue object
         """
         if not self.is_structure_owner:
-            raise DesignError('This Structure \'%s\' is not the owner of it\'s attributes and therefore cannot handle '
+            raise DesignError('This Structure "%s" is not the owner of it\'s attributes and therefore cannot handle '
                               'residue insertion!' % self.name)
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
         reference_index = protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(),

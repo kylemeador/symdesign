@@ -136,7 +136,7 @@ class PoseDirectory:
         self.interface_design_residues: set[int] | bool = False  # the residue numbers in the pose interface
         self.interface_residue_ids: dict[str, str] = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
-        self.interface_residues: list[int] | bool = False
+        self.interface_residues: set[int] | bool = False  # the interface residue numbers which are surface accessable
         # self.oligomer_names: list[str] = self.info.get('oligomer_names', [])
         self.entities = []
         self.pose = None  # contains the design's Pose object
@@ -1012,7 +1012,7 @@ class PoseDirectory:
         self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
         self.interface_design_residues = self.info.get('interface_design_residues', False)  # (set[int])
         self.interface_residue_ids = self.info.get('interface_residue_ids', {})
-        self.interface_residues = self.info.get('interface_residues', False)
+        self.interface_residues = self.info.get('interface_residues', False)  # (set[int])
         self.entity_names = self.info.get('entity_names', [])
         self.pre_refine = self.info.get('pre_refine', True)
         self.pre_loop_model = self.info.get('pre_loop_model', True)
@@ -2195,9 +2195,9 @@ class PoseDirectory:
         Sets:
             self.interface_residue_ids (dict[str, str]):
                 Map each interface to the corresponding residue/chain pairs
-            self.interface_design_residues (Set[int]):
+            self.interface_design_residues (set[int]):
                 The residues in proximity of the interface, including buried residues
-            self.interface_residues (list[int]):
+            self.interface_residues (set[int]):
                 The residues in contact across the interface
         """
         self.load_pose()
@@ -2214,17 +2214,13 @@ class PoseDirectory:
                 ','.join(f'{residue.number}{entity.chain_id}' for residue, entity in residues_entities)
             self.interface_design_residues.update([residue.number for residue, _ in residues_entities])
 
-        self.interface_residues = []  # update False to list or replace list and add new residues
+        self.interface_residues = set()  # update False to set() or replace set() and add new residues
         for entity in self.pose.entities:  # Todo v clean as it is redundant with analysis and falls out of scope
             entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
             entity_oligomer.get_sasa()
-            # for residue_number in self.interface_design_residues:
             for residue in entity_oligomer.get_residues(self.interface_design_residues):
-                # residue = entity_oligomer.residue(residue_number)
-                # self.log.debug('Design residue: %d - SASA: %f' % (residue_number, residue.sasa))
-                # if residue:
-                if residue.sasa > 0:
-                    self.interface_residues.append(residue.number)
+                if residue.sasa > 0:  # we will have repeats as the Entity is symmetric
+                    self.interface_residues.add(residue.number)
 
         # # interface1, interface2 = \
         # #     self.interface_residue_ids.get('interface1'), self.interface_residue_ids.get('interface2')
