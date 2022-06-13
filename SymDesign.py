@@ -510,6 +510,7 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
             if len(success) == 0:
                 exit_code = 1
                 exit(exit_code)
+            job.make_path(job.sbatch_scripts)
             if pose_directories:
                 command_file = SDUtils.write_commands([os.path.join(des.scripts, '%s.sh' % stage) for des in success],
                                                       out_path=job_paths, name='_'.join(default_output_tuple))
@@ -852,14 +853,21 @@ if __name__ == '__main__':
         if args.nanohedra_output:  # Nanohedra directory
             all_poses, location = SDUtils.collect_nanohedra_designs(files=args.file, directory=args.directory)
             if all_poses:
-                if all_poses[0].count(os.sep) == 0:
+                first_pose_path = all_poses[0]
+                if first_pose_path.count(os.sep) == 0:
                     job.nanohedra_root = args.directory
                 else:
-                    job.nanohedra_root = f'{os.sep}{os.path.join(*all_poses[0].split(os.sep)[:-4])}'
+                    job.nanohedra_root = f'{os.sep}{os.path.join(*first_pose_path.split(os.sep)[:-4])}'
                 if not sym_entry:
                     queried_flags[PUtils.sym_entry] = get_sym_entry_from_nanohedra_directory(job.nanohedra_root)
                 pose_directories = [PoseDirectory.from_nanohedra(pose, **queried_flags)
                                     for pose in all_poses[low_range:high_range]]
+                # copy the master nanohedra log
+                project_designs = \
+                    os.path.join(job.projects, f'{os.path.basename(job.nanohedra_root)}_{PUtils.pose_directory}')
+                if not os.path.exists(os.path.join(project_designs, PUtils.master_log)):
+                    SDUtils.make_path(project_designs)
+                    shutil.copy(os.path.join(job.nanohedra_root, PUtils.master_log), project_designs)
         elif args.specification_file:
             if not args.directory:
                 raise SDUtils.DesignError('A --directory must be provided when using --specification_file')
@@ -888,14 +896,14 @@ if __name__ == '__main__':
         if not pose_directories:
             raise SDUtils.DesignError(f'No {PUtils.program_name} directories found within "{location}"! Please ensure '
                                       f'correct location')
-        example_directory = next(iter(pose_directories))
+        representative_pose_directory = next(iter(pose_directories))
         design_source = os.path.splitext(os.path.basename(location))[0]
         default_output_tuple = (SDUtils.starttime, args.module, design_source)
 
         # Todo logic error when initialization occurs with module that doesn't call this, subsequent runs are missing
         #  directories/resources that haven't been made
         # check to see that proper files have been created including orient, refinement, loop modeling, hhblits, bmdca?
-        initialized = example_directory.initialized
+        initialized = representative_pose_directory.initialized
         initialize_modules = \
             [PUtils.interface_design, PUtils.interface_metrics, PUtils.optimize_designs, 'custom_script']
         #      PUtils.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
@@ -911,6 +919,9 @@ if __name__ == '__main__':
             stride_dir = job.stride_dir
             load_resources = False
             if args.preprocessed:
+                # job.make_path(job.refine_dir)
+                job.make_path(job.full_model_dir)
+                job.make_path(job.stride_dir)
                 all_entities, found_entity_names = [], []
                 for entity in [entity for design in pose_directories for entity in design.init_pdb.entities]:
                     if entity.name not in found_entity_names:
@@ -943,15 +954,14 @@ if __name__ == '__main__':
 
             info_messages = []
             # set up the hhblits and profile bmdca for each input entity
-            profile_dir = job.profiles
-            job.make_path(profile_dir)
-            sequences_dir = job.sequences
-            job.make_path(sequences_dir)
+            # profile_dir = job.profiles
+            # sequences_dir = job.sequences
+            job.make_path(job.sequences)
             hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities:
                 entity.sequence_file = job.resources.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:  # Todo reference_sequence source accuracy throughout protocol
-                    entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=sequences_dir)
+                    entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=job.sequences)
                     # entity.add_evolutionary_profile(out_path=job.resources.hhblits_profiles.location)
                 else:
                     entity.evolutionary_profile = job.resources.hhblits_profiles.retrieve_data(name=entity.name)
@@ -961,30 +971,33 @@ if __name__ == '__main__':
                     # to generate in current runtime
                     # entity.add_evolutionary_profile(out_path=job.resources.hhblits_profiles.location)
                     # to generate in a sbatch script
-                    # profile_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
-                    hhblits_cmds.append(entity.hhblits(out_path=profile_dir, return_command=True))
-                # if not entity.j_couplings:  # TODO reinstate
-                #     bmdca_cmds.append([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
-                #                        '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
+                    # profile_cmds.append(entity.hhblits(out_path=job.profiles, return_command=True))
+                    hhblits_cmds.append(entity.hhblits(out_path=job.profiles, return_command=True))
+                # TODO reinstate
+                #  if not entity.j_couplings:
+                #    bmdca_cmds.append([PUtils.bmdca_exe_path, '-i', os.path.join(job.profiles, f'{entity.name}.fasta'),
+                #                       '-d', os.path.join(job.profiles, f'{entity.name}_bmDCA')])
             if hhblits_cmds:
                 if not os.access(PUtils.hhblits_exe, os.X_OK):
                     print(f'Couldn\'t locate the {PUtils.hhblits} executable. Ensure the executable file '
                           f'{PUtils.hhblits_exe} exists then try your job again.')
                     exit()
+                job.make_path(job.profiles)
+                job.make_path(job.sbatch_scripts)
                 # prepare files for running hhblits commands
                 instructions = 'Please follow the instructions below to generate sequence profiles for input proteins'
                 info_messages.append(instructions)
                 # hhblits_cmds, reformat_msa_cmds = zip(*profile_cmds)
                 # hhblits_cmds, _ = zip(*hhblits_cmds)
                 reformat_msa_cmd1 = [PUtils.reformat_msa_exe_path, 'a3m', 'sto',
-                                     '\'%s\'' % os.path.join(profile_dir, '*.a3m'), '.sto', '-num', '-uc']
+                                     f'\'{os.path.join(job.profiles, "*.a3m")}\'', '.sto', '-num', '-uc']
                 reformat_msa_cmd2 = [PUtils.reformat_msa_exe_path, 'a3m', 'fas',
-                                     '\'%s\'' % os.path.join(profile_dir, '*.a3m'), '.fasta', '-M', 'first', '-r']
+                                     f'\'{os.path.join(job.profiles, "*.a3m")}\'', '.fasta', '-M', 'first', '-r']
                 hhblits_cmd_file = \
-                    SDUtils.write_commands(hhblits_cmds, name='%s-hhblits' % SDUtils.starttime, out_path=profile_dir)
+                    SDUtils.write_commands(hhblits_cmds, name=f'{SDUtils.starttime}-hhblits', out_path=job.profiles)
                 hhblits_sbatch = distribute(file=hhblits_cmd_file, out_path=job.sbatch_scripts, scale='hhblits',
                                             max_jobs=len(hhblits_cmds), number_of_commands=len(hhblits_cmds),
-                                            log_file=os.path.join(profile_dir, 'generate_profiles.log'),
+                                            log_file=os.path.join(job.profiles, 'generate_profiles.log'),
                                             finishing_commands=[list2cmdline(reformat_msa_cmd1),
                                                                 list2cmdline(reformat_msa_cmd2)])
                 hhblits_sbatch_message = \
@@ -995,21 +1008,23 @@ if __name__ == '__main__':
                 hhblits_sbatch = None
 
             if bmdca_cmds:
+                job.make_path(job.profiles)
+                job.make_path(job.sbatch_scripts)
                 # bmdca_cmds = \
-                #     [list2cmdline([PUtils.bmdca_exe_path, '-i', os.path.join(profile_dir, '%s.fasta' % entity.name),
-                #                   '-d', os.path.join(profile_dir, '%s_bmDCA' % entity.name)])
+                #     [list2cmdline([PUtils.bmdca_exe_path, '-i', os.path.join(job.profiles, '%s.fasta' % entity.name),
+                #                   '-d', os.path.join(job.profiles, '%s_bmDCA' % entity.name)])
                 #      for entity in all_entities.values()]
                 bmdca_cmd_file = \
-                    SDUtils.write_commands(bmdca_cmds, name='%s-bmDCA' % SDUtils.starttime, out_path=profile_dir)
+                    SDUtils.write_commands(bmdca_cmds, name=f'{SDUtils.starttime}-bmDCA', out_path=job.profiles)
                 bmdca_sbatch = distribute(file=bmdca_cmd_file, out_path=job.sbatch_scripts, scale='bmdca',
                                           max_jobs=len(bmdca_cmds), number_of_commands=len(bmdca_cmds),
-                                          log_file=os.path.join(profile_dir, 'generate_couplings.log'))
+                                          log_file=os.path.join(job.profiles, 'generate_couplings.log'))
                 # reformat_msa_cmd_file = \
                 #     SDUtils.write_commands(reformat_msa_cmds, name='%s-reformat_msa' % SDUtils.starttime,
-                #                            out_path=profile_dir)
+                #                            out_path=job.profiles)
                 # reformat_sbatch = distribute(file=reformat_msa_cmd_file, out_path=job.program_root,
                 #                              scale='script', max_jobs=len(reformat_msa_cmds),
-                #                              log_file=os.path.join(profile_dir, 'generate_profiles.log'),
+                #                              log_file=os.path.join(job.profiles, 'generate_profiles.log'),
                 #                              number_of_commands=len(reformat_msa_cmds))
                 print('\n' * 2)
                 # Todo add bmdca_sbatch to hhblits_cmds finishing_commands kwarg
@@ -1167,7 +1182,7 @@ if __name__ == '__main__':
     else:
         # this logic is possible with args.module in 'multicistronic', or select_poses with --metric or --dataframe
         # job.resources = None
-        # design_source = os.path.basename(example_directory.project_designs)
+        # design_source = os.path.basename(representative_pose_directory.project_designs)
         pass
 
     # -----------------------------------------------------------------------------------------------------------------
@@ -1572,6 +1587,7 @@ if __name__ == '__main__':
             if len(pose_directories) > 500:
                 design_source = f'top_{args.metric}'
                 default_output_tuple = (SDUtils.starttime, args.module, design_source)
+                job.make_path(job.job_paths)
                 designs_file = os.path.join(job.job_paths, '%s_%s_%s_pose.scores' % default_output_tuple)
                 with open(designs_file, 'w') as f:
                     f.write(top_designs_string % '\n\t'.join(results_strings))
@@ -1923,16 +1939,16 @@ if __name__ == '__main__':
                 f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
 
         # use one directory as indication of entity specification for them all. Todo modify for different length inputs
-        example_directory.load_pose()
+        representative_pose_directory.load_pose()
         if args.tag_entities:
             if args.tag_entities == 'all':
-                tag_index = [True for _ in example_directory.pose.entities]
-                number_of_tags = len(example_directory.pose.entities)
+                tag_index = [True for _ in representative_pose_directory.pose.entities]
+                number_of_tags = len(representative_pose_directory.pose.entities)
             elif args.tag_entities == 'single':
-                tag_index = [True for _ in example_directory.pose.entities]
+                tag_index = [True for _ in representative_pose_directory.pose.entities]
                 number_of_tags = 1
             elif args.tag_entities == 'none':
-                tag_index = [False for _ in example_directory.pose.entities]
+                tag_index = [False for _ in representative_pose_directory.pose.entities]
                 number_of_tags = None
             else:
                 tag_specified_list = list(map(str.translate, set(args.entity_specification.split(',')).difference(['']),
@@ -1943,12 +1959,12 @@ if __name__ == '__main__':
                     except ValueError:
                         continue
 
-                for _ in range(len(example_directory.pose.entities) - len(tag_specified_list)):
+                for _ in range(len(representative_pose_directory.pose.entities) - len(tag_specified_list)):
                     tag_specified_list.append(0)
                 tag_index = [True if is_tag else False for is_tag in tag_specified_list]
                 number_of_tags = sum(tag_specified_list)
         else:
-            tag_index = [False for _ in example_directory.pose.entities]
+            tag_index = [False for _ in representative_pose_directory.pose.entities]
             number_of_tags = None
 
         if args.multicistronic or args.multicistronic_intergenic_sequence:
@@ -1986,21 +2002,22 @@ if __name__ == '__main__':
                 for idx, (source_entity, design_entity) in enumerate(zip(des_dir.pose.entities, design_pose.entities)):
                     # source_entity.retrieve_info_from_api()
                     # source_entity.reference_sequence
-                    sequence_id = '%s_%s' % (des_dir, source_entity.name)
+                    sequence_id = f'{des_dir}_{source_entity.name}'
                     # design_string = '%s_design_%s_%s' % (des_dir, design, source_entity.name)  # [i])), pdb_code)
-                    design_string = '%s_%s' % (design, source_entity.name)
+                    design_string = f'{design}_{source_entity.name}'
                     uniprot_id = source_entity.uniprot_id
-                    termini_availability = des_dir.return_termini_accessibility(source_entity)
-                    logger.debug('Design %s has the following termini accessible for tags: %s'
-                                 % (sequence_id, termini_availability))
+                    termini_availability = des_dir.return_termini_accessibility(source_entity, idx)
+                    logger.debug(f'Design {sequence_id} has the following termini accessible for tags: '
+                                 f'{termini_availability}')
                     if args.avoid_tagging_helices:
-                        termini_helix_availability = des_dir.return_termini_accessibility(source_entity, report_if_helix=True)
-                        logger.debug('Design %s has the following helical termini available: %s'
-                                     % (sequence_id, termini_helix_availability))
+                        termini_helix_availability = \
+                            des_dir.return_termini_accessibility(source_entity, idx, report_if_helix=True)
+                        logger.debug(f'Design {sequence_id} has the following helical termini available: '
+                                     f'{termini_helix_availability}')
                         termini_availability = {'n': termini_availability['n'] and not termini_helix_availability['n'],
                                                 'c': termini_availability['c'] and not termini_helix_availability['c']}
                         entity_helical_termini[design_string] = termini_helix_availability
-                    logger.debug('The termini %s are available for tagging' % termini_availability)
+                    logger.debug(f'The termini {termini_availability} are available for tagging')
                     entity_termini_availability[design_string] = termini_availability
                     true_termini = [term for term, is_true in termini_availability.items() if is_true]
 
