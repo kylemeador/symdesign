@@ -12,7 +12,7 @@ from PathUtils import submodule_guide, submodule_help, force_flags, fragment_dbs
     nstruct, structure_background, scout, design_profile, evolutionary_profile, \
     fragment_profile, all_scores, analysis_file, select_sequences, program_name, nano, \
     program_command, analysis, select_poses, output_fragments, output_oligomers, protocol, current_energy_function, \
-    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes
+    ignore_clashes, ignore_pose_clashes, ignore_symmetric_clashes, select_designs
 from ProteinExpression import expression_tags
 from Query.utils import input_string, confirmation_string, bool_d, invalid_string, header_string, format_string
 from SequenceProfile import read_fasta_file
@@ -256,9 +256,6 @@ parser_options_group = dict(title='optional arguments',
                                         'runtime considerations, and programatic options for determining design '
                                         'outcomes' % program_name)
 parser_options_arguments = {
-    ('-c', '--cluster_map'): dict(type=os.path.abspath,
-                                  help='The location of a serialized file containing spatially or interfacially '
-                                       'clustered poses'),
     ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1,
                             help='Number of cores to use during --multi_processing\nIf run on a cluster, the number of '
                                  'cores will reflect the cluster allocation, otherwise, will use #physical_cores - 1'
@@ -297,9 +294,6 @@ parser_options_arguments = {
                                                'processes should be invoked for each job?\nDefault=%(default)s'),
     ('-M', '--multi_processing'): dict(action='store_true',
                                        help='Should job be run with multiple processors?\nDefault=%(default)s'),
-    ('-N', '--nanohedra_output'): dict(action='store_true',
-                                       help='Is the directory in question is a Nanohedra docking output?'
-                                            '\nDefault=%(default)s'),
     ('-Oa', '--output_assembly'): dict(action='store_true',
                                        help='Whether the assembly should be output? Infinite materials are output in a '
                                             'unit cell\nDefault=%(default)s'),
@@ -319,10 +313,6 @@ parser_options_arguments = {
                                    help=f'Whether the designs of interest have been preprocessed for the '
                                         f'{current_energy_function} energy function and/or missing loops\n'
                                         f'Default=%(default)s'),
-    ('-r', '--range'): dict(type=float, default=None,
-                            help='The range of poses to consider from a larger chunk of work to complete.\nSpecify a '
-                                 '%% of work between the values of 0 to 100, then separate the range by a single "-"\n'
-                                 'Ex: 0-25'),
     ('-R', '--run_in_shell'): dict(action='store_true',
                                    help='Should commands be executed at %(prog)s runtime?\nIn most cases, it won\'t '
                                         'maximize cassini\'s computational resources.\nAll computation may'
@@ -679,24 +669,26 @@ parser_rename_chains = dict(rename_chains=dict(help='For given poses, rename the
 # parser_residue_selector = dict(residue_selector=dict(help='Generate a residue selection for %s' % program_name))
 # # parser_residue_selector = subparsers.add_parser('residue_selector', help='Generate a residue selection for %s' % program_name)
 # ---------------------------------------------------
-directory_needed = f'Provide your working {program_output} with -d to locate poses\nfrom a file utilizing pose IDs ' \
-                   f'(-df, -pf, and -sf)'
+directory_needed = f'Provide your working {program_output} with -d/--directory to locate poses\nfrom a file utilizing ' \
+                   f'pose IDs (-df, -pf, and -sf)'
 parser_input_group = dict(title='input arguments',
                           description='Specify where/which poses should be included in processing.\n%s' % directory_needed)
 parser_input_arguments = {
-    # ('-d', '--directory'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
-    #                             help='Master directory where poses to be designed with %s are located. This may be the '
-    #                                  'output directory from %s.py, a random directory with poses requiring interface '
-    #                                  'design, or the output from %s. If the directory lives in a %sOutput directory, '
-    #                                  'all projects within the directory will be selected. For finer control over which '
-    #                                  'poses to manipulate, use --file, --project, or --single flags.'
-    #                                  % (program_name, nano, program_name, program_name)),
+    ('-c', '--cluster_map'): dict(type=os.path.abspath,
+                                  help='The location of a serialized file containing spatially or interfacial '
+                                       'clustered poses'),
     ('-df', '--dataframe'): dict(type=os.path.abspath, metavar=ex_path('Metrics.csv'),
-                                 help='A DataFrame created by %s analysis containing pose info.\nFile is .csv, named '
-                                      'such as Metrics.csv' % program_name),
+                                 help=f'A DataFrame created by {program_name} analysis containing pose info.\nFile is '
+                                      f'.csv, named such as Metrics.csv'),
+    ('-N', f'--{nano}_output'): dict(action='store_true',
+                                     help='Is the input a Nanohedra docking output?\nDefault=%(default)s'),
     ('-pf', '--pose_file'): dict(type=str, dest='specification_file', metavar=ex_path('pose_design_specifications.csv'),
-                                 help='If pose IDs are specified in a file, say as the result of %s or %s'
-                                      % (analysis, select_poses)),
+                                 help=f'If pose IDs are specified in a file, say as the result of {select_poses} or '
+                                      f'{select_designs}'),
+    ('-r', '--range'): dict(type=float, default=None,
+                            help='The range of poses to consider from a larger chunk of work to complete.\nSpecify a '
+                                 '%% of work between the values of 0 to 100, then separate the range by a single "-"\n'
+                                 'Ex: 0-25'),
     ('-sf', '--specification_file'): dict(type=str, metavar=ex_path('pose_design_specifications.csv'),
                                           help='Name of comma separated file with each line formatted:\nposeID, '
                                                '[designID], [residue_number:directive residue_number2-'
@@ -712,13 +704,13 @@ parser_input_mutual_arguments = {
                                      ' is recommended to use -f, -p, or -s for finer control'
                                      % (nano, program_name, program_output)),
     ('-f', '--file'): dict(type=os.path.abspath, default=None, nargs='*',
-                           metavar=ex_path('file_with_pose_names.txt'),
+                           metavar=ex_path('file_with_pose.paths'),
                            help='File(s) with the location of poses listed. For each run of %s,\na file will be created'
                                 'specifying the specific directories to use\nin subsequent commands of the same designs'
                                 % program_name),
     ('-p', '--project'): dict(type=os.path.abspath, nargs='*',
                               metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject'),
-                              help='Operate on designs specified by a whole project(s)'),
+                              help='Operate on designs specified within a project(s)'),
     ('-s', '--single'): dict(type=os.path.abspath, nargs='*',
                              metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design[.pdb]'),
                              help='Operate on single pose(s) in a project'),
