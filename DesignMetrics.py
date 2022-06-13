@@ -83,7 +83,7 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Number of carbon-carbon contacts across interface',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'core':
-                      {'description': 'The number of \'core\' residues as classified by E. Levy 2010',
+                      {'description': 'The number of "core" residues as classified by E. Levy 2010',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'coordinate_constraint':
                       {'description': 'Total weight of coordinate constraints to keep design from moving in cartesian '
@@ -351,7 +351,7 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'Percent of observed residues in fragment profile. 1 is 100%',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   'percent_core':
-                      {'description': 'The percentage of residues which are \'core\' according to Levy, E. 2010',
+                      {'description': 'The percentage of residues which are "core" according to Levy, E. 2010',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
                   'percent_fragment':
                       {'description': 'Percent of residues with fragment data out of total residues',
@@ -381,10 +381,10 @@ master_metrics = {'average_fragment_z_score':
                       {'description': 'The percentage of residues which are represented by fragment observations',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
                   'percent_rim':
-                      {'description': 'The percentage of residues which are \'rim\' according to Levy, E. 2010',
+                      {'description': 'The percentage of residues which are "rim" according to Levy, E. 2010',
                        'direction': 'min', 'function': 'normalize', 'filter': True},
                   'percent_support':
-                      {'description': 'The percentage of residues which are \'support\' according to Levy, E. 2010',
+                      {'description': 'The percentage of residues which are "support" according to Levy, E. 2010',
                        'direction': 'max', 'function': 'normalize', 'filter': True},
                   groups:
                       {'description': 'Protocols utilized to search sequence space given fragment and/or evolutionary '
@@ -407,7 +407,7 @@ master_metrics = {'average_fragment_z_score':
                                       'different pools of amino acids specified for sampling',
                        'direction': 'min', 'function': 'rank', 'filter': True},
                   'rim':
-                      {'description': 'The number of \'rim\' residues as classified by E. Levy 2010',
+                      {'description': 'The number of "rim" residues as classified by E. Levy 2010',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   # 'rmsd':
                   #     {'description': 'Root Mean Square Deviation of all CA atoms between the refined (relaxed) and '
@@ -436,26 +436,26 @@ master_metrics = {'average_fragment_z_score':
                   'interface_solvation_energy':  # free_energy of desolvation is positive for bound interfaces. unbound - complex
                       {'description': 'The free energy resulting from hydration of the separated interface surfaces. '
                                       'Positive values indicate poorly soluble surfaces upon dissociation',
-                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_solvation_energy_activation':  # unbound - bound
                       {'description': 'The free energy of solvation resulting from packing the bound, uncomplexed state'
                                       ' to an unbound, uncomplexed state. Positive values indicate a tendency towards '
                                       'the bound configuration',
-                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_solvation_energy_bound':
                       {'description': 'The desolvation free energy of the separated interface surfaces. Positive values'
                                       ' indicate energy is required to desolvate',
-                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_solvation_energy_complex':
                       {'description': 'The desolvation free energy of the complexed interface. Positive values'
                                       ' indicate energy is required to desolvate',
-                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'interface_solvation_energy_unbound':
                       {'description': 'The desolvation free energy of the separated, repacked, interface surfaces. '
                                       'Positive values indicate energy is required to desolvate',
-                       'direction': 'min', 'function': 'rank\n', 'filter': True},
+                       'direction': 'min', 'function': 'rank', 'filter': True},
                   'support':
-                      {'description': 'The number of \'support\' residues as classified by E. Levy 2010',
+                      {'description': 'The number of "support" residues as classified by E. Levy 2010',
                        'direction': 'max', 'function': 'rank', 'filter': True},
                   # 'symmetry':
                   #     {'description': 'The specific symmetry type used design (point (0), layer (2), lattice(3))',
@@ -1164,7 +1164,7 @@ def prioritize_design_indices(df: Union[pd.DataFrame, Union[str, bytes]], filter
             protocol_df = df.loc[:, idx_slice[protocol, protocol_column_types, :]]
         except KeyError:
             logger.info('Protocol "%s" was not found in the set of designs...' % protocol)
-            # raise DesignError('The protocol \'%s\' was not found in the set of designs...')
+            # raise DesignError('The protocol "%s" was not found in the set of designs...')
             available_protocols = df.columns.get_level_values(0).unique()
             while True:
                 protocol = input('What protocol would you like to choose?%s\nAvailable options are: %s%s'
@@ -1441,7 +1441,7 @@ def format_fragment_metrics(metrics: Dict, null: bool = False) -> Dict:
                                        + metrics['total']['index_count'][5]) / (metrics['total']['observations'] * 2))}
 
 
-describe_string = '\nTo see a describtion of the data, enter \'describe\'\n'
+describe_string = '\nTo see a describtion of the data, enter "describe"\n'
 describe = ['describe', 'desc', 'DESCRIBE', 'DESC', 'Describe', 'Desc']
 
 
@@ -1449,11 +1449,11 @@ def describe_data(df=None):
     """Describe the DataFrame to STDOUT"""
     print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
           'comma separated input. To see descriptions for only certain metrics, enter them here. '
-          'Otherwise, hit \'Enter\'')
+          'Otherwise, hit "Enter"')
     metrics_input = input('%s' % input_string)
     chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
                                             repeat(' '), repeat('_'))))
-    # metrics = input('To see descriptions for only certain metrics, enter them here. Otherwise, hit \'Enter\'%s'
+    # metrics = input('To see descriptions for only certain metrics, enter them here. Otherwise, hit "Enter"%s'
     #                 % input_string)
     if not chosen_metrics:
         columns_of_interest = slice(None)
@@ -1497,19 +1497,19 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
 
         print('\n%s' % header_string % 'Select %s %s Metrics' % (level, mode))
         print('The provided dataframe will be used to select %ss based on the measured metrics from each pose. '
-              'To \'%s\' designs, which metrics would you like to utilize?%s'
+              'To "%s" designs, which metrics would you like to utilize?%s'
               % (level, mode, describe_string if df is not None else ''))
 
         print('The available metrics are located in the top row(s) of your DataFrame. Enter your selected metrics as a '
-              'comma separated input or alternatively, you can check out the available metrics by entering \'metrics\'.'
-              '\nEx: \'shape_complementarity, contact_count, etc.\'')
+              'comma separated input or alternatively, you can check out the available metrics by entering "metrics".'
+              '\nEx: "shape_complementarity, contact_count, etc."')
         metrics_input = input('%s' % input_string)
         chosen_metrics = set(map(str.lower, map(str.replace, map(str.strip, metrics_input.strip(',').split(',')),
                                                 repeat(' '), repeat('_'))))
         while True:  # unsupported_metrics or 'metrics' in chosen_metrics:
             unsupported_metrics = chosen_metrics.difference(available_metrics)
             if 'metrics' in chosen_metrics:
-                print('You indicated \'metrics\'. Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
+                print('You indicated "metrics". Here are Available Metrics\n%s\n' % ', '.join(available_metrics))
                 metrics_input = input('%s' % input_string)
             elif chosen_metrics.intersection(describe):
                 describe_data(df=df) if df is not None else print('Can\'t describe data without providing a DataFrame')
@@ -1517,9 +1517,9 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                 metrics_input = input('%s' % input_string)
             elif unsupported_metrics:
                 # TODO catch value error in dict comprehension upon string input
-                metrics_input = input('Metric%s \'%s\' not found in the DataFrame! Is your spelling correct? Have you '
+                metrics_input = input('Metric%s "%s" not found in the DataFrame! Is your spelling correct? Have you '
                                       'used the correct underscores? Please input these metrics again. Specify '
-                                      '\'metrics\' to view available metrics%s'
+                                      '"metrics" to view available metrics%s'
                                       % ('s' if len(unsupported_metrics) > 1 else '', ', '.join(unsupported_metrics),
                                          input_string))
             elif len(chosen_metrics) > 0:
@@ -1542,7 +1542,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                 while True:
                     # Todo make ability to use boolean descriptions
                     # Todo make ability to specify direction
-                    value = input('For \'%s\' what value should be used for %s %sing?%s%s'
+                    value = input('For "%s" what value should be used for %s %sing?%s%s'
                                   % (metric, level, mode, ' Designs with metrics %s than this value will be included'
                                                           % direction[filter_df.loc['direction', metric]].upper()
                                                           if mode == 'filter' else '', input_string))
@@ -1553,7 +1553,7 @@ def query_user_for_metrics(available_metrics, df=None, mode=None, level=None):
                         metric_values[metric] = float(value)
                         break
 
-            # metric_values = {metric: float(input('For \'%s\' what value should be used for %s %sing?%s%s'
+            # metric_values = {metric: float(input('For "%s" what value should be used for %s %sing?%s%s'
             #                                      % (metric, level, mode,
             #                                         ' Designs with metrics %s than this value will be included'
             #                                         % direction[filter_df.loc['direction', metric]].upper()
@@ -1610,7 +1610,7 @@ def rank_dataframe_by_metric_weights(df: pd.DataFrame, weights: Dict[str, float]
                 normalized_metric_df[metric] = ((metric_s - metric_min) / (metric_max - metric_min)) * parameters['value']
             df = pd.concat(normalized_metric_df, axis=1)
         else:
-            raise ValueError('The value %s is not a viable choice for metric weighting \'function\'' % function)
+            raise ValueError('The value %s is not a viable choice for metric weighting "function"' % function)
 
         return df.sum(axis=1).sort_values(ascending=False)
     else:  # just sort by lowest energy
