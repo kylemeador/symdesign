@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 import subprocess
 from collections import UserList, defaultdict
@@ -2900,10 +2902,10 @@ class Structure(StructureBase):
         #  B/b:Isolated bridge,
         #  T:Turn,
         #  C:Coil (none of the above)'
-        current_struc_file = self.write(out_path='stride_input-%s-%d.pdb' % (self.name, random() * 100000))
+        current_struc_file = self.write(out_path=f'stride_input-{self.name}-{random() * 100000}.pdb')
         p = subprocess.Popen([stride_exe_path, current_struc_file], stdout=subprocess.PIPE, stderr=subprocess.DEVNULL)
         out, err = p.communicate()
-        os.system('rm %s' % current_struc_file)
+        os.system(f'rm {current_struc_file}')
 
         if out:
             if to_file:
@@ -2911,7 +2913,7 @@ class Structure(StructureBase):
                     f.write(out)
             stride_output = out.decode('utf-8').split('\n')
         else:
-            self.log.warning('%s: No secondary structure assignment found with Stride' % self.name)
+            self.log.warning(f'{self.name}: No secondary structure assignment found with Stride')
             return
         # except:
         #     stride_out = None
@@ -2930,7 +2932,7 @@ class Structure(StructureBase):
                 residue_idx += 1
         self.secondary_structure = ''.join(residue.secondary_structure for residue in residues)
 
-    def parse_stride(self, stride_file, **kwargs):
+    def parse_stride(self, stride_file: str | bytes, **kwargs):
         """From a Stride file, parse information for residue level secondary structure assignment
 
         Sets:
@@ -2951,19 +2953,18 @@ class Structure(StructureBase):
                 # residue_idx += 1
         self.secondary_structure = ''.join(residue.secondary_structure for residue in self.residues)
 
-    def is_termini_helical(self, termini='n', window=5):
+    def is_termini_helical(self, termini: str = 'n', window: int = 5) -> int:
         """Using assigned secondary structure, probe for a helical C-termini using a segment of 'window' residues
 
-        Keyword Args:
-            termini='n' (str): The segment size to search
-            window=5 (int): The segment size to search
+        Args:
+            termini: Either n or c should be specified
+            window: The segment size to search
         Returns:
-            (int): Whether the termini has a stretch of helical residues with length of the window (1) or not (0)
+            Whether the termini has a stretch of helical residues with length of the window (1) or not (0)
         """
         residues = list(reversed(self.residues)) if termini.lower() == 'c' else self.residues
         if not residues[0].secondary_structure:
-            raise DesignError('You must call .get_secondary_structure on %s before querying for helical termini'
-                              % self.name)
+            raise DesignError(f'You must call .get_secondary_structure on {self.name} before querying for helical termini')
         term_window = ''.join(residue.secondary_structure for residue in residues[:window * 2])
         if 'H' * window in term_window:
             return 1  # True
@@ -2987,8 +2988,8 @@ class Structure(StructureBase):
                 for idx, residue in enumerate(self.residues):
                     residue.secondary_structure = secondary_structure[idx]
             else:
-                self.log.warning('The passed secondary_structure length (%d) is not equal to the number of residues '
-                                 '(%d). Recalculating...' % (len(self.secondary_structure), self.number_of_residues))
+                self.log.warning(f'The passed secondary_structure length ({len(self.secondary_structure)}) is not equal'
+                                 f' to the number of residues ({self.number_of_residues}). Recalculating...')
                 self.stride()  # we tried for efficiency, but its inaccurate, recalculate
         else:
             if self.residues[0].secondary_structure:
@@ -2996,21 +2997,21 @@ class Structure(StructureBase):
             else:
                 self.stride()
 
-    def termini_proximity_from_reference(self, termini='n', reference=None):
+    def termini_proximity_from_reference(self, termini: str = 'n', reference: np.ndarray = None) -> float:
         """From an Entity, find the orientation of the termini from the origin (default) or from a reference point
 
-        Keyword Args:
-            termini='n' (str): Either n or c terminus should be specified
-            reference=None (numpy.ndarray): The reference where the point should be measured from
+        Args:
+            termini: Either n or c should be specified
+            reference: The reference where the point should be measured from
         Returns:
-            (float): The distance from the reference point to the furthest point
+            The distance from the reference point to the furthest point
         """
         if termini.lower() == 'n':
             residue_coords = self.residues[0].n_coords
         elif termini.lower() == 'c':
             residue_coords = self.residues[-1].c_coords
         else:
-            raise DesignError('Termini must be either \'n\' or \'c\', not \'%s\'!' % termini)
+            raise ValueError(f'Termini must be either "n" or "c", not "{termini}"!')
 
         if reference:
             coord_distance = np.linalg.norm(residue_coords - reference)
@@ -4639,6 +4640,7 @@ class Entity(Chain, SequenceProfile):
 
         return loop_indices, disorder_indices, start_idx
 
+    # Todo move both of these to Structure/Pose. Requires using .reference_sequence in Structure/ or maybe Pose better
     def make_loop_file(self, out_path=os.getcwd(), **kwargs):
         """Format a loops file according to Rosetta specifications
 
