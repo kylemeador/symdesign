@@ -1003,59 +1003,59 @@ class PoseDirectory:
                 print(f'ERROR {self.name}: There was an issue retrieving design state from binary file...')
                 raise error
             # Dev branch only
-            except ModuleNotFoundError as error:
-                self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
-                self.log.critical('Removing %s' % self.serialized_info)
-                # raise error
-                remove(self.serialized_info)
-            if stat(self.serialized_info).st_size > 10000:
-                print('Found pickled file with huge size %d. fragment_database being removed'
-                      % stat(self.serialized_info).st_size)
-                self.info['fragment_source'] = \
-                    getattr(self.info.get('fragment_database'), 'source', PUtils.biological_interfaces)
-                self.pickle_info()  # save immediately so we don't have this issue with reading again!
+            # except ModuleNotFoundError as error:
+            #     self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
+            #     self.log.critical('Removing %s' % self.serialized_info)
+            #     # raise error
+            #     remove(self.serialized_info)
+            # if stat(self.serialized_info).st_size > 10000:
+            #     print('Found pickled file with huge size %d. fragment_database being removed'
+            #           % stat(self.serialized_info).st_size)
+            #     self.info['fragment_source'] = \
+            #         getattr(self.info.get('fragment_database'), 'source', PUtils.biological_interfaces)
+            #     self.pickle_info()  # save immediately so we don't have this issue with reading again!
             # Todo Remove Above this line to Dev branch only
             self._info = self.info.copy()  # create a copy of the state upon initialization
-            # These statements are a temporary patch Todo remove for SymDesign master branch
-            # if not self.sym_entry:  # none was provided at initiation or in state
-            if 'sym_entry' in self.info:
-                self.sym_entry = self.info['sym_entry']  # get instance
-                self.info.pop('sym_entry')  # remove this object
-                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
-            if 'oligomer_names' not in self.info:
-                self.oligomer_names = self.info.get('entity_names', [])
-            if 'design_residue_ids' in self.info:  # format is old, convert
-                try:
-                    self.info['interface_design_residues'] = self.info.pop('design_residues')
-                except KeyError:
-                    pass
-                self.info['interface_residue_ids'] = self.info.pop('design_residue_ids')
-                try:
-                    self.info['interface_residues'] = self.info.pop('interface_residues')
-                except KeyError:
-                    pass
-            else:  # format is old old, remove all
-                for old_element in ['design_residues', 'interface_residues']:
-                    try:
-                        self.info.pop(old_element)
-                    except KeyError:
-                        pass
-
-            if 'fragment_database' in self.info:
-                self.info['fragment_source'] = self.info.get('fragment_database')
-                self.info.pop('fragment_database')
-            fragment_data = self.info.get('fragment_data')
-            if fragment_data and not isinstance(fragment_data, dict):  # this is a .pkl file
-                try:
-                    self.info['fragment_data'] = unpickle(fragment_data)
-                    remove(fragment_data)
-                except FileNotFoundError:
-                    self.info.pop('fragment_data')
-            if 'pose_transformation' in self.info:
-                self._pose_transformation = self.info.get('pose_transformation')
-                if isinstance(self._pose_transformation, dict):  # old format
-                    del self._pose_transformation
-            self.pickle_info()
+            # # These statements are a temporary patch Todo remove for SymDesign master branch
+            # # if not self.sym_entry:  # none was provided at initiation or in state
+            # if 'sym_entry' in self.info:
+            #     self.sym_entry = self.info['sym_entry']  # get instance
+            #     self.info.pop('sym_entry')  # remove this object
+            #     self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+            # if 'oligomer_names' not in self.info:
+            #     self.oligomer_names = self.info.get('entity_names', [])
+            # if 'design_residue_ids' in self.info:  # format is old, convert
+            #     try:
+            #         self.info['interface_design_residues'] = self.info.pop('design_residues')
+            #     except KeyError:
+            #         pass
+            #     self.info['interface_residue_ids'] = self.info.pop('design_residue_ids')
+            #     try:
+            #         self.info['interface_residues'] = self.info.pop('interface_residues')
+            #     except KeyError:
+            #         pass
+            # else:  # format is old old, remove all
+            #     for old_element in ['design_residues', 'interface_residues']:
+            #         try:
+            #             self.info.pop(old_element)
+            #         except KeyError:
+            #             pass
+            #
+            # if 'fragment_database' in self.info:
+            #     self.info['fragment_source'] = self.info.get('fragment_database')
+            #     self.info.pop('fragment_database')
+            # fragment_data = self.info.get('fragment_data')
+            # if fragment_data and not isinstance(fragment_data, dict):  # this is a .pkl file
+            #     try:
+            #         self.info['fragment_data'] = unpickle(fragment_data)
+            #         remove(fragment_data)
+            #     except FileNotFoundError:
+            #         self.info.pop('fragment_data')
+            # if 'pose_transformation' in self.info:
+            #     self._pose_transformation = self.info.get('pose_transformation')
+            #     if isinstance(self._pose_transformation, dict):  # old format
+            #         del self._pose_transformation
+            # self.pickle_info()
         else:  # we haven't initialized this PoseDirectory before
             # __init__ assumes structures have been refined so these only act to set false
             if pre_refine is not None:  # either True or False
