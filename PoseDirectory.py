@@ -96,37 +96,14 @@ class PoseDirectory:
             self.directory_string_to_path(root, design_path)  # sets self.path
             self.source_path = self.path
         else:
-            self.source_path: str = path.abspath(design_path)
-        self.name: str = path.splitext(path.basename(self.source_path))[0]
-        # PoseDirectory path attributes
-        # self.scores = None  # /program_root/Projects/project_Designs/design/scores
-        self.scores_file: str | None = None  # /program_root/Projects/project_Designs/design/data/name.sc
-        self.data: str | None = None  # /program_root/Projects/project_Designs/design/data
-        self.designs: str | None = None  # /program_root/Projects/project_Designs/design/designs
-        # self.sdf_dir = None  # path/to/directory/sdf/
-        self.frags: str | None = None  # /program_root/Projects/project_Designs/design/matching_fragments
-        self.flags: str | None = None  # /program_root/Projects/project_Designs/design/scripts/flags
-        self.frag_file: str | None = None  # /program_root/Projects/project_Designs/design/
-        self.pose_file: str | None = None  # /program_root/Projects/project_Designs/design/
-        self.scripts: str | None = None  # /program_root/Projects/project_Designs/design/scripts
-        self.serialized_info: str | None = None  # /program_root/Projects/project_Designs/design/data/info.pkl
-        self.asu_path: str | None = None  # /program_root/Projects/project_Designs/design/design_name_clean_asu.pdb
-        self.assembly_path: str | None = None  # /program_root/Projects/project_Designs/design/design_name_assembly.pdb
-        self.refine_pdb: str | None = None
-        # self._fragment_database = {}
-        # self._evolutionary_profile = {}
-        # self._design_profile = {}
-        # self._fragment_data = {}
-        # program_root/building_blocks/DEGEN_A_B/ROT_A_B/tx_C/clean_asu_for_refine.pdb
-        self.refined_pdb: str | None = None  # /program_root/Projects/project_Designs/design/design_name_refined.pdb
-        self.scouted_pdb: str | None = None  # /program_root/Projects/project_Designs/design/designs/design_name_scouted.pdb
-        self.consensus_pdb: str | None = None  # /program_root/Projects/project_Designs/design/design_name_for_consensus.pdb
-        # /program_root/Projects/project_Designs/design/designs/design_name_for_consensus.pdb
-        self.consensus_design_pdb: str | None = None
-        self.pdb_list: str | None = None  # /program_root/Projects/project_Designs/design/scripts/design_files.txt
-        self.design_profile_file: str | None = None  # /program_root/Projects/project_Designs/design/data/design.pssm
-        self.evolutionary_profile_file: str | None = None  # /program_root/Projects/project_Designs/design/data/evolutionary.pssm
-        # self.fragment_data_pkl = None  # /program_root/Projects/project_Designs/design/data/%s_fragment_profile.pkl
+            self.source_path = path.abspath(design_path)
+
+        if not path.exists(self.source_path):
+            raise FileNotFoundError(f'The specified Pose source "{self.source_path}" was not found!')
+
+        # Todo if I use output_identifier for design, it opens up a can of worms. Maybe it is better to include only for
+        #  specific modules
+        output_identifier = f'{self.name}_' if self.output_directory else ''
 
         # Symmetry attributes
         # self.cryst_record = None
@@ -148,27 +125,27 @@ class PoseDirectory:
 
         # Design attributes
         self.background_profile: str = kwargs.get('background_profile', PUtils.design_profile)  # by default, grab design profile
-        self.composition: str | None = None  # building_blocks (4ftd_5tch)
         self.directives: dict[int, str] = kwargs.get('directives', {})
-        self.interface_residue_ids: dict[str, str] = {}  # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
+        # Todo refactor to JobResources and save in PoseDirectory state
         self.design_selector: dict[str, dict] = kwargs.get('design_selector', None)
-        self.entity_names: list[str] = []
-        self.fragment_observations: list[dict] | None = None  # (dict): {'1_2_24': [(78, 87, ...), ...], ...}
+        self.entity_names = kwargs.get('entity_names', [])
+        self.fragment_observations = None  # [{'1_2_24': [(78, 87, ...), ...], ...}]
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
-        self.init_pdb: PDB | None = None  # used if the pose structure has never been initialized previously
+        self.init_pdb = None  # used if the pose structure has never been initialized previously
         self.interface_design_residues: set[int] | bool = False  # the residue numbers in the pose interface
+        self.interface_residue_ids: dict[str, str] = {}
+        # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
         self.interface_residues: list[int] | bool = False
-        # self.oligomer_names = []
-        self.oligomers: list[Structure] = []
-        self.pose: Pose | None = None  # contains the design's Pose object
-        self.pose_id: str | None = None
-        self.pre_refine: bool = kwargs.get('pre_refine', True)
-        self.pre_loop_model: bool = kwargs.get('pre_loop_model', True)
-        self.source: str | None = None
-        self.specific_design: str = kwargs.get('specific_design', None)
+        # self.oligomer_names: list[str] = self.info.get('oligomer_names', [])
+        self.entities = []
+        self.pose = None  # contains the design's Pose object
+        # self.pose_id = None
+        # self.pre_refine = self.info.get('pre_refine', True)
+        # self.pre_loop_model = self.info.get('pre_loop_model', True)
+        self.specific_design = kwargs.get('specific_design', None)
 
-        # Metric attributes TODO MOVE Metrics
+        # Metric attributes TODO move to Pose
         self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
         self.interface_ss_fragment_topology = {}  # {1: 'HHH', 2: 'HH'}
         self.center_residue_numbers = []
@@ -190,9 +167,7 @@ class PoseDirectory:
         self.percent_residues_fragment_center = None
 
         if self.nanohedra_output:
-            # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C (P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2)
-            if not path.exists(self.source_path):
-                raise FileNotFoundError(f'The specified PoseDirectory "{self.source_path}" was not found!')
+            # source_path is design_symmetry/building_blocks/DEGEN_A_B/ROT_A_B/tx_C
             # self.canonical_pdb1 = None  # canonical pdb orientation
             # self.canonical_pdb2 = None
             # self.rot_step_deg1 = None
@@ -236,23 +211,17 @@ class PoseDirectory:
             self.initialized = False
             path_components = self.source_path.split(sep)
             # design_symmetry (P432)
-            # path_components[-3] are the oligomeric names
+            # path_components[-4] are the oligomeric names
+            self.name = '-'.join(path_components[-4:])
             self.composition = self.source_path[:self.source_path.find(path_components[-3]) - 1]
             # design_symmetry/building_blocks (P432/4ftd_5tch)
-            self.oligomer_names = list(map(str.lower, path.basename(self.composition).split('_')))
-            self.entity_names = ['%s_1' % name for name in self.oligomer_names]  # assumes the entity is the first
-            # self.pose_id = self.source_path[self.source_path.find(path_components[-3]) - 1:]\
-            #     .replace(sep, '-')
-            self.pose_id = '-'.join(path_components[-4:])  # [-5:-1] because of trailing sep
-            self.name = self.pose_id
+            oligomer_names = list(map(str.lower, path_components[-4].split('_')))
+            self.entity_names = [f'{name}_1' for name in oligomer_names]  # assumes the entity is the first
             if self.output_directory:
-                # self.program_root = self.output_directory  # getcwd()
                 self.projects = ''
                 self.project_designs = ''
-                self.path = self.program_root
-                # ^ /output_directory<- self.path /design.pdb
+                self.path = self.program_root  # /output_directory<- self.path /design.pdb
             else:
-                # self.program_root = path.join(getcwd(), PUtils.program_output)
                 self.projects = path.join(self.program_root, PUtils.projects)
                 self.project_designs = path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
                 self.path = path.join(self.project_designs, self.name)
@@ -260,49 +229,93 @@ class PoseDirectory:
                 # self.make_path(self.project_designs)
 
             self.make_path(self.path, condition=self.construct_pose)
-        elif '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
-            if not path.exists(self.source_path):
-                raise FileNotFoundError(f'The file "{self.source_path}" couldn\'t be located! Ensure this location is '
-                                        f'correct')
-            self.source = self.source_path
-            if self.output_directory:
-                # self.program_root = self.output_directory  # getcwd()
-                self.projects = ''
-                self.project_designs = ''
-                self.path = self.program_root
-                # ^ /output_directory<- self.path /design.pdb
-            else:
-                # self.program_root = path.join(getcwd(), PUtils.program_output)  # symmetry.rstrip(sep)
-                self.projects = path.join(self.program_root, PUtils.projects)
-                self.project_designs = path.join(self.projects, '%s_%s' % (self.source_path.split(sep)[-2],
-                                                                              PUtils.pose_directory))
-                self.path = path.join(self.project_designs, self.name)
-                # ^ /program_root/projects/project/design<- self.path /design.pdb
-                # self.make_path(self.program_root)
-                self.make_path(self.projects)
-                self.make_path(self.project_designs)
-                self.make_path(self.path)
-                shcopy(self.source_path, self.path)
-            # Todo remove this mechanism here... requires reconfiguration of self.start_log
-            # need to start here if I want to load pose through normal mechanism... ugh
-            # sets self.entity_names if PoseDirectory was created and the .pdb name is specified again
-            self.initialized = True  # set temporarily for set_up_design_directory check
-            self.set_up_design_directory()  # start self.log, set self.entity_names if pose has been loaded...
-            if not self.entity_names:  # none were provided at start up
+            self.pose_file = path.join(self.source_path, PUtils.pose_file)
+            self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
+            # if self.construct_pose:
+            #     if not path.exists(path.join(self.path, PUtils.pose_file)):
+            #         shcopy(self.pose_file, self.path)
+            #         shcopy(self.frag_file, self.path)
+            #     self.info['nanohedra'] = True
+            #     self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+            #     self.pose_transformation = self.retrieve_pose_metrics_from_file()
+            #     self.info['oligomer_names'] = self.oligomer_names
+            #     self.info['entity_names'] = self.entity_names
+            #     self.pickle_info()  # save this info on the first copy so that we don't have to construct again
+        else:
+            self.name = path.splitext(path.basename(self.source_path))[0]
+            self.composition = None  # building_blocks (4ftd_5tch)
+            # search for serialized_info using the source_path temporarily
+            self.serialized_info = path.join(self.source_path, f'{output_identifier}{PUtils.data}', 'info.pkl')
+            if path.exists(self.serialized_info):  # PoseDirectory already initialized
+                self.initialized = True
+                self.path = self.source_path
+                self.project_designs = path.dirname(self.path)
+                self.projects = path.dirname(self.project_designs)
+                self.source = None
+            else:  # if '.pdb' in self.source_path:  # Set up PoseDirectory from input initially
                 self.initialized = False
-                self.init_pdb = PDB.from_file(self.source_path, log=self.log)
-                self.entity_names = [entity.name for entity in self.init_pdb.entities]
-            else:  # when --directory flag used, but the directory is already in SymDesignOutput
-                self.initialized = True  # Todo remove as self.entity_names may have been provided, but init didnt occur
-            # self.set_up_design_directory()
-        else:  # initialize PoseDirectory with existing /program_root/projects/project/design
-            self.initialized = True
-            self.path = self.source_path
-            if not path.exists(self.path):
-                raise FileNotFoundError(f'The specified PoseDirectory "{self.source_path}" was not found!')
-            self.project_designs = path.dirname(self.path)
-            self.projects = path.dirname(self.project_designs)
-            # self.program_root = path.dirname(self.projects)
+                self.source = self.source_path
+                if self.output_directory:
+                    self.projects = ''
+                    self.project_designs = ''
+                    self.path = self.program_root  # /output_directory<- self.path /design.pdb
+                else:
+                    self.projects = path.join(self.program_root, PUtils.projects)
+                    self.project_designs = \
+                        path.join(self.projects, f'{self.source_path.split(sep)[-2]}_{PUtils.pose_directory}')
+                    self.path = path.join(self.project_designs, self.name)
+                    # ^ /program_root/projects/project/design<- self.path /design.pdb
+                    # self.make_path(self.projects)
+                    # self.make_path(self.project_designs)
+                    self.make_path(self.path)
+                    # copy the source file to the PoseDirectory for record keeping...
+                    shcopy(self.source_path, self.path)
+                # save the SymEntry initialization key in the state
+                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
+
+            self.pose_file = path.join(self.path, PUtils.pose_file)
+            self.frag_file = path.join(self.path, PUtils.frag_dir, PUtils.frag_text_file)
+
+        # PoseDirectory path attributes. Set after finding correct path
+        self.log_path: str | Path = path.join(self.path, f'{self.name}.log')
+        self.designs: str | Path = path.join(self.path, PUtils.designs)
+        # /root/Projects/project_Poses/design/designs
+        self.scripts: str | Path = path.join(self.path, f'{output_identifier}{PUtils.scripts}')
+        # /root/Projects/project_Poses/design/scripts
+        self.frags: str | Path = path.join(self.path, f'{output_identifier}{PUtils.frag_dir}')
+        # /root/Projects/project_Poses/design/matching_fragments
+        self.flags: str | Path = path.join(self.scripts, 'flags')
+        # /root/Projects/project_Poses/design/scripts/flags
+        self.data: str | Path = path.join(self.path, f'{output_identifier}{PUtils.data}')
+        # /root/Projects/project_Poses/design/data
+        self.scores_file: str | Path = path.join(self.data, f'{self.name}.sc')
+        # /root/Projects/project_Poses/design/data/name.sc
+        self.serialized_info: str | Path = path.join(self.data, 'info.pkl')
+        # /root/Projects/project_Poses/design/data/info.pkl
+        self.asu_path: str | Path = path.join(self.path, f'{self.name}_{PUtils.clean_asu}')
+        # /root/Projects/project_Poses/design/design_name_clean_asu.pdb
+        self.assembly_path: str | Path = path.join(self.path, f'{self.name}_{PUtils.assembly}')
+        # /root/Projects/project_Poses/design/design_name_assembly.pdb
+        self.refine_pdb: str | Path = f'{path.splitext(self.asu_path)[0]}_for_refine.pdb'
+        # /root/Projects/project_Poses/design/clean_asu_for_refine.pdb
+        self.consensus_pdb: str | Path = f'{path.splitext(self.asu_path)[0]}_for_consensus.pdb'
+        # /root/Projects/project_Poses/design/design_name_for_consensus.pdb
+        self.consensus_design_pdb: str | Path = path.join(self.designs, path.basename(self.consensus_pdb))
+        # /root/Projects/project_Poses/design/designs/design_name_for_consensus.pdb
+        self.pdb_list: str | Path = path.join(self.scripts, 'design_files.txt')
+        # /root/Projects/project_Poses/design/scripts/design_files.txt
+        self.design_profile_file: str | Path = path.join(self.data, 'design.pssm')
+        # /root/Projects/project_Poses/design/data/design.pssm
+        self.evolutionary_profile_file: str | Path = path.join(self.data, 'evolutionary.pssm')
+        # /root/Projects/project_Poses/design/data/evolutionary.pssm
+        self.fragment_profile_file: str | Path = path.join(self.data, 'fragment.pssm')
+        # /root/Projects/project_Poses/design/data/fragment.pssm
+        self.refined_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/design_name_refined.pdb
+        self.scouted_pdb: str | Path | None = None  # /root/Projects/project_Poses/design/designs/design_name_scouted.pdb
+
+        if not self.initialized and not self.entity_names:  # none were provided at start up, find them
+            self.find_entity_names()  # starts self.log
+            self.entity_names = self.info.get('entity_names', [])  # set so that DataBase set up works
 
     @classmethod
     def from_nanohedra(cls, design_path, project=None, **kwargs):
@@ -519,17 +532,48 @@ class PoseDirectory:
     def nanohedra_root(self) -> str:
         return self.job_resources.nanohedra_root
 
-    # @property
-    # def design_sequences(self):
-    #     return self.job_resources.design_sequences  # program_root/AllScores/str(self)_Sequences.pkl
-    #
-    # @property
-    # def residues(self):
-    #     return self.job_resources.residues  # program_root/AllScores/str(self)_Residues.csv
-    #
-    # @property
-    # def trajectories(self):
-    #     return self.job_resources.trajectories  # program_root/AllScores/str(self)_Trajectories.csv
+    # Decorator static methods: These must be declared above their usage, but made static after each declaration
+    def handle_design_errors(errors: tuple = (Exception,)) -> Callable:
+        """Decorator to wrap a method with try: ... except errors: and log errors to the PoseDirectory
+
+        Args:
+            errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
+        Returns:
+            Function return upon proper execution, else is error if exception raised, else None
+        """
+        def wrapper(func: Callable) -> Any:
+            @wraps(func)
+            def wrapped(self, *args, **kwargs):
+                try:
+                    return func(self, *args, **kwargs)
+                except errors as error:
+                    self.log.error(error)  # Allows exception reporting using self.log
+                    # self.info['error'] = error  # Todo? include the error code in the design state
+                    return error
+            return wrapped
+        return wrapper
+
+    def close_logs(func):
+        """Decorator to close the instance log file after use in an instance method (protocol)"""
+        @wraps(func)
+        def wrapped(self, *args, **kwargs):
+            func_return = func(self, *args, **kwargs)
+            # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
+            for handler in self.log.handlers:
+                handler.close()
+            return func_return
+        return wrapped
+
+    def remove_structure_memory(func):
+        """Decorator to remove large memory attributes from the instance after processing is complete"""
+        @wraps(func)
+        def wrapped(self, *args, **kwargs):
+            func_return = func(self, *args, **kwargs)
+            if self.reduce_memory:
+                self.pose = None
+                self.entities.clear()
+            return func_return
+        return wrapped
 
     # SymEntry object attributes
     @property
@@ -897,67 +941,13 @@ class PoseDirectory:
         else:
             raise ValueError(f'The attribute pose_transformation must be a list, not {type(transform)}')
 
-    # def rotation_parameters(self):
-    #     return self.rot_range_deg_pdb1, self.rot_range_deg_pdb2, self.rot_step_deg1, self.rot_step_deg2
-    #
-    # def degeneracy_parameters(self):
-    #     return self.sym_entry.degeneracy_matrices1, self.sym_entry.degeneracy_matrices2
-    #
-    # def degen_and_rotation_parameters(self):
-    #     return self.degeneracy_parameters(), self.rotation_parameters()
-    #
-    # def compute_last_rotation_state(self):
-    #     number_steps1 = self.rot_range_deg_pdb1 / self.rot_step_deg1
-    #     number_steps2 = self.rot_range_deg_pdb2 / self.rot_step_deg1
-    #
-    #     return int(number_steps1), int(number_steps2)
-    #
-    # def return_symmetry_parameters(self):
-    #     return dict(symmetry=self.design_symmetry, design_dimension=self.design_dimension,
-    #                 uc_dimensions=self.uc_dimensions, expand_matrices=self.expand_matrices)
-
-    # Decorator static methods: These must be declared above their usage, but made static after each declaration
-    def handle_design_errors(errors: Tuple = (Exception,)) -> Callable:
-        """Decorator to wrap a method with try: ... except errors: and log errors to the PoseDirectory
-
-        Args:
-            errors: A tuple of exceptions to monitor. Must be a tuple even if single exception
-        Returns:
-            Function return upon proper execution, else is error if exception raised, else None
-        """
-        def wrapper(func: Callable) -> Any:
-            @wraps(func)
-            def wrapped(self, *args, **kwargs):
-                try:
-                    return func(self, *args, **kwargs)
-                except errors as error:
-                    self.log.error(error)  # Allows exception reporting using self.log
-                    # self.info['error'] = error  # Todo? include the error code in the design state
-                    return error
-            return wrapped
-        return wrapper
-
-    def close_logs(func):
-        """Decorator to close the instance log file after use in an instance method (protocol)"""
-        @wraps(func)
-        def wrapped(self, *args, **kwargs):
-            func_return = func(self, *args, **kwargs)
-            # adapted from https://stackoverflow.com/questions/15435652/python-does-not-release-filehandles-to-logfile
-            for handler in self.log.handlers:
-                handler.close()
-            return func_return
-        return wrapped
-
-    def remove_structure_memory(func):
-        """Decorator to remove large memory attributes from the instance after processing is complete"""
-        @wraps(func)
-        def wrapped(self, *args, **kwargs):
-            func_return = func(self, *args, **kwargs)
-            if self.reduce_memory:
-                self.pose = None
-                self.oligomers.clear()
-            return func_return
-        return wrapped
+    @close_logs
+    def find_entity_names(self) -> None:
+        """Load the Structure source_path and extract the entity_names from the Structure"""
+        self.start_log()
+        self.init_pdb = PDB.from_file(self.source_path, log=self.log)
+        # self.entity_names = [entity.name for entity in self.init_pdb.entities]
+        self.info['entity_names'] = [entity.name for entity in self.init_pdb.entities]
 
     def start_log(self, level: int = 2) -> None:
         """Initialize the logger for the Pose"""
@@ -974,9 +964,8 @@ class PoseDirectory:
         if self.skip_logging or (self.nanohedra_output and not self.construct_pose):  # set up null_logger
             self.log = null_log
         else:
-            self.log = start_log(name=str(self), handler=handler, level=level,
-                                 location=path.join(self.path, self.name), propagate=propagate,
-                                 no_log_name=no_log_name)
+            self.log = start_log(name=str(self), handler=handler, level=level, location=self.log_path,
+                                 propagate=propagate, no_log_name=no_log_name)
 
     def directory_string_to_path(self, root: str | bytes, pose_id: str):
         """Set the PoseDirectory self.path to the root/pose-ID where the pose-ID is converted from dash separation to
@@ -988,141 +977,58 @@ class PoseDirectory:
         else:
             # Dev only
             if '_Designs-' in pose_id:
-                self.path = path.join(root, 'Projects', pose_id.replace('_Designs-', '_Designs%s' % sep))
+                self.path = path.join(root, 'Projects', pose_id.replace('_Designs-', f'_Designs{sep}'))
             else:
-                self.path = path.join(root, 'Projects', pose_id.replace('_%s-' % PUtils.pose_directory,
-                                                                        '_%s%s' % (PUtils.pose_directory, sep)))
+                self.path = path.join(root, 'Projects', pose_id.replace(f'_{PUtils.pose_directory}-',
+                                                                        f'_{PUtils.pose_directory}{sep}'))
 
-    @handle_design_errors(errors=(DesignError, ValueError))
+    @handle_design_errors(errors=(FileNotFoundError, ValueError))
     @close_logs
-    def set_up_design_directory(self, pre_refine: bool = None, pre_loop_model: bool = None):
+    def set_up_pose_directory(self, pre_refine: bool = None, pre_loop_model: bool = None):
         """Prepare output Directory and File locations. Each PoseDirectory always includes this format
 
         Args:
             pre_refine: Whether the Pose has been refined previously (before loading)
             pre_loop_model: Whether the Pose had loops modeled previously (before loading)
         """
-        self.start_log()  # can I remove from this section?
-        if not self.initialized:  # we haven't fully initialized this PoseDirectory before
-            # __init__ assumes structures have been refined so this would set false for the most part
+        self.start_log()
+        if self.initialized:  # path.exists(self.serialized_info):  # gather state data
+            try:
+                serial_info = unpickle(self.serialized_info)
+                if not self.info:  # empty dict
+                    self.info = serial_info
+                else:
+                    serial_info.update(self.info)
+                    self.info = serial_info
+            except UnpicklingError as error:  # pickle.UnpicklingError:
+                print(f'ERROR {self.name}: There was an issue retrieving design state from binary file...')
+                raise error
+        else:  # we haven't initialized this PoseDirectory before
+            # __init__ assumes structures have been refined so these only act to set false
             if pre_refine is not None:  # either True or False
                 self.info['pre_refine'] = pre_refine  # this may have just been set
             if pre_loop_model is not None:  # either True or False
                 self.info['pre_loop_model'] = pre_loop_model
 
-        # Todo if I use output_identifier for design, it opens up a can of worms. Maybe it is better to include only for
-        #  specific modules
-        self.output_identifier = '%s_' % self.name if self.output_directory else ''
-        self.designs = path.join(self.path, PUtils.pdbs_outdir)
-        self.scripts = path.join(self.path, '%s%s' % (self.output_identifier, PUtils.scripts))
-        self.frags = path.join(self.path, '%s%s' % (self.output_identifier, PUtils.frag_dir))
-        self.flags = path.join(self.scripts, 'flags')  # '%sflags' % self.output_identifier)
-        self.data = path.join(self.path, '%s%s' % (self.output_identifier, PUtils.data))
-        self.scores_file = path.join(self.data, '%s.sc' % self.name)
-        self.serialized_info = path.join(self.data, 'info.pkl')  # '%sinfo.pkl' % self.output_identifier)
-        self.asu_path = path.join(self.path, '%s_%s' % (self.name, PUtils.clean_asu))
-        self.assembly_path = path.join(self.path, '%s_%s' % (self.name, PUtils.assembly))
-        self.refine_pdb = '%s_for_refine.pdb' % path.splitext(self.asu_path)[0]
-        self.consensus_pdb = '%s_for_consensus.pdb' % path.splitext(self.asu_path)[0]
-        self.consensus_design_pdb = path.join(self.designs, path.basename(self.consensus_pdb))
-        self.pdb_list = path.join(self.scripts, 'design_files.txt')
-        self.design_profile_file = path.join(self.data, 'design.pssm')  # path.abspath(self.path), 'data'
-        self.evolutionary_profile_file = path.join(self.data, 'evolutionary.pssm')
-        self.fragment_profile_file = path.join(self.data, 'fragment.pssm')
+        self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
+        self.interface_design_residues = self.info.get('interface_design_residues', False)  # (set[int])
+        self.interface_residue_ids = self.info.get('interface_residue_ids', {})
+        self.interface_residues = self.info.get('interface_residues', False)
+        self.entity_names = self.info.get('entity_names', [])
+        self.pre_refine = self.info.get('pre_refine', True)
+        self.pre_loop_model = self.info.get('pre_loop_model', True)
+
         if self.nanohedra_output:
-            self.pose_file = path.join(self.source_path, PUtils.pose_file)
-            self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
             if self.construct_pose:
                 if not path.exists(path.join(self.path, PUtils.pose_file)):
                     shcopy(self.pose_file, self.path)
                     shcopy(self.frag_file, self.path)
                 self.info['nanohedra'] = True
                 self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
-                # self.info['sym_entry'] = self.sym_entry
                 self.pose_transformation = self.retrieve_pose_metrics_from_file()
-                self.info['oligomer_names'] = self.oligomer_names
+                # self.info['oligomer_names'] = self.oligomer_names
                 self.info['entity_names'] = self.entity_names
                 self.pickle_info()  # save this info on the first copy so that we don't have to construct again
-        else:
-            self.pose_file = path.join(self.path, PUtils.pose_file)
-            self.frag_file = path.join(self.frags, PUtils.frag_text_file)
-            self.pre_refine = self.info.get('pre_refine', True)
-            self.pre_loop_model = self.info.get('pre_loop_model', True)
-            self.entity_names = self.info.get('entity_names', [])
-            self.oligomer_names = self.info.get('oligomer_names', [])
-            if path.exists(self.serialized_info):  # Pose has already been processed, gather state data
-                try:
-                    serial_info = unpickle(self.serialized_info)
-                    if not self.info:  # empty dict
-                        self.info = serial_info
-                    else:
-                        serial_info.update(self.info)
-                        self.info = serial_info
-                except UnpicklingError as error:  # pickle.UnpicklingError:
-                    self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
-                    raise error
-                # Dev branch only
-                except ModuleNotFoundError as error:
-                    self.log.error('%s: There was an issue retrieving design state from binary file...' % self.name)
-                    self.log.critical('Removing %s' % self.serialized_info)
-                    # raise error
-                    remove(self.serialized_info)
-                if stat(self.serialized_info).st_size > 10000:
-                    print('Found pickled file with huge size %d. fragment_database being removed'
-                          % stat(self.serialized_info).st_size)
-                    self.info['fragment_source'] = \
-                        getattr(self.info.get('fragment_database'), 'source', PUtils.biological_interfaces)
-                    self.pickle_info()  # save immediately so we don't have this issue with reading again!
-                self._info = self.info.copy()  # create a copy of the state upon initialization
-                # These statements are a temporary patch Todo remove for SymDesign master branch
-                # if not self.sym_entry:  # none was provided at initiation or in state
-                if 'sym_entry' in self.info:
-                    # self.sym_entry = self.info['sym_entry']  # get instance
-                    self.info.pop('sym_entry')  # remove this object
-                    self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
-                if 'oligomer_names' not in self.info:
-                    self.oligomer_names = self.info.get('entity_names', [])
-                if 'design_residue_ids' in self.info:  # format is old, convert
-                    try:
-                        self.info['interface_design_residues'] = self.info.pop('design_residues')
-                    except KeyError:
-                        pass
-                    self.info['interface_residue_ids'] = self.info.pop('design_residue_ids')
-                    try:
-                        self.info['interface_residues'] = self.info.pop('interface_residues')
-                    except KeyError:
-                        pass
-                else:  # format is old old, remove all
-                    for old_element in ['design_residues', 'interface_residues']:
-                        try:
-                            self.info.pop(old_element)
-                        except KeyError:
-                            pass
-
-                if 'fragment_database' in self.info:
-                    self.info['fragment_source'] = self.info.get('fragment_database')
-                    self.info.pop('fragment_database')
-                fragment_data = self.info.get('fragment_data')
-                if fragment_data and not isinstance(fragment_data, dict):  # this is a .pkl file
-                    try:
-                        self.info['fragment_data'] = unpickle(fragment_data)
-                        remove(fragment_data)
-                    except FileNotFoundError:
-                        self.info.pop('fragment_data')
-                if 'pose_transformation' in self.info:
-                    self._pose_transformation = self.info.get('pose_transformation')
-                    if isinstance(self._pose_transformation, dict):  # old format
-                        del self._pose_transformation
-                self.pickle_info()
-                # End temporary patch
-                self.fragment_observations = self.info.get('fragments', None)  # None signifies query wasn't attempted
-                self.interface_design_residues = self.info.get('interface_design_residues', False)  # (set[int])
-                self.interface_residue_ids = self.info.get('interface_residue_ids', {})
-                self.interface_residues = self.info.get('interface_residues', False)
-            else:  # we are constructing for the first time. Save all relevant information
-                # Todo move to .pdb __init__?
-                self.info['sym_entry_specification'] = self.sym_entry_number, self.sym_entry_map
-                self.info['entity_names'] = self.entity_names
 
         # check if the source of the pdb files was refined upon loading
         if self.pre_refine:
@@ -1148,7 +1054,7 @@ class PoseDirectory:
                     raise ValueError(f'Found {len(matching_designs)} matching designs to your specified design:\n\t'
                                      f'{", ".join(matching_designs)}')
             else:
-                raise DesignError(f'Couldn\'t locate a specific_design matching the name "{matching_path}"')
+                raise FileNotFoundError(f'Couldn\'t locate a specific_design matching the name "{matching_path}"')
             # format specific_design to a pose ID compatible format
             self.specific_design = f'{self.name}_{self.specific_design}'
             self.source = self.specific_design_path
