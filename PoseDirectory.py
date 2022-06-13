@@ -244,12 +244,8 @@ class PoseDirectory:  # (JobResources):
                 self.projects = path.join(self.program_root, PUtils.projects)
                 self.project_designs = path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
                 self.path = path.join(self.project_designs, self.name)
-                # self.make_path(self.program_root)
-                self.make_path(self.projects)
-                self.make_path(self.project_designs)
-            # copy the master log
-            if not path.exists(path.join(self.project_designs, PUtils.master_log)):
-                shcopy(path.join(self.nanohedra_root, PUtils.master_log), self.project_designs)
+                # self.make_path(self.projects)
+                # self.make_path(self.project_designs)
 
             self.make_path(self.path, condition=self.construct_pose)
         elif '.pdb' in self.source_path:  # Initial set up of directory -> /program_root/projects/project/design
@@ -3868,15 +3864,15 @@ class PoseDirectory:  # (JobResources):
             return final_seqs
 
     @staticmethod
-    def make_path(path: Union[str, bytes], condition: bool = True):
+    def make_path(path_like: str | bytes, condition: bool = True):
         """Make all required directories in specified path if it doesn't exist, and optional condition is True
 
         Args:
-            path: The path to create
+            path_like: The path to create
             condition: A condition to check before the path production is executed
         """
         if condition:
-            makedirs(path, exist_ok=True)
+            makedirs(path_like, exist_ok=True)
 
     handle_design_errors = staticmethod(handle_design_errors)
     close_logs = staticmethod(close_logs)

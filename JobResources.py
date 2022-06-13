@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import os
 from copy import copy
@@ -109,34 +111,26 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             entity_ids: The names of all entity_ids requiring orientation
             symmetry: The symmetry to treat each passed Entity. Default assumes no symmetry
         Returns:
-            The resulting Entity that has been oriented and desymmetrized
+            The resulting asymmetric Entities that have been oriented
         """
-        def return_orient_asu(orient_file, symmetry):  # entry_entity,
-            oriented_pdb = PDB.from_file(orient_file)  # , log=None, entity_names=[entry_entity])
-            entity = oriented_pdb.entities[0]
-            # entity = oriented_asu.entities[0]
-            # entity.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
-            entity.symmetry = symmetry
-            entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
-            # save Stride results
-            entity.stride(to_file=self.stride.store(name=entity.name))
-
-            return entity
+        self.oriented.make_path()
         orient_dir = self.oriented.location
-        os.makedirs(orient_dir, exist_ok=True)
+        # os.makedirs(orient_dir, exist_ok=True)
         pdbs_dir = os.path.dirname(orient_dir)  # this is the case because it was specified this way, but not required
-        orient_asu_dir = self.oriented_asu.location
-        os.makedirs(orient_asu_dir, exist_ok=True)
-        stride_dir = self.stride.location
-        os.makedirs(stride_dir, exist_ok=True)
+        self.oriented_asu.make_path()
+        # orient_asu_dir = self.oriented_asu.location
+        # os.makedirs(orient_asu_dir, exist_ok=True)
+        self.stride.make_path()
+        # stride_dir = self.stride.location
+        # os.makedirs(stride_dir, exist_ok=True)
         # orient_log = SDUtils.start_log(name='orient', handler=1)
         orient_log = SDUtils.start_log(name='orient', handler=2,
                                        location=os.path.join(orient_dir, orient_log_file), propagate=True)
         orient_names = self.oriented.retrieve_names()
         orient_asu_names = self.oriented_asu.retrieve_names()
         all_entities = []
-        logger.info('The requested files/IDs are being checked for proper orientation with symmetry %s: %s'
-                    % (symmetry, ', '.join(entity_ids)))
+        logger.info(f'The requested files/IDs are being checked for proper orientation with symmetry {symmetry}: '
+                    f'{", ".join(entity_ids)}')
         non_viable_structures = []
         for entry_entity in entity_ids:  # ex: 1ABC_1
             if entry_entity not in orient_names:  # add the proper files
@@ -144,11 +138,11 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 # in case entry_entity is coming from a new SymDesign Directory the entity name is probably 1ABC_1
                 if len(entry) == 2:
                     entry, entity = entry
-                    logger.debug('Fetching entry %s, entity %s from PDB' % (entry, entity))
+                    logger.debug(f'Fetching entry {entry}, entity {entity} from PDB')
                 else:
                     entry = entry_entity  # entry[0]
                     entity = None  # False
-                    logger.debug('Fetching entry %s from PDB' % entry)
+                    logger.debug(f'Fetching entry {entry} from PDB')
 
                 if symmetry == 'C1':  # translate the monomer to the origin for the database
                     assembly = None  # 1 is the default
@@ -160,9 +154,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=pdbs_dir)
 
                 if not file_path:
-                    logger.warning('Couldn\'t locate the .pdb file %s, there may have been an issue '
-                                   'downloading it from the PDB. Attempting to copy from %s job data source'
-                                   % (file_path, nano))
+                    logger.warning(f'Couldn\'t locate the file "{file_path}", there may have been an issue '
+                                   'downloading it from the PDB. Attempting to copy from job data source...')
                     raise SDUtils.DesignError('This functionality hasn\'t been written yet. Use the '
                                               'canonical_pdb1/2 attribute of PoseDirectory to pull the'
                                               ' pdb file source.')
@@ -170,21 +163,22 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 # remove any mirror specific naming from fetch_pdb_file
                 file_name = os.path.splitext(os.path.basename(file_path))[0].replace('pdb', '')
                 pdb = PDB.from_file(file_path, name=file_name)  # , log=None)
-                if entity:  # replace pdb from fetched file with the entity pdb
+                if entity:  # replace PDB Structure from fetched file with the Entity Structure
                     # entity_pdb = pdb.entity(entry_entity).oligomer <- not quite as desired
                     entity = pdb.entity(entry_entity)
-                    print(','.join(entity.name for entity in pdb.entities))
+                    # print(','.join(entity.name for entity in pdb.entities))
+                    entity_out_path = os.path.join(pdbs_dir, f'{entry_entity}.pdb')
                     if symmetry == 'C1':  # write out only entity
-                        entity_file_path = entity.write(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
+                        entity_file_path = entity.write(out_path=entity_out_path)
                     else:  # write out the entity as parsed. since this is assembly we should get the correct state
-                        entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, '%s.pdb' % entry_entity))
+                        entity_file_path = entity.write_oligomer(out_path=entity_out_path)
                     # Todo make Entity capable of orient() then don't need this ugly mechanism
                     pdb = PDB.from_chains(entity.chains, entity_names=[entry_entity])  # , log=None)
                     pdb.entities = [entity]
                 else:  # orient the whole set of chains based on orient() multicomponent solution
                     # entity = pdb.entities[0]  # assume that there is only one entity and grab the first
                     entry_entity = pdb.entities[0].name
-                entry_entity_base = '%s.pdb' % entry_entity
+                entry_entity_base = f'{entry_entity}.pdb'
 
                 # if entity:  # ensure not none, otherwise, report
                 #     if symmetry == 'C1':  # write out only entity
@@ -200,7 +194,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     entity = pdb.entities[0]  # may be an issue if we passed a hetero dimer and treated as a C1
                     entity.translate(-entity.center_of_mass)
                     # entity.name = entry_entity
-                    orient_file = entity.write(out_path=os.path.join(orient_dir, entry_entity_base))
+                    # orient_file = entity.write(out_path=os.path.join(orient_dir, entry_entity_base))
+                    orient_file = entity.write(out_path=self.oriented.store(name=entity.name))
                     entity.symmetry = symmetry
                     entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
                     entity.stride(to_file=self.stride.store(name=entity.name))
@@ -209,13 +204,16 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     try:
                         pdb.orient(symmetry=symmetry, log=orient_log)
                         orient_file = pdb.write(out_path=os.path.join(orient_dir, entry_entity_base))
-                        orient_log.info('Oriented: %s' % orient_file)
+                        # Todo
+                        #  orient_file = pdb.write(out_path=self.oriented.store(name=entity.name))
+                        orient_log.info(f'Oriented: {orient_file}')
                     except (ValueError, RuntimeError) as err:
                         orient_log.error(str(err))
                         non_viable_structures.append(entry_entity)
                         continue
                     # extract the asu from the oriented file for symmetric refinement
                     # Todo include multiple entities if they are used...? Maybe these are coming from PDB
+                    #  Need to move make_loop_file to Pose/Structure (with SequenceProfile superclass)
                     # all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
                     entity = pdb.entities[0]
                     # entity.name = pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
@@ -227,7 +225,16 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             # for those below, entry_entity may not be the right format
             elif entry_entity not in orient_asu_names:  # orient file exists, but not asu or stride, create and load asu
                 orient_file = self.oriented.retrieve_file(name=entry_entity)
-                all_entities.append(return_orient_asu(orient_file, symmetry))  # entry_entity,
+                # all_entities.append(return_orient_asu(orient_file, symmetry))  # entry_entity,
+                oriented_pdb = PDB.from_file(orient_file)  # , log=None, entity_names=[entry_entity])
+                entity = oriented_pdb.entities[0]
+                # entity = oriented_asu.entities[0]
+                # entity.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
+                entity.symmetry = symmetry
+                entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
+                # save Stride results
+                entity.stride(to_file=self.stride.store(name=entity.name))
+                all_entities.append(entity)  # entry_entity,
             else:  # orient_asu file exists, stride file should as well. load asu
                 orient_asu_file = self.oriented_asu.retrieve_file(name=entry_entity)
                 # all_entities.append(return_orient_asu(orient_file, entry_entity, symmetry))
@@ -238,10 +245,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 entity.symmetry = symmetry
                 entity.filepath = oriented_asu.filepath
                 all_entities.append(entity)
-
-        orient_log.error('The Entit%s unable to be oriented properly'
-                         % ('ies %s were' if len(non_viable_structures) > 1 else 'y %s was'
-                                                                                % ', '.join(non_viable_structures)))
+        non_str = ', '.join(non_viable_structures)
+        orient_log.error(f'The Entit{f"ies {non_str} were" if len(non_viable_structures) > 1 else f"y {non_str} was"} '
+                         f'unable to be oriented properly')
         return all_entities
 
     def preprocess_entities_for_design(self, entities: list[Entity], script_out_path: str | bytes = os.getcwd(),
@@ -269,10 +275,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         for entity in entities:  # if entity is here, the file should've been oriented...
             # for entry_entity in entities:  # ex: 1ABC_1
             # symmetry = master_directory.sym_entry.sym_map[idx]
-            if entity.symmetry == 'C1':
-                sym_def_files[entity.symmetry] = sdf_lookup()
-            else:
-                sym_def_files[entity.symmetry] = sdf_lookup(entity.symmetry)
+            # if entity.symmetry == 'C1':
+            sym_def_files[entity.symmetry] = sdf_lookup() if entity.symmetry == 'C1' else sdf_lookup(entity.symmetry)
             # for entry_entity in entities:
             #     entry = entry_entity.split('_')
             # for orient_asu_file in oriented_asu_files:  # iterating this way to forgo missing "missed orient"
@@ -287,9 +291,9 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         info_messages = []
         pre_refine = False
         if entities_to_refine:  # if files found unrefined, we should proceed
-            logger.info('The following oriented oligomers are not yet refined and are being set up for refinement'
-                        ' into the Rosetta ScoreFunction for optimized sequence design: %s'
-                        % ', '.join(set(entity.name for entity in entities_to_refine)))
+            logger.info('The following oriented entities are not yet refined and are being set up for refinement'
+                        ' into the Rosetta ScoreFunction for optimized sequence design: '
+                        f'{", ".join(set(entity.name for entity in entities_to_refine))}')
             print('Would you like to refine them now? If you plan on performing sequence design with models '
                   'containing them, it is highly recommended you perform refinement')
             if not boolean_choice():
@@ -365,7 +369,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
                                   os.path.join(rosetta_scripts, 'loop_model_ensemble.xml'), '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
-                logger.info('Preparing blueprint and loop files for entity:')
+                # logger.info('Preparing blueprint and loop files for entity:')
                 # out_paths, blueprints, loop_files = [], [], []
                 # for entity in entities_to_loop_model:
                 loop_model_cmds = []
@@ -378,14 +382,14 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
                     entity_cmd = script_cmd + loop_model_cmd + \
                         [f'blueprint={entity_blueprint}', f'loop_file={entity_loop_file}',
-                         '-in:file:s', os.path.join(refine_dir, f'{entity.name}.pdb'), '-out:path:pdb',
-                         entity_out_path] + (['-symmetry:symmetry_definition', sym_def_files[entity.symmetry]]
-                                             if entity.symmetry != 'C1' else [])
+                         '-in:file:s', self.refined.store(entity.name), '-out:path:pdb', entity_out_path] + \
+                        (['-symmetry:symmetry_definition', sym_def_files[entity.symmetry]] if entity.symmetry != 'C1'
+                         else [])
 
                     multimodel_cmd = ['python', models_to_multimodel_exe, '-d', entity_loop_file,
-                                      '-o', os.path.join(full_model_dir, f'{entity}_ensemble.pdb')]
-                    copy_cmd = ['scp', os.path.join(entity_out_path, f'{entity}_0001.pdb'),
-                                os.path.join(full_model_dir, f'{entity}.pdb')]
+                                      '-o', os.path.join(full_model_dir, f'{entity.name}_ensemble.pdb')]
+                    copy_cmd = ['scp', os.path.join(entity_out_path, f'{entity.name}_0001.pdb'),
+                                self.full_models.store(entity.name)]
                     loop_model_cmds.append(
                         SDUtils.write_shell_script(list2cmdline(entity_cmd), name=entity.name, out_path=full_model_dir,
                                                    additional=[list2cmdline(multimodel_cmd), list2cmdline(copy_cmd)]))
@@ -444,25 +448,26 @@ class DataStore:
 
     def store(self, name):
         """Return the path of the storage location given an entity name"""
-        return os.path.join(self.location, '%s%s' % (name, self.extension))
+        return os.path.join(self.location, f'{name}{self.extension}')
 
     def retrieve_file(self, name):
         """Returns the actual location by combining the requested name with the stored .location"""
-        path = os.path.join(self.location, '%s%s' % (name, self.extension))
+        path = os.path.join(self.location, f'{name}{self.extension}')
         files = sorted(glob(path))
         if files:
+            file = files[0]
             if len(files) > 1:
-                self.log.error('Found more than one file at %s. Grabbing the first one: %s' % (path, files[0]))
-            return files[0]
+                self.log.warning(f'Found more than one file at "{path}". Grabbing the first one: {file}')
+            return file
         else:
-            self.log.warning('No files found for "%s"' % path)
+            self.log.info(f'No files found for "{path}"')
 
     def retrieve_files(self) -> List:
         """Returns the actual location of all files in the stored .location"""
-        path = os.path.join(self.location, '*%s' % self.extension)
+        path = os.path.join(self.location, f'*{self.extension}')
         files = sorted(glob(path))
         if not files:
-            self.log.warning('No files found for "%s"' % path)
+            self.log.info(f'No files found for "{path}"')
         return files
 
     def retrieve_names(self) -> List:
@@ -859,46 +864,55 @@ class JobResources:
     then shared across all member designs"""
     def __init__(self, program_root, **kwargs):
         """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes"""
-        if not os.path.exists(program_root):
-            raise DesignError('Path does not exist!\n\t%s' % program_root)
-        else:
+        if os.path.exists(program_root):
             self.program_root = program_root
+        else:
+            raise FileNotFoundError(f'Path does not exist!\n\t{program_root}')
+
+        # program_root subdirectories
         self.protein_data = os.path.join(self.program_root, data.title())
+        self.projects = os.path.join(self.program_root, projects)
+        self.job_paths = os.path.join(self.program_root, 'JobPaths')
+        self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
+        # TODO ScoreDatabase integration
+        self.all_scores = os.path.join(self.program_root, all_scores)
+
+        # data subdirectories
+        self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
         self.pdbs = os.path.join(self.protein_data, 'PDBs')  # Used to store downloaded PDB's
+        self.sequence_info = os.path.join(self.protein_data, sequence_info)
+        # pdbs subdirectories
         self.orient_dir = os.path.join(self.pdbs, 'oriented')
         self.orient_asu_dir = os.path.join(self.pdbs, 'oriented_asu')
         self.refine_dir = os.path.join(self.pdbs, 'refined')
         self.full_model_dir = os.path.join(self.pdbs, 'full_models')
         self.stride_dir = os.path.join(self.pdbs, 'stride')
-        self.sequence_info = os.path.join(self.protein_data, sequence_info)
+        # sequence_info subdirectories
         self.sequences = os.path.join(self.sequence_info, 'sequences')
         self.profiles = os.path.join(self.sequence_info, 'profiles')
         # try:
         # if not self.projects:  # used for subclasses
-        if not getattr(self, 'projects', None):  # used for subclasses
-            self.projects = os.path.join(self.program_root, projects)
+        # if not getattr(self, 'projects', None):  # used for subclasses
+        #     self.projects = os.path.join(self.program_root, projects)
         # except AttributeError:
         #     self.projects = os.path.join(self.program_root, projects)
-        self.clustered_poses = os.path.join(self.protein_data, 'ClusteredPoses')
-        self.job_paths = os.path.join(self.program_root, 'JobPaths')
-        self.sbatch_scripts = os.path.join(self.program_root, 'Scripts')
-        # TODO ScoreDatabase integration
-        self.all_scores = os.path.join(self.program_root, all_scores)
         # self.design_db = None
         # self.score_db = None
-        self.make_path(self.protein_data)
-        self.make_path(self.job_paths)
-        self.make_path(self.sbatch_scripts)
+        # self.make_path(self.protein_data)
+        # self.make_path(self.projects)
+        # self.make_path(self.job_paths)
+        # self.make_path(self.sbatch_scripts)
         # sequence database specific
-        self.make_path(self.sequence_info)
-        self.make_path(self.sequences)
-        self.make_path(self.profiles)
+        # self.make_path(self.sequence_info)
+        # self.make_path(self.sequences)
+        # self.make_path(self.profiles)
         # structure database specific
-        self.make_path(self.pdbs)
-        self.make_path(self.orient_dir)
-        self.make_path(self.orient_asu_dir)
-        self.make_path(self.stride_dir)
-        self.make_path(self.full_model_dir)
+        # self.make_path(self.pdbs)
+        # self.make_path(self.orient_dir)
+        # self.make_path(self.orient_asu_dir)
+        # self.make_path(self.refine_dir)
+        # self.make_path(self.full_model_dir)
+        # self.make_path(self.stride_dir)
         self.reduce_memory = False
         self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
                                   self.stride_dir, self.sequences, self.profiles, sql=None)  # , log=logger)
@@ -914,7 +928,7 @@ class JobResources:
         self.fuse_chains: list[tuple[str]] = [tuple(pair.split(':')) for pair in kwargs.get('fuse_chains', [])]
         self.ignore_clashes: bool = kwargs.get(ignore_clashes, False)
         if self.ignore_clashes:
-            self.ignore_pose_clashes, self.ignore_symmetric_clashes = True, True
+            self.ignore_pose_clashes = self.ignore_symmetric_clashes = True
         else:
             self.ignore_pose_clashes: bool = kwargs.get(ignore_pose_clashes, False)
             self.ignore_symmetric_clashes: bool = kwargs.get(ignore_symmetric_clashes, False)
