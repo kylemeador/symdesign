@@ -1493,6 +1493,11 @@ class PoseDirectory:
         if self.interface_residues is False or self.interface_design_residues is False:
             # need these ^ for making flags so get them v
             self.identify_interface()
+        else:  # we only need to load pose as we already calculated interface
+            # self.load_pose()
+            # Todo not correct!
+            # self.pose.interface_residues = self.interface_residues
+            self.identify_interface()
 
         # interface_secondary_structure
         if not path.exists(self.flags) or self.force_flags:
@@ -2111,8 +2116,10 @@ class PoseDirectory:
             refine_pdb = self.source
             refined_pdb = path.join(pdb_out_path, refine_pdb)
             additional_flags = ['-no_scorefile', 'true']
+            # self.load_pose()  # Todo have to use this to get the pose.ss_index in get_fragment_metrics()
+            self.identify_interface()
 
-        if not path.exists(self.flags) or self.force_flags:  # Generate a new flags file
+        if not path.exists(flags) or self.force_flags:  # Generate a new flags file
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
             self.make_path(flag_dir)
@@ -2454,8 +2461,8 @@ class PoseDirectory:
         if self.interface_residues is False or self.interface_design_residues is False:
             self.identify_interface()
         else:  # we only need to load pose as we already calculated interface
-            self.load_pose()
-            # Todo not correct!
+            # self.load_pose()
+            # Todo not correct! have to perform below to get pose.ss_index
             # self.pose.interface_residues = self.interface_residues
             self.identify_interface()
         self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residues)))}')
