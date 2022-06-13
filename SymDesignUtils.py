@@ -143,7 +143,7 @@ def start_log(name: str = '', handler: int = 1, level: int = 2, location: Union[
         lh = StreamHandler()
     elif handler == 2:
         if os.path.splitext(location)[1] == '':  # no extension, should add one
-            lh = FileHandler('%s.log' % location)
+            lh = FileHandler(f'{location}.log')
         else:  # already has extension
             lh = FileHandler(location)
     else:  # handler == 3:
@@ -458,25 +458,24 @@ def validate_input(prompt, response=None):  # exact copy as in Query.utils
     return _input
 
 
-def io_save(data, file_name=None):
+def io_save(data: Iterable, file_name: str = None):
     """Take an iterable and either output to user, write to a file, or both. User defined choice
 
     Args:
-        data (Iterable): The data to write to file
-    Keyword Args:
-        file_name=None (str): The name of the file to write to
+        data: The data to write to file
+        file_name: The name of the file to write to
     Returns:
         (None)
     """
     io_prompt = 'Enter "P" to print Data, "W" to write Data to file, or "B" for both%s' % input_string
-    response = ['w', 'p', 'b']
+    response = ['W', 'P', 'B', 'w', 'p', 'b']
     _input = validate_input(io_prompt, response=response).lower()
 
-    if _input in ['w', 'b']:
-        write_file(file_name)
-
     if _input in ['b', 'p']:
-        logger.info('\n%s' % data)
+        logger.info(f'\n{data}')
+
+    if _input in ['w', 'b']:
+        write_file(data, file_name)
 
     return file_name
 
@@ -1002,9 +1001,9 @@ class PoseSpecification(Dialect):
         for idx in range(len(all_info)):
             if idx == 0:
                 all_poses = all_info[idx]
-            if idx == 1:
+            elif idx == 1:
                 design_names = all_info[idx]
-            if idx == 2:
+            elif idx == 2:
                 all_design_directives = all_info[idx]
         self.all_poses, self.design_names = list(map(str.strip, all_poses)), list(map(str.strip, design_names))
 
@@ -1027,9 +1026,18 @@ class PoseSpecification(Dialect):
         # print('Total Design Directives', self.directives)
 
     def return_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
-        if len(self.all_poses) == len(self.design_names) == len(self.directives):  # specification file
-            # return zip(self.all_poses, self.design_names, self.directives)
-            design_names, directives = self.design_names, self.directives
+        if self.directives:
+            if len(self.all_poses) == len(self.design_names) == len(self.directives):  # specification file
+                # return zip(self.all_poses, self.design_names, self.directives)
+                design_names, directives = self.design_names, self.directives
+            else:
+                raise ValueError('The inputs to the PoseSpecification have different lengths!')
+        elif self.design_names:
+            if len(self.all_poses) == len(self.design_names):  # specification file
+                # return zip(self.all_poses, self.design_names, self.directives)
+                design_names, directives = self.design_names, repeat(self.directives)
+            else:
+                raise ValueError('The inputs to the PoseSpecification have different lengths!')
         else:  # pose file with possible extra garbage
             # design_names, directives = repeat(self.design_names), repeat(self.directives)
             design_names, directives = repeat(self.design_names), repeat(self.directives)

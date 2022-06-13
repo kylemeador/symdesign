@@ -1160,17 +1160,20 @@ class PoseDirectory:  # (JobResources):
 
         # configure standard pose loading mechanism with self.source
         if self.specific_design:
-            matching_designs = sorted(glob(path.join(self.designs, f'*{self.specific_design}.pdb')))
+            matching_path = path.join(self.designs, f'*{self.specific_design}.pdb')
+            matching_designs = sorted(glob(matching_path))
             if matching_designs:
                 for matching_design in matching_designs:
                     if path.exists(matching_design):
                         self.specific_design_path = matching_design
                         break
                 if len(matching_designs) > 1:
-                    self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design, '
-                                     f'choosing the first {matching_designs[0]}')
+                    # self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design, '
+                    #                  f'choosing the first {matching_designs[0]}')
+                    raise ValueError(f'Found {len(matching_designs)} matching designs to your specified design:\n\t'
+                                     f'{", ".join(matching_designs)}')
             else:
-                raise DesignError(f'Couldn\'t locate a specific_design matching the name "*{self.specific_design}.pdb"')
+                raise DesignError(f'Couldn\'t locate a specific_design matching the name "{matching_path}"')
             # format specific_design to a pose ID compatible format
             self.specific_design = f'{self.name}_{self.specific_design}'
             self.source = self.specific_design_path
