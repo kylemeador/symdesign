@@ -495,11 +495,11 @@ class SymEntry:
         # Todo now that code working for situations where more than 2 symmetries, enumerate when to search these others
         for idx, group in enumerate(self.groups, 1):
             degeneracy_matrices = None
-            # For cages, only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
+            # For cages, only one of the two entities need to be flipped. By convention we flip oligomer 2.
             if self.dimension == 0 and idx == 2:
                 degeneracy_matrices = [identity_matrix, flip_y_matrix]
-            # For layers that obey a cyclic point group symmetry and that are constructed from two oligomers that both
-            # obey cyclic symmetry only one of the two oligomers need to be flipped. By convention we flip oligomer 2.
+            # For layers that obey a cyclic point group symmetry and that are constructed from two entities that both
+            # obey cyclic symmetry only one of the two entities need to be flipped. By convention we flip oligomer 2.
             elif self.dimension == 2 and idx == 2 and \
                     (self.groups[0][0], self.groups[1][0], self.point_group_symmetry[0]) == ('C', 'C', 'C'):
                 degeneracy_matrices = [identity_matrix, flip_y_matrix]
