@@ -104,7 +104,7 @@ sequence_info = 'SequenceInfo'  # was Sequence_Info 1/25/21
 pose_directory = 'Poses'
 
 data = 'data'
-pdbs_outdir = 'designs'  # was rosetta_pdbs/ 1/25/21
+designs = 'designs'  # was rosetta_pdbs/ 1/25/21
 all_scores = 'AllScores'
 scores_outdir = 'scores'
 scripts = 'scripts'
@@ -118,7 +118,7 @@ pdb_source = 'db'  # 'fetch_pdb'  # TODO set up
 #                                 'Ex:P432/4ftd_5tch/DEGEN1_2/ROT_1/tx_2'\
 #                                 '\nIn design directory \'tx_c/\', output is located in \'%s\' and \'%s\'.' \
 #                                 '\nTotal design_symmetry_pg score are located in ./design_symmetry_pg/building_blocks/%s' \
-#                                 % (pdbs_outdir, scores_outdir, scores_outdir)
+#                                 % (designs, scores_outdir, scores_outdir)
 # Memory Requirements
 # 10.5MB was measured 5/13/22 with self.pose,
 # after deleting self.pose: 450 poses -> 6.585339. 900 poses -> 3.346759

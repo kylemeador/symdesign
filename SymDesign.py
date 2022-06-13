@@ -27,7 +27,8 @@ from Bio.SeqRecord import SeqRecord
 
 import PathUtils as PUtils
 import SymDesignUtils as SDUtils
-from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign  # pose_rmsd, cluster_poses
+from ClusterUtils import cluster_designs, invert_cluster_map, group_compositions, ialign, pose_rmsd_mp, pose_rmsd_s, \
+    cluster_poses
 from CommandDistributer import distribute, hhblits_memory_threshold, update_status
 from DesignMetrics import prioritize_design_indices, query_user_for_metrics
 from DnaChisel.dnachisel.DnaOptimizationProblem.NoSolutionError import NoSolutionError
@@ -605,8 +606,6 @@ if __name__ == '__main__':
     # ensure module specific arguments are collected and argument help is printed in full
     entire_parser = argparsers[parser_entire]
     args, additional_args = entire_parser.parse_known_args()
-    print('line0')
-    print(args)
     # args, additional_args = argparsers[parser_options].parse_known_args()  # additional_args, args)
     # -----------------------------------------------------------------------------------------------------------------
     # Display the program guide if requested
@@ -843,10 +842,13 @@ if __name__ == '__main__':
     pre_refine, pre_loop_model = None, None  # set below if needed
     if initialize:
         if args.range:
-            low, high = map(float, args.range.split('-'))
+            try:
+                low, high = map(float, args.range.split('-'))
+            except ValueError:  # we didn't unpack correctly
+                raise ValueError('The input flag -r/--range argument must take the form "LOWER-UPPER"')
             low_range, high_range = int((low / 100) * len(all_poses)), int((high / 100) * len(all_poses))
             if low_range < 0 or high_range > len(all_poses):
-                raise ValueError('The input -r/--range is outside of the acceptable bounds [0-100]')
+                raise ValueError('The input flag -r/--range argument is outside of the acceptable bounds [0-100]')
             logger.info(f'Selecting poses within range: {low_range if low_range else 1}-{high_range}')
 
         logger.info(f'Setting up input files for {args.module}')
@@ -909,9 +911,9 @@ if __name__ == '__main__':
         #      PUtils.analysis,  # maybe hhblits, bmDCA. Only refine if Rosetta were used, no loop_modelling
         #      PUtils.refine]  # pre_refine not necessary. maybe hhblits, bmDCA, loop_modelling
         if not initialized and args.module in initialize_modules or args.nanohedra_output or args.load_database:
-            # if args.load_database:  # Todo why is this set_up_design_directory here?
+            # if args.load_database:  # Todo why is this set_up_pose_directory here?
             #     for design in pose_directories:
-            #         design.set_up_design_directory()
+            #         design.set_up_pose_directory()
             # args.orient, args.refine = True, True  # Todo make part of argparse? Could be variables in NanohedraDB
             # for each pose_directory, ensure that the pdb files used as source are present in the self.orient_dir
             orient_dir = job.orient_dir
@@ -1068,18 +1070,17 @@ if __name__ == '__main__':
             # Todo set up a job based data acquisition as it takes some time and isn't always necessary!
             job.resources.load_all_data()
             # Todo tweak behavior of these two parameters. Need Queue based PoseDirectory
-            # SDUtils.mp_map(PoseDirectory.set_up_design_directory, pose_directories, processes=cores)
+            # SDUtils.mp_map(PoseDirectory.set_up_pose_directory, pose_directories, processes=cores)
             # SDUtils.mp_map(PoseDirectory.link_master_database, pose_directories, processes=cores)
         # set up in series
         for design in pose_directories:
-            design.set_up_design_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
+            design.set_up_pose_directory(pre_refine=pre_refine, pre_loop_model=pre_loop_model)
 
         logger.info(f'{len(pose_directories)} unique poses found in "{location}"')
         if not job.debug and not job.skip_logging:
-            example_log = getattr(example_directory.log.handlers[0], 'baseFilename', None)
-            if example_log:
+            if representative_pose_directory.log_path:
                 logger.info(f'All design specific logs are located in their corresponding directories\n\tEx: '
-                            f'{example_log}')
+                            f'{representative_pose_directory.log_path}')
 
     elif args.module == PUtils.nano:
         logger.critical('Setting up inputs for %s Docking' % PUtils.nano)
@@ -1762,6 +1763,17 @@ if __name__ == '__main__':
                 # pose_cluster_map = cluster_poses(pose_map)
                 for composition_group in compositions.values():
                     pose_cluster_map.update(cluster_designs(composition_group))
+        elif args.mode == 'rmsd':
+            raise NotImplementedError('This mode needs to be modernized before use! Please update to use the '
+                                      '.entity_names attribute of the PoseDirectory instead of .composiitions')
+            # First, identify the same compositions
+            compositions = group_compositions(pose_directories)
+            if args.multi_processing:
+                pose_map = pose_rmsd_mp(pose_directories)
+                pose_cluster_map = cluster_poses(pose_map)
+            else:
+                pose_map = pose_rmsd_s(pose_directories)
+                pose_cluster_map = cluster_poses(pose_map)
         else:
             exit(f'{args.mode} is not a viable mode!')
 

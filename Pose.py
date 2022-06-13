@@ -2107,7 +2107,7 @@ class SymmetricModel(Model):
             current_best_minimal_central_offset = float('inf')
             # sym_group_setting_matrices = point_group_setting_matrix_members[self.point_group_symmetry].get(sym_group)
             for setting_matrix_idx in point_group_setting_matrix_members[self.point_group_symmetry].get(sym_group, []):
-                self.log.critical('Setting_matrix_idx = %d' % setting_matrix_idx)
+                # self.log.critical('Setting_matrix_idx = %d' % setting_matrix_idx)
                 temp_model_coms = np.matmul(center_of_mass_symmetric_entities[group_idx],
                                             np.transpose(inv_setting_matrices[setting_matrix_idx]))
                 # self.log.critical('temp_model_coms = %s' % temp_model_coms)
