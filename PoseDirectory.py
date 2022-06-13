@@ -850,7 +850,8 @@ class PoseDirectory:
                         'entity_number_of_residues_average_deviation': residue_ratio_sum / counter})
         return metrics
 
-    def return_termini_accessibility(self, entity=None, report_if_helix=False):
+    def return_termini_accessibility(self, entity: Entity = None, index: int = 0, report_if_helix: bool = False) -> \
+            dict[str, bool]:
         """Return the termini which are not buried in the Pose
 
         Args:
@@ -865,14 +866,12 @@ class PoseDirectory:
 
         entity_chain = self.pose.assembly.chain(entity.chain_id)
         n_term, c_term = False, False
-        # Todo add reference when in a crystalline environment  # reference=pose_transformation[idx].get('translation2')
-        n_termini_orientation = entity.termini_proximity_from_reference()
-        if n_termini_orientation == 1:  # if outward
+        entity_reference = self.pose_transformation[index].get('translation2', None)
+        if entity.termini_proximity_from_reference(reference=entity_reference) == 1:  # if outward
             if entity_chain.n_terminal_residue.relative_sasa > 0.25:
                 n_term = True
-        # Todo add reference when in a crystalline environment
-        c_termini_orientation = entity.termini_proximity_from_reference(termini='c')
-        if c_termini_orientation == 1:  # if outward
+
+        if entity.termini_proximity_from_reference(termini='c', reference=entity_reference) == 1:  # if outward
             if entity_chain.c_terminal_residue.relative_sasa > 0.25:
                 c_term = True
 
@@ -1723,10 +1722,10 @@ class PoseDirectory:
                 header = True
             pose_s.to_csv(out_path, mode='a', header=header)
 
-    def transform_oligomers_to_pose(self, refined: bool = True, oriented: bool = False, **kwargs):
-        """Take the set of oligomers involved in a pose composition and transform them from a standard reference frame
+    def transform_entities_to_pose(self, refined: bool = True, oriented: bool = False, **kwargs):
+        """Take the set of entities involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
-        master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
+        master Database refined source if the entities exist there, if they don't, the oriented source is used if it
         exists. Finally, the PoseDirectory will be used as a back up
 
         Args:
@@ -1735,11 +1734,10 @@ class PoseDirectory:
         """
         self.get_oligomers(refined=refined, oriented=oriented)
         if self.pose_transformation:
-            self.oligomers = [oligomer.return_transformed_copy(**self.pose_transformation[oligomer_idx])
-                              for oligomer_idx, oligomer in enumerate(self.oligomers)]
-            # Todo assumes a 1:1 correspondence between entities and oligomers (component group numbers) CHANGE
+            self.entities = [entity.return_transformed_copy(**self.pose_transformation[idx])
+                             for idx, entity in enumerate(self.entities)]
             # Todo make oligomer, oligomer! If symmetry permits now that storing as refined asu, oriented asu, model asu
-            self.log.debug('Oligomers were transformed to the found docking parameters')
+            self.log.debug('Entities were transformed to the found docking parameters')
         else:
             raise DesignError('The design could not be transformed as it is missing the required transformation '
                               'parameters. Were they generated properly?')
@@ -1747,7 +1745,7 @@ class PoseDirectory:
     def transform_structures_to_pose(self, structures: Iterable[Structure], **kwargs) -> list[Structure]:
         """Take the set of entities involved in a pose composition and transform them from a standard reference frame
         to the pose reference frame using computed pose_transformation parameters. Default is to take the pose from the
-        master Database refined source if the oligomers exist there, if they don't, the oriented source is used if it
+        master Database refined source if the entities exist there, if they don't, the oriented source is used if it
         exists. Finally, the PoseDirectory will be used as a back up
 
         Args:
@@ -1773,7 +1771,7 @@ class PoseDirectory:
             refined: Whether to use the refined oligomeric directory
             oriented: Whether to use the oriented oligomeric directory
         Sets:
-            self.oligomers (list[Structure])
+            self.entities (list[Structure])
         """
         source_preference = ['refined', 'oriented', 'design']
         if self.resources:
@@ -1783,38 +1781,38 @@ class PoseDirectory:
                 source_idx = 1
             else:
                 source_idx = 2
-                self.log.warning('Falling back on oligomers present in the Design source which may not be refined. This'
+                self.log.warning('Falling back on entities present in the Design source which may not be refined. This'
                                  ' will lead to issues in sequence design if the structure is not refined first...')
 
-            self.oligomers.clear()
+            self.entities.clear()
             for name in self.entity_names:
-                oligomer = None
-                while not oligomer:
-                    oligomer = self.resources.retrieve_data(source=source_preference[source_idx], name=name)
-                    if isinstance(oligomer, Structure):
-                        self.log.info('Found oligomer file at %s and loaded into job' % source_preference[source_idx])
-                        self.oligomers.append(oligomer)
+                entity = None
+                while not entity:
+                    source = source_preference[source_idx]
+                    entity = self.resources.retrieve_data(source=source, name=name)
+                    if isinstance(entity, Structure):
+                        self.log.info(f'Found entity file at {source} and loaded into job')
+                        self.entities.append(entity)
                     else:
-                        self.log.error('Couldn\'t locate the oligomer %s at the specified source %s'
-                                       % (name, source_preference[source_idx]))
+                        self.log.error(f'Couldn\'t locate the entity {name} at the specified source {source}')
                         source_idx += 1
-                        self.log.error('Falling back to source %s' % source_preference[source_idx])
-                        if source_preference[source_idx] == 'design':
-                            file = glob(path.join(self.path, '%s*.pdb*' % name))
+                        self.log.error('Falling back to source {source}')
+                        if source == 'design':
+                            file = sorted(glob(path.join(self.path, f'{name}*.pdb*')))
                             if file and len(file) == 1:
-                                self.oligomers.append(PDB.from_file(file[0], log=self.log,
-                                                                    name=path.splitext(path.basename(file))[0]))
+                                self.entities.append(PDB.from_file(file[0], log=self.log))
                             else:
-                                raise DesignError('Couldn\'t located the specified oligomer %s' % name)
+                                raise DesignError(f'Couldn\'t located the specified entity at "{file}"')
             if source_idx == 0:
                 self.pre_refine = True
         else:  # Todo consolidate this with above as far as iterative mechanism
+            out_dir = ''
             if refined:  # prioritize the refined version
                 out_dir = self.refine_dir
                 for name in self.entity_names:
                     if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
                         oriented = True  # fall back to the oriented version
-                        self.log.debug('Couldn\'t find oligomers in the refined directory')
+                        self.log.debug('Couldn\'t find entities in the refined directory')
                         break
                 self.pre_refine = True if not oriented else False
             if oriented:
@@ -1822,7 +1820,7 @@ class PoseDirectory:
                 for name in self.entity_names:
                     if not path.exists(glob(path.join(self.refine_dir, f'{name}*.pdb*'))[0]):
                         out_dir = self.path
-                        self.log.debug('Couldn\'t find oligomers in the oriented directory')
+                        self.log.debug('Couldn\'t find entities in the oriented directory')
 
             if not refined and not oriented:
                 out_dir = self.path
@@ -1832,16 +1830,16 @@ class PoseDirectory:
             for idx, name in enumerate(self.entity_names, 1):
                 oligomer_files.extend(sorted(glob(path.join(out_dir, f'{name}*.pdb*'))))  # first * is PoseDirectory
             assert len(oligomer_files) == idx, \
-                'Incorrect number of oligomers! Expected %d, %d found. Matched files from "%s":\n\t%s' \
-                % (idx, len(oligomer_files), path.join(out_dir, '*.pdb*'), oligomer_files)
+                f'Incorrect number of entities! Expected {idx}, {len(oligomer_files)} found. Matched files from ' \
+                f'"{path.join(out_dir, "*.pdb*")}":\n\t{oligomer_files}'
 
-            self.oligomers.clear()  # for every call we should reset the list
+            self.entities.clear()  # for every call we should reset the list
             for file in oligomer_files:
-                self.oligomers.append(PDB.from_file(file, name=path.splitext(path.basename(file))[0],
-                                                    log=self.log))
-        self.log.debug('%d matching oligomers found' % len(self.oligomers))
-        assert len(self.oligomers) == len(self.entity_names), \
-            'Expected %d oligomers, but found %d' % (len(self.oligomers), len(self.entity_names))
+                self.entities.append(PDB.from_file(file, name=path.splitext(path.basename(file))[0],
+                                                   log=self.log))
+        self.log.debug(f'{len(self.entities)} matching entities found')
+        assert len(self.entities) == len(self.entity_names), \
+            f'Expected {len(self.entities)} entities, but found {len(self.entity_names)}'
 
     def load_pose(self, source: str = None, entities: list[Structure] = None):
         """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
@@ -1860,10 +1858,10 @@ class PoseDirectory:
         if not entities and not self.source or not path.exists(self.source):  # Todo minimize I/O with transform...
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             self.log.info('No source file found. Fetching source from Database and transforming to Pose')
-            self.transform_oligomers_to_pose()
+            self.transform_entities_to_pose()
             entities = []
-            for oligomer in self.oligomers:
-                entities.extend(oligomer.entities)
+            for entity in self.entities:
+                entities.extend(entity.entities)
             # because the file wasn't specified on the way in, no chain names should be binding
             # rename_chains = True
 

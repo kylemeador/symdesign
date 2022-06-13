@@ -1087,7 +1087,7 @@ if __name__ == '__main__':
         # make master output directory.           sym_entry is required, so this won't fail v
         job.docking_master_dir = os.path.join(job.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
         os.makedirs(job.docking_master_dir, exist_ok=True)
-        # Transform input oligomers to canonical orientation and return their ASU
+        # Transform input entities to canonical orientation and return their ASU
         symmetry_map = sym_entry.groups
         all_entities = []
         load_resources = False
