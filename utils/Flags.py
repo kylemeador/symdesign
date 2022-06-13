@@ -509,6 +509,8 @@ parser_select_poses_arguments = {
     ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
                                     help='Number of poses to return\nDefault=No Limit'),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
+    ('--save_total',): dict(action='store_false',
+                            help='If --total is used, should the total dataframe be saved?\nDefault=%(default)s'),
     ('--total',): dict(action='store_true',
                        help='Should poses be selected based on their ranking in the total pose pool?\nThis will select '
                             'the top poses based on the average of all designs in\nthat pose for the metrics specified '
@@ -573,11 +575,14 @@ parser_select_sequences_arguments = {
                                     help='What is the maximum number of sequences that should be selected from '
                                          'each pose?\nDefault=%(default)s'),
     # Todo make work with list... choices=['single', 'all', 'none']
-    ('--tag_entities',): dict(type=str, help='If there are specific entities in the designs you want to tag,\n'
-                                             'indicate how tagging should occur. Viable options include:\n\tsingle '
-                                             '- a single entity\n\tall - all entities\n\tnone - no entities\n\tcomma'
-                                             ' separated list such as "1,0,1"\n\t\twhere "1" indicates a tag is '
-                                             'required\n\t\tand "0" indicates no tag is required'),
+    ('--tag_entities',): dict(type=str, default='none',
+                              help='If there are specific entities in the designs you want to tag,\nindicate how '
+                                   'tagging should occur. Viable options include:\n\t"single" - a single entity\n\t'
+                                   '"all" - all entities\n\t"none" - no entities\n\tcomma separated list such as '
+                                   '"1,0,1"\n\t\twhere "1" indicates a tag is required\n\t\tand "0" indicates no tag is'
+                                   ' required'),
+    ('--save_total',): dict(action='store_false',
+                            help='If --total is used, should the total dataframe be saved?\nDefault=%(default)s'),
     ('--total',): dict(action='store_true',
                        help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
                             'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
@@ -607,6 +612,8 @@ parser_select_designs_arguments = {
                                          'specified number will be selected from each pose (Where Default=1/pose)'),
     (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
     ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
+    ('--save_total',): dict(action='store_false',
+                            help='If --total is used, should the total dataframe be saved?\nDefault=%(default)s'),
     ('--total',): dict(action='store_true',
                        help='Should sequences be selected based on their ranking in the total\ndesign pool? Searches '
                             'for the top sequences from all poses,\nthen chooses one sequence/pose unless '
