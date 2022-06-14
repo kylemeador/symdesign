@@ -3830,7 +3830,7 @@ class PoseDirectory:
     def __eq__(self, other) -> bool:
         if isinstance(other, PoseDirectory):
             return self.__key() == other.__key()
-        return NotImplemented
+        raise NotImplemented(f'Can\' compare {PoseDirectory.__name__} instance to {other.__name__} instance')
 
     def __hash__(self) -> int:
         return hash(self.__key())
