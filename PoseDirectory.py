@@ -582,7 +582,12 @@ class PoseDirectory:
         try:
             return self._sym_entry
         except AttributeError:
-            self._sym_entry = symmetry_factory(*self.info['sym_entry_specification']) \
+            # self._sym_entry = symmetry_factory(*self.info['sym_entry_specification']) \
+            #     if 'sym_entry_specification' in self.info else None
+            temp_sym_entry = SymEntry(self.info['sym_entry_specification'][0])
+            self._sym_entry = symmetry_factory(self.info['sym_entry_specification'][0],
+                                               [temp_sym_entry.resulting_symmetry] +
+                                               list(self.info['sym_entry_specification'][1].values())) \
                 if 'sym_entry_specification' in self.info else None
             return self._sym_entry
 
@@ -615,8 +620,8 @@ class PoseDirectory:
     def sym_entry_map(self) -> str | None:
         """The symmetry map of the SymEntry"""
         try:
-            return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
-            # return self.sym_entry.sym_map  Todo reinstate
+            # return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
+            return self.sym_entry.sym_map
         except AttributeError:
             return
 
