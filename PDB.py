@@ -513,11 +513,11 @@ class PDB(Structure):
         else:
             return ''
 
-    def parse_seqres(self, seqres_lines):
+    def parse_seqres(self, seqres_lines: list[str]):
         """Convert SEQRES information to single amino acid dictionary format
 
         Args:
-            seqres_lines (list): The list of lines containing SEQRES information
+            seqres_lines: The list of lines containing SEQRES information
         Sets:
             self.reference_sequence
         """
@@ -527,27 +527,32 @@ class PDB(Structure):
         # SEQRES ...
         # SEQRES  16 C  201  SER TYR ILE ALA GLN GLU
         for line in seqres_lines:
-            chain, length, *sequence = line.split()  # [0]
+            chain, length, *sequence = line.split()
             if chain in self.reference_sequence:
-                self.reference_sequence[chain].extend(sequence)
+                self.reference_sequence[chain].extend(map(str.title, sequence))
             else:
-                self.reference_sequence[chain] = sequence
+                self.reference_sequence[chain] = [char.title() for char in sequence]
 
         for chain, sequence in self.reference_sequence.items():
             for idx, aa in enumerate(sequence):
-                # try:
-                if aa.title() in protein_letters_3to1_extended:
-                    self.reference_sequence[chain][idx] = protein_letters_3to1_extended[aa.title()]
-                # except KeyError:
-                else:
-                    if aa.title() == 'Mse':
+                try:
+                # if aa.title() in protein_letters_3to1_extended:
+                    self.reference_sequence[chain][idx] = protein_letters_3to1_extended[aa]
+                except KeyError:
+                # else:
+                    if aa == 'Mse':
                         self.reference_sequence[chain][idx] = 'M'
                     else:
                         self.reference_sequence[chain][idx] = '-'
             self.reference_sequence[chain] = ''.join(self.reference_sequence[chain])
 
-    def reorder_chains(self, exclude_chains=None):
-        """Renames chains using PDB.available_letter. Caution, doesn't update self.reference_sequence chain info
+    def reorder_chains(self, exclude_chains: Sequence = None) -> None:
+        """Renames chains using Structure.available_letters
+
+        Args:
+            exclude_chains: The chains which shouln't be modified
+        Sets:
+            self.chain_ids (list[str])
         """
         available_chain_ids = self.return_chain_generator()
         if exclude_chains:
@@ -561,6 +566,7 @@ class PDB(Structure):
             chain.chain_id = new_id
 
     def renumber_residues_by_chain(self):
+        """For each Chain in self.chains, renumber Residue objects sequentially starting with 1"""
         for chain in self.chains:
             chain.renumber_residues()
 
@@ -568,7 +574,8 @@ class PDB(Structure):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues
 
         Sets:
-            self.chains
+            self.chain_ids (list[str])
+            self.chains (list[Chain] | Structures)
         """
         residues = self.residues
         # if solve_discrepancy:

@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import subprocess
 from collections import UserList, defaultdict
-from collections.abc import Iterable
+from collections.abc import Iterable, Generator
 from copy import copy  # , deepcopy
 from itertools import repeat
 from logging import Logger
@@ -1279,6 +1279,7 @@ class Structure(StructureBase):
     Must pass atoms, residues, residue_indices, or coords to use most methods without issues
     to initialize
     """
+    _residue_indices: list[int] | None
     available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, atoms=None, residues=None, residue_indices=None, name=None, coords=None, log=None, **kwargs):
@@ -2054,12 +2055,12 @@ class Structure(StructureBase):
                        % (self.name, self.number_of_residues))
 
     def renumber_atoms(self):
-        """Renumber all Atom entries one-indexed according to list order"""
+        """Renumber all Atom objects sequentially starting with 1"""
         for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
 
     def renumber_residues(self):
-        """Starts numbering Residues at 1 and number sequentially until last Residue"""
+        """Renumber Residue objects sequentially starting with 1"""
         for idx, residue in enumerate(self.residues, 1):
             residue.number = idx
 
@@ -3342,20 +3343,21 @@ class Structure(StructureBase):
                 structures[idx] = copy(structure)
 
     @staticmethod
-    def return_chain_generator():
+    def return_chain_generator() -> Generator[str, None, None]:
+        """Provide a generator which produces all combinations of chain strings useful in producing viable Chain objects
+
+        Returns
+            The generator producing a 2 character string
+        """
         return (first + second for modification in ['upper', 'lower']
                 for first in [''] + list(getattr(Structure.available_letters, modification)())
                 for second in list(getattr(Structure.available_letters, 'upper')()) +
                 list(getattr(Structure.available_letters, 'lower')()))
-        # return (first + second for modification in ['upper', 'lower']
-        #         for first in [''] + list(getattr(Structure.available_letters, modification)())
-        #         for second in getattr(Structure.available_letters, modification)())
 
-    def __key(self):
-        return (self.name, *self._residue_indices)
-        # return (self.name, *tuple(self.center_of_mass))  # , self.number_of_atoms
+    def __key(self) -> tuple[str, int, ...]:
+        return self.name, *self._residue_indices
 
-    def __copy__(self):
+    def __copy__(self) -> Structure:
         other = self.__class__.__new__(self.__class__)
         other.__dict__ = self.__dict__.copy()
         # other.__dict__ = {}  # Todo
@@ -3420,7 +3422,7 @@ class Structures(Structure, UserList):
         return self.data
 
     @property
-    def name(self):
+    def name(self) -> str:
         try:
             return self._name
         except AttributeError:
@@ -3428,7 +3430,7 @@ class Structures(Structure, UserList):
             return self._name
 
     @name.setter
-    def name(self, name):
+    def name(self, name: str):
         self._name = name
 
     @property
