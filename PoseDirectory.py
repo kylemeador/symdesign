@@ -582,16 +582,16 @@ class PoseDirectory:
         try:
             return self._sym_entry
         except AttributeError:
-            # self._sym_entry = symmetry_factory(*self.info['sym_entry_specification']) \
-            #     if 'sym_entry_specification' in self.info else None
-            temp_sym_entry = SymEntry(self.info['sym_entry_specification'][0])
-            self._sym_entry = symmetry_factory(self.info['sym_entry_specification'][0],
-                                               [temp_sym_entry.resulting_symmetry] +
-                                               list(self.info['sym_entry_specification'][1].values())) \
+            self._sym_entry = symmetry_factory(*self.info['sym_entry_specification']) \
                 if 'sym_entry_specification' in self.info else None
-            self.info['sym_entry_specification'] = \
-                (self.info['sym_entry_specification'][0], [temp_sym_entry.resulting_symmetry] +
-                 list(self.info['sym_entry_specification'][1].values()))
+            # temp_sym_entry = SymEntry(self.info['sym_entry_specification'][0])
+            # self._sym_entry = symmetry_factory(self.info['sym_entry_specification'][0],
+            #                                    [temp_sym_entry.resulting_symmetry] +
+            #                                    list(self.info['sym_entry_specification'][1].values())) \
+            #     if 'sym_entry_specification' in self.info else None
+            # self.info['sym_entry_specification'] = \
+            #     (self.info['sym_entry_specification'][0], [temp_sym_entry.resulting_symmetry] +
+            #      list(self.info['sym_entry_specification'][1].values()))
             return self._sym_entry
 
     @sym_entry.setter
