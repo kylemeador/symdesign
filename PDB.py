@@ -19,6 +19,7 @@ from Bio import pairwise2
 from Bio.Data.IUPACData import protein_letters_3to1_extended, protein_letters_1to3_extended
 from sklearn.neighbors import BallTree
 
+# from JobResources import Database  # Todo
 from PathUtils import orient_exe_path, orient_dir, pdb_db, qs_bio
 from Query.PDB import get_pdb_info_by_entry, retrieve_entity_id_by_sequence, get_pdb_info_by_assembly
 from SequenceProfile import generate_alignment
@@ -73,6 +74,7 @@ class PDB(Structure):
         # self.sasa_residues = []
         # self.sasa = []
         self.space_group: str = kwargs.get('space_group', None)
+        # self.source_db: Database = kwargs.get('source_db', None)  # Todo
         self.uc_dimensions: list[float] | None = kwargs.get('uc_dimensions', None)
         self.structure_containers.extend(['chains', 'entities'])
 
@@ -934,6 +936,10 @@ class PDB(Structure):
         """
         if self.api_entry:
             return
+        # if self.source_db:  # Todo
+        #     self.api_entry = self.source_db.pdb_api.retrieve_file(name=self.name)
+        #     if self.api_entry:
+        #         return
 
         if self.name and len(self.name) == 4:
             self.api_entry = get_pdb_info_by_entry(self.name)
