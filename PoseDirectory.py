@@ -589,6 +589,9 @@ class PoseDirectory:
                                                [temp_sym_entry.resulting_symmetry] +
                                                list(self.info['sym_entry_specification'][1].values())) \
                 if 'sym_entry_specification' in self.info else None
+            self.info['sym_entry_specification'] = \
+                (self.info['sym_entry_specification'][0], [temp_sym_entry.resulting_symmetry] +
+                 list(self.info['sym_entry_specification'][1].values()))
             return self._sym_entry
 
     @sym_entry.setter
