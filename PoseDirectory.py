@@ -615,7 +615,8 @@ class PoseDirectory:
     def sym_entry_map(self) -> str | None:
         """The symmetry map of the SymEntry"""
         try:
-            return self.sym_entry.sym_map
+            return [self.sym_entry.resulting_symmetry] + list(self.sym_entry.sym_map.values())
+            # return self.sym_entry.sym_map  Todo reinstate
         except AttributeError:
             return
 
