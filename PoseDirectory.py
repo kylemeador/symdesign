@@ -69,6 +69,7 @@ variance = 0.8
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 class PoseDirectory:
     composition: str | None
+    directives: list[dict[int, str]]
     entities: list[Structure]
     entity_names: list[str]
     fragment_db: FragmentDatabase
@@ -79,12 +80,13 @@ class PoseDirectory:
     name: str
     pose: Pose | None
     # pose_id: str
+    pose_file: str | Path
     pre_refine: bool
     pre_loop_model: bool
     source: str | None
     source_path: str
-    specific_design: str
-    pose_file: str | Path
+    specific_designs: list
+    specific_designs_file_paths: list[str | bytes]
 
     def __init__(self, design_path: str, pose_id: bool = False, root: str = None, **kwargs):
         self.job_resources: JobResources | None = kwargs.get('job_resources', None)
@@ -125,7 +127,7 @@ class PoseDirectory:
 
         # Design attributes
         self.background_profile: str = kwargs.get('background_profile', PUtils.design_profile)  # by default, grab design profile
-        self.directives: dict[int, str] = kwargs.get('directives', {})
+        self.directives = kwargs.get('directives', [])
         # Todo refactor to JobResources and save in PoseDirectory state
         self.design_selector: dict[str, dict] = kwargs.get('design_selector', None)
         self.entity_names = kwargs.get('entity_names', [])
@@ -143,7 +145,8 @@ class PoseDirectory:
         # self.pose_id = None
         # self.pre_refine = self.info.get('pre_refine', True)
         # self.pre_loop_model = self.info.get('pre_loop_model', True)
-        self.specific_design = kwargs.get('specific_design', None)
+        self.specific_designs = kwargs.get('specific_designs', [])
+        self.specific_designs_file_paths = []
 
         # Metric attributes TODO move to Pose
         self.interface_ss_topology = {}  # {1: 'HHLH', 2: 'HSH'}
@@ -1102,30 +1105,34 @@ class PoseDirectory:
         # check if the source of the pdb files was loop modelled upon loading
 
         # configure standard pose loading mechanism with self.source
-        if self.specific_design:
-            matching_path = path.join(self.designs, f'*{self.specific_design}.pdb')
-            matching_designs = sorted(glob(matching_path))
-            if matching_designs:
-                for matching_design in matching_designs:
-                    if path.exists(matching_design):
-                        self.specific_design_path = matching_design
-                        break
-                if len(matching_designs) > 1:
-                    # self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design, '
-                    #                  f'choosing the first {matching_designs[0]}')
-                    raise ValueError(f'Found {len(matching_designs)} matching designs to your specified design:\n\t'
-                                     f'{", ".join(matching_designs)}')
-            else:
-                raise FileNotFoundError(f'Couldn\'t locate a specific_design matching the name "{matching_path}"')
-            # format specific_design to a pose ID compatible format
-            self.specific_design = f'{self.name}_{self.specific_design}'
-            self.source = self.specific_design_path
+        if self.specific_designs:
+            self.specific_designs_file_paths = []
+            for design in self.specific_designs:
+                matching_path = path.join(self.designs, f'*{design}.pdb')
+                matching_designs = sorted(glob(matching_path))
+                if matching_designs:
+                    for matching_design in matching_designs:
+                        if path.exists(matching_design):
+                            # self.specific_design_path = matching_design
+                            self.specific_designs_file_paths.append(matching_design)
+                    if len(matching_designs) > 1:
+                        self.log.warning(f'Found {len(matching_designs)} matching designs to your specified design '
+                                         f'using {matching_path}. Choosing the first {matching_designs[0]}')
+                else:
+                    raise DesignError(f'Couldn\'t locate a specific_design matching the name "{matching_path}"')
+                # format specific_designs to a pose ID compatible format
+            self.specific_designs = [f'{self.name}_{design}' for design in self.specific_designs]
+            # self.source = specific_designs_file_paths  # Todo?
+            # self.source = self.specific_design_path
         elif not self.source:
             if path.exists(self.asu_path):  # standard mechanism of loading the pose
                 self.source = self.asu_path
             else:
                 try:
-                    self.source = sorted(glob(path.join(self.path, f'{self.name}.pdb')))[0]
+                    self.source = sorted(glob(path.join(self.path, f'{self.name}.pdb')))
+                    if len(self.source) > 1:
+                        raise ValueError(f'Found {len(self.source)} files matching the path '
+                                         f'{path.join(self.path, f"{self.name}.pdb")} while 1 was expected')
                 except IndexError:  # glob found no files
                     self.source = None
         else:  # if the PoseDirectory was loaded as .pdb/mmCIF, the source should be loaded already
@@ -2366,7 +2373,12 @@ class PoseDirectory:
         #  This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
         #  bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
         #  heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
+        raise NotImplemented('Need to resolve the differences between multiple specified_designs and a single '
+                             'specified_design')
         self.load_pose()
+        # for design_path in self.specific_designs_file_paths
+        #     self.load_pose(source=design_path)
+
         # format all amino acids in self.interface_design_residues with frequencies above the threshold to a set
         # Todo, make threshold and return set of strings a property of a profile object
         # background = \
@@ -3688,7 +3700,7 @@ class PoseDirectory:
         sequence with the most neighbors as calculated by sequence distance will be selected. If there is a tie, the
         sequence with the lowest weight will be selected
 
-        Keyword Args:
+        Args:
             filters: The filters to use in sequence selection
             weights: The weights to use in sequence selection
             number: The number of sequences to consider for each design

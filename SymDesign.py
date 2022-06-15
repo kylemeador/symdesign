@@ -1506,7 +1506,30 @@ if __name__ == '__main__':
     #             merge_design_pair(directory_pair)
     # ---------------------------------------------------
     elif args.module == PUtils.select_poses:
-        if args.total:  # Figure out poses from directory specification, filters, and weights
+        if args.specification_file:  # Figure out poses from a specification file, filters, and weights
+            loc_result = [(pose_directory, design) for pose_directory in pose_directories
+                          for design in pose_directory.specific_designs]
+            df = load_total_dataframe(pose=True)
+            selected_poses_df = prioritize_design_indices(df.loc[loc_result, :], filter=args.filter, weight=args.weight,
+                                                          protocol=args.protocol, function=args.weight_function)
+            # remove excess pose instances
+            number_chosen = 0
+            selected_indices, selected_poses = [], set()
+            for pose_directory, design in selected_poses_df.index.to_list():
+                if pose_directory not in selected_poses:
+                    selected_poses.add(design_directory)
+                    selected_indices.append((pose_directory, design))
+                    number_chosen += 1
+                    if number_chosen == args.select_number:
+                        break
+
+            # specify the result order according to any filtering and weighting
+            # drop the specific design for the dataframe. If they want the design, they should run select_sequences
+            save_poses_df = \
+                selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
+            # # convert selected_poses to PoseDirectory objects
+            # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
+        elif args.total:  # Figure out poses from directory specification, filters, and weights
             df = load_total_dataframe(pose=True)
             if args.protocol:  # Todo adapt to protocol column not in Trajectories right now...
                 group_df = df.groupby('protocol')
@@ -1520,30 +1543,7 @@ if __name__ == '__main__':
             # remove excess pose instances
             number_chosen = 0
             selected_indices, selected_poses = [], set()
-            for pose_directory, design in selected_poses_df.index.to_list():  # (str, str)
-                if pose_directory not in selected_poses:
-                    selected_poses.add(design_directory)
-                    selected_indices.append((pose_directory, design))
-                    number_chosen += 1
-                    if number_chosen == args.select_number:
-                        break
-
-            # specify the result order according to any filtering and weighting
-            # drop the specific design for the dataframe. If they want the design, they should run select_sequences
-            save_poses_df = \
-                selected_poses_df.loc[selected_indices, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
-            # convert selected_poses to PoseDirectory objects
-            selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
-        # Todo move first... and consolidate the pose sorting mechanism
-        elif args.specification_file:  # Figure out poses from a specification file, filters, and weights
-            indices = [(design_directory, design_directory.specific_design) for design_directory in pose_directories]
-            df = load_total_dataframe(pose=True)
-            selected_poses_df = prioritize_design_indices(df.loc[indices, :], filter=args.filter, weight=args.weight,
-                                                          protocol=args.protocol, function=args.weight_function)
-            # remove excess pose instances
-            number_chosen = 0
-            selected_indices, selected_poses = [], set()
-            for pose_directory, design in selected_poses_df.index.to_list():  # (str, str)
+            for pose_directory, design in selected_poses_df.index.to_list():
                 if pose_directory not in selected_poses:
                     selected_poses.add(pose_directory)
                     selected_indices.append((pose_directory, design))
@@ -1552,11 +1552,11 @@ if __name__ == '__main__':
                         break
 
             # specify the result order according to any filtering and weighting
-            # drop the specific design for the dataframe. If they want the design, they should run select designs
+            # drop the specific design for the dataframe. If they want the design, they should run select_sequences
             save_poses_df = \
-                selected_poses_df.loc[selected_indices, :].droplevel(-1).droplevel(0, axis=1).droplevel(0, axis=1)
-            # convert selected_poses to PoseDirectory objects
-            selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
+                selected_poses_df.loc[selected_indices, :].droplevel(-1)  # .droplevel(0, axis=1).droplevel(0, axis=1)
+            # # convert selected_poses to PoseDirectory objects
+            # selected_poses = [pose_directory for pose_directory in pose_directories if pose_dir_name in selected_poses]
         elif args.dataframe:  # Figure out poses from a pose dataframe, filters, and weights
             # program_root = next(iter(pose_directories)).program_root
             if args.dataframe and not pose_directories:  # not args.directory:
@@ -1801,26 +1801,27 @@ if __name__ == '__main__':
             logger.info('No significant clusters were located! Clustering ended')
 
         terminate(results=pose_cluster_map)
-    # --------------------------------------------------- # TODO v move to AnalyzeMutatedSequence.py
+    # ---------------------------------------------------
     elif args.module == PUtils.select_sequences:  # -p protocol, -f filters, -w weights, -ns number_sequences
         program_root = job.program_root
         if args.specification_file:
-            loc_result = [(str(pose_directory), pose_directory.specific_design) for pose_directory in pose_directories]
+            loc_result = [(pose_directory, design) for pose_directory in pose_directories
+                          for design in pose_directory.specific_designs]
             df = load_total_dataframe()
             selected_poses_df = prioritize_design_indices(df.loc[loc_result, :], filter=args.filter, weight=args.weight,
                                                           protocol=args.protocol, function=args.weight_function)
-            # specify the result order according to any filtering and weighting
+            # specify the result order according to any filtering, weighting, and select_number
             results = {}
-            for pose_directory, design in selected_poses_df.index.to_list()[:args.select_number]:  # (str, str)
+            for pose_directory, design in selected_poses_df.index.to_list()[:args.select_number]:
                 if pose_directory in results:
                     results[pose_directory].add(design)
                 else:
                     results[pose_directory] = {design}
 
-            save_poses_df = selected_poses_df.droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
+            save_poses_df = selected_poses_df.droplevel(0)  # .droplevel(0, axis=1).droplevel(0, axis=1)
             # convert to PoseDirectory objects
-            results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
-                       if str(pose_directory) in results}
+            # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
+            #            if str(pose_directory) in results}
         elif args.total:
             df = load_total_dataframe()
             if args.protocol:
@@ -1844,7 +1845,7 @@ if __name__ == '__main__':
                             f'pose')
                 number_chosen = 0
                 selected_poses = {}
-                for pose_directory, design in selected_designs:  # (str, str)
+                for pose_directory, design in selected_designs:
                     designs = selected_poses.get(pose_directory, None)
                     if designs:
                         if len(designs) >= args.designs_per_pose:
@@ -1860,10 +1861,10 @@ if __name__ == '__main__':
                 loc_result = [(pose_dir, design) for pose_dir, designs in selected_poses.items() for design in designs]
 
             # include only the found index names to the saved dataframe
-            save_poses_df = selected_poses_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
+            save_poses_df = selected_poses_df.loc[loc_result, :]  # .droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
             # convert to PoseDirectory objects
-            results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
-                       if str(pose_directory) in results}
+            # results = {pose_directory: results[str(pose_directory)] for pose_directory in pose_directories
+            #            if str(pose_directory) in results}
         else:  # select designed sequences from each pose provided (PoseDirectory)
             trajectory_df = None  # currently used to get the column headers
             if args.filter:
@@ -1897,9 +1898,10 @@ if __name__ == '__main__':
                            for pose_dir in pose_directories}
             # Todo there is no sort, here so the select_number isn't really doing anything
             results = {pose_dir: designs for pose_dir, designs in list(results.items())[:args.select_number]}
-            loc_result = [(str(pose_dir), design) for pose_dir, designs in results.items() for design in designs]
-            selected_poses_df = load_total_dataframe()
-            save_poses_df = selected_poses_df.loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
+            loc_result = [(pose_dir, design) for pose_dir, designs in results.items() for design in designs]
+            # selected_poses_df = load_total_dataframe()
+            save_poses_df = \
+                load_total_dataframe().loc[loc_result, :].droplevel(0).droplevel(0, axis=1).droplevel(0, axis=1)
 
         logger.info(f'{len(loc_result)} designs were selected')
 
@@ -2000,7 +2002,7 @@ if __name__ == '__main__':
         codon_optimization_errors = {}
         # for des_dir, design in results:
         for des_dir, designs in results.items():
-            des_dir.load_pose(source=des_dir.asu_path)
+            des_dir.load_pose()  # source=des_dir.asu_path)
             des_dir.pose.pdb.reorder_chains()  # Do I need to modify chains?
             for design in designs:
                 file_glob = '%s%s*%s*' % (des_dir.designs, os.sep, design)
@@ -2326,8 +2328,8 @@ if __name__ == '__main__':
             logger.info(f'Final Design nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
     elif args.module == 'multicistronic':
-        if not args.multicistronic_intergenic_sequence:
-            args.multicistronic_intergenic_sequence = default_multicistronic_sequence
+        # if not args.multicistronic_intergenic_sequence:
+        #     args.multicistronic_intergenic_sequence = default_multicistronic_sequence
 
         file = args.file[0]
         if file.endswith('.csv'):

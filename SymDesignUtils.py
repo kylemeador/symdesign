@@ -1037,25 +1037,42 @@ class PoseSpecification(Dialect):
         # print('Total Design Directives', self.directives)
 
     def return_directives(self) -> Iterator[Tuple[str, str, Dict[int, str]]]:
+        all_poses_len = len(self.all_poses)
         if self.directives:
-            if len(self.all_poses) == len(self.design_names) == len(self.directives):  # specification file
+            if all_poses_len == len(self.design_names) == len(self.directives):  # specification file
                 # return zip(self.all_poses, self.design_names, self.directives)
                 design_names, directives = self.design_names, self.directives
             else:
                 raise ValueError('The inputs to the PoseSpecification have different lengths!')
         elif self.design_names:
-            if len(self.all_poses) == len(self.design_names):  # specification file
+            if all_poses_len == len(self.design_names):  # pose file
                 # return zip(self.all_poses, self.design_names, self.directives)
-                design_names, directives = self.design_names, repeat(self.directives)
+                design_names, directives = self.design_names, list(repeat([], all_poses_len))
             else:
                 raise ValueError('The inputs to the PoseSpecification have different lengths!')
         else:  # pose file with possible extra garbage
             # design_names, directives = repeat(self.design_names), repeat(self.directives)
-            design_names, directives = repeat(self.design_names), repeat(self.directives)
+            design_names = directives = list(repeat([], all_poses_len))
 
-        return zip(self.all_poses, design_names, directives)
+        # calculate whether there are multiple designs present per pose
+        found_poses = {}
+        for idx, pose in enumerate(self.all_poses):
+            if pose in found_poses:
+                found_poses[pose].append(idx)
+            else:
+                found_poses[pose] = [idx]
 
-    # def validate(self):
+        if len(found_poses) == self.all_poses:
+            return zip(self.all_poses, design_names, directives)
+        else:
+            # _, design_names, directives = list(zip(self.all_poses, design_names, directives))
+            stacked_all_poses, stacked_design_names, stacked_directives = [], [], []
+            for idx, (pose, indices) in enumerate(found_poses.items()):
+                stacked_all_poses.append(pose)
+                stacked_design_names.append([design_names[index] for index in indices])
+                stacked_directives.append([directives[index] for index in indices])
+
+            return zip(stacked_all_poses, stacked_design_names, stacked_directives)
 
 
 class DesignError(Exception):
