@@ -1106,6 +1106,7 @@ class PoseDirectory:
 
         # configure standard pose loading mechanism with self.source
         if self.specific_designs:
+            self._lock_optimize_designs = True
             self.specific_designs_file_paths = []
             for design in self.specific_designs:
                 matching_path = path.join(self.designs, f'*{design}.pdb')
@@ -2373,8 +2374,16 @@ class PoseDirectory:
         #  This will likely utilize a resfile as in PROSS implementation and here as creating a PSSM could work but is a
         #  bit convoluted. I think finding the energy threshold to use as a filter cut off is going to be a bit
         #  heuristic as the REF2015 scorefunction wasn't used in PROSS publication.
-        raise NotImplemented('Need to resolve the differences between multiple specified_designs and a single '
-                             'specified_design')
+        if self._lock_optimize_designs:
+            self.log.critical('Need to resolve the differences between multiple specified_designs and a single '
+                              'specified_design. Only using the first design')
+            specific_design = self.specific_designs_file_paths[0]
+            # raise NotImplemented('Need to resolve the differences between multiple specified_designs and a single '
+            #                      'specified_design')
+        else:
+            raise RuntimeError('IMPOSSIBLE')
+            specific_design = self.specific_design_path
+
         self.load_pose()
         # for design_path in self.specific_designs_file_paths
         #     self.load_pose(source=design_path)
@@ -2420,7 +2429,7 @@ class PoseDirectory:
         # Todo must set up a blank -in:file:pssm in case the evolutionary matrix is not used. Design will fail!!
         design_cmd = main_cmd + \
             (['-in:file:pssm', self.evolutionary_profile_file] if self.evolutionary_profile else []) + \
-            ['-in:file:s', self.specific_design_path if self.specific_design_path else self.refined_pdb,
+            ['-in:file:s', specific_design if specific_design else self.refined_pdb,
              f'@{self.flags}', '-out:suffix', f'_{protocol}', '-packing:resfile', res_file,
              '-parser:protocol', path.join(PUtils.rosetta_scripts, f'{protocol_xml1}.xml')] + nstruct_instruct
 
