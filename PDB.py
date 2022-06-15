@@ -565,7 +565,7 @@ class PDB(Structure):
         for chain, new_id in zip(self.chains, self.chain_ids):
             chain.chain_id = new_id
 
-    def renumber_residues_by_chain(self):
+    def renumber_residues_by_chain(self):  # Todo Structures
         """For each Chain in self.chains, renumber Residue objects sequentially starting with 1"""
         for chain in self.chains:
             chain.renumber_residues()
@@ -641,7 +641,7 @@ class PDB(Structure):
             if chain.name == chain_id:
                 return chain
 
-    def write(self, **kwargs) -> Optional[str]:
+    def write(self, **kwargs) -> Optional[str]:  # Todo Depreciate. require Pose or self.cryst_record -> Structure?
         """Write PDB Atoms to a file specified by out_path or with a passed file_handle
 
         Returns:
@@ -655,7 +655,7 @@ class PDB(Structure):
     # def get_chain_sequences(self):
     #     self.atom_sequences = {chain.name: chain.sequence for chain in self.chains}
 
-    def orient(self, symmetry: str = None, log: os.PathLike = None):
+    def orient(self, symmetry: str = None, log: str | bytes = None):  # Todo Structure. superposition3d -> quaternion
         """Orient a symmetric PDB at the origin with its symmetry axis canonically set on axes defined by symmetry
         file. Automatically produces files in PDB numbering for proper orient execution
 
@@ -781,7 +781,7 @@ class PDB(Structure):
         self.transform(rotation=rot, translation=tx)
         clean_orient_input_output()
 
-    def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs):
+    def mutate_residue(self, residue: Residue = None, number: int = None, to: str = 'ALA', **kwargs):  # Todo Structures
         """Mutate a specific Residue to a new residue type. Type can be 1 or 3 letter format
 
         Args:
@@ -806,7 +806,7 @@ class PDB(Structure):
                 except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
                     continue
 
-    def insert_residue_type(self, residue_type: str, at: int = None, chain: str = None):
+    def insert_residue_type(self, residue_type: str, at: int = None, chain: str = None):  # Todo Structures
         """Insert a standard Residue type into the Structure based on Pose numbering (1 to N) at the origin.
         No structural alignment is performed!
 
@@ -899,7 +899,7 @@ class PDB(Structure):
     #
     #     self.renumber_structure()
 
-    def delete_residue(self, chain_id, residue_number):
+    def delete_residue(self, chain_id, residue_number):  # Todo Structures
         # raise DesignError('This function is broken')  # TODO TEST
         # start = len(self.atoms)
         # self.log.debug(start)
@@ -928,7 +928,7 @@ class PDB(Structure):
                     continue
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
 
-    def retrieve_pdb_info_from_api(self):
+    def retrieve_pdb_info_from_api(self):  # Todo Pose with JobResources
         """Query the PDB API for information on the PDB code found as the PDB object .name attribute
 
         Makes 1 + num_of_entities calls to the PDB API. If file is assembly, makes one more
@@ -958,7 +958,7 @@ class PDB(Structure):
         else:
             self.log.debug(f'PDB code "{self.name}" is not of the required format and wasn\'t queried from the PDB API')
 
-    def entity(self, entity_id: str) -> Entity | None:
+    def entity(self, entity_id: str) -> Entity | None:  # Todo ready for Pose
         """Retrieve an Entity by name from the PDB object
 
         Args:
@@ -1059,7 +1059,7 @@ class PDB(Structure):
             data['name'] = f'{self.name}_{data_name}' if isinstance(data_name, int) else data_name
             self.entities.append(Entity.from_chains(**data, log=self._log))
 
-    def get_entity_info_from_atoms(self, tolerance: float = 0.9, **kwargs):
+    def get_entity_info_from_atoms(self, tolerance: float = 0.9, **kwargs):  # Todo define inside create_entities?
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
 
         Args:
@@ -1107,7 +1107,7 @@ class PDB(Structure):
                 self.entity_info.append({'chains': [chain], 'sequence': chain.sequence, 'name': entity_idx})
         self.log.debug('Entities were generated from ATOM records.')
 
-    def entity_from_chain(self, chain_id: str) -> Union[Entity, None]:
+    def entity_from_chain(self, chain_id: str) -> Union[Entity, None]:  # Todo depreciate and comment out
         """Return the entity associated with a particular chain id
 
         Returns:
@@ -1118,7 +1118,7 @@ class PDB(Structure):
                 return entity
         return
 
-    def entity_from_residue(self, residue_number: int) -> Union[Entity, None]:
+    def entity_from_residue(self, residue_number: int) -> Union[Entity, None]:  # Todo ResidueSelectors/fragment query
         """Return the entity associated with a particular Residue number
 
         Returns:
