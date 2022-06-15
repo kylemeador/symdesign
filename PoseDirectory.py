@@ -395,6 +395,19 @@ class PoseDirectory:
     def refine_dir(self):
         return self.job_resources.refine_dir  # program_root/Data/PDBs/refined
 
+
+    @property
+    def run_in_shell(self) -> bool:
+        try:
+            return self._run_in_shell
+        except AttributeError:
+            self._run_in_shell = self.job_resources.run_in_shell
+            return self._run_in_shell
+
+    @run_in_shell.setter
+    def run_in_shell(self, value):
+        self._run_in_shell = value
+
     @property
     def stride_dir(self):
         return self.job_resources.stride_dir  # program_root/Data/PDBs/stride
