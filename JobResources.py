@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+import json
 import math
 import os
 from copy import copy
 from glob import glob
+from logging import Logger
+from pathlib import Path
 from subprocess import list2cmdline
-from typing import List, Tuple, Iterable, Dict, Union, Optional
+from typing import List, Tuple, Iterable, Dict, Union, Optional, Any
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters
@@ -39,8 +42,11 @@ index_offset = 1
 
 
 class Database:  # Todo ensure that the single object is completely loaded before multiprocessing... Queues and whatnot
-    def __init__(self, oriented, oriented_asu, refined, full_models, stride, sequences, hhblits_profiles, sql=None,
-                 log=logger):
+    def __init__(self, oriented: str | bytes | Path = None, oriented_asu: str | bytes | Path = None,
+                 refined: str | bytes | Path = None, full_models: str | bytes | Path = None,
+                 stride: str | bytes | Path = None, sequences: str | bytes | Path = None,
+                 hhblits_profiles: str | bytes | Path = None, pdb_api: str | bytes | Path = None,
+                 uniprot_api: str | bytes | Path = None, sql=None, log: Logger = logger):  # sql: sqlite = None,
         if sql:
             raise DesignError('SQL set up has not been completed!')
 
@@ -53,6 +59,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         self.sequences = DataStore(location=sequences, extension='.fasta', sql=sql, log=log)
         self.alignments = DataStore(location=hhblits_profiles, extension='.sto', sql=sql, log=log)
         self.hhblits_profiles = DataStore(location=hhblits_profiles, extension='.hmm', sql=sql, log=log)
+        self.pdb_api = DataStore(location=pdb_api, extension='.json', sql=sql, log=log)
+        self.uniprot_api = DataStore(location=uniprot_api, extension='.json', sql=sql, log=log)
         # self.bmdca_fields = \
         #     DataStore(location=hhblits_profiles, extension='_bmDCA%sparameters_h_final.bin' % os.sep, sql=sql, log=log)
         # self.bmdca_couplings = \
@@ -90,7 +98,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         object_db = self.source(source)
         data = getattr(object_db, name, None)
         if not data:
-            object_db.name = object_db.load_data(name, log=None)
+            object_db.name = object_db._load_data(name, log=None)
             data = object_db.name  # store the new data as an attribute
 
         return data
@@ -99,7 +107,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         """Retrieve the specified file on disk for subsequent parsing"""
         object_db = getattr(self, from_source, None)
         if not object_db:
-            raise DesignError('There is no source named %s found in the Design Database' % from_source)
+            raise DesignError(f'There is no source named {from_source} found in the Design Database')
 
         return object_db.retrieve_file(name)
 
@@ -412,30 +420,94 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         return info_messages, pre_refine, pre_loop_model
 
 
+def write_str_to_file(string, file_name, **kwargs) -> str | bytes:
+    """Use standard file IO to write a string to a file
+
+    Args:
+        string: The string to write
+        file_name: The location of the file to write
+    Returns:
+        The name of the written file
+    """
+    with open(file_name, 'w') as f_save:
+        f_save.write(f'{string}\n')
+
+    return file_name
+
+
+def write_list_to_file(_list, file_name, **kwargs) -> str | bytes:
+    """Use standard file IO to write a string to a file
+
+    Args:
+        _list: The string to write
+        file_name: The location of the file to write
+    Returns:
+        The name of the written file
+    """
+    with open(file_name, 'w') as f_save:
+        lines = '\n'.join(map(str, _list))
+        f_save.write(f'{lines}\n')
+
+    return file_name
+
+
+def write_json(data, file_name, **kwargs) -> str | bytes:
+    """Use json.dump to write an object to a file
+
+    Args:
+        data: The object to write
+        file_name: The location of the file to write
+    Returns:
+        The name of the written file
+    """
+    with open(file_name, 'w') as f_save:
+        json.dump(data, f_save, **kwargs)
+
+    return file_name
+
+
+not_implemented = \
+    lambda data, file_name: (_ for _ in ()).throw(NotImplemented(f'For save_file with {os.path.splitext(file_name)[-1]}'
+                                                                 f'DataStore method not available'))
+
+
 class DataStore:
-    def __init__(self, location=None, extension='.txt', sql=None, log=logger):
+    def __init__(self, location: str = None, extension: str = '.txt', sql=None, log: Logger = logger):
         self.location = location
         self.extension = extension
         self.sql = sql
         self.log = log
 
+        # load_file must be a callable which takes as first argument the file_name
+        # save_file must be a callable which takes as first argument the object to save and second argument is file_name
         if '.pdb' in extension:
             self.load_file = PDB.from_file
+            self.save_file = not_implemented
+        elif '.json' in extension:
+            self.load_file = json.load
+            self.save_file = write_json
         elif extension == '.fasta':
             self.load_file = read_fasta_file
+            self.save_file = SDUtils.write_fasta_file
         elif extension == '.stride':
             self.load_file = parse_stride
+            self.save_file = not_implemented
         elif extension == '.hmm':  # in ['.hmm', '.pssm']:
             self.load_file = parse_hhblits_pssm  # parse_pssm
+            self.save_file = not_implemented
         # elif extension == '.fasta' and msa:  # Todo if msa is in fasta format
         elif extension == '.sto':
             self.load_file = MultipleSequenceAlignment.from_stockholm  # parse_stockholm_to_msa
-        elif extension == '_bmDCA%sparameters_h_final.bin' % os.sep:
+            self.save_file = not_implemented
+        elif extension == f'_bmDCA{os.sep}parameters_h_final.bin':
             self.load_file = bmdca.load_fields
-        elif extension == '_bmDCA%sparameters_J_final.bin' % os.sep:
+            self.save_file = not_implemented
+        elif extension == f'_bmDCA{os.sep}sparameters_J_final.bin':
             self.load_file = bmdca.load_couplings
+            self.save_file = not_implemented
         else:  # '.txt' read the file and return the lines
             self.load_file = self.read_file
+            self.save_file = write_list_to_file
 
     def make_path(self, condition=True):
         """Make all required directories in specified path if it doesn't exist, and optional condition is True
@@ -446,13 +518,13 @@ class DataStore:
         if condition:
             os.makedirs(self.location, exist_ok=True)
 
-    def store(self, name):
+    def store(self, name: str = '*') -> str | bytes:  # Todo resolve with def store_data() below. This to path() -> Path
         """Return the path of the storage location given an entity name"""
         return os.path.join(self.location, f'{name}{self.extension}')
 
-    def retrieve_file(self, name):
+    def retrieve_file(self, name: str) -> str | bytes:
         """Returns the actual location by combining the requested name with the stored .location"""
-        path = os.path.join(self.location, f'{name}{self.extension}')
+        path = self.store(name)
         files = sorted(glob(path))
         if files:
             file = files[0]
@@ -464,19 +536,24 @@ class DataStore:
 
     def retrieve_files(self) -> List:
         """Returns the actual location of all files in the stored .location"""
-        path = os.path.join(self.location, f'*{self.extension}')
+        path = self.store()
         files = sorted(glob(path))
         if not files:
             self.log.info(f'No files found for "{path}"')
         return files
 
-    def retrieve_names(self) -> List:
+    def retrieve_names(self) -> List[str]:
         """Returns the names of all objects in the stored .location"""
-        path = os.path.join(self.location, '*%s' % self.extension)
+        path = self.store()
         names = list(map(os.path.basename, [os.path.splitext(file)[0] for file in sorted(glob(path))]))
         if not names:
-            self.log.warning('No files found for "%s"' % path)
+            self.log.warning(f'No files found for "{path}"')
         return names
+
+    def store_data(self, data: Any, name: str, **kwargs):  # Todo resolve with def store() above
+        """Return the path of the storage location given an entity name"""
+        setattr(self, name, data)
+        self._save_data(name, **kwargs)
 
     def retrieve_data(self, name: str = None) -> object | None:
         """Return the data requested by name. Otherwise, load into the Database from a specified location
@@ -490,14 +567,26 @@ class DataStore:
         if data:
             self.log.debug(f'Info {name}{self.extension} was retrieved from DataStore')
         else:
-            setattr(self, name, self.load_data(name, log=None))  # attempt to store the new data as an attribute
+            setattr(self, name, self._load_data(name, log=None))  # attempt to store the new data as an attribute
             data = getattr(self, name)
             if data:
                 self.log.debug(f'Database file {name}{self.extension} was loaded fresh')
 
         return data
 
-    def load_data(self, name, **kwargs):
+    def _save_data(self, name: str, **kwargs) -> str | bytes | None:
+        """Return the data located in a particular entry specified by name
+
+        Returns:
+            The name of the saved data if there was one or the return from the Database insertion
+        """
+        if self.sql:
+            # dummy = True
+            return
+        else:
+            return self.save_file(self.store, self.retrieve_data(name), **kwargs)
+
+    def _load_data(self, name: str, **kwargs) -> Any | None:
         """Return the data located in a particular entry specified by name
 
         Returns:
@@ -516,10 +605,9 @@ class DataStore:
         if self.sql:
             dummy = True
         else:
-            for file in sorted(glob(os.path.join(self.location, '*%s' % self.extension))):
+            for file in sorted(glob(os.path.join(self.location, f'*{self.extension}'))):
                 # self.log.debug('Fetching %s' % file)
-                data = self.load_file(file)
-                setattr(self, os.path.splitext(os.path.basename(file))[0], data)
+                setattr(self, os.path.splitext(os.path.basename(file))[0], self.load_file(file))
 
     @staticmethod
     def read_file(file, **kwargs):
