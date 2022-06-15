@@ -46,7 +46,7 @@ from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
 from Structure import Structure, Entity  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
-    match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, \
+    match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, make_path, \
     condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
@@ -228,10 +228,10 @@ class PoseDirectory:
                 self.projects = path.join(self.program_root, PUtils.projects)
                 self.project_designs = path.join(self.projects, f'{path_components[-5]}_{PUtils.pose_directory}')
                 self.path = path.join(self.project_designs, self.name)
-                # self.make_path(self.projects)
-                # self.make_path(self.project_designs)
+                # make_path(self.projects)
+                # make_path(self.project_designs)
 
-            self.make_path(self.path, condition=self.construct_pose)
+            make_path(self.path, condition=self.construct_pose)
             self.pose_file = path.join(self.source_path, PUtils.pose_file)
             self.frag_file = path.join(self.source_path, PUtils.frag_dir, PUtils.frag_text_file)
             # if self.construct_pose:
@@ -268,9 +268,9 @@ class PoseDirectory:
                         path.join(self.projects, f'{self.source_path.split(sep)[-2]}_{PUtils.pose_directory}')
                     self.path = path.join(self.project_designs, self.name)
                     # ^ /program_root/projects/project/design<- self.path /design.pdb
-                    # self.make_path(self.projects)
-                    # self.make_path(self.project_designs)
-                    self.make_path(self.path)
+                    # make_path(self.projects)
+                    # make_path(self.project_designs)
+                    make_path(self.path)
                     # copy the source file to the PoseDirectory for record keeping...
                     shcopy(self.source_path, self.path)
                 # save the SymEntry initialization key in the state
@@ -1236,7 +1236,7 @@ class PoseDirectory:
                 self.identify_interface()
             else:  # it is True, but we haven't got the fragments yet, so we will get them by the same means
                 self.load_pose()
-            self.make_path(self.frags, condition=self.write_frags)
+            make_path(self.frags, condition=self.write_frags)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
             if self.pose.fragment_queries:
                 self.log.debug('Fragment observations found in Pose. Adding to the Design state')
@@ -1395,7 +1395,7 @@ class PoseDirectory:
         """Write any design attributes that should persist over program run time to serialized file"""
         if self.nanohedra_output and not self.construct_pose:  # don't write anything as we are just querying Nanohedra
             return
-        self.make_path(self.data)
+        make_path(self.data)
         # try:
         # Todo make better patch for numpy.ndarray compare value of array is ambiguous
         if self.info.keys() != self._info.keys():  # if the state has changed from the original version
@@ -1533,7 +1533,7 @@ class PoseDirectory:
         if not path.exists(self.flags) or self.force_flags:
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # <-$ needed for prepare_rosetta_flags -> self.center_residue_numbers
-            self.make_path(self.scripts)
+            make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -1590,7 +1590,7 @@ class PoseDirectory:
             self.identify_interface()
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
-            self.make_path(self.scripts)
+            make_path(self.scripts)
             flags = self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug('Pose flags written to: %s' % flags)
 
@@ -1734,7 +1734,7 @@ class PoseDirectory:
         if not path.exists(self.flags) or self.force_flags:
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
-            self.make_path(self.scripts)
+            make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -2087,7 +2087,7 @@ class PoseDirectory:
                 out_path = self.assembly_path
             else:
                 out_path = path.join(self.orient_dir, '%s.pdb' % pdb.name)
-                self.make_path(self.orient_dir)
+                make_path(self.orient_dir)
 
             pdb.orient(symmetry=self.design_symmetry)
 
@@ -2152,8 +2152,8 @@ class PoseDirectory:
         if not path.exists(flags) or self.force_flags:  # Generate a new flags file
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
-            self.make_path(flag_dir)
-            self.make_path(pdb_out_path)
+            make_path(flag_dir)
+            make_path(pdb_out_path)
             flags = self.prepare_rosetta_flags(out_path=flag_dir, pdb_out_path=pdb_out_path)
             self.log.debug(f'Pose flags written to: {flags}')
 
@@ -2273,7 +2273,7 @@ class PoseDirectory:
         information between Entities. Aware of symmetry and design_selectors in fragment generation file
         """
         self.identify_interface()
-        self.make_path(self.frags, condition=self.write_frags)
+        make_path(self.frags, condition=self.write_frags)
         self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
         self.fragment_observations = self.pose.return_fragment_observations()
         self.info['fragments'] = self.fragment_observations
@@ -2347,16 +2347,16 @@ class PoseDirectory:
             elif path.exists(self.frag_file):
                 self.retrieve_fragment_info_from_file()
             else:  # self.generate_fragments:
-                self.make_path(self.frags, condition=self.write_frags)
+                make_path(self.frags, condition=self.write_frags)
             # self.generate_interface_fragments()
                 # raise DesignError(f'Fragments were specified during design, but observations have not been yet been '
                 #                   f'generated for this Design! Try with the flag --{PUtils.generate_fragments}')
-            self.make_path(self.data)
+            make_path(self.data)
             # creates all files which store the evolutionary_profile and/or fragment_profile -> design_profile
             self.pose.interface_design(evolution=not self.no_evolution_constraint, des_dir=self,
                                        fragments=not self.no_term_constraint, query_fragments=self.generate_fragments,
                                        fragment_source=self.fragment_observations, write_fragments=self.write_frags)
-            self.make_path(self.designs)
+            make_path(self.designs)
             self.fragment_observations = self.pose.return_fragment_observations()
             self.info['fragments'] = self.fragment_observations
             self.info['fragment_source'] = self.fragment_source
@@ -2434,7 +2434,7 @@ class PoseDirectory:
         if not path.exists(self.flags) or self.force_flags:
             # self.prepare_symmetry_for_rosetta()
             self.get_fragment_metrics()  # needed for prepare_rosetta_flags -> self.center_residue_numbers
-            self.make_path(self.scripts)
+            make_path(self.scripts)
             self.flags = self.prepare_rosetta_flags(out_path=self.scripts)
             self.log.debug(f'Pose flags written to: {self.flags}')
 
@@ -2510,7 +2510,7 @@ class PoseDirectory:
             self.identify_interface()
         self.log.debug(f'Found design residues: {", ".join(map(str, sorted(self.interface_design_residues)))}')
         if (not self.fragment_observations and self.fragment_observations != list()) and self.generate_fragments:
-            self.make_path(self.frags, condition=self.write_frags)
+            make_path(self.frags, condition=self.write_frags)
             self.pose.generate_interface_fragments(out_path=self.frags, write_fragments=self.write_frags)
 
         # Gather miscellaneous pose specific metrics
@@ -3843,16 +3843,16 @@ class PoseDirectory:
 
             return final_seqs
 
-    @staticmethod
-    def make_path(path_like: str | bytes, condition: bool = True):
-        """Make all required directories in specified path if it doesn't exist, and optional condition is True
-
-        Args:
-            path_like: The path to create
-            condition: A condition to check before the path production is executed
-        """
-        if condition:
-            makedirs(path_like, exist_ok=True)
+    # @staticmethod
+    # def make_path(path_like: str | bytes, condition: bool = True):
+    #     """Make all required directories in specified path if it doesn't exist, and optional condition is True
+    #
+    #     Args:
+    #         path_like: The path to create
+    #         condition: A condition to check before the path production is executed
+    #     """
+    #     if condition:
+    #         makedirs(path_like, exist_ok=True)
 
     handle_design_errors = staticmethod(handle_design_errors)
     close_logs = staticmethod(close_logs)
