@@ -1070,7 +1070,7 @@ class Residue:
     def __eq__(self, other: Residue) -> bool:
         if isinstance(other, Residue):
             return self.__key() == other.__key()
-        raise NotImplemented(f'Can\' compare {Residue.__name__} instance to {other.__name__} instance')
+        raise NotImplementedError(f'Can\' compare {Residue.__name__} instance to {other.__name__} instance')
 
     def __str__(self, pdb: bool = False, chain: str = None, atom_offset: int = 0, **kwargs) -> str:
         #         type=None, number=None
