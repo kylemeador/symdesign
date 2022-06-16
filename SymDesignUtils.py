@@ -54,14 +54,14 @@ for array in color_arrays:
     large_color_array.extend(array)
 
 
-def dictionary_lookup(dictionary, items):
+def dictionary_lookup(dictionary: dict, items: tuple[Any, ...]) -> Any:
     """Return the values of a dictionary for the item pairs nested within
 
     Args:
-        dictionary (dict): The dictionary to search
-        items (tuple): The tuple of keys to search for
+        dictionary: The dictionary to search
+        items: The tuple of keys to search for
     Returns:
-        (any): The value specified by dictionary keys
+        The value specified by dictionary keys
     """
     return reduce(getitem, items, dictionary)
 

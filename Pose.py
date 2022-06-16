@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
@@ -16,7 +18,7 @@ from DesignMetrics import calculate_match_metrics, fragment_metric_template, for
 from JobResources import FragmentDB, fragment_factory, Database
 from PDB import PDB
 from SequenceProfile import SequenceProfile
-from Structure import Coords, Structure, Structures, Chain, Entity, Residue  # Atoms, Residues,
+from Structure import Coords, Structure, Structures, Chain, Entity, Residue, GhostFragment, MonoFragment
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, \
     start_log, null_log, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
     split_number_pairs_and_sort, digit_translate_table
@@ -53,7 +55,7 @@ class MultiModel:
     States.
 
     self.structures holds each of the individual Structure objects which are involved in the MultiModel. As of now,
-    no checks are made as to whether the identity of these is the same accross States"""
+    no checks are made whether the identity of these is the same across States"""
     def __init__(self, model=None, models=None, state=None, states=None, independent=False, log=None, **kwargs):
         if log:
             self.log = log
@@ -63,8 +65,7 @@ class MultiModel:
             self.log = logger
 
         if model:
-            # if not isinstance(model, Model):  # TODO?
-            if not isinstance(model, Models):
+            if not isinstance(model, Model):
                 model = Model(model)
 
             self.models = [model]
@@ -294,7 +295,6 @@ class MultiModel:
 
 
 # (BaseModel)?
-# class State(Structure):  # todo subclass UserList (https://docs.python.org/3/library/collections.html#userlist-objects
 class State(Structures):
     """A collection of Structure objects comprising one distinct configuration"""
     # def __init__(self, structures=None, **kwargs):  # log=None,
@@ -518,8 +518,8 @@ class State(Structures):
 
 class Models(Structures):
     """Keep track of different variations of the same Structure object such as altered coordinates (different decoy's or
-     symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
-     but could be multiple PDB's with some common element.
+    symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
+    but could be multiple PDB's with some common element.
 
     If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
     """
@@ -708,11 +708,11 @@ class Model:  # Todo (Structure)
         return self.pdb.number_of_chains
 
     @property
-    def chains(self) -> Iterable[Chain]:
+    def chains(self) -> Iterable[Chain]:  # TODO COMMENT OUT .pdb
         return self.pdb.chains
 
     @property
-    def chain_breaks(self) -> List[int]:
+    def chain_breaks(self) -> List[int]:  # Todo KEEP
         return [entity.c_terminal_residue.number for entity in self.entities]
 
     @property
@@ -720,41 +720,49 @@ class Model:  # Todo (Structure)
         return self.pdb.residues
 
     @property
-    def sequence(self) -> str:
+    def sequence(self) -> str:  # Todo KEEP but use entities for SymmetricModel, chains for Model
         return ''.join(entity.sequence for entity in self.entities)
 
     @property
-    def reference_sequence(self) -> str:
+    def reference_sequence(self) -> str:  # Todo KEEP but use entities for SymmetricModel, chains for Model
         # return ''.join(self.pdb.reference_sequence.values())
         return ''.join(entity.reference_sequence for entity in self.entities)
 
-    def entity(self, entity) -> Entity:  # TODO COMMENT OUT .pdb
-        return self.pdb.entity(entity)
+    def entity(self, entity_id: str) -> Entity:  # TODO COMMENT OUT .pdb
+        return self.pdb.entity(entity_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
 
-    def chain(self, chain) -> Chain:  # TODO COMMENT OUT .pdb
-        return self.pdb.entity_from_chain(chain)
+    def chain(self, chain_id: str) -> Chain:  # TODO COMMENT OUT .pdb
+        return self.pdb.entity_from_chain(chain_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
+        # return self.pdb.chain(chain_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
 
     @property
-    def atom_indices_per_entity(self) -> List[List[int]]:
+    def atom_indices_per_entity(self) -> List[List[int]]:  # Todo MOVE to SymmetricModel, chains for Model
+    # def atom_indices_per_chain(self) -> List[List[int]]:  # Todo KEEP chains for Model
+    #     return [chain.atom_indices for chain in self.pdb.chains]
         return [entity.atom_indices for entity in self.pdb.entities]
 
     @property
     def atom_indices_per_entity_model(self) -> List[List[int]]:
-        # alt solution may be quicker by performing the following multiplication then .flatten()
-        # broadcast entity_indices ->
-        # (np.arange(model_number) * coords_length).T
-        # |
-        # v
+        # Todo
+        #   alternative solution may be quicker by performing the following multiplication then .flatten()
+        #   broadcast entity_indices ->
+        #   (np.arange(model_number) * coords_length).T
+        #   |
+        #   v
         coords_length = len(self.coords)
         return [[idx + (coords_length * model_number) for model_number in range(self.number_of_models)
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
-    @property
-    def residue_indices_per_entity(self) -> List[List[int]]:
+    @property  # TODO COMMENT OUT .pdb
+    def residue_indices_per_entity(self) -> List[List[int]]:  # Todo MOVE to SymmetricModel, chains for Model
+    # def residue_indices_per_chain(self) -> List[List[int]]:  # Todo KEEP chains for Model
+    #     return [chain.residue_indices for chain in self.pdb.chains]
         return [entity.residue_indices for entity in self.pdb.entities]
 
-    @property
+    @property  # TODO COMMENT OUT .pdb
     def number_of_atoms_per_entity(self) -> List[int]:  # TODO COMMENT OUT .pdb
+    # def number_of_atoms_per_chain(self) -> List[int]:  # Todo MOVE to SymmetricModel, chains for Model
+    #     return [chain.number_of_atoms for chain in self.pdb.chains]  # Todo KEEP chains for Model
         return [entity.number_of_atoms for entity in self.pdb.entities]
 
     @property
@@ -763,7 +771,10 @@ class Model:  # Todo (Structure)
 
     @property
     def number_of_residues_per_entity(self):  # TODO COMMENT OUT .pdb
+    # def number_of_residues_per_chain(self):  # Todo MOVE to SymmetricModel, chains for Model
+    #     return [chain.number_of_residues for chain in self.pdb.chains]  # Todo KEEP chains for Model
         return [entity.number_of_residues for entity in self.pdb.entities]
+
 
     @property
     def number_of_residues(self):  # TODO COMMENT OUT .pdb
@@ -797,22 +808,22 @@ class Model:  # Todo (Structure)
     #         return self._coords_indexed_residue_atoms
 
     @property
-    def center_of_mass(self) -> np.ndarray:  # TODO COMMENT OUT ONCE Structure SUBCLASSED
+    def center_of_mass(self) -> np.ndarray:  # TODO COMMENT OUT Function ONCE Structure SUBCLASSED
         """The center of mass for the model Structure, either an asu, or other pdb"""
         # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
         number_of_atoms = len(self.coords)
         return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.coords)
 
     @property
-    def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
+    def model_coords(self) -> np.ndarray:  # TODO RECONCILE with coords, SymmetricModel, and State variation
         """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
         return self._model_coords.coords
 
     @model_coords.setter
-    def model_coords(self, coords):
+    def model_coords(self, coords: Coords):
         # if isinstance(coords, Coords):
         try:
-            coords.coords
+            coords.coords  # are they Coords?
             self._model_coords = coords
         # else:
         except AttributeError:
@@ -825,9 +836,9 @@ class Model:  # Todo (Structure)
         Keyword Args:
             **kwargs
         Returns:
-            (str)
+            The PDB formatted SEQRES record
         """
-        if self.pdb.reference_sequence:  # TODO DISCONNECT HERE
+        if self.pdb.reference_sequence:  # TODO DISCONNECT HERE and reconcile once subclassed
             # formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
             # formated_reference_sequence = \
             #     {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
@@ -844,11 +855,11 @@ class Model:  # Todo (Structure)
         else:
             return ''
 
-    def format_header(self, **kwargs):
+    def format_header(self, **kwargs) -> str:
         """Return the BIOMT and the SEQRES records based on the pose
 
         Returns:
-            (str)
+
         """
         if type(self).__name__ in ['Model']:
             return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
@@ -857,13 +868,13 @@ class Model:  # Todo (Structure)
         else:
             return ''
 
-    def format_biomt(self, **kwargs):
+    def format_biomt(self, **kwargs) -> str:
         """Return the BIOMT record for the PDB if there was one parsed or provided by a SymEntry
 
         Returns:
-            (str)
+
         """
-        if self.pdb.biomt_header != '':  # TODO DISCONNECT HERE
+        if self.pdb.biomt_header != '':  # TODO DISCONNECT HERE and reconcile once subclassed
             return self.pdb.biomt_header
         elif self.pdb.biomt:
             return '%s\n' \
@@ -892,7 +903,7 @@ class Model:  # Todo (Structure)
         if _header != '':
             file_handle.write('%s' % _header)
 
-    def return_atom_string(self, **kwargs):  # Todo remove once Structure attached
+    def return_atom_string(self, **kwargs) -> str:  # Todo remove once Structure subclassed
         """Provide the Model Atoms as a PDB file string"""
         return '\n'.join(residue.__str__(**kwargs) for residue in self.residues)
 
@@ -975,7 +986,7 @@ class SymmetricModel(Model):
     def __init__(self, asu: Structure = None, asu_file: str = None, sym_entry: SymEntry = None, symmetry: str = None,
                  **kwargs):
         super().__init__(**kwargs)  # log=log,
-        if asu and isinstance(asu, Structure):
+        if asu and isinstance(asu, Structure):  # Todo make asu attribute distinct from self with Structure Subclass?
             self.asu = asu  # the pose specific asu
         elif asu_file:
             self.asu = PDB.from_file(asu_file, log=self.log, **kwargs)
@@ -3735,14 +3746,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                            overlap_error=z_value_from_match_score(match),
                                            match_number=match_count, out_path=out_path)
 
-    def write_fragment_pairs(self, ghostfrag_surffrag_pairs, out_path=os.getcwd()):
+    def write_fragment_pairs(self, ghostfrag_surffrag_pairs: tuple[GhostFragment, MonoFragment, float],
+                             out_path: str | bytes = os.getcwd()):
+        interface_ghost_frag: GhostFragment
+        interface_mono_frag: MonoFragment
         for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
-            fragment, _ = dictionary_lookup(self.fragment_db.paired_frags, interface_ghost_frag.get_ijk())
-            trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_fragment.transformation)
-            trnsfmd_fragment.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_match_%d.pdb'
-                                                         % (*interface_ghost_frag.get_ijk(), idx)))
-            # interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_overlap_match_%d.pdb'
-            #                                                            % (*interface_ghost_frag.get_ijk(), idx)))
+            ijk = interface_ghost_frag.get_ijk()
+            fragment, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
+            trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_residue.transformation)
+            trnsfmd_fragment.write(out_path=os.path.join(out_path, f'%d_%d_%d_fragment_match_{idx}.pdb' % ijk))
 
     # def return_symmetry_parameters(self):
     #     """Return the symmetry parameters from a SymmetricModel
@@ -3908,7 +3920,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
     """From two Structure's, score the interface between them according to Nanohedra's fragment matching"""
     if not fragdb:
         fragdb = FragmentDB()
-        fragdb.get_monofrag_cluster_rep_dict()
+        # fragdb.get_monofrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_info_dict()
     if not euler_lookup:
@@ -3974,9 +3986,12 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
         (list[dict[mapping[str,any]]])
     """
     fragment_matches = []
-    for interface_ghost_frag, interface_mono_frag, match_score in ghostfrag_surffrag_pairs:
-        surffrag_ch1, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()
-        surffrag_ch2, surffrag_resnum2 = interface_mono_frag.get_central_res_tup()
+    for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_surffrag_pairs:
+        _, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()  # surffrag_ch1,
+        _, surffrag_resnum2 = interface_surf_frag.get_central_res_tup()  # surffrag_ch2,
+        # Todo
+        #  surf_frag_central_res_num1 = interface_ghost_residue.number
+        #  surf_frag_central_res_num2 = interface_surf_residue.number
         fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
                                      (surffrag_resnum1, surffrag_resnum2,  match_score,
                                       '%d_%d_%d' % interface_ghost_frag.get_ijk()))))
@@ -3986,81 +4001,81 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
     return fragment_matches
 
 
-def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
-    """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
-    interface_name = interface_pdb.name
-
-    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[0]).atoms)
-    entity1.update_attributes_from_pdb(interface_pdb)
-    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[-1]).atoms)
-    entity2.update_attributes_from_pdb(interface_pdb)
-
-    interacting_residue_pairs = find_interface_pairs(entity1, entity2)
-
-    entity1_interface_residue_numbers, entity2_interface_residue_numbers = \
-        get_interface_fragment_residue_numbers(entity1, entity2, interacting_residue_pairs)
-    # entity1_ch_interface_residue_numbers, entity2_ch_interface_residue_numbers = \
-    #     get_interface_fragment_chain_residue_numbers(entity1, entity2)
-
-    entity1_interface_sa = entity1.get_surface_area_residues(entity1_interface_residue_numbers)
-    entity2_interface_sa = entity2.get_surface_area_residues(entity2_interface_residue_numbers)
-    interface_buried_sa = entity1_interface_sa + entity2_interface_sa
-
-    interface_frags1 = entity1.get_fragments(residue_numbers=entity1_interface_residue_numbers)
-    interface_frags2 = entity2.get_fragments(residue_numbers=entity2_interface_residue_numbers)
-    entity1_coords = entity1.coords
-
-    ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
-    # fragment_matches = find_fragment_overlap_at_interface(entity1, entity2, entity1_interface_residue_numbers,
-    #                                                       entity2_interface_residue_numbers)
-    fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
-    if write:
-        write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
-
-    # all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
-    #     central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
-    #     calculate_match_metrics(fragment_matches)
-
-    match_metrics = calculate_match_metrics(fragment_matches)
-    # Todo
-    #   'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
-    #                         'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
-    #                         'match_scores': {residue number(int): (list[score (float)]), ...},
-    #                         'index_count': {index (int): count (int), ...},
-    #                         'multiple_ratio': (float)}
-    #              'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
-    #              'total': {'center': {'score': , 'number': },
-    #                        'total': {'score': , 'number': },
-    #                        'index_count': , 'multiple_ratio': , 'observations': (int)}
-    #              }
-
-    total_residues = {'A': set(), 'B': set()}
-    for pair in interacting_residue_pairs:
-        total_residues['A'].add(pair[0])
-        total_residues['B'].add(pair[1])
-
-    total_residues = len(total_residues['A']) + len(total_residues['B'])
-
-    percent_interface_matched = central_residues_with_fragment_overlap / total_residues
-    percent_interface_covered = total_residues_with_fragment_overlap / total_residues
-
-    interface_metrics = {'nanohedra_score': all_residue_score,
-                         'nanohedra_score_central': center_residue_score,
-                         'fragments': fragment_matches,
-                         'multiple_fragment_ratio': multiple_frag_ratio,
-                         'number_fragment_residues_central': central_residues_with_fragment_overlap,
-                         'number_fragment_residues_all': total_residues_with_fragment_overlap,
-                         'total_interface_residues': total_residues,
-                         'number_fragments': len(fragment_matches),
-                         'percent_residues_fragment_total': percent_interface_covered,
-                         'percent_residues_fragment_center': percent_interface_matched,
-                         'percent_fragment_helix': fragment_content_d['1'],
-                         'percent_fragment_strand': fragment_content_d['2'],
-                         'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
-                         + fragment_content_d['5'],
-                         'interface_area': interface_buried_sa}
-
-    return interface_name, interface_metrics
+# def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
+#     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
+#     interface_name = interface_pdb.name
+#
+#     entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[0]).atoms)
+#     entity1.update_attributes_from_pdb(interface_pdb)
+#     entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[-1]).atoms)
+#     entity2.update_attributes_from_pdb(interface_pdb)
+#
+#     interacting_residue_pairs = find_interface_pairs(entity1, entity2)
+#
+#     entity1_interface_residue_numbers, entity2_interface_residue_numbers = \
+#         get_interface_fragment_residue_numbers(entity1, entity2, interacting_residue_pairs)
+#     # entity1_ch_interface_residue_numbers, entity2_ch_interface_residue_numbers = \
+#     #     get_interface_fragment_chain_residue_numbers(entity1, entity2)
+#
+#     entity1_interface_sa = entity1.get_surface_area_residues(entity1_interface_residue_numbers)
+#     entity2_interface_sa = entity2.get_surface_area_residues(entity2_interface_residue_numbers)
+#     interface_buried_sa = entity1_interface_sa + entity2_interface_sa
+#
+#     interface_frags1 = entity1.get_fragments(residue_numbers=entity1_interface_residue_numbers)
+#     interface_frags2 = entity2.get_fragments(residue_numbers=entity2_interface_residue_numbers)
+#     entity1_coords = entity1.coords
+#
+#     ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
+#     # fragment_matches = find_fragment_overlap_at_interface(entity1, entity2, entity1_interface_residue_numbers,
+#     #                                                       entity2_interface_residue_numbers)
+#     fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
+#     if write:
+#         write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
+#
+#     # all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
+#     #     central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
+#     #     calculate_match_metrics(fragment_matches)
+#
+#     match_metrics = calculate_match_metrics(fragment_matches)
+#     # Todo
+#     #   'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
+#     #                         'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
+#     #                         'match_scores': {residue number(int): (list[score (float)]), ...},
+#     #                         'index_count': {index (int): count (int), ...},
+#     #                         'multiple_ratio': (float)}
+#     #              'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
+#     #              'total': {'center': {'score': , 'number': },
+#     #                        'total': {'score': , 'number': },
+#     #                        'index_count': , 'multiple_ratio': , 'observations': (int)}
+#     #              }
+#
+#     total_residues = {'A': set(), 'B': set()}
+#     for pair in interacting_residue_pairs:
+#         total_residues['A'].add(pair[0])
+#         total_residues['B'].add(pair[1])
+#
+#     total_residues = len(total_residues['A']) + len(total_residues['B'])
+#
+#     percent_interface_matched = central_residues_with_fragment_overlap / total_residues
+#     percent_interface_covered = total_residues_with_fragment_overlap / total_residues
+#
+#     interface_metrics = {'nanohedra_score': all_residue_score,
+#                          'nanohedra_score_central': center_residue_score,
+#                          'fragments': fragment_matches,
+#                          'multiple_fragment_ratio': multiple_frag_ratio,
+#                          'number_fragment_residues_central': central_residues_with_fragment_overlap,
+#                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
+#                          'total_interface_residues': total_residues,
+#                          'number_fragments': len(fragment_matches),
+#                          'percent_residues_fragment_total': percent_interface_covered,
+#                          'percent_residues_fragment_center': percent_interface_matched,
+#                          'percent_fragment_helix': fragment_content_d['1'],
+#                          'percent_fragment_strand': fragment_content_d['2'],
+#                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
+#                          + fragment_content_d['5'],
+#                          'interface_area': interface_buried_sa}
+#
+#     return interface_name, interface_metrics
 
 
 def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):

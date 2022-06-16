@@ -15,6 +15,7 @@ from PDB import PDB
 
 
 def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
+    raise NotImplementedError('This function is broken')
     init_dir = 'init_fragments'
     complete_dir = 'complete_fragments'
     if not os.path.exists(os.path.join(out_path, init_dir)):
@@ -99,7 +100,7 @@ if __name__ == '__main__':
     logger.info('Getting Fragment Information')
     ijk_frag_db = FragmentDB()
     # Get complete IJK fragment representatives database dictionaries
-    ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
+    # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
     ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
     ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
 
