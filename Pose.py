@@ -16,7 +16,7 @@ from DesignMetrics import calculate_match_metrics, fragment_metric_template, for
 from JobResources import FragmentDB, fragment_factory, Database
 from PDB import PDB
 from SequenceProfile import SequenceProfile
-from Structure import Coords, Structure, Structures, Chain, Entity, Residue  # Atoms, Residues,
+from Structure import Coords, Structure, Structures, Chain, Entity, Residue, GhostFragment, MonoFragment
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, \
     start_log, null_log, match_score_from_z_value, split_interface_residues, dictionary_lookup, \
     split_number_pairs_and_sort, digit_translate_table
@@ -3735,14 +3735,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                            overlap_error=z_value_from_match_score(match),
                                            match_number=match_count, out_path=out_path)
 
-    def write_fragment_pairs(self, ghostfrag_surffrag_pairs, out_path=os.getcwd()):
+    def write_fragment_pairs(self, ghostfrag_surffrag_pairs: tuple[GhostFragment, MonoFragment, float],
+                             out_path: str | bytes = os.getcwd()):
+        interface_ghost_frag: GhostFragment
+        interface_mono_frag: MonoFragment
         for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
-            fragment, _ = dictionary_lookup(self.fragment_db.paired_frags, interface_ghost_frag.get_ijk())
+            ijk = interface_ghost_frag.get_ijk()
+            fragment, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
             trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_fragment.transformation)
-            trnsfmd_fragment.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_match_%d.pdb'
-                                                         % (*interface_ghost_frag.get_ijk(), idx)))
-            # interface_ghost_frag.structure.write(out_path=os.path.join(out_path, '%d_%d_%d_fragment_overlap_match_%d.pdb'
-            #                                                            % (*interface_ghost_frag.get_ijk(), idx)))
+            trnsfmd_fragment.write(out_path=os.path.join(out_path, f'%d_%d_%d_fragment_match_{idx}.pdb' % ijk))
 
     # def return_symmetry_parameters(self):
     #     """Return the symmetry parameters from a SymmetricModel
@@ -3974,9 +3975,12 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
         (list[dict[mapping[str,any]]])
     """
     fragment_matches = []
-    for interface_ghost_frag, interface_mono_frag, match_score in ghostfrag_surffrag_pairs:
-        surffrag_ch1, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()
-        surffrag_ch2, surffrag_resnum2 = interface_mono_frag.get_central_res_tup()
+    for interface_ghost_frag, interface_surf_frag, match_score in ghostfrag_surffrag_pairs:
+        _, surffrag_resnum1 = interface_ghost_frag.get_aligned_chain_and_residue()  # surffrag_ch1,
+        _, surffrag_resnum2 = interface_surf_frag.get_central_res_tup()  # surffrag_ch2,
+        # Todo
+        #  surf_frag_central_res_num1 = interface_ghost_residue.number
+        #  surf_frag_central_res_num2 = interface_surf_residue.number
         fragment_matches.append(dict(zip(('mapped', 'paired', 'match', 'cluster'),
                                      (surffrag_resnum1, surffrag_resnum2,  match_score,
                                       '%d_%d_%d' % interface_ghost_frag.get_ijk()))))
