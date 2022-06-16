@@ -668,19 +668,30 @@ class ClusterInfoFile:
 
 
 class FragmentDB:
-    def __init__(self, fragment_length=5):
-        self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
+    cluster_representatives_path: str
+    cluster_info_path: str
+    fragment_length: int
+    indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] | dict
+    # dict[int, tuple[3x3, 1x3, tuple[int, int, int], float]]
+    info: dict[int, dict[int, dict[int, ClusterInfoFile]]] | None
+    # monofrag_representatives_path: str
+    paired_frags: dict[int, dict[int, dict[int, tuple[PDB, str]]]] | None
+    reps: dict[int, np.ndarray]
+
+    def __init__(self, fragment_length: int = 5):
         self.cluster_representatives_path = intfrag_cluster_rep_dirpath
         self.cluster_info_path = intfrag_cluster_info_dirpath
         self.fragment_length = fragment_length
-        self.reps = None
-        self.paired_frags = None
         self.indexed_ghosts = {}
         self.info = None
+        # self.monofrag_representatives_path = monofrag_cluster_rep_dirpath
+        self.paired_frags = None
+        # self.reps = None
 
-    def get_monofrag_cluster_rep_dict(self):
-        self.reps = {int(os.path.splitext(file)[0]): PDB.from_file(os.path.join(root, file), entities=False, log=None)
-                     for root, dirs, files in os.walk(self.monofrag_representatives_path) for file in files}
+    # def get_monofrag_cluster_rep_dict(self):
+        self.reps = {int(os.path.splitext(file)[0]):
+                     PDB.from_file(os.path.join(root, file), entities=False, log=None).get_ca_coords()
+                     for root, dirs, files in os.walk(monofrag_cluster_rep_dirpath) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
         ijk_cluster_representatives = {}
@@ -738,7 +749,30 @@ class FragmentDB:
                           for k_type in j_dict])
             # rmsd_array = np.array([self.info.cluster(type_set).rmsd for type_set in ijk_types])  # Todo
             rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
-            self.indexed_ghosts[i_type] = (stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array)
+            self.indexed_ghosts[i_type] = stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array
+
+
+def parameterize_frag_length(length: int) -> tuple[int, int]:
+    """Generate fragment length range parameters for use in fragment functions
+
+    Args:
+        length: The length of the fragment
+    Returns:
+        The tuple that provide the range for the specified length centered around 0
+            ex: length=5 -> (-2, 3), length=6 -> (-3, 3)
+    """
+    if length % 2 == 1:  # fragment length is odd
+        index_offset = 1
+        # fragment_range = (0 - _range, 0 + _range + index_offset)
+        # return 0 - _range, 0 + _range + index_offset
+    else:  # length is even
+        logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
+                        'Ensure this is what you want')
+        index_offset = 0
+        # fragment_range = (0 - _range, 0 + _range)
+    _range = math.floor(length / 2)  # get the number of residues extending to each side
+
+    return 0 - _range, 0 + _range + index_offset
 
 
 class FragmentDatabase(FragmentDB):
@@ -768,14 +802,14 @@ class FragmentDatabase(FragmentDB):
             # Todo initialize as local directory
             self.db = False
             if init_db:
-                logger.info('Initializing %s FragmentDatabase from disk. This may take awhile...' % source)
-                self.get_monofrag_cluster_rep_dict()
+                logger.info(f'Initializing {source} FragmentDatabase from disk. This may take awhile...')
+                # self.get_monofrag_cluster_rep_dict()
                 self.get_intfrag_cluster_rep_dict()
                 self.get_intfrag_cluster_info_dict()
                 # self.get_cluster_info()
 
         self.get_db_statistics()
-        self.parameterize_frag_length(fragment_length)
+        self.fragment_range = parameterize_frag_length(fragment_length)
 
     @property
     def location(self) -> Optional[Union[str, bytes]]:
@@ -892,16 +926,16 @@ class FragmentDatabase(FragmentDB):
 
         return '_'.join(info)
 
-    def parameterize_frag_length(self, length):
-        """Generate fragment length range parameters for use in fragment functions"""
-        _range = math.floor(length / 2)  # get the number of residues extending to each side
-        if length % 2 == 1:  # fragment length is odd
-            self.fragment_range = (0 - _range, 0 + _range + index_offset)
-            # return 0 - _range, 0 + _range + index_offset
-        else:  # length is even
-            logger.critical('%d is an even integer which is not symmetric about a single residue. '
-                            'Ensure this is what you want' % length)
-            self.fragment_range = (0 - _range, 0 + _range)
+    # def parameterize_frag_length(self, length):
+    #     """Generate fragment length range parameters for use in fragment functions"""
+    #     _range = math.floor(length / 2)  # get the number of residues extending to each side
+    #     if length % 2 == 1:  # fragment length is odd
+    #         self.fragment_range = (0 - _range, 0 + _range + index_offset)
+    #         # return 0 - _range, 0 + _range + index_offset
+    #     else:  # length is even
+    #         logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
+    #                         'Ensure this is what you want')
+    #         self.fragment_range = (0 - _range, 0 + _range)
 
     def start_mysql_connection(self):
         self.fragdb = Mysql(host='cassini-mysql', database='kmeader', user='kmeader', password='km3@d3r')
