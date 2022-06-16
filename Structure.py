@@ -1183,16 +1183,16 @@ class GhostFragment:
     j_type: int
     k_type: int
     rmsd: float
-    aligned_fragment: MonoFragment
+    aligned_residue: MonoFragment
 
     def __init__(self, guide_coords: np.ndarray, i_type: int, j_type: int, k_type: int, ijk_rmsd: float,
-                 aligned_fragment: MonoFragment):  # structure
+                 aligned_residue: MonoFragment):  # structure
         self.guide_coords = guide_coords
         self.i_type = i_type
         self.j_type = j_type
         self.k_type = k_type
         self.rmsd = ijk_rmsd
-        self.aligned_fragment = aligned_fragment
+        self.aligned_residue = aligned_residue
 
     def get_ijk(self) -> tuple[int, int, int]:
         """Return the fragments corresponding cluster index information
@@ -1208,12 +1208,12 @@ class GhostFragment:
         Returns:
             aligned chain, aligned residue_number
         """
-        return self.aligned_fragment.central_residue.chain, self.aligned_fragment.number
+        return self.aligned_residue.central_residue.chain, self.aligned_residue.number
 
     @property
     def number(self) -> int:
         """The Residue number of the aligned Residue"""
-        return self.aligned_fragment.number
+        return self.aligned_residue.number
 
     # @property
     # def structure(self):
@@ -1222,9 +1222,6 @@ class GhostFragment:
     # @structure.setter
     # def structure(self, structure):
     #     self._structure = structure
-
-    # def get_guide_coords(self):  # UNUSED
-    #     return self.guide_coords
 
     # def get_center_of_mass(self):  # UNUSED
     #     return np.matmul(np.array([0.33333, 0.33333, 0.33333]), self.guide_coords)
@@ -1269,9 +1266,6 @@ class MonoFragment:
     def get_central_res_tup(self) -> tuple[str, int]:
         return self.central_residue.chain, self.central_residue.number
 
-    # def get_guide_coords(self):  # UNUSED
-    #     return self.guide_coords
-
     # def get_center_of_mass(self):  # UNUSED
     #     if self.guide_coords:
     #         return np.matmul([0.33333, 0.33333, 0.33333], self.guide_coords)
@@ -1290,9 +1284,6 @@ class MonoFragment:
     def number(self) -> int:
         """The Residue number"""
         return self.central_residue.number
-    #
-    # def chain(self):
-    #     return self.central_residue.chain
 
     def get_ghost_fragments(self, indexed_ghost_fragments: dict, bb_balltree: BallTree, clash_dist: float = 2.2) -> \
             list | list[GhostFragment]:

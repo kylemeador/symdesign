@@ -314,7 +314,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
             # if write_frags:  # write out aligned cluster representative fragment
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.get_ijk())
-            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_fragment.transformation)
+            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_residue.transformation)
             trnsfmd_ghost_fragment.transform(rotation=rot_mat1, translation=internal_tx_param1,
                                              rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             trnsfmd_ghost_fragment.write(out_path=os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
@@ -1636,7 +1636,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
             # if write_frags:  # write out aligned cluster representative fragment
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.get_ijk())
-            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_fragment.transformation)
+            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_residue.transformation)
             trnsfmd_ghost_fragment.transform(**specific_transformation1)
             trnsfmd_ghost_fragment.write(
                 out_path=os.path.join(matched_fragment_dir,

@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
@@ -3742,7 +3744,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
             ijk = interface_ghost_frag.get_ijk()
             fragment, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
-            trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_fragment.transformation)
+            trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_residue.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, f'%d_%d_%d_fragment_match_{idx}.pdb' % ijk))
 
     # def return_symmetry_parameters(self):
