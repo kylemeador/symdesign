@@ -1058,53 +1058,57 @@ class Residues:
 
 
 class GhostFragment:
-    def __init__(self, guide_coords, i_type, j_type, k_type, ijk_rmsd, aligned_fragment):  # structure
-        #        aligned_chain_residue_tuple, guide_coords=None):
-        # self.structure = structure
-        # if not guide_coords:
+    guide_coords: np.ndarray
+    i_type: int
+    j_type: int
+    k_type: int
+    rmsd: float
+    aligned_fragment: MonoFragment
+
+    def __init__(self, guide_coords: np.ndarray, i_type: int, j_type: int, k_type: int, ijk_rmsd: float,
+                 aligned_fragment: MonoFragment):  # structure
         self.guide_coords = guide_coords
-        # self.guide_coords = self.structure.chain('9').coords
-        # else:
-        #     self.guide_coords = guide_coords
         self.i_type = i_type
         self.j_type = j_type
         self.k_type = k_type
         self.rmsd = ijk_rmsd
         self.aligned_fragment = aligned_fragment
-        # self.aligned_surf_frag_central_res_tup = aligned_chain_residue_tuple
 
-    def get_ijk(self):
+    def get_ijk(self) -> tuple[int, int, int]:
         """Return the fragments corresponding cluster index information
 
         Returns:
-            (tuple[int, int, int]): I cluster index, J cluster index, K cluster index
+            I cluster index, J cluster index, K cluster index
         """
         return self.i_type, self.j_type, self.k_type
 
-    def get_aligned_fragment(self):
-        """
+    def get_aligned_fragment(self) -> MonoFragment:
+        """Get the MonoFragment instance that the GhostFragment was mapped to
+
         Returns:
-            (Structure): The fragment the GhostFragment instance is aligned to
+            The fragment the GhostFragment instance is aligned to
         """
         return self.aligned_fragment
 
-    def get_aligned_chain_and_residue(self):
-        """Return the fragment information the GhostFragment instance is aligned to
+    def get_aligned_chain_and_residue(self) -> tuple[str, int]:
+        """Return the MonoFragment identifiers that the GhostFragment was mapped to
+
         Returns:
-            (tuple[str,int]): aligned chain, aligned residue_number"""
+            aligned chain, aligned residue_number
+        """
         return self.aligned_fragment.central_residue.chain, self.aligned_fragment.residue_number
 
-    def get_i_type(self):
-        return self.i_type
-
-    def get_j_type(self):
-        return self.j_type
-
-    def get_k_type(self):
-        return self.k_type
-
-    def get_rmsd(self):
-        return self.rmsd
+    # def get_i_type(self):
+    #     return self.i_type
+    #
+    # def get_j_type(self):
+    #     return self.j_type
+    #
+    # def get_k_type(self):
+    #     return self.k_type
+    #
+    # def get_rmsd(self):
+    #     return self.rmsd
 
     # @property
     # def structure(self):
@@ -1114,31 +1118,38 @@ class GhostFragment:
     # def structure(self, structure):
     #     self._structure = structure
 
-    def get_guide_coords(self):  # UNUSED
-        return self.guide_coords
+    # def get_guide_coords(self):  # UNUSED
+    #     return self.guide_coords
 
     # def get_center_of_mass(self):  # UNUSED
     #     return np.matmul(np.array([0.33333, 0.33333, 0.33333]), self.guide_coords)
 
 
 class MonoFragment:
-    def __init__(self, residues, fragment_representatives=None, fragment_type=None, guide_coords=None,
-                 fragment_length=5, rmsd_thresh=0.75):
+    central_residue: Residue
+    guide_coords: np.ndarray
+    i_type: int
+    rotation: np.ndarray
+    translation: np.ndarray
+
+    def __init__(self, residues: Sequence[Residue], representatives: dict[int, np.ndarray] = None,
+                 fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5,
+                 rmsd_thresh: float = 0.75):
         self.i_type = fragment_type
         self.guide_coords = guide_coords
         self.central_residue = residues[int(fragment_length/2)]
 
-        if residues and fragment_representatives:
+        if residues and representatives:
             frag_ca_coords = np.array([residue.ca_coords for residue in residues])
             min_rmsd = float('inf')
-            for cluster_type, cluster_rep in fragment_representatives.items():
-                rmsd, rot, tx, _ = superposition3d(frag_ca_coords, cluster_rep.get_ca_coords())
+            for cluster_type, cluster_coords in representatives.items():
+                rmsd, rot, tx, _ = superposition3d(frag_ca_coords, cluster_coords)
                 if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
                     self.i_type = cluster_type
                     min_rmsd, self.rotation, self.translation = rmsd, rot, tx
 
             if self.i_type:
-                guide_coords = np.array([[0.0, 0.0, 0.0], [3.0, 0.0, 0.0], [0.0, 3.0, 0.0]])
+                guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
                 self.guide_coords = np.matmul(guide_coords, np.transpose(self.rotation)) + self.translation
 
     # @classmethod
@@ -1170,8 +1181,8 @@ class MonoFragment:
     def get_central_res_tup(self):
         return self.central_residue.chain, self.central_residue.number
 
-    def get_guide_coords(self):  # UNUSED
-        return self.guide_coords
+    # def get_guide_coords(self):  # UNUSED
+    #     return self.guide_coords
 
     # def get_center_of_mass(self):  # UNUSED
     #     if self.guide_coords:
@@ -1179,8 +1190,8 @@ class MonoFragment:
     #     else:
     #         return None
 
-    def get_i_type(self):
-        return self.i_type
+    # def get_i_type(self):
+    #     return self.i_type
 
     # @property
     # def structure(self):
@@ -3146,14 +3157,18 @@ class Structure(StructureBase):
 
             return out_path
 
-    def get_fragments(self, residues=None, residue_numbers=None, representatives=None, fragment_length=5):
+    def get_fragments(self, residues: list[Residue] = None, residue_numbers: list[int] = None, fragment_length: int = 5,
+                      **kwargs) -> list[MonoFragment]:
         """From the Structure, find Residues with a matching fragment type as identified in a fragment library
 
+        Args:
+            residues: The specific Residues to search for
+            residue_numbers: The specific residue numbers to search for
+            fragment_length: The length of the fragment observations used
         Keyword Args:
-            residues=None (list): The specific Residues to search for
-            residue_numbers=None (list): The specific residue numbers to search for
+            representatives=None (dict[int, PDB]):
         Returns:
-            (list[MonoFragment]): The MonoFragments found on the Structure
+            The MonoFragments found on the Structure
         """
         if not residues and not residue_numbers:
             return []
@@ -3164,20 +3179,19 @@ class Structure(StructureBase):
         # monofrag_array = repeat([ca_stretch_frag_index1, ca_stretch_frag_index2, ...]
         # monofrag_indices = filter_euler_lookup_by_zvalue(ca_stretches, monofrag_array, z_value_func=fragment_overlap,
         #                                                  max_z_value=rmsd_threshold)
-
+        fragment_lower_range, fragment_upper_range = parameterize_frag_length(fragment_length)
         fragments = []
         for residue_number in residue_numbers:
-            frag_residue_numbers = [residue_number + i for i in range(-2, 3)]  # Todo parameterize range
+            # frag_residue_numbers = [residue_number + i for i in range(fragment_lower_range, fragment_upper_range)]
             ca_count = 0
-            frag_residues = self.get_residues(numbers=frag_residue_numbers)
+            frag_residues = self.get_residues(numbers=[residue_number + i for i in range(fragment_lower_range,
+                                                                                         fragment_upper_range)])
             for residue in frag_residues:
-                # frag_atoms.extend(residue.get_atoms)
                 if residue.ca:
                     ca_count += 1
 
             if ca_count == 5:
-                fragment = MonoFragment(residues=frag_residues, fragment_representatives=representatives,
-                                        fragment_length=fragment_length)
+                fragment = MonoFragment(residues=frag_residues, fragment_length=fragment_length, **kwargs)
                 if fragment.i_type:
                     fragments.append(fragment)
                 # fragments.append(Structure.from_residues(frag_residues, coords=self._coords, log=None))

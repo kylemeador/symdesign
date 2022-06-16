@@ -99,7 +99,7 @@ if __name__ == '__main__':
     logger.info('Getting Fragment Information')
     ijk_frag_db = FragmentDB()
     # Get complete IJK fragment representatives database dictionaries
-    ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
+    # ijk_monofrag_cluster_rep_pdb_dict = ijk_frag_db.get_monofrag_cluster_rep_dict()
     ijk_intfrag_cluster_rep_dict = ijk_frag_db.get_intfrag_cluster_rep_dict()
     ijk_intfrag_cluster_info_dict = ijk_frag_db.get_intfrag_cluster_info_dict()
 

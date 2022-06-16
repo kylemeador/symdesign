@@ -122,7 +122,7 @@ def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error
         out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % matched_frag.get_central_res_tup())
         out_info_file.write('FRAGMENT CLUSTER\n')
         out_info_file.write('id: %s\n' % cluster_id)
-        out_info_file.write('mean rmsd: %f\n' % ghost_frag.get_rmsd())
+        out_info_file.write('mean rmsd: %f\n' % ghost_frag.rmsd)
         out_info_file.write('aligned rep: int_frag_%s_%d.pdb\n' % (cluster_id, match_number))
         out_info_file.write('central res pair freqs:\n%s\n\n' % str(central_frequencies))
 

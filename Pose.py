@@ -3908,7 +3908,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
     """From two Structure's, score the interface between them according to Nanohedra's fragment matching"""
     if not fragdb:
         fragdb = FragmentDB()
-        fragdb.get_monofrag_cluster_rep_dict()
+        # fragdb.get_monofrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_info_dict()
     if not euler_lookup:
@@ -3986,81 +3986,81 @@ def get_matching_fragment_pairs_info(ghostfrag_surffrag_pairs):
     return fragment_matches
 
 
-def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
-    """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
-    interface_name = interface_pdb.name
-
-    entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[0]).atoms)
-    entity1.update_attributes_from_pdb(interface_pdb)
-    entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[-1]).atoms)
-    entity2.update_attributes_from_pdb(interface_pdb)
-
-    interacting_residue_pairs = find_interface_pairs(entity1, entity2)
-
-    entity1_interface_residue_numbers, entity2_interface_residue_numbers = \
-        get_interface_fragment_residue_numbers(entity1, entity2, interacting_residue_pairs)
-    # entity1_ch_interface_residue_numbers, entity2_ch_interface_residue_numbers = \
-    #     get_interface_fragment_chain_residue_numbers(entity1, entity2)
-
-    entity1_interface_sa = entity1.get_surface_area_residues(entity1_interface_residue_numbers)
-    entity2_interface_sa = entity2.get_surface_area_residues(entity2_interface_residue_numbers)
-    interface_buried_sa = entity1_interface_sa + entity2_interface_sa
-
-    interface_frags1 = entity1.get_fragments(residue_numbers=entity1_interface_residue_numbers)
-    interface_frags2 = entity2.get_fragments(residue_numbers=entity2_interface_residue_numbers)
-    entity1_coords = entity1.coords
-
-    ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
-    # fragment_matches = find_fragment_overlap_at_interface(entity1, entity2, entity1_interface_residue_numbers,
-    #                                                       entity2_interface_residue_numbers)
-    fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
-    if write:
-        write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
-
-    # all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
-    #     central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
-    #     calculate_match_metrics(fragment_matches)
-
-    match_metrics = calculate_match_metrics(fragment_matches)
-    # Todo
-    #   'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
-    #                         'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
-    #                         'match_scores': {residue number(int): (list[score (float)]), ...},
-    #                         'index_count': {index (int): count (int), ...},
-    #                         'multiple_ratio': (float)}
-    #              'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
-    #              'total': {'center': {'score': , 'number': },
-    #                        'total': {'score': , 'number': },
-    #                        'index_count': , 'multiple_ratio': , 'observations': (int)}
-    #              }
-
-    total_residues = {'A': set(), 'B': set()}
-    for pair in interacting_residue_pairs:
-        total_residues['A'].add(pair[0])
-        total_residues['B'].add(pair[1])
-
-    total_residues = len(total_residues['A']) + len(total_residues['B'])
-
-    percent_interface_matched = central_residues_with_fragment_overlap / total_residues
-    percent_interface_covered = total_residues_with_fragment_overlap / total_residues
-
-    interface_metrics = {'nanohedra_score': all_residue_score,
-                         'nanohedra_score_central': center_residue_score,
-                         'fragments': fragment_matches,
-                         'multiple_fragment_ratio': multiple_frag_ratio,
-                         'number_fragment_residues_central': central_residues_with_fragment_overlap,
-                         'number_fragment_residues_all': total_residues_with_fragment_overlap,
-                         'total_interface_residues': total_residues,
-                         'number_fragments': len(fragment_matches),
-                         'percent_residues_fragment_total': percent_interface_covered,
-                         'percent_residues_fragment_center': percent_interface_matched,
-                         'percent_fragment_helix': fragment_content_d['1'],
-                         'percent_fragment_strand': fragment_content_d['2'],
-                         'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
-                         + fragment_content_d['5'],
-                         'interface_area': interface_buried_sa}
-
-    return interface_name, interface_metrics
+# def calculate_interface_score(interface_pdb, write=False, out_path=os.getcwd()):
+#     """Takes as input a single PDB with two chains and scores the interface using fragment decoration"""
+#     interface_name = interface_pdb.name
+#
+#     entity1 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[0]).atoms)
+#     entity1.update_attributes_from_pdb(interface_pdb)
+#     entity2 = PDB.from_atoms(interface_pdb.chain(interface_pdb.chain_ids[-1]).atoms)
+#     entity2.update_attributes_from_pdb(interface_pdb)
+#
+#     interacting_residue_pairs = find_interface_pairs(entity1, entity2)
+#
+#     entity1_interface_residue_numbers, entity2_interface_residue_numbers = \
+#         get_interface_fragment_residue_numbers(entity1, entity2, interacting_residue_pairs)
+#     # entity1_ch_interface_residue_numbers, entity2_ch_interface_residue_numbers = \
+#     #     get_interface_fragment_chain_residue_numbers(entity1, entity2)
+#
+#     entity1_interface_sa = entity1.get_surface_area_residues(entity1_interface_residue_numbers)
+#     entity2_interface_sa = entity2.get_surface_area_residues(entity2_interface_residue_numbers)
+#     interface_buried_sa = entity1_interface_sa + entity2_interface_sa
+#
+#     interface_frags1 = entity1.get_fragments(residue_numbers=entity1_interface_residue_numbers)
+#     interface_frags2 = entity2.get_fragments(residue_numbers=entity2_interface_residue_numbers)
+#     entity1_coords = entity1.coords
+#
+#     ghostfrag_surfacefrag_pairs = find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interface_frags2)
+#     # fragment_matches = find_fragment_overlap_at_interface(entity1, entity2, entity1_interface_residue_numbers,
+#     #                                                       entity2_interface_residue_numbers)
+#     fragment_matches = get_matching_fragment_pairs_info(ghostfrag_surfacefrag_pairs)
+#     if write:
+#         write_fragment_pairs(ghostfrag_surfacefrag_pairs, out_path=out_path)
+#
+#     # all_residue_score, center_residue_score, total_residues_with_fragment_overlap, \
+#     #     central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d = \
+#     #     calculate_match_metrics(fragment_matches)
+#
+#     match_metrics = calculate_match_metrics(fragment_matches)
+#     # Todo
+#     #   'mapped': {'center': {'residues' (int): (set), 'score': (float), 'number': (int)},
+#     #                         'total': {'residues' (int): (set), 'score': (float), 'number': (int)},
+#     #                         'match_scores': {residue number(int): (list[score (float)]), ...},
+#     #                         'index_count': {index (int): count (int), ...},
+#     #                         'multiple_ratio': (float)}
+#     #              'paired': {'center': , 'total': , 'match_scores': , 'index_count': , 'multiple_ratio': },
+#     #              'total': {'center': {'score': , 'number': },
+#     #                        'total': {'score': , 'number': },
+#     #                        'index_count': , 'multiple_ratio': , 'observations': (int)}
+#     #              }
+#
+#     total_residues = {'A': set(), 'B': set()}
+#     for pair in interacting_residue_pairs:
+#         total_residues['A'].add(pair[0])
+#         total_residues['B'].add(pair[1])
+#
+#     total_residues = len(total_residues['A']) + len(total_residues['B'])
+#
+#     percent_interface_matched = central_residues_with_fragment_overlap / total_residues
+#     percent_interface_covered = total_residues_with_fragment_overlap / total_residues
+#
+#     interface_metrics = {'nanohedra_score': all_residue_score,
+#                          'nanohedra_score_central': center_residue_score,
+#                          'fragments': fragment_matches,
+#                          'multiple_fragment_ratio': multiple_frag_ratio,
+#                          'number_fragment_residues_central': central_residues_with_fragment_overlap,
+#                          'number_fragment_residues_all': total_residues_with_fragment_overlap,
+#                          'total_interface_residues': total_residues,
+#                          'number_fragments': len(fragment_matches),
+#                          'percent_residues_fragment_total': percent_interface_covered,
+#                          'percent_residues_fragment_center': percent_interface_matched,
+#                          'percent_fragment_helix': fragment_content_d['1'],
+#                          'percent_fragment_strand': fragment_content_d['2'],
+#                          'percent_fragment_coil': fragment_content_d['3'] + fragment_content_d['4']
+#                          + fragment_content_d['5'],
+#                          'interface_area': interface_buried_sa}
+#
+#     return interface_name, interface_metrics
 
 
 def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
