@@ -20,107 +20,109 @@ from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clea
     format_index_string, ex_path
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
-design_flags = {
+residue_selector_flags = {
     'require_design_at_residues':
-        {'type': str, 'default': None,
-         'description': 'Regardless of participation in an interface,%sif certain residues should be included in'
-                        'design, specify the%sresidue POSE numbers as a comma separated string.%s'
-                        'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'
-                        % (terminal_formatter, terminal_formatter, terminal_formatter)},
+        dict(type=str, default=None,
+             description='Regardless of participation in an interface,%sif certain residues should be included in'
+                         'design, specify the%sresidue POSE numbers as a comma separated string.%s'
+                         'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'
+                         % (terminal_formatter, terminal_formatter, terminal_formatter)),
     'select_designable_residues_by_sequence':
-        {'type': str, 'default': None,
-         'description': 'If design should occur ONLY at certain residues,%sspecify the location of a .fasta file '
-                        'containing the design selection.%sRun "%s --single my_pdb_file.pdb design_selector" '
-                        'to set this up.'
-                        % (terminal_formatter, terminal_formatter, program_command)},
+        dict(type=str, default=None,
+             description='If design should occur ONLY at certain residues,%sspecify the location of a .fasta file '
+                         'containing the design selection.%sRun "%s --single my_pdb_file.pdb design_selector" '
+                         'to set this up.'
+                         % (terminal_formatter, terminal_formatter, program_command)),
     'select_designable_residues_by_pdb_number':
-        {'type': str, 'default': None,
-         'description': 'If design should occur ONLY at certain residues,%sspecify the residue PDB number(s) '
-                        'as a comma separated string.%sRanges are allowed '
-                        'Ex: "40-45,170-180,227,231"' % (terminal_formatter, terminal_formatter)},
+        dict(type=str, default=None,
+             description='If design should occur ONLY at certain residues,%sspecify the residue PDB number(s) '
+                         'as a comma separated string.%sRanges are allowed '
+                         'Ex: "40-45,170-180,227,231"' % (terminal_formatter, terminal_formatter)),
     'select_designable_residues_by_pose_number':
-        {'type': str, 'default': None,
-         'description': 'If design should occur ONLY at certain residues,%sspecify the residue POSE number(s) '
-                        'as a comma separated string.%sRanges are allowed '
-                        'Ex: "23,24,35,41,100-110,267,289-293"' % (terminal_formatter, terminal_formatter)},
+        dict(type=str, default=None,
+             description='If design should occur ONLY at certain residues,%sspecify the residue POSE number(s) '
+                         'as a comma separated string.%sRanges are allowed '
+                         'Ex: "23,24,35,41,100-110,267,289-293"' % (terminal_formatter, terminal_formatter)),
     'select_designable_chains':
-        {'type': str, 'default': None,
-         'description': 'If a design should occur ONLY at certain chains,%sprovide the chain ID\'s as a comma '
-                        'separated string.%sEx: "A,C,D"' % (terminal_formatter, terminal_formatter)},
+        dict(type=str, default=None,
+             description='If a design should occur ONLY at certain chains,%sprovide the chain ID\'s as a comma '
+                         'separated string.%sEx: "A,C,D"' % (terminal_formatter, terminal_formatter)),
     'mask_designable_residues_by_sequence':
-        {'type': str, 'default': None,
-         'description': 'If design should NOT occur at certain residues,%sspecify the location of a .fasta file '
-                        'containing the design mask.%sRun "%s --single my_pdb_file.pdb design_selector" '
-                        'to set this up.'
-                        % (terminal_formatter, terminal_formatter, program_command)},
+        dict(type=str, default=None,
+             description='If design should NOT occur at certain residues,%sspecify the location of a .fasta file '
+                         'containing the design mask.%sRun "%s --single my_pdb_file.pdb design_selector" '
+                         'to set this up.'
+                         % (terminal_formatter, terminal_formatter, program_command)),
     'mask_designable_residues_by_pdb_number':
-        {'type': str, 'default': None,
-         'description': 'If design should NOT occur at certain residues,%sspecify the residue PDB number(s) '
-                        'as a comma separated string.%sEx: "27-35,118,281" Ranges are allowed'
-                        % (terminal_formatter, terminal_formatter)},
+        dict(type=str, default=None,
+             description='If design should NOT occur at certain residues,%sspecify the residue PDB number(s) '
+                         'as a comma separated string.%sEx: "27-35,118,281" Ranges are allowed'
+                         % (terminal_formatter, terminal_formatter)),
     'mask_designable_residues_by_pose_number':
-        {'type': str, 'default': None,
-         'description': 'If design should NOT occur at certain residues,%sspecify the residue POSE number(s) '
-                        'as a comma separated string.%sEx: "27-35,118,281" Ranges are allowed'
-                        % (terminal_formatter, terminal_formatter)},
+        dict(type=str, default=None,
+             description='If design should NOT occur at certain residues,%sspecify the residue POSE number(s) '
+                         'as a comma separated string.%sEx: "27-35,118,281" Ranges are allowed'
+                         % (terminal_formatter, terminal_formatter)),
     'mask_designable_chains':
-        {'type': str, 'default': None,
-         'description': 'If a design should NOT occur at certain chains,%sprovide the chain ID\'s as a comma '
-                        'separated string.%sEx: "C"' % (terminal_formatter, terminal_formatter)}
-    }
+        dict(type=str, default=None,
+             description='If a design should NOT occur at certain chains,%sprovide the chain ID\'s as a comma '
+                         'separated string.%sEx: "C"' % (terminal_formatter, terminal_formatter))
+}
 
 
-def process_residue_selector_flags(flags):
+def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set[int] | set[str] | None]]:
     # Pull nanohedra_output and mask_design_using_sequence out of flags
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
-    entity_req, chain_req, residues_req, residues_pdb_req = None, None, set(), set()
-    if 'require_design_at_pdb_residues' in flags and flags['require_design_at_pdb_residues']:
-        residues_pdb_req = residues_pdb_req.union(
-            format_index_string(flags['require_design_at_pdb_residues']))
-    if 'require_design_at_residues' in flags and flags['require_design_at_residues']:
-        residues_req = residues_req.union(
-            format_index_string(flags['require_design_at_residues']))
     # -------------------
     pdb_select, entity_select, chain_select, residue_select, residue_pdb_select = None, None, None, set(), set()
-    if 'select_designable_residues_by_sequence' in flags \
-            and flags['select_designable_residues_by_sequence']:
-        residue_select = residue_select.union(
-            generate_sequence_mask(flags['select_designable_residues_by_sequence']))
-    if 'select_designable_residues_by_pdb_number' in flags \
-            and flags['select_designable_residues_by_pdb_number']:
-        residue_pdb_select = residue_pdb_select.union(
-            format_index_string(flags['select_designable_residues_by_pdb_number']))
-    if 'select_designable_residues_by_pose_number' in flags \
-            and flags['select_designable_residues_by_pose_number']:
-        residue_select = residue_select.union(
-            format_index_string(flags['select_designable_residues_by_pose_number']))
-    if 'select_designable_chains' in flags and flags['select_designable_chains']:
-        chain_select = generate_chain_mask(flags['select_designable_chains'])
+    select_residues_by_sequence = flags.get('select_designable_residues_by_sequence')
+    if select_residues_by_sequence:
+        residue_select = residue_select.union(generate_sequence_mask(select_residues_by_sequence))
+
+    select_residues_by_pdb_number = flags.get('select_designable_residues_by_pdb_number')
+    if select_residues_by_pdb_number:
+        residue_pdb_select = residue_pdb_select.union(format_index_string(select_residues_by_pdb_number))
+
+    select_residues_by_pose_number = flags.get('select_designable_residues_by_pose_number')
+    if select_residues_by_pose_number:
+        residue_select = residue_select.union(format_index_string(select_residues_by_pose_number))
+
+    select_chains = flags.get('select_designable_chains')
+    if select_chains:
+        chain_select = generate_chain_mask(select_chains)
     # -------------------
     pdb_mask, entity_mask, chain_mask, residue_mask, residue_pdb_mask = None, None, None, set(), set()
-    if 'mask_designable_residues_by_sequence' in flags \
-            and flags['mask_designable_residues_by_sequence']:
-        residue_mask = residue_mask.union(
-            generate_sequence_mask(flags['mask_designable_residues_by_sequence']))
-    if 'mask_designable_residues_by_pdb_number' in flags \
-            and flags['mask_designable_residues_by_pdb_number']:
-        residue_pdb_mask = residue_pdb_mask.union(
-            format_index_string(flags['mask_designable_residues_by_pdb_number']))
-    if 'mask_designable_residues_by_pose_number' in flags \
-            and flags['mask_designable_residues_by_pose_number']:
-        residue_mask = residue_mask.union(
-            format_index_string(flags['mask_designable_residues_by_pose_number']))
-    if 'mask_designable_chains' in flags and flags['mask_designable_chains']:
-        chain_mask = generate_chain_mask(flags['mask_designable_chains'])
+    mask_residues_by_sequence = flags.get('mask_designable_residues_by_sequence')
+    if mask_residues_by_sequence:
+        residue_mask = residue_mask.union(generate_sequence_mask(mask_residues_by_sequence))
+
+    mask_residues_by_pdb_number = flags.get('mask_designable_residues_by_pdb_number')
+    if mask_residues_by_pdb_number:
+        residue_pdb_mask = residue_pdb_mask.union(format_index_string(mask_residues_by_pdb_number))
+
+    mask_residues_by_pose_number = flags.get('mask_designable_residues_by_pose_number')
+    if mask_residues_by_pose_number:
+        residue_mask = residue_mask.union(format_index_string(mask_residues_by_pose_number))
+
+    mask_chains = flags.get('mask_designable_chains')
+    if mask_chains:
+        chain_mask = generate_chain_mask(mask_chains)
     # -------------------
-    return {'design_selector':
-            {'selection': {'pdbs': pdb_select, 'entities': entity_select,
-                           'chains': chain_select, 'residues': residue_select,
-                           'pdb_residues': residue_pdb_select},
-             'mask': {'pdbs': pdb_mask, 'entities': entity_mask, 'chains': chain_mask,
-                      'residues': residue_mask, 'pdb_residues': residue_pdb_mask},
-             'required': {'entities': entity_req, 'chains': chain_req,
-                          'residues': residues_req, 'pdb_residues': residues_pdb_req}}}
+    entity_req, chain_req, residues_req, residues_pdb_req = None, None, set(), set()
+    require_residues_by_pdb_number = flags.get('require_design_at_pdb_residues')
+    if require_residues_by_pdb_number:
+        residues_pdb_req = residues_pdb_req.union(format_index_string(require_residues_by_pdb_number))
+
+    require_residues_by_pose_number = flags.get('require_design_at_residues')
+    if require_residues_by_pose_number:
+        residues_req = residues_req.union(format_index_string(require_residues_by_pose_number))
+
+    return dict(selection=dict(pdbs=pdb_select, entities=entity_select, chains=chain_select, residues=residue_select,
+                               pdb_residues=residue_pdb_select),
+                mask=dict(pdbs=pdb_mask, entities=entity_mask, chains=chain_mask, residues=residue_mask,
+                          pdb_residues=residue_pdb_mask),
+                required=dict(entities=entity_req, chains=chain_req, residues=residues_req,
+                              pdb_residues=residues_pdb_req))
 
 
 def return_default_flags():
@@ -209,12 +211,14 @@ def load_flags(file):
         return {dict(tuple(flag.lstrip('-').split())) for flag in f.readlines()}
 
 
-def generate_sequence_mask(fasta_file):
+def generate_sequence_mask(fasta_file: str | bytes) -> list[int]:
     """From a sequence with a design_selector, grab the residue indices that should be designed in the target
     structural calculation
 
+    Args:
+        fasta_file: The path to a file with fasta information
     Returns:
-        (list): The residue numbers (in pose format) that should be ignored in design
+        The residue numbers (in pose format) that should be ignored in design
     """
     sequence_and_mask = read_fasta_file(fasta_file)
     sequences = list(sequence_and_mask)
@@ -227,13 +231,15 @@ def generate_sequence_mask(fasta_file):
     return [idx for idx, aa in enumerate(mask, 1) if aa != '-']
 
 
-def generate_chain_mask(chain_string):
+def generate_chain_mask(chains: str) -> set[str]:
     """From a string with a design_selection, format the chains provided
 
+    Args:
+        chains: The specified chains separated by commas to split
     Returns:
-        (list): chain ids in pose format
+        The provided chain ids in pose format
     """
-    return clean_comma_separated_string(chain_string)
+    return set(clean_comma_separated_string(chains))
 
 
 # ---------------------------------------------------
