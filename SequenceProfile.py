@@ -956,28 +956,18 @@ class SequenceProfile:
         self.log.debug('Generating Fragment Profile from Map')
         for residue_number, fragment_indices in self.fragment_map.items():
             self.fragment_profile[residue_number] = {}  # this may be unnecessary due to populate_design_dictionary()
-            # if residue_number == 12:
-            #     print('At 12, fragment_map: %s' % self.fragment_map)
-            # if residue_number == 13:
-            #     print('At 12, fragment_map: %s' % self.fragment_profile[12].items())
             for frag_idx, fragments in fragment_indices.items():
                 self.fragment_profile[residue_number][frag_idx] = {}
-                # observation_d = {}
                 for observation_idx, fragment in enumerate(fragments):
                     cluster_id = fragment['cluster']
                     freq_type = fragment['chain']
-                    aa_freq = self.fragment_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_idx)
+                    aa_freq = \
+                        self.fragment_db.retrieve_cluster_info(cluster=cluster_id, source=freq_type, index=frag_idx)
                     # {1_1_54: {'mapped': {aa_freq}, 'paired': {aa_freq}}, ...}
                     #  mapped/paired aa_freq = {-2: {'A': 0.23, 'C': 0.01, ..., 'stats': [12, 0.37]}, -1: {}, ...}
                     #  Where 'stats'[0] is total fragments in cluster, and 'stats'[1] is weight of fragment index
                     self.fragment_profile[residue_number][frag_idx][observation_idx] = aa_freq
                     self.fragment_profile[residue_number][frag_idx][observation_idx]['match'] = fragment['match']
-
-                    # if residue_number == 12:
-                    #     print('Observation_index %d\nAA_freq %s\nMatch %f' % (observation_idx, aa_freq, fragment['match']))
-                    # observation_d[obs_idx] = aa_freq
-                    # observation_d[obs_idx]['match'] = fragment['match']
-                # self.fragment_map[residue_number][frag_index] = observation_d
 
     def simplify_fragment_profile(self, keep_extras=True):
         """Take a multi-indexed, a multi-observation fragment frequency dictionary and flatten to single frequency for
