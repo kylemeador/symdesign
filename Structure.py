@@ -1017,14 +1017,15 @@ class Residue:
 
         return available_aas
 
-    def distance(self, other_residue):  # Todo make for Ca to Ca
-        min_dist = float('inf')
-        for atom in self.atoms:
-            for other_atom in other_residue.atoms:
-                d = atom.distance(other_atom, intra=True)
-                if d < min_dist:
-                    min_dist = d
-        return min_dist
+    def distance(self, other: Residue, dtype: str = 'ca') -> float:
+        """Return the distance from this Residue to another specified by atom type "dtype"
+
+        Args:
+            other: The other Residue to measure against
+        Returns:
+            The euclidean distance between the specified Atom type
+        """
+        return np.linalg.norm(getattr(self, f'.{dtype}_coords') - getattr(other, f'.{dtype}_coords'))
 
     # def in_contact(self, other_residue, distance_thresh=4.5, side_chain_only=False):
     #     if side_chain_only:
