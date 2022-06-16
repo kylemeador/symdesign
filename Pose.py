@@ -55,7 +55,7 @@ class MultiModel:
     States.
 
     self.structures holds each of the individual Structure objects which are involved in the MultiModel. As of now,
-    no checks are made as to whether the identity of these is the same accross States"""
+    no checks are made whether the identity of these is the same across States"""
     def __init__(self, model=None, models=None, state=None, states=None, independent=False, log=None, **kwargs):
         if log:
             self.log = log
@@ -65,8 +65,7 @@ class MultiModel:
             self.log = logger
 
         if model:
-            # if not isinstance(model, Model):  # TODO?
-            if not isinstance(model, Models):
+            if not isinstance(model, Model):
                 model = Model(model)
 
             self.models = [model]
@@ -296,7 +295,6 @@ class MultiModel:
 
 
 # (BaseModel)?
-# class State(Structure):  # todo subclass UserList (https://docs.python.org/3/library/collections.html#userlist-objects
 class State(Structures):
     """A collection of Structure objects comprising one distinct configuration"""
     # def __init__(self, structures=None, **kwargs):  # log=None,
@@ -520,8 +518,8 @@ class State(Structures):
 
 class Models(Structures):
     """Keep track of different variations of the same Structure object such as altered coordinates (different decoy's or
-     symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
-     but could be multiple PDB's with some common element.
+    symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
+    but could be multiple PDB's with some common element.
 
     If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
     """
@@ -710,11 +708,11 @@ class Model:  # Todo (Structure)
         return self.pdb.number_of_chains
 
     @property
-    def chains(self) -> Iterable[Chain]:
+    def chains(self) -> Iterable[Chain]:  # TODO COMMENT OUT .pdb
         return self.pdb.chains
 
     @property
-    def chain_breaks(self) -> List[int]:
+    def chain_breaks(self) -> List[int]:  # Todo KEEP
         return [entity.c_terminal_residue.number for entity in self.entities]
 
     @property
@@ -722,41 +720,49 @@ class Model:  # Todo (Structure)
         return self.pdb.residues
 
     @property
-    def sequence(self) -> str:
+    def sequence(self) -> str:  # Todo KEEP but use entities for SymmetricModel, chains for Model
         return ''.join(entity.sequence for entity in self.entities)
 
     @property
-    def reference_sequence(self) -> str:
+    def reference_sequence(self) -> str:  # Todo KEEP but use entities for SymmetricModel, chains for Model
         # return ''.join(self.pdb.reference_sequence.values())
         return ''.join(entity.reference_sequence for entity in self.entities)
 
-    def entity(self, entity) -> Entity:  # TODO COMMENT OUT .pdb
-        return self.pdb.entity(entity)
+    def entity(self, entity_id: str) -> Entity:  # TODO COMMENT OUT .pdb
+        return self.pdb.entity(entity_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
 
-    def chain(self, chain) -> Chain:  # TODO COMMENT OUT .pdb
-        return self.pdb.entity_from_chain(chain)
+    def chain(self, chain_id: str) -> Chain:  # TODO COMMENT OUT .pdb
+        return self.pdb.entity_from_chain(chain_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
+        # return self.pdb.chain(chain_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
 
     @property
-    def atom_indices_per_entity(self) -> List[List[int]]:
+    def atom_indices_per_entity(self) -> List[List[int]]:  # Todo MOVE to SymmetricModel, chains for Model
+    # def atom_indices_per_chain(self) -> List[List[int]]:  # Todo KEEP chains for Model
+    #     return [chain.atom_indices for chain in self.pdb.chains]
         return [entity.atom_indices for entity in self.pdb.entities]
 
     @property
     def atom_indices_per_entity_model(self) -> List[List[int]]:
-        # alt solution may be quicker by performing the following multiplication then .flatten()
-        # broadcast entity_indices ->
-        # (np.arange(model_number) * coords_length).T
-        # |
-        # v
+        # Todo
+        #   alternative solution may be quicker by performing the following multiplication then .flatten()
+        #   broadcast entity_indices ->
+        #   (np.arange(model_number) * coords_length).T
+        #   |
+        #   v
         coords_length = len(self.coords)
         return [[idx + (coords_length * model_number) for model_number in range(self.number_of_models)
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
-    @property
-    def residue_indices_per_entity(self) -> List[List[int]]:
+    @property  # TODO COMMENT OUT .pdb
+    def residue_indices_per_entity(self) -> List[List[int]]:  # Todo MOVE to SymmetricModel, chains for Model
+    # def residue_indices_per_chain(self) -> List[List[int]]:  # Todo KEEP chains for Model
+    #     return [chain.residue_indices for chain in self.pdb.chains]
         return [entity.residue_indices for entity in self.pdb.entities]
 
-    @property
+    @property  # TODO COMMENT OUT .pdb
     def number_of_atoms_per_entity(self) -> List[int]:  # TODO COMMENT OUT .pdb
+    # def number_of_atoms_per_chain(self) -> List[int]:  # Todo MOVE to SymmetricModel, chains for Model
+    #     return [chain.number_of_atoms for chain in self.pdb.chains]  # Todo KEEP chains for Model
         return [entity.number_of_atoms for entity in self.pdb.entities]
 
     @property
@@ -765,7 +771,10 @@ class Model:  # Todo (Structure)
 
     @property
     def number_of_residues_per_entity(self):  # TODO COMMENT OUT .pdb
+    # def number_of_residues_per_chain(self):  # Todo MOVE to SymmetricModel, chains for Model
+    #     return [chain.number_of_residues for chain in self.pdb.chains]  # Todo KEEP chains for Model
         return [entity.number_of_residues for entity in self.pdb.entities]
+
 
     @property
     def number_of_residues(self):  # TODO COMMENT OUT .pdb
@@ -799,22 +808,22 @@ class Model:  # Todo (Structure)
     #         return self._coords_indexed_residue_atoms
 
     @property
-    def center_of_mass(self) -> np.ndarray:  # TODO COMMENT OUT ONCE Structure SUBCLASSED
+    def center_of_mass(self) -> np.ndarray:  # TODO COMMENT OUT Function ONCE Structure SUBCLASSED
         """The center of mass for the model Structure, either an asu, or other pdb"""
         # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
         number_of_atoms = len(self.coords)
         return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.coords)
 
     @property
-    def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
+    def model_coords(self) -> np.ndarray:  # TODO RECONCILE with coords, SymmetricModel, and State variation
         """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
         return self._model_coords.coords
 
     @model_coords.setter
-    def model_coords(self, coords):
+    def model_coords(self, coords: Coords):
         # if isinstance(coords, Coords):
         try:
-            coords.coords
+            coords.coords  # are they Coords?
             self._model_coords = coords
         # else:
         except AttributeError:
@@ -827,9 +836,9 @@ class Model:  # Todo (Structure)
         Keyword Args:
             **kwargs
         Returns:
-            (str)
+            The PDB formatted SEQRES record
         """
-        if self.pdb.reference_sequence:  # TODO DISCONNECT HERE
+        if self.pdb.reference_sequence:  # TODO DISCONNECT HERE and reconcile once subclassed
             # formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
             # formated_reference_sequence = \
             #     {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
@@ -846,11 +855,11 @@ class Model:  # Todo (Structure)
         else:
             return ''
 
-    def format_header(self, **kwargs):
+    def format_header(self, **kwargs) -> str:
         """Return the BIOMT and the SEQRES records based on the pose
 
         Returns:
-            (str)
+
         """
         if type(self).__name__ in ['Model']:
             return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
@@ -859,13 +868,13 @@ class Model:  # Todo (Structure)
         else:
             return ''
 
-    def format_biomt(self, **kwargs):
+    def format_biomt(self, **kwargs) -> str:
         """Return the BIOMT record for the PDB if there was one parsed or provided by a SymEntry
 
         Returns:
-            (str)
+
         """
-        if self.pdb.biomt_header != '':  # TODO DISCONNECT HERE
+        if self.pdb.biomt_header != '':  # TODO DISCONNECT HERE and reconcile once subclassed
             return self.pdb.biomt_header
         elif self.pdb.biomt:
             return '%s\n' \
@@ -894,7 +903,7 @@ class Model:  # Todo (Structure)
         if _header != '':
             file_handle.write('%s' % _header)
 
-    def return_atom_string(self, **kwargs):  # Todo remove once Structure attached
+    def return_atom_string(self, **kwargs) -> str:  # Todo remove once Structure subclassed
         """Provide the Model Atoms as a PDB file string"""
         return '\n'.join(residue.__str__(**kwargs) for residue in self.residues)
 
@@ -977,7 +986,7 @@ class SymmetricModel(Model):
     def __init__(self, asu: Structure = None, asu_file: str = None, sym_entry: SymEntry = None, symmetry: str = None,
                  **kwargs):
         super().__init__(**kwargs)  # log=log,
-        if asu and isinstance(asu, Structure):
+        if asu and isinstance(asu, Structure):  # Todo make asu attribute distinct from self with Structure Subclass?
             self.asu = asu  # the pose specific asu
         elif asu_file:
             self.asu = PDB.from_file(asu_file, log=self.log, **kwargs)
