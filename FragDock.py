@@ -483,7 +483,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
-    complete_surf_frags2 = pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(), representatives=ijk_frag_db.reps)
+    complete_surf_frags2 = \
+        pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(), representatives=ijk_frag_db.reps)
 
     # calculate the initial match type by finding the predominant surface type
     # surf_frags2_i_indices = np.array([surf_frag.i_type for surf_frag in complete_surf_frags2])
