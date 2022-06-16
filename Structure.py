@@ -1202,14 +1202,6 @@ class GhostFragment:
         """
         return self.i_type, self.j_type, self.k_type
 
-    # def get_aligned_fragment(self) -> MonoFragment:
-    #     """Get the MonoFragment instance that the GhostFragment was mapped to
-    #
-    #     Returns:
-    #         The fragment the GhostFragment instance is aligned to
-    #     """
-    #     return self.aligned_fragment
-
     def get_aligned_chain_and_residue(self) -> tuple[str, int]:
         """Return the MonoFragment identifiers that the GhostFragment was mapped to
 
@@ -1222,18 +1214,6 @@ class GhostFragment:
     def number(self) -> int:
         """The Residue number of the aligned Residue"""
         return self.aligned_fragment.number
-
-    # def get_i_type(self):
-    #     return self.i_type
-    #
-    # def get_j_type(self):
-    #     return self.j_type
-    #
-    # def get_k_type(self):
-    #     return self.k_type
-    #
-    # def get_rmsd(self):
-    #     return self.rmsd
 
     # @property
     # def structure(self):
@@ -1282,31 +1262,9 @@ class MonoFragment:
             self.guide_coords = \
                 np.matmul(MonoFragment.template_coords, np.transpose(self.rotation)) + self.translation
 
-    # @classmethod
-    # def from_residue(cls):
-    #     return cls()
-
-    # @classmethod
-    # def from_database(cls, residues=None, representatives=None):
-    #     return cls(residues=residues, fragment_representatives=representatives)
-
-    # @classmethod
-    # def from_fragment(cls, residues=None, fragment_type=None, guide_coords=None, central_res_num=None,
-    #                   central_res_chain_id=None):
-    #     return cls(residues=residues, fragment_type=fragment_type, guide_coords=guide_coords,
-    #                central_res_num=central_res_num, central_res_chain_id=central_res_chain_id)
-
     @property
     def transformation(self) -> dict[str, np.ndarray]:
         return dict(rotation=self.rotation, translation=self.translation)
-
-    @property
-    def coords(self) -> np.ndarray:  # this makes compatible with pose symmetry operations
-        return self.guide_coords
-
-    @coords.setter
-    def coords(self, coords: np.ndarray):
-        self.guide_coords = coords
 
     def get_central_res_tup(self) -> tuple[str, int]:
         return self.central_residue.chain, self.central_residue.number
@@ -1319,9 +1277,6 @@ class MonoFragment:
     #         return np.matmul([0.33333, 0.33333, 0.33333], self.guide_coords)
     #     else:
     #         return None
-
-    # def get_i_type(self):
-    #     return self.i_type
 
     # @property
     # def structure(self):
@@ -1338,6 +1293,44 @@ class MonoFragment:
     #
     # def chain(self):
     #     return self.central_residue.chain
+
+    def get_ghost_fragments(self, indexed_ghost_fragments: dict, bb_balltree: BallTree, clash_dist: float = 2.2) -> \
+            list | list[GhostFragment]:
+        """Find all the GhostFragments associated with the MonoFragment that don't clash with the original structure
+        backbone
+
+        Args:
+            indexed_ghost_fragments: The paired fragment database to match to the MonoFragment instance
+            bb_balltree: The backbone of the structure to assign fragments to
+            clash_dist: The distance to check for backbone clashes
+        Returns:
+            The ghost fragments associated with the fragment
+        """
+        ghost_i_type = indexed_ghost_fragments.get(self.i_type, None)
+        if not ghost_i_type:
+            return []
+
+        stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type
+        transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, **self.transformation)
+        transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
+        neighbors = bb_balltree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)  # queries on a np.view
+        neighbor_counts = np.array([neighbor.size for neighbor in neighbors])
+        # reshape to original size then query for existence of any neighbors for each fragment individually
+        viable_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
+        ghost_frag_info = \
+            zip(list(transformed_guide_coords[~viable_indices]), *zip(*ijk_types[~viable_indices].tolist()),
+                rmsd_array[~viable_indices].tolist(), repeat(self))
+
+        return [GhostFragment(*info) for info in ghost_frag_info]
+
+    # Methods below make MonoFragment compatible with pose symmetry operations
+    @property
+    def coords(self) -> np.ndarray:
+        return self.guide_coords
+
+    @coords.setter
+    def coords(self, coords: np.ndarray):
+        self.guide_coords = coords
 
     def return_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
                                 rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
@@ -1374,37 +1367,8 @@ class MonoFragment:
 
         return new_structure
 
-    def replace_coords(self, new_coords: np.ndarray):  # makes compatible with pose symmetry operations
+    def replace_coords(self, new_coords: np.ndarray):
         self.guide_coords = new_coords
-
-    def get_ghost_fragments(self, indexed_ghost_fragments: dict, bb_balltree: BallTree, clash_dist: float = 2.2) -> \
-            list | list[GhostFragment]:
-        """Find all the GhostFragments associated with the MonoFragment that don't clash with the original structure
-        backbone
-
-        Args:
-            indexed_ghost_fragments: The paired fragment database to match to the MonoFragment instance
-            bb_balltree: The backbone of the structure to assign fragments to
-            clash_dist: The distance to check for backbone clashes
-        Returns:
-            The ghost fragments associated with the fragment
-        """
-        ghost_i_type = indexed_ghost_fragments.get(self.i_type, None)
-        if not ghost_i_type:
-            return []
-
-        stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type
-        transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, **self.transformation)
-        transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
-        neighbors = bb_balltree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)  # queries on a np.view
-        neighbor_counts = np.array([neighbor.size for neighbor in neighbors])
-        # reshape to original size then query for existence of any neighbors for each fragment individually
-        viable_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
-        ghost_frag_info = \
-            zip(list(transformed_guide_coords[~viable_indices]), *zip(*ijk_types[~viable_indices].tolist()),
-                rmsd_array[~viable_indices].tolist(), repeat(self))
-
-        return [GhostFragment(*info) for info in ghost_frag_info]
 
 
 class StructureBase:
