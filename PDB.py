@@ -955,6 +955,9 @@ class PDB(Structure):
                 self.api_entry['assembly'] = get_pdb_info_by_assembly(self.name)
             if not self.api_entry:
                 self.log.debug(f'PDB code "{self.name}" was not found with the PDB API')
+            # elif self.source_db:
+            #     self.source_db.pdb_api.store_data(self.api_entry, name=self.name)
+
         else:
             self.log.debug(f'PDB code "{self.name}" is not of the required format and wasn\'t queried from the PDB API')
 
