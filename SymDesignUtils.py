@@ -29,6 +29,8 @@ import PathUtils as PUtils
 # from Query.utils import validate_input
 
 # Globals
+from Structure import Residue
+
 input_string = '\nInput: '
 index_offset = 1
 rmsd_threshold = 1.0
@@ -408,7 +410,7 @@ def format_index_string(index_string: str) -> List[int]:
 #     return query
 
 
-def split_interface_residues(interface_pairs):
+def split_residue_pairs(interface_pairs: list[tuple[Residue, Residue]]) -> tuple[list[Residue], list[Residue]]:
     """Used to split Residue pairs and sort by Residue.number"""
     if interface_pairs:
         residues1, residues2 = zip(*interface_pairs)
@@ -418,7 +420,7 @@ def split_interface_residues(interface_pairs):
         return [], []
 
 
-# def split_interface_numbers(interface_pairs):
+# def split_interface_numbers(interface_pairs) -> tuple[list[int], list[int]]:
 #     """Used to split residue number pairs"""
 #     if interface_pairs:
 #         numbers1, numbers2 = zip(*interface_pairs)
