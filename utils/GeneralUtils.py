@@ -1,9 +1,12 @@
+from __future__ import annotations
+
 import os
 
 import numpy
 import numpy as np
 
 from PathUtils import frag_text_file, docked_pose_file
+from Structure import GhostFragment, MonoFragment
 from SymDesignUtils import start_log
 
 # from numba import njit
@@ -102,8 +105,10 @@ def get_last_sampling_state(log_file_path, zero=True):
     return degen_1, degen_2, rot_1, rot_2
 
 
-def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error=None, match_number=None,
-                               central_frequencies=None, out_path=os.getcwd(), pose_id=None):  # , is_initial_match=False):
+def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: MonoFragment = None,
+                               overlap_error: float = None, match_number: int = None,
+                               central_frequencies=None, out_path: str | bytes = os.getcwd(), pose_id: str = None):
+    # ghost_residue: Residue = None, matched_residue: Residue = None,
 
     # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
     #     raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
@@ -120,6 +125,9 @@ def write_frag_match_info_file(ghost_frag=None, matched_frag=None, overlap_error
         out_info_file.write('CENTRAL RESIDUES\n')
         out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % ghost_frag.get_aligned_chain_and_residue())
         out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % matched_frag.get_central_res_tup())
+        # Todo
+        #  out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % (ghost_residue.chain, ghost_residue.residue))
+        #  out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % (matched_residue.chain, matched_residue.residue))
         out_info_file.write('FRAGMENT CLUSTER\n')
         out_info_file.write('id: %s\n' % cluster_id)
         out_info_file.write('mean rmsd: %f\n' % ghost_frag.rmsd)

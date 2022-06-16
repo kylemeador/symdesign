@@ -1202,13 +1202,13 @@ class GhostFragment:
         """
         return self.i_type, self.j_type, self.k_type
 
-    def get_aligned_fragment(self) -> MonoFragment:
-        """Get the MonoFragment instance that the GhostFragment was mapped to
-
-        Returns:
-            The fragment the GhostFragment instance is aligned to
-        """
-        return self.aligned_fragment
+    # def get_aligned_fragment(self) -> MonoFragment:
+    #     """Get the MonoFragment instance that the GhostFragment was mapped to
+    #
+    #     Returns:
+    #         The fragment the GhostFragment instance is aligned to
+    #     """
+    #     return self.aligned_fragment
 
     def get_aligned_chain_and_residue(self) -> tuple[str, int]:
         """Return the MonoFragment identifiers that the GhostFragment was mapped to
@@ -1216,7 +1216,12 @@ class GhostFragment:
         Returns:
             aligned chain, aligned residue_number
         """
-        return self.aligned_fragment.central_residue.chain, self.aligned_fragment.residue_number
+        return self.aligned_fragment.central_residue.chain, self.aligned_fragment.number
+
+    @property
+    def number(self) -> int:
+        """The Residue number of the aligned Residue"""
+        return self.aligned_fragment.number
 
     # def get_i_type(self):
     #     return self.i_type
@@ -1251,6 +1256,7 @@ class MonoFragment:
     i_type: int
     rotation: np.ndarray
     translation: np.ndarray
+    template_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
 
     def __init__(self, residues: Sequence[Residue], representatives: dict[int, np.ndarray] = None,
                  fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5,
@@ -1259,18 +1265,22 @@ class MonoFragment:
         self.guide_coords = guide_coords
         self.central_residue = residues[int(fragment_length/2)]
 
-        if residues and representatives:
-            frag_ca_coords = np.array([residue.ca_coords for residue in residues])
-            min_rmsd = float('inf')
-            for cluster_type, cluster_coords in representatives.items():
-                rmsd, rot, tx, _ = superposition3d(frag_ca_coords, cluster_coords)
-                if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
-                    self.i_type = cluster_type
-                    min_rmsd, self.rotation, self.translation = rmsd, rot, tx
+        if not residues:
+            raise ValueError(f'Can\'t find {MonoFragment.__name__} without passing residues')
+        elif not representatives:
+            raise ValueError(f'Can\'t find {MonoFragment.__name__} without passing representatives')
 
-            if self.i_type:
-                guide_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
-                self.guide_coords = np.matmul(guide_coords, np.transpose(self.rotation)) + self.translation
+        frag_ca_coords = np.array([residue.ca_coords for residue in residues])
+        min_rmsd = float('inf')
+        for cluster_type, cluster_coords in representatives.items():
+            rmsd, rot, tx, _ = superposition3d(frag_ca_coords, cluster_coords)
+            if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
+                self.i_type = cluster_type
+                min_rmsd, self.rotation, self.translation = rmsd, rot, tx
+
+        if self.i_type:
+            self.guide_coords = \
+                np.matmul(MonoFragment.template_coords, np.transpose(self.rotation)) + self.translation
 
     # @classmethod
     # def from_residue(cls):
@@ -1287,18 +1297,18 @@ class MonoFragment:
     #                central_res_num=central_res_num, central_res_chain_id=central_res_chain_id)
 
     @property
-    def transformation(self):
+    def transformation(self) -> dict[str, np.ndarray]:
         return dict(rotation=self.rotation, translation=self.translation)
 
     @property
-    def coords(self):  # this makes compatible with pose symmetry operations
+    def coords(self) -> np.ndarray:  # this makes compatible with pose symmetry operations
         return self.guide_coords
 
     @coords.setter
-    def coords(self, coords):
+    def coords(self, coords: np.ndarray):
         self.guide_coords = coords
 
-    def get_central_res_tup(self):
+    def get_central_res_tup(self) -> tuple[str, int]:
         return self.central_residue.chain, self.central_residue.number
 
     # def get_guide_coords(self):  # UNUSED
@@ -1322,25 +1332,28 @@ class MonoFragment:
     #     self._structure = structure
 
     @property
-    def residue_number(self):
+    def number(self) -> int:
+        """The Residue number"""
         return self.central_residue.number
     #
     # def chain(self):
     #     return self.central_residue.chain
 
-    def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
+    def return_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
+                                rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
+            MonoFragment:
         """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
 
         Transformation proceeds by matrix multiplication with the order of operations as:
         rotation, translation, rotation2, translation2
 
-        Keyword Args:
-            rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
-            translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
-            rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
-            translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
+        Args:
+            rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
+            translation: The first translation to apply, expected shape (3)
+            rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
+            translation2: The second translation to apply, expected shape (3)
         Returns:
-            (Structure): A transformed copy of the original object
+            A transformed copy of the original object
         """
         if rotation is not None:  # required for np.ndarray or None checks
             new_coords = np.matmul(self.guide_coords, np.transpose(rotation))
@@ -1361,7 +1374,7 @@ class MonoFragment:
 
         return new_structure
 
-    def replace_coords(self, new_coords):  # makes compatible with pose symmetry operations. Same as @coords.setter
+    def replace_coords(self, new_coords: np.ndarray):  # makes compatible with pose symmetry operations
         self.guide_coords = new_coords
 
     def get_ghost_fragments(self, indexed_ghost_fragments: dict, bb_balltree: BallTree, clash_dist: float = 2.2) -> \

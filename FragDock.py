@@ -494,7 +494,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # initial_surf_frags2 = [monofrag2 for monofrag2 in complete_surf_frags2 if monofrag2.i_type == initial_surf_type2]
 
     surf_frags2_guide_coords = np.array([surf_frag.guide_coords for surf_frag in complete_surf_frags2])
-    surf_frag2_residues = np.array([surf_frag.residue_number for surf_frag in complete_surf_frags2])
+    surf_frag2_residues = np.array([surf_frag.number for surf_frag in complete_surf_frags2])
     surf_frags2_i_indices = np.array([surf_frag.i_type for surf_frag in complete_surf_frags2])
     fragment_content2 = np.bincount(surf_frags2_i_indices)
     initial_surf_type2 = np.argmax(fragment_content2)
@@ -524,8 +524,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     initial_surf_type1 = np.argmax(fragment_content1)
     init_surf_frags1 = [surf_frag for surf_frag in surf_frags1 if surf_frag.i_type == initial_surf_type1]
     init_surf_frags1_guide_coords = np.array([surf_frag.guide_coords for surf_frag in init_surf_frags1])
-    init_surf_frag1_residues = np.array([surf_frag.residue_number for surf_frag in init_surf_frags1])
-    # surf_frag1_residues = [surf_frag.residue_number for surf_frag in surf_frags1]
+    init_surf_frag1_residues = np.array([surf_frag.number for surf_frag in init_surf_frags1])
+    # surf_frag1_residues = [surf_frag.number for surf_frag in surf_frags1]
 
     # log.debug('Found oligomer 2 fragment content: %s' % fragment_content2)
     # log.debug('Found initial fragment type: %d' % initial_surf_type2)
@@ -553,7 +553,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     ghost_frag1_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in complete_ghost_frags1])
     ghost_frag1_rmsds = np.array([ghost_frag.rmsd for ghost_frag in complete_ghost_frags1])
     ghost_frag1_rmsds = np.where(ghost_frag1_rmsds == 0, 0.01, ghost_frag1_rmsds)
-    ghost_frag1_residues = np.array([ghost_frag.aligned_fragment.residue_number for ghost_frag in complete_ghost_frags1])
+    ghost_frag1_residues = np.array([ghost_frag.number for ghost_frag in complete_ghost_frags1])
     ghost_frag1_j_indices = np.array([ghost_frag.j_type for ghost_frag in complete_ghost_frags1])
     init_ghost_frag_indices1 = \
         [idx for idx, ghost_frag in enumerate(complete_ghost_frags1) if ghost_frag.j_type == initial_surf_type2]
@@ -689,9 +689,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         complete_ghost_frags2.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, oligomer2_backbone_cb_tree))
     init_ghost_frags2 = [ghost_frag for ghost_frag in complete_ghost_frags2 if ghost_frag.j_type == initial_surf_type1]
     init_ghost_frag2_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in init_ghost_frags2])
-    init_ghost_frag2_residues = \
-        np.array([ghost_frag.aligned_fragment.residue_number for ghost_frag in init_ghost_frags2])
-    # ghost_frag2_residues = [ghost_frag.aligned_residue.residue_number for ghost_frag in complete_ghost_frags2]
+    init_ghost_frag2_residues = np.array([ghost_frag.number for ghost_frag in init_ghost_frags2])
+    # ghost_frag2_residues = [ghost_frag.aligned_residue.number for ghost_frag in complete_ghost_frags2]
 
     get_complete_ghost_frags2_time_stop = time.time()
     # log.debug('init_ghost_frag2_guide_coords: %s' % slice_variable_for_log(init_ghost_frag2_guide_coords))
@@ -1603,6 +1602,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                 enumerate(zip(sorted_int_ghostfrags, sorted_int_surffrags2, sorted_match_scores), 1):
             surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_frag.get_aligned_chain_and_residue()
             surf_frag_chain2, surf_frag_central_res_num2 = int_surf_frag.get_central_res_tup()
+            # Todo
+            #  surf_frag_chain1, surf_frag_central_res_num1 = int_ghost_residue.chain, int_ghost_residue.number
+            #  surf_frag_chain2, surf_frag_central_res_num2 = int_surf_residue.chain, int_surf_residue.number
 
             covered_residues_pdb1 = [(surf_frag_chain1, surf_frag_central_res_num1 + j) for j in range(-2, 3)]
             covered_residues_pdb2 = [(surf_frag_chain2, surf_frag_central_res_num2 + j) for j in range(-2, 3)]
