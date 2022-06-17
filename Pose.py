@@ -16,7 +16,7 @@ from sklearn.neighbors import BallTree
 import PathUtils as PUtils
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from JobResources import FragmentDB, fragment_factory, Database, FragmentDatabase
-from PDB import PDB
+from PDB import PDB, parse_cryst_record
 from SequenceProfile import SequenceProfile
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, GhostFragment, MonoFragment, \
     write_frag_match_info_file
@@ -1321,7 +1321,7 @@ class SymmetricModel(Model):  # Models
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         if cryst1:
-            uc_dimensions, symmetry = PDB.parse_cryst_record(cryst1)
+            uc_dimensions, symmetry = parse_cryst_record(cryst1)
 
         if sym_entry and isinstance(sym_entry, SymEntry):
             self.sym_entry = sym_entry
