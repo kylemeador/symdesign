@@ -609,14 +609,13 @@ class Models(Structures):
 
 
 # (BaseModel)?
-class Model:  # Todo (Structure)
-    """Keep track of different variations of the same Structure object such as altered coordinates (different decoy's or
-    symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
-    but could be multiple PDB's with some common element.
+class Model(PDB):
+    """Manipulate multi-Structured, Structure objects containing multiple Chain or Entity objects
 
-    If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
+    If you have multiple Models or States, use the MultiModel class to store and retrieve that data
     """
-    def __init__(self, pdb: Structure = None, pdb_file: str = None, models: List[Structure] = None,
+    def __init__(self, model: Structure = None, pdb_file: str | bytes = None, mmcif_file: str | bytes = None,
+                 # models: List[Structure] = None,
                  log: Logger = None, **kwargs):
         # Todo kwarg collector to protect Object while passing to subclasses. Useful for SymmetricModel asu_file
         super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
@@ -633,18 +632,18 @@ class Model:  # Todo (Structure)
         else:  # When log is explicitly passed as False, use the module logger
             self.log = logger
 
-        if pdb and isinstance(pdb, Structure):
-            self.pdb = pdb  # TODO DISCONNECT HERE
+        if model and isinstance(model, Structure):
+            self.pdb = model  # TODO DISCONNECT HERE
             self.symmetry = None
         elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log, **kwargs)
 
-        # Todo move to Models
-        if models and isinstance(models, list):
-            self.models = models
-            self.symmetry = None
-        else:
-            self.models = []
+        # # Todo move to Models
+        # if models and isinstance(models, list):
+        #     self.models = models
+        #     self.symmetry = None
+        # else:
+        #     self.models = []
 
     @classmethod
     def from_file(cls, file, **kwargs):
@@ -2534,8 +2533,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
 
     @classmethod
-    def from_pdb(cls, pdb, **kwargs):
-        return cls(pdb=pdb, **kwargs)
+    def from_model(cls, model, **kwargs):
+        """Initialize a Pose from an existing Model"""
+        return cls(model=model, **kwargs)
 
     @classmethod
     def from_pdb_file(cls, pdb_file, **kwargs):
