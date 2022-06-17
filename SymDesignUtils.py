@@ -29,7 +29,6 @@ import PathUtils as PUtils
 # from Query.utils import validate_input
 
 # Globals
-from Structure import Residue
 
 input_string = '\nInput: '
 index_offset = 1
@@ -78,15 +77,15 @@ def set_dictionary_by_path(root, items, value):
 ##########
 
 
-def handle_errors(errors=(Exception,)):
+def handle_errors(errors: tuple[Exception, ...] = (Exception,)) -> Any:
     """Decorator to wrap a function with try: ... except errors:
 
-    Keyword Args:
-        errors=(Exception, ) (tuple): A tuple of exceptions to monitor, even if single exception
+    Args:
+        errors: A tuple of exceptions to monitor, even if single exception
     Returns:
-        (Union[Callable, Exception]): Function return upon proper execution, else the Exception if one was raised
+        Function return upon proper execution, else the Exception if one was raised
     """
-    def wrapper(func):
+    def wrapper(func: Callable) -> Any:
         @wraps(func)
         def wrapped(*args, **kwargs):
             try:
@@ -357,11 +356,12 @@ def digit_keeper() -> DefaultDict:
 digit_translate_table = digit_keeper()
 
 
-def clean_comma_separated_string(string):
-    return map(str.strip, string.strip().split(','))
+def clean_comma_separated_string(string: str) -> list[str]:
+    """Return a list from a comma separated string"""
+    return list(map(str.strip, string.strip().split(',')))
 
 
-def format_index_string(index_string: str) -> List[int]:
+def format_index_string(index_string: str) -> list[int]:
     """From a string with indices of interest, comma separated or in a range, format into individual, integer indices
 
     Args:
@@ -379,7 +379,6 @@ def format_index_string(index_string: str) -> List[int]:
             final_index.append(int(index))
 
     return final_index
-    # return list(map(int, final_index))  # why was this necessary?
 
 
 ###################
@@ -408,34 +407,6 @@ def format_index_string(index_string: str) -> List[int]:
 #     query = pdb1_tree.query_radius(coords, distance)
 #
 #     return query
-
-
-def split_residue_pairs(interface_pairs: list[tuple[Residue, Residue]]) -> tuple[list[Residue], list[Residue]]:
-    """Used to split Residue pairs and sort by Residue.number"""
-    if interface_pairs:
-        residues1, residues2 = zip(*interface_pairs)
-        return sorted(set(residues1), key=lambda residue: residue.number), \
-            sorted(set(residues2), key=lambda residue: residue.number)
-    else:
-        return [], []
-
-
-# def split_interface_numbers(interface_pairs) -> tuple[list[int], list[int]]:
-#     """Used to split residue number pairs"""
-#     if interface_pairs:
-#         numbers1, numbers2 = zip(*interface_pairs)
-#         return sorted(set(numbers1), key=int), sorted(set(numbers2), key=int)
-#     else:
-#         return [], []
-
-
-def split_number_pairs_and_sort(pairs):
-    """Used to split residue number pairs and sort"""
-    if pairs:
-        numbers1, numbers2 = zip(*pairs)
-        return sorted(set(numbers1), key=int), sorted(set(numbers2), key=int)
-    else:
-        return [], []
 
 
 #################
@@ -1237,3 +1208,26 @@ def condensed_to_square(k, n):
 
 def ex_path(*string):
     return os.path.join('path', 'to', *string)
+
+
+def parameterize_frag_length(length: int) -> tuple[int, int]:
+    """Generate fragment length range parameters for use in fragment functions
+
+    Args:
+        length: The length of the fragment
+    Returns:
+        The tuple that provide the range for the specified length centered around 0
+            ex: length=5 -> (-2, 3), length=6 -> (-3, 3)
+    """
+    if length % 2 == 1:  # fragment length is odd
+        index_offset = 1
+        # fragment_range = (0 - _range, 0 + _range + index_offset)
+        # return 0 - _range, 0 + _range + index_offset
+    else:  # length is even
+        logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
+                        'Ensure this is what you want')
+        index_offset = 0
+        # fragment_range = (0 - _range, 0 + _range)
+    _range = math.floor(length / 2)  # get the number of residues extending to each side
+
+    return 0 - _range, 0 + _range + index_offset

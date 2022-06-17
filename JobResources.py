@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import json
-import math
 import os
 from copy import copy
 from glob import glob
@@ -18,7 +17,7 @@ from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flag
 from PDB import PDB, fetch_pdb_file, query_qs_bio
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
     frag_directory
-from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, nano, biological_interfaces, \
+from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, biological_interfaces, \
     biological_fragment_db_pickle, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
@@ -26,7 +25,8 @@ from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
 from Structure import parse_stride, Entity
-from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup
+from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup, \
+    parameterize_frag_length
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import sdf_lookup, symmetry_factory
 from utils.MysqlPython import Mysql
@@ -750,29 +750,6 @@ class FragmentDB:
             # rmsd_array = np.array([self.info.cluster(type_set).rmsd for type_set in ijk_types])  # Todo
             rmsd_array = np.array([dictionary_lookup(self.info, type_set).rmsd for type_set in ijk_types])
             self.indexed_ghosts[i_type] = stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array
-
-
-def parameterize_frag_length(length: int) -> tuple[int, int]:
-    """Generate fragment length range parameters for use in fragment functions
-
-    Args:
-        length: The length of the fragment
-    Returns:
-        The tuple that provide the range for the specified length centered around 0
-            ex: length=5 -> (-2, 3), length=6 -> (-3, 3)
-    """
-    if length % 2 == 1:  # fragment length is odd
-        index_offset = 1
-        # fragment_range = (0 - _range, 0 + _range + index_offset)
-        # return 0 - _range, 0 + _range + index_offset
-    else:  # length is even
-        logger.critical(f'{length} is an even integer which is not symmetric about a single residue. '
-                        'Ensure this is what you want')
-        index_offset = 0
-        # fragment_range = (0 - _range, 0 + _range)
-    _range = math.floor(length / 2)  # get the number of residues extending to each side
-
-    return 0 - _range, 0 + _range + index_offset
 
 
 class FragmentDatabase(FragmentDB):

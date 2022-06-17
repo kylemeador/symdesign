@@ -5,8 +5,7 @@ import os
 import numpy
 import numpy as np
 
-from PathUtils import frag_text_file, docked_pose_file
-from Structure import GhostFragment, MonoFragment
+from PathUtils import docked_pose_file
 from SymDesignUtils import start_log
 
 # from numba import njit
@@ -103,39 +102,6 @@ def get_last_sampling_state(log_file_path, zero=True):
                 break
 
     return degen_1, degen_2, rot_1, rot_2
-
-
-def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: MonoFragment = None,
-                               overlap_error: float = None, match_number: int = None,
-                               central_frequencies=None, out_path: str | bytes = os.getcwd(), pose_id: str = None):
-    # ghost_residue: Residue = None, matched_residue: Residue = None,
-
-    # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
-    #     raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
-
-    with open(os.path.join(out_path, frag_text_file), 'a+') as out_info_file:
-        # if is_initial_match:
-        if match_number == 1:
-            out_info_file.write('DOCKED POSE ID: %s\n\n' % pose_id)
-            out_info_file.write('***** ALL FRAGMENT MATCHES *****\n\n')
-            # out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
-        cluster_id = 'i%d_j%d_k%d' % ghost_frag.get_ijk()
-        out_info_file.write('MATCH %d\n' % match_number)
-        out_info_file.write('z-val: %f\n' % overlap_error)
-        out_info_file.write('CENTRAL RESIDUES\n')
-        out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % ghost_frag.get_aligned_chain_and_residue())
-        out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % matched_frag.get_central_res_tup())
-        # Todo
-        #  out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % (ghost_residue.chain, ghost_residue.residue))
-        #  out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % (matched_residue.chain, matched_residue.residue))
-        out_info_file.write('FRAGMENT CLUSTER\n')
-        out_info_file.write('id: %s\n' % cluster_id)
-        out_info_file.write('mean rmsd: %f\n' % ghost_frag.rmsd)
-        out_info_file.write('aligned rep: int_frag_%s_%d.pdb\n' % (cluster_id, match_number))
-        out_info_file.write('central res pair freqs:\n%s\n\n' % str(central_frequencies))
-
-        # if is_initial_match:
-        #     out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
 
 
 def write_docked_pose_info(outdir_path, res_lev_sum_score, high_qual_match_count,

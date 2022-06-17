@@ -85,7 +85,7 @@ def return_default_flags():
     #     return dict(zip(all_flags.keys(), [value_format['default'] for value_format in all_flags.values()]))
 
 
-@handle_errors(errors=KeyboardInterrupt)
+@handle_errors(errors=(KeyboardInterrupt,))
 def query_user_for_flags(mode=interface_design, template=False):
     flags_file = f'{mode}.flags'
     flag_output = return_default_flags()
