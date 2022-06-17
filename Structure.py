@@ -18,13 +18,12 @@ from numpy.linalg import eigh, LinAlgError
 from scipy.spatial.transform import Rotation
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
 
-from JobResources import parameterize_frag_length
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
-    reference_residues_pkl, free_sasa_configuration_path
+    reference_residues_pkl, free_sasa_configuration_path, frag_text_file
 from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, retrieve_entity_id_by_sequence
 from SequenceProfile import SequenceProfile, generate_mutations
 # from ProteinExpression import find_expression_tags, remove_expression_tags
-from SymDesignUtils import start_log, null_log, DesignError, unpickle
+from SymDesignUtils import start_log, null_log, DesignError, unpickle, parameterize_frag_length
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate
 from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_group_symmetry_operators, \
@@ -1022,6 +1021,7 @@ class Residue:
 
         Args:
             other: The other Residue to measure against
+            dtype: The Atom type to perform the measurement with
         Returns:
             The euclidean distance between the specified Atom type
         """
@@ -1360,6 +1360,39 @@ class MonoFragment:
 
     def replace_coords(self, new_coords: np.ndarray):
         self.guide_coords = new_coords
+
+
+def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: MonoFragment = None,
+                               overlap_error: float = None, match_number: int = None,
+                               central_frequencies=None, out_path: str | bytes = os.getcwd(), pose_id: str = None):
+    # ghost_residue: Residue = None, matched_residue: Residue = None,
+
+    # if not ghost_frag and not matched_frag and not overlap_error and not match_number:  # TODO
+    #     raise DesignError('%s: Missing required information for writing!' % write_frag_match_info_file.__name__)
+
+    with open(os.path.join(out_path, frag_text_file), 'a+') as out_info_file:
+        # if is_initial_match:
+        if match_number == 1:
+            out_info_file.write('DOCKED POSE ID: %s\n\n' % pose_id)
+            out_info_file.write('***** ALL FRAGMENT MATCHES *****\n\n')
+            # out_info_file.write("***** INITIAL MATCH FROM REPRESENTATIVES OF INITIAL FRAGMENT CLUSTERS *****\n\n")
+        cluster_id = 'i%d_j%d_k%d' % ghost_frag.get_ijk()
+        out_info_file.write('MATCH %d\n' % match_number)
+        out_info_file.write('z-val: %f\n' % overlap_error)
+        out_info_file.write('CENTRAL RESIDUES\n')
+        out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % ghost_frag.get_aligned_chain_and_residue())
+        out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % matched_frag.get_central_res_tup())
+        # Todo
+        #  out_info_file.write('oligomer1 ch, resnum: %s, %d\n' % (ghost_residue.chain, ghost_residue.residue))
+        #  out_info_file.write('oligomer2 ch, resnum: %s, %d\n' % (matched_residue.chain, matched_residue.residue))
+        out_info_file.write('FRAGMENT CLUSTER\n')
+        out_info_file.write('id: %s\n' % cluster_id)
+        out_info_file.write('mean rmsd: %f\n' % ghost_frag.rmsd)
+        out_info_file.write('aligned rep: int_frag_%s_%d.pdb\n' % (cluster_id, match_number))
+        out_info_file.write('central res pair freqs:\n%s\n\n' % str(central_frequencies))
+
+        # if is_initial_match:
+        #     out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
 
 
 class StructureBase:
@@ -3178,7 +3211,7 @@ class Structure(StructureBase):
 
         return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
 
-    def return_atom_string(self, **kwargs):
+    def return_atom_string(self, **kwargs) -> str:
         """Provide the Structure Atoms as a PDB file string"""
         # atom_atrings = '\n'.join(str(atom) for atom in self.atoms)
         # '%d, %d, %d' % tuple(element.tolist())
@@ -3188,7 +3221,12 @@ class Structure(StructureBase):
         # return '\n'.join(atom.__str__(**kwargs) % '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(coord))
         #                  for atom, coord in zip(self.atoms, self.coords.tolist()))
 
-    def format_header(self, **kwargs):
+    def format_header(self, **kwargs) -> str:
+        """Return the BIOMT and the SEQRES records based on the Structure
+
+        Returns:
+            The header with PDB file formatting
+        """
         if type(self).__name__ in ['Entity', 'PDB']:
             return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
         # elif type(self).__name__ in ['Entity', 'Chain']:
@@ -3196,11 +3234,13 @@ class Structure(StructureBase):
         else:
             return ''
 
-    def format_biomt(self, **kwargs):
-        """Return the BIOMT record for the PDB if there was one parsed
+    def format_biomt(self, **kwargs) -> str:
+        """Return the BIOMT record for the Structure if there was one parsed
 
+        Keyword Args:
+            **kwargs
         Returns:
-            (str)
+
         """
         if self.biomt_header != '':
             return self.biomt_header
@@ -4308,14 +4348,15 @@ class Entity(Chain, SequenceProfile):
         self.remove_chain_transforms()
         super().transform(**kwargs)
 
-    def format_seqres(self, asu=True, **kwargs) -> str:
+    def format_seqres(self, asu: bool = True, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
+        Args:
+            asu: Whether to output the Entity ASU or the full oligomer
         Keyword Args:
-            asu=True (bool): Whether to output the Entity ASU or the full oligomer
             **kwargs
         Returns:
-            (str)
+            The PDB formatted SEQRES record
         """
         formated_reference_sequence = \
             ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in self.reference_sequence)))

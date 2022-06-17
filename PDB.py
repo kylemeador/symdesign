@@ -358,7 +358,7 @@ class PDB(Structure):
                 self.cryst = {'space': self.space_group, 'a_b_c': tuple(self.uc_dimensions[:3]),
                               'ang_a_b_c': tuple(self.uc_dimensions[3:])}
         if not atom_info:
-            raise DesignError('The file %s has no atom records!' % self.filepath)
+            raise DesignError(f'The file {self.filepath} has no atom records!')
 
         self.process_pdb(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords,
                          seqres=seq_res_lines, **kwargs)
@@ -498,7 +498,7 @@ class PDB(Structure):
         Keyword Args:
             **kwargs
         Returns:
-            (str)
+            The PDB formatted SEQRES record
         """
         if self.reference_sequence:
             formated_reference_sequence = \
@@ -550,7 +550,7 @@ class PDB(Structure):
         """Renames chains using Structure.available_letters
 
         Args:
-            exclude_chains: The chains which shouln't be modified
+            exclude_chains: The chains which shouldn't be modified
         Sets:
             self.chain_ids (list[str])
         """
@@ -594,7 +594,7 @@ class PDB(Structure):
 
         if self.multimodel:
             self.multimodel_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
-            self.log.debug('Multimodel file found. Original Chains: %s' % ','.join(self.multimodel_chain_ids))
+            self.log.debug(f'Multimodel file found. Original Chains: {", ".join(self.multimodel_chain_ids)}')
 
         number_of_chain_ids = len(self.chain_ids)
         if len(chain_residues) != number_of_chain_ids:  # we probably have a multimodel or some weird naming
@@ -621,7 +621,7 @@ class PDB(Structure):
         #                                  residue_indices=[idx for idx, residue in enumerate(residues)
         #                                                   if residue.chain == chain_id]))
 
-    def get_chains(self, names: Container = None) -> List:
+    def get_chains(self, names: Container = None) -> list[Chain]:  # Unused
         """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
         returned"""
         if names and isinstance(names, Iterable):

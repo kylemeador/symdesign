@@ -7,11 +7,11 @@ import time
 import warnings
 from collections import namedtuple
 from copy import deepcopy, copy
-from itertools import chain  # repeat
+from itertools import chain, repeat  # repeat
 from math import floor, exp, log, log2
 # from glob import glob
 from pathlib import Path
-from typing import Sequence, Any, Iterable
+from typing import Sequence, Any, Iterable, get_args, Literal
 
 import numpy as np
 import pandas as pd
@@ -30,11 +30,15 @@ from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, Des
 # Globals
 logger = start_log(name=__name__)
 index_offset = 1
-alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
-aa_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0, 'N': 0,
-             'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0}
-aa_weighted_counts = {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 0, 'G': 0, 'H': 0, 'I': 0, 'K': 0, 'L': 0, 'M': 0,
-                      'N': 0, 'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 0, 'W': 0, 'Y': 0, 'stats': [0, 1]}
+# alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+protein_letter_literals = \
+    Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+alph_3_aa: tuple[protein_letter_literals, ...] = get_args(protein_letter_literals)
+protein_letter_plus_literals = Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S',
+                                       'T', 'W', 'Y', 'V', 'lod', 'type', 'info', 'weight']
+aa_counts = dict(zip(protein_letters, repeat(0)))
+aa_weighted_counts = dict(zip(protein_letters, repeat(0)))
+aa_weighted_counts.update({'stats': [0, 1]})
 hydrophobicity_scale = \
     {'expanded': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 1, 'N': 0,
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 1, 'Y': 1, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
@@ -42,19 +46,21 @@ hydrophobicity_scale = \
      'standard': {'A': 0, 'C': 0, 'D': 0, 'E': 0, 'F': 1, 'G': 0, 'H': 0, 'I': 1, 'K': 0, 'L': 1, 'M': 0, 'N': 0,
                   'P': 0, 'Q': 0, 'R': 0, 'S': 0, 'T': 0, 'V': 1, 'W': 0, 'Y': 0, 'B': 0, 'J': 0, 'O': 0, 'U': 0,
                   'X': 0, 'Z': 0}}
-add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
+# add_fragment_profile_instructions = 'To add fragment information, call Pose.generate_interface_fragments()'
 subs_matrices = {'BLOSUM62': substitution_matrices.load('BLOSUM62')}
 
 
 class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
-    numerical_translation = dict(zip('-ACDEFGHIKLMNPQRSTVWY', range(21)))
+    numerical_translation = dict(zip('-' + protein_letters, range(21)))
 
-    def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None, alphabet: str = '-' + extended_protein_letters,
+    def __init__(self, alignment: MultipleSeqAlignment = None, aligned_sequence: str = None,
+                 alphabet: str = '-' + extended_protein_letters,
                  weight_alignment_by_sequence: bool = False, sequence_weights: dict = None, **kwargs):
         """Take a Biopython MultipleSeqAlignment object and process for residue specific information. One-indexed
 
         gaps=True treats all column weights the same. This is fairly inaccurate for scoring, so False reflects the
         probability of residue i in the specific column more accurately.
+
         Args:
             alignment: "Array" of SeqRecords
             aligned_sequence: Provide the sequence on which the alignment is based, otherwise the first
@@ -291,17 +297,18 @@ class SequenceProfile:
     # def sequence(self, sequence):
     #     self._sequence = sequence
 
-    def add_profile(self, evolution=True, out_path=os.getcwd(), null=False, fragments=True, **kwargs):
+    def add_profile(self, evolution: bool = True, out_path: str | bytes = os.getcwd(), null: bool = False,
+                    fragments: bool = True, **kwargs):
         #           fragment_observations=None, entities=None, pdb_numbering=True,
         """Add the evolutionary and fragment profiles onto the SequenceProfile
 
-        Keyword Args:
+        Args:
+            evolution: Whether to add evolutionary information to the sequence profile
+            out_path: Location where sequence files should be written
+            null: Whether to use a null profile (non-functional) as the sequence profile
+            fragments: Whether to add fragment information to the sequence profile
             # fragment_source=None (list):
-            evolution=True (bool): Whether to add evolutionary information to the sequence profile
-            fragments=True (bool): Whether to add fragment information to the sequence profile
-            null=False (bool): Whether to use a null profile (non-functional) as the sequence profile
             # alignment_type=None (str): Either 'mapped' or 'paired'. Indicates how entity and fragments are aligned
-            out_path=os.getcwd() (str): Location where sequence files should be written
             # pdb_numbering=True (bool):
         """
         if null or not evolution and not fragments:
@@ -935,8 +942,8 @@ class SequenceProfile:
         not_available = [residue_number for residue_number in self.fragment_map
                          if residue_number <= 0 or residue_number > self.profile_length]
         for residue_number in not_available:
-            self.log.info('In \'%s\', residue %d is represented by a fragment but there is no Atom record for it. '
-                          'Fragment index will be deleted.' % (self.name, residue_number))
+            self.log.info(f'In "{self.name}", residue {residue_number} is represented by a fragment but there is no '
+                          f'Atom record for it. Fragment index will be deleted')
             self.fragment_map.pop(residue_number)
 
         # self.log.debug('Residue Cluster Map: %s' % str(self.fragment_map))
@@ -1212,6 +1219,7 @@ class SequenceProfile:
                 # self.log.debug('Residue %4d Fragment lod ratio generated with alpha=%f' % (entry, weight / alpha))
 
     def solve_consensus(self, fragment_source=None, alignment_type=None):
+        raise NotImplementedError('This function needs work')
         # Fetch IJK Cluster Dictionaries and Setup Interface Residues for Residue Number Conversion. MUST BE PRE-RENUMBER
 
         # frag_cluster_residue_d = PoseDirectory.gather_pose_metrics(init=True)  Call this function with it
@@ -1397,10 +1405,11 @@ class SequenceProfile:
     #     #     pdb_dict[pdb.name] = pdb
     #     #
     #     # return extract_sequence_from_pdb(pdb_dict, mutation=True, pose_num=pose_num)  # , offset=False)
+    dtype_literals = Literal['list', 'set', 'tuple', 'float', 'int']
 
     @staticmethod
-    def populate_design_dictionary(n: int, alphabet: Sequence, dtype: str = 'int', zero_index: bool = False) -> \
-            dict[int, dict[str, Any]]:
+    def populate_design_dictionary(n: int, alphabet: Sequence, zero_index: bool = False, dtype: dtype_literals = 'int')\
+            -> dict[int, dict[int | str, Any]]:
         """Return a dictionary with n elements, each integer key containing another dictionary with the items in
         alphabet as keys. By default, one-indexed, and data inside the alphabet dictionary is a dictionary.
         dtype can be any viable type [list, set, tuple, int, etc.]. If dtype is int or float, 0 will be initial value
@@ -1408,14 +1417,18 @@ class SequenceProfile:
         Args:
             n: number of entries in the dictionary
             alphabet: alphabet of interest
-            dtype: The type of object present in the interior dictionary
             zero_index: If True, return the dictionary with zero indexing
+            dtype: The type of object present in the interior dictionary
          Returns:
              N length, one indexed dictionary with entry number keys
                 ex: {1: {alphabet[0]: dtype, alphabet[1]: dtype, ...}, 2: {}, ...}
          """
         offset = 0 if zero_index else index_offset
 
+        # Todo add
+        #  match dtype:
+        #       case 'int':
+        #       ...
         if dtype == 'int':
             dtype = int
         elif dtype == 'dict':
@@ -1427,92 +1440,92 @@ class SequenceProfile:
         elif dtype == 'float':
             dtype = float
 
-        return {residue + offset: {character: dtype() for character in alphabet} for residue in range(n)}
+        return {residue: {character: dtype() for character in alphabet} for residue in range(offset, n + offset)}
 
     @staticmethod
-    def get_lod(aa_freq, background, round_lod=True):
-        """Get the lod scores for an aa frequency distribution compared to a background frequency
+    def get_lod(aa_freqs: dict[protein_letter_literals, float], background: dict[protein_letter_literals, float],
+                round_lod: bool = True) -> dict[str, int]:
+        """Get the log of the odds that an amino acid is in a frequency distribution compared to a background frequency
+
         Args:
-            aa_freq (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
-            background (dict): {'A': 0.10, 'C': 0.0, 'D': 0.04, ...}
-        Keyword Args:
-            round_lod=True (bool): Whether or not to round the lod values to an integer
+            aa_freqs: {'A': 0.11, 'C': 0.01, 'D': 0.034, ...}
+            background: {'A': 0.10, 'C': 0.02, 'D': 0.04, ...}
+            round_lod: Whether to round the lod values to an integer
         Returns:
-             (dict): {'A': 2, 'C': -9, 'D': -1, ...}
+             The log of odds for each amino acid type {'A': 2, 'C': -9, 'D': -1, ...}
         """
-        # lods = {aa: None for aa in aa_freq}
         lods = {}
-        for aa in aa_freq:
-            if aa not in ['stats', 'match', 'lod', 'type']:
-                if aa_freq[aa] == 0:
-                    lods[aa] = -9
-                else:
-                    lods[aa] = float((2.0 * log2(aa_freq[aa] / background[aa])))  # + 0.0
-                    if lods[aa] < -9:
-                        lods[aa] = -9
-                    elif round_lod:
-                        lods[aa] = round(lods[aa])
+        for aa, freq in aa_freqs.items():
+            try:
+                lods[aa] = float((2. * log2(freq / background[aa])))  # + 0.0
+            except ValueError:  # math domain error
+                lods[aa] = -9
+            except KeyError:
+                if aa in protein_letters:
+                    raise KeyError(f'{aa} was not in the background frequencies: {", ".join(background)}')
+                else:  # we shouldn't worry about a missing value if it's not an amino acid
+                    continue
+            except ZeroDivisionError:  # background is 0. We may need a pseudocount...
+                raise ZeroDivisionError(f'{aa} has a background frequency of 0. Consider adding a pseudocount')
+            # if lods[aa] < -9:
+            #     lods[aa] = -9
+            # elif round_lod:
+            #     lods[aa] = round(lods[aa])
 
-        return lods
+        if round_lod:
+            return {aa: (round(value) if value >= -9 else -9) for aa, value in lods.items()}
+        else:  # ensure that -9 is the lowest value (formatting issues if 2 digits)
+            return {aa: (value if value >= -9 else -9) for aa, value in lods.items()}
 
     @staticmethod
-    def write_pssm_file(pssm_dict, name, out_path=os.getcwd()):
+    def write_pssm_file(pssm: dict[protein_letter_plus_literals, float | str | tuple | dict], name: str,
+                        out_path: str | bytes = os.getcwd()) -> str | None:
         """Create a PSI-BLAST format PSSM file from a PSSM dictionary. Assumes residue numbering is correct!
 
         Args:
-            pssm_dict (dict): A dictionary which has the keys: 'A', 'C', ... (all aa's), 'lod', 'type', 'info', 'weight'
-            name (str): The name of the file including the extension
-        Keyword Args:
-            out_path=os.getcwd() (str): A specific location to write the file to
+            pssm: A dictionary which has the keys: 'A', 'C', ... (all aa's), 'lod', 'type', 'info', 'weight'
+            name: The name of the file including the extension
+            out_path: A specific location to write the file to
         Returns:
-            (str): Disk location of newly created .pssm file
+            Disk location of newly created .pssm file
         """
-        if not pssm_dict:
-            return None
+        if not pssm:
+            return
 
         # find out if the pssm has values expressed as frequencies (percentages) or as counts and modify accordingly
         # lod_freq, counts_freq = False, False
-        separation1, separation2 = 3, 3
-        # first_key = next(iter(pssm_dict.keys()))
-        if type(pssm_dict[next(iter(pssm_dict.keys()))]['lod']['A']) == float:
-            separation1 = 4
+        # first_key = next(iter(pssm.keys()))
+        if isinstance(list(pssm.values())[0]['lod']['A'], float):
+            separation1 = " " * 4
+        else:
+            separation1 = " " * 3
             # lod_freq = True
-        # if type(pssm_dict[first_key]['A']) == float:
+        # if type(pssm[first_key]['A']) == float:
         #     counts_freq = True
 
-        header = '\n\n            %s%s%s\n' % ((' ' * separation1).join(alph_3_aa), ' ' * separation1,
-                                               (' ' * separation2).join(alph_3_aa))
+        header = f'\n\n{" " * 12}{separation1.join(alph_3_aa)}{separation1}{(" " * 3).join(alph_3_aa)}\n'
         # footer = ''
         out_file = os.path.join(out_path, name)
         with open(out_file, 'w') as f:
             f.write(header)
-            for residue_number, profile in pssm_dict.items():
-                aa_type = profile['type']
-                # lod_string = ''
+            for residue_number, profile in pssm.items():
+                # aa_type = profile['type']
                 if isinstance(profile['lod']['A'], float):  # lod_freq:  # relevant for favor_fragment
-                    # for aa in alph_3_aa:  # ensures alpha_3_aa_list for PSSM format
-                    #     lod_string += '{:>4.2f} '.format(profile['lod'][aa])
                     lod_string = '%s ' % ' '.join('{:>4.2f}'.format(profile['lod'][aa]) for aa in alph_3_aa)
                 else:
-                    # for aa in alph_3_aa:  # ensures alpha_3_aa_list for PSSM format
-                    #     lod_string += '{:>3d} '.format(profile['lod'][aa])
                     lod_string = '%s ' % ' '.join('{:>3d}'.format(profile['lod'][aa]) for aa in alph_3_aa)
-                # counts_string = ''
                 if isinstance(profile['A'], float):  # counts_freq: # relevant for freq calculations
-                    # for aa in alph_3_aa:  # ensures alpha_3_aa_list for PSSM format
-                    #     counts_string += '{:>3.0f} '.format(floor(profile[aa] * 100))
                     counts_string = '%s ' % ' '.join('{:>3.0f}'.format(floor(profile[aa] * 100)) for aa in alph_3_aa)
                 else:
-                    # for aa in alph_3_aa:  # ensures alpha_3_aa_list for PSSM format
-                    #     counts_string += '{:>3d} '.format(profile[aa])
                     counts_string = '%s ' % ' '.join('{:>3d}'.format(profile[aa]) for aa in alph_3_aa)
-                info = profile.get('info', 0.0)
-                weight = profile.get('weight', 0.0)
+                # info = profile.get('info', 0.)
+                # weight = profile.get('weight', 0.)
                 # line = '{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'.format(residue_number, aa_type, lod_string,
                 #                                                                counts_string, round(info, 4),
                 #                                                                round(weight, 4))
                 f.write('{:>5d} {:1s}   {:80s} {:80s} {:4.2f} {:4.2f}\n'
-                        .format(residue_number, aa_type, lod_string, counts_string, round(info, 4), round(weight, 4)))
+                        .format(residue_number, profile['type'], lod_string, counts_string,
+                                round(profile.get('info', 0.), 4), round(profile.get('weight', 0.), 4)))
             # f.write(footer)
 
         return out_file
