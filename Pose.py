@@ -517,11 +517,9 @@ class State(Structures):
 
 
 class Models(Structures):
-    """Keep track of different variations of the same Structure object such as altered coordinates (different decoy's or
-    symmetric copies) or where Residues are mutated. In PDB parlance, this would be a multimodel with a single chain,
-    but could be multiple PDB's with some common element.
-
-    If you have multiple Structures with Multiple States, use the MultiModel class to store and retrieve that data
+    """Keep track of different variations of the same Model object such as altered coordinates (different decoy's or
+    symmetric copies) [or mutated Residues]. In PDB parlance, this would be a multimodel, however could be multiple
+    PDB files that share a common element.
     """
     def __init__(self, models=None, **kwargs):  # log=None,
         super().__init__(structures=models, **kwargs)
@@ -2484,42 +2482,6 @@ class SymmetricModel(Model):  # Models
                                       for v_idx, vec in enumerate(mat, 1))
         else:  # TODO write so that the oligomeric units are populated?
             return ''
-
-    # def write(self, out_path=os.getcwd(), header=None, increment_chains=False):  # , cryst1=None):  # Todo write symmetry, name, location
-    #     """Write Structure Atoms to a file specified by out_path or with a passed file_handle. Return the filename if
-    #     one was written"""
-
-    # @staticmethod
-    # def get_ptgrp_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'POINT_GROUP_SYMM_OPERATORS')):
-    #     """Get the symmetry operations for a specified point group oriented in the canonical orientation
-    #     Returns:
-    #         (list[list])
-    #     """
-    #     expand_matrix_filepath = os.path.join(expand_matrix_dir, '%s.txt' % sym_type)
-    #     with open(expand_matrix_filepath, "r") as expand_matrix_f:
-    #         # Todo pickle these to match SDUtils
-    #         line_count = 0
-    #         expand_matrices = []
-    #         mat = []
-    #         for line in expand_matrix_f.readlines():
-    #             line = line.split()
-    #             if len(line) == 3:
-    #                 line_float = [float(s) for s in line]
-    #                 mat.append(line_float)
-    #                 line_count += 1
-    #                 if line_count % 3 == 0:
-    #                     expand_matrices.append(mat)
-    #                     mat = []
-    #
-    #         return expand_matrices
-
-    # @staticmethod
-    # def get_sg_sym_op(sym_type, expand_matrix_dir=os.path.join(sym_op_location, 'SPACE_GROUP_SYMM_OPERATORS')):
-    #     sg_op_filepath = os.path.join(expand_matrix_dir, '%s.pickle' % sym_type)
-    #     with open(sg_op_filepath, 'rb') as sg_op_file:
-    #         sg_sym_op = load(sg_op_file)
-    #
-    #     return sg_sym_op
 
 
 class Pose(SymmetricModel, SequenceProfile):  # Model
