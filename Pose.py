@@ -626,6 +626,7 @@ class Model:  # Todo (Structure)
         # elif isinstance(pdb, PDB):
         # self.biomt_header = ''
         # self.biomt = []
+        # Todo remove, mirrors Structure
         self.name = kwargs.get('name')
         if log:
             self.log = log
@@ -830,7 +831,7 @@ class Model:  # Todo (Structure)
             raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
                                  'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    def format_seqres(self, **kwargs) -> str:
+    def format_seqres(self, **kwargs) -> str:  # Todo this is exactly like PDB
         """Format the reference sequence present in the SEQRES remark for writing to the output header
 
         Keyword Args:
@@ -856,7 +857,7 @@ class Model:  # Todo (Structure)
         else:
             return ''
 
-    def format_header(self, **kwargs) -> str:
+    def format_header(self, **kwargs) -> str:  # Todo this mirrors Structure, but with diff classes though they are same
         """Return the BIOMT and the SEQRES records based on the pose
 
         Returns:
@@ -869,7 +870,7 @@ class Model:  # Todo (Structure)
         else:
             return ''
 
-    def format_biomt(self, **kwargs) -> str:
+    def format_biomt(self, **kwargs) -> str:  # Todo this is exactly same as PDB
         """Return the BIOMT record for the PDB if there was one parsed or provided by a SymEntry
 
         Keyword Args:
@@ -886,7 +887,7 @@ class Model:  # Todo (Structure)
         else:
             return ''
 
-    def write_header(self, file_handle, header=None, **kwargs) -> None:
+    def write_header(self, file_handle, header=None, **kwargs) -> None:  # Todo this is exactly same as Structure
         """Handle writing of Structure header information to the file
 
         Args:
@@ -2583,8 +2584,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # super(Model, self).pdb = pdb
         self._pdb = pdb
         # self.coords = pdb._coords
-        if not self.ignore_clashes:  # TODO add this check to SymmetricModel initialization
-            if pdb.is_clash():
+        if not self.ignore_clashes:
+            # if self.is_clash():  # Todo Structure subclass
+            if pdb.is_clash():  # Todo remove Structure subclass
                 raise DesignError(f'{self.name} contains Backbone clashes and is not being considered further!')
         # self.pdbs_d[pdb.name] = pdb
         self.create_design_selector()  # **self.design_selector) TODO rework this whole mechanism
@@ -2618,44 +2620,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             return self._active_entities
 
     # @property
-    # def entities(self):  # TODO COMMENT OUT .pdb
-    #     return self.pdb.entities
-    #
-    # @property
-    # def chains(self):
-    #     return [chain for entity in self.entities for chain in entity.chains]
-
-    # @property
     # def active_chains(self):  # Todo must separate into chains method from Model or SymmetricModel
     #     return [chain for entity in self.active_entities for chain in entity.chains]
-
-    # @property
-    # def chain_breaks(self):
-    #     return [entity.c_terminal_residue.number for entity in self.entities]
-    #
-    # @property
-    # def residues(self):  # TODO COMMENT OUT .pdb
-    #     return self.pdb.residues
-    #
-    # @property
-    # def reference_sequence(self) -> str:
-    #     # return ''.join(self.pdb.reference_sequence.values())
-    #     return ''.join(entity.reference_sequence for entity in self.entities)
-    #
-    # def entity(self, entity):  # TODO COMMENT OUT .pdb
-    #     return self.pdb.entity(entity)
-    #
-    # def chain(self, chain):  # TODO COMMENT OUT .pdb
-    #     return self.pdb.entity_from_chain(chain)
-    #
-    # def find_center_of_mass(self):
-    #     """Retrieve the center of mass for the specified Structure"""
-    #     if self.symmetry:
-    #         divisor = 1 / len(self.model_coords)
-    #         self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.model_coords)
-    #     else:
-    #         divisor = 1 / len(self.coords)  # must use coords as can have reduced view of the full coords, i.e. BB & CB
-    #         self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
     #
     # def add_pdb(self, pdb):  # UNUSED
     #     """Add a PDB to the Pose PDB as well as the member PDB container"""
@@ -2673,23 +2639,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #
     #     self.pdb = PDB.from_entities(current_pdb_entities, metadata=self.pdb, log=self.log)
     #
-    # def handle_flags(self, design_selector=None, fragment_db=None, ignore_clashes=False, **kwargs):
-    #     self.ignore_clashes = ignore_clashes
-    #     if design_selector:
-    #         self.design_selector = design_selector
-    #     else:
-    #         self.design_selector = {}
-    #     # if design_selector:
-    #     #     self.create_design_selector(**design_selector)
-    #     # else:
-    #     #     # self.create_design_selector(selection={}, mask={}, required={})
-    #     #     self.design_selector_entities = self.design_selector_entities.union(set(self.entities))
-    #     #     self.design_selector_indices = self.design_selector_indices.union(set(self.pdb.atom_indices))
-    #     if fragment_db:
-    #         # Attach an existing FragmentDB to the Pose
-    #         self.attach_fragment_database(db=fragment_db)
-    #         for entity in self.entities:
-    #             entity.attach_fragment_database(db=fragment_db)
 
     def create_design_selector(self):  # , selection=None, mask=None, required=None):
         """Set up a design selector for the Pose including selections, masks, and required Entities and Atoms
