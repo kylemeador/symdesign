@@ -85,38 +85,13 @@ class PDB(Structure):
                 kwargs['chains'] = chains
             self.readfile(**kwargs)
         else:
-            # if atoms is not None:
-            #     if coords is None:
-            #         raise DesignError('Can\'t initialize Structure with Atom objects without passing coords! Pass '
-            #                           'desired coords.')
-            #     self.process_pdb(atoms=atoms, coords=coords, **kwargs)
-            # elif residues:
-            #     if coords is None:
-            #         try:
-            #             coords = np.concatenate([residue.coords for residue in residues])
-            #         except AttributeError:
-            #             raise DesignError('Without passing coords, can\'t initialize Structure with Residue objects '
-            #                               'lacking coords! Either pass Residue objects with coords or pass coords.')
-            #     self.process_pdb(residues=residues, coords=coords, **kwargs)
-            # Todo add residues, atoms back to kwargs?
-            if chains:
-                self.process_pdb(chains=chains, entities=entities, **kwargs)
-            elif entities:
-                self.process_pdb(entities=entities, chains=chains, **kwargs)
-                # for idx, entity in enumerate(self.entities, 1):
-                #     filename = entity.write_oligomer(out_path='%s%d_post_process_pdb_oligomer-%d.pdb'
-                #                                               % (entity.name, idx, randint(0, 10000)))
-                #     self.log.info('Wrote %s' % filename)
-                # self.log.info('After process_pdb')
-                # sleep(20)
-            else:
-                raise DesignError('The PDB object could not be initialized due to missing/malformed arguments')
+            raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
 
-            if metadata and isinstance(metadata, PDB):
-                self.copy_metadata(metadata)
+        if metadata and isinstance(metadata, PDB):
+            self.copy_metadata(metadata)
 
     @classmethod
-    def from_file(cls, file, **kwargs):
+    def from_file(cls, file, **kwargs):  # Todo name from_pdb
         """Create a new PDB from a .pdb formatted file"""
         return cls(file=file, **kwargs)
 
@@ -371,14 +346,11 @@ class PDB(Structure):
         """Process various Structure container objects to compliant Structure object
 
         Args:
-            atoms:
-            residues:
-            coords:
-            pose_format:
+            pose_format: Whether to initialize Structure with residue numbering from 1 until the end
             chains:
             rename_chains:
             entities:
-            seqres:
+            seqres: The lines representing the SEQRES records
         """
         if atoms:  # create Atoms object and Residue objects
             self.set_atoms(atoms)
@@ -434,10 +406,10 @@ class PDB(Structure):
                 self.create_chains()
                 # else:
                 #     self.create_chains(solve_discrepancy=solve_discrepancy)
-                self.log.debug('Loaded with Chains: %s' % ','.join(self.chain_ids))
+                self.log.debug(f'Loaded with Chains: {",".join(self.chain_ids)}')
 
-        if seqres:
-            self.parse_seqres(seqres)
+        # if seqres:
+        #     self.parse_seqres(seqres)
         # else:
         #     self.design = True
 
@@ -459,7 +431,7 @@ class PDB(Structure):
                     available_chain_ids = self.return_chain_generator()
                     for idx, entity in enumerate(self.entities):
                         entity.chain_id = next(available_chain_ids)
-                        self.log.debug('Entity %s new chain identifier %s' % (entity.name, entity.chain_id))
+                        self.log.debug(f'Entity {entity.name} new chain identifier {entity.chain_id}')
                 # update chains after everything is set
                 chains = []
                 for entity in self.entities:
@@ -597,7 +569,7 @@ class PDB(Structure):
             self.log.debug(f'Multimodel file found. Original Chains: {", ".join(self.multimodel_chain_ids)}')
 
         number_of_chain_ids = len(self.chain_ids)
-        if len(chain_residues) != number_of_chain_ids:  # we probably have a multimodel or some weird naming
+        if len(chain_residues) != number_of_chain_ids:  # would be different if a multimodel or some weird naming
             available_chain_ids = self.return_chain_generator()
             new_chain_ids = []
             for chain_idx in range(len(chain_residues)):
@@ -850,54 +822,6 @@ class PDB(Structure):
             for prior_idx, structure in enumerate(structures[idx + 1:], idx):
                 structure.start_indices(dtype='residue', at=structures[prior_idx].residue_indices[-1] + 1)
                 structure.start_indices(dtype='atom', at=structures[prior_idx].atom_indices[-1] + 1)
-
-    # def insert_residue(self, chain_id, number, residue_type):
-    #     """Insert a residue into the PDB. Only works for pose_numbering (1 to N). Assumes atom numbers are properly
-    #     indexed"""
-    #     # Find atom insertion index, should be last atom in preceding residue
-    #     if number == 1:
-    #         insert_atom_idx = 0
-    #     else:
-    #         try:
-    #             residue_atoms = self.chain(chain_id).residue(number).atoms
-    #             # residue_atoms = self.get_residue_atoms(chain_id, residue_number)
-    #             # if residue_atoms:
-    #             insert_atom_idx = residue_atoms[0].number - 1  # subtract 1 from first atom number to get insertion idx
-    #         # else:  # Atom index is not an insert operation as the location is at the C-term of the chain
-    #         except AttributeError:  # Atom index is not an insert operation as the index is at the C-term
-    #             # prior_index = self.getResidueAtoms(chain, residue)[0].number - 1
-    #             prior_chain_length = self.chain(chain_id).residues[0].atoms[0].number - 1
-    #             # chain_atoms = self.chain(chain_id).atoms
-    #             # chain_atoms = self.get_chain_atoms(chain_id)
-    #
-    #             # use length of all prior chains + length of all_chain_atoms
-    #             insert_atom_idx = prior_chain_length + self.chain(chain_id).number_of_atoms  # ()
-    #             # insert_atom_idx = len(chain_atoms) + chain_atoms[0].number - 1
-    #
-    #         # insert_atom_idx = self.getResidueAtoms(chain, residue)[0].number
-    #
-    #     # Change all downstream residues
-    #     for atom in self.atoms[insert_atom_idx:]:
-    #         # atom.number += len(insert_atoms)
-    #         # if atom.chain == chain: TODO uncomment for pdb numbering
-    #         atom.residue_number += 1
-    #
-    #     # Grab the reference atom coordinates and push into the atom list
-    #     if not self.reference_aa:
-    #         self.reference_aa = PDB.from_file(reference_aa_file, log=None, entities=False)
-    #     # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
-    #     residue_index = protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(),
-    #                                                                            residue_type.upper())) + 1  # offset
-    #     insert_atoms = deepcopy(self.reference_aa.chain('A').residue(residue_index).atoms)
-    #
-    #     raise DesignError('This function \'%s\' is currently broken' % self.insert_residue.__name__)  # TODO BROKEN
-    #     for atom in reversed(insert_atoms):  # essentially a push
-    #         atom.chain = chain_id
-    #         atom.residue_number = residue_number
-    #         atom.occupancy = 0
-    #         self.atoms = np.concatenate((self.atoms[:insert_atom_idx], insert_atoms, self.atoms[insert_atom_idx:]))
-    #
-    #     self.renumber_structure()
 
     def delete_residue(self, chain_id, residue_number):  # Todo Structures
         # raise DesignError('This function is broken')  # TODO TEST
@@ -1171,55 +1095,54 @@ class PDB(Structure):
 
         return
 
-    # Todo Depreciate here to ...
-    def chain_interface_contacts(self, chain, distance=8):  # Todo very similar to Pose with entities
-        """Create a atom tree using CB atoms from one chain and all other atoms
-
-        Args:
-            chain (PDB): First PDB to query against
-        Keyword Args:
-            distance=8 (int): The distance to query in Angstroms
-            gly_ca=False (bool): Whether glycine CA should be included in the tree
-        Returns:
-            chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
-        """
-        # Get CB Atom indices for the atoms CB and chain CB
-        all_cb_indices = self.cb_indices
-        chain_cb_indices = chain.cb_indices
-        # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
-        # chain_coord_indices, contact_cb_indices = [], []
-        # # Find the contacting CB indices and chain specific indices
-        # for i, idx in enumerate(all_cb_indices):
-        #     if idx in chain_cb_indices:
-        #         chain_coord_indices.append(i)
-        #     else:
-        #         contact_cb_indices.append(idx)
-
-        contact_cb_indices = list(set(all_cb_indices).difference(chain_cb_indices))
-        # assuming that coords is for the whole structure
-        contact_coords = self.coords[contact_cb_indices]  # InclGlyCA=gly_ca)
-        # all_cb_coords = self.get_cb_coords()  # InclGlyCA=gly_ca)
-        # all_cb_coords = np.array(self.extract_CB_coords(InclGlyCA=gly_ca))
-        # Remove chain specific coords from all coords by deleting them from numpy
-        # contact_coords = np.delete(all_cb_coords, chain_coord_indices, axis=0)
-
-        # Construct CB Tree for the chain
-        chain_tree = BallTree(chain.get_cb_coords())
-        # Query chain CB Tree for all contacting Atoms within distance
-        chain_contact_query = chain_tree.query_radius(contact_coords, distance)
-        pdb_atoms = self.atoms
-        return [(pdb_atoms[chain_cb_indices[chain_idx]].residue_number,
-                 pdb_atoms[contact_cb_indices[contact_idx]].residue_number)
-                for contact_idx, contacts in enumerate(chain_contact_query) for chain_idx in contacts]
-        # all_contact_atoms, chain_atoms = [], []
-        # for contact_idx, contacts in enumerate(chain_contact_query):
-        #     if chain_contact_query[contact_idx].tolist():
-        #         all_contact_atoms.append(pdb_atoms[contact_cb_indices[contact_idx]])
-        #         # residues2.append(pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number)
-        #         # for pdb1_index in chain_contact_query[contact_idx]:
-        #         chain_atoms.extend([pdb_atoms[chain_cb_indices[chain_idx]] for chain_idx in contacts])
-        #
-        # return chain_atoms, all_contact_atoms
+    # def chain_interface_contacts(self, chain, distance=8):  # Todo very similar to Pose with entities
+    #     """Create a atom tree using CB atoms from one chain and all other atoms
+    #
+    #     Args:
+    #         chain (PDB): First PDB to query against
+    #     Keyword Args:
+    #         distance=8 (int): The distance to query in Angstroms
+    #         gly_ca=False (bool): Whether glycine CA should be included in the tree
+    #     Returns:
+    #         chain_atoms, all_contact_atoms (list, list): Chain interface atoms, all contacting interface atoms
+    #     """
+    #     # Get CB Atom indices for the atoms CB and chain CB
+    #     all_cb_indices = self.cb_indices
+    #     chain_cb_indices = chain.cb_indices
+    #     # chain_cb_indices = self.get_cb_indices_chain(chain_id, InclGlyCA=gly_ca)
+    #     # chain_coord_indices, contact_cb_indices = [], []
+    #     # # Find the contacting CB indices and chain specific indices
+    #     # for i, idx in enumerate(all_cb_indices):
+    #     #     if idx in chain_cb_indices:
+    #     #         chain_coord_indices.append(i)
+    #     #     else:
+    #     #         contact_cb_indices.append(idx)
+    #
+    #     contact_cb_indices = list(set(all_cb_indices).difference(chain_cb_indices))
+    #     # assuming that coords is for the whole structure
+    #     contact_coords = self.coords[contact_cb_indices]  # InclGlyCA=gly_ca)
+    #     # all_cb_coords = self.get_cb_coords()  # InclGlyCA=gly_ca)
+    #     # all_cb_coords = np.array(self.extract_CB_coords(InclGlyCA=gly_ca))
+    #     # Remove chain specific coords from all coords by deleting them from numpy
+    #     # contact_coords = np.delete(all_cb_coords, chain_coord_indices, axis=0)
+    #
+    #     # Construct CB Tree for the chain
+    #     chain_tree = BallTree(chain.get_cb_coords())
+    #     # Query chain CB Tree for all contacting Atoms within distance
+    #     chain_contact_query = chain_tree.query_radius(contact_coords, distance)
+    #     pdb_atoms = self.atoms
+    #     return [(pdb_atoms[chain_cb_indices[chain_idx]].residue_number,
+    #              pdb_atoms[contact_cb_indices[contact_idx]].residue_number)
+    #             for contact_idx, contacts in enumerate(chain_contact_query) for chain_idx in contacts]
+    #     # all_contact_atoms, chain_atoms = [], []
+    #     # for contact_idx, contacts in enumerate(chain_contact_query):
+    #     #     if chain_contact_query[contact_idx].tolist():
+    #     #         all_contact_atoms.append(pdb_atoms[contact_cb_indices[contact_idx]])
+    #     #         # residues2.append(pdb2.atoms[pdb2_cb_indices[pdb2_index]].residue_number)
+    #     #         # for pdb1_index in chain_contact_query[contact_idx]:
+    #     #         chain_atoms.extend([pdb_atoms[chain_cb_indices[chain_idx]] for chain_idx in contacts])
+    #     #
+    #     # return chain_atoms, all_contact_atoms
 
     # def get_asu(self, chain=None, extra=False):
     #     """Return the atoms involved in the ASU with the provided chain
@@ -1392,7 +1315,6 @@ class PDB(Structure):
         #
         # return asu_file_name
 
-    # Todo HERE
     # @staticmethod
     # def get_cryst_record(file):
     #     with open(file, 'r') as f:

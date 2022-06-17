@@ -2796,7 +2796,7 @@ class PoseDirectory:
             if structure.name not in viable_designs:
                 continue
             if self.symmetric:
-                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
+                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name=f'{structure.name}-asu',
                                             design_selector=self.design_selector, log=self.log,
                                             resource_db=self.resources, fragment_db=self.fragment_db,
                                             euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)

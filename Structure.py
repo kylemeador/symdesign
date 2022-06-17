@@ -145,7 +145,7 @@ class Log:
 class Coords:
     coords: np.ndarray
 
-    def __init__(self, coords: list | np.ndarray = None):
+    def __init__(self, coords: np.ndarray | list[list[float]] = None):
         if coords is None:
             self.coords = np.array([])
         else:
@@ -154,7 +154,7 @@ class Coords:
     def delete(self, indices: Sequence[int]):
         self.coords = np.delete(self.coords, indices, axis=0)
 
-    def insert(self, new_coords: list | np.ndarray, at: int = None):
+    def insert(self, new_coords: np.ndarray | list[list[float]], at: int = None):
         """Insert Atom objects into the Atoms container
 
         Args:
@@ -320,7 +320,7 @@ class Atoms:
     def delete(self, indices: Sequence[int]):
         self.atoms = np.delete(self.atoms, indices)
 
-    def insert(self, new_atoms: list | np.ndarray, at: int = None):
+    def insert(self, new_atoms: list[Atom] | np.ndarray, at: int = None):
         """Insert Atom objects into the Atoms container
 
         Args:
@@ -1134,7 +1134,7 @@ class Residues:
                 residue.start_index = prior_residue._atom_indices[-1] + 1
                 prior_residue = residue
 
-    def insert(self, new_residues: list | np.ndarray, at: int = None):
+    def insert(self, new_residues: list[Residue] | np.ndarray, at: int = None):
         """Insert Residue(s) into the Residues object
 
         Args:
@@ -1403,8 +1403,8 @@ class StructureBase:
         try:
             super().__init__(**kwargs)
         except TypeError:
-            raise TypeError('The argument(s) passed to the Structure object were not recognized: %s' %
-                            ', '.join(kwargs.keys()))
+            raise TypeError(f'The argument(s) passed to the Structure object were not recognized: '
+                            f'{", ".join(kwargs.keys())}')
 
 
 class Structure(StructureBase):
@@ -1412,18 +1412,32 @@ class Structure(StructureBase):
     Must pass atoms, residues, residue_indices, or coords to use most methods without issues
     to initialize
     """
+    _atoms: Atoms | None
+    _atom_indices: list[int] | None
+    _coords: Coords | None
+    _coords_indexed_residues: list[Residue] | np.ndarray | None
+    _log: Log
+    _residues: Residues | None
     _residue_indices: list[int] | None
-    available_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
+    biomt: list
+    biomt_header: str
+    name: str
+    secondary_structure: str | None
+    sasa: float | None
+    structure_containers: list | list[str]
+    available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
-    def __init__(self, atoms=None, residues=None, residue_indices=None, name=None, coords=None, log=None, **kwargs):
+    def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
+                 residue_indices: list[int] = None, name: str = None, coords: np.ndarray | Coords = None,
+                 log: Logger | bool = None, biomt: list = None, biomt_header: str = None, **kwargs):
         self._atoms = None
         self._atom_indices = None
         self._coords = None
         self._coords_indexed_residues = None
         self._residues = None
         self._residue_indices = None
-        self.biomt = kwargs.get('biomt', [])  # list of vectors to format
-        self.biomt_header = kwargs.get('biomt_header', '')  # str with already formatted header
+        self.biomt = biomt if biomt else []  # list of vectors to format
+        self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
         self.name = name
         self.secondary_structure = None
         self.sasa = None
@@ -1434,12 +1448,9 @@ class Structure(StructureBase):
                 self._log = log
             else:
                 self._log = Log(log)
-                # self.log = log
         elif log is None:
-            # self.log = Log(null_log)
             self._log = Log(null_log)
         else:  # When log is explicitly passed as False, use the module logger
-            # self.log = Log(logger)
             self._log = Log(logger)
 
         if atoms is not None:  # Todo make look like below residues init!
@@ -1474,7 +1485,6 @@ class Structure(StructureBase):
                 self.residue_indices = residue_indices
                 self.set_residue_slice(residues)
                 self.coords = coords
-                # self.set_residues(residues)
             # if coords is None:  # assumes that this is a Structure init without existing shared coords
             #     # try:
             #     #     self.coords = self.residues[0]._coords
@@ -1490,25 +1500,10 @@ class Structure(StructureBase):
     @classmethod
     def from_atoms(cls, atoms=None, coords=None, **kwargs):
         return cls(atoms=atoms, coords=coords, **kwargs)
-        # new_structure = cls(atoms=atoms, coords=coords, **kwargs)
-        # new_structure.set_coords(coords)
-        # return new_structure
 
     @classmethod
     def from_residues(cls, residues=None, residue_indices=None, coords=None, **kwargs):
         return cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
-        # new_structure = cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
-        # new_structure.set_coords(coords)
-        # return new_structure
-
-    # @property
-    # def name(self):
-    #     """Returns: (str)"""
-    #     return self._name
-    #
-    # @name.setter
-    # def name(self, name):
-    #     self._name = name
 
     @property
     def log(self) -> Logger:
@@ -1516,7 +1511,7 @@ class Structure(StructureBase):
         return self._log.log
 
     @log.setter
-    def log(self, log):  # log_object):
+    def log(self, log: Logger | Log):
         """Set the Structure, Atom, and Residue log with specified Log Object"""
         # try:
         #     log_object.log
@@ -1525,20 +1520,10 @@ class Structure(StructureBase):
         # self._log = log_object
         if isinstance(log, Logger):  # prefer this protection method versus Log.log property overhead?
             self._log.log = log
+        elif isinstance(log, Log):
+            self._log = log
         else:
-            raise TypeError('The log type (%s) is not of the specified type logging.Logger' % type(log))
-
-    # def set_log(self, log=None):
-    #     """Set the log for the Structure as a Log object. Additionally, updates all member Residues with the
-    #     Log object and maps the atom/coordinate index to each Residue, residue atom index pair.
-    #
-    #     Keyword Args:
-    #         log=None (numpy.ndarray | list): The coordinates to set for the structure
-    #     """
-    #     self.log = log
-    #     # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
-    #     self._residues.set_attributes(log=self._log)
-    #     # self.set_residues_attributes(log=self._log)
+            raise TypeError(f'The log type ({type(log)}) is not of the specified type logging.Logger')
 
     @property
     def contains_hydrogen(self) -> bool:
@@ -1565,7 +1550,7 @@ class Structure(StructureBase):
         return self._coords.coords[self._atom_indices]
 
     @coords.setter
-    def coords(self, coords):
+    def coords(self, coords: Coords | np.ndarray | list[list[float]]):
         """Replace the Structure, Atom, and Residue coordinates with specified Coords Object or numpy.ndarray"""
         try:
             coords.coords
@@ -1577,28 +1562,25 @@ class Structure(StructureBase):
             assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
                                                         % (self.name, len(self.atoms), len(self.coords))
 
-    def set_coords(self, coords: np.ndarray | list = None):
+    def set_coords(self, coords: Coords | np.ndarray | list[list[float]] = None):
         """Set the coordinates for the Structure as a Coord object. Additionally, updates all member Residues with the
         Coords object and maps the atom/coordinate index to each Residue, residue atom index pair.
 
         Only use set_coords once per Structure object creation otherwise Structures with multiple containers will be
         corrupted
+
         Args:
             coords: The coordinates to set for the structure
         """
         self.coords = coords
-        # self.set_atoms_attributes(coords=self._coords)  # atoms doesn't have coords now
         self.set_residues_attributes(coords=self._coords)
         # self._residues.set_attributes(coords=self._coords)
-        # self.store_coordinate_index_residue_map()
-        # self.coords_indexed_residues = \
-        #     [(res_idx, res_atom_idx) for res_idx, residue in enumerate(self.residues) for res_atom_idx in residue.range]
-        # res_idx_atom_idx = \
-        #     [(res_idx, res_atom_idx) for res_idx, residue in enumerate(self.residues) for res_atom_idx in residue.range]
-        # residue_indices, residue_atom_indices = zip(*res_idx_atom_idx)
+
+        # index the coordinates to the Residue they belong to and their associated atom_index
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self.coords_indexed_residues, self.coords_indexed_residue_atoms = zip(*residues_atom_idx)
-        range_idx, prior_range_idx = 0, 0
+        # for every Residue in the Structure set the Residue instance indexed, Atom indices
+        range_idx = prior_range_idx = 0
         residue_indexed_ranges = []
         for residue in self.residues:
             range_idx += residue.number_of_atoms
@@ -1644,9 +1626,12 @@ class Structure(StructureBase):
         setattr(self, '%s_indices' % dtype, indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
     @property
-    def atoms(self) -> list[Atom]:
+    def atoms(self) -> list[Atom] | None:
         """Return the Atom objects in the Structure"""
-        return self._atoms.atoms[self._atom_indices].tolist()
+        try:
+            return self._atoms.atoms[self._atom_indices].tolist()
+        except AttributeError:  # when self._atoms in not set or is None and doesn't have .atoms
+            return
 
     @atoms.setter
     def atoms(self, atoms: Atoms | list[Atom]):
@@ -1656,11 +1641,10 @@ class Structure(StructureBase):
         else:
             self._atoms = Atoms(atoms)
 
-    def set_atoms(self, atoms):
-        """Set the Structure atom indices, atoms to an Atoms object, and create Residue objects"""
+    def set_atoms(self, atoms: Atoms | list[Atom]):
+        """Set the Structure atom indices, Atom instances to an Atoms object, and create Residue objects"""
         self.atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
         self.atoms = atoms
-        # self.atom_indices = list(range(len(atom_list)))  # can't set here as may contain other atoms
         self.create_residues()
         # self.set_residues_attributes(_atoms=atoms)
 
@@ -1679,9 +1663,12 @@ class Structure(StructureBase):
         self._residue_indices = indices  # np.array(indices)
 
     @property
-    def residues(self) -> list[Residue]:  # TODO Residues iteration
+    def residues(self) -> list[Residue] | None:  # TODO Residues iteration
         """Return the Residue objects in the Structure"""
-        return self._residues.residues[self._residue_indices].tolist()
+        try:
+            return self._residues.residues[self._residue_indices].tolist()
+        except AttributeError:  # when self._residues in not set or is None and doesn't have .residues
+            return
 
     @residues.setter
     def residues(self, residues: Residues | list[Residue]):
@@ -1716,8 +1703,7 @@ class Structure(StructureBase):
 
     @property
     def residues_indexed_coords_indices(self) -> list[list[int]]:
-        """Returns a map of the Residue atom/coord_indices, indexed to the .coords indices for each Residue in the
-        Structure
+        """For every Residue in the Structure provide the Residue instance indexed, Atom indices
 
         Returns:
             Residue objects indexed by the Residue position in the corresponding .coords attribute
@@ -1749,7 +1735,7 @@ class Structure(StructureBase):
                                  ' coordinates and therefore owns this Structure' % self.name)  # Todo self.owner
 
     @coords_indexed_residues.setter
-    def coords_indexed_residues(self, residues):
+    def coords_indexed_residues(self, residues: list[Residue] | np.ndarray):
         """Create a map of the coordinate indices to the Residue"""
         self._coords_indexed_residues = np.array(residues)
 
@@ -2241,21 +2227,11 @@ class Structure(StructureBase):
                                f'Residues instead')
         return self.residues
 
-    def set_residue_slice(self, residues):
-        """Set the Structure Residues to Residues object. Set the Structure Atoms and atom_indices"""
+    def set_residues(self, residues: list[Residue] | Residues):
+        """Set the Structure .residues, .atom_indices, and .atoms"""
         self.residues = residues
         self.atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
         self.atoms = self.residues[0]._atoms
-
-    # def set_residues(self, residues):
-    #     """Set the Structure Residues to Residues object. Set the Structure Atoms and atom_indices"""
-    #     self.residues = residues
-    #     # self.atom_indices = [atom.index for residue in self.residues for atom in residue.atoms]
-    #     atom_indices = []
-    #     for residue in self.residues:
-    #         atom_indices.extend(residue.atom_indices)
-    #     self.atom_indices = atom_indices
-    #     self.atoms = self.residues[0]._atoms
 
     # def add_residues(self, residue_list):
     #     """Add Residue objects in a list to the Structure instance"""
@@ -3653,21 +3629,21 @@ class Structures(Structure, UserList):
             return self._coords_indexed_residue_atoms
 
     @property
-    def residues_indexed_coords_indices(self):
-        """Returns a map of the Residue atom/coord_indices, indexed to the coords indices for each Residue in the
-        Structure
+    def residues_indexed_coords_indices(self) -> list[list[int]]:
+        """For every Residue in the Structure provide the Residue instance indexed, Atom indices
 
         Returns:
-            (list[list[int]]): Indexed by the Residue position in the corresponding .coords attribute
+            Residue objects indexed by the Residue position in the corresponding .coords attribute
         """
         try:
             return self._residues_indexed_coords_indices
         except AttributeError:
-            range_idx = 0
+            range_idx = prior_range_idx = 0
             self._residues_indexed_coords_indices = []
             for residue in self.residues:
-                self._residues_indexed_coords_indices.append(list(range(range_idx, range_idx + residue.number_of_atoms)))
                 range_idx += residue.number_of_atoms
+                self._residues_indexed_coords_indices.append(list(range(prior_range_idx, range_idx)))
+                prior_range_idx = range_idx
             return self._residues_indexed_coords_indices
 
     # @property
