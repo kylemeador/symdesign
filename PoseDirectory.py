@@ -1979,10 +1979,10 @@ class PoseDirectory:
                 if self.write_oligomers:
                     entity.write_oligomer(out_path=path.join(self.path, f'{entity.name}_oligomer.pdb'))
         else:
-            self.pose = Pose.from_pdb(pdb, name=str(self),
-                                      design_selector=self.design_selector, log=self.log,
-                                      resource_db=self.resources, fragment_db=self.fragment_db,
-                                      euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
+            self.pose = Pose.from_model(pdb, name=str(self),
+                                        design_selector=self.design_selector, log=self.log,
+                                        resource_db=self.resources, fragment_db=self.fragment_db,
+                                        euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
         # then modify numbering to ensure standard and accurate use during protocols
         self.pose.pdb.renumber_structure()
         if not self.entity_names:  # store the entity names if they were never generated
@@ -2801,10 +2801,10 @@ class PoseDirectory:
                                             resource_db=self.resources, fragment_db=self.fragment_db,
                                             euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
             else:
-                design_pose = Pose.from_pdb(structure, name='%s-asu' % structure.name,
-                                            design_selector=self.design_selector, log=self.log,
-                                            resource_db=self.resources, fragment_db=self.fragment_db,
-                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
+                design_pose = Pose.from_model(structure, name=f'{structure.name}-model',
+                                              design_selector=self.design_selector, log=self.log,
+                                              resource_db=self.resources, fragment_db=self.fragment_db,
+                                              euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
 
             # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
             #                                            ,symmetry=self.design_symmetry)
