@@ -2488,36 +2488,40 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
-    euler_lookup: EulerLookup
-    fragment_db: FragmentDatabase
+    euler_lookup: EulerLookup | None
     fragment_metrics: dict
     fragment_pairs: list
     fragment_queries: dict[tuple[Entity, Entity], list[dict[str, Any]]]
-    design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]]
+    design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
     design_selector_entities: set[Entity]
     design_selector_indices: set[int]
     required_indices: set[int]
     required_residues: None
     ignore_clashes: bool
     interface_residues: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
-    source_db: Database
+    resource_db: Database | None
     split_interface_residues: dict[int, list[tuple[Residue, Entity]]]
     split_interface_ss_elements: dict[int, list[int]]
     ss_index_array: list[int]
     ss_type_array: list[str]
 
-    def __init__(self, **kwargs):
+    def __init__(self, euler_lookup: EulerLookup = None, fragment_db: FragmentDatabase = None,
+                 resource_db: Database = None,
+                 design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
+        self.euler_lookup = euler_lookup  # kwargs.get('euler_lookup', None)
+        self.fragment_metrics = {}
         self.fragment_pairs = []
         self.fragment_queries = {}
+        self.design_selector = design_selector  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.required_indices = set()
         self.required_residues = None
         self.ignore_clashes = kwargs.get(PUtils.ignore_clashes, False)
         self.interface_residues = {}
-        self.source_db = kwargs.get('source_db', None)
+        self.resource_db = resource_db  # kwargs.get('resource_db', None)
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
-        self.split_interface_ss_elements = {}  # {1: [0,1,2] , 2: [9,13,19]]}
+        self.split_interface_ss_elements = {}  # {1: [0, 1, 2] , 2: [9, 13, 19]]}
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
 
@@ -2525,15 +2529,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # SymmetricModel init will handle if an ASU/ASU_file is present and generate assembly coords
         super().__init__(**kwargs)
 
-        fragment_db: FragmentDatabase = kwargs.get('fragment_db')
-        if fragment_db:  # Attach existing FragmentDB to the Pose
-            self.fragment_db = fragment_db
-            # self.attach_fragment_database(fragment_db)
-            # self.fragment_db = fragment_db  # Todo property
-            for entity in self.entities:
-                entity.fragment_db = fragment_db
-
-        self.euler_lookup = kwargs.get('euler_lookup', None)
+        # need to set up after load Entities so that they can have this added to their SequenceProfile
+        self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
 
     @classmethod
     def from_pdb(cls, pdb, **kwargs):
@@ -2563,6 +2560,22 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     # @property
     # def pdb(self):
     #     return self._pdb
+
+    @property
+    def fragment_db(self) -> FragmentDatabase:
+        """The FragmentDatabase with which information about fragment usage will be extracted"""
+        return self._fragment_db
+
+    @fragment_db.setter
+    def fragment_db(self, fragment_db: FragmentDatabase):
+        if not isinstance(fragment_db, FragmentDatabase):
+            self.log.warning(f'The passed fragment_db is being set to the default since {fragment_db} was passed which '
+                             f'is not of the required type {FragmentDatabase.__name__}')
+            fragment_db = fragment_factory(source=PUtils.biological_interfaces)  # Todo add fragment_length, sql kwargs
+
+        self._fragment_db = fragment_db
+        for entity in self.entities:
+            entity.fragment_db = fragment_db
 
     @Model.pdb.setter
     def pdb(self, pdb):
@@ -3275,12 +3288,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         pose_secondary_structure = ''
         for entity in self.active_entities:
             if not entity.secondary_structure:
-                if self.source_db:
-                    parsed_secondary_structure = self.source_db.stride.retrieve_data(name=entity.name)
+                if self.resource_db:
+                    parsed_secondary_structure = self.resource_db.stride.retrieve_data(name=entity.name)
                     if parsed_secondary_structure:
                         entity.fill_secondary_structure(secondary_structure=parsed_secondary_structure)
                     else:
-                        entity.stride(to_file=self.source_db.stride.store(entity.name))
+                        entity.stride(to_file=self.resource_db.stride.store(entity.name))
                 # if source_dir:
                 #     entity.parse_stride(os.path.join(source_dir, '%s.stride' % entity.name))
                 else:
@@ -3323,13 +3336,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
         # we get interface residues for the designable entities as well as interface_topology at PoseDirectory level
         if fragments:
-            if not self.fragment_db:
-                self.connect_fragment_database(source=fragment_db)
-                # Attach an existing FragmentDB to the Pose
-                self.fragment_db = self.fragment_db
-                for entity in self.entities:
-                    entity.fragment_db = self.fragment_db
-
             if query_fragments:  # search for new fragment information
                 self.generate_interface_fragments(out_path=des_dir.frags, write_fragments=write_fragments)
             else:  # No fragment query, add existing fragment information to the pose
@@ -3354,14 +3360,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             if entity not in self.active_entities:  # we shouldn't design, add a null profile instead
                 entity.add_profile(null=True)
             else:  # add a real profile
-                if self.source_db:
-                    profiles_path = self.source_db.hhblits_profiles.location
-                    entity.sequence_file = self.source_db.sequences.retrieve_file(name=entity.name)
-                    entity.evolutionary_profile = self.source_db.hhblits_profiles.retrieve_data(name=entity.name)
+                if self.resource_db:
+                    profiles_path = self.resource_db.hhblits_profiles.location
+                    entity.sequence_file = self.resource_db.sequences.retrieve_file(name=entity.name)
+                    entity.evolutionary_profile = self.resource_db.hhblits_profiles.retrieve_data(name=entity.name)
                     if not entity.evolutionary_profile:
                         entity.add_evolutionary_profile(out_path=profiles_path)
                     else:  # ensure the file is attached as well
-                        entity.pssm_file = self.source_db.hhblits_profiles.retrieve_file(name=entity.name)
+                        entity.pssm_file = self.resource_db.hhblits_profiles.retrieve_file(name=entity.name)
 
                     if not entity.pssm_file:  # still no file found. this is likely broken
                         raise DesignError(f'{entity.name} has no profile generated. To proceed with this design/'
@@ -3695,15 +3701,15 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                                   'and not explicitly searching using pdb_numbering = True. Retry with the appropriate'
                                   ' modifications' % self.add_fragment_query.__name__)
 
-    def connect_fragment_database(self, source: str = PUtils.biological_interfaces, **kwargs):
-        """Generate a FragmentDatabase connection
-
-        Args:
-            source: The type of FragmentDatabase to connect
-        Sets:
-            self.fragment_db (FragmentDatabase)
-        """
-        self.fragment_db = fragment_factory(source=source, **kwargs)
+    # def connect_fragment_database(self, source: str = PUtils.biological_interfaces, **kwargs):
+    #     """Generate a FragmentDatabase connection
+    #
+    #     Args:
+    #         source: The type of FragmentDatabase to connect
+    #     Sets:
+    #         self.fragment_db (FragmentDatabase)
+    #     """
+    #     self.fragment_db = fragment_factory(source=source, **kwargs)
 
     def generate_interface_fragments(self, write_fragments: bool = True, out_path: Union[str, bytes] = None):
         """Generate fragments between the Pose interface(s). Finds interface(s) if not already available
@@ -3712,10 +3718,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             write_fragments: Whether to write the located fragments
             out_path: The location to write each fragment file
         """
-        if not self.fragment_db:  # There is no fragment database connected
-            # Todo parameterize which one should be used with source=
-            self.connect_fragment_database()
-
         if not self.interface_residues:
             self.find_and_split_interface()
 
