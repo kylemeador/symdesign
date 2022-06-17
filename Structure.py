@@ -1397,9 +1397,9 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: M
 
 class StructureBase:
     """Collect extra keyword arguments"""
-    def __init__(self, chains=None, entities=None, seqres=None, multimodel=None, pose_format=None, sequence=None,
-                 cryst=None, cryst_record=None, design=None, resolution=None, space_group=None, query_by_sequence=True,
-                 entity_names=None, rename_chains=None, biomt=None, biomt_header=None, **kwargs):
+    def __init__(self, chains=None, entities=None,  # Todo figure out if pulling by PDB init then remove?
+                 design=None,  # Todo remove?
+                 pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
         try:
             super().__init__(**kwargs)
         except TypeError:
@@ -1453,16 +1453,13 @@ class Structure(StructureBase):
         else:  # When log is explicitly passed as False, use the module logger
             self._log = Log(logger)
 
-        if atoms is not None:  # Todo make look like below residues init!
-            self.atoms = atoms
-            if coords is None:  # assumes that this is a Structure init without existing shared coords
-                try:
-                    # coords = [atom.coords for atom in atoms]
-                    self.set_coords(coords=np.concatenate([atom.coords for atom in atoms]))
-                except AttributeError:
-                    raise DesignError('Can\'t initialize Structure with Atom objects lacking coords when no Coords '
-                                      'object is passed! Either pass Atom objects with coords attribute or pass Coords')
-        if residues is not None:
+        if atoms is not None:
+            self.set_atoms(atoms)  # this does the below commented steps
+            # self.atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
+            # self.atoms = atoms
+            # self.create_residues()
+            self.set_coords(coords)
+        elif residues is not None:
             if not residue_indices:  # assume that the passed residues shouldn't be bound to an existing Structure
                 atoms = []
                 for residue in residues:
@@ -1477,13 +1474,15 @@ class Structure(StructureBase):
                 # have to copy Residues object to set new attributes on each member Residue
                 self.residues = copy(residues)
                 # set residue attributes, index according to new Atoms/Coords index
-                # self._residues.set_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
-                self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
+                # self._residues.set_attributes(_atoms=self._atoms)
+                self.set_residues_attributes(_atoms=self._atoms)
                 self._residues.reindex_residue_atoms()
                 self.set_coords(coords=np.concatenate([residue.coords for residue in residues]))
             else:
                 self.residue_indices = residue_indices
-                self.set_residue_slice(residues)
+                self.set_residues(residues)
+                assert coords, \
+                    'Can\'t initialize Structure with residues and residue_indices when no Coords object is passed!'
                 self.coords = coords
             # if coords is None:  # assumes that this is a Structure init without existing shared coords
             #     # try:
@@ -1499,6 +1498,7 @@ class Structure(StructureBase):
 
     @classmethod
     def from_atoms(cls, atoms=None, coords=None, **kwargs):
+        assert coords, 'Can\'t initialize Structure with Atom objects when no Coords object is passed!'
         return cls(atoms=atoms, coords=coords, **kwargs)
 
     @classmethod
