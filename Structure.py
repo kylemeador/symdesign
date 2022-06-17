@@ -1559,8 +1559,8 @@ class Structure(StructureBase):
         self._coords = coords
 
         if self._coords.coords.shape[0] != 0:
-            assert len(self.atoms) == len(self.coords), '%s: ERROR number of Atoms (%d) != number of Coords (%d)!' \
-                                                        % (self.name, len(self.atoms), len(self.coords))
+            assert len(self.atoms) <= len(self.coords), \
+                f'{self.name}: ERROR number of Atoms ({len(self.atoms)}) > number of Coords ({len(self.coords)})!'
 
     def set_coords(self, coords: Coords | np.ndarray | list[list[float]] = None):
         """Set the coordinates for the Structure as a Coord object. Additionally, updates all member Residues with the
