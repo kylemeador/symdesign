@@ -12,7 +12,7 @@ from logging import Logger
 # from random import randint
 # from time import sleep
 from pathlib import Path
-from typing import Union, Dict, Sequence, List, Container, Optional
+from typing import Union, Dict, Sequence, List, Container, Optional, Any
 
 import numpy as np
 from Bio import pairwise2
@@ -36,6 +36,233 @@ slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_t
     slice_element_symbol, slice_atom_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
     slice(21, 22), slice(22, 26), slice(26, 27), slice(30, 38), slice(38, 46), slice(46, 54), slice(54, 60), \
     slice(60, 66), slice(76, 78), slice(78, 80)
+
+
+def parse_cryst_record(cryst_record) -> tuple[list[float], str]:  # Todo make PDB module method
+    """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
+    Args:
+        cryst_record: The CRYST1 record in a .pdb file
+    """
+    try:
+        cryst, a, b, c, ang_a, ang_b, ang_c, *space_group = cryst_record.split()
+        # a = float(cryst1_record[6:15])
+        # b = float(cryst1_record[15:24])
+        # c = float(cryst1_record[24:33])
+        # ang_a = float(cryst1_record[33:40])
+        # ang_b = float(cryst1_record[40:47])
+        # ang_c = float(cryst1_record[47:54])
+    except ValueError:  # split and unpacking went wrong
+        a = b = c = ang_a = ang_b = ang_c = 0
+
+    return list(map(float, [a, b, c, ang_a, ang_b, ang_c])), cryst_record[55:66].strip()
+
+
+def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:
+    """Convert SEQRES information to single amino acid dictionary format
+
+    Args:
+        seqres_lines: The list of lines containing SEQRES information
+    Sets:
+        self.reference_sequence
+    """
+    # SEQRES   1 A  182  THR THR ALA SER THR SER GLN VAL ARG GLN ASN TYR HIS
+    # SEQRES   2 A  182  GLN ASP SER GLU ALA ALA ILE ASN ARG GLN ILE ASN LEU
+    # SEQRES   3 A  182  GLU LEU TYR ALA SER TYR VAL TYR LEU SER MET SER TYR
+    # SEQRES ...
+    # SEQRES  16 C  201  SER TYR ILE ALA GLN GLU
+    reference_sequence = {}
+    for line in seqres_lines:
+        chain, length, *sequence = line.split()
+        if chain in reference_sequence:
+            reference_sequence[chain].extend(map(str.title, sequence))
+        else:
+            reference_sequence[chain] = [char.title() for char in sequence]
+
+    for chain, sequence in reference_sequence.items():
+        for idx, aa in enumerate(sequence):
+            try:
+                # if aa.title() in protein_letters_3to1_extended:
+                reference_sequence[chain][idx] = protein_letters_3to1_extended[aa]
+            except KeyError:
+                # else:
+                if aa == 'Mse':
+                    reference_sequence[chain][idx] = 'M'
+                else:
+                    reference_sequence[chain][idx] = '-'
+        reference_sequence[chain] = ''.join(reference_sequence[chain])
+
+    return reference_sequence
+
+
+def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> dict[str, Any]:
+    """Reads .pdb file and returns structural information pertaining to parsed file
+
+    Args:
+        file: The path to the file to parse
+        pdb_lines: If lines are already read, provide the lines instead
+    Returns:
+        The dictionary containing all the parsed structural information
+    """
+    if pdb_lines:
+        path, extension = None, None
+    else:
+        with open(file, 'r') as f:
+            pdb_lines = f.readlines()
+        path, extension = os.path.splitext(file)
+
+    # PDB
+    assembly: bool = False
+    atom_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
+    coords: list[list[float]] = []
+    cryst: dict[str, str | tuple[float]] = {}
+    cryst_record: str = ''
+    dbref: dict[str, dict[str, str]] = {}
+    entity_info: list[dict[str, list | str]] = []
+    name = os.path.basename(path) if path else None # .replace('pdb', '')
+    header: list = []
+    multimodel: bool = False
+    resolution: float | None = None
+    space_group: str | None = None
+    seq_res_lines: list[str] = []
+    uc_dimensions: list[float] = []
+    # Structure
+    biomt: list = []
+    biomt_header: str = ''
+
+    if extension[-1].isdigit():
+        # If last character is not a letter, then the file is an assembly, or the extension was provided weird
+        assembly = True
+
+    entity = None
+    current_operation = -1
+    alt_loc_str = ' '
+    # for line_tokens in map(str.split, pdb_lines):
+    #     # 0       1       2          3             4             5      6               7                   8  9
+    #     # remark, number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y,
+    #     #     10 11   12         13              14
+    #     #     z, occ, temp_fact, element_symbol, atom_charge = \
+    #     #     line[6:11].strip(), int(line[6:11]), line[12:16].strip(), line[16:17].strip(), line[17:20].strip(),
+    #     #     line[21:22], int(line[22:26]), line[26:27].strip(), float(line[30:38]), float(line[38:46]), \
+    #     #     float(line[46:54]), float(line[54:60]), float(line[60:66]), line[76:78].strip(), line[78:80].strip()
+    #     if line_tokens[0] == 'ATOM' or line_tokens[4] == 'MSE' and line_tokens[0] == 'HETATM':
+    #         if line_tokens[3] not in ['', 'A']:
+    #             continue
+    for line in pdb_lines:
+        remark = line[slice_remark]
+        if remark == 'ATOM  ' or line[slice_residue_type] == 'MSE' and remark == 'HETATM':
+            # if remove_alt_location and alt_location not in ['', 'A']:
+            if line[slice_alt_location] not in [alt_loc_str, 'A']:
+                continue
+            # number = int(line[slice_number])
+            residue_type = line[slice_residue_type].strip()
+            if residue_type == 'MSE':
+                residue_type = 'MET'
+                atom_type = line[slice_atom_type].strip()
+                if atom_type == 'SE':
+                    atom_type = 'SD'  # change type from Selenium to Sulfur delta
+            else:
+                atom_type = line[slice_atom_type].strip()
+            # prepare line information for population of Atom objects
+            atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
+                              int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
+                              float(line[slice_occ]), float(line[slice_temp_fact]),
+                              line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
+            # prepare the atomic coordinates for addition to numpy array
+            coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
+        elif remark == 'MODEL ':
+            # start_of_new_model signifies that the next line comes after a new model
+            # if not self.multimodel:
+            multimodel = True
+        elif remark == 'SEQRES':
+            seq_res_lines.append(line[11:])
+        elif remark == 'REMARK':
+            remark_number = line[slice_number]
+            # elif line[:18] == 'REMARK 350   BIOMT':
+            if remark_number == ' 350 ':  # 6:11  '   BIOMT'
+                biomt_header += line
+                # integration of the REMARK 350 BIOMT
+                # REMARK 350
+                # REMARK 350 BIOMOLECULE: 1
+                # REMARK 350 AUTHOR DETERMINED BIOLOGICAL UNIT: TRIMERIC
+                # REMARK 350 SOFTWARE DETERMINED QUATERNARY STRUCTURE: TRIMERIC
+                # REMARK 350 SOFTWARE USED: PISA
+                # REMARK 350 TOTAL BURIED SURFACE AREA: 6220 ANGSTROM**2
+                # REMARK 350 SURFACE AREA OF THE COMPLEX: 28790 ANGSTROM**2
+                # REMARK 350 CHANGE IN SOLVENT FREE ENERGY: -42.0 KCAL/MOL
+                # REMARK 350 APPLY THE FOLLOWING TO CHAINS: A, B, C
+                # REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000
+                # REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000
+                # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
+                try:
+                    _, _, biomt_indicator, operation_number, x, y, z, tx = line.split()
+                except ValueError:  # not enough values to unpack
+                    continue
+                if biomt_indicator == 'BIOMT':
+                    if operation_number != current_operation:  # we reached a new transformation matrix
+                        current_operation = operation_number
+                        biomt.append([])
+                    # add the transformation to the current matrix
+                    biomt[-1].append(list(map(float, [x, y, z, tx])))
+            elif remark_number == '   2 ':  # 6:11 ' RESOLUTION'
+                try:
+                    resolution = float(line[22:30].strip().split()[0])
+                except (IndexError, ValueError):
+                    resolution = None
+        elif 'DBREF' in remark:
+            chain = line[12:14].strip().upper()
+            if line[5:6] == '2':
+                db_accession_id = line[18:40].strip()
+            else:
+                db = line[26:33].strip()
+                if line[5:6] == '1':  # skip grabbing db_accession_id until DBREF2
+                    continue
+                db_accession_id = line[33:42].strip()
+            dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
+        elif remark == 'COMPND' and 'MOL_ID' in line:
+            entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
+        elif remark == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
+            # entity number (starting from 1) = {'chains' : {A, B, C}}
+            # self.entity_info[entity] = \
+            # {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
+            entity_info.append(
+                {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(','))),
+                 'name': entity})
+            entity = None
+        elif remark == 'SCALE ':
+            header.append(line.strip())
+        elif remark == 'CRYST1':
+            header.append(line.strip())
+            cryst_record = line  # don't .strip() so we can keep \n attached for output
+            uc_dimensions, space_group = parse_cryst_record(cryst_record)
+            cryst = {'space': space_group, 'a_b_c': tuple(uc_dimensions[:3]), 'ang_a_b_c': tuple(uc_dimensions[3:])}
+
+    if not atom_info:
+        raise DesignError(f'The file {file} has no ATOM records!')
+
+    reference_sequence = parse_seqres(seq_res_lines)
+
+    return dict(assembly=assembly,
+                atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)],
+                biomt=biomt,  # go to Structure
+                biomt_header=biomt_header,  # go to Structure
+                coords=coords,
+                cryst=cryst,
+                cryst_record=cryst_record,
+                dbref=dbref,
+                entity_info=entity_info,
+                header=header,
+                multimodel=multimodel,
+                name=name,
+                resolution=resolution,
+                reference_sequence=reference_sequence,
+                space_group=space_group,
+                uc_dimensions=uc_dimensions,
+                **kwargs
+                )
+
+
+mmcif_error = 'This type of parsing is not available yet, but you can make it happen! Modify PDB.read_pdb_file() ' \
+              'slightly to parse a .cif file and create PDB.read_mmcif_file()'
 
 
 class PDB(Structure):
@@ -190,150 +417,129 @@ class PDB(Structure):
         # self.cb_coords = pdb.cb_coords
         # self.bb_coords = pdb.bb_coords
 
-    def readfile(self, pdb_lines=None, **kwargs):
-        """Reads .pdb file and populates PDB instance"""
-        if not pdb_lines:
-            with open(self.filepath, 'r') as f:
-                pdb_lines = f.readlines()
-
-        path, extension = os.path.splitext(self.filepath)
-        if extension[-1].isdigit():
-            # If last character is not a letter, then the file is an assembly, or the extension was provided weird
-            self.assembly = True
-
-        if not self.name:
-            self.name = os.path.basename(path)  # .replace('pdb', '')
-
-        entity = None
-        seq_res_lines, coords, atom_info = [], [], []
-        current_operation = -1
-        alt_loc_str = ' '
-        # for line_tokens in map(str.split, pdb_lines):
-        #     # 0       1       2          3             4             5      6               7                   8  9
-        #     # remark, number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y,
-        #     #     10 11   12         13              14
-        #     #     z, occ, temp_fact, element_symbol, atom_charge = \
-        #     #     line[6:11].strip(), int(line[6:11]), line[12:16].strip(), line[16:17].strip(), line[17:20].strip(),
-        #     #     line[21:22], int(line[22:26]), line[26:27].strip(), float(line[30:38]), float(line[38:46]), \
-        #     #     float(line[46:54]), float(line[54:60]), float(line[60:66]), line[76:78].strip(), line[78:80].strip()
-        #     if line_tokens[0] == 'ATOM' or line_tokens[4] == 'MSE' and line_tokens[0] == 'HETATM':
-        #         if line_tokens[3] not in ['', 'A']:
-        #             continue
-        for line in pdb_lines:
-            remark = line[slice_remark]
-            if remark == 'ATOM  ' or line[slice_residue_type] == 'MSE' and remark == 'HETATM':
-                # if remove_alt_location and alt_location not in ['', 'A']:
-                if line[slice_alt_location] not in [alt_loc_str, 'A']:
-                    continue
-                # number = int(line[slice_number])
-                residue_type = line[slice_residue_type].strip()
-                if residue_type == 'MSE':
-                    residue_type = 'MET'
-                    atom_type = line[slice_atom_type].strip()
-                    if atom_type == 'SE':
-                        atom_type = 'SD'  # change type from Selenium to Sulfur delta
-                else:
-                    atom_type = line[slice_atom_type].strip()
-                # if self.multimodel:
-                #     if start_of_new_model:
-                #         start_of_new_model = False
-                #         if line[21:22] == curr_chain_id:  # chain naming is not incremental
-                #             # curr_chain_id = line[21:22]
-                #             chain = next(available_chain_ids)
-                #         else:  # line[21:22] != curr_chain_id  Chain naming IS incremental
-                #             curr_chain_id, chain = line[21:22], line[21:22]
-                #             discard = next(available_chain_ids)  # getting rid of a chain is prudent
-                #         self.multimodel_chain_ids[chain] = curr_chain_id
-                # else:
-                # chain = line[slice_chain]
-                # residue_number = int(line[slice_residue_number])
-                # code_for_insertion = line[slice_code_for_insertion].strip()
-                # occ = float(line[slice_occ])
-                # temp_fact = float(line[slice_temp_fact])
-                # element_symbol = line[slice_element_symbol].strip()
-                # atom_charge = line[slice_atom_charge].strip()
-                # if chain not in self.chain_ids:
-                #     self.chain_ids.append(chain)
-                # prepare line information for population of Atom objects
-                atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
-                                  int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
-                                  float(line[slice_occ]), float(line[slice_temp_fact]),
-                                  line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
-                # prepare the atomic coordinates for addition to numpy array
-                coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
-            elif remark == 'MODEL ':
-                # start_of_new_model signifies that the next line comes after a new model
-                start_of_new_model = True
-                # model_number = line[6:].strip()
-                # self.multimodel_chain_ids[model_number] = {}
-                if not self.multimodel:
-                    self.multimodel = True
-                    available_chain_ids = self.return_chain_generator()
-            elif remark == 'SEQRES':
-                seq_res_lines.append(line[11:])
-            elif remark == 'REMARK':
-                remark_number = line[slice_number]
-                # elif line[:18] == 'REMARK 350   BIOMT':
-                if remark_number == ' 350 ':  # 6:11  '   BIOMT'
-                    self.biomt_header += line
-                    # integration of the REMARK 350 BIOMT
-                    # REMARK 350
-                    # REMARK 350 BIOMOLECULE: 1
-                    # REMARK 350 AUTHOR DETERMINED BIOLOGICAL UNIT: TRIMERIC
-                    # REMARK 350 SOFTWARE DETERMINED QUATERNARY STRUCTURE: TRIMERIC
-                    # REMARK 350 SOFTWARE USED: PISA
-                    # REMARK 350 TOTAL BURIED SURFACE AREA: 6220 ANGSTROM**2
-                    # REMARK 350 SURFACE AREA OF THE COMPLEX: 28790 ANGSTROM**2
-                    # REMARK 350 CHANGE IN SOLVENT FREE ENERGY: -42.0 KCAL/MOL
-                    # REMARK 350 APPLY THE FOLLOWING TO CHAINS: A, B, C
-                    # REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000
-                    # REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000
-                    # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
-                    try:
-                        _, _, biomt, operation_number, x, y, z, tx = line.split()
-                    except ValueError:  # not enough values to unpack
-                        continue
-                    if biomt == 'BIOMT':
-                        if operation_number != current_operation:  # we reached a new transformation matrix
-                            current_operation = operation_number
-                            self.biomt.append([])
-                        # add the transformation to the current matrix
-                        self.biomt[-1].append(list(map(float, [x, y, z, tx])))
-                elif remark_number == '   2 ':  # 6:11 ' RESOLUTION'
-                    try:
-                        self.resolution = float(line[22:30].strip().split()[0])
-                    except (IndexError, ValueError):
-                        self.resolution = None
-            elif 'DBREF' in remark:
-                chain = line[12:14].strip().upper()
-                if line[5:6] == '2':
-                    db_accession_id = line[18:40].strip()
-                else:
-                    db = line[26:33].strip()
-                    if line[5:6] == '1':  # skip grabbing db_accession_id until DBREF2
-                        continue
-                    db_accession_id = line[33:42].strip()
-                self.dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
-            elif remark == 'COMPND' and 'MOL_ID' in line:
-                entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
-            elif remark == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
-                # entity number (starting from 1) = {'chains' : {A, B, C}}
-                # self.entity_info[entity] = \
-                    # {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
-                self.entity_info.append(
-                    {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(','))),
-                     'name': entity})
-                entity = None
-            elif remark == 'SCALE ':
-                self.header.append(line.strip())
-            elif remark == 'CRYST1':
-                self.header.append(line.strip())
-                self.cryst_record = line  # don't .strip() so we can keep \n attached for output
-                self.uc_dimensions, self.space_group = self.parse_cryst_record(self.cryst_record)
-                self.cryst = {'space': self.space_group, 'a_b_c': tuple(self.uc_dimensions[:3]),
-                              'ang_a_b_c': tuple(self.uc_dimensions[3:])}
-        if not atom_info:
-            raise DesignError(f'The file {self.filepath} has no atom records!')
+    # def readfile(self, pdb_lines=None, **kwargs):
+    #     """Reads .pdb file and populates PDB instance"""
+    #     if not pdb_lines:
+    #         with open(self.filepath, 'r') as f:
+    #             pdb_lines = f.readlines()
+    #
+    #     path, extension = os.path.splitext(self.filepath)
+    #     if extension[-1].isdigit():
+    #         # If last character is not a letter, then the file is an assembly, or the extension was provided weird
+    #         self.assembly = True
+    #
+    #     if not self.name:
+    #         self.name = os.path.basename(path)  # .replace('pdb', '')
+    #
+    #     entity = None
+    #     seq_res_lines, coords, atom_info = [], [], []
+    #     current_operation = -1
+    #     alt_loc_str = ' '
+    #     # for line_tokens in map(str.split, pdb_lines):
+    #     #     # 0       1       2          3             4             5      6               7                   8  9
+    #     #     # remark, number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y,
+    #     #     #     10 11   12         13              14
+    #     #     #     z, occ, temp_fact, element_symbol, atom_charge = \
+    #     #     #     line[6:11].strip(), int(line[6:11]), line[12:16].strip(), line[16:17].strip(), line[17:20].strip(),
+    #     #     #     line[21:22], int(line[22:26]), line[26:27].strip(), float(line[30:38]), float(line[38:46]), \
+    #     #     #     float(line[46:54]), float(line[54:60]), float(line[60:66]), line[76:78].strip(), line[78:80].strip()
+    #     #     if line_tokens[0] == 'ATOM' or line_tokens[4] == 'MSE' and line_tokens[0] == 'HETATM':
+    #     #         if line_tokens[3] not in ['', 'A']:
+    #     #             continue
+    #     for line in pdb_lines:
+    #         remark = line[slice_remark]
+    #         if remark == 'ATOM  ' or line[slice_residue_type] == 'MSE' and remark == 'HETATM':
+    #             # if remove_alt_location and alt_location not in ['', 'A']:
+    #             if line[slice_alt_location] not in [alt_loc_str, 'A']:
+    #                 continue
+    #             # number = int(line[slice_number])
+    #             residue_type = line[slice_residue_type].strip()
+    #             if residue_type == 'MSE':
+    #                 residue_type = 'MET'
+    #                 atom_type = line[slice_atom_type].strip()
+    #                 if atom_type == 'SE':
+    #                     atom_type = 'SD'  # change type from Selenium to Sulfur delta
+    #             else:
+    #                 atom_type = line[slice_atom_type].strip()
+    #             # prepare line information for population of Atom objects
+    #             atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
+    #                               int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
+    #                               float(line[slice_occ]), float(line[slice_temp_fact]),
+    #                               line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
+    #             # prepare the atomic coordinates for addition to numpy array
+    #             coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
+    #         elif remark == 'MODEL ':
+    #             # start_of_new_model signifies that the next line comes after a new model
+    #             # if not self.multimodel:
+    #             self.multimodel = True
+    #         elif remark == 'SEQRES':
+    #             seq_res_lines.append(line[11:])
+    #         elif remark == 'REMARK':
+    #             remark_number = line[slice_number]
+    #             # elif line[:18] == 'REMARK 350   BIOMT':
+    #             if remark_number == ' 350 ':  # 6:11  '   BIOMT'
+    #                 self.biomt_header += line
+    #                 # integration of the REMARK 350 BIOMT
+    #                 # REMARK 350
+    #                 # REMARK 350 BIOMOLECULE: 1
+    #                 # REMARK 350 AUTHOR DETERMINED BIOLOGICAL UNIT: TRIMERIC
+    #                 # REMARK 350 SOFTWARE DETERMINED QUATERNARY STRUCTURE: TRIMERIC
+    #                 # REMARK 350 SOFTWARE USED: PISA
+    #                 # REMARK 350 TOTAL BURIED SURFACE AREA: 6220 ANGSTROM**2
+    #                 # REMARK 350 SURFACE AREA OF THE COMPLEX: 28790 ANGSTROM**2
+    #                 # REMARK 350 CHANGE IN SOLVENT FREE ENERGY: -42.0 KCAL/MOL
+    #                 # REMARK 350 APPLY THE FOLLOWING TO CHAINS: A, B, C
+    #                 # REMARK 350   BIOMT1   1  1.000000  0.000000  0.000000        0.00000
+    #                 # REMARK 350   BIOMT2   1  0.000000  1.000000  0.000000        0.00000
+    #                 # REMARK 350   BIOMT3   1  0.000000  0.000000  1.000000        0.00000
+    #                 try:
+    #                     _, _, biomt_indicator, operation_number, x, y, z, tx = line.split()
+    #                 except ValueError:  # not enough values to unpack
+    #                     continue
+    #                 if biomt_indicator == 'BIOMT':
+    #                     if operation_number != current_operation:  # we reached a new transformation matrix
+    #                         current_operation = operation_number
+    #                         self.biomt.append([])
+    #                     # add the transformation to the current matrix
+    #                     self.biomt[-1].append(list(map(float, [x, y, z, tx])))
+    #             elif remark_number == '   2 ':  # 6:11 ' RESOLUTION'
+    #                 try:
+    #                     self.resolution = float(line[22:30].strip().split()[0])
+    #                 except (IndexError, ValueError):
+    #                     self.resolution = None
+    #         elif 'DBREF' in remark:
+    #             chain = line[12:14].strip().upper()
+    #             if line[5:6] == '2':
+    #                 db_accession_id = line[18:40].strip()
+    #             else:
+    #                 db = line[26:33].strip()
+    #                 if line[5:6] == '1':  # skip grabbing db_accession_id until DBREF2
+    #                     continue
+    #                 db_accession_id = line[33:42].strip()
+    #             self.dbref[chain] = {'db': db, 'accession': db_accession_id}  # implies each chain has only one id
+    #         elif remark == 'COMPND' and 'MOL_ID' in line:
+    #             entity = int(line[line.rfind(':') + 1: line.rfind(';')].strip())
+    #         elif remark == 'COMPND' and 'CHAIN' in line and entity:  # retrieve from standard .pdb file notation
+    #             # entity number (starting from 1) = {'chains' : {A, B, C}}
+    #             # self.entity_info[entity] = \
+    #                 # {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(',')))}
+    #             self.entity_info.append(
+    #                 {'chains': list(map(str.strip, line[line.rfind(':') + 1:].strip().rstrip(';').split(','))),
+    #                  'name': entity})
+    #             entity = None
+    #         elif remark == 'SCALE ':
+    #             self.header.append(line.strip())
+    #         elif remark == 'CRYST1':
+    #             self.header.append(line.strip())
+    #             self.cryst_record = line  # don't .strip() so we can keep \n attached for output
+    #             self.uc_dimensions, self.space_group = parse_cryst_record(self.cryst_record)
+    #             self.cryst = {'space': self.space_group, 'a_b_c': tuple(self.uc_dimensions[:3]),
+    #                           'ang_a_b_c': tuple(self.uc_dimensions[3:])}
+    #     if not atom_info:
+    #         raise DesignError(f'The file {self.filepath} has no atom records!')
+    #
+    #     self.process_model(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords,
+    #                        seqres=seq_res_lines, **kwargs)
 
         self.process_pdb(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords,
                          seqres=seq_res_lines, **kwargs)
@@ -485,38 +691,38 @@ class PDB(Structure):
         else:
             return ''
 
-    def parse_seqres(self, seqres_lines: list[str]):
-        """Convert SEQRES information to single amino acid dictionary format
-
-        Args:
-            seqres_lines: The list of lines containing SEQRES information
-        Sets:
-            self.reference_sequence
-        """
-        # SEQRES   1 A  182  THR THR ALA SER THR SER GLN VAL ARG GLN ASN TYR HIS
-        # SEQRES   2 A  182  GLN ASP SER GLU ALA ALA ILE ASN ARG GLN ILE ASN LEU
-        # SEQRES   3 A  182  GLU LEU TYR ALA SER TYR VAL TYR LEU SER MET SER TYR
-        # SEQRES ...
-        # SEQRES  16 C  201  SER TYR ILE ALA GLN GLU
-        for line in seqres_lines:
-            chain, length, *sequence = line.split()
-            if chain in self.reference_sequence:
-                self.reference_sequence[chain].extend(map(str.title, sequence))
-            else:
-                self.reference_sequence[chain] = [char.title() for char in sequence]
-
-        for chain, sequence in self.reference_sequence.items():
-            for idx, aa in enumerate(sequence):
-                try:
-                # if aa.title() in protein_letters_3to1_extended:
-                    self.reference_sequence[chain][idx] = protein_letters_3to1_extended[aa]
-                except KeyError:
-                # else:
-                    if aa == 'Mse':
-                        self.reference_sequence[chain][idx] = 'M'
-                    else:
-                        self.reference_sequence[chain][idx] = '-'
-            self.reference_sequence[chain] = ''.join(self.reference_sequence[chain])
+    # def parse_seqres(self, seqres_lines: list[str]):
+    #     """Convert SEQRES information to single amino acid dictionary format
+    #
+    #     Args:
+    #         seqres_lines: The list of lines containing SEQRES information
+    #     Sets:
+    #         self.reference_sequence
+    #     """
+    #     # SEQRES   1 A  182  THR THR ALA SER THR SER GLN VAL ARG GLN ASN TYR HIS
+    #     # SEQRES   2 A  182  GLN ASP SER GLU ALA ALA ILE ASN ARG GLN ILE ASN LEU
+    #     # SEQRES   3 A  182  GLU LEU TYR ALA SER TYR VAL TYR LEU SER MET SER TYR
+    #     # SEQRES ...
+    #     # SEQRES  16 C  201  SER TYR ILE ALA GLN GLU
+    #     for line in seqres_lines:
+    #         chain, length, *sequence = line.split()
+    #         if chain in self.reference_sequence:
+    #             self.reference_sequence[chain].extend(map(str.title, sequence))
+    #         else:
+    #             self.reference_sequence[chain] = [char.title() for char in sequence]
+    #
+    #     for chain, sequence in self.reference_sequence.items():
+    #         for idx, aa in enumerate(sequence):
+    #             try:
+    #             # if aa.title() in protein_letters_3to1_extended:
+    #                 self.reference_sequence[chain][idx] = protein_letters_3to1_extended[aa]
+    #             except KeyError:
+    #             # else:
+    #                 if aa == 'Mse':
+    #                     self.reference_sequence[chain][idx] = 'M'
+    #                 else:
+    #                     self.reference_sequence[chain][idx] = '-'
+    #         self.reference_sequence[chain] = ''.join(self.reference_sequence[chain])
 
     def reorder_chains(self, exclude_chains: Sequence = None) -> None:
         """Renames chains using Structure.available_letters
@@ -1323,25 +1529,6 @@ class PDB(Structure):
     #                 uc_dimensions, space_group = PDB.parse_cryst_record(line.strip())
     #                 a, b, c, ang_a, ang_b, ang_c = uc_dimensions
     #                 return {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-
-    @staticmethod
-    def parse_cryst_record(cryst_record) -> tuple[list[float], str]:  # Todo make PDB module method
-        """Get the unit cell length, height, width, and angles alpha, beta, gamma and the space group
-        Args:
-            cryst_record: The CRYST1 record in a .pdb file
-        """
-        try:
-            cryst, a, b, c, ang_a, ang_b, ang_c, *space_group = cryst_record.split()
-            # a = float(cryst1_record[6:15])
-            # b = float(cryst1_record[15:24])
-            # c = float(cryst1_record[24:33])
-            # ang_a = float(cryst1_record[33:40])
-            # ang_b = float(cryst1_record[40:47])
-            # ang_c = float(cryst1_record[47:54])
-        except ValueError:  # split and unpacking went wrong
-            a = b = c = ang_a = ang_b = ang_c = 0
-
-        return list(map(float, [a, b, c, ang_a, ang_b, ang_c])), cryst_record[55:66].strip()
 
     # def update_attributes(self, **kwargs):
     #     """Update PDB attributes for all member containers specified by keyword args"""
