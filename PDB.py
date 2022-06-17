@@ -74,7 +74,7 @@ class PDB(Structure):
         # self.sasa_residues = []
         # self.sasa = []
         self.space_group: str = kwargs.get('space_group', None)
-        # self.source_db: Database = kwargs.get('source_db', None)  # Todo
+        # self.resource_db: Database = kwargs.get('resource_db', None)  # Todo
         self.uc_dimensions: list[float] | None = kwargs.get('uc_dimensions', None)
         self.structure_containers.extend(['chains', 'entities'])
 
@@ -943,8 +943,8 @@ class PDB(Structure):
         """
         if self.api_entry:
             return
-        # if self.source_db:  # Todo
-        #     self.api_entry = self.source_db.pdb_api.retrieve_file(name=self.name)
+        # if self.resource_db:  # Todo
+        #     self.api_entry = self.resource_db.pdb_api.retrieve_file(name=self.name)
         #     if self.api_entry:
         #         return
 
@@ -955,8 +955,8 @@ class PDB(Structure):
                 self.api_entry['assembly'] = get_pdb_info_by_assembly(self.name)
             if not self.api_entry:
                 self.log.debug(f'PDB code "{self.name}" was not found with the PDB API')
-            # elif self.source_db:
-            #     self.source_db.pdb_api.store_data(self.api_entry, name=self.name)
+            # elif self.resource_db:
+            #     self.resource_db.pdb_api.store_data(self.api_entry, name=self.name)
 
         else:
             self.log.debug(f'PDB code "{self.name}" is not of the required format and wasn\'t queried from the PDB API')

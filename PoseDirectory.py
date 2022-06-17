@@ -1284,7 +1284,7 @@ class PoseDirectory:
 
         # todo make dependent on split_interface_residues which doesn't have residues obj, just number (pickle concerns)
         if not self.pose.ss_index_array or not self.pose.ss_type_array:
-            self.pose.interface_secondary_structure()  # source_db=self.resources, source_dir=self.stride_dir)
+            self.pose.interface_secondary_structure()  # resource_db=self.resources, source_dir=self.stride_dir)
         for number, elements in self.pose.split_interface_ss_elements.items():
             fragment_elements = set()
             # residues, entities = self.pose.split_interface_residues[number]
@@ -1969,7 +1969,7 @@ class PoseDirectory:
         if self.symmetric:
             self.pose = Pose.from_asu(pdb, sym_entry=self.sym_entry, name=f'{self}-asu',
                                       design_selector=self.design_selector, log=self.log,
-                                      source_db=self.resources, fragment_db=self.fragment_db,
+                                      resource_db=self.resources, fragment_db=self.fragment_db,
                                       euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
             # generate oligomers for each entity in the pose
             for idx, entity in enumerate(self.pose.entities):
@@ -1981,7 +1981,7 @@ class PoseDirectory:
         else:
             self.pose = Pose.from_pdb(pdb, name=str(self),
                                       design_selector=self.design_selector, log=self.log,
-                                      source_db=self.resources, fragment_db=self.fragment_db,
+                                      resource_db=self.resources, fragment_db=self.fragment_db,
                                       euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
         # then modify numbering to ensure standard and accurate use during protocols
         self.pose.pdb.renumber_structure()
@@ -2798,12 +2798,12 @@ class PoseDirectory:
             if self.symmetric:
                 design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name='%s-asu' % structure.name,
                                             design_selector=self.design_selector, log=self.log,
-                                            source_db=self.resources, fragment_db=self.fragment_db,
+                                            resource_db=self.resources, fragment_db=self.fragment_db,
                                             euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
             else:
                 design_pose = Pose.from_pdb(structure, name='%s-asu' % structure.name,
                                             design_selector=self.design_selector, log=self.log,
-                                            source_db=self.resources, fragment_db=self.fragment_db,
+                                            resource_db=self.resources, fragment_db=self.fragment_db,
                                             euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
 
             # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
