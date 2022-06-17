@@ -784,6 +784,7 @@ class PDB(Structure):
             self.chains (list[Chain] | Structures)
         """
         residues = self.residues
+        self.chain_ids = remove_duplicates([residue.chain for residue in residues])
         # if solve_discrepancy:
         residue_idx_start, idx = 0, 1
         prior_residue = residues[0]
@@ -799,8 +800,10 @@ class PDB(Structure):
         chain_residues.append(list(range(residue_idx_start, idx + 1)))  # have to increment as if next residue
 
         if self.multimodel:
-            self.multimodel_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
-            self.log.debug(f'Multimodel file found. Original Chains: {", ".join(self.multimodel_chain_ids)}')
+            self.original_chain_ids = [residues[residue_indices[0]].chain for residue_indices in chain_residues]
+            self.log.debug(f'Multimodel file found. Original Chains: {", ".join(self.original_chain_ids)}')
+        else:
+            self.original_chain_ids = self.chain_ids
 
         number_of_chain_ids = len(self.chain_ids)
         if len(chain_residues) != number_of_chain_ids:  # would be different if a multimodel or some weird naming
@@ -817,6 +820,12 @@ class PDB(Structure):
                 new_chain_ids.append(chain_id)
 
             self.chain_ids = new_chain_ids
+
+        # Todo this isn't super accurate. Perhaps SEQRES lines are not indexed to ATOM records
+        #  Ideally we want a DB like PDB API or UniProtKB which we fetch in Entity
+        # chain_map = dict(zip(self.chain_ids, self.original_chain_ids))
+        self.reference_sequence = \
+            {self.chain_ids[chain_idx]: sequence for chain_idx, sequence in enumerate(self.reference_sequence.values())}
 
         for chain_idx, residue_indices in enumerate(chain_residues):
             self.chains.append(Chain(name=self.chain_ids[chain_idx], coords=self._coords, log=self._log,
@@ -1161,7 +1170,7 @@ class PDB(Structure):
                                 if not set(cluster_chains).difference(chains):  # we found the right cluster
                                     self.entity_info.append(
                                         {'chains': [new_chn for new_chn, old_chn in zip(self.chain_ids,
-                                                                                        self.multimodel_chain_ids)
+                                                                                        self.original_chain_ids)
                                                     if old_chn in chains], 'name': ent_idx})
                                     success = True
                                     break  # this should be fine since entities will cluster together, unless they don't
@@ -1210,9 +1219,9 @@ class PDB(Structure):
                 continue
             # except (IndexError, AttributeError):
             #     raise DesignError('Missing Chain object for %s %s! entity_info=%s, assembly=%s and multimodel=%s '
-            #                       'api_entry=%s, multimodel_chain_ids=%s'
+            #                       'api_entry=%s, original_chain_ids=%s'
             #                       % (self.name, self.create_entities.__name__, self.entity_info, self.assembly,
-            #                          self.multimodel, self.api_entry, self.multimodel_chain_ids))
+            #                          self.multimodel, self.api_entry, self.original_chain_ids))
             data['uniprot_id'] = accession['accession'] if accession and accession['db'] == 'UNP' else accession
             # data['chains'] = [chain for chain in chains if chain]  # remove any missing chains
             #                                               generated from a PDB API sequence search v
