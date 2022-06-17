@@ -269,48 +269,72 @@ class PDB(Structure):
     """The base object for PDB file reading and Atom manipulation
     Can pass file, chains, entities, metadata, log, name, and pose_format to initialize
     """
-    def __init__(self, file=None, chains=None, entities=None, metadata=None, log=False, **kwargs):
-        #        atoms=None, residues=None, coords=None,
+    api_entry: dict[str, Any] | None
+    assembly: bool
+    chain_ids: list[str]
+    chains: list[Chain] | Structures | bool | None
+    cryst: dict[str, str | tuple[float]] | None
+    cryst_record: str | None
+    dbref: dict[str, dict[str, str]]
+    design: bool
+    entities: list[Entity] | Structures | bool | None
+    entity_info: list[dict[str, list | str]]
+    filepath: str | bytes | None
+    header: list
+    multimodel: bool
+    original_chain_ids: list[str]
+    resolution: float | None
+    reference_sequence: dict[str, str]
+    space_group: str | None
+    uc_dimensions: list[float] | None
+
+    def __init__(self, pdb_file: str | bytes = None, mmcif_file: str | bytes = None,
+                 chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
+                 cryst: dict[str, str | tuple[float]] = None, cryst_record: str = None, design: bool = False,
+                 dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
+                 multimodel: bool = False,
+                 resolution: float = None, reference_sequence: dict[str, str] = None, space_group: str = None,
+                 uc_dimensions: list[float] = None, metadata: PDB = None, log: Logger = False, **kwargs):
+        #          atoms: list[Atom] | Atoms = None, coords: list[list[float]] = None,
         # PDB defaults to Structure logger (log is False)
         super().__init__(log=log, **kwargs)
-        self.api_entry: dict | None = None
+        self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        self.assembly: bool = False
-        # self.atom_sequences = {}  # ATOM record sequence - {chain: 'AGHKLAIDL'}
-        # self.biomt = []
-        # self.biomt_header = ''
-        self.chain_ids: list = []  # unique chain IDs
-        self.chains: list = []
-        self.cryst: dict[str, str | tuple[float]] | None = kwargs.get('cryst', None)
+        self.assembly = False
+        self.chain_ids = []  # unique chain IDs
+        self.chains = []
+        self.cryst = cryst
         # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
-        self.cryst_record: str | None = kwargs.get('cryst_record', None)
-        self.dbref: dict = {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
-        self.design: bool = kwargs.get('design', False)  # assume not a design unless explicitly found to be a design
-        self.entities: list = []
-        self.entity_info: list = []  # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
+        self.cryst_record = cryst_record
+        self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
+        self.design = design  # assumes not a design unless explicitly found to be a design
+        self.entities = []
+        self.entity_info = entity_info if entity_info else []
+        # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
         # ^ ZERO-indexed for recap project!!!
-        self.filepath: str | bytes = file  # PDB filepath if instance is read from PDB file
-        self.header: list = []
-        # self.reference_aa = None  # object for reference residue coordinates
-        self.multimodel: bool = False
-        self.multimodel_chain_ids: list = []  # [multimodel_chain_id1, id2, ...]
-        self.resolution: float | None = kwargs.get('resolution', None)
-        self.reference_sequence: dict = {}  # SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
-        # self.sasa_chain = []
-        # self.sasa_residues = []
-        # self.sasa = []
-        self.space_group: str = kwargs.get('space_group', None)
-        # self.resource_db: Database = kwargs.get('resource_db', None)  # Todo
-        self.uc_dimensions: list[float] | None = kwargs.get('uc_dimensions', None)
+        self.filepath = (pdb_file or mmcif_file)  # filepath if instance is read from file
+        self.header = []
+        self.multimodel = multimodel
+        self.original_chain_ids = []  # [original_chain_id1, id2, ...]
+        self.resolution = resolution
+        self.reference_sequence = reference_sequence if reference_sequence else {}
+        # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
+        self.space_group = space_group
+        # self.resource_db: Database = kwargs.get('resource_db', None)  # Todo in Pose
+        self.uc_dimensions = uc_dimensions
         self.structure_containers.extend(['chains', 'entities'])
 
-        if file:
+        if self.residues:  # we should have residues if Structure init, otherwise we have None
             if entities is not None:  # if no entities are requested a False argument could be provided
                 kwargs['entities'] = entities
             if chains is not None:  # if no chains are requested a False argument could be provided
                 kwargs['chains'] = chains
-            self.readfile(**kwargs)
+            self.process_model(**kwargs)
+        elif chains:  # pass the chains which should be a Structure type and designate whether entities should be made
+            self.process_model(chains=chains, entities=entities, **kwargs)
+        elif entities:  # pass the entities which should be a Structure type and designate whether chains should be made
+            self.process_model(entities=entities, chains=chains, **kwargs)
         else:
             raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
 
@@ -541,14 +565,13 @@ class PDB(Structure):
     #     self.process_model(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords,
     #                        seqres=seq_res_lines, **kwargs)
 
-        self.process_pdb(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords,
-                         seqres=seq_res_lines, **kwargs)
-
-    def process_pdb(self, atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
-                    coords: Union[List[List], np.ndarray, Coords] = None, pose_format: bool = False,
-                    chains: Union[bool, Union[List[Chain], Structures]] = True, rename_chains: bool = False,
-                    entities: Union[bool, Union[List[Entity], Structures]] = True, seqres: List[str] = None, **kwargs):
-        #           reference_sequence=None, multimodel=False,
+    def process_model(self, pose_format: bool = False, chains: Union[bool, Union[List[Chain], Structures]] = True,
+                      rename_chains: bool = False, entities: Union[bool, Union[List[Entity], Structures]] = True,
+                      seqres: List[str] = None,
+                      **kwargs):
+        #               atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
+        #               coords: Union[List[List], np.ndarray, Coords] = None,
+        #               reference_sequence=None, multimodel=False,
         """Process various Structure container objects to compliant Structure object
 
         Args:
@@ -558,15 +581,14 @@ class PDB(Structure):
             entities:
             seqres: The lines representing the SEQRES records
         """
-        if atoms:  # create Atoms object and Residue objects
-            self.set_atoms(atoms)
-        elif residues:  # set Atoms and Residues
-            self.set_residue_slice(residues)
-            # self.set_residues(residues)
+        # if atoms:  # create Atoms object and Residue objects
+        #     self.set_atoms(atoms)
+        # elif residues:  # set Atoms and Residues
+        #     self.set_residues(residues)
 
-        if coords is not None and (atoms or residues):
-            self.chain_ids = remove_duplicates([residue.chain for residue in self.residues])
-            self.set_coords(coords)  # inherently replaces the supplied Atom and Residue Coords
+        # this is true if Structure init handled atom + coords OR residues + coords
+        # if coords is not None and (atoms or residues):
+        #     self.chain_ids = remove_duplicates([residue.chain for residue in self.residues])
 
         if isinstance(chains, (list, Structures)) or isinstance(entities, (list, Structures)):  # create from existing
             atoms, residues, coords = [], [], []
@@ -584,8 +606,8 @@ class PDB(Structure):
             # have to copy Residues object to set new attributes on each member Residue
             self.residues = copy(residues)
             # set residue attributes, index according to new Atoms/Coords index
-            self.set_residues_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
-            # self._residues.set_attributes(_atoms=self._atoms)  # , _coords=self._coords) <- done in set_coords
+            self.set_residues_attributes(_atoms=self._atoms)
+            # self._residues.set_attributes(_atoms=self._atoms)
             self._residues.reindex_residue_atoms()
             self.set_coords(coords=np.concatenate(coords))
             self.chain_ids = remove_duplicates([residue.chain for residue in residues])
