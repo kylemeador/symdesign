@@ -2508,8 +2508,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
 
     def __init__(self, **kwargs):
         self.fragment_pairs = []
-        self.fragment_metrics = {}
-        self.design_selector = kwargs.get('design_selector', {})
+        self.fragment_queries = {}
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.required_indices = set()
