@@ -46,7 +46,7 @@ from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from utils.CmdLineArgParseUtils import query_mode
 from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module, \
-    process_residue_selector_flags, return_default_flags
+    process_residue_selector_flags, parser_residue_selector
 from utils.GeneralUtils import write_docking_parameters
 from utils.SetUp import set_up_instructions
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
@@ -679,7 +679,7 @@ if __name__ == '__main__':
     # Process remaining flags and arguments for program initialization
     # -----------------------------------------------------------------------------------------------------------------
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    argparser_order = [parser_options, parser_input]
+    argparser_order = [parser_options, parser_input, parser_residue_selector]
     args, additional_args = argparsers[parser_module].parse_known_args()
     for argparser in argparser_order:
         args, additional_args = argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
@@ -688,9 +688,9 @@ if __name__ == '__main__':
              f'Please correct (try adding --help if unsure), and resubmit your command\n')
 
     # Add additional program flags to queried_flags
+    # queried_flags = return_default_flags()
     queried_flags = vars(args)
-    queried_flags.update(return_default_flags())
-    queried_flags.update(process_residue_selector_flags(queried_flags))
+    queried_flags['design_selector'] = process_residue_selector_flags(queried_flags)
     # -----------------------------------------------------------------------------------------------------------------
     # Initialize common job resources necessary for processing and i/o
     # -----------------------------------------------------------------------------------------------------------------

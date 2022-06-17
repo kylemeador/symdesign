@@ -20,54 +20,6 @@ from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clea
     format_index_string, ex_path
 
 terminal_formatter = '\n\t\t\t\t\t\t     '
-residue_selector_flags = {
-    'require_design_at_residues':
-        dict(type=str, default=None,
-             description='Regardless of participation in an interface,%sif certain residues should be included in'
-                         'design, specify the%sresidue POSE numbers as a comma separated string.%s'
-                         'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'
-                         % (terminal_formatter, terminal_formatter, terminal_formatter)),
-    'select_designable_residues_by_sequence':
-        dict(type=str, default=None,
-             description='If design should occur ONLY at certain residues,%sspecify the location of a .fasta file '
-                         'containing the design selection.%sRun "%s --single my_pdb_file.pdb design_selector" '
-                         'to set this up.'
-                         % (terminal_formatter, terminal_formatter, program_command)),
-    'select_designable_residues_by_pdb_number':
-        dict(type=str, default=None,
-             description='If design should occur ONLY at certain residues,%sspecify the residue PDB number(s) '
-                         'as a comma separated string.%sRanges are allowed '
-                         'Ex: "40-45,170-180,227,231"' % (terminal_formatter, terminal_formatter)),
-    'select_designable_residues_by_pose_number':
-        dict(type=str, default=None,
-             description='If design should occur ONLY at certain residues,%sspecify the residue POSE number(s) '
-                         'as a comma separated string.%sRanges are allowed '
-                         'Ex: "23,24,35,41,100-110,267,289-293"' % (terminal_formatter, terminal_formatter)),
-    'select_designable_chains':
-        dict(type=str, default=None,
-             description='If a design should occur ONLY at certain chains,%sprovide the chain ID\'s as a comma '
-                         'separated string.%sEx: "A,C,D"' % (terminal_formatter, terminal_formatter)),
-    'mask_designable_residues_by_sequence':
-        dict(type=str, default=None,
-             description='If design should NOT occur at certain residues,%sspecify the location of a .fasta file '
-                         'containing the design mask.%sRun "%s --single my_pdb_file.pdb design_selector" '
-                         'to set this up.'
-                         % (terminal_formatter, terminal_formatter, program_command)),
-    'mask_designable_residues_by_pdb_number':
-        dict(type=str, default=None,
-             description='If design should NOT occur at certain residues,%sspecify the residue PDB number(s) '
-                         'as a comma separated string.%sEx: "27-35,118,281" Ranges are allowed'
-                         % (terminal_formatter, terminal_formatter)),
-    'mask_designable_residues_by_pose_number':
-        dict(type=str, default=None,
-             description='If design should NOT occur at certain residues,%sspecify the residue POSE number(s) '
-                         'as a comma separated string.%sEx: "27-35,118,281" Ranges are allowed'
-                         % (terminal_formatter, terminal_formatter)),
-    'mask_designable_chains':
-        dict(type=str, default=None,
-             description='If a design should NOT occur at certain chains,%sprovide the chain ID\'s as a comma '
-                         'separated string.%sEx: "C"' % (terminal_formatter, terminal_formatter))
-}
 
 
 def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set[int] | set[str] | None]]:
@@ -258,9 +210,9 @@ class Formatter(argparse.RawTextHelpFormatter, argparse.RawDescriptionHelpFormat
 usage_string = '\n\tpython %(prog)s module [module_arguments] [input_arguments] [optional_arguments]'
 # parser_options = argparse.ArgumentParser(add_help=False)
 parser_options_group = dict(title='optional arguments',
-                            description='Additional options control symmetry, the extent of file output, various %s '
-                                        'runtime considerations, and programatic options for determining design '
-                                        'outcomes' % program_name)
+                            description=f'Additional options control symmetry, the extent of file output, various '
+                                        f'{program_name} runtime considerations, and programatic options for '
+                                        f'determining design outcomes')
 parser_options_arguments = {
     ('-C', '--cores'): dict(type=int, default=cpu_count(logical=False) - 1,
                             help='Number of cores to use during --multi_processing\nIf run on a cluster, the number of '
@@ -333,6 +285,50 @@ parser_options_arguments = {
     ('-S', '--symmetry'): dict(type=str, default=None,
                                help='The specific symmetry of the poses of interest.\nPreferably in a composition '
                                     'formula such as T:{C3}{C3}...'),
+}
+parser_residue_selector_group = \
+    dict(title='residue selector arguments', description='Residue selectors control which parts of the Pose are '
+                                                         'included in calculations')
+parser_residue_selector_arguments = {
+    ('--require_design_at_residues',):
+        dict(type=str, default=None,
+             help='Regardless of participation in an interface,\nif certain residues should be included in'
+                  'design, specify the\nresidue POSE numbers as a comma separated string.\n'
+                  'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'),
+    ('--select_designable_residues_by_sequence',):
+        dict(type=str, default=None,
+             help='If design should occur ONLY at certain residues,\nspecify the location of a .fasta file '
+                  f'containing the design selection.\nRun "{program_command} --single my_pdb_file.pdb design_selector" '
+                  'to set this up.'),
+    ('--select_designable_residues_by_pdb_number',):
+        dict(type=str, default=None,
+             help='If design should occur ONLY at certain residues,\nspecify the residue PDB number(s) '
+                  'as a comma separated string.\nRanges are allowed Ex: "40-45,170-180,227,231"'),
+    ('--select_designable_residues_by_pose_number',):
+        dict(type=str, default=None,
+             help='If design should occur ONLY at certain residues,\nspecify the residue POSE number(s) '
+                  'as a comma separated string.\nRanges are allowed Ex: "23,24,35,41,100-110,267,289-293"'),
+    ('--select_designable_chains',):
+        dict(type=str, default=None,
+             help='If a design should occur ONLY at certain chains,\nprovide the chain ID\'s as a comma '
+                  'separated string.\nEx: "A,C,D"'),
+    ('--mask_designable_residues_by_sequence',):
+        dict(type=str, default=None,
+             help='If design should NOT occur at certain residues,\nspecify the location of a .fasta file '
+                  f'containing the design mask.\nRun "{program_command} --single my_pdb_file.pdb design_selector" '
+                  'to set this up.'),
+    ('--mask_designable_residues_by_pdb_number',):
+        dict(type=str, default=None,
+             help='If design should NOT occur at certain residues,\nspecify the residue PDB number(s) '
+                  'as a comma separated string.\nEx: "27-35,118,281" Ranges are allowed'),
+    ('--mask_designable_residues_by_pose_number',):
+        dict(type=str, default=None,
+             help='If design should NOT occur at certain residues,\nspecify the residue POSE number(s) '
+                  'as a comma separated string.\nEx: "27-35,118,281" Ranges are allowed'),
+    ('--mask_designable_chains',):
+        dict(type=str, default=None,
+             help='If a design should NOT occur at certain chains,\nprovide the chain ID\'s as a comma '
+                  'separated string.\nEx: "C"')
 }
 # ---------------------------------------------------
 # Set Up SubModule Parsers
@@ -754,7 +750,9 @@ module_parsers = dict(refine=parser_refine,
 input_parsers = dict(input=parser_input_group,
                      input_mutual=parser_input_mutual_group)  # _mutual
 option_parsers = dict(options=parser_options_group)
+residue_selector_parsers = dict(residue_selector=parser_residue_selector_group)
 parser_arguments = dict(options_arguments=parser_options_arguments,
+                        residue_selector_arguments=parser_residue_selector_arguments,
                         refine_arguments=parser_refine_arguments,
                         nanohedra_arguments=parser_nanohedra_arguments,
                         nanohedra_mutual1_arguments=parser_nanohedra_mutual1_arguments,  # mutually_exclusive_group
@@ -775,20 +773,23 @@ parser_arguments = dict(options_arguments=parser_options_arguments,
                         input_mutual_arguments=parser_input_mutual_arguments  # add_mutually_exclusive_group
                         )
 parser_options = 'parser_options'
+parser_residue_selector = 'parser_residue_selector'
 parser_input = 'parser_input'
 parser_module = 'parser_module'
 parser_guide_module = 'parser_guide_module'
 parser_entire = 'parser_entire'
 options_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)
+residue_selector_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)
 input_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
 module_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
 argparser_kwargs = dict(parser_options=options_argparser,
+                        parser_residue_selector=residue_selector_argparser,
                         parser_input=input_argparser,
                         parser_module=module_argparser,
                         parser_guide_module=module_argparser
                         )
 # Initialize various independent ArgumentParsers
-argparsers: Dict[str, argparse.ArgumentParser] = {}
+argparsers: dict[str, argparse.ArgumentParser] = {}
 for argparser_name, argparser_args in argparser_kwargs.items():
     argparsers[argparser_name] = argparse.ArgumentParser(**argparser_args)
 
@@ -835,6 +836,7 @@ for parser_name, parser_kwargs in option_parsers.items():
     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
     if arguments:
         # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+        # There are no 'mutual' right now
         if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
             exclusive_parser = option_group.add_mutually_exclusive_group(**parser_kwargs)
             for args, kwargs in arguments.items():
@@ -842,6 +844,22 @@ for parser_name, parser_kwargs in option_parsers.items():
         option_group = parser.add_argument_group(**parser_kwargs)
         for args, kwargs in arguments.items():
             option_group.add_argument(*args, **kwargs)
+
+# Set up residue selector ArgumentParser with residue selector arguments
+parser = argparsers[parser_residue_selector]
+residue_selector_group = None
+for parser_name, parser_kwargs in residue_selector_parsers.items():
+    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    if arguments:
+        # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+        # There are no 'mutual' right now
+        if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
+            exclusive_parser = residue_selector_group.add_mutually_exclusive_group(**parser_kwargs)
+            for args, kwargs in arguments.items():
+                exclusive_parser.add_argument(*args, **kwargs)
+        residue_selector_group = parser.add_argument_group(**parser_kwargs)
+        for args, kwargs in arguments.items():
+            residue_selector_group.add_argument(*args, **kwargs)
 
 # Set up input ArgumentParser with input arguments
 parser = argparsers[parser_input]
@@ -871,7 +889,8 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                                     'computational clusters for parallel processing'
                                     % (program_name, nano.title(), program_command),
                         formatter_class=Formatter, usage=usage_string,
-                        parents=[argparsers.get(parser) for parser in [parser_module, parser_options]])
+                        parents=[argparsers.get(parser) for parser in [parser_module, parser_options,
+                                                                       parser_residue_selector]])
 argparsers[parser_entire] = argparse.ArgumentParser(**entire_argparser)
 parser = argparsers[parser_entire]
 # can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
