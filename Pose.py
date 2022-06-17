@@ -637,6 +637,8 @@ class Model(PDB):
             self.symmetry = None
         elif pdb_file:
             self.pdb = PDB.from_file(pdb_file, log=self.log, **kwargs)
+        elif mmcif_file:
+            self.pdb = PDB.from_mmcif(mmcif_file, log=self.log, **kwargs)
 
         # # Todo move to Models
         # if models and isinstance(models, list):

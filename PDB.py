@@ -344,7 +344,13 @@ class PDB(Structure):
     @classmethod
     def from_file(cls, file, **kwargs):  # Todo name from_pdb
         """Create a new PDB from a .pdb formatted file"""
-        return cls(file=file, **kwargs)
+        return cls(pdb_file=file, **read_pdb_file(file, **kwargs))
+
+    @classmethod
+    def from_mmcif(cls, file, **kwargs):
+        """Create a new PDB from a .pdb formatted file"""
+        raise NotImplementedError(mmcif_error)
+        return cls(mmcif_file=file, **read_mmcif_file(file, **kwargs))
 
     @classmethod
     def from_chains(cls, chains, **kwargs):
