@@ -516,109 +516,6 @@ class State(Structures):
     #     return self.structures[idx]
 
 
-class Models(Model):
-    """Keep track of different variations of the same Model object such as altered coordinates (different decoy's or
-    symmetric copies) [or mutated Residues]. In PDB parlance, this would be a multimodel, however could be multiple
-    PDB files that share a common element.
-    """
-    def __init__(self, models: list = None, **kwargs):  # log=None,
-        # super().__init__(structures=models, **kwargs)
-        # # print('Initializing Models')
-        #
-        # # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
-        # # if log:
-        # #     self.log = log
-        # # elif log is None:
-        # #     self.log = null_log
-        # # else:  # When log is explicitly passed as False, use the module logger
-        # #     self.log = logger
-        # if self.structures:
-        #     self.models = self.structures  # Todo is this reference to structures via models stable? ENSURE it is
-        #
-        super().__init__(**kwargs)
-
-        if models and isinstance(models, list):
-            self.models = models
-        else:
-            self.models = []
-
-    @classmethod
-    def from_file(cls, file, **kwargs):
-        """Construct Models from multimodel PDB file using the PDB.chains
-        Ex: [Chain1, Chain1, ...]
-        """
-        pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function
-        # new_model = cls(models=pdb.chains)
-        return cls(models=pdb.chains, **kwargs)
-
-    @classmethod
-    def from_pdb(cls, pdb, **kwargs):
-        """Construct Models from multimodel PDB file using the PDB.chains
-        Ex: [Chain1, Chain1, ...]
-        """
-        return cls(models=pdb.chains, **kwargs)
-
-    @property
-    def number_of_models(self) -> int:
-        return len(self.models)
-
-    # @property
-    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
-    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
-    #     return self._model_coords.coords
-    #
-    # @model_coords.setter
-    # def model_coords(self, coords):
-    #     if isinstance(coords, Coords):
-    #         self._model_coords = coords
-    #     else:
-    #         raise AttributeError(
-    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
-
-    def write(self, increment_chains: bool = False, **kwargs) -> Optional[str]:
-        """Write Structures to a file specified by out_path or with a passed file_handle.
-
-        Keyword Args:
-            out_path: The location where the Structure object should be written to disk
-            file_handle: Used to write Structure details to an open FileObject
-            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
-            header: If there is header information that should be included. Pass new lines with a "\n"
-        Returns:
-            The name of the written file if out_path is used
-        """
-        return super().write(increment_chains=increment_chains, **kwargs)
-        # if file_handle:  # Todo increment_chains compatibility
-        #     file_handle.write('%s\n' % self.return_atom_string(**kwargs))
-        #     return
-        #
-        # with open(out_path, 'w') as f:
-        #     if header:
-        #         if isinstance(header, str):
-        #             f.write(header)
-        #         # if isinstance(header, Iterable):
-        #
-        #     if increment_chains:
-        #         available_chain_ids = self.return_chain_generator()
-        #         for structure in self.structures:
-        #             chain = next(available_chain_ids)
-        #             structure.write(file_handle=f, chain=chain)
-        #             c_term_residue = structure.c_terminal_residue
-        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
-        #                                                                   c_term_residue.type, chain,
-        #                                                                   c_term_residue.number))
-        #     else:
-        #         for model_number, structure in enumerate(self.structures, 1):
-        #             f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-        #             structure.write(file_handle=f)
-        #             c_term_residue = structure.c_terminal_residue
-        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
-        #                                                                   c_term_residue.type, structure.chain_id,
-        #                                                                   c_term_residue.number))
-        #             f.write('ENDMDL\n')
-
-
-# (BaseModel)?
 class Model(PDB):
     """Manipulate Structure objects containing multiple Chain or Entity objects
 
@@ -990,7 +887,109 @@ class Model(PDB):
         return self.models[idx]
 
 
-class SymmetricModel(Model):  # Models
+class Models(Model):
+    """Keep track of different variations of the same Model object such as altered coordinates (different decoy's or
+    symmetric copies) [or mutated Residues]. In PDB parlance, this would be a multimodel, however could be multiple
+    PDB files that share a common element.
+    """
+    def __init__(self, models: list = None, **kwargs):  # log=None,
+        # super().__init__(structures=models, **kwargs)
+        # # print('Initializing Models')
+        #
+        # # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
+        # # if log:
+        # #     self.log = log
+        # # elif log is None:
+        # #     self.log = null_log
+        # # else:  # When log is explicitly passed as False, use the module logger
+        # #     self.log = logger
+        # if self.structures:
+        #     self.models = self.structures  # Todo is this reference to structures via models stable? ENSURE it is
+        #
+        super().__init__(**kwargs)
+
+        if models and isinstance(models, list):
+            self.models = models
+        else:
+            self.models = []
+
+    @classmethod
+    def from_file(cls, file, **kwargs):
+        """Construct Models from multimodel PDB file using the PDB.chains
+        Ex: [Chain1, Chain1, ...]
+        """
+        pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function
+        # new_model = cls(models=pdb.chains)
+        return cls(models=pdb.chains, **kwargs)
+
+    @classmethod
+    def from_pdb(cls, pdb, **kwargs):
+        """Construct Models from multimodel PDB file using the PDB.chains
+        Ex: [Chain1, Chain1, ...]
+        """
+        return cls(models=pdb.chains, **kwargs)
+
+    @property
+    def number_of_models(self) -> int:
+        return len(self.models)
+
+    # @property
+    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
+    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
+    #     return self._model_coords.coords
+    #
+    # @model_coords.setter
+    # def model_coords(self, coords):
+    #     if isinstance(coords, Coords):
+    #         self._model_coords = coords
+    #     else:
+    #         raise AttributeError(
+    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+
+    def write(self, increment_chains: bool = False, **kwargs) -> Optional[str]:
+        """Write Structures to a file specified by out_path or with a passed file_handle.
+
+        Keyword Args:
+            out_path: The location where the Structure object should be written to disk
+            file_handle: Used to write Structure details to an open FileObject
+            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+            header: If there is header information that should be included. Pass new lines with a "\n"
+        Returns:
+            The name of the written file if out_path is used
+        """
+        return super().write(increment_chains=increment_chains, **kwargs)
+        # if file_handle:  # Todo increment_chains compatibility
+        #     file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+        #     return
+        #
+        # with open(out_path, 'w') as f:
+        #     if header:
+        #         if isinstance(header, str):
+        #             f.write(header)
+        #         # if isinstance(header, Iterable):
+        #
+        #     if increment_chains:
+        #         available_chain_ids = self.return_chain_generator()
+        #         for structure in self.structures:
+        #             chain = next(available_chain_ids)
+        #             structure.write(file_handle=f, chain=chain)
+        #             c_term_residue = structure.c_terminal_residue
+        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
+        #                                                                   c_term_residue.type, chain,
+        #                                                                   c_term_residue.number))
+        #     else:
+        #         for model_number, structure in enumerate(self.structures, 1):
+        #             f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
+        #             structure.write(file_handle=f)
+        #             c_term_residue = structure.c_terminal_residue
+        #             f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
+        #                                                                   c_term_residue.type, structure.chain_id,
+        #                                                                   c_term_residue.number))
+        #             f.write('ENDMDL\n')
+
+
+class SymmetricModel(Model, Models):
     asu: PDB
 
     def __init__(self, asu: PDB = None, asu_file: str = None, sym_entry: SymEntry = None, symmetry: str = None,
