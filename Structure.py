@@ -1497,12 +1497,13 @@ class Structure(StructureBase):
         super().__init__(**kwargs)
 
     @classmethod
-    def from_atoms(cls, atoms=None, coords=None, **kwargs):
+    def from_atoms(cls, atoms: list[Atom] | Atoms = None, coords: Coords | np.ndarray = None, **kwargs):
         assert coords, 'Can\'t initialize Structure with Atom objects when no Coords object is passed!'
         return cls(atoms=atoms, coords=coords, **kwargs)
 
     @classmethod
-    def from_residues(cls, residues=None, residue_indices=None, coords=None, **kwargs):
+    def from_residues(cls, residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
+                      coords: Coords | np.ndarray = None, **kwargs):
         return cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
 
     @property
