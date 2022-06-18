@@ -239,8 +239,6 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
     if not atom_info:
         raise DesignError(f'The file {file} has no ATOM records!')
 
-    reference_sequence = parse_seqres(seq_res_lines)
-
     return dict(assembly=assembly,
                 atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)],
                 biomt=biomt,  # go to Structure
@@ -254,7 +252,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
                 multimodel=multimodel,
                 name=name,
                 resolution=resolution,
-                reference_sequence=reference_sequence,
+                reference_sequence=parse_seqres(seq_res_lines),
                 space_group=space_group,
                 uc_dimensions=uc_dimensions,
                 **kwargs
@@ -284,7 +282,7 @@ class PDB(Structure):
     multimodel: bool
     original_chain_ids: list[str]
     resolution: float | None
-    reference_sequence: dict[str, str]
+    _reference_sequence: dict[str, str]
     space_group: str | None
     uc_dimensions: list[float] | None
 
@@ -384,6 +382,14 @@ class PDB(Structure):
         return len(self.entities)
 
     @property
+    def reference_sequence(self) -> str:
+        return ''.join(self._reference_sequence.values())
+
+    @reference_sequence.setter
+    def reference_sequence(self, reference_sequence: dict[str, str]) -> str:
+        self._reference_sequence = reference_sequence
+
+    @property
     def symmetry(self) -> Dict:
         """Return the symmetry parameters of the PDB"""
         sym_attrbutes = ['symmetry', 'uc_dimensions', 'cryst_record', 'cryst']  # , 'max_symmetry': self.max_symmetry}
@@ -448,7 +454,7 @@ class PDB(Structure):
         self.dbref = pdb.dbref
         self.design = pdb.design
         self.header = pdb.header
-        self.reference_sequence = pdb.reference_sequence
+        self.reference_sequence = pdb._reference_sequence
         # self.atom_sequences = pdb.atom_sequences
         self.filepath = pdb.filepath
         # self.chain_ids = pdb.chain_ids
@@ -716,11 +722,11 @@ class PDB(Structure):
         Returns:
             The PDB formatted SEQRES record
         """
-        if self.reference_sequence:
+        if self._reference_sequence:
             formated_reference_sequence = \
                 {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
-                 for chain, sequence in self.reference_sequence.items()}
-            chain_lengths = {chain: len(sequence) for chain, sequence in self.reference_sequence.items()}
+                 for chain, sequence in self._reference_sequence.items()}
+            chain_lengths = {chain: len(sequence) for chain, sequence in self._reference_sequence.items()}
             return '%s\n' \
                 % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
                             % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
