@@ -288,7 +288,7 @@ class PDB(Structure):
     space_group: str | None
     uc_dimensions: list[float] | None
 
-    def __init__(self, pdb_file: str | bytes = None, mmcif_file: str | bytes = None,
+    def __init__(self, filepath: str | bytes = None,
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
                  cryst: dict[str, str | tuple[float]] = None, cryst_record: str = None, design: bool = False,
                  dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
@@ -313,7 +313,7 @@ class PDB(Structure):
         self.entity_info = entity_info if entity_info else []
         # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
         # ^ ZERO-indexed for recap project!!!
-        self.filepath = (pdb_file or mmcif_file)  # filepath if instance is read from file
+        self.filepath = filepath
         self.header = []
         self.multimodel = multimodel
         self.original_chain_ids = []  # [original_chain_id1, id2, ...]
@@ -358,18 +358,18 @@ class PDB(Structure):
         return cls(filepath=file, **read_pdb_file(file, **kwargs))
 
     @classmethod
-    def from_mmcif(cls, file, **kwargs):
+    def from_mmcif(cls, file: str | bytes, **kwargs):
         """Create a new PDB from a .pdb formatted file"""
         raise NotImplementedError(mmcif_error)
-        return cls(mmcif_file=file, **read_mmcif_file(file, **kwargs))
+        return cls(filepath=file, **read_mmcif_file(file, **kwargs))
 
     @classmethod
-    def from_chains(cls, chains, **kwargs):
+    def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
         """Create a new PDB from a container of Chain objects. Automatically renames all chains"""
         return cls(chains=chains, rename_chains=True, **kwargs)
 
     @classmethod
-    def from_entities(cls, entities, **kwargs):
+    def from_entities(cls, entities: list[Entity] | Structures, **kwargs):
         """Create a new PDB from a container of Entity objects"""
         return cls(entities=entities, **kwargs)
 
