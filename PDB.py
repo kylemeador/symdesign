@@ -342,9 +342,20 @@ class PDB(Structure):
             self.copy_metadata(metadata)
 
     @classmethod
-    def from_file(cls, file, **kwargs):  # Todo name from_pdb
+    def from_file(cls, file: str | bytes, **kwargs):
         """Create a new PDB from a .pdb formatted file"""
-        return cls(pdb_file=file, **read_pdb_file(file, **kwargs))
+        if '.pdb' in file:
+            return PDB.from_pdb(file, **kwargs)
+        elif '.cif' in file:
+            return PDB.from_mmcif(file, **kwargs)
+        else:
+            raise NotImplementedError(f'{type(cls).__name__}: The file type {os.path.splitext(file)[-1]} is not '
+                                      f'supported for parsing')
+
+    @classmethod
+    def from_pdb(cls, file: str | bytes, **kwargs):
+        """Create a new PDB from a .pdb formatted file"""
+        return cls(filepath=file, **read_pdb_file(file, **kwargs))
 
     @classmethod
     def from_mmcif(cls, file, **kwargs):
