@@ -2394,6 +2394,7 @@ class SymmetricModel(Model):  # Models
             self._pdb: To a PDB object with the minimal set of Entities containing the maximally touching configuration
         """
         entities = self.find_contacting_asu(**kwargs)
+        # self = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)  # Todo remove .pdb
         self._pdb = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)
 
     # def make_oligomers(self):
