@@ -1438,7 +1438,7 @@ class Structure(StructureBase):
         self._residue_indices = None
         self.biomt = biomt if biomt else []  # list of vectors to format
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
-        self.name = name
+        self.name = name if name not in [None, False] else f'nameless_{type(self).__name__}'
         self.secondary_structure = None
         self.sasa = None
         self.structure_containers = []
