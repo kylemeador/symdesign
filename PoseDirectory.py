@@ -2110,7 +2110,7 @@ class PoseDirectory:
         main_cmd = copy(script_cmd)
         protocol = PUtils.refine
         if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
-            # self.pose = Pose.from_pdb_file(self.source, symmetry=self.design_symmetry, log=self.log)
+            # self.pose = Pose.from_file(self.source, symmetry=self.design_symmetry, log=self.log)
             # Todo unnecessary? call self.load_pose with a flag for the type of file? how to reconcile with interface
             #  design and the asu versus pdb distinction. Can asu be implied by symmetry? Not for a trimer input that
             #  needs to be oriented and refined
