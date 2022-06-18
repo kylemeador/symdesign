@@ -62,8 +62,8 @@ def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:
 
     Args:
         seqres_lines: The list of lines containing SEQRES information
-    Sets:
-        self.reference_sequence
+    Returns:
+        The mapping of each chain to it's reference sequence
     """
     # SEQRES   1 A  182  THR THR ALA SER THR SER GLN VAL ARG GLN ASN TYR HIS
     # SEQRES   2 A  182  GLN ASP SER GLU ALA ALA ILE ASN ARG GLN ILE ASN LEU
@@ -584,7 +584,6 @@ class PDB(Structure):
 
     def process_model(self, pose_format: bool = False, chains: Union[bool, Union[List[Chain], Structures]] = True,
                       rename_chains: bool = False, entities: Union[bool, Union[List[Entity], Structures]] = True,
-                      seqres: List[str] = None,
                       **kwargs):
         #               atoms: Union[Atoms, List[Atom]] = None, residues: Union[Residues, List[Residue]] = None,
         #               coords: Union[List[List], np.ndarray, Coords] = None,

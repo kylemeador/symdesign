@@ -963,7 +963,7 @@ if __name__ == '__main__':
             hhblits_cmds, bmdca_cmds = [], []
             for entity in all_entities:
                 entity.sequence_file = job.resources.sequences.retrieve_file(name=entity.name)
-                if not entity.sequence_file:  # Todo reference_sequence source accuracy throughout protocol
+                if not entity.sequence_file:
                     entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=job.sequences)
                     # entity.add_evolutionary_profile(out_path=job.resources.hhblits_profiles.location)
                 else:

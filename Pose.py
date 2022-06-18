@@ -4,7 +4,7 @@ import os
 from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
 from logging import Logger
-from math import sqrt, cos, sin, prod, ceil
+from math import sqrt, cos, sin, prod, ceil, pi
 from typing import Set, List, Iterable, Dict, Optional, IO, Union, Any
 
 import numpy as np
@@ -617,26 +617,6 @@ class Model(PDB):
         return [entity.c_terminal_residue.number for entity in self.entities]
 
     @property
-    def residues(self) -> Iterable[Residue]:  # TODO COMMENT OUT .pdb
-        return self.pdb.residues
-
-    @property
-    def sequence(self) -> str:  # Todo KEEP but use entities for SymmetricModel, chains for Model
-        return ''.join(entity.sequence for entity in self.entities)
-
-    @property
-    def reference_sequence(self) -> str:  # Todo KEEP but use entities for SymmetricModel, chains for Model
-        # return ''.join(self.pdb.reference_sequence.values())
-        return ''.join(entity.reference_sequence for entity in self.entities)
-
-    def entity(self, entity_id: str) -> Entity:  # TODO COMMENT OUT .pdb
-        return self.pdb.entity(entity_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
-
-    def chain(self, chain_id: str) -> Chain:  # TODO COMMENT OUT .pdb
-        return self.pdb.entity_from_chain(chain_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
-        # return self.pdb.chain(chain_id)  # Todo KEEP but use entities for SymmetricModel, chains for Model
-
-    @property
     def atom_indices_per_entity(self) -> List[List[int]]:  # Todo MOVE to SymmetricModel, chains for Model
     # def atom_indices_per_chain(self) -> List[List[int]]:  # Todo KEEP chains for Model
     #     return [chain.atom_indices for chain in self.pdb.chains]
@@ -676,20 +656,6 @@ class Model(PDB):
     #     return [chain.number_of_residues for chain in self.pdb.chains]  # Todo KEEP chains for Model
         return [entity.number_of_residues for entity in self.pdb.entities]
 
-
-    @property
-    def number_of_residues(self):  # TODO COMMENT OUT .pdb
-        return self.pdb.number_of_residues
-
-    @property
-    def coords_indexed_residues(self):  # TODO COMMENT OUT .pdb
-        return self.pdb.coords_indexed_residues
-        # try:
-        #     return self._coords_indexed_residues
-        # except AttributeError:
-        #     self._coords_indexed_residues = [residue for residue in self.pdb.coords_indexed_residues]
-        #     return self._coords_indexed_residues
-
     # @property
     # def coords_indexed_residues(self):  # TODO CONNECT
     #     try:
@@ -708,13 +674,6 @@ class Model(PDB):
     #             [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
     #         return self._coords_indexed_residue_atoms
 
-    @property
-    def center_of_mass(self) -> np.ndarray:  # TODO COMMENT OUT Function ONCE Structure SUBCLASSED
-        """The center of mass for the model Structure, either an asu, or other pdb"""
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
-        return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.coords)
-
     # @property
     # def model_coords(self) -> np.ndarray:  # DONE RECONCILE with coords, SymmetricModel, and State variation
     #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
@@ -731,34 +690,34 @@ class Model(PDB):
     #         raise AttributeErr('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
     #                              'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-    def format_seqres(self, **kwargs) -> str:  # Todo this is exactly like PDB
-        """Format the reference sequence present in the SEQRES remark for writing to the output header
+    # def format_seqres(self, **kwargs) -> str:
+    #     """Format the reference sequence present in the SEQRES remark for writing to the output header
+    #
+    #     Keyword Args:
+    #         **kwargs
+    #     Returns:
+    #         The PDB formatted SEQRES record
+    #     """
+    #     # if self.pdb.reference_sequence:
+    #     #     formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
+    #     #     formated_reference_sequence = \
+    #     #         {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
+    #     #          for chain, sequence in formated_reference_sequence.items()}
+    #     if self.pdb.reference_sequence:
+    #         formated_reference_sequence = \
+    #             {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
+    #              for chain, sequence in self.pdb.reference_sequence.items()}  # .reference_sequence doesn't have chains
+    #         chain_lengths = {chain: len(sequence) for chain, sequence in self.pdb.reference_sequence.items()}
+    #         return '%s\n' \
+    #                % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
+    #                            % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
+    #                            for chain, sequence in formated_reference_sequence.items()
+    #                            for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
+    #     else:
+    #         return ''
 
-        Keyword Args:
-            **kwargs
-        Returns:
-            The PDB formatted SEQRES record
-        """
-        # if self.pdb.reference_sequence:
-        #     formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
-        #     formated_reference_sequence = \
-        #         {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
-        #          for chain, sequence in formated_reference_sequence.items()}
-        if self.pdb.reference_sequence:  # TODO DISCONNECT HERE and reconcile once subclassed
-            formated_reference_sequence = \
-                {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
-                 for chain, sequence in self.pdb.reference_sequence.items()}  # .reference_sequence doesn't have chains
-            chain_lengths = {chain: len(sequence) for chain, sequence in self.pdb.reference_sequence.items()}
-            return '%s\n' \
-                   % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
-                               % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
-                               for chain, sequence in formated_reference_sequence.items()
-                               for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
-        else:
-            return ''
-
-    def format_header(self, **kwargs) -> str:  # Todo this mirrors Structure, but with diff classes though they are same
-        """Return the BIOMT and the SEQRES records based on the pose
+    def format_header(self, **kwargs) -> str:
+        """Return the BIOMT and the SEQRES records based on the Model
 
         Returns:
             The header with PDB file formatting
@@ -1394,73 +1353,69 @@ class SymmetricModel(Models):
 
         self.log.info(f'Generated {self.number_of_symmetry_mates} Symmetric Models')
 
-    # def expand_uc_coords(self, **kwargs):
-    #     """Expand the backbone coordinates for every symmetric copy within the unit cells surrounding a central cell
-    #
-    #     Keyword Args:
-    #         surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
-    #         return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
-    #     """
-    #     self.get_unit_cell_coords(**kwargs)
-
-    def cart_to_frac(self, cart_coords) -> np.ndarray:
-        """Takes a numpy array of coordinates and finds the fractional coordinates from cartesian coordinates
+    def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
+        """Return fractional coordinates from cartesian coordinates
         From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
 
         Args:
-            cart_coords (Union[numpy.ndarray, Iterable, int, float]): The cartesian coordinates of a unit cell
+            cart_coords: The cartesian coordinates of a unit cell
         Returns:
-            (Union[numpy.ndarray, None]): The fractional coordinates of a unit cell
+            The fractional coordinates of a unit cell
         """
         if self.uc_dimensions is None:
             raise ValueError('Can\'t manipulate unit cell, no unit cell dimensions were passed')
 
-        a2r = np.pi / 180.0
+        degree_to_radians = pi / 180.
         a, b, c, alpha, beta, gamma = self.uc_dimensions
-        alpha *= a2r
-        beta *= a2r
-        gamma *= a2r
+        alpha *= degree_to_radians
+        beta *= degree_to_radians
+        gamma *= degree_to_radians
 
         # unit cell volume
-        v = a * b * c * \
-            sqrt(1 - cos(alpha)**2 - cos(beta)**2 - cos(gamma)**2 + 2 * (cos(alpha) * cos(beta) * cos(gamma)))
+        a_cos = cos(alpha)
+        b_cos = cos(beta)
+        g_cos = cos(gamma)
+        g_sin = sin(gamma)
+        v = a * b * c * sqrt(1 - a_cos ** 2 - b_cos ** 2 - g_cos ** 2 + 2 * (a_cos * b_cos * g_cos))
 
-        # deorthogonalization matrix M
-        m0 = [1 / a, -(cos(gamma) / float(a * sin(gamma))),
-              (((b * cos(gamma) * c * (cos(alpha) - (cos(beta) * cos(gamma)))) / float(sin(gamma))) -
-               (b * c * cos(beta) * sin(gamma))) * (1 / float(v))]
-        m1 = [0, 1 / (b * np.sin(gamma)), -((a * c * (cos(alpha) - (cos(beta) * cos(gamma)))) / float(v * sin(gamma)))]
-        m2 = [0, 0, (a * b * sin(gamma)) / float(v)]
+        # deorthogonalization matrix m
+        m0 = [1 / a, -(g_cos / float(a * g_sin)),
+              (((b * g_cos * c * (a_cos - (b_cos * g_cos))) / float(g_sin)) - (b * c * b_cos * g_sin)) * (1 / float(v))]
+        m1 = [0, 1 / (b * g_sin), -((a * c * (a_cos - (b_cos * g_cos))) / float(v * g_sin))]
+        m2 = [0, 0, (a * b * g_sin) / float(v)]
         m = [m0, m1, m2]
 
         return np.matmul(cart_coords, np.transpose(m))
 
-    def frac_to_cart(self, frac_coords) -> np.ndarray:
-        """Takes a numpy array of coordinates and finds the cartesian coordinates from fractional coordinates
+    def frac_to_cart(self, frac_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
+        """Return cartesian coordinates from fractional coordinates
         From http://www.ruppweb.org/Xray/tutorial/Coordinate%20system%20transformation.htm
 
         Args:
-            frac_coords (Union[numpy.ndarray, Iterable, int, float]): The fractional coordinates of a unit cell
+            frac_coords: The fractional coordinates of a unit cell
         Returns:
-            (Union[numpy.ndarray, None]): The cartesian coordinates of a unit cell
+            The cartesian coordinates of a unit cell
         """
         if self.uc_dimensions is None:
             raise ValueError('Can\'t manipulate unit cell, no unit cell dimensions were passed')
 
-        a2r = np.pi / 180.0
+        degree_to_radians = pi / 180.
         a, b, c, alpha, beta, gamma = self.uc_dimensions
-        alpha *= a2r
-        beta *= a2r
-        gamma *= a2r
+        alpha *= degree_to_radians
+        beta *= degree_to_radians
+        gamma *= degree_to_radians
 
         # unit cell volume
-        v = a * b * c * \
-            sqrt(1 - cos(alpha)**2 - cos(beta)**2 - cos(gamma)**2 + 2 * (cos(alpha) * cos(beta) * cos(gamma)))
+        a_cos = cos(alpha)
+        b_cos = cos(beta)
+        g_cos = cos(gamma)
+        g_sin = sin(gamma)
+        v = a * b * c * sqrt(1 - a_cos**2 - b_cos**2 - g_cos**2 + 2 * (a_cos * b_cos * g_cos))
 
         # orthogonalization matrix m_inv
-        m_inv_0 = [a, b * cos(gamma), c * cos(beta)]
-        m_inv_1 = [0, b * sin(gamma), (c * (cos(alpha) - (cos(beta) * cos(gamma)))) / float(sin(gamma))]
-        m_inv_2 = [0, 0, v / float(a * b * sin(gamma))]
+        m_inv_0 = [a, b * g_cos, c * b_cos]
+        m_inv_1 = [0, b * g_sin, (c * (a_cos - (b_cos * g_cos))) / float(g_sin)]
+        m_inv_2 = [0, 0, v / float(a * b * g_sin)]
         m_inv = [m_inv_0, m_inv_1, m_inv_2]
 
         return np.matmul(frac_coords, np.transpose(m_inv))
@@ -1611,7 +1566,7 @@ class SymmetricModel(Models):
                 self.asu_equivalent_model_idx = model_idx
                 return
 
-        self.log.error('%s FAILED to find model' % self.find_asu_equivalent_symmetry_model.__name__)
+        self.log.error(f'{self.find_asu_equivalent_symmetry_model.__name__} FAILED to find model')
 
     def find_intra_oligomeric_equivalent_symmetry_models(self, entity: Entity, epsilon: float = 0.5):
         """From an Entity's Chain members, find the SymmetricModel equivalent models using Chain center or mass
@@ -1650,8 +1605,7 @@ class SymmetricModel(Models):
                     break
 
         assert len(equivalent_models) == len(entity.chains), \
-            'The number of equivalent models (%d) does not equal the expected number of chains (%d)!'\
-            % (len(equivalent_models), len(entity.chains))
+            f'The number of equivalent models ({len(equivalent_models)}) != the number of chains ({len(entity.chains)})'
 
         self.oligomeric_equivalent_model_idxs[entity] = equivalent_models
 
@@ -2473,11 +2427,11 @@ class SymmetricModel(Models):
         # return BallTree(self.symmetric_coords[model_indices_without_asu])
         self.assembly_tree = BallTree(self.symmetric_coords[model_indices_without_asu])
 
-    def format_biomt(self, **kwargs):
-        """Return the expand_matrices as a BIOMT record
+    def format_biomt(self, **kwargs) -> str:
+        """Return the SymmetricModel expand_matrices as a BIOMT record
 
         Returns:
-            (str)
+            The BIOMT REMARK 350 with PDB file formatting
         """
         if self.dimension == 0:
             return '%s\n' % '\n'.join('REMARK 350   BIOMT{:1d}{:4d}{:10.6f}{:10.6f}{:10.6f}{:15.5f}'

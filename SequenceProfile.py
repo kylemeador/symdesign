@@ -184,7 +184,7 @@ class MultipleSequenceAlignment:  # (MultipleSeqAlignment):
 
 class SequenceProfile:
     """Contains the sequence information for a Structural unit. Should always be subclassed by an object like an Entity.
-    Basically any structure object with a .reference_sequence attribute could be used"""
+    Basically any Structure object with a .reference_sequence attribute could be used"""
     idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
 
     def __init__(self, **kwargs):
@@ -3129,20 +3129,19 @@ def multi_chain_alignment(mutated_sequences):
 #     return generate_multiple_mutations(wild_type_pdb.atom_sequences, pdb_sequences, pose_num=pose_num)
 
 
-def pdb_to_pose_offset(reference_sequence):
+def pdb_to_pose_offset(reference_sequence: dict[Any, Sequence]) -> dict[Any, int]:
     """Take a dictionary with chain name as keys and return the length of Pose numbering offset
 
     Args:
-        reference_sequence (dict(iter)): {key1: 'MSGKLDA...', ...} or {key2: {1: 'A', 2: 'S', ...}, ...}
-    Order of dictionary must maintain chain order, so 'A', 'B', 'C'. Python 3.6+ should be used
+        reference_sequence: {key1: 'MSGKLDA...', ...} or {key2: {1: 'A', 2: 'S', ...}, ...}
     Returns:
-        (dict): {key1: 0, key2: 123, ...}
+        {key1: 0, key2: 123, ...}
     """
     offset = {}
     # prior_chain = None
-    prior_chains_len = 0
-    for i, key in enumerate(reference_sequence):
-        if i > 0:
+    prior_chains_len = prior_key = 0  # prior_key not used as 0 but to ensure initialized nonetheless
+    for idx, key in enumerate(reference_sequence):
+        if idx > 0:
             prior_chains_len += len(reference_sequence[prior_key])
         offset[key] = prior_chains_len
         # insert function here? Make this a decorator!?
