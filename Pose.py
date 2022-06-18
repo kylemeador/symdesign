@@ -2378,9 +2378,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """Initialize a Pose from an existing Model"""
         return cls(model=model, **kwargs)
 
-    @classmethod
-    def from_pdb_file(cls, pdb_file, **kwargs):
-        return cls(pdb_file=pdb_file, **kwargs)
+    # @classmethod
+    # def from_pdb_file(cls, pdb_file, **kwargs):
+    #     return cls(pdb_file=pdb_file, **kwargs)
 
     # @classmethod
     # def from_asu(cls, asu, **kwargs):
