@@ -821,7 +821,7 @@ class SymmetricModel(Models):
         kwargs['symmetry'] = symmetry
         kwargs['sym_entry'] = sym_entry
         # self.pdb = pdb
-        # self.models = []  # Todo from Models?
+        # self.models = []  # from Models
         # self.coords = []
         # self.model_coords = [] <- designated as symmetric_coords
         self.assembly_tree = None  # stores a sklearn tree for coordinate searching
@@ -880,6 +880,58 @@ class SymmetricModel(Models):
     #     #  self.symmetric_coords
     #     #  self.asu_equivalent_model_idx
     #     #  self.oligomeric_equivalent_model_idxs
+
+    @property
+    def chains(self) -> list[Entity]:
+        """Return all the Chain objects including symmetric chains"""
+        return [chain for entity in self.entities for chain in entity.chains]
+
+    def chain(self, chain_id: str) -> Chain:
+        """Return the Entity corresponding to the provided chain_id"""
+        return self.entity_from_chain(chain_id)
+
+    # each of the below functions with raise NotImplementedError need to be removed or solved
+    @property
+    def atom_indices_per_chain(self) -> List[List[int]]:
+        """Return the atom indices for each Chain in the Model"""
+        raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
+        return [chain.atom_indices for chain in self.chains]
+
+    @property
+    def residue_indices_per_chain(self) -> List[List[int]]:
+        raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
+        return [chain.residue_indices for chain in self.chains]
+
+    @property
+    def number_of_atoms_per_chain(self) -> List[int]:
+        raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
+        return [chain.number_of_atoms for chain in self.chains]
+
+    @property
+    def atom_indices_per_entity_model(self) -> List[List[int]]:
+        # Todo
+        #   alternative solution may be quicker by performing the following multiplication then .flatten()
+        #   broadcast entity_indices ->
+        #   (np.arange(model_number) * coords_length).T
+        #   |
+        #   v
+        coords_length = len(self.coords)
+        return [[idx + (coords_length * model_number) for model_number in range(self.number_of_models)
+                 for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
+
+    @property
+    def sequence(self) -> str:
+        """Holds the SymmetricModel amino acid sequence"""
+        return ''.join(entity.sequence for entity in self.entities)
+
+    @property
+    def reference_sequence(self) -> str:
+        """Return the entire SymmetricModel sequence, constituting all Residues, not just structurally modelled ones
+
+        Returns:
+            The sequence according to each of the Entity references
+        """
+        return ''.join(entity.reference_sequence for entity in self.entities)
 
     @property
     def sym_entry(self) -> SymEntry:
@@ -1118,10 +1170,6 @@ class SymmetricModel(Models):
                 PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
                                 cryst_record=self.cryst_record, entities=False)
             return self._assembly_minimally_contacting
-
-    @property
-    def chains(self) -> Iterable[Entity]:
-        return [chain for entity in self.entities for chain in entity.chains]
 
     def set_symmetry(self, sym_entry: SymEntry = None, symmetry: str = None, cryst1: str = None,
                      uc_dimensions: List[float] = None,  expand_matrices: Union[np.ndarray, List] = None,
