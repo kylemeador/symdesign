@@ -569,86 +569,59 @@ class Model(PDB):
     # def number_of_models(self) -> int:
     #     return len(self.models)
 
-    @property
-    def coords(self) -> np.ndarray:  # TODO DISCONNECT HERE
-        """Return a view of the representative Coords from the Model. These may be the ASU if a SymmetricModel"""
-        return self.pdb._coords.coords
-        # return self._coords.coords
+    # @property
+    # def pdb(self) -> PDB:
+    #     return self._pdb
+    #
+    # @pdb.setter
+    # def pdb(self, pdb):
+    #     self._pdb = pdb
+    #     # self.coords = pdb._coords
 
-    @coords.setter
-    def coords(self, coords):  # TODO DISCONNECT HERE Reconcile with set_coords, replace_coords, etc.
-        if isinstance(coords, Coords):
-            self.pdb._coords = coords
-            # self._coords = coords
-        else:
-            raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Structure, use the private attribute _coords')
-
-    @property
-    def name(self) -> str:
-        try:
-            return self._name
-        except AttributeError:
-            return self.pdb.name  # TODO DISCONNECT HERE
-
-    @name.setter
-    def name(self, name):
-        if name not in [None, False]:
-            self._name = name
-
-    @property
-    def entities(self) -> Iterable[Entity]:  # TODO COMMENT OUT .pdb
-        return self.pdb.entities
-
-    @property
-    def number_of_entities(self) -> int:  # TODO COMMENT OUT .pdb
-        return self.pdb.number_of_entities
-
-    @property
-    def number_of_chains(self) -> int:  # TODO COMMENT OUT .pdb
-        return self.pdb.number_of_chains
-
-    @property
-    def chains(self) -> Iterable[Chain]:  # TODO COMMENT OUT .pdb
-        return self.pdb.chains
+    # @property
+    # def coords(self) -> np.ndarray:
+    #     """Return a view of the representative Coords from the Model. These may be the ASU if a SymmetricModel"""
+    #     return self.pdb._coords.coords
+    #     # return self._coords.coords
+    #
+    # @coords.setter
+    # def coords(self, coords):
+    #     if isinstance(coords, Coords):
+    #         self.pdb._coords = coords
+    #         # self._coords = coords
+    #     else:
+    #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+    #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
 
     @property
     def chain_breaks(self) -> List[int]:  # Todo KEEP
         return [entity.c_terminal_residue.number for entity in self.entities]
 
     @property
-    def atom_indices_per_entity(self) -> List[List[int]]:  # Todo MOVE to SymmetricModel, chains for Model
-    # def atom_indices_per_chain(self) -> List[List[int]]:  # Todo KEEP chains for Model
-    #     return [chain.atom_indices for chain in self.pdb.chains]
-        return [entity.atom_indices for entity in self.pdb.entities]
+    def atom_indices_per_chain(self) -> List[List[int]]:
+        """Return the atom indices for each Chain in the Model"""
+        return [chain.atom_indices for chain in self.chains]
 
     @property
-    def atom_indices_per_entity_model(self) -> List[List[int]]:
-        # Todo
-        #   alternative solution may be quicker by performing the following multiplication then .flatten()
-        #   broadcast entity_indices ->
-        #   (np.arange(model_number) * coords_length).T
-        #   |
-        #   v
-        coords_length = len(self.coords)
-        return [[idx + (coords_length * model_number) for model_number in range(self.number_of_models)
-                 for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
-
-    @property  # TODO COMMENT OUT .pdb
-    def residue_indices_per_entity(self) -> List[List[int]]:  # Todo MOVE to SymmetricModel, chains for Model
-    # def residue_indices_per_chain(self) -> List[List[int]]:  # Todo KEEP chains for Model
-    #     return [chain.residue_indices for chain in self.pdb.chains]
-        return [entity.residue_indices for entity in self.pdb.entities]
-
-    @property  # TODO COMMENT OUT .pdb
-    def number_of_atoms_per_entity(self) -> List[int]:  # TODO COMMENT OUT .pdb
-    # def number_of_atoms_per_chain(self) -> List[int]:  # Todo MOVE to SymmetricModel, chains for Model
-    #     return [chain.number_of_atoms for chain in self.pdb.chains]  # Todo KEEP chains for Model
-        return [entity.number_of_atoms for entity in self.pdb.entities]
+    def atom_indices_per_entity(self) -> List[List[int]]:
+        """Return the atom indices for each Entity in the Model"""
+        return [entity.atom_indices for entity in self.entities]
 
     @property
-    def number_of_atoms(self) -> int:  # TODO COMMENT OUT .pdb
-        return self.pdb.number_of_atoms
+    def residue_indices_per_chain(self) -> List[List[int]]:
+        return [chain.residue_indices for chain in self.chains]
+
+    @property
+    def residue_indices_per_entity(self) -> List[List[int]]:
+        return [entity.residue_indices for entity in self.entities]
+
+    @property
+    def number_of_atoms_per_chain(self) -> List[int]:
+        return [chain.number_of_atoms for chain in self.chains]
+
+    @property
+    def number_of_atoms_per_entity(self) -> List[int]:
+        return [entity.number_of_atoms for entity in self.entities]
 
     @property
     def number_of_residues_per_entity(self):  # TODO COMMENT OUT .pdb
@@ -2369,9 +2342,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # Model init will handle Structure set up if a PDB/PDB_file is present
         # SymmetricModel init will handle if an ASU/ASU_file is present and generate assembly coords
         super().__init__(**kwargs)
+        if not self.ignore_clashes:
+            if self.is_clash():  # Todo Structure subclass
+                raise DesignError(f'{self.name} contains Backbone clashes and is not being considered further!')
 
         # need to set up after load Entities so that they can have this added to their SequenceProfile
         self.fragment_db = fragment_db  # kwargs.get('fragment_db', None)
+        self.create_design_selector()  # **self.design_selector) TODO rework this whole mechanism
 
     @classmethod
     def from_model(cls, model, **kwargs):
@@ -2419,18 +2396,18 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         for entity in self.entities:
             entity.fragment_db = fragment_db
 
-    @Model.pdb.setter
-    def pdb(self, pdb):
-        # self.log.debug('Adding PDB \'%s\' to Pose' % pdb.name)
-        # super(Model, self).pdb = pdb
-        self._pdb = pdb
-        # self.coords = pdb._coords
-        if not self.ignore_clashes:
-            # if self.is_clash():  # Todo Structure subclass
-            if pdb.is_clash():  # Todo remove Structure subclass
-                raise DesignError(f'{self.name} contains Backbone clashes and is not being considered further!')
-        # self.pdbs_d[pdb.name] = pdb
-        self.create_design_selector()  # **self.design_selector) TODO rework this whole mechanism
+    # @Model.pdb.setter
+    # def pdb(self, pdb):
+    #     # self.log.debug('Adding PDB \'%s\' to Pose' % pdb.name)
+    #     # super(Model, self).pdb = pdb
+    #     self._pdb = pdb
+    #     # self.coords = pdb._coords
+    #     if not self.ignore_clashes:
+    #         # if self.is_clash():  # Todo Structure subclass
+    #         if pdb.is_clash():  # Todo remove Structure subclass
+    #             raise DesignError(f'{self.name} contains Backbone clashes and is not being considered further!')
+    #     # self.pdbs_d[pdb.name] = pdb
+    #     self.create_design_selector()  # **self.design_selector) TODO rework this whole mechanism
 
     @SymmetricModel.asu.setter
     def asu(self, asu):
