@@ -1765,7 +1765,7 @@ class Structure(StructureBase):
 
     @property
     def center_of_mass(self) -> np.ndarray:
-        """Returns: (numpy.ndarray)"""
+        """The center of mass for the Structure coordinates"""
         structure_length = self.number_of_atoms
         return np.matmul(np.full(structure_length, 1 / structure_length), self.coords)
         # try:
@@ -3198,7 +3198,7 @@ class Structure(StructureBase):
         #                  for atom, coord in zip(self.atoms, self.coords.tolist()))
 
     def format_header(self, **kwargs) -> str:
-        """Return the BIOMT and the SEQRES records based on the Structure
+        """Return the BIOMT record based on the Structure
 
         Returns:
             The header with PDB file formatting
@@ -3210,13 +3210,11 @@ class Structure(StructureBase):
         else:
             return ''
 
-    def format_biomt(self, **kwargs) -> str:
+    def format_biomt(self, **kwargs) -> str:  # Todo move to PDB/Model (parsed) and Entity (oligomer)?
         """Return the BIOMT record for the Structure if there was one parsed
 
-        Keyword Args:
-            **kwargs
         Returns:
-
+            The BIOMT REMARK 350 with PDB file formatting
         """
         if self.biomt_header != '':
             return self.biomt_header
@@ -4087,10 +4085,10 @@ class Entity(Chain, SequenceProfile):
 
     @property
     def reference_sequence(self) -> str:
-        """Return the reference sequence constituting the entire open reading frame for an Entity instance
+        """Return the entire Entity sequence, constituting all Residues, not just structurally modelled ones
 
         Returns:
-            (str)
+            The sequence according to the Entity reference
         """
         try:
             return self._reference_sequence
