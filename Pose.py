@@ -516,25 +516,31 @@ class State(Structures):
     #     return self.structures[idx]
 
 
-class Models(Structures):
+class Models(Model):
     """Keep track of different variations of the same Model object such as altered coordinates (different decoy's or
     symmetric copies) [or mutated Residues]. In PDB parlance, this would be a multimodel, however could be multiple
     PDB files that share a common element.
     """
-    def __init__(self, models=None, **kwargs):  # log=None,
-        super().__init__(structures=models, **kwargs)
-        # print('Initializing Models')
+    def __init__(self, models: list = None, **kwargs):  # log=None,
+        # super().__init__(structures=models, **kwargs)
+        # # print('Initializing Models')
+        #
+        # # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
+        # # if log:
+        # #     self.log = log
+        # # elif log is None:
+        # #     self.log = null_log
+        # # else:  # When log is explicitly passed as False, use the module logger
+        # #     self.log = logger
+        # if self.structures:
+        #     self.models = self.structures  # Todo is this reference to structures via models stable? ENSURE it is
+        #
+        super().__init__(**kwargs)
 
-        # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
-        # if log:
-        #     self.log = log
-        # elif log is None:
-        #     self.log = null_log
-        # else:  # When log is explicitly passed as False, use the module logger
-        #     self.log = logger
-
-        if self.structures:
-            self.models = self.structures  # Todo is this reference to structures via models stable? ENSURE it is
+        if models and isinstance(models, list):
+            self.models = models
+        else:
+            self.models = []
 
     @classmethod
     def from_file(cls, file, **kwargs):
@@ -551,6 +557,10 @@ class Models(Structures):
         Ex: [Chain1, Chain1, ...]
         """
         return cls(models=pdb.chains, **kwargs)
+
+    @property
+    def number_of_models(self) -> int:
+        return len(self.models)
 
     # @property
     # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
@@ -610,64 +620,57 @@ class Models(Structures):
 
 # (BaseModel)?
 class Model(PDB):
-    """Manipulate multi-Structured, Structure objects containing multiple Chain or Entity objects
+    """Manipulate Structure objects containing multiple Chain or Entity objects
 
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
     """
-    def __init__(self, model: Structure = None, pdb_file: str | bytes = None, mmcif_file: str | bytes = None,
-                 # models: List[Structure] = None,
-                 log: Logger = None, **kwargs):
-        # Todo kwarg collector to protect Object while passing to subclasses. Useful for SymmetricModel asu_file
-        super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
+    def __init__(self, model: Structure = None, **kwargs):
         # self.pdb = self.models[0]
         # elif isinstance(pdb, PDB):
         # self.biomt_header = ''
         # self.biomt = []
-        # Todo remove, mirrors Structure
-        self.name = kwargs.get('name')
-        if log:
-            self.log = log
-        elif log is None:
-            self.log = null_log
-        else:  # When log is explicitly passed as False, use the module logger
-            self.log = logger
+        # self.name = kwargs.get('name')
+        # if log:
+        #     self.log = log
+        # elif log is None:
+        #     self.log = null_log
+        # else:  # When log is explicitly passed as False, use the module logger
+        #     self.log = logger
 
-        if model and isinstance(model, Structure):
-            self.pdb = model  # TODO DISCONNECT HERE
+        if model:
+            if isinstance(model, Model):
+                self = model  # Todo test that this works
+            # if isinstance(model, Structure):
+            else:
+                raise NotImplementedError(f'Setting {type(self).__name__} with a {type(model).__name__} isn\'t '
+                                          f'supported')
             self.symmetry = None
-        elif pdb_file:
-            self.pdb = PDB.from_file(pdb_file, log=self.log, **kwargs)
-        elif mmcif_file:
-            self.pdb = PDB.from_mmcif(mmcif_file, log=self.log, **kwargs)
+        else:
+            super().__init__(**kwargs)
 
-        # # Todo move to Models
+        # elif pdb_file:
+        #     self.pdb = PDB.from_file(pdb_file, log=self.log, **kwargs)
+        # elif mmcif_file:
+        #     self.pdb = PDB.from_mmcif(mmcif_file, log=self.log, **kwargs)
+
         # if models and isinstance(models, list):
         #     self.models = models
         #     self.symmetry = None
         # else:
         #     self.models = []
 
-    @classmethod
-    def from_file(cls, file, **kwargs):
-        """Construct Models from multimodel PDB file using the PDB.chains
-        Ex: [Chain1, Chain1, ...]
-        """
-        pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function for multimodels
-        # new_model = cls(models=pdb.chains)
-        return cls(models=pdb.chains, **kwargs)
-
-    @property  # Todo move to models
-    def number_of_models(self) -> int:
-        return len(self.models)
-
-    @property
-    def pdb(self) -> PDB:  # TODO DISCONNECT HERE
-        return self._pdb
-
-    @pdb.setter
-    def pdb(self, pdb):  # TODO DISCONNECT HERE
-        self._pdb = pdb
-        # self.coords = pdb._coords
+    # @classmethod
+    # def from_file(cls, file, **kwargs):
+    #     """Construct Models from multimodel PDB file using the PDB.chains
+    #     Ex: [Chain1, Chain1, ...]
+    #     """
+    #     pdb = PDB.from_file(file, **kwargs)
+    #     # new_model = cls(models=pdb.chains)
+    #     return cls(models=pdb.chains, **kwargs)
+    #
+    # @property
+    # def number_of_models(self) -> int:
+    #     return len(self.models)
 
     @property
     def coords(self) -> np.ndarray:  # TODO DISCONNECT HERE
