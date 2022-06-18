@@ -3203,12 +3203,7 @@ class Structure(StructureBase):
         Returns:
             The header with PDB file formatting
         """
-        if type(self).__name__ in ['Entity', 'PDB']:
-            return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
-        # elif type(self).__name__ in ['Entity', 'Chain']:
-        #     return self.format_biomt() + self.format_seqres()
-        else:
-            return ''
+        return self.format_biomt(**kwargs)
 
     def format_biomt(self, **kwargs) -> str:  # Todo move to PDB/Model (parsed) and Entity (oligomer)?
         """Return the BIOMT record for the Structure if there was one parsed
@@ -4321,6 +4316,14 @@ class Entity(Chain, SequenceProfile):
         transformed ensuring the underlying coords are not modified"""
         self.remove_chain_transforms()
         super().transform(**kwargs)
+
+    def format_header(self, **kwargs) -> str:
+        """Return the BIOMT and the SEQRES records based on the Entity
+
+        Returns:
+            The header with PDB file formatting
+        """
+        return self.format_biomt(**kwargs) + self.format_seqres(**kwargs)
 
     def format_seqres(self, asu: bool = True, **kwargs) -> str:
         """Format the reference sequence present in the SEQRES remark for writing to the output header
