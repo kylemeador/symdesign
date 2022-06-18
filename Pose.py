@@ -913,21 +913,21 @@ class Models(Model):
         else:
             self.models = []
 
-    @classmethod
-    def from_file(cls, file, **kwargs):
-        """Construct Models from multimodel PDB file using the PDB.chains
-        Ex: [Chain1, Chain1, ...]
-        """
-        pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function
-        # new_model = cls(models=pdb.chains)
-        return cls(models=pdb.chains, **kwargs)
-
-    @classmethod
-    def from_pdb(cls, pdb, **kwargs):
-        """Construct Models from multimodel PDB file using the PDB.chains
-        Ex: [Chain1, Chain1, ...]
-        """
-        return cls(models=pdb.chains, **kwargs)
+    # @classmethod
+    # def from_file(cls, file, **kwargs):
+    #     """Construct Models from multimodel PDB file using the PDB.chains
+    #     Ex: [Chain1, Chain1, ...]
+    #     """
+    #     pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function
+    #     # new_model = cls(models=pdb.chains)
+    #     return cls(models=pdb.chains, **kwargs)
+    #
+    # @classmethod
+    # def from_pdb(cls, pdb, **kwargs):
+    #     """Construct Models from multimodel PDB file using the PDB.chains
+    #     Ex: [Chain1, Chain1, ...]
+    #     """
+    #     return cls(models=pdb.chains, **kwargs)
 
     @property
     def number_of_models(self) -> int:
@@ -989,7 +989,7 @@ class Models(Model):
         #             f.write('ENDMDL\n')
 
 
-class SymmetricModel(Model, Models):
+class SymmetricModel(Models):
     asu: PDB
 
     def __init__(self, asu: PDB = None, asu_file: str = None, sym_entry: SymEntry = None, symmetry: str = None,
