@@ -742,17 +742,15 @@ if __name__ == '__main__':
     #     exit(1)
 
     # Ensure symmetry is correct if the user has provided it
-    if queried_flags['symmetry'] and queried_flags.get(PUtils.sym_entry):
-        queried_flags[PUtils.sym_entry] = \
-            parse_symmetry_to_sym_entry(sym_entry=queried_flags[PUtils.sym_entry], symmetry=queried_flags['symmetry'])
-    elif queried_flags.get(PUtils.sym_entry):
-        queried_flags[PUtils.sym_entry] = SymEntry(int(queried_flags[PUtils.sym_entry]))
-    elif queried_flags['symmetry']:
-        if queried_flags['symmetry'].lower()[:5] == 'cryst':
-            # the symmetry information is in the pdb header
+    user_sym_entry = queried_flags.get(PUtils.sym_entry)
+    user_symmetry = queried_flags.get('symmetry')
+    if user_symmetry:
+        if user_symmetry.lower()[:5] == 'cryst':  # the symmetry information is in the file header
             queried_flags['symmetry'] = 'cryst'
-        else:  # queried_flags['symmetry'] in possible_symmetries:
-            queried_flags[PUtils.sym_entry] = parse_symmetry_to_sym_entry(symmetry=queried_flags['symmetry'])
+        queried_flags[PUtils.sym_entry] = parse_symmetry_to_sym_entry(sym_entry=user_sym_entry, symmetry=user_symmetry)
+    elif user_sym_entry:
+        queried_flags[PUtils.sym_entry] = SymEntry(user_sym_entry)
+
     sym_entry = queried_flags[PUtils.sym_entry]
     if not isinstance(sym_entry, SymEntry):  # remove if not an actual SymEntry
         queried_flags.pop(PUtils.sym_entry)
