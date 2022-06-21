@@ -2087,13 +2087,13 @@ class PoseDirectory:
             if to_design_directory:
                 out_path = self.assembly_path
             else:
-                out_path = path.join(self.orient_dir, '%s.pdb' % pdb.name)
+                out_path = path.join(self.orient_dir, f'{pdb.name}.pdb')
                 make_path(self.orient_dir)
 
             pdb.orient(symmetry=self.design_symmetry)
 
             orient_file = pdb.write(out_path=out_path)
-            self.log.critical('The oriented file was saved to %s' % orient_file)
+            self.log.critical(f'The oriented file was saved to {orient_file}')
             # self.clear_pose_transformation()
             for entity in pdb.entities:
                 entity.remove_mate_chains()
@@ -2125,13 +2125,12 @@ class PoseDirectory:
                 for entity_pair, interface_residue_sets in self.pose.interface_residues.items():
                     if interface_residue_sets[0]:  # check that there are residues present
                         for idx, interface_residue_set in enumerate(interface_residue_sets):
-                            self.log.debug('Mutating residues from Entity %s' % entity_pair[idx].name)
+                            self.log.debug(f'Mutating residues from Entity {entity_pair[idx].name}')
                             for residue in interface_residue_set:
-                                self.log.debug('Mutating %d%s' % (residue.number, residue.type))
+                                self.log.debug(f'Mutating {residue.number}{residue.type}')
                                 if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
                                     self.pose.pdb.mutate_residue(residue=residue, to='A')
 
-            # self.pose.pdb.write(out_path=self.refine_pdb)
             self.pose.write(out_path=self.refine_pdb)
             self.log.debug(f'Cleaned PDB for {protocol}: "{self.refine_pdb}"')
             flags = path.join(self.scripts, 'flags')

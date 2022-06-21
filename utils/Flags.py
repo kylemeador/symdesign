@@ -83,17 +83,18 @@ def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set 
                               pdb_residues=residues_pdb_req))
 
 
-def return_default_flags():
-    # mode_flags = flags.get(mode, design_flags)
-    # if mode_flags:
-    return dict(zip(design_flags.keys(), [value_format['default'] for value_format in design_flags.values()]))
-    # else:
-    #     return dict(zip(all_flags.keys(), [value_format['default'] for value_format in all_flags.values()]))
+# def return_default_flags():
+#     # mode_flags = flags.get(mode, design_flags)
+#     # if mode_flags:
+#     return dict(zip(design_flags.keys(), [value_format['default'] for value_format in design_flags.values()]))
+#     # else:
+#     #     return dict(zip(all_flags.keys(), [value_format['default'] for value_format in all_flags.values()]))
 
 
 @handle_errors(errors=(KeyboardInterrupt,))
 def query_user_for_flags(mode=interface_design, template=False):
     flags_file = f'{mode}.flags'
+    raise NotImplementedError('This function is not working')
     flag_output = return_default_flags()
     write_file = False
     print('\n%s' % header_string % f'Generate {program_name} Flags')

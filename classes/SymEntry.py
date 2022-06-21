@@ -320,8 +320,7 @@ class SymEntry:
             else:
                 raise ValueError('Invalid symmetry entry. Supported design dimensions are 0, 2, and 3')
         except KeyError:
-            raise DesignError('The symmetry result "%s" is not an allowed symmetric operation yet...'
-                              % self.resulting_symmetry)
+            raise DesignError(f'The symmetry result "{self.resulting_symmetry}" is not an allowed symmetric operation')
         self.unit_cell = None if self.unit_cell == 'N/A' else \
             [dim.strip('()').replace(' ', '').split(',') for dim in self.unit_cell.split('), ')]
 
