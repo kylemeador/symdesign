@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import argparse
 import os
 import sys
@@ -22,11 +24,11 @@ from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clea
 terminal_formatter = '\n\t\t\t\t\t\t     '
 
 
-def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set[int] | set[str] | None]]:
-    # Pull nanohedra_output and mask_design_using_sequence out of flags
+def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
+    #  Pull mask_design_using_sequence out of flags
     # -------------------
-    pdb_select, entity_select, chain_select, residue_select, residue_pdb_select = None, None, None, set(), set()
+    entity_select, chain_select, residue_select, residue_pdb_select = set(), set(), set(), set()
     select_residues_by_sequence = flags.get('select_designable_residues_by_sequence')
     if select_residues_by_sequence:
         residue_select = residue_select.union(generate_sequence_mask(select_residues_by_sequence))
@@ -41,9 +43,9 @@ def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set[
 
     select_chains = flags.get('select_designable_chains')
     if select_chains:
-        chain_select = generate_chain_mask(select_chains)
+        chain_select = chain_select.union(generate_chain_mask(select_chains))
     # -------------------
-    pdb_mask, entity_mask, chain_mask, residue_mask, residue_pdb_mask = None, None, None, set(), set()
+    entity_mask, chain_mask, residue_mask, residue_pdb_mask = set(), set(), set(), set()
     mask_residues_by_sequence = flags.get('mask_designable_residues_by_sequence')
     if mask_residues_by_sequence:
         residue_mask = residue_mask.union(generate_sequence_mask(mask_residues_by_sequence))
@@ -58,9 +60,9 @@ def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set[
 
     mask_chains = flags.get('mask_designable_chains')
     if mask_chains:
-        chain_mask = generate_chain_mask(mask_chains)
+        chain_mask = chain_mask.union(generate_chain_mask(mask_chains))
     # -------------------
-    entity_req, chain_req, residues_req, residues_pdb_req = None, None, set(), set()
+    entity_req, chain_req, residues_req, residues_pdb_req = set(), set(), set(), set()
     require_residues_by_pdb_number = flags.get('require_design_at_pdb_residues')
     if require_residues_by_pdb_number:
         residues_pdb_req = residues_pdb_req.union(format_index_string(require_residues_by_pdb_number))
@@ -69,9 +71,13 @@ def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set[
     if require_residues_by_pose_number:
         residues_req = residues_req.union(format_index_string(require_residues_by_pose_number))
 
-    return dict(selection=dict(pdbs=pdb_select, entities=entity_select, chains=chain_select, residues=residue_select,
+    require_residues_by_chain = flags.get('require_design_at_chains')
+    if require_residues_by_chain:
+        chain_req = chain_req.union(generate_chain_mask(require_residues_by_chain))
+
+    return dict(selection=dict(entities=entity_select, chains=chain_select, residues=residue_select,
                                pdb_residues=residue_pdb_select),
-                mask=dict(pdbs=pdb_mask, entities=entity_mask, chains=chain_mask, residues=residue_mask,
+                mask=dict(entities=entity_mask, chains=chain_mask, residues=residue_mask,
                           pdb_residues=residue_pdb_mask),
                 required=dict(entities=entity_req, chains=chain_req, residues=residues_req,
                               pdb_residues=residues_pdb_req))
@@ -295,6 +301,11 @@ parser_residue_selector_arguments = {
              help='Regardless of participation in an interface,\nif certain residues should be included in'
                   'design, specify the\nresidue POSE numbers as a comma separated string.\n'
                   'Ex: "23,24,35,41,100-110,267,289-293" Ranges are allowed'),
+    ('--require_design_at_chains',):
+        dict(type=str, default=None,
+             help='Regardless of participation in an interface,\nif certain chains should be included in'
+                  'design, specify the\nchain ID\'s as a comma separated string.\n'
+                  'Ex: "A,D"'),
     ('--select_designable_residues_by_sequence',):
         dict(type=str, default=None,
              help='If design should occur ONLY at certain residues,\nspecify the location of a .fasta file '

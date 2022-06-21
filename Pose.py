@@ -2336,7 +2336,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     ignore_clashes: bool
     interface_residues: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
     required_indices: set[int]
-    required_residues: None
+    required_residues: list[Residue] | None
     resource_db: Database | None
     split_interface_residues: dict[int, list[tuple[Residue, Entity]]]
     split_interface_ss_elements: dict[int, list[int]]
@@ -2494,20 +2494,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         #     self.log.debug('The design_selector may be incorrect as the Pose was initialized with multiple PDB '
         #                    'files. Proceed with caution if this is not what you expected!')
 
-        def grab_indices(pdbs=None, entities=None, chains=None, residues=None, pdb_residues=None, atoms=None,
-                         start_with_none=False):
+        def grab_indices(entities: set[str] = None, chains: set[str] = None, residues: set[int] = None,
+                         pdb_residues: set[int] = None, start_with_none: bool = False) -> tuple[set[Entity], set[int]]:
+            #              atoms: set[int] = None
+            """Parse the residue selector to a set of entities and a set of atom indices"""
             if start_with_none:
                 entity_set = set()
                 atom_indices = set()
                 set_function = getattr(set, 'union')
             else:  # start with all indices and include those of interest
                 entity_set = set(self.entities)
-                atom_indices = set(self.pdb.atom_indices)  # TODO COMMENT OUT .pdb
+                atom_indices = set(self.atom_indices)
                 set_function = getattr(set, 'intersection')
 
-            if pdbs:
-                # atom_selection = set(self.pdb.get_residue_atom_indices(numbers=residues))
-                raise NotImplementedError('Can\'t select residues by PDB yet!')
             if entities:
                 atom_indices = set_function(atom_indices, iter_chain.from_iterable([self.entity(entity).atom_indices
                                                                                    for entity in entities]))
@@ -2521,36 +2520,40 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                 # ^^ This is for the additive model
                 entity_set = set_function(entity_set, [self.chain(chain_id) for chain_id in chains])
             if residues:
-                atom_indices = set_function(atom_indices, self.pdb.get_residue_atom_indices(numbers=residues))
-            if pdb_residues:  # TODO COMMENT OUT .pdb v ^
-                atom_indices = set_function(atom_indices, self.pdb.get_residue_atom_indices(numbers=residues, pdb=True))
-            if atoms:  # TODO COMMENT OUT .pdb v
-                atom_indices = set_function(atom_indices, [idx for idx in self.pdb.atom_indices if idx in atoms])
+                atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=residues))
+            if pdb_residues:
+                atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=residues, pdb=True))
+            # if atoms:
+            #     atom_indices = set_function(atom_indices, [idx for idx in self.atom_indices if idx in atoms])
 
             return entity_set, atom_indices
 
-        if 'selection' in self.design_selector:
-            self.log.debug(f'The design_selection includes: {self.design_selector["selection"]}')
-            entity_selection, atom_selection = grab_indices(**self.design_selector['selection'])
-        else:  # TODO COMMENT OUT .pdb v
-            entity_selection, atom_selection = set(self.entities), set(self.pdb.atom_indices)
+        selection = self.design_selector.get('selection')
+        if selection:
+            self.log.debug(f'The design_selection includes: {selection}')
+            entity_selection, atom_selection = grab_indices(**selection)
+        else:
+            entity_selection, atom_selection = set(self.entities), set(self.atom_indices)
 
-        if 'mask' in self.design_selector:
-            self.log.debug(f'The design_mask includes: {self.design_selector["mask"]}')
-            entity_mask, atom_mask = grab_indices(**self.design_selector['mask'], start_with_none=True)
+        mask = self.design_selector.get('mask')
+        if mask:
+            self.log.debug(f'The design_mask includes: {mask}')
+            entity_mask, atom_mask = grab_indices(**mask, start_with_none=True)
         else:
             entity_mask, atom_mask = set(), set()
 
         self.design_selector_entities = entity_selection.difference(entity_mask)
         self.design_selector_indices = atom_selection.difference(atom_mask)
 
-        if 'required' in self.design_selector:
-            self.log.debug(f'The required_residues includes: {self.design_selector["required"]}')
-            entity_required, self.required_indices = grab_indices(**self.design_selector['required'],
-                                                                  start_with_none=True)
+        required = self.design_selector.get('required')
+        if required:
+            self.log.debug(f'The required_residues includes: {required}')
+            entity_required, self.required_indices = grab_indices(**required, start_with_none=True)
+            # Todo create a separte variable for required_entities?
+            self.design_selector_entities = self.design_selector_entities.union(entity_required)
             if self.required_indices:  # only if indices are specified should we grab them
-                self.required_residues = self.pdb.get_residues_by_atom_indices(indices=self.required_indices)
-        else:  # TODO COMMENT OUT .pdb ^
+                self.required_residues = self.get_residues_by_atom_indices(indices=self.required_indices)
+        else:
             entity_required, self.required_indices = set(), set()
 
     def return_interface(self, distance: float = 8.) -> Structure:
