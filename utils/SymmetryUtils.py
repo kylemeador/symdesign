@@ -656,7 +656,7 @@ if __name__ == '__main__':
     #      else:
     #          rotations = np.array(get_ptgrp_sym_op(symmetry))  # todo generate from rotations...
     #          point_group_operators[symmetry] = rotations
-    point_group_operators = {}
+    point_group_operators = {'C1': identity_matrix[None, :, :]}
     for symmetry in pg_symmetry_groups:
         rotations = np.array(get_ptgrp_sym_op(symmetry))
         point_group_operators[symmetry] = rotations
