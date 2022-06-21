@@ -833,7 +833,7 @@ class SymmetricModel(Models):
         # self.model_coords = [] <- designated as symmetric_coords
         self.assembly_tree = None  # stores a sklearn tree for coordinate searching
         self.asu_equivalent_model_idx = None
-        self.coords_type = None
+        # self.coords_type = None
         # self.dimension = None
         self.expand_matrices = None
         self.expand_translations = None
@@ -922,8 +922,9 @@ class SymmetricModel(Models):
         #   (np.arange(model_number) * coords_length).T
         #   |
         #   v
-        coords_length = len(self.coords)
-        return [[idx + (coords_length * model_number) for model_number in range(self.number_of_models)
+        number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
+        return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
     @property
@@ -1037,8 +1038,8 @@ class SymmetricModel(Models):
         # (np.arange(model_number) * number_of_atoms).T
         # |
         # v
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
+        number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
         return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
@@ -1124,8 +1125,7 @@ class SymmetricModel(Models):
     @property
     def center_of_mass_symmetric_models(self) -> np.ndarray:
         """The individual centers of mass for each model in the symmetric system"""
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this version
-        # number_of_atoms = len(self.coords)
+        # number_of_atoms = self.number_of_atoms
         # return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.symmetric_coords_split)
         return np.matmul(self.center_of_mass, self.expand_matrices)
 
@@ -1334,46 +1334,47 @@ class SymmetricModel(Models):
 
         return np.matmul(frac_coords, np.transpose(m_inv))
 
-    def get_point_group_coords(self, return_side_chains=True, **kwargs):
+    def get_point_group_coords(self, **kwargs):  # return_side_chains=True,
         """Find the coordinates of the symmetry mates using the coordinates and the input expansion matrices
 
         Sets:
             self.number_of_symmetry_mates (int)
             self.symmetric_coords (Coords)
         """
-        if return_side_chains:  # get different function calls depending on the return type # todo
-            # get_pdb_coords = getattr(PDB, 'coords')
-            self.coords_type = 'all'
-        else:
-            # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
-            self.coords_type = 'bb_cb'
+        # if return_side_chains:  # get different function calls depending on the return type # todo
+        #     # get_pdb_coords = getattr(PDB, 'coords')
+        #     self.coords_type = 'all'
+        # else:
+        #     # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+        #     self.coords_type = 'bb_cb'
 
         # self.number_of_symmetry_mates = valid_subunit_number[self.symmetry]
         self.symmetric_coords = Coords((np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
                                                   self.expand_matrices) + self.expand_translations).reshape(-1, 3))
-        # # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        # coords_len = len(self.coords)
-        # model_coords = np.empty((coords_len * self.number_of_symmetry_mates, 3), dtype=float)
+        # number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
+        # model_coords = np.empty((number_of_atoms * self.number_of_symmetry_mates, 3), dtype=float)
         # for idx, rotation in enumerate(self.expand_matrices):
         #     model_coords[idx * coords_len: (idx + 1) * coords_len] = np.matmul(self.coords, np.transpose(rotation))
         # self.symmetric_coords = Coords(model_coords)
 
-    def get_unit_cell_coords(self, return_side_chains=True, surrounding_uc=True, **kwargs):
+    def get_unit_cell_coords(self, surrounding_uc: bool = True, **kwargs):  # return_side_chains=True
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in the unit cell
 
-        Keyword Args:
-            return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
-            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        Args:
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        # Keyword Args:
+        #     return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
         Sets:
             self.number_of_symmetry_mates (int)
             self.symmetric_coords (Coords)
         """
-        if return_side_chains:  # get different function calls depending on the return type  # todo
-            # get_pdb_coords = getattr(PDB, 'coords')
-            self.coords_type = 'all'
-        else:
-            # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
-            self.coords_type = 'bb_cb'
+        # if return_side_chains:  # get different function calls depending on the return type  # todo
+        #     # get_pdb_coords = getattr(PDB, 'coords')
+        #     self.coords_type = 'all'
+        # else:
+        #     # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+        #     self.coords_type = 'bb_cb'
 
         if surrounding_uc:
             shift_3d = [0., 1., -1.]
@@ -1446,8 +1447,8 @@ class SymmetricModel(Models):
             else:
                 number_of_models = self.number_of_uc_symmetry_mates
 
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
+        number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
         for model_idx in range(number_of_models):
             symmetry_mate_pdb = copy(self.asu)  # Todo self.copy()
             symmetry_mate_pdb.replace_coords(self.symmetric_coords[(model_idx * number_of_atoms):
@@ -1471,8 +1472,8 @@ class SymmetricModel(Models):
         # entity2_n_term_residue_idx = entity1_number + 1
         # entity2_n_term_residue = self.residues[entity2_n_term_residue_idx]
         # entity2_ca_idx = entity2_n_term_residue.ca_atom_index
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
+        number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
         for model_idx in range(self.number_of_symmetry_mates):
             if np.allclose(atom_ca_coord, self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]):
                 # if (atom_ca_coord ==
@@ -1493,8 +1494,8 @@ class SymmetricModel(Models):
         if self.oligomeric_equivalent_model_idxs.get(entity):  # we already found this information
             self.log.debug('Skipping oligomeric identification as information already exists')
             return
-        number_of_atoms = len(self.coords)
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
+        # number_of_atoms = len(self.coords)
+        number_of_atoms = self.number_of_atoms
         # need to slice through the specific Entity coords once we have the model
         entity_start, entity_end = entity.atom_indices[0], entity.atom_indices[-1]
         entity_length = entity.number_of_atoms
@@ -1536,7 +1537,8 @@ class SymmetricModel(Models):
         """
         if calculate_contacts:
             # Select only coords that are BB or CB from the model coords
-            bb_cb_indices = None if self.coords_type == 'bb_cb' else self.pdb.backbone_and_cb_indices
+            # bb_cb_indices = None if self.coords_type == 'bb_cb' else self.backbone_and_cb_indices
+            bb_cb_indices = self.backbone_and_cb_indices
             self.generate_assembly_tree()
             asu_query = self.assembly_tree.query_radius(self.coords[bb_cb_indices], distance)
             # coords_length = len(bb_cb_indices)
@@ -1567,8 +1569,8 @@ class SymmetricModel(Models):
             The indices in the SymmetricModel where the ASU is also located
         """
         self.find_asu_equivalent_symmetry_model()
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
+        number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
         start_idx = number_of_atoms * self.asu_equivalent_model_idx
         end_idx = number_of_atoms * (self.asu_equivalent_model_idx + 1)
 
@@ -1588,8 +1590,8 @@ class SymmetricModel(Models):
         """
         self.find_intra_oligomeric_equivalent_symmetry_models(entity)
         oligomeric_indices = []
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
+        number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
         for model_number in self.oligomeric_equivalent_model_idxs.get(entity):
             start_idx = number_of_atoms * model_number
             end_idx = number_of_atoms * (model_number + 1)
@@ -1610,8 +1612,8 @@ class SymmetricModel(Models):
         """
         model_numbers = self.return_asu_interaction_model_indices(**kwargs)
         interacting_indices = []
-        # number_of_atoms = self.number_of_atoms  # Todo, there is not much use for bb_cb so adopt this
-        number_of_atoms = len(self.coords)
+        number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
         for model_number in model_numbers:
             start_idx = number_of_atoms * model_number
             end_idx = number_of_atoms * (model_number + 1)
@@ -2286,16 +2288,15 @@ class SymmetricModel(Models):
         #     raise ValueError(f'Cannot check if the assembly is clashing without first calling '
         #                      f'{self.generate_symmetric_coords.__name__}')
 
-        if self.coords_type != 'bb_cb':
-            # Need to select only coords that are BB or CB from the model coords
-            # Todo remove .asu
-            asu_indices = self.asu.backbone_and_cb_indices
-        else:
-            asu_indices = None
+        # if self.coords_type != 'bb_cb':
+        # Need to select only coords that are BB or CB from the model coords
+        # asu_indices = self.backbone_and_cb_indices
+        # else:
+        #     asu_indices = None
 
         self.generate_assembly_tree()
         # clashes = asu_coord_tree.two_point_correlation(self.symmetric_coords[model_indices_without_asu], [distance])
-        clashes = self.assembly_tree.two_point_correlation(self.coords[asu_indices], [distance])
+        clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
             self.log.warning('%s: Found %d clashing sites! Pose is not a viable symmetric assembly'
                              % (self.name, clashes[0]))
@@ -2307,24 +2308,23 @@ class SymmetricModel(Models):
         """Create a tree structure from all the coordinates in the symmetric assembly
 
         Sets:
-            self.assembly_tree (sklearn.neighbors._ball_tree.BallTree): The constructed coordinate tree
+            self.assembly_tree (sklearn.neighbors._ball_tree.BinaryTree): The constructed coordinate tree
         """
         if self.assembly_tree:
             return
 
         # model_asu_indices = self.return_asu_equivalent_symmetry_mate_indices()
-        if self.coords_type == 'bb_cb':  # grab every coord in the model
-            model_indices = np.arange(len(self.symmetric_coords))
-            asu_indices = []
-        else:  # Select only coords that are BB or CB from the model coords
-            number_asu_atoms = self.number_of_atoms
-            # Todo remove .asu
-            asu_indices = self.asu.backbone_and_cb_indices
-            # We have all the BB/CB indices from ASU, must multiply this int's in self.number_of_symmetry_mates
-            # to get every BB/CB coord in the model
-            # Finally we take out those indices that are inclusive of the model_asu_indices like below
-            model_indices = np.array([idx + (model_number * number_asu_atoms)
-                                      for model_number in range(self.number_of_symmetry_mates) for idx in asu_indices])
+        # if self.coords_type == 'bb_cb':  # grab every coord in the model
+        #     model_indices = np.arange(len(self.symmetric_coords))
+        #     asu_indices = []
+        # else:  # Select only coords that are BB or CB from the model coords
+        number_asu_atoms = self.number_of_atoms
+        asu_indices = self.backbone_and_cb_indices
+        # We have all the BB/CB indices from ASU, must multiply this int's in self.number_of_symmetry_mates
+        # to get every BB/CB coord in the model
+        # Finally we take out those indices that are inclusive of the model_asu_indices like below
+        model_indices = np.array([idx + (model_number * number_asu_atoms)
+                                  for model_number in range(self.number_of_symmetry_mates) for idx in asu_indices])
 
         # # make a boolean mask where the model indices of interest are True
         # without_asu_mask = np.logical_or(model_indices < model_asu_indices[0],
@@ -2897,9 +2897,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             entity2_indices.extend(residue.heavy_atom_indices)
 
         if self.symmetry:  # get all symmetric indices
-            coords_length = len(self.coords)
-            # coords_length = self.number_of_atoms  # Todo
-            entity2_indices = [idx + (coords_length * model_number)
+            # number_of_atoms = len(self.coords)
+            number_of_atoms = self.number_of_atoms
+            entity2_indices = [idx + (number_of_atoms * model_number)
                                for model_number in range(self.number_of_symmetry_mates) for idx in entity2_indices]
 
         interface_atom_tree = BallTree(self.coords[entity1_indices])
