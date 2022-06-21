@@ -1096,22 +1096,22 @@ def calculate_overlap(coords1: np.ndarray = None, coords2: np.ndarray = None, co
 
 
 # @njit mean doesn't take arguments
-def rmsd(coords1: np.ndarray = None, coords2: np.ndarray = None) -> np.ndarray:
+def rmsd(coords1: np.ndarray = None, coords2: np.ndarray = None) -> float | np.ndarray:
     """Calculate the root mean square deviation (RMSD). Arguments can be single vectors or array-like
 
     If calculation is over two sets of numpy.arrays. The first axis (0) contains instances of coordinate sets,
     the second axis (1) contains a set of coordinates, and the third axis (2) contains the x, y, z coordinates
 
     Returns:
-        The RMSD
+        The RMSD value(s) which is equal to the length of coords1
     """
-    difference_squared = (coords1 - coords2) ** 2
-    # axis 2 gets the sum of the rows 0[1[2[],2[],2[]], 1[2[],2[],2[]]]
-    sum_difference_squared = difference_squared.sum(axis=-1)
-    # axis 1 gets the mean of the rows 0[1[]], 1[]]
-    mean_sum_difference_squared = sum_difference_squared.mean(axis=1)
+    # difference_squared = (coords1 - coords2) ** 2
+    # # axis 2(-1) gets the sum of the rows 0[1[2[],2[],2[]], 1[2[],2[],2[]], ...]
+    # sum_difference_squared = ((coords1 - coords2) ** 2).sum(axis=-1)  # <- more stable form of indexing axis
+    # # axis 1(-1) gets the mean of the rows 0[1[], 1[], ...]
+    # mean_sum_difference_squared = ((coords1 - coords2) ** 2).sum(axis=-1).mean(axis=-1)  # <- more stable index
 
-    return np.sqrt(mean_sum_difference_squared)
+    return np.sqrt(((coords1 - coords2) ** 2).sum(axis=-1).mean(axis=-1))  # returns array equal to coords.shape[0]
 
 
 def z_value_from_match_score(match_score: float | np.ndarray) -> float | np.ndarray:

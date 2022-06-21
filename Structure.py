@@ -1507,7 +1507,7 @@ class Residues:
         yield from self.residues.tolist()
 
 
-def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: MonoFragment = None,
+def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: Fragment = None,
                                overlap_error: float = None, match_number: int = None,
                                central_frequencies=None, out_path: str | bytes = os.getcwd(), pose_id: str = None):
     # ghost_residue: Residue = None, matched_residue: Residue = None,
@@ -2067,7 +2067,7 @@ class Structure(StructureBase):
             atom_indices.extend(residue.atom_indices)
         return atom_indices
 
-    def get_residues_by_atom_indices(self, atom_indices: list[int] = None) -> list[Residue]:
+    def get_residues_by_atom_indices(self, atom_indices: Iterable[int] = None) -> list[Residue]:
         """Retrieve Residues in the Structure specified by Atom indices. Must be the coords_owner
 
         Args:
