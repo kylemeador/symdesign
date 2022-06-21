@@ -2674,11 +2674,13 @@ class Structure(StructureBase):
             raise DesignError('This Structure "%s" is not the owner of it\'s attributes and therefore cannot handle '
                               'residue insertion!' % self.name)
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
-        reference_index = protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(),
-                                                                                 residue_type.upper()))
+        reference_index = \
+            protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(), residue_type.upper()))
+        assert reference_index != -1, f'Insertion of residue_type "{residue_type}" is not allowed'
         # Grab the reference atom coordinates and push into the atom list
         new_residue = copy(reference_aa.residue(reference_index))
         # new_residue = copy(Structure.reference_aa.residue(reference_index))
+        assert at >= 1, f'Insertion at index "{at}" (less than 1) is not allowed'
         new_residue.number = at
         residue_index = at - 1  # since at is one-indexed integer
         # insert the new_residue atoms and coords into the Structure Atoms
@@ -2703,30 +2705,42 @@ class Structure(StructureBase):
         # self.atom_indices = self.atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
         self.renumber_structure()
 
-        # n_termini, c_termini = False, False
-        prior_residue = self.residues[residue_index - 1]
+        # find the prior and next residues and add attributes
+        if residue_index:  # not 0
+            prior_residue = self.residues[residue_index - 1]
+            new_residue.prev_residue = prior_residue
+        else:  # n-termini = True
+            prior_residue = None
+
         try:
             next_residue = self.residues[residue_index + 1]
+            new_residue.next_residue = next_residue
         except IndexError:  # c_termini = True
+            if not prior_residue:  # insertion on an empty Structure? block for now to simplify chain identification
+                raise DesignError(f'Can\'t insert_residue_type for an empty {type(self).__name__} class')
             next_residue = None
-        # if n_termini and not c_termini:
-        # set the residues new chain_id, must occur after self.residue_indices update if chain isn't provided
+
+        # set the new chain_id, number_pdb. Must occur after self.residue_indices update if chain isn't provided
+        chain_assignment_error = 'Can\'t solve for the new Residue polymer association automatically! If the new ' \
+                                 'Residue is at a Structure termini in a multi-Structure Structure container, you must' \
+                                 ' specify which Structure it belongs to by passing chain='
         if chain:
             new_residue.chain = chain
-        elif not next_residue:
-            new_residue.chain = prior_residue.chain
-        elif prior_residue.number > new_residue.number:  # we have a negative index, n_termini = True
-            new_residue.chain = next_residue.chain
-        elif prior_residue.chain == next_residue.chain:
-            new_residue.chain = prior_residue.chain
-        else:
-            raise DesignError('Can\'t solve for the new Residue polymer association automatically! If the new '
-                              'Residue is at a Structure termini in a multi-Structure Structure container, you must'
-                              ' specify which Structure it belongs to by passing chain=')
-        new_residue.number_pdb = prior_residue.number_pdb + 1
-        # re-index the coords and residues map
+        else:  # try to solve without it...
+            if prior_residue and next_residue:
+                if prior_residue.chain == next_residue.chain:
+                    res_with_info = prior_residue
+                else:  # we have a discrepancy which means this is a Structure termini
+                    raise DesignError(chain_assignment_error)
+            else:  # we can solve as this represents an absolute termini case
+                res_with_info = prior_residue if prior_residue else next_residue
+            new_residue.chain = res_with_info.chain
+            new_residue.number_pdb = prior_residue.number_pdb + 1 if prior_residue else next_residue.number_pdb - 1
+
         if self.secondary_structure:
-            self.secondary_structure.insert('C', residue_index)  # ASSUME the insertion is disordered and coiled segment
+            # ASSUME the insertion is disordered and coiled segment
+            self.secondary_structure = \
+                self.secondary_structure[:residue_index] + 'C' + self.secondary_structure[residue_index:]
 
         # remake residue indexing
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
