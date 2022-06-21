@@ -647,6 +647,12 @@ class SymEntry:
 
 
 class SymEntryFactory:
+    """Return a SymEntry instance by calling the Factory instance with the SymEntry entry number and symmetry map
+    (sym_map)
+
+    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
+    allocating a shared pointer to the SymEntry
+    """
     def __init__(self, **kwargs):
         self._entries = {}
 
@@ -660,7 +666,6 @@ class SymEntryFactory:
             The instance of the specified SymEntry
         """
         sym_map_string = '|'.join(sym_map)
-        # entry_key = '%d:%s' % (entry, sym_map_string)
         entry_key = sym_map_string
         symmetry = self._entries.get(entry_key)
         if symmetry:

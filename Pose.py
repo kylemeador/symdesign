@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 from copy import copy, deepcopy
 from itertools import chain as iter_chain, combinations_with_replacement, combinations, product
-from logging import Logger
+# from logging import Logger
 from math import sqrt, cos, sin, prod, ceil, pi
 from typing import Set, List, Iterable, Dict, Optional, IO, Union, Any
 
@@ -12,13 +12,14 @@ import numpy as np
 from Bio.Data.IUPACData import protein_letters_1to3_extended
 from sklearn.cluster import KMeans
 from sklearn.neighbors import BallTree
+from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
 import PathUtils as PUtils
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
-from JobResources import FragmentDB, fragment_factory, Database, FragmentDatabase
+from JobResources import fragment_factory, Database, FragmentDatabase
 from PDB import PDB, parse_cryst_record
 from SequenceProfile import SequenceProfile
-from Structure import Coords, Structure, Structures, Chain, Entity, Residue, GhostFragment, MonoFragment, \
+from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
     write_frag_match_info_file
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
     match_score_from_z_value, dictionary_lookup, digit_translate_table
@@ -808,7 +809,13 @@ class Models(Model):
 
 
 class SymmetricModel(Models):
-    asu: PDB
+    assembly_tree: BinaryTree | None
+    asu_equivalent_model_idx: None
+    # coords_type: None
+    expand_matrices: np.ndarray | list[list[float]] | None
+    expand_translations: np.ndarray | list[float] | None
+    oligomeric_equivalent_model_idxs: dict[Entity, list[int]]
+    uc_dimensions: list[float] | None  # uc_dimensions  # also defined in PDB
 
     def __init__(self, asu: PDB = None, asu_file: str = None, sym_entry: SymEntry = None, symmetry: str = None,
                  **kwargs):
@@ -2388,17 +2395,17 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
+    design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
+    design_selector_entities: set[Entity]
+    design_selector_indices: set[int]
     euler_lookup: EulerLookup | None
     fragment_metrics: dict
     fragment_pairs: list
     fragment_queries: dict[tuple[Entity, Entity], list[dict[str, Any]]]
-    design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] | None
-    design_selector_entities: set[Entity]
-    design_selector_indices: set[int]
-    required_indices: set[int]
-    required_residues: None
     ignore_clashes: bool
     interface_residues: dict[tuple[Entity, Entity], tuple[list[Residue], list[Residue]]]
+    required_indices: set[int]
+    required_residues: None
     resource_db: Database | None
     split_interface_residues: dict[int, list[tuple[Residue, Entity]]]
     split_interface_ss_elements: dict[int, list[int]]
@@ -2408,17 +2415,18 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def __init__(self, euler_lookup: EulerLookup = None, fragment_db: FragmentDatabase = None,
                  resource_db: Database = None,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
-        self.euler_lookup = euler_lookup  # kwargs.get('euler_lookup', None)
-        self.fragment_metrics = {}
-        self.fragment_pairs = []
-        self.fragment_queries = {}
+        #          euler_lookup: EulerLookup = None,
         self.design_selector = design_selector  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
-        self.required_indices = set()
-        self.required_residues = None
+        self.euler_lookup = euler_factory()  # kwargs.get('euler_lookup', None)
+        self.fragment_metrics = {}
+        self.fragment_pairs = []
+        self.fragment_queries = {}
         self.ignore_clashes = kwargs.get(PUtils.ignore_clashes, False)
         self.interface_residues = {}
+        self.required_indices = set()
+        self.required_residues = None
         self.resource_db = resource_db  # kwargs.get('resource_db', None)
         self.split_interface_residues = {}  # {1: [(Residue obj, Entity obj), ...], 2: [(Residue obj, Entity obj), ...]}
         self.split_interface_ss_elements = {}  # {1: [0, 1, 2] , 2: [9, 13, 19]]}
@@ -2428,8 +2436,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # Model init will handle Structure set up if a PDB/PDB_file is present
         # SymmetricModel init will handle if an ASU/ASU_file is present and generate assembly coords
         super().__init__(**kwargs)
-        if not self.ignore_clashes:
-            if self.is_clash():  # Todo Structure subclass
+        if self.is_clash():
+            if not self.ignore_clashes:
                 raise DesignError(f'{self.name} contains Backbone clashes and is not being considered further!')
 
         # need to set up after load Entities so that they can have this added to their SequenceProfile
@@ -2489,11 +2497,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     #     self._pdb = pdb
     #     # self.coords = pdb._coords
     #     if not self.ignore_clashes:
-    #         # if self.is_clash():  # Todo Structure subclass
-    #         if pdb.is_clash():  # Todo remove Structure subclass
+    #         # if self.is_clash():
+    #         if pdb.is_clash():
     #             raise DesignError(f'{self.name} contains Backbone clashes and is not being considered further!')
     #     # self.pdbs_d[pdb.name] = pdb
-    #     self.create_design_selector()  # **self.design_selector) TODO rework this whole mechanism
+    #     self.create_design_selector()  # **self.design_selector)
 
     @SymmetricModel.asu.setter
     def asu(self, asu):
@@ -2928,8 +2936,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         """For all found interface residues in an Entity/Entity interface, search for corresponding fragment pairs
 
         Args:
-            entity1: The first Entity to measure for an interface
-            entity2: The second Entity to measure for an interface
+            entity1: The first Entity to measure for interface fragments
+            entity2: The second Entity to measure for interface fragments
         Sets:
             self.fragment_queries (dict[tuple[Entity, Entity], list[dict[str, Any]]])
         """
@@ -2938,14 +2946,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.log.info(f'No residues at the {entity1.name} | {entity2.name} interface. Fragments not available')
             self.fragment_queries[(entity1, entity2)] = []
             return
+        # Todo NOT Correct! .is_oligomeric checks to see if interface is 2-fold but could be 2-fold with Entity monomer
         if entity1 == entity2 and entity1.is_oligomeric:
-            # surface_frags1.extend(surface_frags2)
-            # surface_frags2 = surface_frags1
             entity1_residues = set(entity1_residues + entity2_residues)
             entity2_residues = entity1_residues
-        # else:
-        #     _entity1_residues, _entity2_residues = entity1_residues, entity2_residues
-        # Todo make so that the residue objects support fragments instead of converting back
+
         residue_numbers1 = sorted(residue.number for residue in entity1_residues)
         residue_numbers2 = sorted(residue.number for residue in entity2_residues)
         self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface, searching for fragments at the '
@@ -3585,20 +3590,20 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             self.write_fragment_pairs(self.fragment_pairs, out_path=out_path)
             frag_file = os.path.join(out_path, PUtils.frag_text_file)
             if os.path.exists(frag_file):
-                os.system('rm %s' % frag_file)  # ensure old file is removed before new write
+                os.system(f'rm {frag_file}')  # ensure old file is removed before new write
             for match_count, (ghost_frag, surface_frag, match) in enumerate(self.fragment_pairs, 1):
                 write_frag_match_info_file(ghost_frag=ghost_frag, matched_frag=surface_frag,
                                            overlap_error=z_value_from_match_score(match),
                                            match_number=match_count, out_path=out_path)
 
-    def write_fragment_pairs(self, ghostfrag_surffrag_pairs: tuple[GhostFragment, MonoFragment, float],
+    def write_fragment_pairs(self, ghost_mono_frag_pairs: tuple[GhostFragment, MonoFragment, float],
                              out_path: str | bytes = os.getcwd()):
-        interface_ghost_frag: GhostFragment
-        interface_mono_frag: MonoFragment
-        for idx, (interface_ghost_frag, interface_mono_frag, match_score) in enumerate(ghostfrag_surffrag_pairs, 1):
-            ijk = interface_ghost_frag.get_ijk()
-            fragment, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
-            trnsfmd_fragment = fragment.return_transformed_copy(**interface_ghost_frag.aligned_residue.transformation)
+        ghost_frag: GhostFragment
+        mono_frag: MonoFragment
+        for idx, (ghost_frag, mono_frag, match_score) in enumerate(ghost_mono_frag_pairs, 1):
+            ijk = ghost_frag.get_ijk()
+            fragment_pdb, _ = dictionary_lookup(self.fragment_db.paired_frags, ijk)
+            trnsfmd_fragment = fragment_pdb.return_transformed_copy(**ghost_frag.transformation)
             trnsfmd_fragment.write(out_path=os.path.join(out_path, f'%d_%d_%d_fragment_match_{idx}.pdb' % ijk))
 
     # def return_symmetry_parameters(self):
