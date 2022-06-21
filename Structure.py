@@ -1726,14 +1726,14 @@ class Structure(StructureBase):
         # index the coordinates to the Residue they belong to and their associated atom_index
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self.coords_indexed_residues, self.coords_indexed_residue_atoms = zip(*residues_atom_idx)
-        # for every Residue in the Structure set the Residue instance indexed, Atom indices
-        range_idx = prior_range_idx = 0
-        residue_indexed_ranges = []
-        for residue in self.residues:
-            range_idx += residue.number_of_atoms
-            residue_indexed_ranges.append(list(range(prior_range_idx, range_idx)))
-            prior_range_idx = range_idx
-        self.residue_indexed_atom_indices = residue_indexed_ranges
+        # # for every Residue in the Structure set the Residue instance indexed, Atom indices
+        # range_idx = prior_range_idx = 0
+        # residue_indexed_ranges = []
+        # for residue in self.residues:
+        #     range_idx += residue.number_of_atoms
+        #     residue_indexed_ranges.append(list(range(prior_range_idx, range_idx)))
+        #     prior_range_idx = range_idx
+        # self.residue_indexed_atom_indices = residue_indexed_ranges
 
     @property
     def is_structure_owner(self) -> bool:
@@ -1848,23 +1848,23 @@ class Structure(StructureBase):
     #     """Create a map of the coordinate indices to the Residue and Residue atom index"""
     #     self._coords_indexed_residues = np.array(index_pairs)
 
-    @property
-    def residue_indexed_atom_indices(self) -> list[list[int]]:
-        """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
+    # @property
+    # def residue_indexed_atom_indices(self) -> list[list[int]]:
+    #     """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
+    #
+    #     Returns:
+    #         Residue objects indexed by the Residue position in the corresponding .coords attribute
+    #     """
+    #     try:
+    #         return self._residue_indexed_atom_indices  # [self.atom_indices]
+    #     except (AttributeError, TypeError):  # Todo self.is_structure_owner
+    #         raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
+    #                              f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the Structure '
+    #                              f'object that owns these coordinates and therefore owns this Structure')
 
-        Returns:
-            Residue objects indexed by the Residue position in the corresponding .coords attribute
-        """
-        try:
-            return self._residue_indexed_atom_indices  # [self.atom_indices]
-        except (AttributeError, TypeError):  # Todo self.owner?
-            raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
-                                 f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the Structure '
-                                 f'object that owns these coordinates and therefore owns this Structure')
-
-    @residue_indexed_atom_indices.setter
-    def residue_indexed_atom_indices(self, indices: list[list[int]]):
-        self._residue_indexed_atom_indices = indices
+    # @residue_indexed_atom_indices.setter
+    # def residue_indexed_atom_indices(self, indices: list[list[int]]):
+    #     self._residue_indexed_atom_indices = indices
 
     @property
     def coords_indexed_residues(self) -> list[Residue]:
@@ -1875,7 +1875,7 @@ class Structure(StructureBase):
         """
         try:
             return self._coords_indexed_residues[self.atom_indices].tolist()
-        except (AttributeError, TypeError):  # Todo self.owner?
+        except (AttributeError, TypeError):  # Todo self.is_structure_owner
             raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
                                  f'{self.coords_indexed_residues.__name__} can only be accessed by the Structure object'
                                  f' that owns these coordinates and therefore owns this Structure')
@@ -1894,7 +1894,7 @@ class Structure(StructureBase):
         """
         try:
             return self._coords_indexed_residue_atoms[self.atom_indices].tolist()
-        except (AttributeError, TypeError):  # Todo self.owner?
+        except (AttributeError, TypeError):  # Todo self.is_structure_owner
             raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
                                  f'{self.coords_indexed_residue_atoms.__name__} can only be accessed by the Structure '
                                  f'object that owns these coordinates and therefore owns this Structure')
@@ -2686,12 +2686,13 @@ class Structure(StructureBase):
         # re-index the coords and residues map
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self.coords_indexed_residues, self.coords_indexed_residue_atoms = zip(*residues_atom_idx)
-        range_idx = 0
-        residue_indexed_ranges = []
-        for residue in self.residues:
-            residue_indexed_ranges.append(list(range(range_idx, range_idx + residue.number_of_atoms)))
-            range_idx += residue.number_of_atoms
-        self.residue_indexed_atom_indices = residue_indexed_ranges
+        # range_idx = prior_range_idx = 0
+        # residue_indexed_ranges = []
+        # for residue in self.residues:
+        #     range_idx += residue.number_of_atoms
+        #     residue_indexed_ranges.append(list(range(prior_range_idx, range_idx)))
+        #     prior_range_idx = range_idx
+        # self.residue_indexed_atom_indices = residue_indexed_ranges
 
         return new_residue
 
@@ -3819,23 +3820,23 @@ class Structures(Structure, UserList):
                 [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
             return self._coords_indexed_residue_atoms
 
-    @property
-    def residue_indexed_atom_indices(self) -> list[list[int]]:
-        """For every Residue in the Structure provide the Residue instance indexed, Atom indices
-
-        Returns:
-            Residue objects indexed by the Residue position in the corresponding .coords attribute
-        """
-        try:
-            return self._residue_indexed_atom_indices
-        except AttributeError:
-            range_idx = prior_range_idx = 0
-            self._residue_indexed_atom_indices = []
-            for residue in self.residues:
-                range_idx += residue.number_of_atoms
-                self._residue_indexed_atom_indices.append(list(range(prior_range_idx, range_idx)))
-                prior_range_idx = range_idx
-            return self._residue_indexed_atom_indices
+    # @property
+    # def residue_indexed_atom_indices(self) -> list[list[int]]:
+    #     """For every Residue in the Structure provide the Residue instance indexed, Structures Atom indices
+    #
+    #     Returns:
+    #         Residue objects indexed by the Residue position in the corresponding .coords attribute
+    #     """
+    #     try:
+    #         return self._residue_indexed_atom_indices
+    #     except AttributeError:
+    #         range_idx = prior_range_idx = 0
+    #         self._residue_indexed_atom_indices = []
+    #         for residue in self.residues:
+    #             range_idx += residue.number_of_atoms
+    #             self._residue_indexed_atom_indices.append(list(range(prior_range_idx, range_idx)))
+    #             prior_range_idx = range_idx
+    #         return self._residue_indexed_atom_indices
 
     # @property
     # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
