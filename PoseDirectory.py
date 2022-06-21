@@ -778,7 +778,7 @@ class PoseDirectory:
         """
         self.get_fragment_metrics()
         # Interface B Factor
-        int_b_factor = sum(residue.b_factor for residue in self.pose.pdb.get_residues(self.interface_residues))
+        int_b_factor = sum(residue.b_factor for residue in self.pose.get_residues(self.interface_residues))
         metrics = {
             'interface_b_factor_per_residue': round(int_b_factor / self.total_interface_residues, 2),
             'nanohedra_score': self.all_residue_score,
@@ -1422,7 +1422,7 @@ class PoseDirectory:
         # Get ASU distance parameters
         if self.design_dimension:  # check for None and dimension 0 simultaneously
             # The furthest point from the ASU COM + the max individual Entity radius
-            distance = self.pose.pdb.radius + max([entity.radius for entity in self.pose.entities])  # all the radii
+            distance = self.pose.radius + max([entity.radius for entity in self.pose.entities])  # all the radii
             self.log.info('Expanding ASU into symmetry group by %f Angstroms' % distance)
         else:
             distance = 0
@@ -1984,7 +1984,7 @@ class PoseDirectory:
                                         resource_db=self.resources, fragment_db=self.fragment_db,
                                         ignore_clashes=self.ignore_pose_clashes)
         # then modify numbering to ensure standard and accurate use during protocols
-        self.pose.pdb.renumber_structure()
+        self.pose.renumber_structure()
         if not self.entity_names:  # store the entity names if they were never generated
             self.entity_names = [entity.name for entity in self.pose.entities]
             self.log.info(f'Input Entities: {", ".join(self.entity_names)}')
@@ -2129,7 +2129,7 @@ class PoseDirectory:
                             for residue in interface_residue_set:
                                 self.log.debug(f'Mutating {residue.number}{residue.type}')
                                 if residue.type != 'GLY':  # no mutation from GLY to ALA as Rosetta will build a CB.
-                                    self.pose.pdb.mutate_residue(residue=residue, to='A')
+                                    self.pose.mutate_residue(residue=residue, to='A')
 
             self.pose.write(out_path=self.refine_pdb)
             self.log.debug(f'Cleaned PDB for {protocol}: "{self.refine_pdb}"')
@@ -2404,22 +2404,22 @@ class PoseDirectory:
         # format all amino acids in self.interface_design_residues with frequencies above the threshold to a set
         # Todo, make threshold and return set of strings a property of a profile object
         # background = \
-        #     {self.pose.pdb.residue(residue_number):
+        #     {self.pose.residue(residue_number):
         #      {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3 if fields.get(aa, -1) > threshold}
         #      for residue_number, fields in self.background_profile.items() if residue_number in self.interface_design_residues}
         background = {residue: {protein_letters_1to3.get(aa).upper() for aa in protein_letters_1to3
                                 if self.background_profile[residue.number].get(aa, -1) > threshold}
-                      for residue in self.pose.pdb.get_residues(self.interface_design_residues)}
+                      for residue in self.pose.get_residues(self.interface_design_residues)}
         # include the wild-type residue from PoseDirectory Pose source and the residue identity of the selected design
         wt = {residue: {self.background_profile[residue.number].get('type'), protein_letters_3to1[residue.type.title()]}
               for residue in background}
         directives = dict(zip(background.keys(), repeat(None)))
-        # directives.update({self.pose.pdb.residue(residue_number): directive
+        # directives.update({self.pose.residue(residue_number): directive
         #                    for residue_number, directive in self.directives.items()})
         directives.update({residue: self.directives[residue.number]
-                           for residue in self.pose.pdb.get_residues(self.directives.keys())})
+                           for residue in self.pose.get_residues(self.directives.keys())})
 
-        res_file = self.pose.pdb.make_resfile(directives, out_path=self.data, include=wt, background=background)
+        res_file = self.pose.make_resfile(directives, out_path=self.data, include=wt, background=background)
 
         protocol = PUtils.optimize_designs
         protocol_xml1 = protocol
@@ -2539,7 +2539,7 @@ class PoseDirectory:
         pose_sequences.update({PUtils.reference_name: self.pose.sequence})
         pose_sequences.update({structure.name: structure.sequence for structure in design_structures})
         all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
-        #    generate_mutations_from_reference(''.join(self.pose.pdb.atom_sequences.values()), pose_sequences)
+        #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
 
         # Assumes each structure is the same length
         entity_sequences = \
@@ -2547,9 +2547,9 @@ class PoseDirectory:
                    for design, sequence in pose_sequences.items()} for idx, entity in enumerate(self.pose.entities)}
         # Todo generate_multiple_mutations accounts for offsets from the reference sequence. Not necessary YET
         # sequence_mutations = \
-        #     generate_multiple_mutations(self.pose.pdb.atom_sequences, pose_sequences, pose_num=False)
+        #     generate_multiple_mutations(self.pose.atom_sequences, pose_sequences, pose_num=False)
         # sequence_mutations.pop('reference')
-        # entity_sequences = generate_sequences(self.pose.pdb.atom_sequences, sequence_mutations)
+        # entity_sequences = generate_sequences(self.pose.atom_sequences, sequence_mutations)
         # entity_sequences = {chain: keys_from_trajectory_number(named_sequences)
         #                         for chain, named_sequences in entity_sequences.items()}
         entity_energies = [0. for ent in self.pose.entities]
@@ -2754,8 +2754,11 @@ class PoseDirectory:
         for idx, entity in enumerate(self.pose.entities):
             # Contact order is the same for every design in the Pose and not dependent on pose
             # Todo clean this behavior up as it is not good if entity is used downstream...
-            #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity...
-            entity.coords_indexed_residues = self.pose.pdb._coords_indexed_residues
+            #  for contact order we must give a copy of coords_indexed_residues from the pose to each entity
+            #  This behavior is fine and follows all of Structure API, however the setting and maintanence is not
+            #  connected. Need to reconcile this mantainence with Structures data access
+            #  Perhaps the separation of each Structure into a unique Coords object is fine?
+            entity._coords_indexed_residues = self.pose._coords_indexed_residues
             contact_order = entity.contact_order
             # contact_order = entity_oligomer.contact_order[:entity.number_of_residues]
             source_contact_order.append(contact_order)  # save the contact order for plotting
