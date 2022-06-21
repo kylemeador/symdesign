@@ -2075,9 +2075,8 @@ class Structure(StructureBase):
         Returns:
             The Residues corresponding to the provided atom_indices
         """
-        if indices:
-            residues = set(residue for residue, atom_index in self._coords_indexed_residues[indices].tolist())
-            return sorted(residues, key=lambda residue: residue.number)
+        if atom_indices:
+            return sorted(set(self._coords_indexed_residues[atom_indices].tolist()), key=lambda residue: residue.number)
         else:
             return self.residues
 
