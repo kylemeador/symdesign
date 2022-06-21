@@ -5114,31 +5114,31 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
         (tuple[float, numpy.ndarray, numpy.ndarray, float]): rmsd, rotation/quaternion_matrix, translation_vector,
         scale_factor
     """
-    # convert input lists to numpy arrays
-    # fixed_coords = np.array(fixed_coords)
-    # moving_coords = np.array(moving_coords)
-
-    if fixed_coords.shape[0] != moving_coords.shape[0]:
-        raise ValueError('%s: Inputs should have the same size. Input 1=%d, 2=%d' %
-                         (superposition3d.__name__, fixed_coords.shape[0], moving_coords.shape[0]))
+    assert fixed_coords.shape[0] == moving_coords.shape[0], \
+        f'{superposition3d.__name__}: Inputs should have the same size. ' \
+        f'Input 1={fixed_coords.shape[0]}, 2={moving_coords.shape[0]}'
 
     number_of_points = fixed_coords.shape[0]
     # Find the center of mass of each object:
     # convert weights into array
     if not a_weights or len(a_weights) == 0:
-        a_weights = np.full((number_of_points, 1), 1.0)
-    else:
-        # reshape aWeights so multiplications are done column-wise
+        a_weights = np.full((number_of_points, 1), 1.)
+        sum_weights = float(number_of_points)
+    else:  # reshape a_eights so multiplications are done column-wise
         a_weights = np.array(a_weights).reshape(number_of_points, 1)
+        sum_weights = np.sum(a_weights, axis=0)
 
     a_center_f = np.sum(fixed_coords * a_weights, axis=0)
     a_center_m = np.sum(moving_coords * a_weights, axis=0)
-    sum_weights = np.sum(a_weights, axis=0)
 
     # Subtract the centers-of-mass from the original coordinates for each object
-    if sum_weights != 0:
+    # if sum_weights != 0:
+    try:
         a_center_f /= sum_weights
         a_center_m /= sum_weights
+    except ZeroDivisionError:
+        pass  # the weights are a total of zero which is allowed algorithmically, but not possible
+
     aa_xf = fixed_coords - a_center_f
     aa_xm = moving_coords - a_center_m
 
@@ -5169,8 +5169,8 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     # (Note: A discussion of various quaternion conventions is included below.)
     # First, specify the default value for p:
     p = np.zeros(4)
-    p[3] = 1.0           # p = [0,0,0,1]    default value
-    pPp = 0.0            # = p^T * P * p    (zero by default)
+    p[3] = 1.  # p = [0,0,0,1]    default value
+    pPp = 0.  # = p^T * P * p    (zero by default)
     singular = (number_of_points < 2)   # (it doesn't make sense to rotate a single point)
 
     try:
@@ -5209,7 +5209,7 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     aa_rotate = the_rotation.as_matrix()
 
     # Optional: Decide the scale factor, c
-    c = 1.0   # by default, don't rescale the coordinates
+    c = 1.   # by default, don't rescale the coordinates
     if allow_rescale and not singular:
         weightaxaixai_moving = np.sum(a_weights * aa_xm ** 2)
         weightaxaixai_fixed = np.sum(a_weights * aa_xf ** 2)
@@ -5219,11 +5219,13 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     # Finally compute the RMSD between the two coordinate sets:
     # First compute E0 from equation 24 of the paper
     e0 = np.sum((aa_xf - c * aa_xm) ** 2)
-    sum_sqr_dist = max(0, e0 - c * 2.0 * pPp)
+    sum_sqr_dist = max(0, e0 - c * 2. * pPp)
 
-    rmsd = 0.0
-    if sum_weights != 0.0:
-        rmsd = np.sqrt(sum_sqr_dist/sum_weights)
+    # if sum_weights != 0.:
+    try:
+        rmsd = np.sqrt(sum_sqr_dist / sum_weights)
+    except ZeroDivisionError:
+        rmsd = 0.  # the weights are a total of zero which is allowed algorithmically, but not possible
 
     # Lastly, calculate the translational offset:
     # Recall that:
@@ -5237,7 +5239,7 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     # Hence:
     #  T_i = Xcm_i - Σ_j c*R_ij*xcm_j  =  a_translate[i]
 
-    a_translate = a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,)
+    # a_translate = a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,)
 
     if report_quaternion:  # does the caller want the quaternion?
         # The p array is a quaternion that uses this convention:
@@ -5248,10 +5250,11 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
         # So I return "q" (a version of "p" using the more popular convention).
         # q = np.empty(4)
         # q[0], q[1], q[2], q[3] = p[3], p[0], p[1], p[2]
-        q = np.array([p[3], p[0], p[1], p[2]])
-        return rmsd, q, a_translate, c
-    else:
-        return rmsd, aa_rotate, a_translate, c
+        aa_rotate = np.array([p[3], p[0], p[1], p[2]])
+        # return rmsd, q, a_translate, c
+    # else:
+
+    return rmsd, aa_rotate, a_center_f - np.matmul(c * aa_rotate, a_center_m).T.reshape(3,), c
 
 
 def parse_stride(stride_file, **kwargs):
