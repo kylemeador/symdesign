@@ -1191,7 +1191,7 @@ class SymmetricModel(Models):
         only the symmetry is required
 
         Args:
-            sym_entry: The SymEntr which specifies all symmetry parameters
+            sym_entry: The SymEntry which specifies all symmetry parameters
             symmetry: The name of a symmetry to be searched against the existing compatible symmetries
             cryst1: The unit cell dimensions in PDB CRYST1 format
             uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
@@ -1262,7 +1262,6 @@ class SymmetricModel(Models):
 
         Keyword Args:
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
-            return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
         """
         if self.dimension == 0:
             self.get_point_group_coords(**kwargs)
@@ -1360,7 +1359,8 @@ class SymmetricModel(Models):
         # number_of_atoms = len(self.coords)
         # model_coords = np.empty((number_of_atoms * self.number_of_symmetry_mates, 3), dtype=float)
         # for idx, rotation in enumerate(self.expand_matrices):
-        #     model_coords[idx * coords_len: (idx + 1) * coords_len] = np.matmul(self.coords, np.transpose(rotation))
+        #     model_coords[idx * number_of_atoms: (idx + 1) * number_of_atoms] = \
+        #         np.matmul(self.coords, np.transpose(rotation))
         # self.symmetric_coords = Coords(model_coords)
 
     def get_unit_cell_coords(self, surrounding_uc: bool = True, **kwargs):  # return_side_chains=True
@@ -1368,8 +1368,6 @@ class SymmetricModel(Models):
 
         Args:
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        # Keyword Args:
-        #     return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
         Sets:
             self.number_of_symmetry_mates (int)
             self.symmetric_coords (Coords)
@@ -1429,7 +1427,7 @@ class SymmetricModel(Models):
         """
         if not self.symmetry:
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
-            #                   % (self.get_assembly_symmetry_mates.__name__, self.asu.name))
+            #                   % (self.get_assembly_symmetry_mates.__name__, self.name))
             raise DesignError('%s: No symmetry set for %s! Cannot get symmetry mates'
                               % (self.get_assembly_symmetry_mates.__name__, self.name))
         # if return_side_chains:  # get different function calls depending on the return type
@@ -1646,18 +1644,22 @@ class SymmetricModel(Models):
         else:
             return self.return_crystal_symmetry_mates(structure, **kwargs)
 
-    def return_point_group_symmetry_mates(self, structure: Structure, **kwargs) -> List[Structure]:
+    def return_point_group_symmetry_mates(self, structure: Structure, return_side_chains: bool = True, **kwargs) -> \
+            List[Structure]:
         """Expand the coordinates for every symmetric copy within the point group assembly
 
         Args:
             structure: A Structure containing some collection of Residues
+            return_side_chains: Whether to make the structural copy with side chains
         Returns:
             The symmetric copies of the input structure
         """
+        # Caution, this function will return poor if the number of atoms in the structure is 1!
+        coords = structure.coords if return_side_chains else structure.get_backbone_and_cb_coords()
         # return [structure.return_transformed_copy(rotation=self.expand_matrices[idx].T)  # transpose back to original
         #         for idx in range(self.number_of_symmetry_mates)]
         # Favoring this alternative way as it is more explicit
-        coord_set = (np.matmul(np.tile(structure.coords, (self.number_of_symmetry_mates, 1, 1)),
+        coord_set = (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
                                self.expand_matrices) + self.expand_translations).reshape(-1, 3)
         coords_length = coord_set.shape[1]
         sym_mates = []
@@ -1679,12 +1681,7 @@ class SymmetricModel(Models):
             The symmetric copies of the input structure
         """
         # Caution, this function will return poor if the number of atoms in the structure is 1!
-        if return_side_chains:  # get different function calls depending on the return type
-            # extract_pdb_atoms = getattr(PDB, 'atoms')  # Not using. The copy() versus PDB() changes residue objs
-            coords = structure.coords
-        else:
-            # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
-            coords = structure.get_backbone_and_cb_coords()
+        coords = structure.coords if return_side_chains else structure.get_backbone_and_cb_coords()
 
         if surrounding_uc:
             # return self.return_surrounding_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
@@ -1738,14 +1735,13 @@ class SymmetricModel(Models):
             return self.return_unit_cell_coords(coords)
 
     def return_unit_cell_coords(self, coords: np.ndarray, fractional: bool = False) -> np.ndarray:
-    #                        Todo surrounding_uc=True
         """Return the unit cell coordinates from a set of coordinates for the specified SymmetricModel
 
         Args:
             coords: The cartesian coordinates to expand to the unit cell
             fractional: Whether to return coordinates in fractional or cartesian (False) unit cell frame
         Returns:
-            (numpy.ndarray): All unit cell coordinates
+            All unit cell coordinates
         """
         asu_frac_coords = self.cart_to_frac(coords)
         model_coords = (np.matmul(np.tile(asu_frac_coords, (self.number_of_symmetry_mates, 1, 1)),
@@ -1761,77 +1757,6 @@ class SymmetricModel(Models):
             return model_coords
         else:
             return self.frac_to_cart(model_coords)
-
-    def return_unit_cell_symmetry_mates(self, structure: Structure, return_side_chains: bool = True) -> List[Structure]:
-        """Return Structures of every symmetry mates in the unit cell for the provided structure
-
-        Args:
-            structure: A Structure containing some collection of Residues
-            return_side_chains: Whether the return the side chain coordinates in addition to backbone
-        Returns:
-            The symmetric copies of the input structure
-        """
-        # Caution, this function will return poor if the number of atoms in the structure is 1!
-        if return_side_chains:  # get different function calls depending on the return type
-            # extract_pdb_atoms = getattr(PDB, 'atoms')  # Not using. The copy() versus PDB() changes residue objs
-            coords = structure.coords
-        else:
-            # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
-            coords = structure.get_backbone_and_cb_coords()
-
-        sym_cart_coords = self.return_unit_cell_coords(coords)
-        coords_length = coords.shape[0]
-        sym_mates = []
-        for model_num in range(self.number_of_symmetry_mates):
-            symmetry_mate_pdb = copy(structure)
-            symmetry_mate_pdb.replace_coords(sym_cart_coords[model_num * coords_length:(model_num + 1) * coords_length])
-            sym_mates.append(symmetry_mate_pdb)
-
-        return sym_mates
-
-    def return_surrounding_unit_cell_symmetry_mates(self, structure, return_side_chains=True, **kwargs):
-        """Expand the coordinates for the structure to every surrounding unit cell based on symmetry matrices
-
-        Args:
-            structure (Structure): A Structure containing some collection of Residues
-        Keyword Args:
-            return_side_chains=True (bool): Whether the return the side chain coordinates in addition to backbone
-        Returns:
-            (list[Structure]): The symmetric copies of the input structure
-        """
-        if return_side_chains:  # get different function calls depending on the return type
-            # extract_pdb_atoms = getattr(PDB, 'atoms')  # Not using. The copy() versus PDB() changes residue objs
-            coords = structure.coords
-        else:
-            # extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
-            coords = structure.get_backbone_and_cb_coords()
-
-        shift_3d = [0., 1., -1.]
-        if self.dimension == 3:
-            z_shifts, uc_number = shift_3d, 27
-        elif self.dimension == 2:
-            z_shifts, uc_number = [0.], 9
-        else:
-            return
-
-        # pdb_coords = extract_pdb_atoms
-        uc_frac_coords = self.return_unit_cell_coords(coords, fractional=True)
-        surrounding_frac_coords = np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d
-                                                  for z in z_shifts])
-        surrounding_cart_coords = self.frac_to_cart(surrounding_frac_coords)
-
-        coords_length = coords.shape[0]
-        sym_mates = []
-        for coord_set in np.split(surrounding_cart_coords, uc_number):
-            for model in range(self.number_of_uc_symmetry_mates):
-                symmetry_mate_pdb = copy(structure)
-                symmetry_mate_pdb.replace_coords(coord_set[(model * coords_length): ((model + 1) * coords_length)])
-                sym_mates.append(symmetry_mate_pdb)
-
-        number_of_symmetry_mates = uc_number * self.number_of_uc_symmetry_mates
-        assert len(sym_mates) == number_of_symmetry_mates, \
-            'Number of models (%d) is incorrect! Should be %d' % (len(sym_mates), number_of_symmetry_mates)
-        return sym_mates
 
     def assign_entities_to_sub_symmetry(self):
         """From a symmetry entry, find the entities which belong to each sub-symmetry (the component groups) which make
