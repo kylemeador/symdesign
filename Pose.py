@@ -817,13 +817,18 @@ class SymmetricModel(Models):
     oligomeric_equivalent_model_idxs: dict[Entity, list[int]]
     uc_dimensions: list[float] | None  # uc_dimensions  # also defined in PDB
 
-    def __init__(self, asu: PDB = None, asu_file: str = None, sym_entry: SymEntry = None, symmetry: str = None,
-                 **kwargs):
+    def __init__(self, sym_entry: SymEntry = None, symmetry: str = None, **kwargs):
+        """
+
+        Keyword Args:
+            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        """
+        #          asu: PDB = None, asu_file: str = None
         super().__init__(**kwargs)  # log=log,
-        if asu and isinstance(asu, Structure):  # Todo make asu attribute distinct from self with Structure Subclass?
-            self.asu = asu  # the pose specific asu
-        elif asu_file:
-            self.asu = PDB.from_file(asu_file, log=self.log, **kwargs)
+        # if asu and isinstance(asu, Structure):
+        #     self.asu = asu  # the pose specific asu
+        # elif asu_file:
+        #     self.asu = PDB.from_file(asu_file, log=self.log, **kwargs)
         # add stripped kwargs back
         kwargs['symmetry'] = symmetry
         kwargs['sym_entry'] = sym_entry
@@ -845,8 +850,8 @@ class SymmetricModel(Models):
         self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
 
         # Todo handle if there is symmetry parsing from read_file() in the CRYST1 record
-        if self.asu.symmetry:
-            kwargs.update(self.asu.symmetry.copy())
+        # if self.asu.symmetry:
+        #     kwargs.update(self.asu.symmetry.copy())
         self.set_symmetry(**kwargs)
 
     @classmethod
@@ -856,28 +861,28 @@ class SymmetricModel(Models):
         kwargs.update(symmetry=symmetry)
         return cls(models=assembly, **kwargs)
 
-    @classmethod
-    def from_asu(cls, asu, **kwargs):  # generate_symmetry_mates=True
-        """From a Structure representing an asu, return the SymmetricModel with generated symmetry mates
+    # @classmethod
+    # def from_asu(cls, asu, **kwargs):  # generate_symmetry_mates=True
+    #     """From a Structure representing an asu, return the SymmetricModel with generated symmetry mates
+    #
+    #     Keyword Args:
+    #         # generate_symmetry_mates=True (bool): Whether the symmetric copies of the ASU model should be generated
+    #         surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+    #     """
+    #     return cls(asu=asu, **kwargs)  # generate_symmetry_mates=generate_symmetry_mates,
+    #
+    # @classmethod
+    # def from_asu_file(cls, asu_file, **kwargs):
+    #     return cls(asu_file=asu_file, **kwargs)
 
-        Keyword Args:
-            # generate_symmetry_mates=True (bool): Whether the symmetric copies of the ASU model should be generated
-            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        """
-        return cls(asu=asu, **kwargs)  # generate_symmetry_mates=generate_symmetry_mates,
-
-    @classmethod
-    def from_asu_file(cls, asu_file, **kwargs):
-        return cls(asu_file=asu_file, **kwargs)
-
-    @property
-    def asu(self) -> Structure:
-        """The asymmetric unit of the symmetric system"""
-        return self._pdb
-
-    @asu.setter
-    def asu(self, asu):
-        self.pdb = asu
+    # @property
+    # def asu(self) -> Structure:
+    #     """The asymmetric unit of the symmetric system"""
+    #     return self._pdb
+    #
+    # @asu.setter
+    # def asu(self, asu):
+    #     self.pdb = asu
 
     # def set_asu_coords(self, coords):
     #     # overwrite all the coords for each member Entity
@@ -1052,7 +1057,7 @@ class SymmetricModel(Models):
     def asu_coords(self, coords: Coords):
         self._coords = coords
         # set the symmetric coords according to the ASU
-        self.pdb.replace_coords(coords)  # Todo one remove .pdb, is replace_coords needed?
+        self.replace_coords(coords)  # Todo is replace_coords needed?
         self.generate_symmetric_coords()
         # Todo delete any saved attributes from the SymmetricModel
         #  self.symmetric_coords
@@ -1450,7 +1455,10 @@ class SymmetricModel(Models):
         number_of_atoms = self.number_of_atoms
         # number_of_atoms = len(self.coords)
         for model_idx in range(number_of_models):
-            symmetry_mate_pdb = copy(self.asu)  # Todo self.copy()
+            self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
+                              f'{type(self).__name__} is being taken which is probably relying on PDB.__copy__ or '
+                              f'Structure.__copy__. These may not be adequate and need to be overwritten')
+            symmetry_mate_pdb = copy(self)
             symmetry_mate_pdb.replace_coords(self.symmetric_coords[(model_idx * number_of_atoms):
                                                                    ((model_idx + 1) * number_of_atoms)])
             self.models.append(symmetry_mate_pdb)
@@ -1466,7 +1474,7 @@ class SymmetricModel(Models):
             self.log.debug('Skipping ASU identification as information already exists')
             return
 
-        template_residue = self.asu.n_terminal_residue  # Todo remove .asu
+        template_residue = self.n_terminal_residue
         atom_ca_coord, atom_idx = template_residue.ca_coords, template_residue.ca_atom_index
         # entity1_number, entity2_number = self.number_of_residues_per_entity
         # entity2_n_term_residue_idx = entity1_number + 1
@@ -1552,8 +1560,7 @@ class SymmetricModel(Models):
         else:
             # distance = self.asu.radius * 2  # value too large self.pdb.radius * 2
             # The furthest point from the ASU COM + the max individual Entity radius
-            # Todo remove .asu
-            distance = self.asu.radius + max([entity.radius for entity in self.entities])  # all the radii
+            distance = self.radius + max([entity.radius for entity in self.entities])  # all the radii
             center_of_mass = self.center_of_mass
             interacting_models = [idx for idx, sym_model_com in enumerate(self.center_of_mass_symmetric_models)
                                   if np.linalg.norm(center_of_mass - sym_model_com) <= distance]
@@ -1909,8 +1916,7 @@ class SymmetricModel(Models):
         # correct sub-symmetry symmetric copies for each provided Entity
         group_entity_rot_ops = {1: {}, 2: {}}
         # min_dist1, min_dist2, min_1_entity, min_2_entity = float('inf'), float('inf'), None, None
-        # Todo remove .asu
-        for entity in self.asu.entities:
+        for entity in self.entities:
             entity_com = entity.center_of_mass
             min_dist, min_entity_group_operator = float('inf'), None
             for idx in range(len(expand_matrices)):  # has the length of the symmetry operations
@@ -3524,9 +3530,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         for idx, fragment in enumerate(fragments):
             # if self.pdb.residue_from_pdb_numbering():
             # only assign the new fragment number info to the fragments if the residue is found
-            map_pose_number = self.pdb.residue_number_from_pdb(fragment['mapped'])  # TODO COMMENT OUT .pdb
+            map_pose_number = self.residue_number_from_pdb(fragment['mapped'])
             fragment['mapped'] = map_pose_number if map_pose_number else fragment['mapped']
-            pair_pose_number = self.pdb.residue_number_from_pdb(fragment['paired'])  # TODO COMMENT OUT .pdb
+            pair_pose_number = self.residue_number_from_pdb(fragment['paired'])
             fragment['paired'] = pair_pose_number if pair_pose_number else fragment['paired']
             # fragment['mapped'] = self.pdb.residue_number_from_pdb(fragment['mapped'])
             # fragment['paired'] = self.pdb.residue_number_from_pdb(fragment['paired'])
@@ -3547,8 +3553,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
             if entity1 and entity2 and query:
                 self.fragment_queries[(entity1, entity2)] = query
         else:
-            entity_pairs = [(self.pdb.entity_from_residue(fragment['mapped']),   # TODO COMMENT OUT .pdb < and v
-                             self.pdb.entity_from_residue(fragment['paired'])) for fragment in query]
+            entity_pairs = [(self.entity_from_residue(fragment['mapped']),
+                             self.entity_from_residue(fragment['paired'])) for fragment in query]
             if all([all(pair) for pair in entity_pairs]):
                 for entity_pair, fragment in zip(entity_pairs, query):
                     if entity_pair in self.fragment_queries:
