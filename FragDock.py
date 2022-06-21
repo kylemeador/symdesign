@@ -314,7 +314,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
 
             # if write_frags:  # write out aligned cluster representative fragment
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.get_ijk())
-            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_residue.transformation)
+            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.transformation)
             trnsfmd_ghost_fragment.transform(rotation=rot_mat1, translation=internal_tx_param1,
                                              rotation2=sym_entry.setting_matrix1, translation2=external_tx_params1)
             trnsfmd_ghost_fragment.write(out_path=os.path.join(matched_fragment_dir, 'int_frag_%s_%d.pdb'
@@ -548,7 +548,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     get_complete_ghost_frags1_time_start = time.time()
     complete_ghost_frags1 = []
     for frag in surf_frags1:
-        complete_ghost_frags1.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, oligomer1_backbone_cb_tree))
+        complete_ghost_frags1.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts,
+                                                              clash_tree=oligomer1_backbone_cb_tree))
     # complete_ghost_frags1 = np.array(complete_ghost_frags1)
     ghost_frag1_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in complete_ghost_frags1])
     ghost_frag1_rmsds = np.array([ghost_frag.rmsd for ghost_frag in complete_ghost_frags1])
@@ -635,8 +636,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     if overlapping_ghost_frags:  # Todo finalize this!
         # surface ghost frag overlap from the same oligomer scratch code
         # surf_frags1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
-        ghost_frags_by_residue1 = [frag.get_ghost_fragments(ijk_frag_db.indexed_frags, oligomer1_backbone_cb_tree)
-                                   for frag in surf_frags1]
+        ghost_frags_by_residue1 = \
+            [frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, clash_tree=oligomer1_backbone_cb_tree)
+             for frag in surf_frags1]
         ghost_frag_coords_by_residue1 = [ghost.guide_coords for residue in ghost_frags_by_residue1 for ghost in residue]
         surface_frag_residue_numbers = [frag.central_residue.number for frag in surf_frags1]  # also the residue indices
         surface_frag_cb_coords = [residue.cb_coords for residue in pdb1.get_residues(numbers=surface_frag_residue_numbers)]
@@ -686,11 +688,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     get_complete_ghost_frags2_time_start = time.time()
     complete_ghost_frags2 = []
     for frag in complete_surf_frags2:
-        complete_ghost_frags2.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, oligomer2_backbone_cb_tree))
+        complete_ghost_frags2.extend(frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts,
+                                                              clash_tree=oligomer2_backbone_cb_tree))
     init_ghost_frags2 = [ghost_frag for ghost_frag in complete_ghost_frags2 if ghost_frag.j_type == initial_surf_type1]
     init_ghost_frag2_guide_coords = np.array([ghost_frag.guide_coords for ghost_frag in init_ghost_frags2])
     init_ghost_frag2_residues = np.array([ghost_frag.number for ghost_frag in init_ghost_frags2])
-    # ghost_frag2_residues = [ghost_frag.aligned_residue.number for ghost_frag in complete_ghost_frags2]
+    # ghost_frag2_residues = [ghost_frag.number for ghost_frag in complete_ghost_frags2]
 
     get_complete_ghost_frags2_time_stop = time.time()
     # log.debug('init_ghost_frag2_guide_coords: %s' % slice_variable_for_log(init_ghost_frag2_guide_coords))
@@ -1633,7 +1636,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
 
             # if write_frags:  # write out aligned cluster representative fragment
             fragment, _ = dictionary_lookup(ijk_frag_db.paired_frags, int_ghost_frag.get_ijk())
-            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.aligned_residue.transformation)
+            trnsfmd_ghost_fragment = fragment.return_transformed_copy(**int_ghost_frag.transformation)
             trnsfmd_ghost_fragment.transform(**specific_transformation1)
             trnsfmd_ghost_fragment.write(
                 out_path=os.path.join(matched_fragment_dir,
