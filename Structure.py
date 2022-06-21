@@ -366,8 +366,10 @@ class Residue:
     # sidechain_indices: list[int]
     # heavy_atom_indices: list[int]
     local_density: float
+    next_residue: Residue
     number: int
     number_pdb: int
+    prev_residue: Residue
     type: str
 
     def __init__(self, atom_indices: list[int] = None, atoms: Atoms = None, coords: Coords = None, log: Log = None):
@@ -837,6 +839,42 @@ class Residue:
     # @type.setter
     # def type(self, _type):
     #     self._type = _type
+
+    def get_upstream(self, number: int) -> list[Residue]:
+        """Get the Residues upstream of (n-terminal to) the current Residue
+
+        Args:
+            number: The number of residues to retrieve
+        Returns:
+            The Residue instances in n- to c-terminal order
+        """
+        assert number != 0, 'Can\'t get 0 upstream residues. 1 or more must be specified'
+        prior_residues = [self.prev_residue]
+        for idx in range(abs(number) - 1):
+            try:
+                prior_residues.append(prior_residues[idx].prev_residue)
+            except AttributeError:  # we hit a termini
+                break
+
+        return prior_residues[::-1]
+
+    def get_downstream(self, number: int) -> list[Residue]:
+        """Get the Residues downstream of (c-terminal to) the current Residue
+
+        Args:
+            number: The number of residues to retrieve
+        Returns:
+            The Residue instances in n- to c-terminal order
+        """
+        assert number != 0, 'Can\'t get 0 downstream residues. 1 or more must be specified'
+        next_residues = [self.next_residue]
+        for idx in range(abs(number) - 1):
+            try:
+                next_residues.append(next_residues[idx].next_residue)
+            except AttributeError:  # we hit a termini
+                break
+
+        return next_residues
 
     @property
     def secondary_structure(self) -> str:
@@ -2373,6 +2411,12 @@ class Structure(StructureBase):
 
         self.residue_indices = list(range(len(new_residues)))
         self.residues = new_residues
+        for prior_idx, residue in enumerate(new_residues[1:]):
+            residue.prev_residue = new_residues[prior_idx]
+            try:
+                residue.next_residue = new_residues[prior_idx + 2]  # the next_index
+            except IndexError:  # we hit the last residue
+                continue
 
         # remove bad atom_indices
         atom_indices = self.atom_indices
