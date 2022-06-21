@@ -9,7 +9,7 @@ from itertools import repeat
 from logging import Logger
 from math import ceil
 from random import random  # , randint
-from typing import IO, Sequence, Container, Literal, get_args
+from typing import IO, Sequence, Container, Literal, get_args, Callable
 
 import numpy as np
 from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_letters_3to1_extended, \
@@ -32,6 +32,7 @@ from utils.SymmetryUtils import valid_subunit_number, cubic_point_groups, point_
 # globals
 logger = start_log(name=__name__)
 seq_res_len = 52
+coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 'heavy']
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
                      'branched']
 mutation_directives: tuple[directives, ...] = get_args(directives)
@@ -262,6 +263,10 @@ class Atom:
     def is_ca(self) -> bool:
         """Is the Atom a CA atom?"""
         return self.type == 'CA'
+
+    def is_heavy(self) -> bool:
+        """Is the Atom a heavy atom?"""
+        return 'H' in self.type
 
     # def distance(self, atom, intra=False):
     #     """returns distance (type float) between current instance of Atom and another instance of Atom"""
@@ -2871,81 +2876,115 @@ class Structure(StructureBase):
 
         return [residue.local_density for residue in self.residues]
 
-    def is_clash(self, distance: float = 2.1) -> bool:
+    def is_clash(self, measure: coords_type_literal = 'backbone_and_cb', distance: float = 2.1) -> bool:
         """Check if the Structure contains any self clashes. If clashes occur with the Backbone, return True. Reports
         the Residue where the clash occurred and the clashing Atoms
 
         Args:
+            measure: The atom type to measure clashing by
             distance: The distance which clashes should be checked
         Returns:
             True if the Structure clashes, False if not
         """
-        # heavy_atom_indices = self.heavy_atom_indices
-        # all_atom_tree = BallTree(self.coords[heavy_atom_indices])  # faster 131 msec/loop
-        # temp_coords_indexed_residues = self.coords_indexed_residues
-        # coords_indexed_residues = [temp_coords_indexed_residues[idx] for idx in heavy_atom_indices]
-        # temp_coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
-        # coords_indexed_residue_atoms = [temp_coords_indexed_residue_atoms[idx] for idx in heavy_atom_indices]
-        all_atom_tree = BallTree(self.coords)  # faster 131 msec/loop
-        coords_indexed_residues = self.coords_indexed_residues
-        # atoms = self.atoms
-        coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
-        residue_indexed_atom_indices = self.residue_indexed_atom_indices
-        number_residues = self.number_of_residues
-        residues = self.residues
-        backbone_clashes, side_chain_clashes = [], []
-        for prior_residue_idx, residue in enumerate(residues, -1):
-            residue_query = all_atom_tree.query_radius(residue.backbone_and_cb_coords, distance)
-            # reduce the dimensions and format as a single array
-            all_contacts = set(np.concatenate(residue_query).ravel().tolist())
-            # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
-            # For the edge cases (N- & C-term), use other termini C & N atoms.
-            # We might miss a clash here! It would be peculiar for the C-terminal C clashing with the N-terminus atoms
-            # and vice-versa. This also allows a Structure with permuted sequence to be handled properly!
-            prior_residue_range = residue_indexed_atom_indices[prior_residue_idx]
-            prior_residue = residues[prior_residue_idx]
-            residue_range = residue_indexed_atom_indices[-number_residues + prior_residue_idx + 1]
-            next_residue_idx = -number_residues + prior_residue_idx + 2
-            next_residue_range = residue_indexed_atom_indices[next_residue_idx]
-            next_residue = residues[next_residue_idx]
-            # using prior_residue and prior_residue_range
-            residue_indices_and_bonded_c_and_n = \
-                residue_range + [prior_residue_range[prior_residue.c_index], prior_residue_range[prior_residue.o_index],
-                                 next_residue_range[next_residue.n_index]]
-            # # using prior_residue atom_indices
-            # residue_indices_and_bonded_c_and_n = \
-            #     residue.atom_indices + [prior_residue.c_atom_index, prior_residue.o_atom_index,
-            #                             residues[-number_residues + prior_residue_idx + 2].n_atom_index]
-            # v is old way of specifying before refactoring to ^
-            # residue_indices_and_bonded_c_and_n = \
-            #     residue.atom_indices + [prior_residue.c_index, prior_residue.o_index,
-            #                             residues[-number_residues + prior_residue_idx + 2].n_index]
-            clashes = all_contacts.difference(residue_indices_and_bonded_c_and_n)
-            if any(clashes):
-                for clashing_atom_idx in clashes:
-                    other_residue = coords_indexed_residues[clashing_atom_idx]
-                    atom_idx = coords_indexed_residue_atoms[clashing_atom_idx]
-                    # atom = atoms[clashing_atom_idx]
-                    atom = other_residue[atom_idx]
-                    if atom.is_backbone() or atom.is_cb():
-                        backbone_clashes.append((residue, other_residue, atom_idx))
-                    elif 'H' not in atom.type:
-                        side_chain_clashes.append((residue, other_residue, atom_idx))
+        measure_function: Callable[[Atom], bool]
+        # Todo switch measure:
+        if measure == 'backbone_and_cb':
+            coords_type = 'backbone_and_cb_coords'
+            def measure_function(atom): return atom.is_backbone() or atom.is_cb()  # backbone_cb_clash
+        elif measure == 'heavy':
+            coords_type = 'heavy_coords'
+            def measure_function(atom): return atom.is_heavy()  # heavy_clash
+        elif measure == 'backbone':
+            coords_type = 'backbone_coords'
+            def measure_function(atom): return atom.is_backbone()  # backbone_clash
+        elif measure == 'cb':
+            coords_type = 'cb_coords'
+            def measure_function(atom): return atom.is_cb()  # cb_clash
+        elif measure == 'ca':
+            coords_type = 'ca_coords'
+            def measure_function(atom): return atom.is_ca()  # ca_clash
+        else:  # measure == 'all'
+            coords_type = 'coords'
+            def measure_function(atom): return True
 
-        if backbone_clashes:
-            bb_info = '\n\t'.join('Residue %4d: %s' % (residue.number, str(other).split('\n')[atom_idx])
-                                  for residue, other, atom_idx in backbone_clashes)
-            self.log.critical('%s contains %d backbone clashes from the following Residues to the corresponding Atom:'
-                              '\n\t%s' % (self.name, len(backbone_clashes), bb_info))
-            if side_chain_clashes:
-                self.log.warning('Additional side_chain clashes were identified but are being silenced by importance')
+        # set up the query indices
+        if self.contains_hydrogen:
+            heavy_atom_indices = self.heavy_atom_indices
+            atom_tree = BallTree(self.coords[heavy_atom_indices])
+            temp_coords_indexed_residues = self.coords_indexed_residues
+            coords_indexed_residues = [temp_coords_indexed_residues[idx] for idx in heavy_atom_indices]
+            # temp_coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
+            # coords_indexed_residue_atoms = [temp_coords_indexed_residue_atoms[idx] for idx in heavy_atom_indices]
+        else:
+            atom_tree = BallTree(self.coords)  # BallTree is faster upon timeit with 131 msec/loop
+            coords_indexed_residues = self.coords_indexed_residues
+
+        atoms = self.atoms
+        measured_clashes, other_clashes = [], []
+
+        def handle_clash_reporting(clash_indices: Iterable[int]):
+            """Local helper to separate clash reporting from clash generation"""
+            for clashing_idx in clash_indices:
+                other_residue = coords_indexed_residues[clashing_idx]
+                # atom_idx = coords_indexed_residue_atoms[clashing_atom_idx]
+                atom = atoms[clashing_idx]
+                # atom = other_residue[atom_idx]
+                # if atom.is_backbone() or atom.is_cb():
+                if measure_function(atom):
+                    measured_clashes.append((residue, other_residue, atom))
+                    # backbone_clashes.append((other_residue, residue[atom_idx]))
+                # elif 'H' not in atom.type:
+                else:
+                    other_clashes.append((residue, other_residue))
+
+        residues = self.residues
+        # check first and last residue with different considerations given covalent bonds
+        first_residue = residues[0]
+        # query the first residue with chosen coords type against the atom_tree
+        residue_query = atom_tree.query_radius(getattr(first_residue, coords_type), distance)
+        # reduce the dimensions and format as a single array
+        all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
+        # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
+        clashes = all_contacts.difference(first_residue.atom_indices +
+                                          [first_residue.next_residue.atom_indices[first_residue.next_residue.n_index]])
+        handle_clash_reporting(clashes) if any(clashes) else None
+
+        last_res = residues[-1]
+        residue_query = atom_tree.query_radius(getattr(last_res, coords_type), distance)
+        all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
+        clashes = all_contacts.difference(last_res.atom_indices +
+                                          [last_res.prev_residue.atom_indices[last_res.prev_residue.c_index],
+                                           last_res.prev_residue.atom_indices[last_res.prev_residue.o_index]])
+        handle_clash_reporting(clashes) if any(clashes) else None
+
+        # perform routine for all middle residues
+        for residue in residues[1:-1]:  # avoid first and last since no prev_ or next_residue
+            residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
+            all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
+            prior_residue = residue.prev_residue
+            prior_res_indices = prior_residue.atom_indices
+            next_residue = residue.next_residue
+            residue_indices_and_bonded_c_and_n = \
+                residue.atom_indices + [prior_res_indices[prior_residue.c_index],
+                                        prior_res_indices[prior_residue.o_index],
+                                        next_residue.atom_indices[next_residue.n_index]]
+            clashes = all_contacts.difference(residue_indices_and_bonded_c_and_n)
+            handle_clash_reporting(clashes) if any(clashes) else None
+
+        if measured_clashes:
+            bb_info = '\n\t'.join('Residue %5d: %s' % (residue.number, str(other).split('\n')[atom_idx])
+                                  for residue, other, atom_idx in measured_clashes)
+            self.log.critical(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
+                              f'Residues to the corresponding Atom:\n\t{bb_info}')
+            # if other_clashes:
+            #     self.log.warning('Additional clashes were identified but are being silenced by importance')
             return True
         else:
-            if side_chain_clashes:
-                sc_info = '\n\t'.join('Residue %5d: %s' % (residue.number, str(other).split('\n')[atom_idx])
-                                      for residue, other, atom_idx in side_chain_clashes)
-                self.log.warning('%s contains %d side-chain clashes from the following Residues to the corresponding '
-                                 'Atom:\n\t%s' % (self.name, len(side_chain_clashes), sc_info))
+            if other_clashes:
+                sc_info = '\n\t'.join('Residue %5d: %5d' % (residue.number, other.number)
+                                      for residue, other in other_clashes)
+                self.log.warning(f'{self.name} contains {len(other_clashes)} other clashes between the '
+                                 f'following Residues:\n\t{sc_info}')
             return False
 
     def get_sasa(self, probe_radius: float = 1.4, atom: bool = True):
