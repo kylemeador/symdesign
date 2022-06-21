@@ -1556,7 +1556,7 @@ class SymmetricModel(Models):
             interacting_models = (np.unique(np.concatenate(asu_query) // len(asu_query)) + 1).tolist()
             # asu is missing from assembly_tree so add 1 model to total symmetric index  ^
         else:
-            # distance = self.asu.radius * 2  # value too large self.pdb.radius * 2
+            # distance = self.asu.radius * 2  # value too large self.radius * 2
             # The furthest point from the ASU COM + the max individual Entity radius
             distance = self.radius + max([entity.radius for entity in self.entities])  # all the radii
             center_of_mass = self.center_of_mass
@@ -3576,7 +3576,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     def debug_pdb(self, tag=None):
         """Write out all Structure objects for the Pose PDB"""
         with open('%sDEBUG_POSE_PDB_%s.pdb' % ('%s_' % tag if tag else '', self.name), 'w') as f:
-            available_chain_ids = self.pdb.return_chain_generator()  # TODO COMMENT OUT .pdb
+            available_chain_ids = self.return_chain_generator()
             for entity_idx, entity in enumerate(self.entities, 1):
                 f.write('REMARK 999   Entity %d - ID %s\n' % (entity_idx, entity.name))
                 entity.write(file_handle=f, chain=next(available_chain_ids))
