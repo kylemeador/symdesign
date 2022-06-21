@@ -88,3 +88,40 @@ class EulerLookup:
                                      eulintarray2_1_r, eulintarray2_2_r, eulintarray2_3_r]
 
         return index_array1[overlap], index_array2[overlap]  # these are the overlapping ij pairs
+
+
+class EulerLookupFactory:
+    """Return an EulerLookup instance by calling the Factory instance
+
+    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
+    allocating a shared pointer
+    """
+
+    def __init__(self, **kwargs):
+        self._lookup_tables = {}
+
+    def __call__(self, **kwargs) -> EulerLookup:
+        """Return the specified FragmentDatabase object singleton
+
+        Returns:
+            The instance of the specified FragmentDatabase
+        """
+        lookup = self._lookup_tables.get('euler')
+        if lookup:
+            return lookup
+        else:
+            logger.info(f'Initializing {EulerLookup.__name__}')
+            self._lookup_tables['euler'] = EulerLookup(**kwargs)
+
+        return self._lookup_tables['euler']
+
+    def get(self, **kwargs) -> EulerLookup:
+        """Return the specified FragmentDatabase object singleton
+
+        Returns:
+            The instance of the specified FragmentDatabase
+        """
+        return self.__call__(**kwargs)
+
+
+euler_factory = EulerLookupFactory()
