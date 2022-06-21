@@ -694,8 +694,8 @@ if __name__ == '__main__':
     # -----------------------------------------------------------------------------------------------------------------
     # Initialize common job resources necessary for processing and i/o
     # -----------------------------------------------------------------------------------------------------------------
-    symdesign_directory = SDUtils.get_base_symdesign_dir((args.directory or (args.project or args.single or [None])[0]
-                                                          or os.getcwd()))
+    symdesign_directory = \
+        SDUtils.get_base_symdesign_dir((args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
     if not symdesign_directory:  # check if there is a file and see if we can solve there
         if args.file:
             with open(args.file, 'r') as f:
@@ -777,7 +777,8 @@ if __name__ == '__main__':
             args.select_number = 1
     else:  # [PUtils.nano, 'multicistronic']
         initialize = False
-        if getattr(args, 'query', None):  # run nanohedra query mode
+        # Todo move to top level as args not recognized! run nanohedra query mode
+        if getattr(args, 'query', None):
             query_flags = [__file__, '-query'] + additional_args
             logger.debug(f'Query {PUtils.nano.title()}.py with: {", ".join(query_flags)}')
             query_mode(query_flags)
@@ -1084,10 +1085,10 @@ if __name__ == '__main__':
                             f'{representative_pose_directory.log_path}')
 
     elif args.module == PUtils.nano:
-        logger.critical('Setting up inputs for %s Docking' % PUtils.nano)
+        logger.critical(f'Setting up inputs for {PUtils.nano} Docking')
         # Todo make current with sql ambitions
-        # make master output directory.           sym_entry is required, so this won't fail v
-        job.docking_master_dir = os.path.join(job.projects, 'NanohedraEntry%dDockedPoses' % sym_entry.entry_number)
+        # make master output directory. sym_entry is required, so this won't fail v
+        job.docking_master_dir = os.path.join(job.projects, f'NanohedraEntry{sym_entry.entry_number}DockedPoses')
         os.makedirs(job.docking_master_dir, exist_ok=True)
         # Transform input entities to canonical orientation and return their ASU
         symmetry_map = sym_entry.groups
