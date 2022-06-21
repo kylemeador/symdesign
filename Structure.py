@@ -362,7 +362,288 @@ class Atoms:
         yield from self.atoms.tolist()
 
 
-class Residue:
+class GhostFragment:
+    guide_coords: np.ndarray
+    i_type: int
+    j_type: int
+    k_type: int
+    rmsd: float
+    aligned_fragment: Fragment
+
+    def __init__(self, guide_coords: np.ndarray, i_type: int, j_type: int, k_type: int, ijk_rmsd: float,
+                 aligned_fragment: Fragment):
+        self.guide_coords = guide_coords
+        self.i_type = i_type
+        self.j_type = j_type
+        self.k_type = k_type
+        self.rmsd = ijk_rmsd
+        self.aligned_fragment = aligned_fragment
+
+    @property
+    def type(self) -> int:
+        """The secondary structure of the Fragment"""
+        return self.j_type
+
+    @type.setter
+    def type(self, frag_type: int):
+        """Set the secondary structure of the Fragment"""
+        self.j_type = frag_type
+
+    @property
+    def frag_type(self) -> int:
+        """The secondary structure of the Fragment"""
+        return self.j_type
+
+    @frag_type.setter
+    def frag_type(self, frag_type: int):
+        """Set the secondary structure of the Fragment"""
+        self.j_type = frag_type
+
+    @property
+    def ijk(self) -> tuple[int, int, int]:
+        """The Fragment cluster index information
+
+        Returns:
+            I cluster index, J cluster index, K cluster index
+        """
+        return self.i_type, self.j_type, self.k_type
+
+    def get_ijk(self) -> tuple[int, int, int]:
+        """Return the fragments corresponding cluster index information
+
+        Returns:
+            I cluster index, J cluster index, K cluster index
+        """
+        return self.i_type, self.j_type, self.k_type
+
+    def get_aligned_chain_and_residue(self) -> tuple[str, int]:
+        """Return the MonoFragment identifiers that the GhostFragment was mapped to
+
+        Returns:
+            aligned chain, aligned residue_number
+        """
+        return self.aligned_fragment.chain, self.aligned_fragment.number
+
+    @property
+    def number(self) -> int:
+        """The Residue number of the aligned Fragment"""
+        return self.aligned_fragment.number
+
+    @property
+    def transformation(self) -> dict[str, np.ndarray]:
+        """The transformation of the aligned Fragment from the Fragment Database"""
+        return self.aligned_fragment.transformation
+
+    # @property
+    # def structure(self):
+    #     return self._structure
+    #
+    # @structure.setter
+    # def structure(self, structure):
+    #     self._structure = structure
+
+    # def get_center_of_mass(self):  # UNUSED
+    #     return np.matmul(np.array([0.33333, 0.33333, 0.33333]), self.guide_coords)
+
+
+class Fragment:
+    chain: str
+    ghost_fragments: list | list[GhostFragment] | None
+    guide_coords: np.ndarray
+    i_type: int
+    number: int
+    rmsd_thresh: float = 0.75
+    rotation: np.ndarray
+    translation: np.ndarray
+    template_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
+
+    def __init__(self, fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5, **kwargs):
+        self.ghost_fragments = None
+        self.i_type = fragment_type
+        self.guide_coords = guide_coords
+        self.fragment_length = fragment_length
+        super().__init__()
+        # ^ no keyword args now. If any sub class of Fragment requires subsequent inheritence, need to add kwargs and
+        # likely FragmentBase to generate the proper method resolution order (MRO)
+
+    @property
+    def type(self) -> int:
+        """The secondary structure of the Fragment"""
+        return self.i_type
+
+    @type.setter
+    def type(self, frag_type: int):
+        """Set the secondary structure of the Fragment"""
+        self.i_type = frag_type
+
+    @property
+    def transformation(self) -> dict[str, np.ndarray]:
+        """The transformation of the Fragment from the Fragment Database"""
+        return dict(rotation=self.rotation, translation=self.translation)
+
+    # def get_center_of_mass(self):  # UNUSED
+    #     if self.guide_coords:
+    #         return np.matmul([0.33333, 0.33333, 0.33333], self.guide_coords)
+    #     else:
+    #         return None
+
+    # @property
+    # def structure(self):
+    #     return self._structure
+
+    # @structure.setter
+    # def structure(self, structure):
+    #     self._structure = structure
+
+    def find_ghost_fragments(self, indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]],
+                             clash_tree: BinaryTree = None, clash_dist: float = 2.2):
+        """Find all the GhostFragments associated with the Fragment
+
+        Args:
+            indexed_ghosts: The paired fragment database to match to the MonoFragment instance
+            clash_tree: Allows clash prevention during search. Typical use is the backbone and CB atoms of the
+                Structure that the Fragment is assigned
+            clash_dist: The distance to check for backbone clashes
+        Returns:
+            The ghost fragments associated with the fragment
+        """
+        ghost_i_type = indexed_ghosts.get(self.i_type, None)
+        if not ghost_i_type:
+            self.ghost_fragments = []
+
+        stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type
+        transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
+        if clash_tree:
+            transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, **self.transformation)
+            # with .reshape(), we query on a np.view saving memory
+            neighbors = clash_tree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)
+            neighbor_counts = np.array([neighbor.size for neighbor in neighbors])
+            # reshape to original size then query for existence of any neighbors for each fragment individually
+            clashing_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
+            viable_indices = ~clashing_indices
+        else:
+            viable_indices = None
+
+        self.ghost_fragments = [GhostFragment(*info) for info in zip(list(transformed_guide_coords[viable_indices]),
+                                                                     *zip(*ijk_types[viable_indices].tolist()),
+                                                                     rmsd_array[viable_indices].tolist(), repeat(self))]
+
+    def get_ghost_fragments(self, *args, **kwargs) -> list | list[GhostFragment]:
+        """Find and return all the GhostFragments associated with the Fragment that don't clash with the original structure
+        backbone
+
+        Keyword Args:
+            indexed_ghost_fragments (dict): The paired fragment database to match to the MonoFragment instance
+            clash_tree=None (sklearn.neighbors._ball_tree.BinaryTree): Allows clash prevention during search.
+                Typical use is the backbone and CB coordinates of the Structure that the Fragment is assigned
+            clash_dist=2.2 (float): The distance to check for backbone clashes
+        Returns:
+            The ghost fragments associated with the fragment
+        """
+        self.find_ghost_fragments(*args, **kwargs)
+        return self.ghost_fragments
+
+
+class MonoFragment(Fragment):
+    central_residue: Residue
+
+    def __init__(self, residues: Sequence[Residue], representatives: dict[int, np.ndarray] = None, **kwargs):
+        super().__init__(**kwargs)
+        self.central_residue = residues[int(self.fragment_length/2)]
+
+        if not residues:
+            raise ValueError(f'Can\'t find {type(self).__name__} without passing residues with length '
+                             f'{self.fragment_length}')
+        elif not representatives:
+            raise ValueError(f'Can\'t find {type(self).__name__} without passing representatives')
+
+        frag_ca_coords = np.array([residue.ca_coords for residue in residues])
+        min_rmsd = float('inf')
+        for cluster_type, cluster_coords in representatives.items():
+            rmsd, rot, tx, _ = superposition3d(frag_ca_coords, cluster_coords)
+            if rmsd <= MonoFragment.rmsd_thresh and rmsd <= min_rmsd:
+                self.i_type = cluster_type
+                min_rmsd, self.rotation, self.translation = rmsd, rot, tx
+
+        if self.i_type:
+            self.guide_coords = \
+                np.matmul(MonoFragment.template_coords, np.transpose(self.rotation)) + self.translation
+
+    def get_central_res_tup(self) -> tuple[str, int]:
+        return self.central_residue.chain, self.central_residue.number
+
+    @property
+    def number(self) -> int:
+        """The Residue number"""
+        return self.central_residue.number
+
+    # Methods below make MonoFragment compatible with Pose symmetry operations
+    @property
+    def coords(self) -> np.ndarray:
+        return self.guide_coords
+
+    @coords.setter
+    def coords(self, coords: np.ndarray):
+        self.guide_coords = coords
+
+    # def return_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
+    #                             rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
+    #         MonoFragment:
+    #     """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
+    #
+    #     Transformation proceeds by matrix multiplication with the order of operations as:
+    #     rotation, translation, rotation2, translation2
+    #
+    #     Args:
+    #         rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
+    #         translation: The first translation to apply, expected shape (3)
+    #         rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
+    #         translation2: The second translation to apply, expected shape (3)
+    #     Returns:
+    #         A transformed copy of the original object
+    #     """
+    #     if rotation is not None:  # required for np.ndarray or None checks
+    #         new_coords = np.matmul(self.guide_coords, np.transpose(rotation))
+    #     else:
+    #         new_coords = self.guide_coords
+    #
+    #     if translation is not None:  # required for np.ndarray or None checks
+    #         new_coords += np.array(translation)
+    #
+    #     if rotation2 is not None:  # required for np.ndarray or None checks
+    #         new_coords = np.matmul(new_coords, np.transpose(rotation2))
+    #
+    #     if translation2 is not None:  # required for np.ndarray or None checks
+    #         new_coords += np.array(translation2)
+    #
+    #     new_structure = copy(self)
+    #     new_structure.guide_coords = new_coords
+    #
+    #     return new_structure
+
+    def replace_coords(self, new_coords: np.ndarray):
+        self.guide_coords = new_coords
+
+
+class ResidueFragment(Fragment):
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+
+    @property
+    def frag_type(self):
+        """The secondary structure of the Fragment"""
+        return self.i_type
+
+    @frag_type.setter
+    def frag_type(self, frag_type: int):
+        """Set the secondary structure of the Fragment"""
+        self.i_type = frag_type
+
+    def get_central_res_tup(self) -> tuple[str, int]:
+        return self.chain, self.number
+
+
+class Residue(ResidueFragment):
     # atom_indices: list[int]
     atoms: Atoms
     # backbone_indices: list[int]
@@ -1219,287 +1500,6 @@ class Residues:
 
     def __iter__(self) -> Residue:
         yield from self.residues.tolist()
-
-
-class GhostFragment:
-    guide_coords: np.ndarray
-    i_type: int
-    j_type: int
-    k_type: int
-    rmsd: float
-    aligned_fragment: Fragment
-
-    def __init__(self, guide_coords: np.ndarray, i_type: int, j_type: int, k_type: int, ijk_rmsd: float,
-                 aligned_fragment: Fragment):
-        self.guide_coords = guide_coords
-        self.i_type = i_type
-        self.j_type = j_type
-        self.k_type = k_type
-        self.rmsd = ijk_rmsd
-        self.aligned_fragment = aligned_fragment
-
-    @property
-    def type(self) -> int:
-        """The secondary structure of the Fragment"""
-        return self.j_type
-
-    @type.setter
-    def type(self, frag_type: int):
-        """Set the secondary structure of the Fragment"""
-        self.j_type = frag_type
-
-    @property
-    def frag_type(self) -> int:
-        """The secondary structure of the Fragment"""
-        return self.j_type
-
-    @frag_type.setter
-    def frag_type(self, frag_type: int):
-        """Set the secondary structure of the Fragment"""
-        self.j_type = frag_type
-
-    @property
-    def ijk(self) -> tuple[int, int, int]:
-        """The Fragment cluster index information
-
-        Returns:
-            I cluster index, J cluster index, K cluster index
-        """
-        return self.i_type, self.j_type, self.k_type
-
-    def get_ijk(self) -> tuple[int, int, int]:
-        """Return the fragments corresponding cluster index information
-
-        Returns:
-            I cluster index, J cluster index, K cluster index
-        """
-        return self.i_type, self.j_type, self.k_type
-
-    def get_aligned_chain_and_residue(self) -> tuple[str, int]:
-        """Return the MonoFragment identifiers that the GhostFragment was mapped to
-
-        Returns:
-            aligned chain, aligned residue_number
-        """
-        return self.aligned_fragment.chain, self.aligned_fragment.number
-
-    @property
-    def number(self) -> int:
-        """The Residue number of the aligned Fragment"""
-        return self.aligned_fragment.number
-
-    @property
-    def transformation(self) -> dict[str, np.ndarray]:
-        """The transformation of the aligned Fragment from the Fragment Database"""
-        return self.aligned_fragment.transformation
-
-    # @property
-    # def structure(self):
-    #     return self._structure
-    #
-    # @structure.setter
-    # def structure(self, structure):
-    #     self._structure = structure
-
-    # def get_center_of_mass(self):  # UNUSED
-    #     return np.matmul(np.array([0.33333, 0.33333, 0.33333]), self.guide_coords)
-
-
-class Fragment:
-    chain: str
-    ghost_fragments: list | list[GhostFragment] | None
-    guide_coords: np.ndarray
-    i_type: int
-    number: int
-    rmsd_thresh: float = 0.75
-    rotation: np.ndarray
-    translation: np.ndarray
-    template_coords = np.array([[0., 0., 0.], [3., 0., 0.], [0., 3., 0.]])
-
-    def __init__(self, fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5, **kwargs):
-        self.ghost_fragments = None
-        self.i_type = fragment_type
-        self.guide_coords = guide_coords
-        self.fragment_length = fragment_length
-        super().__init__()
-        # ^ no keyword args now. If any sub class of Fragment requires subsequent inheritence, need to add kwargs and
-        # likely FragmentBase to generate the proper method resolution order (MRO)
-
-    @property
-    def type(self) -> int:
-        """The secondary structure of the Fragment"""
-        return self.i_type
-
-    @type.setter
-    def type(self, frag_type: int):
-        """Set the secondary structure of the Fragment"""
-        self.i_type = frag_type
-
-    @property
-    def transformation(self) -> dict[str, np.ndarray]:
-        """The transformation of the Fragment from the Fragment Database"""
-        return dict(rotation=self.rotation, translation=self.translation)
-
-    # def get_center_of_mass(self):  # UNUSED
-    #     if self.guide_coords:
-    #         return np.matmul([0.33333, 0.33333, 0.33333], self.guide_coords)
-    #     else:
-    #         return None
-
-    # @property
-    # def structure(self):
-    #     return self._structure
-
-    # @structure.setter
-    # def structure(self, structure):
-    #     self._structure = structure
-
-    def find_ghost_fragments(self, indexed_ghosts: dict[int, tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]],
-                             clash_tree: BinaryTree = None, clash_dist: float = 2.2):
-        """Find all the GhostFragments associated with the Fragment
-
-        Args:
-            indexed_ghosts: The paired fragment database to match to the MonoFragment instance
-            clash_tree: Allows clash prevention during search. Typical use is the backbone and CB atoms of the
-                Structure that the Fragment is assigned
-            clash_dist: The distance to check for backbone clashes
-        Returns:
-            The ghost fragments associated with the fragment
-        """
-        ghost_i_type = indexed_ghosts.get(self.i_type, None)
-        if not ghost_i_type:
-            self.ghost_fragments = []
-
-        stacked_bb_coords, stacked_guide_coords, ijk_types, rmsd_array = ghost_i_type
-        transformed_guide_coords = transform_coordinate_sets(stacked_guide_coords, **self.transformation)
-        if clash_tree:
-            transformed_bb_coords = transform_coordinate_sets(stacked_bb_coords, **self.transformation)
-            # with .reshape(), we query on a np.view saving memory
-            neighbors = clash_tree.query_radius(transformed_bb_coords.reshape(-1, 3), clash_dist)
-            neighbor_counts = np.array([neighbor.size for neighbor in neighbors])
-            # reshape to original size then query for existence of any neighbors for each fragment individually
-            clashing_indices = neighbor_counts.reshape(transformed_bb_coords.shape[0], -1).any(axis=1)
-            viable_indices = ~clashing_indices
-        else:
-            viable_indices = None
-
-        self.ghost_fragments = [GhostFragment(*info) for info in zip(list(transformed_guide_coords[viable_indices]),
-                                                                     *zip(*ijk_types[viable_indices].tolist()),
-                                                                     rmsd_array[viable_indices].tolist(), repeat(self))]
-
-    def get_ghost_fragments(self, *args, **kwargs) -> list | list[GhostFragment]:
-        """Find and return all the GhostFragments associated with the Fragment that don't clash with the original structure
-        backbone
-
-        Keyword Args:
-            indexed_ghost_fragments (dict): The paired fragment database to match to the MonoFragment instance
-            clash_tree=None (sklearn.neighbors._ball_tree.BinaryTree): Allows clash prevention during search.
-                Typical use is the backbone and CB coordinates of the Structure that the Fragment is assigned
-            clash_dist=2.2 (float): The distance to check for backbone clashes
-        Returns:
-            The ghost fragments associated with the fragment
-        """
-        self.find_ghost_fragments(*args, **kwargs)
-        return self.ghost_fragments
-
-
-class MonoFragment(Fragment):
-    central_residue: Residue
-
-    def __init__(self, residues: Sequence[Residue], representatives: dict[int, np.ndarray] = None, **kwargs):
-        super().__init__(**kwargs)
-        self.central_residue = residues[int(self.fragment_length/2)]
-
-        if not residues:
-            raise ValueError(f'Can\'t find {type(self).__name__} without passing residues with length '
-                             f'{self.fragment_length}')
-        elif not representatives:
-            raise ValueError(f'Can\'t find {type(self).__name__} without passing representatives')
-
-        frag_ca_coords = np.array([residue.ca_coords for residue in residues])
-        min_rmsd = float('inf')
-        for cluster_type, cluster_coords in representatives.items():
-            rmsd, rot, tx, _ = superposition3d(frag_ca_coords, cluster_coords)
-            if rmsd <= MonoFragment.rmsd_thresh and rmsd <= min_rmsd:
-                self.i_type = cluster_type
-                min_rmsd, self.rotation, self.translation = rmsd, rot, tx
-
-        if self.i_type:
-            self.guide_coords = \
-                np.matmul(MonoFragment.template_coords, np.transpose(self.rotation)) + self.translation
-
-    def get_central_res_tup(self) -> tuple[str, int]:
-        return self.central_residue.chain, self.central_residue.number
-
-    @property
-    def number(self) -> int:
-        """The Residue number"""
-        return self.central_residue.number
-
-    # Methods below make MonoFragment compatible with Pose symmetry operations
-    @property
-    def coords(self) -> np.ndarray:
-        return self.guide_coords
-
-    @coords.setter
-    def coords(self, coords: np.ndarray):
-        self.guide_coords = coords
-
-    # def return_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
-    #                             rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
-    #         MonoFragment:
-    #     """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
-    #
-    #     Transformation proceeds by matrix multiplication with the order of operations as:
-    #     rotation, translation, rotation2, translation2
-    #
-    #     Args:
-    #         rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
-    #         translation: The first translation to apply, expected shape (3)
-    #         rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
-    #         translation2: The second translation to apply, expected shape (3)
-    #     Returns:
-    #         A transformed copy of the original object
-    #     """
-    #     if rotation is not None:  # required for np.ndarray or None checks
-    #         new_coords = np.matmul(self.guide_coords, np.transpose(rotation))
-    #     else:
-    #         new_coords = self.guide_coords
-    #
-    #     if translation is not None:  # required for np.ndarray or None checks
-    #         new_coords += np.array(translation)
-    #
-    #     if rotation2 is not None:  # required for np.ndarray or None checks
-    #         new_coords = np.matmul(new_coords, np.transpose(rotation2))
-    #
-    #     if translation2 is not None:  # required for np.ndarray or None checks
-    #         new_coords += np.array(translation2)
-    #
-    #     new_structure = copy(self)
-    #     new_structure.guide_coords = new_coords
-    #
-    #     return new_structure
-
-    def replace_coords(self, new_coords: np.ndarray):
-        self.guide_coords = new_coords
-
-
-class ResidueFragment(Fragment):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-
-    @property
-    def frag_type(self):
-        """The secondary structure of the Fragment"""
-        return self.i_type
-
-    @frag_type.setter
-    def frag_type(self, frag_type: int):
-        """Set the secondary structure of the Fragment"""
-        self.i_type = frag_type
-
-    def get_central_res_tup(self) -> tuple[str, int]:
-        return self.chain, self.number
 
 
 def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: MonoFragment = None,
