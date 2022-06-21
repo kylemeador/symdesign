@@ -1077,55 +1077,56 @@ def calculate_match(coords1=None, coords2=None, coords_rmsd_reference=None):
 
 
 # @njit
-def calculate_overlap(coords1=None, coords2=None, coords_rmsd_reference=None, max_z_value=2.0):
+def calculate_overlap(coords1: np.ndarray = None, coords2: np.ndarray = None, coords_rmsd_reference: np.ndarray = None,
+                      max_z_value: float = 2.) -> np.ndarray:
     """Calculate the overlap between two sets of coordinates given a reference rmsd
 
-    Keyword Args:
-        coords1=None (numpy.ndarray): The first set of coordinates
-        coords2=None (numpy.ndarray): The second set of coordinates
-        coords_rmsd_reference=None (numpy.ndarray): The reference RMSD to compared each pair of coordinates against
-        max_z_value=2.0 (float): The z-score deviation threshold of the overlap to be considered a match
+    Args:
+        coords1: The first set of coordinates
+        coords2: The second set of coordinates
+        coords_rmsd_reference: The reference RMSD to compared each pair of coordinates against
+        max_z_value: The z-score deviation threshold of the overlap to be considered a match
     Returns:
-        (numpy.ndarray): The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value
+        The overlap z-value where the RMSD between coords1 and coords2 is < max_z_value
     """
-    rmsds = rmsd(coords1, coords2)
     # Calculate Guide Atom Overlap Z-Value
-    z_values = rmsds / coords_rmsd_reference
+    z_values = rmsd(coords1, coords2) / coords_rmsd_reference
     # filter z_values by passing threshold
     return np.where(z_values < max_z_value, z_values, False)
 
 
 # @njit mean doesn't take arguments
-def rmsd(coords1=None, coords2=None):
-    """Calculate the RMSD over sets of coordinates in two numpy.arrays. The first axis (0) contains instances of
-    coordinate sets, the second axis (1) contains a set of coordinates, and the third axis (2) contains the x, y, z
-    values for a coordinate
+def rmsd(coords1: np.ndarray = None, coords2: np.ndarray = None) -> np.ndarray:
+    """Calculate the root mean square deviation (RMSD). Arguments can be single vectors or array-like
+
+    If calculation is over two sets of numpy.arrays. The first axis (0) contains instances of coordinate sets,
+    the second axis (1) contains a set of coordinates, and the third axis (2) contains the x, y, z coordinates
 
     Returns:
-        (np.ndarray)
+        The RMSD
     """
     difference_squared = (coords1 - coords2) ** 2
     # axis 2 gets the sum of the rows 0[1[2[],2[],2[]], 1[2[],2[],2[]]]
-    sum_difference_squared = difference_squared.sum(axis=2)
+    sum_difference_squared = difference_squared.sum(axis=-1)
     # axis 1 gets the mean of the rows 0[1[]], 1[]]
     mean_sum_difference_squared = sum_difference_squared.mean(axis=1)
 
     return np.sqrt(mean_sum_difference_squared)
 
 
-def z_value_from_match_score(match_score):
+def z_value_from_match_score(match_score: float | np.ndarray) -> float | np.ndarray:
+    """Given a match score, convert to a z-value"""
     return np.sqrt((1 / match_score) - 1)
 
 
 # @njit
-def match_score_from_z_value(z_value):
+def match_score_from_z_value(z_value: float | np.ndarray) -> float | np.ndarray:
     """Return the match score from a fragment z-value. Bounded between 0 and 1"""
     return 1 / (1 + (z_value ** 2))
 
 
 # @njit
-def z_score(sample: Union[float, np.ndarray], mean: Union[float, np.ndarray], stdev: Union[float, np.ndarray]) \
-        -> Union[float, np.ndarray]:
+def z_score(sample: float | np.ndarray, mean: float | np.ndarray, stdev: float | np.ndarray) -> float | np.ndarray:
     """From a sample(s), calculate the positional z-score
 
     Args:
@@ -1146,16 +1147,15 @@ def z_score(sample: Union[float, np.ndarray], mean: Union[float, np.ndarray], st
 ######################
 
 
-def all_vs_all(iterable, func, symmetrize=True):
+def all_vs_all(iterable: Iterable, func: Callable, symmetrize: bool = True) -> np.ndarray:
     """Calculate an all versus all comparison using a defined function. Matrix is symmetrized by default
 
     Args:
-        iterable (Iterable): Dict or array like object
-        func (function): Function to calculate different iterations of the iterable
-    Keyword Args:
-        symmetrize=True (Bool): Whether or not to make the resulting matrix symmetric
+        iterable: Dict or array like object
+        func: Function to calculate different iterations of the iterable
+        symmetrize: Whether to make the resulting matrix symmetric
     Returns:
-        (numpy.ndarray): Matrix with resulting calculations
+        Matrix with resulting calculations
     """
     if isinstance(iterable, dict):
         # func(iterable[obj1], iterable[obj2])

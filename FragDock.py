@@ -728,9 +728,6 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     rotation_matrices_2 = get_rot_matrices(rotation_step2, 'z', sym_entry.rotation_range2)
     degen_rot_mat_2 = make_rotations_degenerate(rotation_matrices_2, sym_entry.degeneracy_matrices2)
 
-    # Initialize Euler Lookup Class
-    # euler_lookup = EulerLookup()
-
     set_mat1, set_mat2 = sym_entry.setting_matrix1, sym_entry.setting_matrix2
     # find superposition matrices to rotate setting matrix1 to setting matrix2 and vise versa
     # guide_coords = np.array([[0., 0., 0.], [1., 0., 0.], [0., 1., 0.]])

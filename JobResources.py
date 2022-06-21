@@ -708,6 +708,7 @@ class FragmentDB:
                     ijk_frag_cluster_rep_pdb = PDB.from_file(os.path.join(root, file), entities=False, log=None)
                     # mapped_chain_idx = file.find('mappedchain')
                     # ijk_cluster_rep_mapped_chain = file[mapped_chain_idx + 12:mapped_chain_idx + 13]
+                    # must look up the partner coords later by using chain_id stored in file
                     partner_chain_idx = file.find('partnerchain')
                     ijk_cluster_rep_partner_chain = file[partner_chain_idx + 13:partner_chain_idx + 14]
                     ijk_cluster_representatives[i_cluster_type][j_cluster_type][k_cluster_type] = \
@@ -739,9 +740,11 @@ class FragmentDB:
     def index_ghosts(self):
         """From the fragment database, precompute all required data into arrays to populate Ghost Fragments"""
         for i_type in self.paired_frags:
+            # must look up the partner coords by using stored chain_id
             stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).get_backbone_coords()
                                           for j_dict in self.paired_frags[i_type].values()
                                           for frag_pdb, frag_paired_chain in j_dict.values()])
+            # guide coords are stored with chain_id "9"
             stacked_guide_coords = np.array([frag_pdb.chain('9').coords for j_dict in self.paired_frags[i_type].values()
                                              for frag_pdb, _, in j_dict.values()])
             ijk_types = \
@@ -919,10 +922,16 @@ class FragmentDatabase(FragmentDB):
 
 
 class FragmentDatabaseFactory:
+    """Return an FragmentDatabase instance by calling the Factory instance with the FragmentDatabase source name
+
+    Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
+    allocating a shared pointer to the named FragmentDatabase
+    """
+
     def __init__(self, **kwargs):
         self._databases = {}
 
-    def __call__(self, source: str, **kwargs) -> FragmentDatabase:
+    def __call__(self, source: str = biological_interfaces, **kwargs) -> FragmentDatabase:
         """Return the specified FragmentDatabase object singleton
 
         Args:
@@ -942,15 +951,15 @@ class FragmentDatabaseFactory:
 
         return self._databases[source]
 
-    def get(self, source: str, **kwargs) -> FragmentDatabase:
+    def get(self, **kwargs) -> FragmentDatabase:
         """Return the specified FragmentDatabase object singleton
 
-        Args:
+        Keyword Args:
             source: The FragmentDatabase source name
         Returns:
             The instance of the specified FragmentDatabase
         """
-        return self.__call__(source, **kwargs)
+        return self.__call__(**kwargs)
 
 
 fragment_factory = FragmentDatabaseFactory()

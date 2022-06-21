@@ -17,6 +17,7 @@ from Bio.Data.IUPACData import protein_letters, protein_letters_1to3, protein_le
 from numpy.linalg import eigh, LinAlgError
 from scipy.spatial.transform import Rotation
 from sklearn.neighbors import BallTree  # , KDTree, NearestNeighbors
+from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementation supports BallTree or KDTree
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl, free_sasa_configuration_path, frag_text_file
@@ -1538,6 +1539,7 @@ class StructureBase:
     """Collect extra keyword arguments"""
     def __init__(self, chains=None, entities=None,  # Todo figure out if pulling by PDB init then remove?
                  design=None,  # Todo remove?
+                 # Todo ensure Pose/Models/SymmetricModel are swallowed
                  pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
         try:
             super().__init__(**kwargs)
@@ -1843,7 +1845,7 @@ class Structure(StructureBase):
 
     @property
     def residue_indexed_atom_indices(self) -> list[list[int]]:
-        """For every Residue in the Structure provide the Residue instance indexed, Atom indices
+        """For every Residue in the Structure provide the Residue instance indexed, Structure Atom indices
 
         Returns:
             Residue objects indexed by the Residue position in the corresponding .coords attribute
@@ -2047,7 +2049,7 @@ class Structure(StructureBase):
     #     """
     #     return [self.atoms[index] for index in indices]
 
-    def get_residue_atom_indices(self, numbers=None, **kwargs):
+    def get_residue_atom_indices(self, numbers: Container = None, **kwargs) -> list[int]:
         """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
          the selected Residues are returned
 
@@ -2060,22 +2062,19 @@ class Structure(StructureBase):
             atom_indices.extend(residue.atom_indices)
         return atom_indices
 
-    def get_residues_by_atom_indices(self, indices=None):
-        """Retrieve Residues in the Structure specified by Atom indices.
+    def get_residues_by_atom_indices(self, atom_indices: list[int] = None) -> list[Residue]:
+        """Retrieve Residues in the Structure specified by Atom indices. Must be the coords_owner
 
+        Args:
+            atom_indices: The atom indices to retrieve Residue objects from
         Returns:
-            (list[Residue])
+            The Residues corresponding to the provided atom_indices
         """
         if indices:
             residues = set(residue for residue, atom_index in self._coords_indexed_residues[indices].tolist())
             return sorted(residues, key=lambda residue: residue.number)
         else:
             return self.residues
-        # residue_numbers = set(atom.residue_number for atom in atoms)
-        # if residue_numbers:
-        #     return self.get_residues(numbers=residue_numbers)
-        # else:
-        #     return None
 
     def reset_indices_attributes(self):
         """Upon loading a new Structure with old Structure object, remove any indices that might have been saved
@@ -2101,12 +2100,8 @@ class Structure(StructureBase):
             self.__dict__.pop(structure_index, None)
 
     @property
-    def coords_indexed_backbone_indices(self):
-        """Return backbone Atom indices from the Structure indexed to the Coords view
-
-        Returns:
-            (list[int])
-        """
+    def coords_indexed_backbone_indices(self) -> list[int]:
+        """Return backbone Atom indices from the Structure indexed to the Coords view"""
         try:
             return self._coords_indexed_backbone_indices
         except AttributeError:
@@ -2120,12 +2115,8 @@ class Structure(StructureBase):
         return self._coords_indexed_backbone_indices
 
     @property
-    def coords_indexed_backbone_and_cb_indices(self):
-        """Return backbone and cb Atom indices from the Structure indexed to the Coords view
-
-        Returns:
-            (list[int])
-        """
+    def coords_indexed_backbone_and_cb_indices(self) -> list[int]:
+        """Return backbone and cb Atom indices from the Structure indexed to the Coords view"""
         try:
             return self._coords_indexed_backbone_and_cb_indices
         except AttributeError:
@@ -2135,12 +2126,8 @@ class Structure(StructureBase):
         return self._coords_indexed_backbone_and_cb_indices
 
     @property
-    def coords_indexed_cb_indices(self):
-        """Return ca Atom indices from the Structure indexed to the Coords view
-
-        Returns:
-            (list[int])
-        """
+    def coords_indexed_cb_indices(self) -> list[int]:
+        """Return ca Atom indices from the Structure indexed to the Coords view"""
         try:
             return self._coords_indexed_cb_indices
         except AttributeError:
@@ -2150,12 +2137,8 @@ class Structure(StructureBase):
         return self._coords_indexed_cb_indices
 
     @property
-    def coords_indexed_ca_indices(self):
-        """Return cb Atom indices from the Structure indexed to the Coords view
-
-        Returns:
-            (list[int])
-        """
+    def coords_indexed_ca_indices(self) -> list[int]:
+        """Return cb Atom indices from the Structure indexed to the Coords view"""
         try:
             return self._coords_indexed_ca_indices
         except AttributeError:
@@ -2165,12 +2148,8 @@ class Structure(StructureBase):
         return self._coords_indexed_ca_indices
 
     @property
-    def backbone_indices(self):
-        """Return backbone Atom indices from the Structure
-
-        Returns:
-            (list[int])
-        """
+    def backbone_indices(self) -> list[int]:
+        """Return backbone Atom indices from the Structure"""
         try:
             return self._backbone_indices
         except AttributeError:
@@ -2180,12 +2159,8 @@ class Structure(StructureBase):
             return self._backbone_indices
 
     @property
-    def backbone_and_cb_indices(self):
-        """Return backbone and CB Atom indices from the Structure. Inherently gets glycine CA's
-
-        Returns:
-            (list[int])
-        """
+    def backbone_and_cb_indices(self) -> list[int]:
+        """Return backbone and CB Atom indices from the Structure. Inherently gets glycine CA's"""
         try:
             return self._backbone_and_cb_indices
         except AttributeError:
@@ -2195,12 +2170,8 @@ class Structure(StructureBase):
             return self._backbone_and_cb_indices
 
     @property
-    def cb_indices(self):
-        """Return CB Atom indices from the Structure. Inherently gets glycine Ca's and Ca's of Residues missing Cb
-
-        Returns:
-            (list[int])
-        """
+    def cb_indices(self) -> list[int]:
+        """Return CB Atom indices from the Structure. Inherently gets glycine Ca's and Ca's of Residues missing Cb"""
         try:
             return self._cb_indices
         except AttributeError:
@@ -2210,12 +2181,8 @@ class Structure(StructureBase):
             return self._cb_indices
 
     @property
-    def ca_indices(self):
-        """Return CB Atom indices from the Structure
-
-        Returns:
-            (list[int])
-        """
+    def ca_indices(self) -> list[int]:
+        """Return CB Atom indices from the Structure"""
         try:
             return self._ca_indices
         except AttributeError:
@@ -2223,12 +2190,8 @@ class Structure(StructureBase):
             return self._ca_indices
 
     @property
-    def heavy_atom_indices(self):
-        """Return Heavy Atom indices from the Structure
-
-        Returns:
-            (list[int])
-        """
+    def heavy_atom_indices(self) -> list[int]:
+        """Return Heavy Atom indices from the Structure"""
         try:
             return self._heavy_atom_indices
         except AttributeError:
@@ -2238,12 +2201,8 @@ class Structure(StructureBase):
             return self._heavy_atom_indices
 
     @property
-    def helix_cb_indices(self):
-        """Only works on secondary structure assigned structures!
-
-        Returns:
-            (list[int])
-        """
+    def helix_cb_indices(self) -> list[int]:
+        """Only works on secondary structure assigned structures!"""
         try:
             return self._helix_cb_indices
         except AttributeError:
@@ -2259,58 +2218,36 @@ class Structure(StructureBase):
             return self._helix_cb_indices
 
     @property
-    def ca_atoms(self):
-        """Return CA Atoms from the Structure
-
-        Returns:
-            (list[Atom])
-        """
+    def ca_atoms(self) -> list[Atom]:
+        """Return CA Atoms from the Structure"""
         return self.atoms[self.ca_indices]
 
     @property
-    def cb_atoms(self):
-        """Return CB Atoms from the Structure
-
-        Returns:
-            (list[Atom])
-        """
+    def cb_atoms(self) -> list[Atom]:
+        """Return CB Atoms from the Structure"""
         return self.atoms[self.cb_indices]
 
     @property
-    def backbone_atoms(self):
-        """Return backbone Atoms from the Structure
-
-        Returns:
-            (list[Atom])
-        """
+    def backbone_atoms(self) -> list[Atom]:
+        """Return backbone Atoms from the Structure"""
         return self.atoms[self.backbone_indices]
 
     @property
-    def backbone_and_cb_atoms(self):
-        """Return backbone and CB Atoms from the Structure
-
-        Returns:
-            (list[Atom])
-        """
+    def backbone_and_cb_atoms(self) -> list[Atom]:
+        """Return backbone and CB Atoms from the Structure"""
         return self.atoms[self.backbone_and_cb_indices]
 
-    def atom(self, atom_number):
-        """Retrieve the Atom specified by atom number
-
-        Returns:
-            (list[Atom])
-        """
+    def atom(self, atom_number: int) -> Atom | None:
+        """Return the Atom specified by atom number or None if no matching atom number is found"""
         for atom in self.atoms:
             if atom.number == atom_number:
                 return atom
-        return
 
     def renumber_structure(self):
         """Change the Atom and Residue numbering. Access the readtime Residue number in .pdb_number attribute"""
         self.renumber_atoms()
         self.renumber_residues()
-        self.log.debug('%s was formatted in Pose numbering (residues now 1 to %d)'
-                       % (self.name, self.number_of_residues))
+        self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
 
     def renumber_atoms(self):
         """Renumber all Atom objects sequentially starting with 1"""
@@ -2671,8 +2608,8 @@ class Structure(StructureBase):
             The newly inserted Residue object
         """
         if not self.is_structure_owner:
-            raise DesignError('This Structure "%s" is not the owner of it\'s attributes and therefore cannot handle '
-                              'residue insertion!' % self.name)
+            raise DesignError(f'This Structure "{self.name}" is not the owner of it\'s attributes and therefore cannot '
+                              'handle residue insertion!')
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
         reference_index = \
             protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(), residue_type.upper()))
@@ -2682,14 +2619,14 @@ class Structure(StructureBase):
         # new_residue = copy(Structure.reference_aa.residue(reference_index))
         assert at >= 1, f'Insertion at index "{at}" (less than 1) is not allowed'
         new_residue.number = at
-        residue_index = at - 1  # since at is one-indexed integer
+        residue_index = at - 1  # since at is one-indexed integer, take from pose numbering to zero-indexed
         # insert the new_residue atoms and coords into the Structure Atoms
         # new_atoms = new_residue.atoms
         # new_coords = new_residue.coords
         self._atoms.insert(new_residue.atoms, at=new_residue.start_index)
         self._coords.insert(new_residue.coords, at=new_residue.start_index)
         # insert the new_residue into the Structure Residues
-        self._residues.insert(new_residue, at=residue_index)  # take from pose numbering to zero-indexed
+        self._residues.insert(new_residue, at=residue_index)
         self._residues.reindex_residue_atoms(start_at=residue_index)
         # self._atoms.insert(new_atoms, at=self._residues)
         new_residue._atoms = self._atoms
@@ -2742,7 +2679,7 @@ class Structure(StructureBase):
             self.secondary_structure = \
                 self.secondary_structure[:residue_index] + 'C' + self.secondary_structure[residue_index:]
 
-        # remake residue indexing
+        # re-index the coords and residues map
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self.coords_indexed_residues, self.coords_indexed_residue_atoms = zip(*residues_atom_idx)
         range_idx = 0
@@ -2874,7 +2811,7 @@ class Structure(StructureBase):
             coords_indexed_residues = \
                 [residue for idx, residue in enumerate(self.coords_indexed_residues) if idx in heavy_atom_indices]
 
-        all_atom_tree = BallTree(coords)  # faster 131 msec/loop
+        all_atom_tree = BallTree(coords)
         all_atom_counts_query = all_atom_tree.query_radius(coords, distance, count_only=True)
         # residue_neighbor_counts, current_residue = 0, coords_indexed_residues[0]
         current_residue = coords_indexed_residues[0]
@@ -3062,8 +2999,6 @@ class Structure(StructureBase):
             # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
             # since return_atom_string doesn't have models, these won't be present and no option to freesasa about model
             # would be provided with above subprocess call
-            # coords_indexed_residues = self.coords_indexed_residues
-            # coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
             atoms = self.atoms
             for line_split in map(str.split, sasa_output[5:-2]):  # slice could remove need for if ATOM
                 if line_split[0] == 'ATOM':  # this seems necessary as MODEL can be added if MODEL is written
@@ -5074,10 +5009,12 @@ class Entity(Chain, SequenceProfile):
     #     # return self.uniprot_id
 
 
-def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=False, report_quaternion=False):
-    """Takes two arrays of xyz coordinates (same length), and attempts to superimpose them using rotations,translations,
-    and (optionally) rescale operations in order to minimize the root-mean-squared-distance (RMSD) between them. These
-    operations should be applied to the "moving_coords" argument.
+def superposition3d(fixed_coords: np.ndarray, moving_coords: np.ndarray, a_weights: np.ndarray = None,
+                    allow_rescale: bool = False, report_quaternion: bool = False) -> \
+        tuple[float, np.ndarray, np.ndarray, float]:
+    """Takes two xyz coordinate sets (same length), and attempts to superimpose them using rotations, translations,
+    and (optionally) rescale operations to minimize the root mean squared distance (RMSD) between them. The found
+    transformation operations should be applied to the "moving_coords" to place them in the setting of the fixed_coords
 
     This function implements a more general variant of the method from:
     R. Diamond, (1988) "A Note on the Rotational Superposition Problem", Acta Cryst. A44, pp. 211-216
@@ -5104,22 +5041,21 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
     Args:
-        fixed_coords (numpy.ndarray): The coordinates for the 'frozen' object
-        moving_coords (numpy.ndarray): The coordinates for the 'mobile' object
-    Keyword Args:
-        a_weights=None (numpy.ndarray): Weights for the calculation of RMSD
-        allow_rescale=False (bool): Attempt to rescale the mobile point cloud in addition to translation/rotation?
-        report_quaternion=False (bool): Whether to report the rotation angle and axis in typical quaternion fashion
+        fixed_coords: The coordinates for the 'frozen' object
+        moving_coords: The coordinates for the 'mobile' object
+        a_weights: Weights for the calculation of RMSD
+        allow_rescale: Attempt to rescale the mobile point cloud in addition to translation/rotation?
+        report_quaternion: Whether to report the rotation angle and axis in typical quaternion fashion
+    Raises:
+        AssertionError: If coordinates are not the same length
     Returns:
-        (tuple[float, numpy.ndarray, numpy.ndarray, float]): rmsd, rotation/quaternion_matrix, translation_vector,
-        scale_factor
+        rmsd, rotation/quaternion_matrix, translation_vector, scale_factor
     """
     assert fixed_coords.shape[0] == moving_coords.shape[0], \
         f'{superposition3d.__name__}: Inputs should have the same size. ' \
         f'Input 1={fixed_coords.shape[0]}, 2={moving_coords.shape[0]}'
 
     number_of_points = fixed_coords.shape[0]
-    # Find the center of mass of each object:
     # convert weights into array
     if not a_weights or len(a_weights) == 0:
         a_weights = np.full((number_of_points, 1), 1.)
@@ -5128,6 +5064,7 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
         a_weights = np.array(a_weights).reshape(number_of_points, 1)
         sum_weights = np.sum(a_weights, axis=0)
 
+    # Find the center of mass of each object:
     a_center_f = np.sum(fixed_coords * a_weights, axis=0)
     a_center_m = np.sum(moving_coords * a_weights, axis=0)
 
@@ -5142,13 +5079,13 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     aa_xf = fixed_coords - a_center_f
     aa_xm = moving_coords - a_center_m
 
-    # Calculate the "M" array from the Diamond paper (equation 16)
+    # Calculate the "m" array from the Diamond paper (equation 16)
     m = np.matmul(aa_xm.T, (aa_xf * a_weights))
 
-    # Calculate Q (equation 17)
+    # Calculate "q" (equation 17)
     q = m + m.T - 2 * np.eye(3) * np.trace(m)
 
-    # Calculate v (equation 18)  #KM this appears to be the cross product...
+    # Calculate "v" (equation 18)  # KM this appears to be the cross product...
     v = np.empty(3)
     v[0] = m[1][2] - m[2][1]
     v[1] = m[2][0] - m[0][2]
@@ -5166,7 +5103,7 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
 
     # Calculate "p".
     # "p" contains the optimal rotation (in backwards-quaternion format)
-    # (Note: A discussion of various quaternion conventions is included below.)
+    # (Note: A discussion of various quaternion conventions is included below)
     # First, specify the default value for p:
     p = np.zeros(4)
     p[3] = 1.  # p = [0,0,0,1]    default value
@@ -5191,7 +5128,6 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     # Finally, calculate the rotation matrix corresponding to "p"
     # (p is in backwards-quaternion format)
     """
-
     aa_rotate = np.empty((3, 3))
     aa_rotate[0][0] = (p[0]*p[0])-(p[1]*p[1])-(p[2]*p[2])+(p[3]*p[3])
     aa_rotate[1][1] = -(p[0]*p[0])+(p[1]*p[1])-(p[2]*p[2])+(p[3]*p[3])
@@ -5202,7 +5138,6 @@ def superposition3d(fixed_coords, moving_coords, a_weights=None, allow_rescale=F
     aa_rotate[2][1] = 2*(p[1]*p[2] + p[0]*p[3])
     aa_rotate[0][2] = 2*(p[0]*p[2] + p[1]*p[3])
     aa_rotate[2][0] = 2*(p[0]*p[2] - p[1]*p[3])
-
     # Alternatively, in modern python versions, this code also works:
     """
     the_rotation = Rotation.from_quat(p)
