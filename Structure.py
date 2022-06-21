@@ -3438,6 +3438,72 @@ class Structure(StructureBase):
 
         return fragments
 
+    # alternative method using Residue fragments
+    def assign_fragments(self, residues: list[Residue] = None, residue_numbers: list[int] = None,
+                         fragment_length: int = 5, representatives: dict[int, np.ndarray] = None,
+                         rmsd_thresh: float = Fragment.rmsd_thresh, **kwargs) -> list | list[Residue]:
+        """Assign a Fragment type to Residues in the Structure, as identified from a FragmentDatabase, then return them
+
+        Args:
+            residues: The specific Residues to search for
+            residue_numbers: The specific residue numbers to search for
+            fragment_length: The length of the fragment observations used
+            representatives: The representative fragment types to query the Residue against
+            rmsd_thresh: The threshold for which a rmsd should fail to produce a fragment match
+        Returns:
+            The MonoFragments found on the Structure
+        """
+        # if not residues:
+        #     raise ValueError(f'Can\'t assign fragments without passing residues')
+        if not representatives:
+            raise ValueError(f'Can\'t assign fragments without passing representatives')
+
+        frag_lower_range, frag_upper_range = parameterize_frag_length(fragment_length)
+
+        # ensure we have neighboring ca coords on each side by retrieving flanking residues
+        if residues:
+            _residues = []
+            self.log.critical('Test that this output is as planned since new methods are used!!')
+            for residue in residues:
+                _residues.extend(residue.get_upstream(frag_lower_range))
+                _residues.append(residue)
+                _residues.extend(residue.get_downstream(frag_upper_range - 1))
+
+            residues = _residues
+            residue_ca_coords = np.array([residue.ca_coords for residue in residues])
+        elif residue_numbers:
+            fragment_residue_numbers = []
+            for number in residue_numbers:
+                fragment_residue_numbers.extend([number + i for i in range(frag_lower_range, frag_upper_range)])
+
+            residues = self.get_residues(numbers=sorted(set(fragment_residue_numbers)))
+            residue_ca_coords = np.array([residue.ca_coords for residue in residues])
+        else:
+            residues = self.residues
+            residue_ca_coords = self.get_ca_coords()
+
+        missing_indices = []
+        for idx, residue in enumerate(residues):
+            # solve for fragment type (secondary structure classification could be used too)
+            try:
+                min_rmsd = float('inf')
+                for fragment_type, cluster_coords in representatives.items():
+                    rmsd, rot, tx, _ = \
+                        superposition3d(residue_ca_coords[idx + frag_lower_range: idx + frag_upper_range],
+                                        cluster_coords)
+                    if rmsd <= rmsd_thresh and rmsd <= min_rmsd:
+                        residue.frag_type = fragment_type
+                        min_rmsd, residue.rotation, residue.translation = rmsd, rot, tx
+            except AssertionError:  # superposition3d can't measure Residue. It doesn't have fragment_length neighbors
+                missing_indices.append(idx)  # add the index so we remove it later
+                continue
+
+            if residue.frag_type:
+                residue.guide_coords = \
+                    np.matmul(Fragment.template_coords, np.transpose(residue.rotation)) + residue.translation
+
+        return [residue for idx, residue in enumerate(residues) if idx not in missing_indices]
+
     @property
     def contact_order(self) -> np.ndarray:
         """Return the contact order on a per Residue basis
