@@ -368,7 +368,7 @@ class GhostFragment:
     j_type: int
     k_type: int
     rmsd: float
-    aligned_fragment: Fragment
+    aligned_fragment: Fragment  # must support chain, number, and transformation property/methods
 
     def __init__(self, guide_coords: np.ndarray, i_type: int, j_type: int, k_type: int, ijk_rmsd: float,
                  aligned_fragment: Fragment):
@@ -545,6 +545,8 @@ class Fragment:
 
 
 class MonoFragment(Fragment):
+    """Used to represent Fragment information when treated as a continuous Structure Fragment of length fragment_length
+    """
     central_residue: Residue
 
     def __init__(self, residues: Sequence[Residue], representatives: dict[int, np.ndarray] = None, **kwargs):
@@ -626,6 +628,8 @@ class MonoFragment(Fragment):
 
 
 class ResidueFragment(Fragment):
+    """Used to represent Fragment information when attached to a Residue"""
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
 
@@ -660,6 +664,7 @@ class Residue(ResidueFragment):
     type: str
 
     def __init__(self, atom_indices: list[int] = None, atoms: Atoms = None, coords: Coords = None, log: Log = None):
+        super().__init__()  # **kwargs NO NEED YET, but using as a placeholder when necessary
         #        index=None
         # self.index = index
         self.log = log
@@ -2053,8 +2058,8 @@ class Structure(StructureBase):
         """Retrieve Atom indices for Residues in the Structure. Returns all by default. If residue numbers are provided
          the selected Residues are returned
 
-        Returns:
-            (list[int])
+        Args:
+            numbers: The residue numbers to query
         """
         # return [atom.index for atom in self.get_residue_atoms(numbers=numbers, **kwargs)]
         atom_indices = []
