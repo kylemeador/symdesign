@@ -16,7 +16,7 @@ from Pose import Pose
 from Structure import Structure, write_frag_match_info_file
 from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_log, null_log, dictionary_lookup, \
     calculate_match, z_value_from_match_score, set_logging_to_debug
-from classes.EulerLookup import EulerLookup
+from classes.EulerLookup import EulerLookup, euler_factory
 from classes.OptimalTx import OptimalTx
 from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
@@ -1728,7 +1728,7 @@ if __name__ == '__main__':
         # Todo parameterize when more available
         ijk_frag_db = fragment_factory(source=biological_interfaces)
         # Load Euler Lookup table for each instance
-        euler_lookup = EulerLookup()
+        euler_lookup = euler_factory()
         # ijk_frag_db = FragmentDB()
         #
         # # Get complete IJK fragment representatives database dictionaries

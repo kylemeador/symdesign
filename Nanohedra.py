@@ -9,7 +9,7 @@ from FragDock import nanohedra_dock
 from JobResources import fragment_factory
 from PDB import orient_pdb_file
 from SymDesignUtils import get_all_file_paths, start_log, set_logging_to_debug
-from classes.EulerLookup import EulerLookup
+from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
 from utils.GeneralUtils import write_docking_parameters, get_rotation_step
@@ -142,7 +142,7 @@ if __name__ == '__main__':
             # Todo parameterize when more available
             ijk_frag_db = fragment_factory(source=PUtils.biological_interfaces)
             # Load Euler Lookup table for each instance
-            euler_lookup = EulerLookup()
+            euler_lookup = euler_factory()
             # ijk_frag_db = FragmentDB()
             #
             # # Get complete IJK fragment representatives database dictionaries

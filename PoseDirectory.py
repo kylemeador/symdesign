@@ -1970,7 +1970,7 @@ class PoseDirectory:
             self.pose = Pose.from_asu(pdb, sym_entry=self.sym_entry, name=f'{self}-asu',
                                       design_selector=self.design_selector, log=self.log,
                                       resource_db=self.resources, fragment_db=self.fragment_db,
-                                      euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
+                                      ignore_clashes=self.ignore_pose_clashes)
             # generate oligomers for each entity in the pose
             for idx, entity in enumerate(self.pose.entities):
                 if entity.number_of_monomers != self.sym_entry.group_subunit_numbers[idx]:
@@ -1982,7 +1982,7 @@ class PoseDirectory:
             self.pose = Pose.from_model(pdb, name=str(self),
                                         design_selector=self.design_selector, log=self.log,
                                         resource_db=self.resources, fragment_db=self.fragment_db,
-                                        euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
+                                        ignore_clashes=self.ignore_pose_clashes)
         # then modify numbering to ensure standard and accurate use during protocols
         self.pose.pdb.renumber_structure()
         if not self.entity_names:  # store the entity names if they were never generated
@@ -2799,12 +2799,12 @@ class PoseDirectory:
                 design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name=f'{structure.name}-asu',
                                             design_selector=self.design_selector, log=self.log,
                                             resource_db=self.resources, fragment_db=self.fragment_db,
-                                            euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
+                                            ignore_clashes=self.ignore_pose_clashes)
             else:
                 design_pose = Pose.from_model(structure, name=f'{structure.name}-model',
                                               design_selector=self.design_selector, log=self.log,
                                               resource_db=self.resources, fragment_db=self.fragment_db,
-                                              euler_lookup=self.euler_lookup, ignore_clashes=self.ignore_pose_clashes)
+                                              ignore_clashes=self.ignore_pose_clashes)
 
             # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
             #                                            ,symmetry=self.design_symmetry)

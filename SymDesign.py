@@ -42,7 +42,7 @@ from ProteinExpression import find_expression_tags, find_matching_expression_tag
 from Query.PDB import retrieve_pdb_entries_by_advanced_query
 from Query.utils import input_string, bool_d, validate_input, boolean_choice, invalid_string
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
-from classes.EulerLookup import EulerLookup
+from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from utils.CmdLineArgParseUtils import query_mode
 from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module, \
@@ -826,7 +826,7 @@ if __name__ == '__main__':
             fragment_db, euler_lookup = None, None
         else:
             fragment_db = fragment_factory(source=args.fragment_database)
-            euler_lookup = EulerLookup()
+            euler_lookup = euler_factory()
     else:
         fragment_db, euler_lookup = None, None
 

@@ -23,7 +23,7 @@ from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Res
     write_frag_match_info_file
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
     match_score_from_z_value, dictionary_lookup, digit_translate_table
-from classes.EulerLookup import EulerLookup
+from classes.EulerLookup import EulerLookup, euler_factory
 from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members, \
     symmetry_combination_format
 from utils.GeneralUtils import transform_coordinate_sets
@@ -2418,8 +2418,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
     ss_index_array: list[int]
     ss_type_array: list[str]
 
-    def __init__(self, euler_lookup: EulerLookup = None, fragment_db: FragmentDatabase = None,
-                 resource_db: Database = None,
+    def __init__(self, fragment_db: FragmentDatabase = None, resource_db: Database = None,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         #          euler_lookup: EulerLookup = None,
         self.design_selector = design_selector  # kwargs.get('design_selector', {})
@@ -3780,7 +3779,7 @@ def find_fragment_overlap_at_interface(entity1_coords, interface_frags1, interfa
         fragdb.get_intfrag_cluster_rep_dict()
         fragdb.get_intfrag_cluster_info_dict()
     if not euler_lookup:
-        euler_lookup = EulerLookup()
+        euler_lookup = euler_factory()
 
     # logger.debug('Starting Ghost Frag Lookup')
     oligomer1_bb_tree = BallTree(entity1_coords)

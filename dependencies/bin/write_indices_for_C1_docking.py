@@ -4,7 +4,7 @@ from itertools import product
 from FragDock import nanohedra_dock
 from PathUtils import biological_fragment_db_pickle
 from SymDesignUtils import unpickle
-from classes.EulerLookup import EulerLookup
+from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry
 
 
@@ -13,7 +13,7 @@ print('USAGE:\nNavigate to a directory with the ".pdb" files of interest to gene
 # Create fragment database for all ijk cluster representatives
 ijk_frag_db = unpickle(biological_fragment_db_pickle)
 # Load Euler Lookup table for each instance
-euler_lookup = EulerLookup()
+euler_lookup = euler_factory()
 sym_entry = SymEntry(261)
 master_outdir = os.getcwd()
 entities1, entities2 = [], []
