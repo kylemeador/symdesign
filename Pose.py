@@ -1036,7 +1036,7 @@ class SymmetricModel(Models):
         if isinstance(sym_entry, SymEntry):
             self._sym_entry = sym_entry
         else:  # try to convert
-            self._sym_entry = symmetry_factory(sym_entry)
+            self._sym_entry = symmetry_factory.get(sym_entry)
         # Todo remove hidden symmetric ._ attributes if set
 
     @property

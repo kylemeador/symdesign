@@ -957,7 +957,7 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
             # the prescribed symmetry is a point, plane, or space group that isn't in nanohedra. try a custom input
             sym_entry = lookup_sym_entry_by_symmetry_combination(*sym_map)
 
-    return symmetry_factory(sym_entry, sym_map=sym_map)
+    return symmetry_factory.get(sym_entry, sym_map=sym_map)
 
 
 def sdf_lookup(symmetry: Optional[str] = None) -> Union[str, bytes]:
@@ -1291,7 +1291,7 @@ if __name__ == '__main__':
     # this translation only lies on another axis
     # double_translation = []
     # for entry in symmetry_combinations:
-    #     sym_entry = symmetry_factory(entry)
+    #     sym_entry = symmetry_factory.get(entry)
     #     tx1, tx2 = False, False
     #     if sym_entry.ref_frame_tx_dof1[-1] != '0' and sym_entry.is_internal_tx1:
     #         tx1 = True

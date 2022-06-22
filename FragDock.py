@@ -1710,7 +1710,7 @@ if __name__ == '__main__':
             master_logger = start_log(name=os.path.basename(__file__), handler=2, location=master_log_filepath,
                                       propagate=True)
         # SymEntry Parameters
-        symmetry_entry = symmetry_factory(sym_entry_number)  # sym_map inclusion?
+        symmetry_entry = symmetry_factory.get(sym_entry_number)  # sym_map inclusion?
 
         if initial:
             # make master output directory

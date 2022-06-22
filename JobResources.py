@@ -28,7 +28,7 @@ from Structure import parse_stride, Entity
 from SymDesignUtils import DesignError, unpickle, get_base_root_paths_recursively, start_log, dictionary_lookup, \
     parameterize_frag_length
 from classes.EulerLookup import EulerLookup
-from classes.SymEntry import sdf_lookup, symmetry_factory, SymEntry
+from classes.SymEntry import sdf_lookup, SymEntry
 from utils.MysqlPython import Mysql
 
 # import dependencies.bmdca as bmdca
@@ -1024,7 +1024,7 @@ class JobResources:
         self.reduce_memory = False
         self.resources = Database(self.orient_dir, self.orient_asu_dir, self.refine_dir, self.full_model_dir,
                                   self.stride_dir, self.sequences, self.profiles, sql=None)  # , log=logger)
-        self.symmetry_factory = symmetry_factory
+        # self.symmetry_factory = symmetry_factory
         self.fragment_db: FragmentDatabase | None = None
         self.euler_lookup: EulerLookup | None = None
 

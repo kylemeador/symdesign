@@ -603,7 +603,7 @@ class PoseDirectory:
         try:
             return self._sym_entry
         except AttributeError:
-            self._sym_entry = symmetry_factory(*self.info['sym_entry_specification']) \
+            self._sym_entry = symmetry_factory.get(*self.info['sym_entry_specification']) \
                 if 'sym_entry_specification' in self.info else None
             # temp_sym_entry = SymEntry(self.info['sym_entry_specification'][0])
             # self._sym_entry = symmetry_factory(self.info['sym_entry_specification'][0],
