@@ -449,7 +449,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         entity.retrieve_sequence_from_api()
 
     # Set up output mechanism
-    if isinstance(master_output, str):
+    if isinstance(master_output, str) and not write_frags:  # we just want to write, so don't make a directory
         building_blocks = '%s_%s' % (pdb1.name, pdb2.name)
         outdir = os.path.join(master_output, building_blocks)
         os.makedirs(outdir, exist_ok=True)
