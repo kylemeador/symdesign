@@ -803,22 +803,29 @@ class SymmetricModel(Models):
     oligomeric_equivalent_model_idxs: dict[Entity, list[int]] | dict
     uc_dimensions: list[float] | None
 
-    def __init__(self, sym_entry: SymEntry = None, symmetry: str = None, **kwargs):
+    def __init__(self, sym_entry: SymEntry | int = None, symmetry: str = None,
+                 uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None,
+                 surrounding_uc: bool = True, **kwargs):
         """
 
-        Keyword Args:
-            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        Args:
+            sym_entry: The SymEntry which specifies all symmetry parameters
+            symmetry: The name of a symmetry to be searched against the existing compatible symmetries
+            uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
+            expand_matrices: A set of custom expansion matrices
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
+        #     generate_assembly_coords: Whether the symmetric coords should be generated from the ASU coords
+        #     generate_symmetry_mates: Whether the symmetric models should be generated from the ASU model
         #          asu: PDB = None, asu_file: str = None
         super().__init__(**kwargs)  # log=log,
         # if asu and isinstance(asu, Structure):
         #     self.asu = asu  # the pose specific asu
         # elif asu_file:
         #     self.asu = PDB.from_file(asu_file, log=self.log, **kwargs)
-        # add stripped kwargs back
-        kwargs['symmetry'] = symmetry
-        kwargs['sym_entry'] = sym_entry
-        # self.pdb = pdb
+        # # add stripped kwargs back
+        # kwargs['symmetry'] = symmetry
+        # kwargs['sym_entry'] = sym_entry
         # self.models = []  # from Models
         # self.model_coords = [] <- designated as symmetric_coords
         self.assembly_tree = None  # stores a sklearn tree for coordinate searching
@@ -828,17 +835,19 @@ class SymmetricModel(Models):
         self.oligomeric_equivalent_model_idxs = {}
         self.uc_dimensions = None  # uc_dimensions
 
-        # Todo handle if there is symmetry parsing from read_file() in the CRYST1 record
-        # if self.asu.symmetry:
-        #     kwargs.update(self.asu.symmetry.copy())
-        self.set_symmetry(**kwargs)
+        # initialize symmetry
+        self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
+                          expand_matrices=expand_matrices)
+        if self.symmetry:  # set to a value if symmetry keyword args were passed
+            self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
+            # if generate_symmetry_mates:  # always set to False before. commenting out
+            #     self.generate_assembly_symmetry_models(**kwargs)
 
     @classmethod
-    def from_assembly(cls, assembly, symmetry=None, **kwargs):
-        assert symmetry, 'Currently, can\'t initialize a symmetric model without the symmetry! Pass symmetry during ' \
-                         'Class initialization. Or add a Class method to scout for symmetry to SymmetricModel...'
-        kwargs.update(symmetry=symmetry)
-        return cls(models=assembly, **kwargs)
+    def from_assembly(cls, assembly: list, sym_entry: SymEntry | int = None, symmetry: str = None, **kwargs):
+        assert (symmetry or sym_entry), 'Can\'t initialize a symmetric model without symmetry! Pass symmetry or ' \
+                                        'sym_entry with from_assembly()'
+        return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
     # @classmethod
     # def from_asu(cls, asu, **kwargs):  # generate_symmetry_mates=True
@@ -1031,61 +1040,79 @@ class SymmetricModel(Models):
         # Todo remove hidden symmetric ._ attributes if set
 
     @property
-    def symmetry(self) -> str:
-        """The result of the SymEntry"""
+    def symmetry(self) -> str | None:
+        """The resulting_symmetry of the SymEntry"""
         try:
             return self._symmetry
         except AttributeError:
-            self._symmetry = self.sym_entry.resulting_symmetry
+            self._symmetry = getattr(self.sym_entry, 'resulting_symmetry', None)
             return self._symmetry
 
     @symmetry.setter
-    def symmetry(self, symmetry):
+    def symmetry(self, symmetry: str | None):
         self._symmetry = symmetry
 
     @property
-    def point_group_symmetry(self) -> str:
+    def point_group_symmetry(self) -> str | None:
         """The point group underlying the resulting SymEntry"""
         try:
             return self._point_group_symmetry
         except AttributeError:
-            self._point_group_symmetry = self.sym_entry.point_group_symmetry
+            self._point_group_symmetry = getattr(self.sym_entry, 'point_group_symmetry', None)
             return self._point_group_symmetry
 
     @point_group_symmetry.setter
-    def point_group_symmetry(self, point_group_symmetry):
+    def point_group_symmetry(self, point_group_symmetry: str | None):
         self._point_group_symmetry = point_group_symmetry
 
     @property
-    def dimension(self) -> int:
+    def dimension(self) -> int | None:
         """The dimension of the symmetry from 0, 2, or 3"""
         try:
             return self._dimension
         except AttributeError:
-            self._dimension = self.sym_entry.dimension
+            self._dimension = getattr(self.sym_entry, 'dimension', None)
             return self._dimension
 
     @dimension.setter
-    def dimension(self, dimension):
+    def dimension(self, dimension: int | None):
         self._dimension = dimension
 
     @property
-    def cryst_record(self) -> str:
+    def cryst_record(self) -> str | None:
         """Return the symmetry parameters as a CRYST1 entry"""
+        # Todo should we always use a generated _cryst_record? If read from file, but a Nanohedra based cryst was made
+        #  then it would be wrong since it wouldn't be used
         try:
             return self._cryst_record
-        except AttributeError:
-            self._cryst_record = None if self.dimension == 0 \
+        except AttributeError:  # for now don't use if the structure wasn't symmetric and no attribute was parsed
+            self._cryst_record = None if not self.symmetry or self.dimension == 0 \
                 else generate_cryst1_record(self.uc_dimensions, self.symmetry)
             return self._cryst_record
 
+    @cryst_record.setter
+    def cryst_record(self, cryst_record: str | None):
+        self._cryst_record = cryst_record
+
+    # @property
+    # def uc_dimensions(self) -> list[float]:
+    #     try:
+    #         return self._uc_dimensions
+    #     except AttributeError:
+    #         self._uc_dimensions = list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
+    #         return self._uc_dimensions
+    #
+    # @uc_dimensions.setter
+    # def uc_dimensions(self, dimensions: list[float]):
+    #     self._uc_dimensions = dimensions
+
     @property
     def number_of_symmetry_mates(self) -> int:
-        """Describes the number of symmetry mates present"""
+        """Describes the number of symmetric copies present in the coordinates"""
         try:
             return self._number_of_symmetry_mates
         except AttributeError:
-            self._number_of_symmetry_mates = self.sym_entry.number_of_operations
+            self._number_of_symmetry_mates = getattr(self.sym_entry, 'number_of_operations', 1)
             return self._number_of_symmetry_mates
 
     @number_of_symmetry_mates.setter
