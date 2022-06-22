@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import math
 import os
 import warnings
@@ -9,8 +11,8 @@ from numpy import ndarray
 import PathUtils as PUtils
 from SymDesignUtils import start_log, dictionary_lookup, DesignError
 from utils.SymmetryUtils import valid_subunit_number, space_group_symmetry_operators, point_group_symmetry_operators, \
-    all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, sub_symmetries, flip_y_matrix, \
-    valid_symmetries
+    all_sym_entry_dict, rotation_range, setting_matrices, identity_matrix, sub_symmetries, flip_y_matrix, max_sym, \
+    valid_symmetries, SymmetryError
 
 # Copyright 2020 Joshua Laniado and Todd O. Yeates.
 __author__ = "Joshua Laniado and Todd O. Yeates"
@@ -929,8 +931,8 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
             else:  # C2, D6, C35
                 raise ValueError('%s is not a supported symmetry yet!' % symmetry)
         else:
-            raise DesignError('%s: Can\'t initialize without symmetry or sym_map!'
-                              % parse_symmetry_to_sym_entry.__name__)
+            raise \
+                SymmetryError(f'{parse_symmetry_to_sym_entry.__name__}: Can\'t initialize without symmetry or sym_map!')
 
     if not sym_entry:
         try:

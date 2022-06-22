@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import os
 from typing import List, Union
 
@@ -5,6 +7,11 @@ import numpy as np
 
 from PathUtils import sym_op_location, point_group_symmetry_operator_location, space_group_symmetry_operator_location
 from SymDesignUtils import unpickle, pickle_object
+
+
+class SymmetryError(Exception):
+    pass
+
 
 chiral_space_groups = [
     'P1',  # TRICLINIC

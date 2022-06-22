@@ -1020,9 +1020,9 @@ class SymmetricModel(Models):
         try:
             return space_group_number_operations[self.symmetry]
         except KeyError:
-            raise KeyError('The symmetry \'%s\' is not an available unit cell at this time. If this is a point group, '
-                           'adjust your code, otherwise, help expand the code to include the symmetry operators for '
-                           'this symmetry group')
+            raise SymmetryError(f'The symmetry "{self.symmetry}" is not an available unit cell at this time. If this is'
+                                f' a point group, adjust your code, otherwise, help expand the code to include the '
+                                f'symmetry operators for this symmetry group')
 
     # @number_of_uc_symmetry_mates.setter
     # def number_of_uc_symmetry_mates(self, number_of_uc_symmetry_mates):
@@ -1380,7 +1380,7 @@ class SymmetricModel(Models):
             elif self.dimension == 2:
                 z_shifts, uc_number = [0.], 9
             else:
-                return
+                raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
 
             uc_frac_coords = self.return_unit_cell_coords(self.coords, fractional=True)
             surrounding_frac_coords = np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d
@@ -1405,8 +1405,9 @@ class SymmetricModel(Models):
         """
         if self.number_of_symmetry_mates != self.number_of_models:  # we haven't generated symmetry models
             self.get_assembly_symmetry_mates(**kwargs)
-            if self.number_of_symmetry_mates != self.number_of_models:  # Todo SymmetryError
-                raise DesignError(f'{self.return_assembly_symmetry_mates.__name__}: The assembly couldn\'t be returned')
+            if self.number_of_symmetry_mates != self.number_of_models:
+                raise SymmetryError(f'{self.get_assembly_symmetry_models.__name__}: The assembly couldn\'t be '
+                                    f'returned')
 
         return self.models
 
@@ -1421,38 +1422,36 @@ class SymmetricModel(Models):
         """
         if not self.symmetry:
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
-            #                   % (self.get_assembly_symmetry_mates.__name__, self.name))
-            raise DesignError('%s: No symmetry set for %s! Cannot get symmetry mates'
-                              % (self.get_assembly_symmetry_mates.__name__, self.name))
+            #                   % (self.generate_assembly_symmetry_models.__name__, self.name))
+            raise SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}! Cannot '
+                                f'get symmetry mates')
         # if return_side_chains:  # get different function calls depending on the return type
         #     extract_pdb_atoms = getattr(PDB, 'atoms')
         # else:
         #     extract_pdb_atoms = getattr(PDB, 'backbone_and_cb_atoms')
 
-        # prior_idx = self.asu.number_of_atoms  # TODO modify by extract_pdb_atoms
-        if self.dimension == 0:
-            number_of_models = self.number_of_symmetry_mates
-        else:  # layer or space group
-            if surrounding_uc:
-                if self.number_of_symmetry_mates > self.number_of_uc_symmetry_mates:  # ensure surrounding coords exist
-                    number_of_models = self.number_of_symmetry_mates
-                else:
-                    raise ValueError('Cannot return the surrounding unit cells as no coordinates were generated for '
-                                     'them. Try passing surrounding_uc=True to .set_symmetry()')
-                # else:
-                #     number_of_models = self.number_of_uc_symmetry_mates  # set to the uc only
-            else:
-                number_of_models = self.number_of_uc_symmetry_mates
+        # prior_idx = self.asu.number_of_atoms
+        # if self.dimension > 0:
+        #     number_of_models = self.number_of_symmetry_mates
+        # else:  # layer or space group
+        if surrounding_uc:
+            if self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates:  # ensure surrounding coords exist
+                self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
+                # raise SymmetryError('Cannot return the surrounding unit cells as no coordinates were generated '
+                #                     f'for them. Try passing surrounding_uc=True to '
+                #                     f'{self.generate_symmetric_coords.__name__}')
+        # else:
+        # number_of_models = self.number_of_symmetry_mates
 
         number_of_atoms = self.number_of_atoms
         # number_of_atoms = len(self.coords)
-        for model_idx in range(number_of_models):
+        for coord_idx in range(self.number_of_symmetry_mates):
             self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
                               f'{type(self).__name__} is being taken which is probably relying on PDB.__copy__ or '
                               f'Structure.__copy__. These may not be adequate and need to be overwritten')
             symmetry_mate_pdb = copy(self)
-            symmetry_mate_pdb.replace_coords(self.symmetric_coords[(model_idx * number_of_atoms):
-                                                                   ((model_idx + 1) * number_of_atoms)])
+            symmetry_mate_pdb.replace_coords(self.symmetric_coords[(coord_idx * number_of_atoms):
+                                                                   ((coord_idx + 1) * number_of_atoms)])
             self.models.append(symmetry_mate_pdb)
 
     def find_asu_equivalent_symmetry_model(self):
@@ -1755,7 +1754,7 @@ class SymmetricModel(Models):
         attribute"""
         raise NotImplementedError('Cannot assign entities to sub symmetry yet! Need to debug this function')
         if not self.symmetry:
-            raise DesignError('Must set a global symmetry to assign entities to sub symmetry!')
+            raise SymmetryError('Must set a global symmetry to assign entities to sub symmetry!')
 
         # Get the rotation matrices for each group then orient along the setting matrix "axis"
         if self.sym_entry.group1 in ['D2', 'D3', 'D4', 'D6'] or self.sym_entry.group2 in ['D2', 'D3', 'D4', 'D6']:
@@ -1913,7 +1912,7 @@ class SymmetricModel(Models):
             The specific transformation dictionaries which place each Entity with proper symmetry axis in the Pose
         """
         if not self.symmetry:
-            raise DesignError('Must set a global symmetry to assign pose transformation!')
+            raise SymmetryError(f'Must set a global symmetry to {self.assign_pose_transformation.__name__}!')
 
         # get optimal external translation
         if self.dimension == 0:
@@ -2204,8 +2203,8 @@ class SymmetricModel(Models):
         Returns:
             True if the symmetric assembly clashes with the asu, False otherwise
         """
-        if not self.symmetry:  # Todo SymmetryError?
-            raise DesignError('Cannot check if the assembly is clashing as it has no symmetry!')
+        if not self.symmetry:
+            raise SymmetryError('Cannot check if the assembly is clashing as it has no symmetry!')
         # elif self.number_of_symmetry_mates == 1:
         #     raise ValueError(f'Cannot check if the assembly is clashing without first calling '
         #                      f'{self.generate_symmetric_coords.__name__}')
