@@ -241,10 +241,7 @@ solvent_weights_sym = 'ref2015_sym_solvent.wts_patch'
 scout_symmdef = path.join(symmetry_def_files, 'scout_symmdef_file.pl')
 symmetry_protocol = {0: 'make_point_group', 2: 'make_layer', 3: 'make_lattice'}  # -1: 'asymmetric',
 
-
+sym_utils_file = 'SymmetryUtils.py'
+path_to_sym_utils = path.join(path.dirname(__file__), sym_utils_file)
 # help and warnings
 warn_missing_symmetry = f'Cannot %s without providing symmetry! Provide symmetry with "--symmetry" or "--{sym_entry}"'
-
-
-def help(module):  # command is SymDesign.py
-    return '"%s %s -h" for help' % (command, module)

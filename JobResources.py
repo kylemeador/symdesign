@@ -16,7 +16,7 @@ import SymDesignUtils as SDUtils
 from CommandDistributer import rosetta_flags, script_cmd, distribute, relax_flags, rosetta_variables
 from PDB import PDB, fetch_pdb_file, query_qs_bio
 from PathUtils import monofrag_cluster_rep_dirpath, intfrag_cluster_rep_dirpath, intfrag_cluster_info_dirpath, \
-    frag_directory
+    frag_directory, sym_entry
 from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe, refine, biological_interfaces, \
     biological_fragment_db_pickle, all_scores, projects, sequence_info, data, output_oligomers, output_fragments, \
     structure_background, scout, generate_fragments, number_of_trajectories, nstruct, no_hbnet, \
@@ -28,7 +28,7 @@ from Structure import parse_stride, Entity
 from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup, \
     parameterize_frag_length
 from classes.EulerLookup import EulerLookup
-from classes.SymEntry import sdf_lookup, symmetry_factory
+from classes.SymEntry import sdf_lookup, symmetry_factory, SymEntry
 from utils.MysqlPython import Mysql
 
 # import dependencies.bmdca as bmdca
@@ -1056,6 +1056,7 @@ class JobResources:
         self.scout: bool = kwargs.get(scout, False)
         self.specific_protocol: str = kwargs.get('specific_protocol', False)
         self.structure_background: bool = kwargs.get(structure_background, False)
+        self.sym_entry: SymEntry | None = kwargs.get(sym_entry, None)
         self.write_frags: bool = kwargs.get(output_fragments, True)  # todo, if generate_fragments module, ensure True
         self.write_oligomers: bool = kwargs.get(output_oligomers, False)
         self.skip_logging: bool = kwargs.get('skip_logging', False)

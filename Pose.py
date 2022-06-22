@@ -24,13 +24,13 @@ from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Res
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
     match_score_from_z_value, dictionary_lookup, digit_translate_table
 from classes.EulerLookup import EulerLookup, euler_factory
-from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members,\
-    symmetry_combination_format
+from classes.SymEntry import get_rot_matrices, make_rotations_degenerate, SymEntry, point_group_setting_matrix_members, \
+    symmetry_combination_format, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.GeneralUtils import transform_coordinate_sets
 from utils.SymmetryUtils import valid_subunit_number, space_group_cryst1_fmt_dict, layer_group_cryst1_fmt_dict, \
     generate_cryst1_record, space_group_number_operations, point_group_symmetry_operators, \
     space_group_symmetry_operators, possible_symmetries, rotation_range, setting_matrices, inv_setting_matrices, \
-    origin, flip_x_matrix, identity_matrix
+    origin, flip_x_matrix, identity_matrix, SymmetryError
 
 # from operator import itemgetter
 
@@ -869,14 +869,101 @@ class SymmetricModel(Models):
     # def from_asu_file(cls, asu_file, **kwargs):
     #     return cls(asu_file=asu_file, **kwargs)
 
-    # @property
-    # def asu(self) -> Structure:
-    #     """The asymmetric unit of the symmetric system"""
-    #     return self._pdb
-    #
-    # @asu.setter
-    # def asu(self, asu):
-    #     self.pdb = asu
+    def set_symmetry(self, sym_entry: SymEntry | int = None, symmetry: str = None,
+                     uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None):
+        """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
+        notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
+        only the symmetry is required
+
+        Args:
+            sym_entry: The SymEntry which specifies all symmetry parameters
+            symmetry: The name of a symmetry to be searched against the existing compatible symmetries
+            uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
+            expand_matrices: A set of custom expansion matrices
+        """
+        # try to solve for symmetry as we want uc_dimensions if available for cryst ops
+        if self.cryst_record:  # was populated from file parsing
+            if not uc_dimensions and not symmetry:  # only if user didn't provide both
+                uc_dimensions, symmetry = parse_cryst_record(self.cryst_record)
+
+        if symmetry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
+            symmetry = ''.join(symmetry.split())
+
+        if sym_entry:
+            if isinstance(sym_entry, SymEntry):  # attach if SymEntry class set up
+                self.sym_entry = sym_entry
+            else:  # try to solv using integer and any info in symmetry. Fails upon non Nanohedra chiral space-group...
+                self.sym_entry = parse_symmetry_to_sym_entry(sym_entry=sym_entry, symmetry=symmetry)
+        elif symmetry:  # either provided or solved from cryst_record
+            # existing sym_entry takes precedence since the user specified it
+            try:  # Fails upon non Nanohedra chiral space-group...
+                if not self.sym_entry:  # ensure conversion to Hermann–Mauguin notation. ex: P23 not P 2 3
+                    self.sym_entry = parse_symmetry_to_sym_entry(symmetry=symmetry)
+            except ValueError as error:  # let's print the error and move on since this is likely just parsed
+                logger.warning(str(error))
+                self.symmetry = symmetry
+                # not sure if cryst record can differentiate between 2D and 3D. 3D will be wrong if actually 2D
+                self.dimension = 2 if symmetry in layer_group_cryst1_fmt_dict else 3
+
+            # if symmetry in layer_group_cryst1_fmt_dict:  # not available yet for non-Nanohedra PG's
+            #     self.dimension = 2
+            #     self.symmetry = symmetry
+            # elif symmetry in space_group_cryst1_fmt_dict:  # not available yet for non-Nanohedra SG's
+            #     self.dimension = 3
+            #     self.symmetry = symmetry
+            # elif symmetry in possible_symmetries:
+            #     self.symmetry = possible_symmetries[symmetry]
+            #     self.point_group_symmetry = possible_symmetries[symmetry]
+            #     self.dimension = 0
+
+            # elif self.uc_dimensions is not None:
+            #     raise DesignError('Symmetry %s is not available yet! If you didn\'t provide it, the symmetry was likely'
+            #                       ' set from a PDB file. Get the symmetry operations from the international'
+            #                       ' tables and add to the pickled operators if this displeases you!' % symmetry)
+            # else:  # when a point group besides T, O, or I is provided
+            #     raise DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s and add '
+            #                       'to the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
+        else:  # no symmetry was provided
+            # since this is now subclassed by Pose, lets ignore this error since self.symmetry is explicitly False
+            return
+            # raise SymmetryError('A SymmetricModel was initiated without any symmetry! Ensure you specify the symmetry '
+            #                     'upon class initialization by passing symmetry=, or sym_entry=')
+
+        # set the uc_dimensions if they were parsed or provided
+        if self.dimension > 0 and uc_dimensions is not None:
+            self.uc_dimensions = uc_dimensions
+
+        if expand_matrices:  # perhaps these would be from a fiber or some sort of BIOMT?
+            if isinstance(expand_matrices, tuple) and len(expand_matrices) == 2:
+                self.log.critical('Providing expansion matrices may result in program crash if you '
+                                  'don\'t work on the SymmetricModel class! Proceed with caution')
+                expand_matrices, expand_translations = expand_matrices
+                self.expand_translations = \
+                    np.ndarray(expand_translations) if not isinstance(expand_translations, np.ndarray) \
+                    else expand_translations
+                # lets assume expand_matrices were provided in a standard orientation and transpose
+                # using .swapaxes(-2, -1) call instead of .transpose() for safety
+                self.expand_matrices = \
+                    np.ndarray(expand_matrices).swapaxes(-2, -1) if not isinstance(expand_matrices, np.ndarray) \
+                    else expand_matrices
+            else:
+                raise SymmetryError(f'The expand matrix form {expand_matrices} is not supported! Must provide a tuple '
+                                    f'of array like objects with the form (expand_matrix(s), expand_translation(s))')
+        else:
+            if self.dimension == 0:
+                self.expand_matrices, self.expand_translations = point_group_symmetry_operators[self.symmetry], origin
+            else:
+                self.expand_matrices, self.expand_translations = space_group_symmetry_operators[self.symmetry]
+
+        # Todo?
+        #  remove any existing symmetry attr from the Model
+        #  if not self.sym_entry:
+        #      del self._symmetry
+
+        # if generate_assembly_coords:  # if self.asu and generate_assembly_coords:
+        #     self.generate_symmetric_coords(**kwargs)
+        #     if generate_symmetry_mates:
+        #         self.generate_assembly_symmetry_models(**kwargs)
 
     # def set_asu_coords(self, coords):
     #     # overwrite all the coords for each member Entity
@@ -941,16 +1028,22 @@ class SymmetricModel(Models):
         return ''.join(entity.reference_sequence for entity in self.entities)
 
     @property
-    def sym_entry(self) -> SymEntry:
+    def sym_entry(self) -> SymEntry | None:
         """The SymEntry specifies the symmetric parameters for the utilized symmetry"""
         try:
             return self._sym_entry
         except AttributeError:
-            raise DesignError('No symmetry entry was specified!')
+            # raise SymmetryError('No symmetry entry was specified!')
+            self._sym_entry = None
+            return self._sym_entry
 
     @sym_entry.setter
-    def sym_entry(self, sym_entry):
-        self._sym_entry = sym_entry
+    def sym_entry(self, sym_entry: SymEntry | int):
+        if isinstance(sym_entry, SymEntry):
+            self._sym_entry = sym_entry
+        else:  # try to convert
+            self._sym_entry = symmetry_factory(sym_entry)
+        # Todo remove hidden symmetric ._ attributes if set
 
     @property
     def symmetry(self) -> str:
@@ -1176,79 +1269,6 @@ class SymmetricModel(Models):
                 PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
                                 cryst_record=self.cryst_record, entities=False)
             return self._assembly_minimally_contacting
-
-    def set_symmetry(self, sym_entry: SymEntry = None, symmetry: str = None, cryst1: str = None,
-                     uc_dimensions: list[float] = None,  expand_matrices: np.ndarray | list = None,
-                     generate_assembly_coords: bool = True, generate_symmetry_mates: bool = False, **kwargs):
-        """Set the model symmetry using the CRYST1 record, or the unit cell dimensions and the Hermann–Mauguin symmetry
-        notation (in CRYST1 format, ex P 4 3 2) for the Model assembly. If the assembly is a point group,
-        only the symmetry is required
-
-        Args:
-            sym_entry: The SymEntry which specifies all symmetry parameters
-            symmetry: The name of a symmetry to be searched against the existing compatible symmetries
-            cryst1: The unit cell dimensions in PDB CRYST1 format
-            uc_dimensions: Whether the symmetric coords should be generated from the ASU coords
-            expand_matrices: A set of custom expansion matrices
-            generate_assembly_coords: Whether the symmetric coords should be generated from the ASU coords
-            generate_symmetry_mates: Whether the symmetric models should be generated from the ASU model
-        Keyword Args:
-            return_side_chains=True (bool): Whether to return all side chain atoms. False returns backbone and CB atoms
-            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        """
-        if cryst1:
-            uc_dimensions, symmetry = parse_cryst_record(cryst1)
-
-        if sym_entry and isinstance(sym_entry, SymEntry):
-            self.sym_entry = sym_entry
-            # del self._symmetry  # remove any existing symmetry attr like None from Model init
-            if self.dimension > 0 and uc_dimensions is not None:
-                self.uc_dimensions = uc_dimensions
-        elif symmetry:
-            # Todo solve for SymEntry like in SymDesign.py main
-            #  self.sym_entry = SymEntry()
-            if uc_dimensions:
-                self.uc_dimensions = uc_dimensions
-                self.symmetry = ''.join(symmetry.split())
-
-            if symmetry in layer_group_cryst1_fmt_dict:  # not available yet for non-Nanohedra PG's
-                self.dimension = 2
-                self.symmetry = symmetry
-            elif symmetry in space_group_cryst1_fmt_dict:  # not available yet for non-Nanohedra SG's
-                self.dimension = 3
-                self.symmetry = symmetry
-            elif symmetry in possible_symmetries:
-                self.symmetry = possible_symmetries[symmetry]
-                self.point_group_symmetry = possible_symmetries[symmetry]
-                self.dimension = 0
-
-            elif self.uc_dimensions is not None:
-                raise DesignError('Symmetry %s is not available yet! If you didn\'t provide it, the symmetry was likely'
-                                  ' set from a PDB file. Get the symmetry operations from the international'
-                                  ' tables and add to the pickled operators if this displeases you!' % symmetry)
-            else:  # when a point group besides T, O, or I is provided
-                raise DesignError('Symmetry %s is not available yet! Get the canonical symm operators from %s and add '
-                                  'to the pickled operators if this displeases you!' % (symmetry, PUtils.orient_dir))
-        else:  # no symmetry was provided
-            raise DesignError('A SymmetricModel was initiated without any symmetry! Ensure you specify the symmetry '
-                              'upon class initialization by passing symmetry=, or sym_entry=')
-
-        if expand_matrices:
-            # ensure these are numpy.ndarray with isinstance()
-            # and each rot is transposed. might need to include a .swapaxes(-2, -1) call
-            # Todo rotation and translation separated
-            self.expand_matrices = \
-                np.ndarray(expand_matrices).T if not isinstance(expand_matrices, np.ndarray) else expand_matrices
-        else:
-            if self.dimension == 0:
-                self.expand_matrices, self.expand_translations = point_group_symmetry_operators[self.symmetry], origin
-            else:  # ensure Hermann–Mauguin notation ex P23 not P 2 3
-                self.expand_matrices, self.expand_translations = space_group_symmetry_operators[self.symmetry]
-
-        if generate_assembly_coords:  # if self.asu and generate_assembly_coords:
-            self.generate_symmetric_coords(**kwargs)  # Todo remove this call? after symmetry set up rework...
-            if generate_symmetry_mates:
-                self.get_assembly_symmetry_mates(**kwargs)
 
     def generate_symmetric_coords(self, **kwargs):
         """Expand the asu using self.symmetry for the symmetry specification, and optional unit cell dimensions if
