@@ -10,7 +10,7 @@ from JobResources import fragment_factory
 from PDB import orient_pdb_file
 from SymDesignUtils import get_all_file_paths, start_log, set_logging_to_debug
 from classes.EulerLookup import euler_factory
-from classes.SymEntry import SymEntry
+from classes.SymEntry import symmetry_factory
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
 from utils.GeneralUtils import write_docking_parameters, get_rotation_step
 from utils.NanohedraManualUtils import print_usage
@@ -58,7 +58,7 @@ if __name__ == '__main__':
             assert os.path.exists(orient_executable_path), orient_assert_error_message
 
             # SymEntry Parameters
-            sym_entry = SymEntry(sym_entry_number)  # sym_map inclusion?
+            sym_entry = symmetry_factory(sym_entry_number)  # sym_map inclusion?
 
             # initialize the main Nanohedra log
             write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,

@@ -18,7 +18,7 @@ from SymDesignUtils import calculate_overlap, match_score_from_z_value, start_lo
     calculate_match, z_value_from_match_score, set_logging_to_debug
 from classes.EulerLookup import EulerLookup, euler_factory
 from classes.OptimalTx import OptimalTx
-from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate
+from classes.SymEntry import SymEntry, get_rot_matrices, make_rotations_degenerate, symmetry_factory
 from classes.WeightedSeqFreq import FragMatchInfo, SeqFreqInfo
 from utils.CmdLineArgParseUtils import get_docking_parameters
 from utils.GeneralUtils import get_last_sampling_state, write_docked_pose_info, transform_coordinate_sets, \
@@ -1710,7 +1710,7 @@ if __name__ == '__main__':
             master_logger = start_log(name=os.path.basename(__file__), handler=2, location=master_log_filepath,
                                       propagate=True)
         # SymEntry Parameters
-        symmetry_entry = SymEntry(sym_entry_number)  # sym_map inclusion?
+        symmetry_entry = symmetry_factory(sym_entry_number)  # sym_map inclusion?
 
         if initial:
             # make master output directory

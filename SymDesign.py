@@ -43,7 +43,7 @@ from Query.PDB import retrieve_pdb_entries_by_advanced_query
 from Query.utils import input_string, bool_d, validate_input, boolean_choice, invalid_string
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 from classes.EulerLookup import euler_factory
-from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
+from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.CmdLineArgParseUtils import query_mode
 from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module, \
     process_design_selector_flags, parser_residue_selector
@@ -592,7 +592,7 @@ def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
         with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
             for line in f.readlines():
                 if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                    return SymEntry(int(line.split(':')[-1]))  # sym_map inclusion?
+                    return symmetry_factory(int(line.split(':')[-1]))  # sym_map inclusion?
     except FileNotFoundError:
         raise FileNotFoundError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
                                 % os.path.join(nanohedra_dir, PUtils.master_log))
