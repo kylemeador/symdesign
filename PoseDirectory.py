@@ -69,7 +69,6 @@ variance = 0.8
 # Todo move PDB coordinate information to Pose. Only use to handle Pose paths/options
 class PoseDirectory:
     composition: str | None
-    design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]]
     directives: list[dict[int, str]]
     entities: list[Structure]
     entity_names: list[str]
@@ -130,7 +129,7 @@ class PoseDirectory:
         self.background_profile: str = kwargs.get('background_profile', PUtils.design_profile)  # by default, grab design profile
         self.directives = kwargs.get('directives', [])
         # Todo refactor to JobResources and save in PoseDirectory state
-        self.design_selector = kwargs.get('design_selector', None)
+        # self.design_selector = kwargs.get('design_selector', None)
         self.entity_names = kwargs.get('entity_names', [])
         self.fragment_observations = None  # [{'1_2_24': [(78, 87, ...), ...], ...}]
         self.info: dict = {}  # internal state info
@@ -341,6 +340,11 @@ class PoseDirectory:
     @property
     def clustered_poses(self):
         return self.job_resources.clustered_poses  # program_root/Data/ClusteredPoses
+
+    @property
+    def design_selector(self) -> dict[str, dict[str, dict[str, set[int] | set[str]]]]:
+        """Provide the JobResource design_selector"""
+        return self.job_resources.design_selector
 
     @property
     def euler_lookup(self) -> EulerLookup:
@@ -1933,7 +1937,7 @@ class PoseDirectory:
 
     def load_pose(self, source: str = None, entities: list[Structure] = None):
         """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
-        self.symmetry, self.design_selectors, self.fragment_database, and self.log objects
+        self.symmetry, self.design_selector, self.fragment_database, and self.log objects
 
         Handles clash testing and writing the assembly if those options are True
 
