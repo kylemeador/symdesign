@@ -21,10 +21,10 @@ from SequenceProfile import read_fasta_file
 from SymDesignUtils import pretty_format_table, DesignError, handle_errors, clean_comma_separated_string, \
     format_index_string, ex_path
 
-terminal_formatter = '\n\t\t\t\t\t\t     '
+# terminal_formatter = '\n\t\t\t\t\t\t     '
 
 
-def process_residue_selector_flags(flags: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
+def process_design_selector_flags(flags: dict[str]) -> dict[str, dict[str, set | set[int] | set[str]]]:
     # Todo move to a verify design_selectors function inside of Pose? Own flags module?
     #  Pull mask_design_using_sequence out of flags
     # -------------------
@@ -262,10 +262,10 @@ parser_options_arguments = {
     ('-Oa', '--output_assembly'): dict(action='store_true',
                                        help='Whether the assembly should be output? Infinite materials are output in a '
                                             'unit cell\nDefault=%(default)s'),
-    ('-Od', '--outdir', '--output_directory'): dict(type=os.path.abspath, dest='output_directory', default=None,
-                                                    help='If provided, the name of the directory to output all created '
-                                                         'files.\nOtherwise, one will be generated based on the time, '
-                                                         'input, and module'),
+    # ('-Od', '--outdir', '--output_directory'): dict(type=os.path.abspath, dest='output_directory', default=None,
+    #                                                 help='If provided, the name of the directory to output all created '
+    #                                                      'files.\nOtherwise, one will be generated based on the time, '
+    #                                                      'input, and module'),
     ('-Of', '--output_file'): dict(type=str,  # default=default_path_file,
                                    help='If provided, the name of the output pose file.\nOtherwise, one will be '
                                         'generated based on the time, input, and module'),
@@ -291,7 +291,8 @@ parser_options_arguments = {
                                    '\nDefault=%(default)s'),
     ('-S', '--symmetry'): dict(type=str, default=None,
                                help='The specific symmetry of the poses of interest.\nPreferably in a composition '
-                                    'formula such as T:{C3}{C3}...'),
+                                    'formula such as T:{C3}{C3}...\nCan also provide the keyword "cryst" to use crystal'
+                                    ' symmetry'),
 }
 parser_residue_selector_group = \
     dict(title='residue selector arguments', description='Residue selectors control which parts of the Pose are '
@@ -522,7 +523,7 @@ parser_select_poses_arguments = {
     (f'--{protocol}',): dict(type=str, default=None, nargs='*', help='Use specific protocol(s) to filter metrics?'),
     ('-n', '--select_number'): dict(type=int, default=sys.maxsize, metavar='INT',
                                     help='Number of poses to return\nDefault=No Limit'),
-    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
+    # ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--save_total',): dict(action='store_false',
                             help='If --total is used, should the total dataframe be saved?\nDefault=%(default)s'),
     ('--total',): dict(action='store_true',
@@ -584,7 +585,7 @@ parser_select_sequences_arguments = {
     ('-ssg', '--skip_sequence_generation'): dict(action='store_true',
                                                  help='Should sequence generation be skipped? Only structures will be '
                                                       'selected\nDefault=%(default)s'),
-    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
+    # ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--sequences_per_pose',): dict(type=int, default=1, dest='designs_per_pose',
                                     help='What is the maximum number of sequences that should be selected from '
                                          'each pose?\nDefault=%(default)s'),
@@ -625,7 +626,7 @@ parser_select_designs_arguments = {
                                          'specified number of sequences (Where Default=No Limit).\nOtherwise the '
                                          'specified number will be selected from each pose (Where Default=1/pose)'),
     (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
-    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
+    # ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--save_total',): dict(action='store_false',
                             help='If --total is used, should the total dataframe be saved?\nDefault=%(default)s'),
     ('--total',): dict(action='store_true',
@@ -655,7 +656,7 @@ parser_multicistronic_arguments = {
     ('-opt', '--optimize_species'): dict(type=str, default='e_coli',
                                          help='The organism where expression will occur and nucleotide usage should be '
                                               'optimized\nDefault=%(default)s'),
-    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to sequence output file'),
+    # ('--prefix',): dict(type=str, metavar='string', help='String to prepend to sequence output file'),
 }
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
@@ -690,10 +691,10 @@ parser_rename_chains = dict(rename_chains=dict(help='For given poses, rename the
 # parser_residue_selector = dict(residue_selector=dict(help='Generate a residue selection for %s' % program_name))
 # # parser_residue_selector = subparsers.add_parser('residue_selector', help='Generate a residue selection for %s' % program_name)
 # ---------------------------------------------------
-directory_needed = f'Provide your working {program_output} with -d/--directory to locate poses\nfrom a file utilizing ' \
+directory_needed = f'Provide your working {program_output} with -d/--directory to locate poses\nfrom a file utilizing '\
                    f'pose IDs (-df, -pf, and -sf)'
-parser_input_group = dict(title='input arguments',
-                          description='Specify where/which poses should be included in processing.\n%s' % directory_needed)
+parser_input_group = dict(title='input arguments', description=f'Specify where/which poses should be included in '
+                                                               f'processing.\n{directory_needed}')
 parser_input_arguments = {
     ('-c', '--cluster_map'): dict(type=os.path.abspath,
                                   help='The location of a serialized file containing spatially or interfacial '
@@ -736,7 +737,19 @@ parser_input_mutual_arguments = {
                              metavar=ex_path('SymDesignOutput', 'Projects', 'yourProject', 'single_design[.pdb]'),
                              help='Operate on single pose(s) in a project'),
 }
-
+parser_output_group = dict(title='output arguments', description='Specify where output should be written')
+parser_output_arguments = {
+    ('-Od', '--outdir', '--output_directory'): dict(type=os.path.abspath, dest='output_directory', default=None,
+                                                    help='If provided, the name of the directory to output all created '
+                                                         'files.\nOtherwise, one will be generated based on the time, '
+                                                         'input, and module'),
+    # Todo include here, just copied from above
+    # ('-Of', '--output_file'): dict(type=str,  # default=default_path_file,
+    #                                help='If provided, the name of the output pose file.\nOtherwise, one will be '
+    #                                     'generated based on the time, input, and module'),
+    ('--prefix',): dict(type=str, metavar='string', help='String to prepend to output name'),
+    ('--suffix',): dict(type=str, metavar='string', help='String to append to output name'),
+}
 module_parsers = dict(refine=parser_refine,
                       nanohedra=parser_nanohedra,
                       nanohedra_mutual1=parser_nanohedra_mutual1_group,  # _mutual1,
@@ -761,6 +774,7 @@ module_parsers = dict(refine=parser_refine,
                       )
 input_parsers = dict(input=parser_input_group,
                      input_mutual=parser_input_mutual_group)  # _mutual
+output_parsers = dict(input=parser_output_group)
 option_parsers = dict(options=parser_options_group)
 residue_selector_parsers = dict(residue_selector=parser_residue_selector_group)
 parser_arguments = dict(options_arguments=parser_options_arguments,
@@ -782,23 +796,27 @@ parser_arguments = dict(options_arguments=parser_options_arguments,
                         multicistronic_arguments=parser_multicistronic_arguments,
                         # flags_arguments=parser_flags_arguments,
                         input_arguments=parser_input_arguments,
-                        input_mutual_arguments=parser_input_mutual_arguments  # add_mutually_exclusive_group
+                        input_mutual_arguments=parser_input_mutual_arguments,  # add_mutually_exclusive_group
+                        output_arguments=parser_output_arguments,
                         )
 parser_options = 'parser_options'
 parser_residue_selector = 'parser_residue_selector'
 parser_input = 'parser_input'
+parser_output = 'parser_output'
 parser_module = 'parser_module'
 parser_guide_module = 'parser_guide_module'
 parser_entire = 'parser_entire'
-options_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)
-residue_selector_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)
+options_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter)  # Todo? , usage=usage_string)
+residue_selector_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
 input_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
 module_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
+output_argparser = dict(add_help=False, allow_abbrev=False, formatter_class=Formatter, usage=usage_string)
 argparser_kwargs = dict(parser_options=options_argparser,
                         parser_residue_selector=residue_selector_argparser,
                         parser_input=input_argparser,
                         parser_module=module_argparser,
-                        parser_guide_module=module_argparser
+                        parser_guide_module=module_argparser,
+                        parser_output=output_argparser,
                         )
 # Initialize various independent ArgumentParsers
 argparsers: dict[str, argparse.ArgumentParser] = {}
@@ -888,6 +906,21 @@ for parser_name, parser_kwargs in input_parsers.items():
             for args, kwargs in arguments.items():
                 input_group.add_argument(*args, **kwargs)
 
+# Set up output ArgumentParser with output arguments
+parser = argparsers[parser_output]
+output_group = None  # must get added before mutual groups can be added
+for parser_name, parser_kwargs in output_parsers.items():
+    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    if arguments:
+        if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
+            exclusive_parser = output_group.add_mutually_exclusive_group(required=True, **parser_kwargs)
+            for args, kwargs in arguments.items():
+                exclusive_parser.add_argument(*args, **kwargs)
+        else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+            output_group = parser.add_argument_group(**parser_kwargs)
+            for args, kwargs in arguments.items():
+                output_group.add_argument(*args, **kwargs)
+
 # Set up entire ArgumentParser with all ArgumentParsers
 entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_on_error=False, # prog=program_name,
                         description='Control all input/output of various %s operations including:'
@@ -902,7 +935,7 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                                     % (program_name, nano.title(), program_command),
                         formatter_class=Formatter, usage=usage_string,
                         parents=[argparsers.get(parser) for parser in [parser_module, parser_options,
-                                                                       parser_residue_selector]])
+                                                                       parser_residue_selector, parser_output]])
 argparsers[parser_entire] = argparse.ArgumentParser(**entire_argparser)
 parser = argparsers[parser_entire]
 # can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
