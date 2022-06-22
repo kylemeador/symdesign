@@ -4426,8 +4426,8 @@ class Entity(Chain, SequenceProfile):
                 degeneracy_matrices = None
             degeneracy_rotation_matrices = make_rotations_degenerate(rotation_matrices, degeneracy_matrices)
         except KeyError:
-            raise ValueError('The symmetry %s is not a viable symmetry! You should try to add compatibility for it'
-                             ' if you believe this is a mistake' % symmetry)
+            raise ValueError(f'The symmetry {symmetry} is not a viable symmetry! You should try to add compatibility '
+                             f'for it if you believe this is a mistake')
         self.symmetry = symmetry
         self.is_oligomeric = True
         if rotation is None:
@@ -4781,7 +4781,7 @@ class Entity(Chain, SequenceProfile):
         Returns:
             Symmetry definition filename
         """
-        out_file = os.path.join(out_path, '%s.sdf' % self.name)
+        out_file = os.path.join(out_path, f'{self.name}.sdf')
         # Todo Master branch reinstate
         # if os.path.exists(out_file):
         #     return out_file

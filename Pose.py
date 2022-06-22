@@ -1538,7 +1538,7 @@ class SymmetricModel(Models):
             # chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
             chain_center_of_mass = chain.center_of_mass
             # print('Chain', chain_center_of_mass.astype(int))
-            for model_num in range(self.number_of_symmetry_mates):  # Todo modify this to be with symmetric coms
+            for model_num in range(self.number_of_symmetry_mates):  # Todo modify below to be with symmetric coms
                 sym_model_center_of_mass = \
                     np.matmul(entity_center_of_mass_divisor,
                               self.symmetric_coords[(model_num * number_of_atoms) + entity_start:
@@ -1786,6 +1786,7 @@ class SymmetricModel(Models):
 
         Args:
             coords: The coordinates to symmetrize
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Returns:
             The symmetrized coordinates
         """
@@ -2017,7 +2018,7 @@ class SymmetricModel(Models):
             # external_tx = [external_tx1, external_tx2]
             self.log.critical('This functionality has never been tested! Inspect all outputs before trusting results')
             external_tx = \
-                [(optimal_external_shifts[:, None] * getattr(self.sym_entry, 'external_dof%d' % idx)).sum(axis=-2)
+                [(optimal_external_shifts[:, None] * getattr(self.sym_entry, f'external_dof{idx}')).sum(axis=-2)
                  for idx, group in enumerate(self.sym_entry.groups, 1)]
 
         center_of_mass_symmetric_entities = self.center_of_mass_symmetric_entities
@@ -3358,7 +3359,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         residue_template = {'energy': {'complex': 0., 'unbound': [0. for ent in self.entities], 'fsp': 0., 'cst': 0.}}
         pose_length = self.number_of_residues
         # adjust the energy based on pose specifics
-        pose_energy_multiplier = self.number_of_symmetry_mates
+        pose_energy_multiplier = self.number_of_symmetry_mates  # will be 1 if not symmetric
         entity_energy_multiplier = [entity.number_of_monomers for entity in self.entities]
 
         warn = False
@@ -3425,7 +3426,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         #                                'unbound': [0. for _ in self.entities], 'bound': [0. for _ in self.entities]}}
         pose_length = self.number_of_residues
         # adjust the energy based on pose specifics
-        pose_energy_multiplier = self.number_of_symmetry_mates
+        pose_energy_multiplier = self.number_of_symmetry_mates  # will be 1 if not symmetric
         entity_energy_multiplier = [entity.number_of_monomers for entity in self.entities]
 
         warn = False
