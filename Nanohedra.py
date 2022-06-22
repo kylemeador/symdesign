@@ -58,7 +58,7 @@ if __name__ == '__main__':
             assert os.path.exists(orient_executable_path), orient_assert_error_message
 
             # SymEntry Parameters
-            sym_entry = symmetry_factory(sym_entry_number)  # sym_map inclusion?
+            sym_entry = symmetry_factory.get(sym_entry_number)  # sym_map inclusion?
 
             # initialize the main Nanohedra log
             write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, sym_entry, master_outdir,

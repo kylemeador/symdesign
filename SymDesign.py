@@ -592,7 +592,7 @@ def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
         with open(os.path.join(nanohedra_dir, PUtils.master_log), 'r') as f:
             for line in f.readlines():
                 if 'Nanohedra Entry Number: ' in line:  # "Symmetry Entry Number: " or
-                    return symmetry_factory(int(line.split(':')[-1]))  # sym_map inclusion?
+                    return symmetry_factory.get(int(line.split(':')[-1]))  # sym_map inclusion?
     except FileNotFoundError:
         raise FileNotFoundError('The Nanohedra Output Directory is malformed. Missing required docking file %s'
                                 % os.path.join(nanohedra_dir, PUtils.master_log))
@@ -744,7 +744,7 @@ if __name__ == '__main__':
             queried_flags['symmetry'] = 'cryst'
         queried_flags[PUtils.sym_entry] = parse_symmetry_to_sym_entry(sym_entry=user_sym_entry, symmetry=user_symmetry)
     elif user_sym_entry:
-        queried_flags[PUtils.sym_entry] = symmetry_factory(user_sym_entry)
+        queried_flags[PUtils.sym_entry] = symmetry_factory.get(user_sym_entry)
 
     sym_entry = queried_flags[PUtils.sym_entry]
     if not isinstance(sym_entry, SymEntry):  # remove if not an actual SymEntry
