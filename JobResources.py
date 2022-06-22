@@ -314,16 +314,16 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             if pre_refine:
                 # Generate sbatch refine command
                 flags_file = os.path.join(refine_dir, 'refine_flags')
-                if not os.path.exists(flags_file):
-                    flags = copy(rosetta_flags) + relax_flags
-                    flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
-                    flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
-                    variables = copy(rosetta_variables)
-                    variables.append(('dist', 0))  # Todo modify if not point groups used
-                    flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
+                # if not os.path.exists(flags_file):
+                flags = copy(rosetta_flags) + relax_flags
+                flags.extend([f'-out:path:pdb {refine_dir}', '-no_scorefile true'])
+                flags.remove('-output_only_asymmetric_unit true')  # want full oligomers
+                variables = copy(rosetta_variables)
+                variables.append(('dist', 0))  # Todo modify if not point groups used
+                flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
 
-                    with open(flags_file, 'w') as f:
-                        f.write('%s\n' % '\n'.join(flags))
+                with open(flags_file, 'w') as f:
+                    f.write('%s\n' % '\n'.join(flags))
 
                 refine_cmd = [f'@{flags_file}', '-parser:protocol', os.path.join(rosetta_scripts, f'{refine}.xml')]
                 refine_cmds = [script_cmd + refine_cmd + ['-in:file:s', entity.filepath, '-parser:script_vars'] +
@@ -364,16 +364,16 @@ class Database:  # Todo ensure that the single object is completely loaded befor
             if pre_loop_model:
                 # Generate sbatch refine command
                 flags_file = os.path.join(full_model_dir, 'loop_model_flags')
-                if not os.path.exists(flags_file):
-                    loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
-                    #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
-                    flags = copy(rosetta_flags) + loop_model_flags
-                    # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
-                    flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
-                    variables = [('script_nstruct', '100')]
-                    flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
-                    with open(flags_file, 'w') as f:
-                        f.write('%s\n' % '\n'.join(flags))
+                # if not os.path.exists(flags_file):
+                loop_model_flags = ['-remodel::save_top 0', '-run:chain A', '-remodel:num_trajectory 1']
+                #                   '-remodel:run_confirmation true', '-remodel:quick_and_dirty',
+                flags = copy(rosetta_flags) + loop_model_flags
+                # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
+                flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
+                variables = [('script_nstruct', '100')]
+                flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
+                with open(flags_file, 'w') as f:
+                    f.write('%s\n' % '\n'.join(flags))
                 loop_model_cmd = [f'@{flags_file}', '-parser:protocol',
                                   os.path.join(rosetta_scripts, 'loop_model_ensemble.xml'), '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
