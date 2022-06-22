@@ -123,7 +123,7 @@ if __name__ == '__main__':
     print('Set up is complete! You can now use %s for design of protein interfaces generated using Nanohedra.'
           % PUtils.program_name)
     print('To design materials, navigate to your desired Nanohedra output directory and run the command %s for details'
-          % PUtils.command)
+          % PUtils.program_exe)
 
 # TODO Set up SymDesign.py and ProcessRosettaCommands.sh depending on status of PathUtils
 # Todo ensure that FreeSASA is built. May need to investigate this option
