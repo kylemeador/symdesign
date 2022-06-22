@@ -13,7 +13,7 @@ def orient_oligomer(pdb_path, sym, out_dir=os.getcwd()):
 
 if __name__ == '__main__':
     if len(sys.argv) != 4:
-        print('USAGE: python OrientOligomer.py symmetry_type pdb_or_pdb_directory_path absolute_output_path')
+        print('USAGE: python OrientOligomer.py symmetry_type pdb_file_or_directory_path absolute_output_path')
     else:
         sym = sys.argv[1].upper()
         pdb_paths = sys.argv[2]
@@ -21,8 +21,8 @@ if __name__ == '__main__':
         out_dir = sys.argv[3]
         if not os.path.exists(out_dir):
             os.makedirs(out_dir)
-        if '.pdb' in pdb_paths and type(pdb_paths) != list:
-            all_pdb_paths = [pdb_paths, ]
+        if '.pdb' in pdb_paths:
+            all_pdb_paths = [pdb_paths]
         else:
             all_pdb_paths = get_directory_file_paths(pdb_paths, extension='.pdb')
 
