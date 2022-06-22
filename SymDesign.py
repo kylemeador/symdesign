@@ -2285,18 +2285,19 @@ if __name__ == '__main__':
                     # and save to view where additions lie on sequence. Cross these additions with design structure to check
                     # if insertions are compatible
                     all_insertions = {residue: {'to': aa} for residue, aa in enumerate(design_sequence, 1)}
-                    all_insertions.update(generate_mutations(design_sequence, designed_atom_sequences[idx], blanks=True))
+                    all_insertions.update(generate_mutations(design_sequence, designed_atom_sequences[idx],
+                                                             blanks=True))
                     # Reduce to sequence only
-                    inserted_sequences[design_string] = '%s\n%s' % (''.join([res['to'] for res in all_insertions.values()]),
-                                                                    design_sequence)
-                    logger.info('Formatted sequence comparison:\n%s' % inserted_sequences[design_string])
+                    inserted_sequences[design_string] = \
+                        '%s\n%s' % (''.join([res['to'] for res in all_insertions.values()]), design_sequence)
+                    logger.info(f'Formatted sequence comparison:\n{inserted_sequences[design_string]}')
                     final_sequences[design_string] = design_sequence
                     if args.nucleotide:
                         try:
                             nucleotide_sequence = \
                                 optimize_protein_sequence(design_sequence, species=args.optimize_species)
                         except NoSolutionError:  # add the protein sequence?
-                            logger.warning('Optimization of %s was not successful!' % design_string)
+                            logger.warning(f'Optimization of {design_string} was not successful!')
                             codon_optimization_errors[design_string] = design_sequence
                             break
 
@@ -2330,11 +2331,13 @@ if __name__ == '__main__':
                                          out_path=outdir, csv=args.csv)
             logger.info(f'Final Design nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
+    # Tools are found below here
+    # ---------------------------------------------------
     elif args.module == 'multicistronic':
         # if not args.multicistronic_intergenic_sequence:
         #     args.multicistronic_intergenic_sequence = default_multicistronic_sequence
 
-        file = args.file[0]
+        file = args.file[0]  # since args.file is collected with nargs='*', select the first
         if file.endswith('.csv'):
             with open(file) as f:
                 design_sequences = [SeqRecord(Seq(sequence), annotations={'molecule_type': 'Protein'}, id=name)

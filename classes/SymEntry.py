@@ -347,7 +347,7 @@ class SymEntry:
 
     @property
     def simple_combination_string(self) -> str:
-        return '%s%s' % (self.resulting_symmetry, ''.join(self.groups))
+        return f'{self.resulting_symmetry}{"".join(self.groups)}'
 
     @property
     def uc_specification(self):
@@ -557,7 +557,7 @@ class SymEntry:
         Returns:
             The optimal vector for translation
         """
-        optimal_shifts_t = getattr(self, 'external_dof%d' % group_number).T * optimal_ext_dof_shifts
+        optimal_shifts_t = getattr(self, f'external_dof{group_number}').T * optimal_ext_dof_shifts
         return optimal_shifts_t.T.sum(axis=0)
 
     def get_uc_dimensions(self, optimal_shift_vec: np.ndarray) -> Optional[np.ndarray]:
@@ -811,7 +811,7 @@ def get_rot_matrices(step_deg: float, axis: str = 'z', rot_range_deg: int = 360)
             rad = math.radians(step * step_deg)
             rot_matrices.append([[math.cos(rad), -1 * math.sin(rad), 0], [math.sin(rad), math.cos(rad), 0], [0, 0, 1]])
     else:
-        raise ValueError('Axis \'%s\' is not supported' % axis)
+        raise ValueError(f'Axis "{axis}" is not supported')
 
     return np.array(rot_matrices)
 
@@ -1291,7 +1291,7 @@ if __name__ == '__main__':
     # this translation only lies on another axis
     # double_translation = []
     # for entry in symmetry_combinations:
-    #     sym_entry = SymEntry(entry)
+    #     sym_entry = symmetry_factory(entry)
     #     tx1, tx2 = False, False
     #     if sym_entry.ref_frame_tx_dof1[-1] != '0' and sym_entry.is_internal_tx1:
     #         tx1 = True
