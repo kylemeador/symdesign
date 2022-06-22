@@ -534,7 +534,6 @@ class Model(PDB):
             else:
                 raise NotImplementedError(f'Setting {type(self).__name__} with a {type(model).__name__} isn\'t '
                                           f'supported')
-            self.symmetry = None
         else:
             super().__init__(**kwargs)
 
@@ -542,12 +541,6 @@ class Model(PDB):
         #     self.pdb = PDB.from_file(pdb_file, log=self.log, **kwargs)
         # elif mmcif_file:
         #     self.pdb = PDB.from_mmcif(mmcif_file, log=self.log, **kwargs)
-
-        # if models and isinstance(models, list):
-        #     self.models = models
-        #     self.symmetry = None
-        # else:
-        #     self.models = []
 
     # @classmethod
     # def from_file(cls, file, **kwargs):
@@ -805,11 +798,10 @@ class Models(Model):
 class SymmetricModel(Models):
     assembly_tree: BinaryTree | None
     asu_equivalent_model_idx: int | None
-    # coords_type: None
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
     oligomeric_equivalent_model_idxs: dict[Entity, list[int]] | dict
-    uc_dimensions: list[float] | None  # uc_dimensions  # also defined in PDB
+    uc_dimensions: list[float] | None
 
     def __init__(self, sym_entry: SymEntry = None, symmetry: str = None, **kwargs):
         """
@@ -828,20 +820,13 @@ class SymmetricModel(Models):
         kwargs['sym_entry'] = sym_entry
         # self.pdb = pdb
         # self.models = []  # from Models
-        # self.coords = []
         # self.model_coords = [] <- designated as symmetric_coords
         self.assembly_tree = None  # stores a sklearn tree for coordinate searching
         self.asu_equivalent_model_idx = None
-        # self.coords_type = None
-        # self.dimension = None
         self.expand_matrices = None
         self.expand_translations = None
-        # self.sym_entry = None
-        # self.symmetry = None  # also defined in PDB as self.space_group
-        # self.point_group_symmetry = None
         self.oligomeric_equivalent_model_idxs = {}
-        # self.output_asu = True
-        self.uc_dimensions = None  # uc_dimensions  # also defined in PDB
+        self.uc_dimensions = None  # uc_dimensions
 
         # Todo handle if there is symmetry parsing from read_file() in the CRYST1 record
         # if self.asu.symmetry:

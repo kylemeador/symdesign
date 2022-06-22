@@ -114,7 +114,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
     assembly: bool = False
     atom_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
     coords: list[list[float]] = []
-    cryst: dict[str, str | tuple[float]] = {}
+    # cryst: dict[str, str | tuple[float]] = {}
     cryst_record: str = ''
     dbref: dict[str, dict[str, str]] = {}
     entity_info: list[dict[str, list | str]] = []
@@ -122,9 +122,9 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
     header: list = []
     multimodel: bool = False
     resolution: float | None = None
-    space_group: str | None = None
+    # space_group: str | None = None
     seq_res_lines: list[str] = []
-    uc_dimensions: list[float] = []
+    # uc_dimensions: list[float] = []
     # Structure
     biomt: list = []
     biomt_header: str = ''
@@ -233,8 +233,8 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
         elif remark == 'CRYST1':
             header.append(line.strip())
             cryst_record = line  # don't .strip() so we can keep \n attached for output
-            uc_dimensions, space_group = parse_cryst_record(cryst_record)
-            cryst = {'space': space_group, 'a_b_c': tuple(uc_dimensions[:3]), 'ang_a_b_c': tuple(uc_dimensions[3:])}
+            # uc_dimensions, space_group = parse_cryst_record(cryst_record)
+            # cryst = {'space': space_group, 'a_b_c': tuple(uc_dimensions[:3]), 'ang_a_b_c': tuple(uc_dimensions[3:])}
 
     if not atom_info:
         raise DesignError(f'The file {file} has no ATOM records!')
@@ -244,7 +244,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
                 biomt=biomt,  # go to Structure
                 biomt_header=biomt_header,  # go to Structure
                 coords=coords,
-                cryst=cryst,
+                # cryst=cryst,
                 cryst_record=cryst_record,
                 dbref=dbref,
                 entity_info=entity_info,
@@ -253,8 +253,8 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
                 name=name,
                 resolution=resolution,
                 reference_sequence=parse_seqres(seq_res_lines),
-                space_group=space_group,
-                uc_dimensions=uc_dimensions,
+                # space_group=space_group,
+                # uc_dimensions=uc_dimensions,
                 **kwargs
                 )
 
@@ -271,7 +271,7 @@ class PDB(Structure):
     assembly: bool
     chain_ids: list[str]
     chains: list[Chain] | Structures | bool | None
-    cryst: dict[str, str | tuple[float]] | None
+    # cryst: dict[str, str | tuple[float]] | None
     cryst_record: str | None
     dbref: dict[str, dict[str, str]]
     design: bool
@@ -283,17 +283,18 @@ class PDB(Structure):
     original_chain_ids: list[str]
     resolution: float | None
     _reference_sequence: dict[str, str]
-    space_group: str | None
-    uc_dimensions: list[float] | None
+    # space_group: str | None
+    # uc_dimensions: list[float] | None
 
     def __init__(self, filepath: str | bytes = None,
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
-                 cryst: dict[str, str | tuple[float]] = None, cryst_record: str = None, design: bool = False,
+                 cryst_record: str = None, design: bool = False,
                  dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
                  multimodel: bool = False,
-                 resolution: float = None, reference_sequence: dict[str, str] = None, space_group: str = None,
-                 uc_dimensions: list[float] = None, metadata: PDB = None, log: Logger = False, **kwargs):
+                 resolution: float = None, reference_sequence: dict[str, str] = None, metadata: PDB = None,
+                 log: Logger = False, **kwargs):
         #          atoms: list[Atom] | Atoms = None, coords: list[list[float]] = None,
+        #        cryst: dict[str, str | tuple[float]] = None, space_group: str = None, uc_dimensions: list[float] = None
         # PDB defaults to Structure logger (log is False)
         super().__init__(log=log, **kwargs)
         self.api_entry = None
@@ -302,7 +303,7 @@ class PDB(Structure):
         self.assembly = False
         self.chain_ids = []  # unique chain IDs
         self.chains = []
-        self.cryst = cryst
+        # self.cryst = cryst
         # {space: space_group, a_b_c: (a, b, c), ang_a_b_c: (ang_a, _b, _c)}
         self.cryst_record = cryst_record
         self.dbref = dbref if dbref else {}  # {'chain': {'db: 'UNP', 'accession': P12345}, ...}
@@ -318,9 +319,9 @@ class PDB(Structure):
         self.resolution = resolution
         self.reference_sequence = reference_sequence if reference_sequence else {}
         # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
-        self.space_group = space_group
+        # self.space_group = space_group
         # self.resource_db: Database = kwargs.get('resource_db', None)  # Todo in Pose
-        self.uc_dimensions = uc_dimensions
+        # self.uc_dimensions = uc_dimensions
         self.structure_containers.extend(['chains', 'entities'])
 
         if self.residues:  # we should have residues if Structure init, otherwise we have None
@@ -389,13 +390,13 @@ class PDB(Structure):
     def reference_sequence(self, reference_sequence: dict[str, str]) -> str:
         self._reference_sequence = reference_sequence
 
-    @property
-    def symmetry(self) -> Dict:
-        """Return the symmetry parameters of the PDB"""
-        sym_attrbutes = ['symmetry', 'uc_dimensions', 'cryst_record', 'cryst']  # , 'max_symmetry': self.max_symmetry}
-        return {sym_attrbutes[idx]: sym_attr
-                for idx, sym_attr in enumerate([self.space_group, self.uc_dimensions, self.cryst_record, self.cryst])
-                if sym_attr is not None}
+    # @property
+    # def symmetry(self) -> dict:
+    #     """Return the symmetry parameters of the PDB"""
+    #     sym_attrbutes = ['symmetry', 'uc_dimensions', 'cryst_record', 'cryst']  # , 'max_symmetry': self.max_symmetry}
+    #     return {sym_attrbutes[idx]: sym_attr
+    #             for idx, sym_attr in enumerate([self.space_group, self.uc_dimensions, self.cryst_record, self.cryst])
+    #             if sym_attr is not None}
 
     # def set_chain_attributes(self, **kwargs):
     #     """Set attributes specified by key, value pairs for all Chains in the Structure"""
@@ -409,28 +410,28 @@ class PDB(Structure):
     #         for kwarg, value in kwargs.items():
     #             setattr(chain, kwarg, value)
 
-    @property
-    def uc_dimensions(self) -> List:
-        try:
-            return self._uc_dimensions
-        except AttributeError:
-            self._uc_dimensions = list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
-            return self._uc_dimensions
-
-    @uc_dimensions.setter
-    def uc_dimensions(self, dimensions):
-        self._uc_dimensions = dimensions
+    # @property
+    # def uc_dimensions(self) -> List:
+    #     try:
+    #         return self._uc_dimensions
+    #     except AttributeError:
+    #         self._uc_dimensions = list(self.cryst['a_b_c']) + list(self.cryst['ang_a_b_c'])
+    #         return self._uc_dimensions
+    #
+    # @uc_dimensions.setter
+    # def uc_dimensions(self, dimensions):
+    #     self._uc_dimensions = dimensions
 
     def copy_metadata(self, other):
         temp_metadata = \
             {'api_entry': other.__dict__['api_entry'],
              'cryst_record': other.__dict__['cryst_record'],
-             'cryst': other.__dict__['cryst'],
+             # 'cryst': other.__dict__['cryst'],
              'design': other.__dict__['design'],
              'entity_info': other.__dict__['entity_info'],
              '_name': other.__dict__['_name'],
-             'space_group': other.__dict__['space_group'],
-             '_uc_dimensions': other.__dict__['_uc_dimensions'],
+             # 'space_group': other.__dict__['space_group'],
+             # '_uc_dimensions': other.__dict__['_uc_dimensions'],
              'header': other.__dict__['header'],
              # 'reference_aa': other.__dict__['reference_aa'],
              'resolution': other.__dict__['resolution'],
@@ -450,7 +451,7 @@ class PDB(Structure):
         # self.atoms = pdb.atoms
         self.resolution = pdb.resolution
         self.cryst_record = pdb.cryst_record
-        self.cryst = pdb.cryst
+        # self.cryst = pdb.cryst
         self.dbref = pdb.dbref
         self.design = pdb.design
         self.header = pdb.header
