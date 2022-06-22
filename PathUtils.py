@@ -4,6 +4,7 @@ from os import path, environ
 
 # Project strings and file names
 program_name = 'SymDesign'
+source = path.dirname(path.realpath(__file__))  # reveals master symdesign folder
 program_exe = path.join(path.dirname(__file__), f'{program_name}.py')
 program_output = f'{program_name}Output'
 projects = 'Projects'
@@ -129,19 +130,18 @@ baseline_program_memory = 3000000000  # 3GB
 nanohedra_memory = 30000000000  # 30Gb
 
 # Project paths
-source = path.dirname(path.realpath(__file__))  # reveals master symdesign folder
 readme = path.join(source, 'README.md')
-command = path.join(source, 'SymDesign.py')
 cmd_dist = path.join(source, 'CommandDistributer.py')
 dependency_dir = path.join(source, 'dependencies')
+tools = path.join(source, 'tools')
 sym_op_location = path.join(dependency_dir, 'symmetry_operators')
 point_group_symmetry_operator_location = path.join(sym_op_location, 'point_group_operators.pkl')
 space_group_symmetry_operator_location = path.join(sym_op_location, 'space_group_operators.pkl')
 nanohedra_main = path.join(source, f'{nano.title()}.py')
 nanohedra_dock_file = path.join(source, 'FragDock.py')
 binaries = path.join(dependency_dir, 'bin')
-models_to_multimodel_exe = path.join(binaries, 'models_to_multimodel.py')
-list_pdb_files = path.join(binaries, 'list_files_in_directory.py')
+models_to_multimodel_exe = path.join(tools, 'models_to_multimodel.py')
+list_pdb_files = path.join(tools, 'list_files_in_directory.py')
 hbnet_sort = path.join(binaries, 'sort_hbnet_silent_file_results.sh')
 sbatch_template_dir = path.join(dependency_dir, 'sbatch')
 disbatch = path.join(binaries, 'diSbatch.sh')  # DEPRECIATED
