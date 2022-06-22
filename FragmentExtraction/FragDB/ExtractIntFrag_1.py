@@ -5,7 +5,7 @@ import FragUtils as Frag
 
 from PDB import PDB
 from Structure import Atom
-from SymDesignUtils import get_all_file_paths
+from SymDesignUtils import get_file_paths_recursively
 
 # Globals
 module = 'Extract Interface Fragments:'
@@ -101,7 +101,7 @@ def main(int_db_dir, single_outdir, paired_outdir, frag_length, interface_dist, 
          num_threads=4):
     print('%s Beginning' % module)
     # Get Natural Interface PDB File Paths
-    int_db_filepaths = get_all_file_paths(int_db_dir, extension='.pdb')
+    int_db_filepaths = get_file_paths_recursively(int_db_dir, extension='.pdb')
     lower_bound, upper_bound, index_offset = Frag.parameterize_frag_length(frag_length)
 
     print('%s Creating Neighbor CB Atom Trees at %d Angstroms Distance' % (module, interface_dist))

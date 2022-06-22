@@ -25,7 +25,7 @@ from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe
 from Query.utils import boolean_choice
 from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
 from Structure import parse_stride, Entity
-from SymDesignUtils import DesignError, unpickle, get_all_base_root_paths, start_log, dictionary_lookup, \
+from SymDesignUtils import DesignError, unpickle, get_base_root_paths_recursively, start_log, dictionary_lookup, \
     parameterize_frag_length
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import sdf_lookup, symmetry_factory, SymEntry
@@ -867,7 +867,7 @@ class FragmentDatabase(FragmentDB):
             raise DesignError('Can\'t connect to MySQL database yet')
         else:
             if not ids:
-                directories = get_all_base_root_paths(self.location)
+                directories = get_base_root_paths_recursively(self.location)
             else:
                 directories = []
                 for _id in ids:

@@ -2,12 +2,7 @@ import os
 from glob import glob
 import argparse
 
-
-def get_all_file_paths(dir, suffix='', extension=None):
-    if not extension:
-        extension = '.pdb'
-    return sorted(os.path.join(os.path.abspath(dir), file)
-                  for file in glob(os.path.join(os.path.abspath(dir), '*%s*%s' % (suffix, extension))))
+from SymDesignUtils import get_directory_file_paths
 
 
 if __name__ == '__main__':
@@ -22,4 +17,5 @@ if __name__ == '__main__':
     args, additional_args = parser.parse_known_args()
     # ---------------------------------------------------
     with open(args.out_path, 'w') as f:
-        f.write('%s\n' % '\n'.join(get_all_file_paths(args.directory, suffix=args.suffix, extension=args.extension)))
+        f.write('%s\n' % '\n'.join(get_directory_file_paths(args.directory, suffix=args.suffix,
+                                                            extension=args.extension)))

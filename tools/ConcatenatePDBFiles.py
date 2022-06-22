@@ -2,7 +2,7 @@ import argparse
 import os
 
 from PDB import PDB
-from SymDesignUtils import get_all_file_paths, start_log
+from SymDesignUtils import get_directory_file_paths, start_log
 
 # globals
 logger = start_log(name=os.path.basename(__file__))
@@ -21,7 +21,7 @@ if __name__ == '__main__':
 
     # input files
     if args.directory:
-        args.files = get_all_file_paths(args.directory, extension='.pdb')
+        args.files = get_directory_file_paths(args.directory, extension='.pdb')
     # initialize PDB Objects
     pdbs = [PDB.from_file(pdb_file, log=logger) for pdb_file in args.files]
     pdb = PDB.from_chains([chain for pdb in pdbs for chain in pdb.chains], name='-'.join(pdb.name for pdb in pdbs),

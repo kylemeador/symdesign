@@ -9,7 +9,7 @@ sys.path.append(parent_dir)
 
 from interface_analysis.ParsePisa import retrieve_pisa_file_path, get_complex_interfaces
 from PathUtils import pdb_db, pisa_db, qs_bio, qs_bio_monomers_file
-from SymDesignUtils import start_log, pickle_object, unpickle, get_all_file_paths, to_iterable, ex_path
+from SymDesignUtils import start_log, pickle_object, unpickle, get_file_paths_recursively, to_iterable, ex_path
 from JobResources import FragmentDatabase
 import Query.PDB as qPDB
 # from PDB import extract_interface
@@ -299,7 +299,7 @@ if __name__ == '__main__':
     pdb_directory = pdb_db  # ends with .ent not sub_directoried
     pisa_directory = pisa_db  # subdirectoried here
     if args.fix_pisa:
-        all_pisa_files = get_all_file_paths(pisa_directory, extension='.pkl')
+        all_pisa_files = get_file_paths_recursively(pisa_directory, extension='.pkl')
 
         # for pdb_code in all_pisa_codes:
         #     pisa_path = retrieve_pisa_file_path(pdb_code)
@@ -363,7 +363,7 @@ if __name__ == '__main__':
 
     # Current, DEPRECIATE!
     interfaces_dir = '/yeates1/kmeador/fragment_database/all_interfaces'
-    all_interface_pdb_paths = get_all_file_paths(interfaces_dir, extension='.pdb')
+    all_interface_pdb_paths = get_file_paths_recursively(interfaces_dir, extension='.pdb')
     pdb_interface_codes = [file_ext_split[0] for file_ext_split in map(os.path.splitext,
                                                                        map(os.path.basename, all_interface_pdb_paths))]
     pdb_interface_d = set_up_interface_dict(pdb_interface_codes)

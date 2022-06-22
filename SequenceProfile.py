@@ -23,7 +23,7 @@ from Bio.SeqRecord import SeqRecord
 
 import CommandDistributer
 import PathUtils as PUtils
-from SymDesignUtils import handle_errors, unpickle, get_all_base_root_paths, DesignError, start_log, pretty_format_table
+from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursively, DesignError, start_log, pretty_format_table
 
 # import dependencies.bmdca as bmdca
 
@@ -1617,7 +1617,7 @@ def get_cluster_dicts(db=PUtils.biological_interfaces, id_list=None):  # TODO Re
     """
     info_db = PUtils.frag_directory[db]
     if id_list is None:
-        directory_list = get_all_base_root_paths(info_db)
+        directory_list = get_base_root_paths_recursively(info_db)
     else:
         directory_list = []
         for _id in id_list:
