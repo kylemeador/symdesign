@@ -1660,7 +1660,12 @@ class SymmetricModel(Models):
         Returns:
             The symmetric copies of the input structure
         """
-        # Todo consolidate both to one
+        self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
+                          f'{type(self).__name__} is being taken which is probably relying on PDB.__copy__ or '
+                          f'Structure.__copy__. These may not be adequate and need to be overwritten')
+        # Caution, this function will return poor if the number of atoms in the structure is 1!
+        coords = structure.coords if return_side_chains else structure.get_backbone_and_cb_coords()
+
         if self.dimension == 0:
             return self.return_point_group_symmetry_mates(structure, **kwargs)
         else:
