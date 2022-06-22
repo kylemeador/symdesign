@@ -2012,7 +2012,14 @@ class SymmetricModel(Models):
         if self.dimension == 0:
             external_tx = [None for _ in self.sym_entry.groups]
         else:
-            optimal_external_shifts = self.sym_entry.get_optimal_shift_from_uc_dimensions(*self.uc_dimensions)
+            try:
+                optimal_external_shifts = self.sym_entry.get_optimal_shift_from_uc_dimensions(*self.uc_dimensions)
+            except AttributeError as error:
+                print(f'\n\n\n{self.assign_pose_transformation.__name__}: Couldn\'t '
+                      f'{SymEntry.get_optimal_shift_from_uc_dimensions.__name__} with dimensions: {self.uc_dimensions}'
+                      f'\nAnd sym_entry.unit_cell specification: {self.sym_entry.unit_cell}\nThis is likely because '
+                      f'{self.symmetry} isn\'t a lattice with parameterized external translations\n\n\n')
+                raise error
             # external_tx1 = optimal_external_shifts[:, None] * self.sym_entry.external_dof1
             # external_tx2 = optimal_external_shifts[:, None] * self.sym_entry.external_dof2
             # external_tx = [external_tx1, external_tx2]
