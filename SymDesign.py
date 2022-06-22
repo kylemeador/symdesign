@@ -46,7 +46,7 @@ from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry
 from utils.CmdLineArgParseUtils import query_mode
 from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module, \
-    process_residue_selector_flags, parser_residue_selector
+    process_design_selector_flags, parser_residue_selector
 from utils.GeneralUtils import write_docking_parameters
 from utils.SetUp import set_up_instructions
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
@@ -676,7 +676,7 @@ if __name__ == '__main__':
     #                 '\n>pdb_template_sequence\nMAGHALKMLV...\n>design_mask\nMAGH----LV\n'
     #                 % fasta_file)
     # -----------------------------------------------------------------------------------------------------------------
-    # Process remaining flags and arguments for program initialization
+    # Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
     argparser_order = [parser_options, parser_input, parser_residue_selector]
@@ -686,11 +686,9 @@ if __name__ == '__main__':
     if additional_args:
         exit(f'\nSuspending run. Found flag(s) that are not recognized program wide: {", ".join(additional_args)}\n'
              f'Please correct (try adding --help if unsure), and resubmit your command\n')
-
-    # Add additional program flags to queried_flags
-    # queried_flags = return_default_flags()
-    queried_flags = vars(args)
-    queried_flags['design_selector'] = process_residue_selector_flags(queried_flags)
+        queried_flags = None
+    else:
+        queried_flags = vars(args)
     # -----------------------------------------------------------------------------------------------------------------
     # Initialize common job resources necessary for processing and i/o
     # -----------------------------------------------------------------------------------------------------------------
@@ -1908,8 +1906,10 @@ if __name__ == '__main__':
         if not args.prefix:
             args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
         else:
-            args.prefix += '_'
-        outdir = os.path.join(os.path.dirname(program_root), f'{args.prefix}SelectedDesigns')
+            args.prefix = f'{args.prefix}_'
+        if args.suffix:
+            args.suffix = f'_{args.suffix}'
+        outdir = os.path.join(os.path.dirname(program_root), f'{args.prefix}SelectedDesigns{args.suffix}')
         # outdir_traj, outdir_res = os.path.join(outdir, 'Trajectories'), os.path.join(outdir, 'Residues')
         os.makedirs(outdir, exist_ok=True)  # , os.makedirs(outdir_traj), os.makedirs(outdir_res)
         if args.total and args.save_total:
@@ -1953,7 +1953,7 @@ if __name__ == '__main__':
             terminate(output=False)
         else:
             # Format sequences for expression
-            args.output_file = os.path.join(outdir, f'{args.prefix}SelectedDesigns.paths')
+            args.output_file = os.path.join(outdir, f'{args.prefix}SelectedDesigns{args.suffix}.paths')
             # pose_directories = list(results.keys())
             with open(args.output_file, 'w') as f:
                 f.write('%s\n' % '\n'.join(pose_dir.path for pose_dir in list(results.keys())))
@@ -2308,21 +2308,22 @@ if __name__ == '__main__':
 
         # Report Errors
         if codon_optimization_errors:
-            error_file = \
-                SDUtils.write_fasta_file(codon_optimization_errors, f'{args.prefix}OptimizationErrorProteinSequences',
-                                         out_path=outdir, csv=args.csv)
+            error_file = SDUtils.write_fasta_file(codon_optimization_errors,
+                                                  f'{args.prefix}OptimizationErrorProteinSequences{args.suffix}',
+                                                  out_path=outdir, csv=args.csv)
         # Write output sequences to fasta file
-        seq_file = \
-            SDUtils.write_fasta_file(final_sequences, f'{args.prefix}SelectedSequences', out_path=outdir, csv=args.csv)
+        seq_file = SDUtils.write_fasta_file(final_sequences, f'{args.prefix}SelectedSequences{args.suffix}',
+                                            out_path=outdir, csv=args.csv)
         logger.info(f'Final Design protein sequences written to {seq_file}')
         seq_comparison_file = \
-            SDUtils.write_fasta_file(inserted_sequences, f'{args.prefix}SelectedSequencesExpressionAdditions',
+            SDUtils.write_fasta_file(inserted_sequences,
+                                     f'{args.prefix}SelectedSequencesExpressionAdditions{args.suffix}',
                                      out_path=outdir, csv=args.csv)
         logger.info(f'Final Expression sequence comparison to Design sequence written to {seq_comparison_file}')
         # check for protein or nucleotide output
         if args.nucleotide:
             nucleotide_sequence_file = \
-                SDUtils.write_fasta_file(nucleotide_sequences, f'{args.prefix}SelectedSequencesNucleotide',
+                SDUtils.write_fasta_file(nucleotide_sequences, f'{args.prefix}SelectedSequencesNucleotide{args.suffix}',
                                          out_path=outdir, csv=args.csv)
             logger.info(f'Final Design nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
@@ -2356,11 +2357,13 @@ if __name__ == '__main__':
         if not args.prefix:
             args.prefix = f'{os.path.basename(os.path.splitext(location)[0])}_'
         else:
-            args.prefix += '_'
-        # outdir = os.path.join(os.path.dirname(program_root), f'{args.prefix}SelectedDesigns')
+            args.prefix = f'{args.prefix}_'
+        if args.suffix:
+            args.suffix = f'_{args.suffix}'
 
         nucleotide_sequence_file = \
-            SDUtils.write_fasta_file(nucleotide_sequences, f'{args.prefix}MulticistronicNucleotideSequences',
+            SDUtils.write_fasta_file(nucleotide_sequences,
+                                     f'{args.prefix}MulticistronicNucleotideSequences{args.suffix}',
                                      out_path=os.getcwd(), csv=args.csv)
         logger.info(f'Multicistronic nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
