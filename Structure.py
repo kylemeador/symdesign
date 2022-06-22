@@ -141,8 +141,8 @@ for residue_type, residue_atoms in atomic_polarity_table.items():
 
 
 class Log:
-    def __init__(self, log: Logger = None):
-        self.log = log
+    def __init__(self, log: Logger = null_log):
+        self.log = null_log if log is None else log
 
 
 class Coords:
@@ -1596,15 +1596,13 @@ class Structure(StructureBase):
         self.sasa = None
         self.structure_containers = []
 
-        if log:
-            if isinstance(log, Log):
-                self._log = log
-            else:
-                self._log = Log(log)
-        elif log is None:
-            self._log = Log(null_log)
-        else:  # When log is explicitly passed as False, use the module logger
+        # Todo move to self.start_log()
+        if log is False:  # when explicitly passed as False, use the module logger
             self._log = Log(logger)
+        elif isinstance(log, Log):
+            self._log = log
+        else:
+            self._log = Log(log)
 
         if atoms is not None:
             self.set_atoms(atoms)  # this does the below commented steps
