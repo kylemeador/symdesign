@@ -86,6 +86,7 @@ gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225
 def unknown_index():
     return -1
 
+
 atomic_polarity_table = {  # apolar = 0, polar = 1
     'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
     'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0, 'NH1': 1, 'NH2': 1}),
@@ -154,10 +155,15 @@ class Coords:
             self.coords = np.array(coords)
 
     def delete(self, indices: Sequence[int]):
+        """Delete coordinates from the Coords container
+
+        Args:
+            indices: The indices to delete from the Coords array
+        """
         self.coords = np.delete(self.coords, indices, axis=0)
 
     def insert(self, new_coords: np.ndarray | list[list[float]], at: int = None):
-        """Insert Atom objects into the Atoms container
+        """Insert additional coordinates into the Coords container
 
         Args:
             new_coords: The coords to include into Coords
@@ -173,8 +179,8 @@ class Coords:
 
 
 class Atom:
-    """An Atom container with the full Structure coordinates and the Atom unique data. Pass a reference to the full
-    Structure coordinates for Keyword Arg coords=self.coords"""
+    """An Atom container with the full Structure coordinates and the Atom unique data"""
+    # . Pass a reference to the full Structure coordinates for Keyword Arg coords=self.coords
     index: int | None
     number: int | None
     type: str | None
@@ -232,8 +238,6 @@ class Atom:
     # @property
     # def coords(self):
     #     """This holds the atomic Coords which is a view from the Structure that created them"""
-    #     # print(self._coords, len(self._coords.coords), self.index)
-    #     # returns self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
     #     return self._coords.coords[self.index]  # [self.x, self.y, self.z]
     #
     # @coords.setter
@@ -588,6 +592,9 @@ class MonoFragment(Fragment):
     def coords(self, coords: np.ndarray):
         self.guide_coords = coords
 
+    def replace_coords(self, new_coords: np.ndarray):  # Todo DEPRECIATE
+        self.guide_coords = new_coords
+
     # def return_transformed_copy(self, rotation: list | np.ndarray = None, translation: list | np.ndarray = None,
     #                             rotation2: list | np.ndarray = None, translation2: list | np.ndarray = None) -> \
     #         MonoFragment:
@@ -623,9 +630,6 @@ class MonoFragment(Fragment):
     #
     #     return new_structure
 
-    def replace_coords(self, new_coords: np.ndarray):
-        self.guide_coords = new_coords
-
 
 class ResidueFragment(Fragment):
     """Used to represent Fragment information when attached to a Residue"""
@@ -648,6 +652,7 @@ class ResidueFragment(Fragment):
 
 
 class Residue(ResidueFragment):
+    _contact_order: float
     # atom_indices: list[int]
     atoms: Atoms
     # backbone_indices: list[int]
@@ -664,17 +669,19 @@ class Residue(ResidueFragment):
     type: str
 
     def __init__(self, atom_indices: list[int] = None, atoms: Atoms = None, coords: Coords = None, log: Log = None):
-        super().__init__()  # **kwargs NO NEED YET, but using as a placeholder when necessary
+        super().__init__()  # **kwargs NO NEED YET for ResidueFragment, but using as a placeholder when necessary
         #        index=None
         # self.index = index
-        self.log = log
         self.atom_indices = atom_indices
+        # self.parent = parent_structure  # Todo hide ._ attributes with parents
         self.atoms = atoms
         if coords:
             self.coords = coords
+        self.log = log
+        # Todo hide ._ attributes with parents
         # self.secondary_structure = None
         self.local_density = 0.
-        self._contact_order = 0
+        self._contact_order = 0.
 
     @property
     def log(self) -> Logger:
@@ -1604,7 +1611,9 @@ class Structure(StructureBase):
             # self.atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
             # self.atoms = atoms
             # self.create_residues()
+            # self.parent = parent_structure  # Todo hide ._ attributes with parents
             self.set_coords(coords)
+            # Todo hide ._ attributes with parents
         elif residues is not None:
             if not residue_indices:  # assume that the passed residues shouldn't be bound to an existing Structure
                 atoms = []
@@ -1627,9 +1636,11 @@ class Structure(StructureBase):
             else:
                 self.residue_indices = residue_indices
                 self.set_residues(residues)
+                # self.parent = parent_structure  # Todo hide ._ attributes with parents
                 assert coords, \
                     'Can\'t initialize Structure with residues and residue_indices when no Coords object is passed!'
                 self.coords = coords
+                # Todo hide ._ attributes with parents
             # if coords is None:  # assumes that this is a Structure init without existing shared coords
             #     # try:
             #     #     self.coords = self.residues[0]._coords
@@ -1995,7 +2006,7 @@ class Structure(StructureBase):
 
     def add_atoms(self, atom_list):
         """Add Atoms in atom_list to the Structure instance"""
-        raise DesignError('This function (add_atoms) is currently broken')  # TODO BROKEN
+        raise NotImplementedError('This function (add_atoms) is currently broken')
         atoms = self.atoms.tolist()
         atoms.extend(atom_list)
         self.atoms = atoms
@@ -2120,7 +2131,7 @@ class Structure(StructureBase):
 
     @property
     def coords_indexed_backbone_and_cb_indices(self) -> list[int]:
-        """Return backbone and cb Atom indices from the Structure indexed to the Coords view"""
+        """Return backbone and CB Atom indices from the Structure indexed to the Coords view"""
         try:
             return self._coords_indexed_backbone_and_cb_indices
         except AttributeError:
@@ -2131,7 +2142,7 @@ class Structure(StructureBase):
 
     @property
     def coords_indexed_cb_indices(self) -> list[int]:
-        """Return ca Atom indices from the Structure indexed to the Coords view"""
+        """Return CA Atom indices from the Structure indexed to the Coords view"""
         try:
             return self._coords_indexed_cb_indices
         except AttributeError:
@@ -2142,7 +2153,7 @@ class Structure(StructureBase):
 
     @property
     def coords_indexed_ca_indices(self) -> list[int]:
-        """Return cb Atom indices from the Structure indexed to the Coords view"""
+        """Return CB Atom indices from the Structure indexed to the Coords view"""
         try:
             return self._coords_indexed_ca_indices
         except AttributeError:
@@ -2633,8 +2644,10 @@ class Structure(StructureBase):
         self._residues.insert(new_residue, at=residue_index)
         self._residues.reindex_residue_atoms(start_at=residue_index)
         # self._atoms.insert(new_atoms, at=self._residues)
+        # new_residue.parent = self  # Todo hide ._ attributes with parents
         new_residue._atoms = self._atoms
         new_residue.coords = self._coords
+        # Todo hide ._ attributes with parents
         # set this Structures new residue_indices. Must be the owner of all residues for this to work
         # self._residue_indices.insert(residue_index, residue_index)
         self.insert_indices(at=residue_index, new_indices=[residue_index], dtype='residue')
@@ -2704,7 +2717,7 @@ class Structure(StructureBase):
         """
         return ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
 
-    def translate(self, translation):
+    def translate(self, translation: list[float] | np.ndarray):
         """Perform a translation to the Structure ensuring only the Structure container of interest is translated
         ensuring the underlying coords are not modified"""
         translation_array = np.zeros(self._coords.coords.shape)
@@ -2712,7 +2725,7 @@ class Structure(StructureBase):
         new_coords = self._coords.coords + translation_array
         self.replace_coords(new_coords)
 
-    def rotate(self, rotation):
+    def rotate(self, rotation: list[list[float]] | np.ndarray):
         """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
         underlying coords are not modified"""
         rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
@@ -2720,9 +2733,20 @@ class Structure(StructureBase):
         new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially a transpose
         self.replace_coords(new_coords)
 
-    def transform(self, rotation=None, translation=None, rotation2=None, translation2=None):
+    def transform(self, rotation: list[list[float]] | np.ndarray = None, translation: list[float] | np.ndarray = None,
+                  rotation2: list[list[float]] | np.ndarray = None, translation2: list[float] | np.ndarray = None):
         """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
-        transformed ensuring the underlying coords are not modified"""
+        transformed ensuring the underlying coords are not modified
+
+        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
+        rotation, translation, rotation2, translation2
+
+        Args:
+            rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
+            translation: The first translation to apply, expected shape (3)
+            rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
+            translation2: The second translation to apply, expected shape (3)
+        """
         if rotation is not None:  # required for np.ndarray or None checks
             rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
             rotation_array[self.atom_indices] = np.array(rotation)
@@ -2746,19 +2770,22 @@ class Structure(StructureBase):
             new_coords += translation_array2
         self.replace_coords(new_coords.reshape(-1, 3))
 
-    def return_transformed_copy(self, rotation=None, translation=None, rotation2=None, translation2=None):
+    def return_transformed_copy(self, rotation: list[list[float]] | np.ndarray = None,
+                                translation: list[float] | np.ndarray = None,
+                                rotation2: list[list[float]] | np.ndarray = None,
+                                translation2: list[float] | np.ndarray = None) -> Structure:
         """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
 
-        Transformation proceeds by matrix multiplication with the order of operations as:
+        Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
         rotation, translation, rotation2, translation2
 
-        Keyword Args:
-            rotation=None (numpy.ndarray): The first rotation to apply, expected general rotation matrix shape (3, 3)
-            translation=None (numpy.ndarray): The first translation to apply, expected shape (3)
-            rotation2=None (numpy.ndarray): The second rotation to apply, expected general rotation matrix shape (3, 3)
-            translation2=None (numpy.ndarray): The second translation to apply, expected shape (3)
+        Args:
+            rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
+            translation: The first translation to apply, expected shape (3)
+            rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
+            translation2: The second translation to apply, expected shape (3)
         Returns:
-            (Structure): A transformed copy of the original object
+            A transformed copy of the original object
         """
         if rotation is not None:  # required for np.ndarray or None checks
             # new_coords = np.matmul(self.coords, np.transpose(rotation))  # returns arrays with improper indices
@@ -2786,7 +2813,7 @@ class Structure(StructureBase):
         # new_structure.set_coords(new_coords)
         return new_structure
 
-    def replace_coords(self, new_coords):
+    def replace_coords(self, new_coords):  # Todo DEPRECIATE with Coords.replace()
         """Replace the current Coords array with a new Coords array"""
         try:
             new_coords.shape
