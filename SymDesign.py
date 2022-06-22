@@ -1721,7 +1721,7 @@ if __name__ == '__main__':
             design_interfaces = []
             for design in pose_directories:
                 design.identify_interface()  # calls design.load_pose()
-                interface = design.pose.return_interface()
+                interface = design.pose.return_interface()  # Todo this doesn't work for asymmetric Poses
                 design_interfaces.append(
                     # interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}_interface.pdb')))  # Todo reinstate
                     interface.write(out_path=os.path.join(temp_file_dir, f'{design.name}.pdb')))
