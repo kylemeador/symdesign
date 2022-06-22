@@ -250,7 +250,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         pdb2_copy.write(os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
         if output_assembly:
-            symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
+            symmetric_material.generate_assembly_symmetry_models(surrounding_uc=output_surrounding_uc)
             if optimal_ext_dof_shifts:  # 2, 3 dimensions
                 if output_surrounding_uc:
                     symmetric_material.write(out_path=os.path.join(tx_dir, 'surrounding_unit_cells.pdb'),
@@ -1554,7 +1554,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         pdb2_copy.write(out_path=os.path.join(tx_dir, '%s_%s.pdb' % (pdb2_copy.name, sampling_id)))
 
         if output_assembly:
-            # symmetric_material.get_assembly_symmetry_mates(surrounding_uc=output_surrounding_uc)
+            # symmetric_material.generate_assembly_symmetry_models(surrounding_uc=output_surrounding_uc)
             if sym_entry.unit_cell:  # 2, 3 dimensions
                 if output_surrounding_uc:
                     assembly_path = os.path.join(tx_dir, 'surrounding_unit_cells.pdb')
