@@ -41,7 +41,7 @@ def make_asu(pdb_file, chain=None, out_path=os.getcwd, center=True):
     # pose = Pose.from_asu(asu, symmetry=sym_dict[pdb.name])
     # print('Total Atoms: %d' % pose.asu.number_of_atoms)
     # print('Coords of length %d: %s' % (pose.asu.coords.shape[0], pose.asu.coords))
-    # pose.get_assembly_symmetry_mates()
+    # pose.generate_assembly_symmetry_models()
     # # pose.set_symmetry(symmetry=sym_dict[pdb.name], generate_symmetry_mates=True)
     # pose.write(out_path=os.path.join(out_path, 'expanded', os.path.basename(pdb.filepath)))
 

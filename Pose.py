@@ -1228,7 +1228,7 @@ class SymmetricModel(Models):
                 self._assembly = self.assembly_minimally_contacting
             else:
                 if not self.models:
-                    self.get_assembly_symmetry_mates()
+                    self.generate_assembly_symmetry_models()
                 chains = []
                 for model in self.models:
                     chains.extend(model.chains)
@@ -1243,7 +1243,8 @@ class SymmetricModel(Models):
             return self._assembly_minimally_contacting
         except AttributeError:
             if not self.models:
-                self.get_assembly_symmetry_mates()  # default to surrounding_uc generation, but only return contacting
+                self.generate_assembly_symmetry_models()  # defaults to surrounding_uc generation
+            # only return contacting
             interacting_model_indices = self.return_asu_interaction_model_indices()
             self.log.debug(f'Found selected models {interacting_model_indices} for assembly')
 
@@ -1263,12 +1264,12 @@ class SymmetricModel(Models):
             surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
         if self.dimension == 0:
-            self.get_point_group_coords(**kwargs)
+            self.generate_point_group_coords(**kwargs)
         else:
             # self.expand_uc_coords(**kwargs)
-            self.get_unit_cell_coords(**kwargs)
+            self.generate_lattice_coords(**kwargs)
 
-        self.log.info(f'Generated {self.number_of_symmetry_mates} Symmetric Models')
+        self.log.info(f'Generated {self.number_of_symmetry_mates} Symmetric copies')
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return fractional coordinates from cartesian coordinates
@@ -1337,7 +1338,7 @@ class SymmetricModel(Models):
 
         return np.matmul(frac_coords, np.transpose(m_inv))
 
-    def get_point_group_coords(self, **kwargs):  # return_side_chains=True,
+    def generate_point_group_coords(self, **kwargs):  # return_side_chains=True,
         """Find the coordinates of the symmetry mates using the coordinates and the input expansion matrices
 
         Sets:
@@ -1362,7 +1363,7 @@ class SymmetricModel(Models):
         #         np.matmul(self.coords, np.transpose(rotation))
         # self.symmetric_coords = Coords(model_coords)
 
-    def get_unit_cell_coords(self, surrounding_uc: bool = True, **kwargs):  # return_side_chains=True
+    def generate_lattice_coords(self, surrounding_uc: bool = True, **kwargs):  # return_side_chains=True
         """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in the unit cell
 
         Args:
@@ -1400,7 +1401,7 @@ class SymmetricModel(Models):
 
         self.symmetric_coords = Coords(symmetric_coords)
 
-    def return_assembly_symmetry_mates(self, **kwargs) -> list[Structure]:
+    def get_assembly_symmetry_models(self, **kwargs) -> list[Structure]:
         """Return symmetry mates as a collection of Structures with symmetric coordinates
 
         Keyword Args:
@@ -1409,14 +1410,14 @@ class SymmetricModel(Models):
             All symmetry mates where Chain names match the ASU
         """
         if self.number_of_symmetry_mates != self.number_of_models:  # we haven't generated symmetry models
-            self.get_assembly_symmetry_mates(**kwargs)
+            self.generate_assembly_symmetry_models(**kwargs)
             if self.number_of_symmetry_mates != self.number_of_models:
                 raise SymmetryError(f'{self.get_assembly_symmetry_models.__name__}: The assembly couldn\'t be '
                                     f'returned')
 
         return self.models
 
-    def get_assembly_symmetry_mates(self, surrounding_uc: bool = True, **kwargs):
+    def generate_assembly_symmetry_models(self, surrounding_uc: bool = True, **kwargs):
         # , return_side_chains=True):
         """Generate symmetry mates as a collection of Structures with symmetric coordinates
 
@@ -1600,7 +1601,7 @@ class SymmetricModel(Models):
 
         return oligomeric_indices
 
-    def find_asu_interaction_indices(self, **kwargs) -> list[int]:
+    def return_asu_interaction_indices(self, **kwargs) -> list[int]:
         """Find the coordinate indices for the models in the SymmetricModel interacting with the asu. Zero-indexed
 
         Keyword Args:
@@ -1621,15 +1622,14 @@ class SymmetricModel(Models):
 
         return interacting_indices
 
-    def return_symmetry_mates(self, structure: Structure, **kwargs) -> list[Structure]:
-        """Expand the asu using self.symmetry for the symmetry specification, and optional unit cell dimensions if
-        self.dimension > 0. Expands assembly to complete point group, or the unit cell
+    def return_symmetric_copies(self, structure: Structure, return_side_chains: bool = True,
+                                surrounding_uc: bool = True, **kwargs) -> list[Structure]:
+        """Expand the provided Structure using self.symmetry for the symmetry specification
 
         Args:
-            A Structure containing some collection of Residues
-        Keyword Args:
-            return_side_chains=True (bool): Whether to return all side chain atoms. False gives backbone and CB atoms
-            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+            structure: A Structure object with .coords/.get_backbone_and_cb_coords()/.replace_coords() methods
+            return_side_chains: Whether to make the structural copy with side chains
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Returns:
             The symmetric copies of the input structure
         """
@@ -2299,7 +2299,7 @@ class SymmetricModel(Models):
         def symmetric_model_write(handle):
             self.write_header(handle, **kwargs)
             if assembly:  # will make models and use next logic steps to write them out
-                self.get_assembly_symmetry_mates(**kwargs)
+                self.generate_assembly_symmetry_models(**kwargs)
                 # self.models is populated, use Models.write() to finish
                 super().write(file_handle=handle, **kwargs)
             else:  # skip models, using biomt_record/cryst_record for sym
@@ -2540,7 +2540,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         # return Structure.from_residues(residues=sorted(interface_residues, key=lambda residue: residue.number))
         interface_asu_structure = \
             Structure.from_residues(residues=sorted(set(interface_residues), key=lambda residue: residue.number))
-        # interface_symmetry_mates = self.return_symmetry_mates(interface_asu_structure)
+        # interface_symmetry_mates = self.return_symmetric_copies(interface_asu_structure)
         # interface_coords = interface_asu_structure.coords
         coords_length = interface_asu_structure.number_of_atoms
         # interface_cb_indices = interface_asu_structure.cb_indices
@@ -2851,7 +2851,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
                     skip_models = []
             else:
                 skip_models = []
-            symmetric_surface_frags2 = [self.return_symmetry_mates(residue) for residue in frag_residues2]
+            symmetric_surface_frags2 = [self.return_symmetric_copies(residue) for residue in frag_residues2]
             entity2_residues.clear()
             for frag_mates in symmetric_surface_frags2:
                 entity2_residues.extend(frag for sym_idx, frag in enumerate(frag_mates) if sym_idx not in skip_models)
