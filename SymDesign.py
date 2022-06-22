@@ -690,26 +690,31 @@ if __name__ == '__main__':
     else:
         queried_flags = vars(args)
     # -----------------------------------------------------------------------------------------------------------------
-    # Initialize common job resources necessary for processing and i/o
+    # Find base symdesign_directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
-    symdesign_directory = \
-        SDUtils.get_base_symdesign_dir((args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
+    # Check if output already exists  # or provide --overwrite
+    if args.output_file and os.path.exists(args.output_file) and args.module not in PUtils.analysis:
+        exit(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
+             f'data! Please specify a new name with with -Of/--output_file')
+        symdesign_directory = None
+    elif args.output_directory:
+        if os.path.exists(args.output_directory):
+            exit(f'The specified output directory "{args.output_directory}" already exists, this will overwrite '
+                 f'your old data! Please specify a new name with with -Od/--output_directory, --prefix or --suffix')
+        else:
+            queried_flags['output_directory'] = True
+            symdesign_directory = args.output_directory
+    else:
+        symdesign_directory = SDUtils.get_base_symdesign_dir(
+            (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
     if not symdesign_directory:  # check if there is a file and see if we can solve there
         if args.file:
             with open(args.file, 'r') as f:
                 symdesign_directory = SDUtils.get_base_symdesign_dir(f.readline())
-        else:  # Probably not from SymDesignOutput
-            if args.output_directory:  # use a user specified directory
-                # if args.output_directory == '':
-                #     symdesign_directory = '%s_%s_%s_poses' % default_output_tuple
-                # else:
-                queried_flags['output_directory'] = True
-                symdesign_directory = args.output_directory
-            else:  # assume new input and make in the current directory
-                symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
-            os.makedirs(symdesign_directory, exist_ok=True)
-    # JobResources handles flags and shared program objects
-    job = JobResources(symdesign_directory, **queried_flags)
+        else:  # assume new input and make in the current directory
+            symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
+        os.makedirs(symdesign_directory, exist_ok=True)
+
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
@@ -727,19 +732,11 @@ if __name__ == '__main__':
         logger = SDUtils.start_log(name=PUtils.program_name, propagate=False)
         # All Designs will log to specific file with level info unless -skip_logging is passed
     # -----------------------------------------------------------------------------------------------------------------
-    # Process flags, create JobResources, report options
+    # Process flags, job information which is necessary for processing and i/o
     # -----------------------------------------------------------------------------------------------------------------
-    # Check if output already exists  # or provide --overwrite
-    if args.output_file and os.path.exists(args.output_file) and args.module not in PUtils.analysis:
-        logger.critical(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
-                        f'data! Please specify a new name with with -Of/--output_file')
-        exit(1)
-    # elif args.output_directory and os.path.exists(args.output_directory):  # Todo is this necessary?
-    #     logger.critical(f'The specified output directory "{args.output_file}" already exists, this will overwrite
-    #                     f'your old data! Please specify a new one with with -Od/--output_directory')
-    #     exit(1)
-
-    # Ensure symmetry is correct if the user has provided it
+    # process design_selectors
+    queried_flags['design_selector'] = process_design_selector_flags(queried_flags)
+    # process symmetry
     user_sym_entry = queried_flags.get(PUtils.sym_entry)
     user_symmetry = queried_flags.get('symmetry')
     if user_symmetry:
@@ -747,12 +744,13 @@ if __name__ == '__main__':
             queried_flags['symmetry'] = 'cryst'
         queried_flags[PUtils.sym_entry] = parse_symmetry_to_sym_entry(sym_entry=user_sym_entry, symmetry=user_symmetry)
     elif user_sym_entry:
-        queried_flags[PUtils.sym_entry] = SymEntry(user_sym_entry)
+        queried_flags[PUtils.sym_entry] = symmetry_factory(user_sym_entry)
 
     sym_entry = queried_flags[PUtils.sym_entry]
     if not isinstance(sym_entry, SymEntry):  # remove if not an actual SymEntry
         queried_flags.pop(PUtils.sym_entry)
 
+    # set up module specific arguments
     if args.module in [PUtils.interface_design, PUtils.generate_fragments, 'orient', 'expand_asu',
                        PUtils.interface_metrics, PUtils.refine, PUtils.optimize_designs, 'rename_chains',
                        'check_clashes']:  # , 'custom_script', 'find_asu', 'status', 'visualize'
@@ -780,6 +778,11 @@ if __name__ == '__main__':
             query_mode(query_flags)
             terminate(output=False)
 
+    # create JobResources which holds shared program objects and options
+    job = JobResources(symdesign_directory, **queried_flags)
+    # -----------------------------------------------------------------------------------------------------------------
+    #  report options
+    # -----------------------------------------------------------------------------------------------------------------
     if args.module in ['multicistronic']:  # PUtils.tools
         # Todo should multicistronic be a tool? module->tools->parse others like list_overlap, flags, residue_selector
         pass
