@@ -768,32 +768,57 @@ def mp_starmap(function: Callable, star_args: Iterable[Tuple], processes: int = 
 ######################
 
 
-def get_all_base_root_paths(directory: Union[str, bytes]) -> List[Union[str, bytes]]:
-    """Retrieve all of the bottom most directories which recursively exist in a directory
+def get_base_root_paths_recursively(directory: str | bytes, sort: bool = True) -> list[str | bytes]:
+    """Retrieve the bottom most directories recursively from a root directory
 
     Args:
-        directory: The directory of interest
+        directory: The root directory of interest
+        sort: Whether the files should be filtered by name before returning
     Returns:
         The list of directories matching the search
     """
-    return [os.path.abspath(root) for root, dirs, files in os.walk(directory) if not dirs]
+    file_generator = (os.path.abspath(root) for root, dirs, files in os.walk(directory) if not dirs)
+    return sorted(file_generator) if sort else list(file_generator)
 
 
-def get_all_file_paths(directory: Union[str, bytes], extension: str = None) -> List[Union[str, bytes]]:
-    """Retrieve all of the files which recursively exist in a directory
+def get_file_paths_recursively(directory: str | bytes, extension: str = None, sort: bool = True) -> list[str | bytes]:
+    """Retrieve files recursively from a directory
 
     Args:
         directory: The directory of interest
         extension: A extension to filter by
+        sort: Whether the files should be filtered by name before returning
     Returns:
         The list of files matching the search
     """
     if extension:
-        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(directory, followlinks=True)
-                for file in files if extension in file]
+        file_generator = (os.path.join(os.path.abspath(root), file)
+                          for root, dirs, files in os.walk(directory, followlinks=True) for file in files
+                          if extension in file)
     else:
-        return [os.path.join(os.path.abspath(root), file) for root, dirs, files in os.walk(directory, followlinks=True)
-                for file in files]
+        file_generator = (os.path.join(os.path.abspath(root), file)
+                          for root, dirs, files in os.walk(directory, followlinks=True) for file in files)
+
+    return sorted(file_generator) if sort else list(file_generator)
+
+
+def get_directory_file_paths(directory: str | bytes, suffix: str = '', extension: str = '.pdb', sort: bool = True) -> \
+        list[str | bytes]:
+    """Return all files in a directory with specified extensions and suffixes
+
+    Args:
+        directory: The directory of interest
+        suffix: A string to match before the extension. A glob pattern is built as follows "*suffix*extension"
+            ex: suffix="model" matches "design_model.pdb" and "model1.pdb"
+        extension: A extension to filter by including a "." if there is one
+        sort: Whether the files should be filtered by name before returning
+    Returns:
+        The list of files matching the search
+    """
+    directory = os.path.abspath(directory)
+    file_generator = (os.path.join(directory, file) for file in glob(os.path.join(directory, f'*{suffix}*{extension}')))
+
+    return sorted(file_generator) if sort else list(file_generator)
 
 
 def collect_nanohedra_designs(files: Sequence = None, directory: str = None, dock: bool = False) -> \
@@ -910,7 +935,7 @@ def collect_designs(files: Sequence = None, directory: str = None, projects: Seq
         if base_directory or projects or singles:
             all_paths = get_symdesign_dirs(base=base_directory, projects=projects, singles=singles)
         elif directory:  # This is probably an uninitialized project. Grab all .pdb files
-            all_paths = get_all_file_paths(directory, extension='.pdb')
+            all_paths = get_directory_file_paths(directory, extension='.pdb')
             directory = os.path.basename(directory)  # This is for the location variable return
         else:  # function was called with all set to None. This shouldn't happen
             raise RuntimeError('Can\'t collect_designs when no arguments were passed!')

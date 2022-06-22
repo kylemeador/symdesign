@@ -1113,7 +1113,7 @@ if __name__ == '__main__':
                 if '.pdb' in args.oligomer1:
                     pdb1_filepaths = [args.oligomer1]
                 else:
-                    pdb1_filepaths = SDUtils.get_all_file_paths(args.oligomer1, extension='.pdb')
+                    pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1, extension='.pdb')
                 # Todo this mechanism conflicts with the one in job.resources. The use of both causes their varioius
                 #  nuances to require extensive checks. Ex C1 symmetry, stride file production, asu/oligomer production
                 #  fix the divergence of these mechanisms to one single mechanism relying on entities and filepaths
@@ -1135,7 +1135,7 @@ if __name__ == '__main__':
                 if '.pdb' in args.oligomer2:
                     pdb2_filepaths = [args.oligomer2]
                 else:
-                    pdb2_filepaths = SDUtils.get_all_file_paths(args.oligomer2, extension='.pdb')
+                    pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2, extension='.pdb')
                 pdb2_oriented_filepaths = \
                     [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
                                      out_dir=job.resources.oriented.location)

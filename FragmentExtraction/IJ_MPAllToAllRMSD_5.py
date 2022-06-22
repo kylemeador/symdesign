@@ -18,7 +18,7 @@ def main(directory, num_threads, cluster_size_limit, rmsd_thresh):
         print('%s Starting %s' % (module, cluster_dir))
         frag2main(cluster_dir, num_threads, cluster_size_limit, rmsd_thresh, rmsd_source=Frag.get_guide_atoms_biopdb)
 
-        # frag_filepaths = Frag.get_all_file_paths(cluster_dir, extension='.pdb')
+        # frag_filepaths = Frag.get_file_paths_recursively(cluster_dir, extension='.pdb')
         # if len(frag_filepaths) > cluster_size_limit:
         #     print('%s Number of Fragments: %d > %d (size limit). Sampled %d times instead.' % (module,
         #                                                                                        len(frag_filepaths),

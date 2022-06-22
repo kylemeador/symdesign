@@ -7,7 +7,7 @@ import pandas as pd
 from JobResources import fragment_factory
 from PathUtils import biological_interfaces
 from Pose import Pose
-from SymDesignUtils import start_log, unpickle, get_all_file_paths, to_iterable, mp_starmap, set_logging_to_debug
+from SymDesignUtils import start_log, unpickle, get_directory_file_paths, to_iterable, mp_starmap, set_logging_to_debug
 from classes.EulerLookup import EulerLookup
 
 # Globals
@@ -70,7 +70,7 @@ if __name__ == '__main__':
             interface_filepaths = [root % '%s/%s' % (path[1:3].lower(), path) for path in paths]
             # interface_filepaths = list(map(os.path.join, root, paths))
         else:
-            interface_filepaths = get_all_file_paths(args.directory, extension='.pdb')
+            interface_filepaths = get_directory_file_paths(args.directory, extension='.pdb')
 
         # # Used for all biological interface scoring
         # missing_index = [i for i, file_path in enumerate(interface_filepaths)

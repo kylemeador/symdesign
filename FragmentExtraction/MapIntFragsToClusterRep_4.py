@@ -5,7 +5,7 @@ from itertools import repeat
 
 from Bio.PDB import PDBParser, Superimposer, PDBIO
 from FragUtils import get_biopdb_ca, add_guide_atoms
-from SymDesignUtils import get_all_file_paths, mp_starmap, start_log
+from SymDesignUtils import get_file_paths_recursively, mp_starmap, start_log
 
 # Globals
 logger = start_log(name=__name__)
@@ -127,7 +127,7 @@ def main(cent_i_frag, paired_frag_dir, outdir, i_frag_limit, clust_rmsd_thresh, 
     logger.info('Finished Setting Up I Directories, Fetched I Fragments')
 
     # Get Paths for Paired Interface Fragment PDB files
-    paired_frag_paths = get_all_file_paths(paired_frag_dir, extension='.pdb')
+    paired_frag_paths = get_file_paths_recursively(paired_frag_dir, extension='.pdb')
 
     logger.info('Mapping Pairs to I Fragments, Setting Up Guide Atoms, and Making J Directories. This may take some '
                 'time...')

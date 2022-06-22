@@ -8,7 +8,7 @@ from FragDock import nanohedra_dock
 # from interface_analysis.Database import FragmentDB
 from JobResources import fragment_factory
 from PDB import orient_pdb_file
-from SymDesignUtils import get_all_file_paths, start_log, set_logging_to_debug
+from SymDesignUtils import get_directory_file_paths, start_log, set_logging_to_debug
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import symmetry_factory
 from utils.CmdLineArgParseUtils import get_docking_parameters, query_mode, postprocess_mode
@@ -70,12 +70,12 @@ if __name__ == '__main__':
             if '.pdb' in pdb1_path:  # files are not in pdb_dir, for Nanohedra_wrap generated commands...
                 pdb1_filepaths = [pdb1_path]
             else:
-                pdb1_filepaths = get_all_file_paths(pdb1_path, extension='.pdb')
+                pdb1_filepaths = get_directory_file_paths(pdb1_path, extension='.pdb')
 
             if '.pdb' in pdb2_path:
                 pdb2_filepaths = [pdb2_path]
             else:
-                pdb2_filepaths = get_all_file_paths(pdb2_path, extension='.pdb')
+                pdb2_filepaths = get_directory_file_paths(pdb2_path, extension='.pdb')
 
             # Orient Input Oligomers to Canonical Orientation
             if sym_entry.group1 == sym_entry.group2:
