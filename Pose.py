@@ -2587,6 +2587,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         Returns:
             The Structure containing only the Residues in the interface
         """
+        raise NotImplementedError('This function has not been properly converted to deal with non symmetric poses')
         number_of_models = self.number_of_symmetry_mates
         # find all pertinent interface residues from results of find_interface_residues()
         residues_entities = []
