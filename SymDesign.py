@@ -964,7 +964,7 @@ if __name__ == '__main__':
             for entity in all_entities:
                 entity.sequence_file = job.resources.sequences.retrieve_file(name=entity.name)
                 if not entity.sequence_file:
-                    entity.write_fasta_file(entity.reference_sequence, name=entity.name, out_path=job.sequences)
+                    entity.write_sequence_to_fasta('reference', out_path=job.sequences)
                     # entity.add_evolutionary_profile(out_path=job.resources.hhblits_profiles.location)
                 else:
                     entity.evolutionary_profile = job.resources.hhblits_profiles.retrieve_data(name=entity.name)
@@ -2312,23 +2312,28 @@ if __name__ == '__main__':
 
         # Report Errors
         if codon_optimization_errors:
-            error_file = SDUtils.write_fasta_file(codon_optimization_errors,
-                                                  f'{args.prefix}OptimizationErrorProteinSequences{args.suffix}',
-                                                  out_path=outdir, csv=args.csv)
+            error_file = \
+                SDUtils.write_sequence_file(codon_optimization_errors, csv=args.csv,
+                                            file_name=os.path.join(outdir,
+                                                                   f'{args.prefix}OptimizationErrorProteinSequences'
+                                                                   f'{args.suffix}'))
         # Write output sequences to fasta file
-        seq_file = SDUtils.write_fasta_file(final_sequences, f'{args.prefix}SelectedSequences{args.suffix}',
-                                            out_path=outdir, csv=args.csv)
+        seq_file = SDUtils.write_sequence_file(final_sequences, csv=args.csv,
+                                               file_name=os.path.join(outdir,
+                                                                      f'{args.prefix}SelectedSequences{args.suffix}'))
         logger.info(f'Final Design protein sequences written to {seq_file}')
         seq_comparison_file = \
-            SDUtils.write_fasta_file(inserted_sequences,
-                                     f'{args.prefix}SelectedSequencesExpressionAdditions{args.suffix}',
-                                     out_path=outdir, csv=args.csv)
+            SDUtils.write_sequence_file(inserted_sequences, csv=args.csv,
+                                        file_name=os.path.join(outdir,
+                                                               f'{args.prefix}SelectedSequencesExpressionAdditions'
+                                                               f'{args.suffix}'))
         logger.info(f'Final Expression sequence comparison to Design sequence written to {seq_comparison_file}')
         # check for protein or nucleotide output
         if args.nucleotide:
             nucleotide_sequence_file = \
-                SDUtils.write_fasta_file(nucleotide_sequences, f'{args.prefix}SelectedSequencesNucleotide{args.suffix}',
-                                         out_path=outdir, csv=args.csv)
+                SDUtils.write_sequence_file(nucleotide_sequences, csv=args.csv,
+                                            file_name=os.path.join(outdir, f'{args.prefix}SelectedSequencesNucleotide'
+                                                                           f'{args.suffix}'))
             logger.info(f'Final Design nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
     # Tools are found below here
@@ -2368,9 +2373,10 @@ if __name__ == '__main__':
             args.suffix = f'_{args.suffix}'
 
         nucleotide_sequence_file = \
-            SDUtils.write_fasta_file(nucleotide_sequences,
-                                     f'{args.prefix}MulticistronicNucleotideSequences{args.suffix}',
-                                     out_path=os.getcwd(), csv=args.csv)
+            SDUtils.write_sequence_file(nucleotide_sequences, csv=args.csv,
+                                        file_name=os.path.join(os.getcwd(),
+                                                               f'{args.prefix}MulticistronicNucleotideSequences'
+                                                               f'{args.suffix}'))
         logger.info(f'Multicistronic nucleotide sequences written to {nucleotide_sequence_file}')
     # ---------------------------------------------------
     elif args.module == 'status':  # -n number, -s stage, -u update
