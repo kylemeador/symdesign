@@ -4930,106 +4930,164 @@ class Entity(Chain, SequenceProfile):
                           'Modelling may be affected' % (to_file, count))
         return to_file
 
-    def format_missing_loops_for_design(self, max_loop_length=12, exclude_n_term=True, ignore_termini=False, **kwargs):
-        """Process missing residue information to prepare the various files for loop modelling
+    def format_missing_loops_for_design(self, max_loop_length: int = 12, exclude_n_term: bool = True,
+                                        ignore_termini: bool = False, **kwargs) \
+            -> tuple[list[tuple], dict[int, int], int]:
+        """Process missing residue information to prepare for loop modelling files. Assumes residues in pose numbering!
 
-        Keyword Args:
-            max_loop_length=12 (int): The max length for loop modelling.
+        Args:
+            max_loop_length: The max length for loop modelling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
-            exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
-            ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
+            exclude_n_term: Whether to exclude the N-termini from modelling due to Remodel Bug
+            ignore_termini: Whether to ignore terminal loops in the loop file
         Returns:
-            (tuple[list[tuple], dict[mapping[int, int]], int]):
-                Loop start and ending indices, loop indices mapped to disordered residues, index of n-terminal residue
+            each loop start/end indices, loop and adjacent indices (not all disordered indices) mapped to their
+                disordered residue indices, n-terminal residue index
         """
         disordered_residues = self.disorder  # {residue_number: {'from': ,'to': }, ...}
+        reference_sequence_length = len(self.reference_sequence)
         # disorder_indices = list(disordered_residues.keys())
         # disorder_indices = []  # holds the indices that should be inserted into the total residues to be modelled
-        loop_indices, disorder_indices = [], {}  # holds the indices that should be inserted into the total residues to be modelled
-        start_idx = 0  # initialize as an impossible value for blueprint formatting list comprehension
-        excluded_disorder, segment_length = 0, 0  # iterate each missing segment length, and total excluded disorder
-        loop_start, loop_end, n_term = None, None, False
+        loop_indices = []  # holds the loop indices
+        loop_to_disorder_indices = {}  # holds the indices that should be inserted into the total residues to be modelled
+        n_terminal_idx = 0  # initialize as an impossible value
+        excluded_disorder = 0  # total residues excluded from loop modelling. Needed for pose numbering translation
+        segment_length = 0  # iterate each missing residue
+        n_term = False
+        loop_start, loop_end = None, None
         for idx, residue_number in enumerate(disordered_residues.keys(), 1):
             segment_length += 1
-            if residue_number - 1 not in disordered_residues:
+            if residue_number - 1 not in disordered_residues:  # indicate that this residue_number starts disorder
                 # print('Residue number -1 not in loops', residue_number)
-                loop_start = residue_number - 1 - excluded_disorder
-                if loop_start <= 0:
-                    # disordered_residues[loop_start] = residues[loop_start]
-                # else:
-                    # the disordered locations include the n-terminus, set start_idx to idx (should equal 1)
-                    # start_idx = idx
+                loop_start = residue_number - 1 - excluded_disorder  # - 1 as loop modelling needs existing residue
+                if loop_start < 1:
                     n_term = True
-            if residue_number + 1 not in disordered_residues and residue_number != len(self.reference_sequence):
-                # print('Residue number +1 not in loops', residue_number)
-                # print('Adding loop with length', segment_length)
-                if segment_length <= max_loop_length:  # ensure modelling will be useful
-                    if exclude_n_term and n_term:  # check if the n_terminus should be included
-                        excluded_disorder += segment_length
-                        n_term = False
-                    else:  # include the segment in the disorder_indices
-                        # print('Start index', start_idx)
-                        loop_end = residue_number + 1 - excluded_disorder
-                        loop_indices.append((loop_start, loop_end))
-                        # disorder_indices.extend([loop_start, loop_end])
-                        for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
-                            disorder_indices[residue_index] = residue_number - (segment_length - it)
-                        disorder_indices[loop_start], disorder_indices[loop_end] = -1, -1  # out of bounds number
-                        # disordered_residues[loop_start], disordered_residues[loop_end] = \
-                        #     residues[loop_start - 1], residues[loop_end - 1]  # offset index
-                        if n_term and idx != 1:
-                            # if n-term was identified and not 1 (only start Met missing), save last idx of n-term insertion
-                            start_idx = loop_end  # idx
-                else:
-                    excluded_disorder += segment_length
-                segment_length = 0
-                loop_start, loop_end = None, None
 
-        if loop_start and not ignore_termini:  # when insertion is at the c-term, we hit a residue that didn't complete
-            if segment_length <= max_loop_length:
-                loop_end = loop_start + 1 + segment_length  # - excluded_disorder
-                # disorder_indices.append(loop_start)
-                loop_indices.append((loop_start, loop_end - 1))  # subtract as no c-terminal res attachment at c-termini
-                # disorder_indices.extend(range(loop_start, loop_end))  # NO +1 don't need to include final index in range
-                for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
-                    disorder_indices[residue_index] = residue_number - (segment_length - it)
-                disorder_indices[loop_start], disorder_indices[loop_end] = -1, -1  # out of bounds number
-                # disordered_residues[loop_start] = residues[loop_start - 1]
+            if residue_number + 1 not in disordered_residues:  # the segment has ended
+                if residue_number != reference_sequence_length:  # is it not the c-termini?
+                    # print('Residue number +1 not in loops', residue_number)
+                    # print('Adding loop with length', segment_length)
+                    if segment_length <= max_loop_length:  # modelling useful, add to loop_indices
+                        if n_term and (ignore_termini or exclude_n_term):  # check if the n_terminus should be included
+                            excluded_disorder += segment_length  # sum the exclusion length
+                            n_term = False  # we don't have any more n_term considerations
+                        else:  # include the segment in the disorder_indices
+                            loop_end = residue_number + 1 - excluded_disorder
+                            loop_indices.append((loop_start, loop_end))
+                            for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
+                                loop_to_disorder_indices[residue_index] = residue_number - (segment_length - it)
+                            # set the start and end indices as out of bounds numbers
+                            loop_to_disorder_indices[loop_start], loop_to_disorder_indices[loop_end] = -1, -1
+                            if n_term and idx != 1:  # if n-termini and not just start Met
+                                n_terminal_idx = loop_end  # save idx of last n-term insertion
+                    else:  # modelling not useful, sum the exclusion length
+                        excluded_disorder += segment_length
+                    # after handling disordered segment, reset increment and loop indices
+                    segment_length = 0
+                    loop_start, loop_end = None, None
+                # residue number is the c-terminal residue
+                elif ignore_termini:  # do we ignore termini?
+                    if segment_length <= max_loop_length:
+                        # loop_end = loop_start + 1 + segment_length  # - excluded_disorder
+                        loop_end = residue_number - excluded_disorder
+                        loop_indices.append((loop_start, loop_end))
+                        for it, residue_index in enumerate(range(loop_start + 1, loop_end), 1):
+                            loop_to_disorder_indices[residue_index] = residue_number - (segment_length - it)
+                        # don't include start index in the loop_to_disorder map since c-terminal doesn't have attachment
+                        loop_to_disorder_indices[loop_end] = -1
 
         return loop_indices, disorder_indices, start_idx
 
     # Todo move both of these to Structure/Pose. Requires using .reference_sequence in Structure/ or maybe Pose better
-    def make_loop_file(self, out_path=os.getcwd(), **kwargs):
-        """Format a loops file according to Rosetta specifications
+    def make_loop_file(self, out_path: str | bytes = os.getcwd(), **kwargs) -> str | bytes | None:
+        """Format a loops file according to Rosetta specifications. Assumes residues in pose numbering!
 
+        The loop file format consists of one line for each specified loop with the format:
+
+        LOOP 779 784 0 0 1
+
+        Where LOOP specifies a loop line, start idx, end idx, cut site (0 lets Rosetta choose), skip rate, and extended
+
+        All indices should refer to existing locations in the structure file so if a loop should be inserted into
+        missing density, the density needs to be modelled first before the loop file would work to be modelled. You
+        can't therefore specify that a loop should be between 779 and 780 if the loop is 12 residues long since there is
+         no specification about how to insert those residues. This type of task requires a blueprint file.
+
+        Args:
+            out_path: The location the file should be written
         Keyword Args:
-            out_path=os.getcwd() (str): The location the file should be written
             max_loop_length=12 (int): The max length for loop modelling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
             exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
             ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
         Returns:
-            (str): The path of the file
+            The path of the file if one was written
         """
-        loop_file = os.path.join(out_path, '%s.loops' % self.name)
         loop_indices, _, _ = self.format_missing_loops_for_design(**kwargs)
+        if not loop_indices:
+            return
+        loop_file = os.path.join(out_path, f'{self.name}.loops')
         with open(loop_file, 'w') as f:
-            f.write('%s\n' % '\n'.join('LOOP %d %d 0 0 1' % start_stop for start_stop in loop_indices))
+            f.write('%s\n' % '\n'.join(f'LOOP {start} {stop} 0 0 1' for start, stop in loop_indices))
 
         return loop_file
 
-    def make_blueprint_file(self, out_path=os.getcwd(), **kwargs):
-        """Format a blueprint file according to Rosetta specifications
+    def make_blueprint_file(self, out_path: str | bytes = os.getcwd(), **kwargs) -> str | bytes | None:
+        """Format a blueprint file according to Rosetta specifications. Assumes residues in pose numbering!
 
+        The blueprint file format is described nicely here:
+            https://www.rosettacommons.org/docs/latest/application_documentation/design/rosettaremodel
+
+        In a gist, a blueprint file consists of entries describing the type of design available at each position.
+
+        Ex:
+            1 x L PIKAA M   <- Extension
+
+            1 x L PIKAA V   <- Extension
+
+            1 V L PIKAA V   <- Attachment point
+
+            2 D .
+
+            3 K .
+
+            4 I .
+
+            5 L N PIKAA N   <- Attachment point
+
+            0 x I NATAA     <- Insertion
+
+            0 x I NATAA     <- Insertion
+
+            6 N A PIKAA A   <- Attachment point
+
+            7 G .
+
+            0 X L PIKAA Y   <- Extension
+
+            0 X L PIKAA P   <- Extension
+
+        All structural indices must be specified in "pose numbering", i.e. starting with 1 ending with the last residue.
+        If you have missing density in the middle, you should not specify those residues that are missing, but keep
+        continuous numbering. You can specify an inclusion by specifying the entry index as 0 followed by the blueprint
+        directive. For missing density at the n- or c-termini, the file should still start 1, however, the n-termini
+        should be extended by prepending extra entries to the structurally defined n-termini entry 1. These blueprint
+        entries should also have 1 as the residue index. For c-termini, extra entries should be appended with the
+        indices as 0 like in insertions. For all unmodelled entries for which design should be performed, there should
+        be flanking attachment points that are also capable of design. Designable entries are seen above with the PIKAA
+        directive. Other directives are available. The only location this isn't required is at the c-terminal attachment
+        point
+
+        Args:
+            out_path: The location the file should be written
         Keyword Args:
-            out_path=os.getcwd() (str): The location the file should be written
             max_loop_length=12 (int): The max length for loop modelling.
                 12 is the max for accurate KIC as of benchmarks from T. Kortemme, 2014
             exclude_n_term=True (bool): Whether to exclude the N-termini from modelling due to Remodel Bug
+            ignore_termini=False (bool): Whether to ignore terminal loops in the loop file
         Returns:
-            (str): The path of the file
+            The path of the file if one was written
         """
-        out_file = os.path.join(out_path, '%s.blueprint' % self.name)
         disordered_residues = self.disorder  # {residue_number: {'from': ,'to': }, ...}
         # trying to remove tags at this stage runs into a serious indexing problem where tags need to be deleted from
         # disordered_residues and then all subsequent indices adjusted.
@@ -5049,26 +5107,32 @@ class Entity(Chain, SequenceProfile):
         #     # untagged_seq = remove_expression_tags(loop_sequences, [tag['sequence'] for tag in available_tags])
 
         _, disorder_indices, start_idx = self.format_missing_loops_for_design(**kwargs)
+        if not disorder_indices:
+            return
 
         residues = self.residues
-        # for residue_number in sorted(disorder_indices):  # ensure ascending order, insert is dependent on prior inserts
-        for residue_index, disordered_index in disorder_indices.items():  # ensure ascending order, insert is dependent on prior inserts
-            mutation = disordered_residues.get(disordered_index)
-            if mutation:  # add disordered residues if they exist
+        # for residue_number in sorted(disorder_indices):  # ensure ascending order, insert dependent on prior inserts
+        for residue_index, disordered_residue in disorder_indices.items():
+            mutation = disordered_residues.get(disordered_residue)
+            if mutation:  # add disordered residue to residues list if they exist
                 residues.insert(residue_index - 1, mutation['from'])  # offset to match residues zero-index
 
-        #              index AA SS Choice AA
-        structure_str   = '%d %s %s'
-        loop_str        = '%d X %s PIKAA %s'
-        with open(out_file, 'w') as f:
-            f.write('%s\n'
-                    % '\n'.join([structure_str % (residue.number, protein_letters_3to1_extended.get(residue.type.title()),
-                                                  'L PIKAA %s' % protein_letters_3to1_extended.get(residue.type.title())
-                                                  if idx in disorder_indices else '.')
-                                 if isinstance(residue, Residue)
-                                 else loop_str % (1 if idx < start_idx else 0, 'L', residue)
-                                 for idx, residue in enumerate(residues, 1)]))
-        return out_file
+        #                 index AA SS Choice AA
+        # structure_str   = '%d %s %s'
+        # loop_str        = '%d X %s PIKAA %s'
+        blueprint_lines = []
+        for idx, residue in enumerate(residues, 1):
+            if isinstance(residue, Residue):  # use structure_str template
+                residue_type = protein_letters_3to1_extended.get(residue.type.title())
+                blueprint_lines.append(f'{residue.number} {residue_type} '
+                                       f'{f"L PIKAA {residue_type}" if idx in disorder_indices else "."}')
+            else:  # residue is the residue type from above insertion, use loop_str template
+                blueprint_lines.append(f'{1 if idx < start_idx else 0} X {"L"} PIKAA {residue}')
+
+        blueprint_file = os.path.join(out_path, f'{self.name}.blueprint')
+        with open(blueprint_file, 'w') as f:
+            f.write('%s\n' % '\n'.join(blueprint_lines))
+        return blueprint_file
 
     # def update_attributes(self, **kwargs):
     #     """Update attributes specified by keyword args for all member containers"""
