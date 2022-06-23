@@ -23,7 +23,7 @@ from PathUtils import orient_log_file, rosetta_scripts, models_to_multimodel_exe
     ignore_symmetric_clashes, ignore_pose_clashes, ignore_clashes, force_flags, no_evolution_constraint, \
     no_term_constraint, consensus
 from Query.utils import boolean_choice
-from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file  # parse_pssm
+from SequenceProfile import parse_hhblits_pssm, MultipleSequenceAlignment, read_fasta_file, write_sequence_to_fasta
 from Structure import parse_stride, Entity
 from SymDesignUtils import DesignError, unpickle, get_base_root_paths_recursively, start_log, dictionary_lookup, \
     parameterize_frag_length
@@ -370,7 +370,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 flags = copy(rosetta_flags) + loop_model_flags
                 # flags.extend(['-out:path:pdb %s' % full_model_dir, '-no_scorefile true'])
                 flags.extend(['-no_scorefile true', '-no_nstruct_label true'])
-                variables = [('script_nstruct', '100')]
+                variables = [('script_nstruct', '100')]  # generate 100 trial loops, 500 is typically sufficient
                 flags.append('-parser:script_vars %s' % ' '.join(f'{var}={val}' for var, val in variables))
                 with open(flags_file, 'w') as f:
                     f.write('%s\n' % '\n'.join(flags))

@@ -381,71 +381,52 @@ def format_index_string(index_string: str) -> list[int]:
     return final_index
 
 
-###################
-# PDB Handling
-###################
-
-
-# def residue_interaction_graph(pdb, distance=8, gly_ca=True):
-#     """Create a atom tree using CB atoms from two PDB's
-#
-#     Args:
-#         pdb (PDB): First PDB to query against
-#     Keyword Args:
-#         distance=8 (int): The distance to query in Angstroms
-#         gly_ca=True (bool): Whether glycine CA should be included in the tree
-#     Returns:
-#         query (list()): sklearn query object of pdb2 coordinates within dist of pdb1 coordinates
-#     """
-#     # Get CB Atom Coordinates including CA coordinates for Gly residues
-#     coords = np.array(pdb.extract_cb_coords(InclGlyCA=gly_ca))
-#
-#     # Construct CB Tree for PDB1
-#     pdb1_tree = BallTree(coords)
-#
-#     # Query CB Tree for all PDB2 Atoms within distance of PDB1 CB Atoms
-#     query = pdb1_tree.query_radius(coords, distance)
-#
-#     return query
-
-
 #################
 # File Handling
 #################
 
 
-def write_file(data, file_name=None):
-    if not file_name:
-        file_name = os.path.join(os.getcwd(), input('What is your desired filename? (appended to current working '
-                                                    'directory)%s' % input_string))
-    with open(file_name, 'w') as f:
-        f.write('%s\n' % '\n'.join(data))
-    logger.info('The file \'%s\' was written' % file_name)
-
-
-def validate_input(prompt, response=None):  # exact copy as in Query.utils
-    _input = input(prompt)
-    while _input not in response:
-        _input = input('Invalid input... \'%s\' not a valid response. Try again%s' % (_input, input_string))
-
-    return _input
-
-
-def io_save(data: Iterable, file_name: str = None):
+def write_file(data: Iterable, file_name: str | bytes = None) -> str | bytes:
     """Take an iterable and either output to user, write to a file, or both. User defined choice
 
     Args:
         data: The data to write to file
         file_name: The name of the file to write to
     Returns:
-        (None)
+        The name of the output file
     """
-    io_prompt = 'Enter "P" to print Data, "W" to write Data to file, or "B" for both%s' % input_string
+    if not file_name:
+        file_name = os.path.join(os.getcwd(), input('What is your desired filename? (appended to current working '
+                                                    f'directory){input_string}'))
+    with open(file_name, 'w') as f:
+        f.write('%s\n' % '\n'.join(map(str, data)))
+
+    return file_name
+
+
+def validate_input(prompt, response=None):  # exact copy as in Query.utils
+    _input = input(prompt)
+    while _input not in response:
+        _input = input(f'Invalid input... "{_input}" not a valid response. Try again{input_string}')
+
+    return _input
+
+
+def io_save(data: Iterable, file_name: str | bytes = None) -> str | bytes:
+    """Take an iterable and either output to user, write to a file, or both. User defined choice
+
+    Args:
+        data: The data to write to file
+        file_name: The name of the file to write to
+    Returns:
+        The name of the output file
+    """
+    io_prompt = f'Enter "P" to print Data, "W" to write Data to file, or "B" for both{input_string}'
     response = ['W', 'P', 'B', 'w', 'p', 'b']
     _input = validate_input(io_prompt, response=response).lower()
 
     if _input in ['b', 'p']:
-        logger.info(f'\n{data}')
+        logger.info('%s\n' % '\n'.join(map(str, data)))
 
     if _input in ['w', 'b']:
         write_file(data, file_name)
@@ -549,67 +530,72 @@ def write_commands(commands: Iterable[str], name: str = 'all_commands', out_path
     return file
 
 
-def change_filename(original, new=None, increment=None):
-    """Take a json formatted score.sc file and rename decoy ID's
-
-    Args:
-        original (str): Location on disk of file
-    Keyword Args:
-        new=None (str): The filename to replace the file with
-        increment=None (int): The number to increment each decoy by
-    """
-    dirname = os.path.dirname(original)
-    # basename = os.path.basename(original)  # .split('_')[:-1]
-    basename = os.path.splitext(os.path.basename(original))[0]  # .split('_')[:-1]
-    ext = os.path.splitext(os.path.basename(original))[-1]  # .split('_')[:-1]
-    old_id = basename.split('_')[-1]
-    # old_id = int(os.path.basename(original).split('_')[-1])
-    if increment:
-        new_id = int(old_id) + increment
-    else:
-        new_id = int(old_id)
-
-    if new:
-        new_file = os.path.join(dirname, '%s_%04d%s' % (new, new_id, ext))
-    else:
-        new_file = os.path.join(dirname, '%s%04d%s' % (basename[:-len(old_id)], new_id, ext))
-
-    p = subprocess.Popen(['mv', original, new_file])
-
-
-def modify_decoys(file, increment=0):
-    """Take a json formatted score.sc file and rename decoy ID's
-
-    Args:
-        file (str): Location on disk of scorefile
-    Keyword Args:
-        increment=None (int): The number to increment each decoy by
-    Returns:
-        score_dict (dict): {design_name: {all_score_metric_keys: all_score_metric_values}, ...}
-    """
-    with open(file, 'r+') as f:
-        scores = [loads(score) for score in f.readlines()]
-        for i, score in enumerate(scores):
-            design_id = score['decoy'].split('_')[-1]
-            if design_id[-1].isdigit():
-                decoy_name = score['decoy'][:-len(design_id)]
-                score['decoy'] = '%s%04d' % (decoy_name, int(design_id) + increment)
-            scores[i] = score
-
-        f.seek(0)
-        f.write('\n'.join(dumps(score) for score in scores))
-        f.truncate()
+# def change_filename(original, new=None, increment=None):
+#     """Take a json formatted score.sc file and rename decoy ID's
+#
+#     Args:
+#         original (str): Location on disk of file
+#     Keyword Args:
+#         new=None (str): The filename to replace the file with
+#         increment=None (int): The number to increment each decoy by
+#     """
+#     dirname = os.path.dirname(original)
+#     # basename = os.path.basename(original)  # .split('_')[:-1]
+#     basename = os.path.splitext(os.path.basename(original))[0]  # .split('_')[:-1]
+#     ext = os.path.splitext(os.path.basename(original))[-1]  # .split('_')[:-1]
+#     old_id = basename.split('_')[-1]
+#     # old_id = int(os.path.basename(original).split('_')[-1])
+#     if increment:
+#         new_id = int(old_id) + increment
+#     else:
+#         new_id = int(old_id)
+#
+#     if new:
+#         new_file = os.path.join(dirname, '%s_%04d%s' % (new, new_id, ext))
+#     else:
+#         new_file = os.path.join(dirname, '%s%04d%s' % (basename[:-len(old_id)], new_id, ext))
+#
+#     p = subprocess.Popen(['mv', original, new_file])
 
 
-def rename_decoy_protocols(des_dir, rename_dict):
-    score_file = os.path.join(des_dir.scores, PUtils.scores_file)
-    with open(score_file, 'r+') as f:
-        scores = [loads(score) for score in f.readlines()]
-        for i, score in enumerate(scores):
-            for protocol in rename_dict:
-                if protocol in score:
-                    score[protocol] = rename_dict[protocol]
-            scores[i] = score
+# def modify_decoys(file, increment=0):
+#     """Take a json formatted score.sc file and rename decoy ID's
+#
+#     Args:
+#         file (str): Location on disk of scorefile
+#     Keyword Args:
+#         increment=None (int): The number to increment each decoy by
+#     Returns:
+#         score_dict (dict): {design_name: {all_score_metric_keys: all_score_metric_values}, ...}
+#     """
+#     with open(file, 'r+') as f:
+#         scores = [loads(score) for score in f.readlines()]
+#         for i, score in enumerate(scores):
+#             design_id = score['decoy'].split('_')[-1]
+#             if design_id[-1].isdigit():
+#                 decoy_name = score['decoy'][:-len(design_id)]
+#                 score['decoy'] = '%s%04d' % (decoy_name, int(design_id) + increment)
+#             scores[i] = score
+#
+#         f.seek(0)
+#         f.write('\n'.join(dumps(score) for score in scores))
+#         f.truncate()
+
+
+# def rename_decoy_protocols(des_dir, rename_dict):
+#     score_file = os.path.join(des_dir.scores, PUtils.scores_file)
+#     with open(score_file, 'r+') as f:
+#         scores = [loads(score) for score in f.readlines()]
+#         for i, score in enumerate(scores):
+#             for protocol in rename_dict:
+#                 if protocol in score:
+#                     score[protocol] = rename_dict[protocol]
+#             scores[i] = score
+#
+#         f.seek(0)
+#         f.write('\n'.join(dumps(score) for score in scores))
+#         f.truncate()
+
 
 def write_sequence_file(sequences: Sequence | dict[str, Sequence], names: Sequence = None,
                         out_path: str | bytes = os.getcwd(), file_name: str | bytes = None, csv: bool = False) \

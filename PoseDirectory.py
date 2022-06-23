@@ -43,7 +43,7 @@ from Pose import Pose, MultiModel, Models  # , Model
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
-    jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary  # multi_chain_alignment,
+    jensen_shannon_divergence, hydrophobic_collapse_index, msa_from_dictionary
 from Structure import Structure, Entity  # , Structures
 from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_shell_script, DesignError, \
     match_score_from_z_value, pickle_object, filter_dictionary_keys, all_vs_all, make_path, \

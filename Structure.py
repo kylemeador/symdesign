@@ -2324,7 +2324,7 @@ class Structure(StructureBase):
 
     # def add_residues(self, residue_list):
     #     """Add Residue objects in a list to the Structure instance"""
-    #     raise DesignError('This function is broken')  # TODO BROKEN
+    #     raise NotImplementedError('This function is broken')  # TODO BROKEN
     #     residues = self.residues
     #     residues.extend(residue_list)
     #     self.set_residues(residues)
@@ -2379,7 +2379,7 @@ class Structure(StructureBase):
             atom_indices.pop(index)
         self.atom_indices = atom_indices
 
-    # in an alt_location world, there may be some use to this. however above works great with current parsing
+    # when alt_location parsing allowed, there may be some use to this, however above works great without alt location
     # def create_residues(self):
     #     """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
     #     # required_types = {'N', 'CA', 'O'}  # 'C', Removing this for fragment library guide atoms...
@@ -2507,23 +2507,15 @@ class Structure(StructureBase):
                 return residue
         return
 
-    def residue_number_from_pdb(self, residue_number):
-        """Returns the pose residue number from the queried .pdb number
-
-        Returns:
-            (int)
-        """
+    def residue_number_from_pdb(self, residue_number: int) -> int | None:
+        """Returns the Residue 'pose number' from the parsed number"""
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue.number
         return
 
-    def residue_number_to_pdb(self, residue_number):
-        """Returns the .pdb residue number from the queried pose number
-
-        Returns:
-            (int)
-        """
+    def residue_number_to_pdb(self, residue_number: int) -> int | None:
+        """Returns the Residue parsed number from the 'pose number'"""
         for residue in self.residues:
             if residue.number == residue_number:
                 return residue.number_pdb

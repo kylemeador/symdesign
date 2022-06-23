@@ -53,18 +53,18 @@ from utils.guide import interface_design_guide, analysis_guide, interface_metric
     select_designs_guide, select_sequences_guide, cluster_poses_guide, refine_guide, optimize_designs_guide
 
 
-def rename(des_dir, increment=PUtils.nstruct):
-    """Rename the decoy numbers in a PoseDirectory by a specified increment
-
-    Args:
-        des_dir (PoseDirectory): A PoseDirectory object
-    Keyword Args:
-        increment=PUtils.nstruct (int): The number to increment by
-    """
-    for pdb in os.listdir(des_dir.designs):
-        if os.path.splitext(pdb)[0][-1].isdigit():
-            SDUtils.change_filename(os.path.join(des_dir.designs, pdb), increment=increment)
-    SDUtils.modify_decoys(os.path.join(des_dir.scores, PUtils.scores_file), increment=increment)
+# def rename(des_dir, increment=PUtils.nstruct):
+#     """Rename the decoy numbers in a PoseDirectory by a specified increment
+#
+#     Args:
+#         des_dir (PoseDirectory): A PoseDirectory object
+#     Keyword Args:
+#         increment=PUtils.nstruct (int): The number to increment by
+#     """
+#     for pdb in os.listdir(des_dir.designs):
+#         if os.path.splitext(pdb)[0][-1].isdigit():
+#             SDUtils.change_filename(os.path.join(des_dir.designs, pdb), increment=increment)
+#     SDUtils.modify_decoys(os.path.join(des_dir.scores, PUtils.scores_file), increment=increment)
 
 
 def pair_directories(dirs2, dirs1):
@@ -584,7 +584,7 @@ def generate_sequence_template(pdb_file):
     sequence_mask = copy.copy(sequence)
     sequence_mask.id = 'residue_selector'
     sequences = [sequence, sequence_mask]
-    return write_fasta(sequences, file_name='%s_residue_selector_sequence' % os.path.splitext(pdb.filepath)[0])
+    return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.filepath)[0]}_residue_selector_sequence')
 
 
 def get_sym_entry_from_nanohedra_directory(nanohedra_dir):
