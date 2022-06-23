@@ -1654,7 +1654,7 @@ class SymmetricModel(Models):
         """Expand the provided Structure using self.symmetry for the symmetry specification
 
         Args:
-            structure: A Structure object with .coords/.get_backbone_and_cb_coords()/.replace_coords() methods
+            structure: A Structure object with .coords/.get_backbone_and_cb_coords() methods
             return_side_chains: Whether to make the structural copy with side chains
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Returns:
@@ -1700,7 +1700,7 @@ class SymmetricModel(Models):
                 number_of_symmetry_mates = self.number_of_uc_symmetry_mates
                 sym_coords = self.return_unit_cell_coords(coords)
 
-        coords_length = coords.shape[0]
+        # coords_length = coords.shape[0]
         sym_mates = []
         for coord_set in np.split(sym_coords, number_of_symmetry_mates):  # uc_number):
             # for model_num in range(self.number_of_symmetry_mates):
@@ -2320,8 +2320,7 @@ class SymmetricModel(Models):
         # clashes = asu_coord_tree.two_point_correlation(self.symmetric_coords[model_indices_without_asu], [distance])
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
-            self.log.warning('%s: Found %d clashing sites! Pose is not a viable symmetric assembly'
-                             % (self.name, clashes[0]))
+            self.log.warning(f'{self.name}: Found {clashes[0]} clashing sites! Pose is not a viable symmetric assembly')
             return True  # clash
         else:
             return False  # no clash
@@ -2731,12 +2730,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         if not entity1_indices or not entity2_indices:
             return
 
-        coords_length = len(self.coords)
+        # coords_length = len(self.coords)
+        number_of_atoms = self.number_of_atoms
         if self.symmetry:
             sym_string = 'symmetric '
-            self.log.debug(f'Number of Atoms in Pose: {coords_length}')
+            self.log.debug(f'Number of Atoms in Pose: {number_of_atoms}')
             # get all symmetric indices
-            entity2_indices = [idx + (coords_length * model_number)
+            entity2_indices = [idx + (number_of_atoms * model_number)
                                for model_number in range(self.number_of_symmetry_mates) for idx in entity2_indices]
             if entity1 == entity2:
                 # We don't want interactions with the symmetric asu model or intra-oligomeric contacts
@@ -2780,7 +2780,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         #                     for entity1_idx in entity1_contacts]
         coords_indexed_residues = self.coords_indexed_residues
         contacting_pairs = [(coords_indexed_residues[entity1_indices[entity1_idx]],
-                             coords_indexed_residues[entity2_indices[entity2_idx] % coords_length])
+                             coords_indexed_residues[entity2_indices[entity2_idx] % number_of_atoms])
                             for entity2_idx, entity1_contacts in enumerate(entity2_query)
                             for entity1_idx in entity1_contacts]
         if entity1 == entity2:  # solve symmetric results for asymmetric contacts
