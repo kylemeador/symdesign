@@ -492,7 +492,7 @@ class DataStore:
             self.save_file = write_json
         elif extension == '.fasta':
             self.load_file = read_fasta_file
-            self.save_file = SDUtils.write_fasta_file
+            self.save_file = write_sequence_to_fasta
         elif extension == '.stride':
             self.load_file = parse_stride
             self.save_file = not_implemented

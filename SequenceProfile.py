@@ -31,6 +31,8 @@ from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursiv
 logger = start_log(name=__name__)
 index_offset = 1
 # alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+sequence_type_literal = Literal['reference', 'structure']
+sequence_types: tuple[sequence_type_literal] = get_args(sequence_type_literal)
 protein_letter_literals = \
     Literal['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
 alph_3_aa: tuple[protein_letter_literals, ...] = get_args(protein_letter_literals)
@@ -413,11 +415,11 @@ class SequenceProfile:
             self.pssm_file = file
         else:  # Check to see if the files of interest already exist
             # Extract/Format Sequence Information. SEQRES is prioritized if available
-            if not self.sequence_file:  # not made/provided before add_evolutionary_profile, make new one at out_path
-                self.write_fasta_file(self.reference_sequence, name=self.name, out_path=out_path)
+            if not self.sequence_file:  # not made/provided before add_evolutionary_profile, make a new one
+                self.write_sequence_to_fasta('reference', out_path=out_path)
             elif not os.path.exists(self.sequence_file) or force:
                 self.log.debug(f'{self.name} Sequence={self.reference_sequence}')
-                self.write_fasta_file(self.reference_sequence, name=self.sequence_file, out_path='')
+                self.write_sequence_to_fasta('reference', file_name=self.sequence_file)
                 self.log.debug(f'{self.name} fasta file: {self.sequence_file}')
 
             # temp_file = os.path.join(out_path, f'{self.name}.hold')
@@ -861,21 +863,28 @@ class SequenceProfile:
         # return -h_sum - j_sum
         return -h_values - j_values
 
-    def write_fasta_file(self, sequence, name=None, out_path=os.getcwd()):
-        """Write a fasta file from sequence(s)
+    def write_sequence_to_fasta(self, sequence: str | sequence_type_literal, file_name: str | bytes = None,
+                                name: str = None, out_path: str | bytes = os.getcwd()) -> str | bytes:
+        """Write a sequence to a .fasta file with fasta format and save file location as self.sequence_file.
+        '.fasta' is appended if not specified in the name argument
 
-        Keyword Args:
-            name=None (str): The name of the file to output
-            out_path=os.getcwd() (str): The location on disk to output file
+        Args:
+            sequence: The sequence to write. Can be the specified sequence or the keywords 'reference' or 'structure'
+            file_name: The explicit name of the file
+            name: The name of the sequence record. If not provided, the instance name will be used.
+                Will be used as the default file_name base name if file_name not provided
+            out_path: The location on disk to output the file. Only used if file_name not explicitly provided
         Returns:
-            (str): The name of the output file
+            The name of the output file
         """
+        if sequence in sequence_types:  # get the attribute from the instance
+            sequence = getattr(self, f'{sequence}_sequence')
         if not name:
             name = self.name
-        self.sequence_file = os.path.join(out_path, '%s.fasta' % name)
-        with open(self.sequence_file, 'w') as outfile:
-            outfile.write('>%s\n%s\n' % (name, sequence))
-            # outfile.write('>%s\n%s\n' % (name, self.structure_sequence))
+        if not file_name:
+            file_name = os.path.join(out_path, name)
+
+        self.sequence_file = write_sequence_to_fasta(sequence=sequence, name=name, file_name=file_name)
 
         return self.sequence_file
 
@@ -3407,36 +3416,79 @@ def hydrophobic_collapse_index(sequence: str, hydrophobicity: str = 'standard', 
 
 
 @handle_errors(errors=(FileNotFoundError,))
-def read_fasta_file(file_name, **kwargs):
-    """Open a fasta file and return a parser object to load the sequences to SeqRecords
+def read_fasta_file(file_name: str | bytes, **kwargs) -> Iterator[SeqRecord]:
+    """Opens a fasta file and return a parser object to load the sequences to SeqRecords
+
+    Args:
+        file_name: The location of the file on disk
     Returns:
-        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
+        An iterator of the sequences in the file [record1, record2, ...]
     """
     return SeqIO.parse(file_name, 'fasta')
 
 
 @handle_errors(errors=(FileNotFoundError,))
-def read_alignment(file_name, alignment_type='fasta', **kwargs):
-    """Open a fasta file and return a parser object to load the sequences to SeqRecords
+def read_alignment(file_name: str | bytes, alignment_type: str = 'fasta', **kwargs) -> MultipleSeqAlignment:
+    """Open an alignment file and parse the alignment to a Biopython MultipleSeqAlignment
+
+    Args:
+        file_name: The location of the file on disk
+        alignment_type: The type of file that the alignment is stored in. Used for parsing
     Returns:
-        (Iterator[SeqRecords]): Ex. [record1, record2, ...]
+        The parsed alignment
     """
-    # return AlignIO.read(file_name, 'stockholm')
     return AlignIO.read(file_name, alignment_type)
 
 
-def write_fasta(sequence_records, file_name=None):  # Todo, consolidate (self.)write_fasta_file() with here
-    """Writes an iterator of SeqRecords to a file with .fasta appended. The file name is returned"""
-    if not file_name:
-        return None
-    if '.fasta' in file_name:
-        file_name = file_name.rstrip('.fasta')
-    SeqIO.write(sequence_records, '%s.fasta' % file_name, 'fasta')
+def write_fasta(sequence_records: Iterable[SeqRecord], name: str = None, out_path: str | bytes = os.getcwd()) -> \
+        str | bytes:
+    """Write an iterator of SeqRecords to a .fasta file with fasta format. '.fasta' is appended if not specified in name
 
-    return '%s.fasta' % file_name
+    Args:
+        sequence_records: The sequences to write. Should be Biopython SeqRecord format
+        name: The name of the file to output
+        out_path: The location on disk to output file
+    Returns:
+        The name of the output file
+    """
+    file_name = os.path.join(out_path, name)
+    if not file_name.endswith('.fasta'):
+        file_name = f'{file_name}.fasta'
+
+    SeqIO.write(sequence_records, file_name, 'fasta')
+
+    return file_name
 
 
-def concatenate_fasta_files(file_names, output='concatenated_fasta'):
-    """Take multiple fasta files and concatenate into a single file"""
-    seq_records = [read_fasta_file(file) for file in file_names]
-    return write_fasta(list(chain.from_iterable(seq_records)), file_name=output)
+def write_sequence_to_fasta(sequence: str, name: str, file_name: str | bytes) -> str | bytes:
+    """Write an iterator of SeqRecords to a .fasta file with fasta format. '.fasta' is appended if not specified in name
+
+    Args:
+        sequence: The sequence to write
+        name: The name of the sequence
+        file_name: The explicit name of the file
+    Returns:
+        The name of the output file
+    """
+    if not file_name.endswith('.fasta'):
+        file_name = f'{file_name}.fasta'
+
+    with open(file_name, 'w') as outfile:
+        outfile.write(f'>{name}\n{sequence}\n')
+
+    return file_name
+
+
+def concatenate_fasta_files(file_names: Iterable[str | bytes], output: str = 'concatenated_fasta') -> str | bytes:
+    """Take multiple fasta files and concatenate into a single file
+
+    Args:
+        file_names: The name of the files to concatenate
+        out_path: The location on disk to output file
+    Returns:
+        The name of the output file
+    """
+    seq_records = []
+    for file in file_names:
+        seq_records.extend(list(read_fasta_file(file)))
+    return write_fasta(seq_records, out_path=output)
