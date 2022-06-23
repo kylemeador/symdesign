@@ -1693,11 +1693,21 @@ class Structure(StructureBase):
         try:
             return self._sequence
         except AttributeError:
-            self._sequence = self.get_structure_sequence()
+            self._sequence = \
+                ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
             return self._sequence
 
     @sequence.setter
-    def sequence(self, sequence):
+    def sequence(self, sequence: str):
+        self._sequence = sequence
+
+    @property
+    def structure_sequence(self) -> str:
+        """Holds the Structure amino acid sequence"""
+        return self.sequence
+
+    @structure_sequence.setter
+    def structure_sequence(self, sequence: str):
         self._sequence = sequence
 
     @property
@@ -2699,13 +2709,13 @@ class Structure(StructureBase):
 
         return new_residue
 
-    def get_structure_sequence(self):
-        """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
-
-        Returns:
-            (str): The amino acid sequence of the Structure Residues
-        """
-        return ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
+    # def get_structure_sequence(self):
+    #     """Returns the single AA sequence of Residues found in the Structure. Handles odd residues by marking with '-'
+    #
+    #     Returns:
+    #         (str): The amino acid sequence of the Structure Residues
+    #     """
+    #     return ''.join([protein_letters_3to1_extended.get(res.type.title(), '-') for res in self.residues])
 
     def translate(self, translation: list[float] | np.ndarray):
         """Perform a translation to the Structure ensuring only the Structure container of interest is translated

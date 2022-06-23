@@ -190,6 +190,8 @@ class SequenceProfile:
     .reference_sequence attribute could be used however
     """
     idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
+    reference_sequence: str
+    structure_sequence: str
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -229,13 +231,9 @@ class SequenceProfile:
     # def offset(self, offset):
     #     self._entity_offset = offset
 
-    # def set_structure(self, structure):
-    #     self.structure = structure
-
-    @property
-    def structure_sequence(self):
-        # return self.structure.get_structure_sequence()
-        return self.get_structure_sequence()
+    # @property
+    # def structure_sequence(self):
+    #     return self.sequence
 
     # def set_profile_length(self):
     #     self.profile_length = len(self.profile)
