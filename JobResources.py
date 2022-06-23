@@ -378,24 +378,28 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                                   os.path.join(rosetta_scripts, 'loop_model_ensemble.xml'), '-parser:script_vars']
                 # Make all output paths and files for each loop ensemble
                 # logger.info('Preparing blueprint and loop files for entity:')
-                # out_paths, blueprints, loop_files = [], [], []
                 # for entity in entities_to_loop_model:
                 loop_model_cmds = []
                 for idx, entity in enumerate(entities_to_loop_model):
                     entity_out_path = os.path.join(full_model_dir, entity.name)
                     SDUtils.make_path(entity_out_path)  # make a new directory for each entity
-                    # out_paths.append(entity_out_path)
-                    entity_blueprint = entity.make_blueprint_file(out_path=full_model_dir)
+                    entity.renumber_residues()
                     entity_loop_file = entity.make_loop_file(out_path=full_model_dir)
-
+                    if not entity_loop_file:  # no loops found, copy input file to the full model
+                        copy_cmd = ['scp', self.refined.store(entity.name), self.full_models.store(entity.name)]
+                        loop_model_cmds.append(SDUtils.write_shell_script(list2cmdline(copy_cmd), name=entity.name,
+                                                                          out_path=full_model_dir))
+                        continue
+                    entity_blueprint = entity.make_blueprint_file(out_path=full_model_dir)
                     entity_cmd = script_cmd + loop_model_cmd + \
                         [f'blueprint={entity_blueprint}', f'loop_file={entity_loop_file}',
                          '-in:file:s', self.refined.store(entity.name), '-out:path:pdb', entity_out_path] + \
                         (['-symmetry:symmetry_definition', sym_def_files[entity.symmetry]] if entity.symmetry != 'C1'
                          else [])
-
+                    # create a multimodel from all output loop models
                     multimodel_cmd = ['python', models_to_multimodel_exe, '-d', entity_loop_file,
                                       '-o', os.path.join(full_model_dir, f'{entity.name}_ensemble.pdb')]
+                    # copy the first model from output loop models to be the full model
                     copy_cmd = ['scp', os.path.join(entity_out_path, f'{entity.name}_0001.pdb'),
                                 self.full_models.store(entity.name)]
                     loop_model_cmds.append(
