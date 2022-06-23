@@ -4996,7 +4996,7 @@ class Entity(Chain, SequenceProfile):
                         # don't include start index in the loop_to_disorder map since c-terminal doesn't have attachment
                         loop_to_disorder_indices[loop_end] = -1
 
-        return loop_indices, disorder_indices, start_idx
+        return loop_indices, loop_to_disorder_indices, n_terminal_idx
 
     # Todo move both of these to Structure/Pose. Requires using .reference_sequence in Structure/ or maybe Pose better
     def make_loop_file(self, out_path: str | bytes = os.getcwd(), **kwargs) -> str | bytes | None:
