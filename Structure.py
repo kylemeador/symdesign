@@ -306,7 +306,7 @@ class StructureBase:
         self._coords.replace(self._atom_indices, coords)
 
 
-class Atom:
+class Atom(StructureBase):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
     # . Pass a reference to the full Structure coordinates for Keyword Arg coords=self.coords
     index: int | None
@@ -326,7 +326,11 @@ class Atom:
     def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = None,
                  residue_type: str = None, chain: str = None, residue_number: int = None,
                  code_for_insertion: str = None, occupancy: float = None, b_factor: float = None,
-                 element_symbol: str = None, atom_charge: str = None):  # , sasa=None, sasa=0., coords=None
+                 element_symbol: str = None, atom_charge: str = None, **kwargs):
+        # kwargs passed to StructureBase
+        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
+        super().__init__(**kwargs)
+        self._atom_indices = [index]
         self.index = index
         self.number = number
         self.type = atom_type
@@ -799,7 +803,7 @@ class ResidueFragment(Fragment):
         return self.chain, self.number
 
 
-class Residue(ResidueFragment):
+class Residue(ResidueFragment, StructureBase):
     _contact_order: float
     _start_index: int
     atoms: Atoms
@@ -816,8 +820,14 @@ class Residue(ResidueFragment):
     prev_residue: Residue
     type: str
 
-    def __init__(self, atom_indices: list[int] = None, atoms: Atoms = None, coords: Coords = None, log: Log = None):
-        super().__init__()  # **kwargs NO NEED YET for ResidueFragment, but using as a placeholder when necessary
+    def __init__(self, atom_indices: list[int] = None, **kwargs):
+        # kwargs passed to StructureBase
+        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
+        # kwargs passed to ResidueFragment -> Fragment
+        #          fragment_type: int = None, guide_coords: np.ndarray = None, fragment_length: int = 5,
+        super().__init__(**kwargs)
+        # Unused args now
+        #  atoms: Atoms = None,
         #        index=None
         # self.index = index
         self._atom_indices = atom_indices
@@ -828,17 +838,17 @@ class Residue(ResidueFragment):
         self.log = log
         # Todo hide ._ attributes with parents
         # self.secondary_structure = None
-        self.local_density = 0.
         self._contact_order = 0.
+        self.local_density = 0.
 
-    @property
-    def log(self) -> Logger:
-        """Access to the Structure logger"""
-        return self._log.log
+    # @property
+    # def log(self) -> Logger:
+    #     """Access to the Structure logger"""
+    #     return self._log.log
 
-    @log.setter
-    def log(self, log_object: Log):
-        self._log = log_object
+    # @log.setter
+    # def log(self, log_object: Log):
+    #     self._log = log_object
 
     @property
     def start_index(self) -> int:
@@ -970,21 +980,20 @@ class Residue(ResidueFragment):
         """Returns whether the Residue contains hydrogen atoms"""
         return self._heavy_atom_indices != self._atom_indices
 
-    @property
-    def coords(self) -> np.ndarray:
-        """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
-        # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
-        return self._coords.coords[self._atom_indices]
-
-    @coords.setter
-    def coords(self, coords: np.ndarray | list[list[float]]):
-        # Todo
-        # self._coords.replace(self._atom_indices, coords)
-        if isinstance(coords, Coords):
-            self._coords = coords
-        else:
-            raise AttributeError('The supplied coordinates are not of class Coords! Pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Structure, use the private attribute ._coords')
+    # @property
+    # def coords(self) -> np.ndarray:
+    #     """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
+    #     # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
+    #     return self._coords.coords[self._atom_indices]
+    #
+    # @coords.setter
+    # def coords(self, coords: np.ndarray | list[list[float]]):
+    #     # self._coords.replace(self._atom_indices, coords)
+    #     if isinstance(coords, Coords):
+    #         self._coords = coords
+    #     else:
+    #         raise AttributeError('The supplied coordinates are not of class Coords! Pass a Coords object not a Coords '
+    #                              'view. To pass the Coords object for a Structure, use the private attribute ._coords')
 
     @property
     def heavy_coords(self) -> np.ndarray:
@@ -1423,9 +1432,10 @@ class Residue(ResidueFragment):
     def contact_order(self, contact_order: float):
         self._contact_order = contact_order
 
-    @property
-    def number_of_atoms(self) -> int:
-        return len(self._atom_indices)
+    # @property
+    # def number_of_atoms(self) -> int:
+    #     """The number of atoms in the Structure"""
+    #     return len(self._atom_indices)
 
     @property
     def number_of_heavy_atoms(self) -> int:
@@ -1724,8 +1734,11 @@ class Structure(StructureBase):
     available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
-                 residue_indices: list[int] = None, name: str = None, coords: np.ndarray | Coords = None,
-                 log: Logger | bool = None, biomt: list = None, biomt_header: str = None, **kwargs):
+                 residue_indices: list[int] = None, name: str = None,
+                 biomt: list = None, biomt_header: str = None,
+                 **kwargs):
+        # kwargs passed to StructureBase
+        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         self._atoms = None
         self._atom_indices = None
         self._coords = None
@@ -1739,13 +1752,12 @@ class Structure(StructureBase):
         self.sasa = None
         self.structure_containers = []
 
-        # Todo move to self.start_log()
-        if log is False:  # when explicitly passed as False, use the module logger
-            self._log = Log(logger)
-        elif isinstance(log, Log):
-            self._log = log
-        else:
-            self._log = Log(log)
+        # if log is False:  # when explicitly passed as False, use the module logger
+        #     self._log = Log(logger)
+        # elif isinstance(log, Log):
+        #     self._log = log
+        # else:
+        #     self._log = Log(log)
 
         if atoms is not None:
             self.set_atoms(atoms)  # this does the below commented steps
@@ -1804,25 +1816,25 @@ class Structure(StructureBase):
                       coords: Coords | np.ndarray = None, **kwargs):
         return cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
 
-    @property
-    def log(self) -> Logger:
-        """Returns the log object holding the Logger"""
-        return self._log.log
+    # @property
+    # def log(self) -> Logger:
+    #     """Returns the log object holding the Logger"""
+    #     return self._log.log
 
-    @log.setter
-    def log(self, log: Logger | Log):
-        """Set the Structure, Atom, and Residue log with specified Log Object"""
-        # try:
-        #     log_object.log
-        # except AttributeError:
-        #     log_object = Log(log_object)
-        # self._log = log_object
-        if isinstance(log, Logger):  # prefer this protection method versus Log.log property overhead?
-            self._log.log = log
-        elif isinstance(log, Log):
-            self._log = log
-        else:
-            raise TypeError(f'The log type ({type(log)}) is not of the specified type logging.Logger')
+    # @log.setter
+    # def log(self, log: Logger | Log):
+    #     """Set the Structure, Atom, and Residue log with specified Log Object"""
+    #     # try:
+    #     #     log_object.log
+    #     # except AttributeError:
+    #     #     log_object = Log(log_object)
+    #     # self._log = log_object
+    #     if isinstance(log, Logger):  # prefer this protection method versus Log.log property overhead?
+    #         self._log.log = log
+    #     elif isinstance(log, Log):
+    #         self._log = log
+    #     else:
+    #         raise TypeError(f'The log type ({type(log)}) is not of the specified type logging.Logger')
 
     @property
     def contains_hydrogen(self) -> bool:
@@ -1853,23 +1865,23 @@ class Structure(StructureBase):
     def structure_sequence(self, sequence: str):
         self._sequence = sequence
 
-    @property
-    def coords(self) -> np.ndarray:
-        """Return the atomic coordinates for the Atoms in the Structure"""
-        return self._coords.coords[self._atom_indices]
+    # @property
+    # def coords(self) -> np.ndarray:
+    #     """Return the atomic coordinates for the Atoms in the Structure"""
+    #     return self._coords.coords[self._atom_indices]
 
-    @coords.setter
-    def coords(self, coords: Coords | np.ndarray | list[list[float]]):
-        """Replace the Structure, Atom, and Residue coordinates with specified Coords Object or numpy.ndarray"""
-        try:
-            coords.coords
-        except AttributeError:  # not yet a Coords object, so create one
-            coords = Coords(coords)
-        self._coords = coords
-
-        if self._coords.coords.shape[0] != 0:
-            assert len(self.atoms) <= len(self.coords), \
-                f'{self.name}: ERROR number of Atoms ({len(self.atoms)}) > number of Coords ({len(self.coords)})!'
+    # @coords.setter
+    # def coords(self, coords: Coords | np.ndarray | list[list[float]]):
+    #     """Replace the Structure, Atom, and Residue coordinates with specified Coords Object or numpy.ndarray"""
+    #     try:
+    #         coords.coords
+    #     except AttributeError:  # not yet a Coords object, so create one
+    #         coords = Coords(coords)
+    #     self._coords = coords
+    #
+    #     if self._coords.coords.shape[0] != 0:
+    #         assert len(self.atoms) <= len(self.coords), \
+    #             f'{self.name}: ERROR number of Atoms ({len(self.atoms)}) > number of Coords ({len(self.coords)})!'
 
     def set_coords(self, coords: Coords | np.ndarray | list[list[float]] = None):
         """Set the coordinates for the Structure as a Coord object. Additionally, updates all member Residues with the
@@ -1965,10 +1977,10 @@ class Structure(StructureBase):
         self.create_residues()
         # self.set_residues_attributes(_atoms=atoms)
 
-    @property
-    def number_of_atoms(self) -> int:
-        """Return the number of atoms/coords in the Structure"""
-        return len(self._atom_indices)
+    # @property
+    # def number_of_atoms(self) -> int:
+    #     """Return the number of atoms/coords in the Structure"""
+    #     return len(self._atom_indices)
 
     @property
     def residue_indices(self) -> list[int] | None:
