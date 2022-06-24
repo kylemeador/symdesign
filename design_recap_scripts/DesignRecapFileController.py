@@ -8,7 +8,7 @@ from itertools import repeat
 import pandas as pd
 
 import PathUtils as PUtils
-import SequenceProfile
+from SequenceProfile import generate_mutations
 import SymDesignUtils as SDUtils
 # sys.path.append(PUtils.nanohedra_source)
 # print(sys.path)
@@ -176,10 +176,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             asu_sequence = asu.chain(chain_in_asu).sequence
             logger.debug('ASU\t: %s' % asu_sequence)
             logger.debug('Orient\t: %s' % oriented_pdb_seq_a)
-            des_mutations_asu = \
-                SequenceProfile.generate_mutations(asu_sequence, oriented_pdb_seq_a, blanks=True)
-            des_mutations_orient = \
-                SequenceProfile.generate_mutations(oriented_pdb_seq_a, asu_sequence, blanks=True)
+            des_mutations_asu = generate_mutations(asu_sequence, oriented_pdb_seq_a, blanks=True)
+            des_mutations_orient = generate_mutations(oriented_pdb_seq_a, asu_sequence, blanks=True)
             logger.debug('ASU: %s' % des_mutations_asu)
             logger.debug('Orient: %s' % des_mutations_orient)
             # Ensure that the design mutations have the right index, must be adjusted for the offset of both sequences
@@ -224,8 +222,8 @@ def design_recapitulation(design_file, output_dir, pdb_dir=None, oligomer=False)
             # downloaded_pdb.get_chain_sequences()
             oriented_pdb_seq_final = downloaded_pdb.chains[0].sequence
             # Todo I think that this is way wrong
-            final_mutations = SequenceProfile.generate_mutations(asu.chain(chain_in_asu).sequence,
-                                                                 oriented_pdb_seq_final, offset=False, blanks=True)
+            final_mutations = \
+                generate_mutations(asu.chain(chain_in_asu).sequence, oriented_pdb_seq_final, offset=False, blanks=True)
             logger.debug('ASU\t: %s' % asu.chain(chain_in_asu).sequence)
             logger.debug('Orient\t: %s' % oriented_pdb_seq_final)
             if final_mutations != dict():

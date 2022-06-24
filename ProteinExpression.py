@@ -8,7 +8,7 @@ from Bio.Data.IUPACData import protein_letters
 import PathUtils as PUtils
 # from PDB import PDB
 # import Pose
-import SequenceProfile
+from SequenceProfile import generate_alignment
 import SymDesignUtils as SDUtils
 from DnaChisel.dnachisel import DnaOptimizationProblem, CodonOptimize, reverse_translate, AvoidHairpins, \
     EnforceGCContent, AvoidPattern, AvoidRareCodons, UniquifyAllKmers, EnforceTranslation  # EnforceMeltingTemperature
@@ -509,7 +509,7 @@ def add_expression_tag(tag, sequence):
     """
     if not tag:
         return sequence
-    alignment = SequenceProfile.generate_alignment(tag, sequence)
+    alignment = generate_alignment(tag, sequence)
     # print('Expression TAG alignment:', alignment[0])
     tag_seq, seq, score, *_ = alignment
     # score = alignment[2]  # first alignment, grab score value

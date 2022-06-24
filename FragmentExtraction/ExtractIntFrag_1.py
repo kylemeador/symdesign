@@ -57,8 +57,8 @@ def find_interacting_residue_fragments(pdb1, pdb2, interacting_pairs, frag_lengt
     fragment_pairs = []
     for residue_pair in interacting_pairs:
         # parameterize fragments based on input length
-        res_nums_pdb1 = [residue_pair[0] + i for i in range(*SequenceProfile.parameterize_frag_length(frag_length))]
-        res_nums_pdb2 = [residue_pair[1] + i for i in range(*SequenceProfile.parameterize_frag_length(frag_length))]
+        res_nums_pdb1 = [residue_pair[0] + i for i in range(*SDUtils.parameterize_frag_length(frag_length))]
+        res_nums_pdb2 = [residue_pair[1] + i for i in range(*SDUtils.parameterize_frag_length(frag_length))]
 
         if same_chain:
             # break iteration if residue 1 succeeds residue 2 or they are sequential, or frag 1 residues are in frag 2

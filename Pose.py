@@ -1137,7 +1137,7 @@ class SymmetricModel(Models):
     def atom_indices_per_entity_symmetric(self):
         # Todo make Structure .atom_indices a numpy array
         #  Need to modify delete_residue and insert residue ._atom_indices attribute access
-        # alt solution may be quicker by performing the following multiplication then .flatten()
+        # alt solution may be quicker by performing the following addition then .flatten()
         # broadcast entity_indices ->
         # (np.arange(model_number) * number_of_atoms).T
         # |
@@ -1529,7 +1529,8 @@ class SymmetricModel(Models):
         # number_of_atoms = len(self.coords)
         number_of_atoms = self.number_of_atoms
         # need to slice through the specific Entity coords once we have the model
-        entity_start, entity_end = entity.atom_indices[0], entity.atom_indices[-1]
+        entity_indices = entity.atom_indices
+        entity_start, entity_end = entity_indices[0], entity_indices[-1]
         entity_length = entity.number_of_atoms
         entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
         equivalent_models = []
@@ -2411,8 +2412,8 @@ class SymmetricModel(Models):
             return out_path
 
 
-class Pose(SymmetricModel, SequenceProfile):  # Model
-    """A Pose is made of single or multiple PDB objects such as Entities, Chains, or other tsructures.
+class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequenceProfile to first in MRO
+    """A Pose is made of single or multiple Structure objects such as Entities, Chains, or other structures.
     All objects share a common feature such as the same symmetric system or the same general atom configuration in
     separate models across the Structure or sequence.
     """
@@ -2453,8 +2454,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Model
         self.ss_index_array = []  # stores secondary structure elements by incrementing index
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
 
-        # Model init will handle Structure set up if a PDB/PDB_file is present
-        # SymmetricModel init will handle if an ASU/ASU_file is present and generate assembly coords
+        # Model init will handle Structure set up if a structure file is present
+        # SymmetricModel init will generate assembly coords if symmetry specification present
         super().__init__(**kwargs)
         if self.is_clash():
             if not self.ignore_clashes:
