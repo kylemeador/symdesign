@@ -142,8 +142,11 @@ for residue_type, residue_atoms in atomic_polarity_table.items():
 
 
 class Log:
-    def __init__(self, log: Logger = null_log):
+    def __init__(self, log: Logger | None = null_log):
         self.log = null_log if log is None else log
+
+
+null_struct_log = Log()
 
 
 class Coords:
@@ -152,6 +155,9 @@ class Coords:
     def __init__(self, coords: np.ndarray | list[list[float]] = None):
         if coords is None:
             self.coords = np.array([])
+        elif not isinstance(coords, (np.ndarray, list)):
+            raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(coords).__name__}. Type must be a '
+                            f'numpy.ndarray of float with shape (n, 3) or list[list[float]]')
         else:
             self.coords = np.array(coords)
 
@@ -178,6 +184,11 @@ class Coords:
     def __len__(self) -> int:
         return self.coords.shape[0]
 
+    def __iter__(self) -> list[float, float, float]:
+        yield from self.coords.tolist()
+
+
+null_coords = Coords()
 
 class Atom:
     """An Atom container with the full Structure coordinates and the Atom unique data"""
@@ -327,9 +338,12 @@ class Atom:
 class Atoms:
     atoms: np.ndarray
 
-    def __init__(self, atoms: list | np.ndarray = None):
+    def __init__(self, atoms: list[Atom] | np.ndarray = None):
         if atoms is None:
             self.atoms = np.array([])
+        elif not isinstance(atoms, (np.ndarray, list)):
+            raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(atoms).__name__}. Type must be a '
+                            f'numpy.ndarray of {Atom.__name__} instances or list[{Atom.__name__}]')
         else:
             self.atoms = np.array(atoms)
 
@@ -351,6 +365,12 @@ class Atoms:
         self.atoms = np.concatenate((self.atoms[:at] if 0 <= at <= len(self.atoms) else self.atoms,
                                      new_atoms if isinstance(new_atoms, Iterable) else [new_atoms],
                                      self.atoms[at:] if at is not None else []))
+
+    def set_attributes(self, **kwargs):
+        """Set Atom attributes passed by keyword to their corresponding value"""
+        for atom in self:
+            for key, value in kwargs.items():
+                setattr(atom, key, value)
 
     def __copy__(self) -> Atoms:
         other = self.__class__.__new__(self.__class__)
@@ -1454,8 +1474,14 @@ class Residue(ResidueFragment):
 class Residues:
     residues: np.ndarray
 
-    def __init__(self, residues: list[Residue]):
-        self.residues = np.array(residues)
+    def __init__(self, residues: list[Residue] | np.ndarray = None):
+        if residues is None:
+            self.residues = np.array([])
+        elif not isinstance(residues, (np.ndarray, list)):
+            raise TypeError(f'Can\'t initialize {type(self).__name__} with {type(residues).__name__}. Type must be a '
+                            f'numpy.ndarray of {Residue.__name__} instances or list[{Residue.__name__}]')
+        else:
+            self.residues = np.array(residues)
 
     def reindex_residue_atoms(self, start_at: int = 0):  # , offset=None):
         """Set each member Residue indices according to incremental Atoms/Coords index
@@ -1518,7 +1544,7 @@ class Residues:
         return other
 
     def __len__(self) -> int:
-        return self.residues.shape[0]  # len(self.residues)
+        return self.residues.shape[0]
 
     def __iter__(self) -> Residue:
         yield from self.residues.tolist()
