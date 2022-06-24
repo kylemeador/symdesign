@@ -265,7 +265,10 @@ mmcif_error = 'This type of parsing is not available yet, but you can make it ha
 
 class PDB(Structure):
     """The base object for PDB file reading and Atom manipulation
-    Can pass file, chains, entities, metadata, log, name, and pose_format to initialize
+    Can initialize by passing a file, atoms and coords, residues, chains, entities or
+
+    Args:
+        metadata, log, name, and pose_format to initialize
     """
     api_entry: dict[str, Any] | None
     assembly: bool
@@ -844,8 +847,8 @@ class PDB(Structure):
         self.reference_sequence = \
             {self.chain_ids[chain_idx]: sequence for chain_idx, sequence in enumerate(self.reference_sequence.values())}
 
-        for chain_idx, residue_indices in enumerate(chain_residues):
-            self.chains.append(Chain(name=self.chain_ids[chain_idx], coords=self._coords, log=self._log,
+        for chain_id, residue_indices in zip(self.chain_ids, chain_residues):
+            self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log,
                                      residues=self._residues, residue_indices=residue_indices))
         # else:
         #     for chain_id in self.chain_ids:
