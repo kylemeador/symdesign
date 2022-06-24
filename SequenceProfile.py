@@ -194,7 +194,8 @@ class SequenceProfile:
     structure_sequence: str
 
     def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+        super().__init__()
+        # super().__init__(**kwargs)  # Todo use once SequenceProfile is higher in MRO of Entity/Pose
         self.evolutionary_profile: dict = {}  # position specific scoring matrix
         # self.design_pssm_file = None
         self.profile: dict = {}  # design specific scoring matrix
@@ -753,10 +754,10 @@ class SequenceProfile:
             try:
                 self.add_msa(msa)
             except FileNotFoundError:
-                raise DesignError('Ensure that you have properly set up the .msa for this SequenceProfile. To do this, '
-                                  'either link the Structure to the Master Database, call %s, or pass the location of a'
-                                  ' multiple sequence alignment. Supported formats:\n%s)'
-                                  % (msa_generation_function, pretty_format_table(msa_supported_types.items())))
+                raise DesignError(f'Ensure that you have set up the .msa for this {type(self).__name__}. To do this, '
+                                  f'either link to the Master Database, call {msa_generation_function}, or pass the '
+                                  f'location of a multiple sequence alignment. '
+                                  f'Supported formats:\n{pretty_format_table(msa_supported_types.items())}')
 
         # Make the output array. Use one additional length to add np.nan value at the 0 index for gaps
         evolutionary_collapse_np = np.zeros((self.msa.number_of_sequences, self.msa.length + 1))  # aligned_hci_np.copy()
@@ -2754,7 +2755,7 @@ def weight_sequences(alignment, bio_alignment, column_counts=None):
 
 
 msa_supported_types = {'fasta': '.fasta', 'stockholm': '.sto'}
-msa_generation_function = 'SequenceProfile.hhblits()'
+msa_generation_function = SequenceProfile.hhblits.__name__
 
 
 def find_column_observations(counts, **kwargs):

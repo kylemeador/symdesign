@@ -242,7 +242,7 @@ class Atom:
     #     return self._coords.coords[self.index]  # [self.x, self.y, self.z]
     #
     # @coords.setter
-    # def coords(self, coords):
+    # def coords(self, coords: np.ndarray | list[list[float]]):
     #     if isinstance(coords, Coords):
     #         self._coords = coords
     #     else:
@@ -329,6 +329,11 @@ class Atoms:
             self.atoms = np.array(atoms)
 
     def delete(self, indices: Sequence[int]):
+        """Delete Atom instances from the Atoms container
+
+        Args:
+            indices: The indices to delete from the Coords array
+        """
         self.atoms = np.delete(self.atoms, indices)
 
     def insert(self, new_atoms: list[Atom] | np.ndarray, at: int = None):
@@ -468,6 +473,7 @@ class Fragment:
         self.guide_coords = guide_coords
         self.fragment_length = fragment_length
         super().__init__()
+        # super().__init__(**kwargs)
         # ^ no keyword args now. If any sub class of Fragment requires subsequent inheritence, need to add kwargs and
         # likely FragmentBase to generate the proper method resolution order (MRO)
 
@@ -633,7 +639,7 @@ class MonoFragment(Fragment):
 
 
 class ResidueFragment(Fragment):
-    """Used to represent Fragment information when attached to a Residue"""
+    """Represent Fragment information for a single Residue"""
 
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -654,7 +660,7 @@ class ResidueFragment(Fragment):
 
 class Residue(ResidueFragment):
     _contact_order: float
-    # atom_indices: list[int]
+    _start_index: int
     atoms: Atoms
     # backbone_indices: list[int]
     # backbone_and_cb_indices: list[int]
@@ -813,7 +819,6 @@ class Residue(ResidueFragment):
 
     @heavy_atom_indices.setter
     def heavy_atom_indices(self, indices: Sequence[int]):
-        """Returns: (list[int])"""
         self._heavy_atom_indices = indices
 
     @property
@@ -1178,9 +1183,9 @@ class Residue(ResidueFragment):
         try:
             return self._secondary_structure
         except AttributeError:
-            raise AttributeError(f'Residue {self.number}{self.chain} has no ".secondary_structure" attribute! Ensure '
-                                 f'you call Structure.get_secondary_structure() before you request Residue '
-                                 f'secondary structure information')
+            raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.secondary_structure.__name__}" '
+                                 f'attribute! Ensure you call {Structure.get_secondary_structure.__name__} before you '
+                                 f'request Residue secondary structure information')
 
     @secondary_structure.setter
     def secondary_structure(self, ss_code: str):
@@ -1207,8 +1212,9 @@ class Residue(ResidueFragment):
                 self._sasa = self.sasa_apolar + self.sasa_polar
                 return self._sasa
             except AttributeError:
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".sasa" attribute! Ensure you call '
-                                     f'Structure.get_sasa() before you request Residue SASA information')
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa.__name__}" attribute! '
+                                     f'Ensure you call {Structure.get_sasa.__name__} before you request Residue SASA '
+                                     f'information')
 
     @sasa.setter
     def sasa(self, sasa: float):
@@ -1226,8 +1232,9 @@ class Residue(ResidueFragment):
                 self._segregate_sasa()
                 return self._sasa_apolar
             except AttributeError:  # missing atom.sasa
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".sasa_apolar" attribute! Ensure you '
-                                     f'call Structure.get_sasa() before you request Residue SASA information')
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_apolar.__name__}" '
+                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                                     f'Residue SASA information')
 
     @sasa_apolar.setter
     def sasa_apolar(self, sasa: float | int):
@@ -1245,8 +1252,9 @@ class Residue(ResidueFragment):
                 self._segregate_sasa()
                 return self._sasa_polar
             except AttributeError:  # missing atom.sasa
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".sasa_polar" attribute! Ensure you '
-                                     f'call Structure.get_sasa() before you request Residue SASA information')
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_polar.__name__}" '
+                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                                     f'Residue SASA information')
 
     @sasa_polar.setter
     def sasa_polar(self, sasa: float | int):
@@ -1255,11 +1263,7 @@ class Residue(ResidueFragment):
     @property
     def relative_sasa(self) -> float:
         """The solvent accessible surface area relative to the standard surface accessibility of the Residue type"""
-        # try:  # catch this in self.sasa
-        return self.sasa / gxg_sasa[self.type]
-        # except AttributeError:
-        #     raise AttributeError(f'Residue {self.number}{self.chain} has no ".sasa" attribute! Ensure you call '
-        #                          f'Structure.get_sasa() before you request Residue specific SASA information')
+        return self.sasa / gxg_sasa[self.type]  # may cause problems if self.type attribute can be non-cannonical AA
 
     @property
     def contact_order(self) -> float:
@@ -1267,8 +1271,9 @@ class Residue(ResidueFragment):
         try:
             return self._contact_order
         except AttributeError:
-            raise AttributeError(f'Residue {self.number}{self.chain} has no ".contact_order" attribute! Ensure you call'
-                                 ' Structure.contact_order before you request Residue contact order information')
+            raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.contact_order.__name__}" attribute!'
+                                 f' Ensure you call {Structure.contact_order.__name__} before you request Residue '
+                                 f'contact order information')
 
     @contact_order.setter
     def contact_order(self, contact_order: float):
@@ -1559,7 +1564,15 @@ class StructureBase:
 
 class Structure(StructureBase):
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
-    Must pass parent, or atoms and coords, or residues and residue_indices to initialize
+    Must pass parent and residue_indices, atoms and coords, or residues to initialize
+
+    Args:
+        atoms: The Atom instances which should constitute a new Structure instance
+        name:
+        residues: The Residue instances which should constitute a new Structure instance
+        residue_indices: The indices which specify the particular Residue instances that make this Structure instance.
+            Used with a parent to specify a subdivision of a larger Structure
+        parent: If a Structure is creating this Structure as a division of itself, pass the parent instance
     """
     _atoms: Atoms | None
     _atom_indices: list[int] | None
@@ -1765,27 +1778,38 @@ class Structure(StructureBase):
     def atom_indices(self, indices: list[int]):
         self._atom_indices = indices
 
-    def start_indices(self, dtype=None, at=0):
-        """Modify Structure container indices by a set integer amount"""
-        try:
-            indices = getattr(self, '%s_indices' % dtype)
-        except AttributeError:
-            raise AttributeError('The dtype "%s"_indices was not found the Structure object. Possible dtype values '
-                                 'are atom or residue' % dtype)
-        first_index = indices[0]
-        setattr(self, '%s_indices' % dtype, [at + prior_idx - first_index for prior_idx in indices])
+    def start_indices(self, at: int = 0, dtype: Literal['atom', 'residue'] = None):
+        """Modify Structure container indices by a set integer amount
 
-    def insert_indices(self, at=0, new_indices=None, dtype=None):
-        """Modify Structure container indices by a set integer amount"""
+        Args:
+            at: The index to insert indices at
+            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
+        """
+        try:
+            indices = getattr(self, f'{dtype}_indices')
+        except AttributeError:
+            raise AttributeError(f'The dtype {dtype}_indices was not found the Structure object. Possible values of '
+                                 f'dtype are atom or residue')
+        first_index = indices[0]
+        setattr(self, f'{dtype}_indices', [at + prior_idx - first_index for prior_idx in indices])
+
+    def insert_indices(self, at: int = 0, new_indices: list[int] = None, dtype: Literal['atom', 'residue'] = None):
+        """Modify Structure container indices by a set integer amount
+
+        Args:
+            at: The index to insert indices at
+            new_indices: The indices to insert
+            dtype: The type of indices to modify. Can be either 'atom' or 'residue'
+        """
         if new_indices is None:
             new_indices = []
         try:
-            indices = getattr(self, '%s_indices' % dtype)
+            indices = getattr(self, f'{dtype}_indices')
         except AttributeError:
-            raise AttributeError('The dtype %s_indices was not found the Structure object. Possible values of dtype are'
-                                 ' atom or residue' % dtype)
+            raise AttributeError(f'The dtype {dtype}_indices was not found the Structure object. Possible values of '
+                                 f'dtype are atom or residue')
         number_new = len(new_indices)
-        setattr(self, '%s_indices' % dtype, indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
+        setattr(self, f'{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
     @property
     def atoms(self) -> list[Atom] | None:
@@ -2402,85 +2426,75 @@ class Structure(StructureBase):
     #     self.residue_indices = list(range(len(new_residues)))
     #     self.residues = new_residues
 
-    def residue(self, residue_number, pdb=False):
-        """Retrieve the Residue specified
+    def residue(self, residue_number: int, pdb: bool = False) -> Residue | None:
+        """Retrieve the specified Residue
 
-        Returns:
-            (Residue)
+        Args:
+            residue_number: The number of the Residue to search for
+            pdb: Whether the numbering is the parsed residue numbering or current
         """
-        if pdb:
-            number_source = 'number_pdb'
-        else:
-            number_source = 'number'
-
+        number_source = 'number_pdb' if pdb else 'number'
         for residue in self.residues:
             if getattr(residue, number_source) == residue_number:
                 return residue
-        return
 
     @property
-    def n_terminal_residue(self):
-        """Retrieve the Residue from the specified termini
-
-        Returns:
-            (Residue)
-        """
+    def n_terminal_residue(self) -> Residue:
+        """Retrieve the Residue from the n-termini"""
         return self.residues[0]
 
     @property
-    def c_terminal_residue(self):
-        """Retrieve the Residue from the specified termini
-
-        Returns:
-            (Residue)
-        """
+    def c_terminal_residue(self) -> Residue:
+        """Retrieve the Residue from the c-termini"""
         return self.residues[-1]
 
     @property
-    def radius(self):
-        """The largest point from the center of mass of the Structure
-
-        Returns:
-            (float)
-        """
+    def radius(self) -> float:
+        """The furthest point from the center of mass of the Structure"""
         return np.max(np.linalg.norm(self.coords - self.center_of_mass, axis=1))
 
-    def get_residue_atoms(self, numbers=None, **kwargs):
+    def get_residue_atoms(self, numbers: Container[int] = None, **kwargs) -> list[Atom]:
         """Return the Atoms contained in the Residue objects matching a set of residue numbers
 
+        Args:
+            numbers: The residue numbers to search for
         Returns:
-            (list[Atoms])
+            The Atom instances belonging to the Residue instances
         """
         atoms = []
         for residue in self.get_residues(numbers=numbers, **kwargs):
             atoms.extend(residue.atoms)
         return atoms
-        # return [residue.get_atoms() for residue in self.get_residues(numbers=residue_numbers)]
 
-    def residue_from_pdb_numbering(self, residue_number):
+    def residue_from_pdb_numbering(self, residue_number: int) -> Residue | None:
         """Returns the Residue object from the Structure according to PDB residue number
 
-        Returns:
-            (Residue)
+        Args:
+            residue_number: The number of the Residue to search for
         """
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue
-        return
 
     def residue_number_from_pdb(self, residue_number: int) -> int | None:
-        """Returns the Residue 'pose number' from the parsed number"""
+        """Returns the Residue 'pose number' from the parsed number
+
+        Args:
+            residue_number: The number of the Residue to search for
+        """
         for residue in self.residues:
             if residue.number_pdb == residue_number:
                 return residue.number
-        return
 
     def residue_number_to_pdb(self, residue_number: int) -> int | None:
-        """Returns the Residue parsed number from the 'pose number'"""
+        """Returns the Residue parsed number from the 'pose number'
+
+        Args:
+            residue_number: The number of the Residue to search for
+        """
         for residue in self.residues:
             if residue.number == residue_number:
                 return residue.number_pdb
-        return
 
     # def renumber_residues(self):
     #     """Starts numbering Residues at 1 and number sequentially until last Residue"""
@@ -2627,7 +2641,7 @@ class Structure(StructureBase):
 
         # set the new chain_id, number_pdb. Must occur after self.residue_indices update if chain isn't provided
         chain_assignment_error = 'Can\'t solve for the new Residue polymer association automatically! If the new ' \
-                                 'Residue is at a Structure termini in a multi-Structure Structure container, you must' \
+                                 'Residue is at a Structure termini in a multi-Structure Structure container, you must'\
                                  ' specify which Structure it belongs to by passing chain='
         if chain:
             new_residue.chain = chain
@@ -3769,8 +3783,8 @@ class Structures(Structure, UserList):
 
     @property
     def number_of_atoms(self):
+        """Return the number of atoms/coords in the Structures"""
         return len(self.atoms)
-        # return len(self.coords)
 
     @property
     def residues(self):  # TODO Residues iteration
@@ -4002,7 +4016,7 @@ class Chain(Structure):
         self.set_residues_attributes(chain=chain_id)
 
 
-class Entity(Chain, SequenceProfile):
+class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to first in MRO
     """Entity
 
     Args:
@@ -4033,7 +4047,8 @@ class Entity(Chain, SequenceProfile):
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
-        # Todo choose most symmetrically average if Entity is symmetric
+        self.structure_containers.extend(['chains'])
+        # Todo choose most symmetrically average by moving chain symmetry ops below to here
         representative = chains[0]
         super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
                          coords=representative._coords, **kwargs)
@@ -4435,8 +4450,8 @@ class Entity(Chain, SequenceProfile):
         # debug_pdb.write(out_path='invert_set_invert_rot%s.pdb' % self.name)
 
         # set up copies to match the indices of entity
-        # self.chain_representative.start_indices(dtype='atom', at=self.atom_indices[0])
-        # self.chain_representative.start_indices(dtype='residue', at=self.residue_indices[0])
+        # self.chain_representative.start_indices(at=self.atom_indices[0], dtype='atom')
+        # self.chain_representative.start_indices(at=self.residue_indices[0], dtype='residue')
         # self.chains.append(self.chain_representative)
         self.chain_transforms.clear()
         # self.chain_ids.clear()

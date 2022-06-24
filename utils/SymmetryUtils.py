@@ -627,11 +627,10 @@ if __name__ == '__main__':
                 # print('%s found the correct number of operators' % symmetry_group)
         else:
             if np.all(rotations[0] == identity_matrix):
-                print('\'%s\': %s | NO operator number found. Found IDENTITY'
-                      % (symmetry_group, number_of_rotations))
+                print(f'"{symmetry_group}": {number_of_rotations} | NO operator number found. Found IDENTITY')
             else:
-                print('\'%s\': %s | NO operator number found. Adding identity because no match'
-                      % (symmetry_group, number_of_rotations + 1))
+                print(f'"{symmetry_group}": {number_of_rotations + 1} | NO operator number found. Adding identity '
+                      f'because no match')
                 rotations = np.insert(rotations, 0, identity_matrix, axis=0)
                 translations = np.insert(translations, 0, origin, axis=0)
         # print(rotations)

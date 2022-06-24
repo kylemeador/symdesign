@@ -644,12 +644,12 @@ class PDB(Structure):
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 # Reindex all residue and atom indices
                 self.chains[0].reset_indices_attributes()
-                self.chains[0].start_indices(dtype='residue', at=0)
-                self.chains[0].start_indices(dtype='atom', at=0)
+                self.chains[0].start_indices(at=0, dtype='atom')
+                self.chains[0].start_indices(at=0, dtype='residue')
                 for prior_idx, chain in enumerate(self.chains[1:]):
                     chain.reset_indices_attributes()
-                    chain.start_indices(dtype='residue', at=self.chains[prior_idx].residue_indices[-1] + 1)
-                    chain.start_indices(dtype='atom', at=self.chains[prior_idx].atom_indices[-1] + 1)
+                    chain.start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
+                    chain.start_indices(at=self.chains[prior_idx].residue_indices[-1] + 1, dtype='residue')
                 # set the arrayed attributes for all PDB containers
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 if rename_chains:
@@ -673,12 +673,12 @@ class PDB(Structure):
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 # Reindex all residue and atom indices
                 self.entities[0].reset_indices_attributes()
-                self.entities[0].start_indices(dtype='residue', at=0)
-                self.entities[0].start_indices(dtype='atom', at=0)
+                self.entities[0].start_indices(at=0, dtype='atom')
+                self.entities[0].start_indices(at=0, dtype='residue')
                 for prior_idx, entity in enumerate(self.entities[1:]):
                     entity.reset_indices_attributes()
-                    entity.start_indices(dtype='residue', at=self.entities[prior_idx].residue_indices[-1] + 1)
-                    entity.start_indices(dtype='atom', at=self.entities[prior_idx].atom_indices[-1] + 1)
+                    entity.start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
+                    entity.start_indices(at=self.entities[prior_idx].residue_indices[-1] + 1, dtype='residue')
                 # set the arrayed attributes for all PDB containers (chains, entities)
                 self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
                 if rename_chains:  # set each successive Entity to have an incrementally higher chain id
@@ -909,15 +909,15 @@ class PDB(Structure):
         try:
             subunit_number = valid_subunit_number[symmetry]
         except KeyError:
-            raise ValueError('Symmetry %s is not a valid symmetry. Please try one of: %s' %
-                             (symmetry, ', '.join(valid_symmetries)))
+            raise ValueError(f'Symmetry {symmetry} is not a valid symmetry. '
+                             f'Please try one of: {", ".join(valid_symmetries)}')
         if not log:
             log = self.log
 
         if self.filepath:
             pdb_file_name = os.path.basename(self.filepath)
         else:
-            pdb_file_name = '%s.pdb' % self.name
+            pdb_file_name = f'{self.name}.pdb'
         # Todo change output to logger with potential for file and stdout
 
         number_of_subunits = len(self.chain_ids)
@@ -931,13 +931,12 @@ class PDB(Structure):
                 if number_of_subunits in multicomponent_valid_subunit_number.get(symmetry):
                     multicomponent = True
                 else:
-                    raise ValueError('%s could not be oriented: It has %d subunits while a multiple of %d '
-                                     'are expected for %s symmetry'
-                                     % (pdb_file_name, number_of_subunits, subunit_number, symmetry))
+                    raise ValueError(f'{pdb_file_name} could not be oriented: It has {number_of_subunits} subunits '
+                                     f'while a multiple of {subunit_number} are expected for {symmetry} symmetry')
             # else:
             #     multicomponent = False
         else:
-            raise ValueError('%s: Cannot orient a Structure with only a single chain. No symmetry present!' % self.name)
+            raise ValueError(f'{self.name}: Cannot orient a Structure with only a single chain. No symmetry present!')
 
         # orient_input = os.path.join(orient_dir, 'input.pdb')
         orient_input = Path(orient_dir, 'input.pdb')
@@ -977,8 +976,8 @@ class PDB(Structure):
         if not os.path.exists(orient_output) or os.stat(orient_output).st_size == 0:
             # orient_log = os.path.join(out_dir, orient_log_file)
             log_file = getattr(log.handlers[0], 'baseFilename', None)
-            log_message = '. Check %s for more information' % log_file if log_file else ''
-            error_string = 'orient_oligomer could not orient %s%s' % (pdb_file_name, log_message)
+            log_message = f'. Check {log_file if log_file else ""} for more information'
+            error_string = f'orient_oligomer could not orient {pdb_file_name}{log_message}'
             raise RuntimeError(error_string)
 
         oriented_pdb = PDB.from_file(orient_output, name=self.name, entities=False, log=log)
@@ -1069,24 +1068,23 @@ class PDB(Structure):
                     #     [(res_idx, res_atom_idx) for res_idx, residue in enumerate(structure.residues)
                     #      for res_atom_idx in residue.range]
                 except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
-                    # try:  # edge case where the index is being appended to the c-terminus
+                    # edge case where the index is being appended to the c-terminus
                     if residue_index - 1 == structure.residue_indices[-1] and new_residue.chain == structure.chain_id:
-                        res_insert_idx, atom_insert_idx = len(structure.residue_indices), len(structure.atom_indices)
+                        # res_insert_idx, atom_insert_idx =len(structure.residue_indices), len(structure.atom_indices)
                         # res_insertion_idx = structure.residue_indices.index(residue_index - 1)
-                        structure.insert_indices(at=res_insert_idx, new_indices=[residue_index], dtype='residue')
+                        structure.insert_indices(at=structure.number_of_residues, new_indices=[residue_index],
+                                                 dtype='residue')
                         # atom_insertion_idx = structure.atom_indices.index(new_residue.start_index - 1)
-                        structure.insert_indices(at=atom_insert_idx, new_indices=new_residue.atom_indices, dtype='atom')
+                        structure.insert_indices(at=structure.number_of_atoms, new_indices=new_residue.atom_indices,
+                                                 dtype='atom')
                         break  # must move to the next container to update the indices by a set increment
-                    # except (ValueError, IndexError):
-                    # else:
-                    #     continue
             # for each subsequent structure in the structure container, update the indices with the last indices from
             # the prior structure
             for prior_idx, structure in enumerate(structures[idx + 1:], idx):
-                structure.start_indices(dtype='residue', at=structures[prior_idx].residue_indices[-1] + 1)
-                structure.start_indices(dtype='atom', at=structures[prior_idx].atom_indices[-1] + 1)
+                structure.start_indices(at=structures[prior_idx].atom_indices[-1] + 1, dtype='atom')
+                structure.start_indices(at=structures[prior_idx].residue_indices[-1] + 1, dtype='residue')
 
-    def delete_residue(self, chain_id, residue_number):  # Todo Structures
+    def delete_residue(self, chain_id: str, residue_number: int):  # Todo Structures
         # raise DesignError('This function is broken')  # TODO TEST
         # start = len(self.atoms)
         # self.log.debug(start)
