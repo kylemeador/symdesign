@@ -2535,7 +2535,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                 set_function = getattr(set, 'union')
             else:  # start with all indices and include those of interest
                 entity_set = set(self.entities)
-                atom_indices = set(self.atom_indices)
+                atom_indices = set(self._atom_indices)
                 set_function = getattr(set, 'intersection')
 
             if entities:
@@ -2555,7 +2555,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             if pdb_residues:
                 atom_indices = set_function(atom_indices, self.get_residue_atom_indices(numbers=residues, pdb=True))
             # if atoms:
-            #     atom_indices = set_function(atom_indices, [idx for idx in self.atom_indices if idx in atoms])
+            #     atom_indices = set_function(atom_indices, [idx for idx in self._atom_indices if idx in atoms])
 
             return entity_set, atom_indices
 
@@ -2564,7 +2564,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             self.log.debug(f'The design_selection includes: {selection}')
             entity_selection, atom_selection = grab_indices(**selection)
         else:  # use all the entities and indices
-            entity_selection, atom_selection = set(self.entities), set(self.atom_indices)
+            entity_selection, atom_selection = set(self.entities), set(self._atom_indices)
 
         mask = self.design_selector.get('mask')
         if mask:
