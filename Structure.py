@@ -1584,7 +1584,17 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
 
 
 class StructureBase:
-    """Set up Structure coordinates and logging. Collect any unknown keyword arguments"""
+    """Structure object sets up and handles Coords and Log objects as well as maintaining atom_indices and the history
+    of Structure subclass creation and subdivision from parent Structure to dependent Structure's. Collects known
+    keyword arguments for all derived class construction calls to protect base object. Should always be the last class
+    in the method resolution order of derived classes
+
+    Args:
+        parent: If a Structure object created this Structure instance, that objects instance. Will share ownership of
+            the log and coords to and dependent Structures
+        log: If this is a parent Structure instance, the object that handles Structure object logging
+        coords: If this is a parent Structure instance, the Coords of that Structure
+    """
     _atom_indices: list[int] | None  # np.ndarray
     _coords: Coords
     _log: Log
@@ -1596,41 +1606,42 @@ class StructureBase:
                  pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None,
                  parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None,
                  **kwargs):
-        # initialize parent StructureBase if one exists
-        self._parent = parent
-        # initialize Log
-        if log:
-            if log is True:  # use the module logger
-                self._log = Log(logger)
-            elif isinstance(log, Log):  # initialized Log
-                self._log = log
-            elif isinstance(log, Logger):  # logging.Logger object
-                self._log = Log(log)
-            else:
-                raise TypeError(f'Can\'t set Log to {type(log).__name__}. Must be type logging.Logger')
-        else:  # when explicitly passed as None or False, uses the null logger
-            self._log = null_struct_log  # Log()
+        if parent:  # initialize StructureBase from parent
+            self._parent = parent
+            self._log = parent._log
+            self._coords = parent._coords
+        else:  # this is the parent
+            # initialize Log
+            if log:
+                if log is True:  # use the module logger
+                    self._log = Log(logger)
+                elif isinstance(log, Log):  # initialized Log
+                    self._log = log
+                elif isinstance(log, Logger):  # logging.Logger object
+                    self._log = Log(log)
+                else:
+                    raise TypeError(f'Can\'t set Log to {type(log).__name__}. Must be type logging.Logger')
+            else:  # when explicitly passed as None or False, uses the null logger
+                self._log = null_struct_log  # Log()
 
-        # initialize Coords
-        # if coords is None:
-        #     pass
-        # el
-        if coords is None:  # use first as most init comes from Atom instances which are set before Coords are made
-            self._coords = null_coords
-        elif isinstance(coords, Coords):
-            self._coords = coords
-        else:  # sets as None if coords wasn't passed and update later
-            self._coords = Coords(coords)
+            # initialize Coords
+            if coords is None:  # check this first
+                # most init occurs from Atom instances which are their parent until another StructureBase adopts them
+                self._coords = null_coords
+            elif isinstance(coords, Coords):
+                self._coords = coords
+            else:  # sets as None if coords wasn't passed and update later
+                self._coords = Coords(coords)
 
         try:
             super().__init__(**kwargs)
         except TypeError:
-            raise TypeError(f'The argument(s) passed to the Structure object were not recognized: '
+            raise TypeError(f'The argument(s) passed to the StructureBase object were not recognized: '
                             f'{", ".join(kwargs.keys())}')
 
     @property
     def parent(self) -> StructureBase | None:
-        """Return the instance's "parent" Structure"""
+        """Return the instance's "parent" StructureBase"""
         try:
             return self._parent
         except AttributeError:
@@ -1647,11 +1658,12 @@ class StructureBase:
 
     @property
     def log(self) -> Logger:
-        """Access to the StructureBase logger"""
+        """Access to the StructureBase Logger"""
         return self._log.log
 
     @log.setter
     def log(self, log: Logger | Log):
+        """Set the StructureBase to a logging.Logger object"""
         if isinstance(log, Logger):  # prefer this protection method versus Log.log property overhead?
             self._log.log = log
         elif isinstance(log, Log):
