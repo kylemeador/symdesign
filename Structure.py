@@ -190,6 +190,122 @@ class Coords:
 
 null_coords = Coords()
 
+
+class StructureBase:
+    """Structure object sets up and handles Coords and Log objects as well as maintaining atom_indices and the history
+    of Structure subclass creation and subdivision from parent Structure to dependent Structure's. Collects known
+    keyword arguments for all derived class construction calls to protect base object. Should always be the last class
+    in the method resolution order of derived classes
+
+    Args:
+        parent: If a Structure object created this Structure instance, that objects instance. Will share ownership of
+            the log and coords to and dependent Structures
+        log: If this is a parent Structure instance, the object that handles Structure object logging
+        coords: If this is a parent Structure instance, the Coords of that Structure
+    """
+    _atom_indices: list[int] | None  # np.ndarray
+    _coords: Coords
+    _log: Log
+    _parent: StructureBase | None
+
+    def __init__(self, chains=None, entities=None,  # Todo figure out if pulling by PDB init then remove?
+                 design=None,  # Todo remove?
+                 # Todo ensure Pose/Models/SymmetricModel are swallowed
+                 pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None,
+                 parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None,
+                 **kwargs):
+        if parent:  # initialize StructureBase from parent
+            self._parent = parent
+            self._log = parent._log
+            self._coords = parent._coords
+        else:  # this is the parent
+            # initialize Log
+            if log:
+                if log is True:  # use the module logger
+                    self._log = Log(logger)
+                elif isinstance(log, Log):  # initialized Log
+                    self._log = log
+                elif isinstance(log, Logger):  # logging.Logger object
+                    self._log = Log(log)
+                else:
+                    raise TypeError(f'Can\'t set Log to {type(log).__name__}. Must be type logging.Logger')
+            else:  # when explicitly passed as None or False, uses the null logger
+                self._log = null_struct_log  # Log()
+
+            # initialize Coords
+            if coords is None:  # check this first
+                # most init occurs from Atom instances which are their parent until another StructureBase adopts them
+                self._coords = null_coords
+            elif isinstance(coords, Coords):
+                self._coords = coords
+            else:  # sets as None if coords wasn't passed and update later
+                self._coords = Coords(coords)
+
+        try:
+            super().__init__(**kwargs)
+        except TypeError:
+            raise TypeError(f'The argument(s) passed to the StructureBase object were not recognized: '
+                            f'{", ".join(kwargs.keys())}')
+
+    @property
+    def parent(self) -> StructureBase | None:
+        """Return the instance's "parent" StructureBase"""
+        try:
+            return self._parent
+        except AttributeError:
+            self._parent = None
+            return self._parent
+
+    def is_dependent(self) -> bool:
+        """Is the StructureBase a dependent?"""
+        return self._parent is not None
+
+    def is_parent(self) -> bool:
+        """Is the StructureBase a parent?"""
+        return self._parent is None
+
+    @property
+    def log(self) -> Logger:
+        """Access to the StructureBase Logger"""
+        return self._log.log
+
+    @log.setter
+    def log(self, log: Logger | Log):
+        """Set the StructureBase to a logging.Logger object"""
+        if isinstance(log, Logger):  # prefer this protection method versus Log.log property overhead?
+            self._log.log = log
+        elif isinstance(log, Log):
+            self._log.log = log.log
+        else:
+            raise TypeError(f'Can\'t set Log to {type(log).__name__}. Must be type logging.Logger')
+
+    @property
+    def atom_indices(self) -> list[int] | None:
+        """The Atoms/Coords indices which the StructureBase has access to"""
+        try:
+            return self._atom_indices
+        except AttributeError:
+            return
+
+    @property
+    def number_of_atoms(self) -> int:
+        """The number of atoms/coordinates in the StructureBase"""
+        try:
+            return len(self._atom_indices)
+        except TypeError:
+            return 0
+
+    @property
+    def coords(self) -> np.ndarray:
+        """The coordinates for the Atoms in the StructureBase object"""
+        # returns self.Coords.coords(a np.array)[sliced by the instance's atom_indices]
+        return self._coords.coords[self._atom_indices]
+
+    @coords.setter
+    def coords(self, coords: np.ndarray | list[list[float]]):
+        self._coords.replace(self._atom_indices, coords)
+
+
 class Atom:
     """An Atom container with the full Structure coordinates and the Atom unique data"""
     # . Pass a reference to the full Structure coordinates for Keyword Arg coords=self.coords
@@ -1581,121 +1697,6 @@ def write_frag_match_info_file(ghost_frag: GhostFragment = None, matched_frag: F
 
         # if is_initial_match:
         #     out_info_file.write("***** ALL MATCH(ES) FROM REPRESENTATIVES OF ALL FRAGMENT CLUSTERS *****\n\n")
-
-
-class StructureBase:
-    """Structure object sets up and handles Coords and Log objects as well as maintaining atom_indices and the history
-    of Structure subclass creation and subdivision from parent Structure to dependent Structure's. Collects known
-    keyword arguments for all derived class construction calls to protect base object. Should always be the last class
-    in the method resolution order of derived classes
-
-    Args:
-        parent: If a Structure object created this Structure instance, that objects instance. Will share ownership of
-            the log and coords to and dependent Structures
-        log: If this is a parent Structure instance, the object that handles Structure object logging
-        coords: If this is a parent Structure instance, the Coords of that Structure
-    """
-    _atom_indices: list[int] | None  # np.ndarray
-    _coords: Coords
-    _log: Log
-    _parent: StructureBase | None
-
-    def __init__(self, chains=None, entities=None,  # Todo figure out if pulling by PDB init then remove?
-                 design=None,  # Todo remove?
-                 # Todo ensure Pose/Models/SymmetricModel are swallowed
-                 pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None,
-                 parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None,
-                 **kwargs):
-        if parent:  # initialize StructureBase from parent
-            self._parent = parent
-            self._log = parent._log
-            self._coords = parent._coords
-        else:  # this is the parent
-            # initialize Log
-            if log:
-                if log is True:  # use the module logger
-                    self._log = Log(logger)
-                elif isinstance(log, Log):  # initialized Log
-                    self._log = log
-                elif isinstance(log, Logger):  # logging.Logger object
-                    self._log = Log(log)
-                else:
-                    raise TypeError(f'Can\'t set Log to {type(log).__name__}. Must be type logging.Logger')
-            else:  # when explicitly passed as None or False, uses the null logger
-                self._log = null_struct_log  # Log()
-
-            # initialize Coords
-            if coords is None:  # check this first
-                # most init occurs from Atom instances which are their parent until another StructureBase adopts them
-                self._coords = null_coords
-            elif isinstance(coords, Coords):
-                self._coords = coords
-            else:  # sets as None if coords wasn't passed and update later
-                self._coords = Coords(coords)
-
-        try:
-            super().__init__(**kwargs)
-        except TypeError:
-            raise TypeError(f'The argument(s) passed to the StructureBase object were not recognized: '
-                            f'{", ".join(kwargs.keys())}')
-
-    @property
-    def parent(self) -> StructureBase | None:
-        """Return the instance's "parent" StructureBase"""
-        try:
-            return self._parent
-        except AttributeError:
-            self._parent = None
-            return self._parent
-
-    def is_dependent(self) -> bool:
-        """Is the StructureBase a dependent?"""
-        return self._parent is not None
-
-    def is_parent(self) -> bool:
-        """Is the StructureBase a parent?"""
-        return self._parent is None
-
-    @property
-    def log(self) -> Logger:
-        """Access to the StructureBase Logger"""
-        return self._log.log
-
-    @log.setter
-    def log(self, log: Logger | Log):
-        """Set the StructureBase to a logging.Logger object"""
-        if isinstance(log, Logger):  # prefer this protection method versus Log.log property overhead?
-            self._log.log = log
-        elif isinstance(log, Log):
-            self._log.log = log.log
-        else:
-            raise TypeError(f'Can\'t set Log to {type(log).__name__}. Must be type logging.Logger')
-
-    @property
-    def atom_indices(self) -> list[int] | None:
-        """The Atoms/Coords indices which the StructureBase has access to"""
-        try:
-            return self._atom_indices
-        except AttributeError:
-            return
-
-    @property
-    def number_of_atoms(self) -> int:
-        """The number of atoms/coordinates in the StructureBase"""
-        try:
-            return len(self._atom_indices)
-        except TypeError:
-            return 0
-
-    @property
-    def coords(self) -> np.ndarray:
-        """The coordinates for the Atoms in the StructureBase object"""
-        # returns self.Coords.coords(a np.array)[sliced by the instance's atom_indices]
-        return self._coords.coords[self._atom_indices]
-
-    @coords.setter
-    def coords(self, coords: np.ndarray | list[list[float]]):
-        self._coords.replace(self._atom_indices, coords)
 
 
 class Structure(StructureBase):
