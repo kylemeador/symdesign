@@ -224,6 +224,11 @@ class Atom:
     #     """Initialize without coordinates"""
     #     return cls(*args)
 
+    # @property
+    # def atom_indices(self) -> int:
+    #     """The index of the Atom in the Atoms/Coords container"""  # Todo separate __doc__?
+    #     return self._atom_indices
+
     @property
     def sasa(self) -> float:
         """The Solvent accessible surface area for the Atom. Raises AttributeError if .sasa isn't set"""
@@ -679,7 +684,7 @@ class Residue(ResidueFragment):
         super().__init__()  # **kwargs NO NEED YET for ResidueFragment, but using as a placeholder when necessary
         #        index=None
         # self.index = index
-        self.atom_indices = atom_indices
+        self._atom_indices = atom_indices
         # self.parent = parent_structure  # Todo hide ._ attributes with parents
         self.atoms = atoms
         if coords:
@@ -714,19 +719,22 @@ class Residue(ResidueFragment):
         """The range of indices corresponding to the Residue atoms"""
         return list(range(self.number_of_atoms))
 
-    @property
-    def atom_indices(self) -> list[int]:
-        """The particular indices in which the Residue Atoms are located in the shared Atoms container"""
-        return self._atom_indices
+    # @property
+    # def atom_indices(self) -> list[int] | None:
+    #     """The indices which belong to the Residue Atoms in the parent Atoms/Coords container"""  # Todo separate __doc?
+    #     try:
+    #         return self._atom_indices
+    #     except AttributeError:
+    #         return
 
-    @atom_indices.setter
-    def atom_indices(self, indices: list[int]):
-        """Set the Structure atom indices to a list of integers"""
-        self._atom_indices = indices
-        try:
-            self._start_index = indices[0]
-        except (TypeError, IndexError):
-            raise IndexError('The Residue wasn\'t passed any atom_indices which are required for initialization')
+    # @atom_indices.setter
+    # def atom_indices(self, indices: list[int]):
+    #     """Set the Structure atom indices to a list of integers"""
+    #     self._atom_indices = indices
+    #     try:
+    #         self._start_index = indices[0]
+    #     except (TypeError, IndexError):
+    #         raise IndexError('The Residue wasn\'t passed any atom_indices which are required for initialization')
 
     @property
     def atoms(self) -> list[Atom]:
@@ -1460,17 +1468,17 @@ class Residues:
                 prior_residue = self.residues[start_at - 1]
                 # prior_residue.start_index = start_at
                 for residue in self.residues[start_at:].tolist():
-                    residue.start_index = prior_residue._atom_indices[-1] + 1
+                    residue.start_index = prior_residue.atom_indices[-1] + 1
                     prior_residue = residue
             else:
-                # self.residues[-1].start_index = self.residues[-2]._atom_indices[-1] + 1
+                # self.residues[-1].start_index = self.residues[-2].atom_indices[-1] + 1
                 raise DesignError('%s: Starting index is outside of the allowable indices in the Residues object!'
                                   % Residues.reindex_residue_atoms.__name__)
         else:  # when start_at is 0 or less
             prior_residue = self.residues[start_at]
             prior_residue.start_index = start_at
             for residue in self.residues[start_at + 1:].tolist():
-                residue.start_index = prior_residue._atom_indices[-1] + 1
+                residue.start_index = prior_residue.atom_indices[-1] + 1
                 prior_residue = residue
 
     def insert(self, new_residues: list[Residue] | np.ndarray, at: int = None):
@@ -1615,7 +1623,7 @@ class Structure(StructureBase):
 
         if atoms is not None:
             self.set_atoms(atoms)  # this does the below commented steps
-            # self.atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
+            # self._atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
             # self.atoms = atoms
             # self.create_residues()
             # self.parent = parent_structure  # Todo hide ._ attributes with parents
@@ -1769,14 +1777,17 @@ class Structure(StructureBase):
         Structure that maintains them"""
         return self._coords_indexed_residues is not None
 
-    @property
-    def atom_indices(self) -> list[int]:  # In Residue too
-        """Return the atom indices which belong to the Structure"""
-        return self._atom_indices
+    # @property
+    # def atom_indices(self) -> list[int] | None:
+    #     """The indices which belong to the Structure Atoms/Coords container"""
+    #     try:
+    #         return self._atom_indices
+    #     except AttributeError:
+    #         return
 
-    @atom_indices.setter
-    def atom_indices(self, indices: list[int]):
-        self._atom_indices = indices
+    # @atom_indices.setter
+    # def atom_indices(self, indices: list[int]):
+    #     self._atom_indices = indices
 
     def start_indices(self, at: int = 0, dtype: Literal['atom', 'residue'] = None):
         """Modify Structure container indices by a set integer amount
@@ -1829,7 +1840,7 @@ class Structure(StructureBase):
 
     def set_atoms(self, atoms: Atoms | list[Atom]):
         """Set the Structure atom indices, Atom instances to an Atoms object, and create Residue objects"""
-        self.atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
+        self._atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
         self.atoms = atoms
         self.create_residues()
         # self.set_residues_attributes(_atoms=atoms)
@@ -1840,13 +1851,16 @@ class Structure(StructureBase):
         return len(self._atom_indices)
 
     @property
-    def residue_indices(self) -> list[int]:
+    def residue_indices(self) -> list[int] | None:
         """Return the residue indices which belong to the Structure"""
-        return self._residue_indices
+        try:
+            return self._residue_indices
+        except AttributeError:
+            return
 
-    @residue_indices.setter
-    def residue_indices(self, indices: list[int]):
-        self._residue_indices = indices  # np.array(indices)
+    # @residue_indices.setter
+    # def residue_indices(self, indices: list[int]):
+    #     self._residue_indices = indices  # np.array(indices)
 
     @property
     def residues(self) -> list[Residue] | None:  # TODO Residues iteration
@@ -1876,7 +1890,7 @@ class Structure(StructureBase):
     #     """
     #     try:
     #         return [(self._residues.residues[res_idx], res_atom_idx)
-    #                 for res_idx, res_atom_idx in self._coords_indexed_residues[self.atom_indices].tolist()]
+    #                 for res_idx, res_atom_idx in self._coords_indexed_residues[self._atom_indices].tolist()]
     #     except (AttributeError, TypeError):
     #         raise AttributeError('The current Structure object "%s" doesn\'t "own" it\'s coordinates. The attribute '
     #                              '.coords_indexed_residues can only be accessed by the Structure object that owns these'
@@ -1895,8 +1909,8 @@ class Structure(StructureBase):
     #         Residue objects indexed by the Residue position in the corresponding .coords attribute
     #     """
     #     try:
-    #         return self._residue_indexed_atom_indices  # [self.atom_indices]
-    #     except (AttributeError, TypeError):  # Todo self.is_structure_owner
+    #         return self._residue_indexed_atom_indices  # [self._atom_indices]
+    #     except (AttributeError, TypeError):  # Todo self.is_parent()
     #         raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
     #                              f'{self.residue_indexed_atom_indices.__name__} can only be accessed by the Structure '
     #                              f'object that owns these coordinates and therefore owns this Structure')
@@ -1913,8 +1927,8 @@ class Structure(StructureBase):
             Each Residue which owns the corresponding index in the .coords attribute
         """
         try:
-            return self._coords_indexed_residues[self.atom_indices].tolist()
-        except (AttributeError, TypeError):  # Todo self.is_structure_owner
+            return self._coords_indexed_residues[self._atom_indices].tolist()
+        except (AttributeError, TypeError):  # Todo self.is_parent()
             raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
                                  f'{self.coords_indexed_residues.__name__} can only be accessed by the Structure object'
                                  f' that owns these coordinates and therefore owns this Structure')
@@ -1932,8 +1946,8 @@ class Structure(StructureBase):
             Index of the Atom position in the Residue for the index of the .coords attribute
         """
         try:
-            return self._coords_indexed_residue_atoms[self.atom_indices].tolist()
-        except (AttributeError, TypeError):  # Todo self.is_structure_owner
+            return self._coords_indexed_residue_atoms[self._atom_indices].tolist()
+        except (AttributeError, TypeError):  # Todo self.is_parent()
             raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
                                  f'{self.coords_indexed_residue_atoms.__name__} can only be accessed by the Structure '
                                  f'object that owns these coordinates and therefore owns this Structure')
@@ -2103,13 +2117,13 @@ class Structure(StructureBase):
         try:
             return self._coords_indexed_backbone_indices
         except AttributeError:
-            # for idx, (atom_idx, bb_idx) in enumerate(zip(self.atom_indices, self.backbone_indices)):
+            # for idx, (atom_idx, bb_idx) in enumerate(zip(self._atom_indices, self.backbone_indices)):
             # backbone_indices = []
             # for residue, res_atom_idx in self.coords_indexed_residues:
             #     backbone_indices.extend(residue.backbone_indices)
             test_indices = self.backbone_indices
             self._coords_indexed_backbone_indices = \
-                [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
+                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
         return self._coords_indexed_backbone_indices
 
     @property
@@ -2120,7 +2134,7 @@ class Structure(StructureBase):
         except AttributeError:
             test_indices = self.backbone_and_cb_indices
             self._coords_indexed_backbone_and_cb_indices = \
-                [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
+                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
         return self._coords_indexed_backbone_and_cb_indices
 
     @property
@@ -2131,7 +2145,7 @@ class Structure(StructureBase):
         except AttributeError:
             test_indices = self.cb_indices
             self._coords_indexed_cb_indices = \
-                [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
+                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
         return self._coords_indexed_cb_indices
 
     @property
@@ -2142,7 +2156,7 @@ class Structure(StructureBase):
         except AttributeError:
             test_indices = self.ca_indices
             self._coords_indexed_ca_indices = \
-                [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
+                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
         return self._coords_indexed_ca_indices
 
     @property
@@ -2266,8 +2280,8 @@ class Structure(StructureBase):
         """
         if start_at:
             if offset:
-                self.atom_indices = \
-                    self.atom_indices[:start_at] + [idx - offset for idx in self.atom_indices[start_at:]]
+                self._atom_indices = \
+                    self._atom_indices[:start_at] + [idx - offset for idx in self._atom_indices[start_at:]]
             else:
                 raise ValueError('Must include an offset when re-indexing atoms from a start_at position!')
         else:
@@ -2301,10 +2315,10 @@ class Structure(StructureBase):
                                f'Residues instead')
         return self.residues
 
-    def set_residues(self, residues: list[Residue] | Residues):
-        """Set the Structure .residues, .atom_indices, and .atoms"""
+    def set_residues(self, residues: list[Residue] | Residues):  # UNUSED
+        """Set the Structure .residues, ._atom_indices, and .atoms"""
         self.residues = residues
-        self.atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
+        self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
         self.atoms = self.residues[0]._atoms
 
     # def add_residues(self, residue_list):
@@ -2349,7 +2363,7 @@ class Structure(StructureBase):
             new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), atoms=self._atoms,
                                         coords=self._coords, log=self._log))
 
-        self.residue_indices = list(range(len(new_residues)))
+        self._residue_indices = list(range(len(new_residues)))
         self.residues = new_residues
         for prior_idx, residue in enumerate(new_residues[1:]):
             residue.prev_residue = new_residues[prior_idx]
@@ -2359,10 +2373,10 @@ class Structure(StructureBase):
                 continue
 
         # remove bad atom_indices
-        atom_indices = self.atom_indices
+        atom_indices = self._atom_indices
         for index in remove_atom_indices[::-1]:  # ensure popping happens in reverse
             atom_indices.pop(index)
-        self.atom_indices = atom_indices
+        self._atom_indices = atom_indices
 
     # when alt_location parsing allowed, there may be some use to this, however above works great without alt location
     # def create_residues(self):
@@ -2411,19 +2425,19 @@ class Structure(StructureBase):
     #         remove_atom_indices.append(remove_indices)  # <- empty list
     #
     #     # remove bad atoms and correct atom_indices
-    #     # atom_indices = self.atom_indices
+    #     # atom_indices = self._atom_indices
     #     atoms = self.atoms
     #     for indices in remove_atom_indices[::-1]:  # ensure popping happens in reverse
     #         for index in indices[::-1]:  # ensure popping happens in reverse
     #             atoms.pop(index)  # , atom_indices.pop(index)
     #
-    #     self.atom_indices = list(range(len(atoms)))  # atom_indices
+    #     self._atom_indices = list(range(len(atoms)))  # atom_indices
     #     self.atoms = atoms
     #
     #     for start_index, residue_range in zip(start_indices, residue_ranges):
     #         new_residues.append(Residue(atom_indices=list(range(start_atom_index, start_atom_index + residue_range)),
     #                                     atoms=self._atoms, coords=self._coords, log=self._log))
-    #     self.residue_indices = list(range(len(new_residues)))
+    #     self._residue_indices = list(range(len(new_residues)))
     #     self.residues = new_residues
 
     def residue(self, residue_number: int, pdb: bool = False) -> Residue | None:
@@ -2547,9 +2561,9 @@ class Structure(StructureBase):
             return delete_indices
         # self.log.debug('Deleting indices from Residue: %s' % delete_indices)
         # self.log.debug('Indices in Residue: %s' % delete_indices)
-        residue_delete_index = residue._atom_indices.index(delete_indices[0])
+        residue_delete_index = residue.atom_indices.index(delete_indices[0])
         for _ in iter(delete_indices):
-            residue._atom_indices.pop(residue_delete_index)
+            residue.atom_indices.pop(residue_delete_index)
         # must re-index all succeeding residues
         # This applies to all Residue objects, not only Structure Residue objects because modifying Residues object
         self._residues.reindex_residue_atoms()  # Todo start_at=residue.index)
@@ -2616,12 +2630,12 @@ class Structure(StructureBase):
         # set this Structures new residue_indices. Must be the owner of all residues for this to work
         # self._residue_indices.insert(residue_index, residue_index)
         self.insert_indices(at=residue_index, new_indices=[residue_index], dtype='residue')
-        # self.residue_indices = self.residue_indices.insert(residue_index, residue_index)
+        # self._residue_indices = self._residue_indices.insert(residue_index, residue_index)
         # set this Structures new atom_indices. Must be the owner of all residues for this to work
         # for idx in reversed(range(new_residue.number_of_atoms)):
         #     self._atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
         self.insert_indices(at=new_residue.start_index, new_indices=new_residue.atom_indices, dtype='atom')
-        # self.atom_indices = self.atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
+        # self._atom_indices = self._atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
         self.renumber_structure()
 
         # find the prior and next residues and add attributes
@@ -2639,7 +2653,7 @@ class Structure(StructureBase):
                 raise DesignError(f'Can\'t insert_residue_type for an empty {type(self).__name__} class')
             next_residue = None
 
-        # set the new chain_id, number_pdb. Must occur after self.residue_indices update if chain isn't provided
+        # set the new chain_id, number_pdb. Must occur after self._residue_indices update if chain isn't provided
         chain_assignment_error = 'Can\'t solve for the new Residue polymer association automatically! If the new ' \
                                  'Residue is at a Structure termini in a multi-Structure Structure container, you must'\
                                  ' specify which Structure it belongs to by passing chain='
@@ -2691,7 +2705,7 @@ class Structure(StructureBase):
         """
         # old-style
         translation_array = np.zeros(self._coords.coords.shape)
-        translation_array[self.atom_indices] = np.array(translation)
+        translation_array[self._atom_indices] = np.array(translation)
         new_coords = self._coords.coords + translation_array
         self.replace_coords(new_coords)
 
@@ -2704,7 +2718,7 @@ class Structure(StructureBase):
         """
         # old-style
         rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-        rotation_array[self.atom_indices] = np.array(rotation)
+        rotation_array[self._atom_indices] = np.array(rotation)
         new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially a transpose
         self.replace_coords(new_coords)
 
@@ -2724,24 +2738,24 @@ class Structure(StructureBase):
         """
         if rotation is not None:  # required for np.ndarray or None checks
             rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-            rotation_array[self.atom_indices] = np.array(rotation)
+            rotation_array[self._atom_indices] = np.array(rotation)
             new_coords = np.matmul(self._coords.coords.reshape(-1, 1, 3), rotation_array.swapaxes(-2, -1))
         else:
             new_coords = self._coords.coords.reshape(-1, 1, 3)
 
         if translation is not None:  # required for np.ndarray or None checks
             translation_array = np.zeros(new_coords.shape)
-            translation_array[self.atom_indices] = np.array(translation)
+            translation_array[self._atom_indices] = np.array(translation)
             new_coords += translation_array
 
         if rotation2 is not None:  # required for np.ndarray or None checks
             rotation_array2 = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
-            rotation_array2[self.atom_indices] = np.array(rotation2)
+            rotation_array2[self._atom_indices] = np.array(rotation2)
             new_coords = np.matmul(new_coords, rotation_array2.swapaxes(-2, -1))  # essentially transpose
 
         if translation2 is not None:  # required for np.ndarray or None checks
             translation_array2 = np.zeros(new_coords.shape)
-            translation_array2[self.atom_indices] = np.array(translation2)
+            translation_array2[self._atom_indices] = np.array(translation2)
             new_coords += translation_array2
         self.replace_coords(new_coords.reshape(-1, 3))
 
@@ -3858,7 +3872,7 @@ class Structures(Structure, UserList):
         except AttributeError:
             test_indices = self.backbone_indices
             self._coords_indexed_backbone_indices = \
-                [idx for idx, atom_idx in enumerate(self.atom_indices) if atom_idx in test_indices]
+                [idx for idx, atom_idx in enumerate(self._atom_indices) if atom_idx in test_indices]
 
             self._backbone_indices = []
             for structure in self.data:

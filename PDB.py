@@ -625,9 +625,9 @@ class PDB(Structure):
                 atoms.extend(structure.atoms)
                 residues.extend(structure.residues)
                 coords.append(structure.coords)
-            self.atom_indices = list(range(len(atoms)))
-            self.residue_indices = list(range(len(residues)))
+            self._atom_indices = list(range(len(atoms)))
             self.atoms = atoms
+            self._residue_indices = list(range(len(residues)))
             residues = Residues(residues)
             # have to copy Residues object to set new attributes on each member Residue
             self.residues = copy(residues)
@@ -1033,9 +1033,9 @@ class PDB(Structure):
         for structures in [self.chains, self.entities]:
             for structure in structures:
                 try:
-                    atom_delete_index = structure._atom_indices.index(delete_indices[0])
+                    atom_delete_index = structure.atom_indices.index(delete_indices[0])
                     for _ in iter(delete_indices):
-                        structure._atom_indices.pop(atom_delete_index)
+                        structure.atom_indices.pop(atom_delete_index)
                     structure.reindex_atoms(start_at=atom_delete_index, offset=delete_length)
                 except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
                     continue
@@ -1060,9 +1060,9 @@ class PDB(Structure):
                     atom_insert_idx = structure.atom_indices.index(new_residue.start_index)
                     structure.insert_indices(at=atom_insert_idx, new_indices=new_residue.atom_indices, dtype='atom')
                     break  # must move to the next container to update the indices by a set increment
-                    # structure.residue_indices = structure.residue_indices.insert(res_insertion_idx, residue_index)
+                    # structure._residue_indices = structure.residue_indices.insert(res_insertion_idx, residue_index)
                     # for idx in reversed(new_residue.atom_indices):
-                    #     structure.atom_indices = structure.atom_indices.insert(new_residue.start_index, idx)
+                    #     structure._atom_indices = structure.atom_indices.insert(new_residue.start_index, idx)
                     # below are not necessary
                     # structure.coords_indexed_residues = \
                     #     [(res_idx, res_atom_idx) for res_idx, residue in enumerate(structure.residues)
@@ -1091,24 +1091,26 @@ class PDB(Structure):
         # residue = self.get_residue(chain, residue_number)
         # residue.delete_atoms()  # deletes Atoms from Residue. unneccessary?
 
-        delete = self.chain(chain_id).residue(residue_number).atom_indices
-        # Atoms() should handle all Atoms containers for the object
+        delete_indices = self.chain(chain_id).residue(residue_number).atom_indices
+        # Atoms() handles all Atom instances for the object
+        self._atoms.atoms = np.delete(self._atoms.atoms, delete_indices)
         self._atoms.atoms = np.delete(self._atoms.atoms, delete)
         # self.delete_atoms(residue.atoms)  # deletes Atoms from PDB
         # chain._residues.remove(residue)  # deletes Residue from Chain
         # self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_structure()
         self._residues.reindex_residue_atoms()
-        # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
-        atom_delete_index = self._atom_indices.index(delete[0])
-        for iteration in range(len(delete)):
+        # remove these indices from all Structure atom_indices including structure_containers
+        # Todo, turn this loop into Structure routine and implement for self, and structure_containers
+        atom_delete_index = self._atom_indices.index(delete_indices[0])
+        for iteration in range(len(delete_indices)):
             self._atom_indices.pop(atom_delete_index)
         for structures in [self.chains, self.entities]:
             for structure in structures:
                 try:
-                    atom_delete_index = structure._atom_indices.index(delete[0])
-                    for iteration in range(len(delete)):
-                        structure._atom_indices.pop(atom_delete_index)
+                    atom_delete_index = structure.atom_indices.index(delete_indices[0])
+                    for iteration in range(len(delete_indices)):
+                        structure.atom_indices.pop(atom_delete_index)
                 except ValueError:
                     continue
         # self.log.debug('Deleted: %d atoms' % (start - len(self.atoms)))
