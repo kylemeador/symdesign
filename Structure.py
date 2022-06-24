@@ -37,6 +37,7 @@ coords_type_literal = Literal['all', 'backbone', 'backbone_and_cb', 'ca', 'cb', 
 directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding',
                      'branched']
 mutation_directives: tuple[directives, ...] = get_args(directives)
+transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
 # mutation_directives = \
 #     ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
 residue_properties = {'ALA': {'hydrophobic', 'apolar'},
@@ -604,10 +605,10 @@ class MonoFragment(Fragment):
     #     rotation, translation, rotation2, translation2
     #
     #     Args:
-    #         rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
-    #         translation: The first translation to apply, expected shape (3)
-    #         rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
-    #         translation2: The second translation to apply, expected shape (3)
+    #         rotation: The first rotation to apply, expected array shape (3, 3)
+    #         translation: The first translation to apply, expected array shape (3,)
+    #         rotation2: The second rotation to apply, expected array shape (3, 3)
+    #         translation2: The second translation to apply, expected array shape (3,)
     #     Returns:
     #         A transformed copy of the original object
     #     """
@@ -741,22 +742,16 @@ class Residue(ResidueFragment):
                 # self.n = atom.index
             elif atom.type == 'CA':
                 self.ca_index = idx
-                # self.ca = atom.index
                 if atom.residue_type == 'GLY':
                     self.cb_index = idx
-                    # self.cb = atom.index
-            elif atom.type == 'CB':  # atom.is_cb(InclGlyCA=True):
+            elif atom.type == 'CB':
                 self.cb_index = idx
-                # self.cb = atom.index
             elif atom.type == 'C':
                 self.c_index = idx
-                # self.c = atom.index
             elif atom.type == 'O':
                 self.o_index = idx
-                # self.o = atom.index
             elif atom.type == 'H':
                 self.h_index = idx
-                # self.h = atom.index
             else:
                 side_chain.append(idx)
                 if 'H' not in atom.type:
@@ -832,6 +827,16 @@ class Residue(ResidueFragment):
         # return self.Coords.coords(which returns a np.array)[slicing that by the atom.index]
         return self._coords.coords[self._atom_indices]
 
+    @coords.setter
+    def coords(self, coords: np.ndarray | list[list[float]]):
+        # Todo
+        # self._coords.replace(self._atom_indices, coords)
+        if isinstance(coords, Coords):
+            self._coords = coords
+        else:
+            raise AttributeError('The supplied coordinates are not of class Coords! Pass a Coords object not a Coords '
+                                 'view. To pass the Coords object for a Structure, use the private attribute ._coords')
+
     @property
     def heavy_coords(self) -> np.ndarray:
         """The Residue atomic coords. Provides a view from the Structure that the Residue belongs too"""
@@ -852,14 +857,6 @@ class Residue(ResidueFragment):
     def sidechain_coords(self) -> np.ndarray:
         """The backbone and CB atomic coords. Provides a view from the Structure that the Residue belongs too"""
         return self._coords.coords[[self._atom_indices[index] for index in self._sc_indices]]
-
-    @coords.setter
-    def coords(self, coords: Coords):
-        if isinstance(coords, Coords):
-            self._coords = coords
-        else:
-            raise AttributeError('The supplied coordinates are not of class Coords! Pass a Coords object not a Coords '
-                                 'view. To pass the Coords object for a Structure, use the private attribute ._coords')
 
     @property
     def backbone_atoms(self) -> list[Atom]:
@@ -1562,8 +1559,7 @@ class StructureBase:
 
 class Structure(StructureBase):
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
-    Must pass atoms, residues, residue_indices, or coords to use most methods without issues
-    to initialize
+    Must pass parent, or atoms and coords, or residues and residue_indices to initialize
     """
     _atoms: Atoms | None
     _atom_indices: list[int] | None
@@ -1939,78 +1935,33 @@ class Structure(StructureBase):
         #     self.find_center_of_mass()
         #     return self._center_of_mass
 
-    # def find_center_of_mass(self):
-    #     """Retrieve the center of mass for the specified Structure"""
-    #     divisor = 1 / self.number_of_atoms
-    #     self._center_of_mass = np.matmul(np.full(self.number_of_atoms, divisor), self.coords)
-
-    # def get_coords(self):
-    #     """Return a view of the Coords from the Structure
-    #
-    #     Returns:
-    #         (Numpy.ndarray)
-    #     """
-    #     return self._coords[self.atom_indices]
-
-    def get_backbone_coords(self):
-        """Return a view of the Coords from the Structure with only backbone atom coordinates
-
-        Returns:
-            (Numpy.ndarray)
-        """
-        # index_mask = [atom.index for atom in self.atoms if atom.is_backbone()]
+    def get_backbone_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the Structure with only backbone atom coordinates"""
         return self._coords.coords[self.backbone_indices]
 
-    def get_backbone_and_cb_coords(self):
-        """Return a view of the Coords from the Structure with backbone and CB atom coordinates
-        inherently gets all glycine CA's
-
-        Returns:
-            (Numpy.ndarray)
-        """
-        # index_mask = [atom.index for atom in self.atoms if atom.is_backbone() or atom.is_cb()]
+    def get_backbone_and_cb_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the Structure with backbone and CB atom coordinates. Gets glycine CA too"""
         return self._coords.coords[self.backbone_and_cb_indices]
 
-    def get_ca_coords(self):
-        """Return a view of the Coords from the Structure with CA atom coordinates
-
-        Returns:
-            (Numpy.ndarray)
-        """
-        # index_mask = [residue.ca.index for residue in self.residues]
-        # index_mask = [atom.index for atom in self.atoms if atom.is_ca()]
+    def get_ca_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the Structure with CA atom coordinates"""
         return self._coords.coords[self.ca_indices]
 
-    def get_cb_coords(self):
-        """Return a view of the Coords from the Structure with CB atom coordinates
-
-        Returns:
-            (Numpy.ndarray)
-        """
-        # index_mask = [residue.cb.index for residue in self.residues]
-        # index_mask = [atom.index for atom in self.atoms if atom.is_cb(InclGlyCA=InclGlyCA)]
-        # return self._coords.coords[index_mask]
+    def get_cb_coords(self) -> np.ndarray:
+        """Return a view of the Coords from the Structure with CB atom coordinates"""
         return self._coords.coords[self.cb_indices]
 
-    def get_coords_subset(self, res_start, res_end, ca=True):
-        selected_atoms, out_coords = [], []
+    def get_coords_subset(self, res_start: int, res_end: int, ca: bool = True) -> np.ndarray:
+        """Return a view of a subset of the Coords from the Structure specified by a range of Residue numbers"""
+        out_coords = []
         if ca:
             for residue in self.get_residues(range(res_start, res_end + 1)):
-                out_coords.extend(residue.ca_coords)
+                out_coords.append(residue.ca_coords)
         else:
             for residue in self.get_residues(range(res_start, res_end + 1)):
                 out_coords.extend(residue.coords)
 
-        return out_coords
-    # def atoms(self):
-    #     """Retrieve Atoms in structure. Returns all by default. If numbers=(list) selected Atom numbers are returned
-    #     Returns:
-    #         (list[Atom])
-    #     """
-    #     if numbers and isinstance(numbers, Iterable):
-    #         return [atom for atom in self.atoms if atom.number in numbers]
-    #     else:
-    #         return self._atoms
+        return np.concatenate(out_coords)
 
     def add_atoms(self, atom_list):
         """Add Atoms in atom_list to the Structure instance"""
@@ -2345,7 +2296,7 @@ class Structure(StructureBase):
     #  self.set_atom_coordinates(self.coords) -> self.create_residues() -> self.set_length()
 
     def create_residues(self):
-        """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
+        """For the Structure, create Residue instances. Doesn't allow for alternative atom locations"""
         # required_types = {'N', 'CA', 'O'}  # 'C', Removing this for fragment library guide atoms...
         required_types = {'N', 'CA', 'C', 'O'}
         new_residues, remove_atom_indices, found_types = [], [], set()
@@ -2719,7 +2670,12 @@ class Structure(StructureBase):
 
     def translate(self, translation: list[float] | np.ndarray):
         """Perform a translation to the Structure ensuring only the Structure container of interest is translated
-        ensuring the underlying coords are not modified"""
+        ensuring the underlying coords are not modified
+
+        Args:
+            translation: The first translation to apply, expected array shape (3,)
+        """
+        # old-style
         translation_array = np.zeros(self._coords.coords.shape)
         translation_array[self.atom_indices] = np.array(translation)
         new_coords = self._coords.coords + translation_array
@@ -2727,7 +2683,12 @@ class Structure(StructureBase):
 
     def rotate(self, rotation: list[list[float]] | np.ndarray):
         """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
-        underlying coords are not modified"""
+        underlying coords are not modified
+
+        Args:
+            rotation: The first rotation to apply, expected array shape (3, 3)
+        """
+        # old-style
         rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
         rotation_array[self.atom_indices] = np.array(rotation)
         new_coords = np.matmul(self._coords.coords, rotation_array.swapaxes(-2, -1))  # essentially a transpose
@@ -2742,10 +2703,10 @@ class Structure(StructureBase):
         rotation, translation, rotation2, translation2
 
         Args:
-            rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
-            translation: The first translation to apply, expected shape (3)
-            rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
-            translation2: The second translation to apply, expected shape (3)
+            rotation: The first rotation to apply, expected array shape (3, 3)
+            translation: The first translation to apply, expected array shape (3,)
+            rotation2: The second rotation to apply, expected array shape (3, 3)
+            translation2: The second translation to apply, expected array shape (3,)
         """
         if rotation is not None:  # required for np.ndarray or None checks
             rotation_array = np.tile(identity_matrix, (self._coords.coords.shape[0], 1, 1))
@@ -2780,10 +2741,10 @@ class Structure(StructureBase):
         rotation, translation, rotation2, translation2
 
         Args:
-            rotation: The first rotation to apply, expected general rotation matrix shape (3, 3)
-            translation: The first translation to apply, expected shape (3)
-            rotation2: The second rotation to apply, expected general rotation matrix shape (3, 3)
-            translation2: The second translation to apply, expected shape (3)
+            rotation: The first rotation to apply, expected array shape (3, 3)
+            translation: The first translation to apply, expected array shape (3,)
+            rotation2: The second rotation to apply, expected array shape (3, 3)
+            translation2: The second translation to apply, expected array shape (3,)
         Returns:
             A transformed copy of the original object
         """
@@ -3788,12 +3749,8 @@ class Structures(Structure, UserList):
         try:
             return self._coords.coords
         except AttributeError:
-            # coords = [structure.coords for structure in self.structures]
-            coords = [structure.coords for structure in self.data]
-            # coords = []
-            # for structure in self.structures:
-            #     coords.extend(structure.coords)
-            self._coords = Coords(np.concatenate(coords))
+            # coords = [structure.coords for structure in self.data]  # self.structures
+            self._coords = Coords(np.concatenate([structure.coords for structure in self.data]))
 
             return self._coords.coords
 
@@ -4047,14 +4004,28 @@ class Chain(Structure):
 
 class Entity(Chain, SequenceProfile):
     """Entity
-    Initialize with Keyword Args:
-        chains=None (list): A list of all Chain objects that match the Entity
-        uniprot_id=None (str): The unique UniProtID for the Entity
+
+    Args:
+        chains: A list of all Chain objects that match the Entity
+        uniprot_id: The unique UniProtID for the Entity
+    Keyword Args:
         sequence=None (str): The sequence for the Entity
         name=None (str): The name for the Entity. Typically, PDB.name is used to make a PDB compatible form
         PDB EntryID_EntityID
     """
-    def __init__(self, chains=None, uniprot_id=None, **kwargs):
+    _chain_transforms: list[transformation_mapping]
+    _chains: list | list[Entity]
+    _number_of_monomers: int
+    _reference_sequence: str
+    _uniprot_id: str
+    api_entry: dict[str, dict[str, str]] | None
+    dihedral_chain: str | None
+    is_oligomeric: bool
+    max_symmetry: int | None
+    rotation_d: dict[str, dict[str, int | np.ndarray]] | None
+    symmetry: str | None
+
+    def __init__(self, chains: list[Chain] | Structures = None, uniprot_id: str = None, **kwargs):
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
@@ -4068,6 +4039,7 @@ class Entity(Chain, SequenceProfile):
                          coords=representative._coords, **kwargs)
         self._chains = []
         chain_ids = [representative.name]
+        # set representative transform as identity
         self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         if len(chains) > 1:
             self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
@@ -4077,8 +4049,8 @@ class Entity(Chain, SequenceProfile):
                     # length alone is inaccurate if chain is missing first residue and self is missing it's last...
                     _, rot, tx, _ = superposition3d(chain.get_cb_coords(), self.get_cb_coords())
                 else:  # do an alignment, get selective indices, then follow with superposition
-                    self.log.warning('Chain %s passed to Entity %s doesn\'t have the same number of residues'
-                                     % (chain.name, self.name))
+                    self.log.warning(f'Chain {chain.name} passed to Entity {self.name} doesn\'t have the same number of'
+                                     f' residues')
                     mutations = generate_mutations(self.sequence, chain.sequence, blanks=True, return_all=True)
                     # get only those indices where there is an aligned aa on the opposite chain
                     fixed_polymer_indices, moving_polymer_indices = [], []
@@ -4124,15 +4096,13 @@ class Entity(Chain, SequenceProfile):
         #     self.chain_ids = [self.chain_id]
         #     self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         # self._uniprot_id = None
-        self.uniprot_id = uniprot_id
+        if uniprot_id:
+            self.uniprot_id = uniprot_id
 
     @classmethod
-    def from_chains(cls, chains=None, uniprot_id=None, **kwargs):
-        # if isinstance(representative, Structure):
+    def from_chains(cls, chains: list[Chain] | Structures = None, uniprot_id: str = None, **kwargs):
+        """Initialize an Entity from a set of Chain objects"""
         return cls(chains=chains, uniprot_id=uniprot_id, **kwargs)
-        # else:
-        #     raise DesignError('When initializing an Entity, you must pass a representative Structure object. This is '
-        #                       'typically a Chain, but could be another collection of residues in a Structure object')
 
     @Structure.coords.setter
     def coords(self, coords):
@@ -4176,16 +4146,13 @@ class Entity(Chain, SequenceProfile):
             try:
                 return self._uniprot_id
             except AttributeError:
-                pass
-        self.log.warning('No uniprot_id found for Entity %s' % self.name)
-        return
-        # # Make a random pseudo UniProtID
-        # self.uniprot_id = '%s%d' % ('R', randint(10000, 99999))
+                self._uniprot_id = None
+                self.log.warning(f'Entity {self.name}: No uniprot_id found')
+        return self._uniprot_id
 
     @uniprot_id.setter
-    def uniprot_id(self, uniprot_id):
-        if uniprot_id:
-            self._uniprot_id = uniprot_id
+    def uniprot_id(self, uniprot_id: str):
+        self._uniprot_id = uniprot_id
 
     @property
     def chain_id(self) -> str:
@@ -4212,7 +4179,7 @@ class Entity(Chain, SequenceProfile):
             return self._number_of_monomers
 
     @number_of_monomers.setter
-    def number_of_monomers(self, value):
+    def number_of_monomers(self, value: int):
         self._number_of_monomers = value
 
     @property
@@ -4235,13 +4202,8 @@ class Entity(Chain, SequenceProfile):
         self._chain_ids = chain_ids
 
     @property
-    def chain_transforms(self) -> list[dict]:
-        """The specific transformation operators to generate all mate chains of the Oligomer
-
-        Returns:
-            (list[dict])
-        """
-        # self.log.info('%s chain_transform %s' % (self.name, 'start'))
+    def chain_transforms(self) -> list[transformation_mapping]:
+        """The specific transformation operators to generate all mate chains of the Oligomer"""
         try:
             return self._chain_transforms
         except AttributeError:
@@ -4277,7 +4239,7 @@ class Entity(Chain, SequenceProfile):
             return self._chain_transforms
 
     @chain_transforms.setter
-    def chain_transforms(self, value):
+    def chain_transforms(self, value: list[transformation_mapping]):
         self._chain_transforms = value
 
     def remove_chain_transforms(self):
@@ -4288,17 +4250,15 @@ class Entity(Chain, SequenceProfile):
         self.prior_ca_coords = self.get_ca_coords()
 
     @property
-    def chains(self):
-        """Returns:
-            (list[Entity]): Transformed copies of the Entity itself
-        """
+    def chains(self) -> list[Entity]:  # Structures
+        """Returns transformed copies of the Entity"""
         if self._chains:  # check if empty list in the case that coords have been changed and chains cleared
             return self._chains
         else:  # empty list, populate with entity copies
             self._chains = [self.return_transformed_copy(**transform) for transform in self.chain_transforms]
             chain_ids = self.chain_ids
-            self.log.debug('Entity chains property has %s chains because the underlying chain_transforms has %d. '
-                           'chain_ids has %d' % (len(self._chains), len(self.chain_transforms), len(chain_ids)))
+            self.log.debug(f'Entity chains property has {len(self._chains)} chains because the underlying '
+                           f'chain_transforms has {len(self.chain_transforms)}. chain_ids has {len(chain_ids)}')
             for idx, chain in enumerate(self._chains):
                 # set entity.chain_id which sets all residues
                 chain.chain_id = chain_ids[idx]
@@ -4339,12 +4299,8 @@ class Entity(Chain, SequenceProfile):
             self._disorder = generate_mutations(self.reference_sequence, self.structure_sequence, only_gaps=True)
             return self._disorder
 
-    def chain(self, chain_name):
-        """Fetch and return a Chain by name
-
-        Returns:
-            (Entity)
-        """
+    def chain(self, chain_name: str) -> Entity | None:
+        """Fetch and return an Entity by chain name"""
         for idx, chain_id in enumerate(self.chain_ids):
             if chain_id == chain_name:
                 try:
@@ -4353,20 +4309,20 @@ class Entity(Chain, SequenceProfile):
                     chain = self.return_transformed_copy(**self.chain_transforms[idx])
                     chain.chain_id = chain_name
                     return chain
-        return
 
-    def retrieve_sequence_from_api(self, entity_id=None):
+    def retrieve_sequence_from_api(self, entity_id: str = None):
+        """Using the Entity ID, fetch information from the PDB API and set the instance reference_sequence"""
         if not entity_id:
-            if len(self.name.split('_')) != 2:  # Todo if name=None then throws attribute error
-                self.log.warning('For Entity method .%s, if an entity_id isn\'t passed and the Entity name %s is not '
-                                 'the correct format (1abc_1), the query will fail. Retrieving closest entity_id by PDB'
-                                 ' API structure sequence' % (self.retrieve_sequence_from_api.__name__, self.name))
+            if len(self.name.split('_')) == 2:
+                entity_id = self.name
+            else:
+                self.log.warning(f'{self.retrieve_sequence_from_api.__name__}: If an entity_id isn\'t passed and the '
+                                 f'Entity name "{self.name}" is not the correct format (1abc_1), the query will fail. '
+                                 f'Retrieving closest entity_id by PDB API structure sequence')
                 entity_id = retrieve_entity_id_by_sequence(self.sequence)
                 if not entity_id:
                     self.reference_sequence = None
                     return
-            else:
-                entity_id = self.name
         self.log.debug('Retrieving Entity reference sequence from PDB')
         self.reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
 
@@ -4378,24 +4334,8 @@ class Entity(Chain, SequenceProfile):
     #     """
     #     self.api_entry = get_pdb_info_by_entity(self.name)
 
-    # def set_up_captain_chain(self):
-    #     raise DesignError('This function is not implemented yet')
-    #     self.is_oligomeric = True
-    #     for chain in self.chains:
-    #         dum = True
-    #         # find the center of mass for all chains
-    #         # transform the entire group to the origin by subtracting com
-    #         # superimpose each chain on the captain, returning the quaternion
-    #         # using the quaternion, find the major, minor axis which should be close to integers
-    #         # Check for bad position by non-canonical rotation integers
-    #         # orient the chains so that they are in a canonical orientation
-    #         # for each chain find the rotation which aligns it with its captain
-    #         # using the inverse of the orient rotation, apply to the aligned rotation to generate a cumulative rotation
-    #         # invert the translation of the center of mass to the origin
-    #         # for all use of these chains in the future, ensure the found transformations are applied to each chain
-
     @property
-    def oligomer(self) -> Structures:
+    def oligomer(self) -> list[Entity] | Structures:
         """Access the oligomeric Structure which is a copy of the Entity plus any additional symmetric mate chains
 
         Returns:
@@ -4424,7 +4364,9 @@ class Entity(Chain, SequenceProfile):
         except AttributeError:
             pass
 
-    def make_oligomer(self, symmetry=None, rotation=None, translation=None, rotation2=None, translation2=None):
+    def make_oligomer(self, symmetry: str = None, rotation: list[list[float]] | np.ndarray = None,
+                      translation: list[float] | np.ndarray = None, rotation2: list[list[float]] | np.ndarray = None,
+                      translation2: list[float] | np.ndarray = None):
         """Given a symmetry and transformational mapping, generate oligomeric copies of the Entity
 
         Assumes that the symmetric system treats the canonical symmetric axis as the Z-axis, and if the Entity is not at
@@ -4433,10 +4375,17 @@ class Entity(Chain, SequenceProfile):
         where symmetric copies are stored in the .chains attribute then reverses the operations back to original
         reference frame if any was provided
 
+        Args:
+            symmetry: The symmetry to set the Entity to
+            rotation: The first rotation to apply, expected array shape (3, 3)
+            translation: The first translation to apply, expected array shape (3,)
+            rotation2: The second rotation to apply, expected array shape (3, 3)
+            translation2: The second translation to apply, expected array shape (3,)
         Sets:
-            # self.chains
-            self.chain_transforms
-            self.chain_ids
+            self.chain_transforms (list[transformation_mapping])
+            self.is_oligomeric=True (bool)
+            self.number_of_monomers (int)
+            self.symmetry (str)
         """
         try:
             if symmetry == 'C1':  # not symmetric
@@ -4525,21 +4474,36 @@ class Entity(Chain, SequenceProfile):
         # self.chain_ids = list(self.return_chain_generator())[:self.number_of_monomers]
         # self.log.debug('After make_oligomers, the chain_ids for %s are %s' % (self.name, self.chain_ids))
 
-    def translate(self, translation):
+    def translate(self, translation: list[float] | np.ndarray):
         """Perform a translation to the Structure ensuring only the Structure container of interest is translated
-        ensuring the underlying coords are not modified"""
+        ensuring the underlying coords are not modified
+
+        Args:
+            translation: The first translation to apply, expected array shape (3,)
+        """
         self.remove_chain_transforms()
         super().translate(translation)
 
-    def rotate(self, rotation):
+    def rotate(self, rotation: list[list[float]] | np.ndarray):
         """Perform a rotation to the Structure ensuring only the Structure container of interest is rotated ensuring the
-        underlying coords are not modified"""
+        underlying coords are not modified
+
+        KeArgs:
+            rotation: The first rotation to apply, expected array shape (3, 3)
+        """
         self.remove_chain_transforms()
         super().rotate(rotation)
 
     def transform(self, **kwargs):
         """Perform a specific transformation to the Structure ensuring only the Structure container of interest is
-        transformed ensuring the underlying coords are not modified"""
+        transformed ensuring the underlying coords are not modified
+
+        Keyword Args:
+            rotation (list[list[float]] | np.ndarray): The first rotation to apply, expected array shape (3, 3)
+            translation (list[float] | np.ndarray): The first translation to apply, expected array shape (3,)
+            rotation2 (list[list[float]] | np.ndarray): The second rotation to apply, expected array shape (3, 3)
+            translation2 (list[float] | np.ndarray): The second translation to apply, expected array shape (3,)
+        """
         self.remove_chain_transforms()
         super().transform(**kwargs)
 
