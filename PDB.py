@@ -1091,8 +1091,8 @@ class PDB(Structure):
                 structure.start_indices(at=structures[prior_idx].atom_indices[-1] + 1, dtype='atom')
                 structure.start_indices(at=structures[prior_idx].residue_indices[-1] + 1, dtype='residue')
 
-    def delete_residue(self, chain_id: str, residue_number: int):  # Todo Structures
-        # raise DesignError('This function is broken')  # TODO TEST
+    def delete_residue(self, chain_id: str, residue_number: int):  # Todo Move to Structure
+        self.log.critical(f'{self.delete_residue.__name__} This function requires testing')  # TODO TEST
         # start = len(self.atoms)
         # self.log.debug(start)
         # residue = self.get_residue(chain, residue_number)
@@ -1100,8 +1100,7 @@ class PDB(Structure):
 
         delete_indices = self.chain(chain_id).residue(residue_number).atom_indices
         # Atoms() handles all Atom instances for the object
-        self._atoms.atoms = np.delete(self._atoms.atoms, delete_indices)
-        self._atoms.atoms = np.delete(self._atoms.atoms, delete)
+        self._atoms.delete(delete_indices)
         # self.delete_atoms(residue.atoms)  # deletes Atoms from PDB
         # chain._residues.remove(residue)  # deletes Residue from Chain
         # self._residues.remove(residue)  # deletes Residue from PDB
