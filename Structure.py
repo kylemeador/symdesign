@@ -224,6 +224,7 @@ class StructureBase:
     _coords: Coords
     _log: Log
     __parent: StructureBase | None
+    state_attributes: set[str]
 
     def __init__(self, chains=None, entities=None,  # Todo figure out if pulling by PDB init then remove?
                  design=None,  # Todo remove?
@@ -335,6 +336,14 @@ class StructureBase:
     def coords(self, coords: np.ndarray | list[list[float]]):
         self._coords.replace(self._atom_indices, coords)
 
+    def reset_state(self):
+        """Remove StructureBase attributes that are valid for the current state but not for a new state
+
+        This is useful for transfer of ownership, or changes in the StructureBase state that should to be overwritten
+        """
+        for attr in self.state_attributes:
+            delattr(self, attr)
+
 
 class Atom(StructureBase):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
@@ -352,6 +361,7 @@ class Atom(StructureBase):
     b_factor: float | None
     element_symbol: str | None
     atom_charge: str | None
+    state_attributes: set[str] = {'_sasa'}
 
     def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = None,
                  residue_type: str = None, chain: str = None, residue_number: int = None,
@@ -393,6 +403,7 @@ class Atom(StructureBase):
     #     """The index of the Atom in the Atoms/Coords container"""  # Todo separate __doc__?
     #     return self._atom_indices
 
+    # Below properties are considered part of the Atom state
     @property
     def sasa(self) -> float:
         """The Solvent accessible surface area for the Atom. Raises AttributeError if .sasa isn't set"""
@@ -502,6 +513,14 @@ class Atoms:
         self.atoms = np.concatenate((self.atoms[:at] if 0 <= at <= len(self.atoms) else self.atoms,
                                      new_atoms if isinstance(new_atoms, Iterable) else [new_atoms],
                                      self.atoms[at:] if at is not None else []))
+
+    def reset_state(self):
+        """Remove any attributes from the Atom instances that are part of the current Structure state
+
+        This is useful for transfer of ownership, or changes in the Atom state that need to be overwritten
+        """
+        for atom in self:
+            atom.reset_state()
 
     def set_attributes(self, **kwargs):
         """Set Atom attributes passed by keyword to their corresponding value"""
@@ -835,6 +854,7 @@ class Residue(ResidueFragment, StructureBase):
     number: int
     number_pdb: int
     prev_residue: Residue
+    state_attributes: set[str] = {'_secondary_structure', '_sasa', '_sasa_aploar', '_sasa_polar'}
     type: str
 
     def __init__(self, atom_indices: list[int] = None, **kwargs):
@@ -1372,6 +1392,7 @@ class Residue(ResidueFragment, StructureBase):
 
         return next_residues
 
+    # Below properties are considered part of the Residue state
     @property
     def secondary_structure(self) -> str:
         """Return the secondary structure designation as defined by a secondary structure calculation"""
@@ -1667,6 +1688,14 @@ class Residues:
                                         new_residues if isinstance(new_residues, Iterable) else [new_residues],
                                         self.residues[at:] if at is not None else []))
 
+    def reset_state(self):
+        """Remove any attributes from the Residue instances that are part of the current Structure state
+
+        This is useful for transfer of ownership, or changes in the Atom state that need to be overwritten
+        """
+        for residue in self:
+            residue.reset_state()
+
     def set_attributes(self, **kwargs):
         """Set Residue attributes passed by keyword to their corresponding value"""
         for residue in self:
@@ -1755,6 +1784,10 @@ class Structure(StructureBase):
     secondary_structure: str | None
     sasa: float | None
     structure_containers: list | list[str]
+    state_attributes: set[str] = {'_sequence', '_backbone_and_cb_indices', '_backbone_indices', '_ca_indices',
+                                  '_cb_indices', '_heavy_atom_indices', '_coords_indexed_backbone_indices',
+                                  '_coords_indexed_backbone_and_cb_indices', '_coords_indexed_cb_indices',
+                                  '_coords_indexed_ca_indices', '_helix_cb_indices'}
     available_letters: str = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'  # '0123456789~!@#$%^&*()-+={}[]|:;<>?'
 
     def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
@@ -1872,6 +1905,8 @@ class Structure(StructureBase):
         """Returns whether the Structure contains hydrogen atoms"""
         return self.residues[0].contains_hydrogen
 
+    # Below properties are considered part of the Structure state
+    # Todo refactor properties to below here for accounting
     @property
     def sequence(self) -> str:
         """Holds the Structure amino acid sequence"""
@@ -2250,28 +2285,28 @@ class Structure(StructureBase):
         else:
             return self.residues
 
-    def reset_indices_attributes(self):
-        """Upon loading a new Structure with old Structure object, remove any indices that might have been saved
-        Including:
-            self._coords_indexed_backbone_indices
-            self._coords_indexed_backbone_and_cb_indices
-            self._coords_indexed_cb_indices
-            self._coords_indexed_ca_indices
-            self._backbone_indices
-            self._backbone_and_cb_indices
-            self._cb_indices
-            self._ca_indices
-            self._heavy_atom_indices
-            self._helix_cb_indices
-        """
-        structure_indices = ['_coords_indexed_backbone_indices', '_coords_indexed_backbone_and_cb_indices',
-                             '_coords_indexed_cb_indices', '_coords_indexed_ca_indices', '_backbone_indices',
-                             '_backbone_and_cb_indices', '_cb_indices', '_ca_indices', '_heavy_atom_indices',
-                             '_helix_cb_indices']
-        # structure_indices = [attribute for attribute in self.__dict__ if attribute.endswith('_indices')]
-        # self.log.info('Deleting the following indices: %s' % structure_indices)
-        for structure_index in structure_indices:
-            self.__dict__.pop(structure_index, None)
+    # def reset_indices_attributes(self):
+    #     """Upon loading a new Structure with old Structure object, remove any indices that might have been saved
+    #     Including:
+    #         self._coords_indexed_backbone_indices
+    #         self._coords_indexed_backbone_and_cb_indices
+    #         self._coords_indexed_cb_indices
+    #         self._coords_indexed_ca_indices
+    #         self._backbone_indices
+    #         self._backbone_and_cb_indices
+    #         self._cb_indices
+    #         self._ca_indices
+    #         self._heavy_atom_indices
+    #         self._helix_cb_indices
+    #     """
+    #     structure_indices = ['_coords_indexed_backbone_indices', '_coords_indexed_backbone_and_cb_indices',
+    #                          '_coords_indexed_cb_indices', '_coords_indexed_ca_indices', '_backbone_indices',
+    #                          '_backbone_and_cb_indices', '_cb_indices', '_ca_indices', '_heavy_atom_indices',
+    #                          '_helix_cb_indices']
+    #     # structure_indices = [attribute for attribute in self.__dict__ if attribute.endswith('_indices')]
+    #     # self.log.info('Deleting the following indices: %s' % structure_indices)
+    #     for structure_index in structure_indices:
+    #         self.__dict__.pop(structure_index, None)
 
     # Todo each of the below properties could be part of same __getitem__ function
     #  ex:
