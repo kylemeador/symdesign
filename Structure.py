@@ -921,25 +921,51 @@ class Residue(ResidueFragment, StructureBase):
 
         side_chain, heavy_atoms = [], []
         for idx, atom in enumerate(self.atoms):
-            if atom.type == 'N':
-                self.n_index = idx
-                # self.n = atom.index
-            elif atom.type == 'CA':
-                self.ca_index = idx
-                if atom.residue_type == 'GLY':
+            match atom.type:
+                case 'N':
+                    self.n_index = idx
+                    self.chain = atom.chain
+                    self.number = atom.residue_number
+                    self.number_pdb = atom.pdb_residue_number
+                    self.type = atom.residue_type
+                case 'CA':
+                    self.ca_index = idx
+                    if atom.residue_type == 'GLY':
+                        self.cb_index = idx
+                case 'CB':
                     self.cb_index = idx
-            elif atom.type == 'CB':
-                self.cb_index = idx
-            elif atom.type == 'C':
-                self.c_index = idx
-            elif atom.type == 'O':
-                self.o_index = idx
-            elif atom.type == 'H':
-                self.h_index = idx
-            else:
-                side_chain.append(idx)
-                if 'H' not in atom.type:
-                    heavy_atoms.append(idx)
+                case 'C':
+                    self.c_index = idx
+                case 'O':
+                    self.o_index = idx
+                case 'H':
+                    self.h_index = idx
+                case other:
+                    side_chain.append(idx)
+                    if 'H' not in atom.type:
+                        heavy_atoms.append(idx)
+            # if atom.type == 'N':
+            #     self.n_index = idx
+            #     self.chain = atom.chain
+            #     self.number = atom.residue_number
+            #     self.number_pdb = atom.pdb_residue_number
+            #     self.type = atom.residue_type
+            # elif atom.type == 'CA':
+            #     self.ca_index = idx
+            #     if atom.residue_type == 'GLY':
+            #         self.cb_index = idx
+            # elif atom.type == 'CB':
+            #     self.cb_index = idx
+            # elif atom.type == 'C':
+            #     self.c_index = idx
+            # elif atom.type == 'O':
+            #     self.o_index = idx
+            # elif atom.type == 'H':
+            #     self.h_index = idx
+            # else:
+            #     side_chain.append(idx)
+            #     if 'H' not in atom.type:
+            #         heavy_atoms.append(idx)
         self.backbone_indices = \
             [getattr(self, index, None) for index in ['_n_index', '_ca_index', '_c_index', '_o_index']]
         self.backbone_and_cb_indices = getattr(self, '_cb_index', getattr(self, '_ca_index', None))
