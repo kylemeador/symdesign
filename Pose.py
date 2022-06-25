@@ -1154,9 +1154,8 @@ class SymmetricModel(Models):
 
     @asu_coords.setter
     def asu_coords(self, coords: Coords):
-        self._coords = coords
+        self.coords = coords
         # set the symmetric coords according to the ASU
-        self.replace_coords(coords)  # Todo is replace_coords needed?
         self.generate_symmetric_coords()
         # Todo delete any saved attributes from the SymmetricModel
         #  self.symmetric_coords
@@ -1483,8 +1482,12 @@ class SymmetricModel(Models):
                               f'{type(self).__name__} is being taken which is probably relying on PDB.__copy__ or '
                               f'Structure.__copy__. These may not be adequate and need to be overwritten')
             symmetry_mate_pdb = copy(self)
-            symmetry_mate_pdb.replace_coords(self.symmetric_coords[(coord_idx * number_of_atoms):
-                                                                   ((coord_idx + 1) * number_of_atoms)])
+            # old-style
+            # symmetry_mate_pdb.replace_coords(self.symmetric_coords[(coord_idx * number_of_atoms):
+            #                                                        ((coord_idx + 1) * number_of_atoms)])
+            # new-style
+            symmetry_mate_pdb.coords = self.symmetric_coords[(coord_idx * number_of_atoms):
+                                                             ((coord_idx + 1) * number_of_atoms)]
             self.models.append(symmetry_mate_pdb)
 
     def find_asu_equivalent_symmetry_model(self):
@@ -1706,7 +1709,10 @@ class SymmetricModel(Models):
         for coord_set in np.split(sym_coords, number_of_symmetry_mates):  # uc_number):
             # for model_num in range(self.number_of_symmetry_mates):
             symmetry_mate_pdb = copy(structure)
-            symmetry_mate_pdb.replace_coords(coord_set)  # [model_num * coords_length:(model_num + 1) * coords_length])
+            # old-style
+            # symmetry_mate_pdb.replace_coords(coord_set)  # [model_num * coords_length:(model_num + 1) * coords_length])
+            # new-style
+            symmetry_mate_pdb.coords = coord_set
             sym_mates.append(symmetry_mate_pdb)
 
         assert len(sym_mates) == uc_number * self.number_of_symmetry_mates, \
@@ -2697,7 +2703,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         #     np.where(index_cluster_labels[:, None] == asu_index, symmetric_interface_coords, np.array([0.0, 0.0, 0.0]))
         # closest_interface_coords = \
         #     closest_symmetric_coords.reshape((self.number_of_symmetry_mates, interface_coords.shape[0], -1)).sum(axis=0)
-        interface_asu_structure.replace_coords(closest_interface_coords)
+        # old-style
+        # interface_asu_structure.replace_coords(closest_interface_coords)
+        # new-style
+        interface_asu_structure.coords = closest_interface_coords
 
         return interface_asu_structure
 

@@ -237,7 +237,7 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
             # cryst = {'space': space_group, 'a_b_c': tuple(uc_dimensions[:3]), 'ang_a_b_c': tuple(uc_dimensions[3:])}
 
     if not atom_info:
-        raise DesignError(f'The file {file} has no ATOM records!')
+        raise ValueError(f'The file {file} has no ATOM records!')
 
     return dict(assembly=assembly,
                 atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)],
@@ -295,11 +295,16 @@ class PDB(Structure):
                  dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
                  multimodel: bool = False,
                  resolution: float = None, reference_sequence: dict[str, str] = None, metadata: PDB = None,
-                 log: Logger = False, **kwargs):
-        #          atoms: list[Atom] | Atoms = None, coords: list[list[float]] = None,
+                 **kwargs):
+        # kwargs passed to Structure
+        #          atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None, name: str = None,
+        #          residue_indices: list[int] = None,
+        # kwargs passed to StructureBase
+        #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
+        # Unused args now
         #        cryst: dict[str, str | tuple[float]] = None, space_group: str = None, uc_dimensions: list[float] = None
         # PDB defaults to Structure logger (log is False)
-        super().__init__(log=log, **kwargs)
+        super().__init__(**kwargs)
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
@@ -345,7 +350,7 @@ class PDB(Structure):
 
     @classmethod
     def from_file(cls, file: str | bytes, **kwargs):
-        """Create a new PDB from a .pdb formatted file"""
+        """Create a new PDB from a file with Atom records"""
         if '.pdb' in file:
             return PDB.from_pdb(file, **kwargs)
         elif '.cif' in file:
@@ -603,9 +608,8 @@ class PDB(Structure):
         Args:
             pose_format: Whether to initialize Structure with residue numbering from 1 until the end
             chains:
-            rename_chains:
+            rename_chains: Whether to name each chain an incrementally new Alphabetical character
             entities:
-            seqres: The lines representing the SEQRES records
         """
         # if atoms:  # create Atoms object and Residue objects
         #     self.set_atoms(atoms)
@@ -616,11 +620,11 @@ class PDB(Structure):
         # if coords is not None and (atoms or residues):
         #     self.chain_ids = remove_duplicates([residue.chain for residue in self.residues])
 
-        if isinstance(chains, (list, Structures)) or isinstance(entities, (list, Structures)):  # create from existing
+        # add lists together, only one is populated from class construction
+        structures = (chains if isinstance(chains, (list, Structures)) else []) + \
+                     (entities if not isinstance(entities, (list, Structures)) else [])
+        if structures:  # create from existing
             atoms, residues, coords = [], [], []
-            # add lists together, only one is populated from class construction
-            structures = ([] if not isinstance(chains, (list, Structures)) else chains) + \
-                         ([] if not isinstance(entities, (list, Structures)) else entities)
             for structure in structures:
                 atoms.extend(structure.atoms)
                 residues.extend(structure.residues)
@@ -643,11 +647,11 @@ class PDB(Structure):
                 self.chains = copy(chains)  # copy the passed chains list
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 # Reindex all residue and atom indices
-                self.chains[0].reset_indices_attributes()
+                self.chains[0].reset_state()
                 self.chains[0].start_indices(at=0, dtype='atom')
                 self.chains[0].start_indices(at=0, dtype='residue')
                 for prior_idx, chain in enumerate(self.chains[1:]):
-                    chain.reset_indices_attributes()
+                    chain.reset_state()
                     chain.start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
                     chain.start_indices(at=self.chains[prior_idx].residue_indices[-1] + 1, dtype='residue')
                 # set the arrayed attributes for all PDB containers
@@ -672,11 +676,11 @@ class PDB(Structure):
                 self.entities = copy(entities)  # copy the passed entities list
                 self.copy_structures()  # copy all individual Structures in Structure container attributes
                 # Reindex all residue and atom indices
-                self.entities[0].reset_indices_attributes()
+                self.entities[0].reset_state()
                 self.entities[0].start_indices(at=0, dtype='atom')
                 self.entities[0].start_indices(at=0, dtype='residue')
                 for prior_idx, entity in enumerate(self.entities[1:]):
-                    entity.reset_indices_attributes()
+                    entity.reset_state()
                     entity.start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
                     entity.start_indices(at=self.entities[prior_idx].residue_indices[-1] + 1, dtype='residue')
                 # set the arrayed attributes for all PDB containers (chains, entities)
@@ -791,7 +795,7 @@ class PDB(Structure):
         for chain, new_id in zip(self.chains, self.chain_ids):
             chain.chain_id = new_id
 
-    def renumber_residues_by_chain(self):  # Todo Structures
+    def renumber_residues_by_chain(self):  # Todo Move to Structures once working
         """For each Chain in self.chains, renumber Residue objects sequentially starting with 1"""
         for chain in self.chains:
             chain.renumber_residues()
@@ -1030,8 +1034,8 @@ class PDB(Structure):
             return
         delete_length = len(delete_indices)
         # remove these indices from the Structure atom_indices (If other structures, must update their atom_indices!)
-        for structures in [self.chains, self.entities]:
-            for structure in structures:
+        for structure_type in self.structure_containers:
+            for structure in getattr(self, structure_type):  # iterate over Structures in each structure_container
                 try:
                     atom_delete_index = structure.atom_indices.index(delete_indices[0])
                     for _ in iter(delete_indices):
@@ -1052,8 +1056,11 @@ class PDB(Structure):
         new_residue = super().insert_residue_type(residue_type, at=at, chain=chain)
         # If other structures, must update their atom_indices!
         residue_index = at - 1  # since at is one-indexed integer
-        for structures in [self.chains, self.entities]:
-            for idx, structure in enumerate(structures):
+        # for structures in [self.chains, self.entities]:
+        for structure_type in self.structure_containers:
+            structures = getattr(self, structure_type)
+            idx = 0
+            for idx, structure in enumerate(structures):  # iterate over Structures in each structure_container
                 try:  # update each Structures residue_ and atom_indices with additional indices
                     res_insert_idx = structure.residue_indices.index(residue_index)
                     structure.insert_indices(at=res_insert_idx, new_indices=[residue_index], dtype='residue')
@@ -1099,14 +1106,15 @@ class PDB(Structure):
         # chain._residues.remove(residue)  # deletes Residue from Chain
         # self._residues.remove(residue)  # deletes Residue from PDB
         self.renumber_structure()
-        self._residues.reindex_residue_atoms()
+        self._residues.reindex_atoms()
         # remove these indices from all Structure atom_indices including structure_containers
         # Todo, turn this loop into Structure routine and implement for self, and structure_containers
         atom_delete_index = self._atom_indices.index(delete_indices[0])
         for iteration in range(len(delete_indices)):
             self._atom_indices.pop(atom_delete_index)
-        for structures in [self.chains, self.entities]:
-            for structure in structures:
+        # for structures in [self.chains, self.entities]:
+        for structure_type in self.structure_containers:
+            for structure in getattr(self, structure_type):  # iterate over Structures in each structure_container
                 try:
                     atom_delete_index = structure.atom_indices.index(delete_indices[0])
                     for iteration in range(len(delete_indices)):
@@ -1690,8 +1698,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
         rot = chain_data_d[chain_id]['r_mat']
         trans = chain_data_d[chain_id]['t_vec']
         chain_pdb.apply(rot, trans)
-        chain_pdb.chain(chain).set_atoms_attributes(chain=temp_names[temp_name_idx])  # ensure that chain names are not the same
-        # Todo edit this mechanism! ^
+        chain_pdb.chain(chain).chain_id = temp_names[temp_name_idx]  # ensure that chain names are not the same
         temp_chain_d[temp_names[temp_name_idx]] = str(chain_id)
         interface_chain_pdbs.append(chain_pdb)
         # interface_pdb.read_atom_list(chain_pdb.atoms)
@@ -1700,8 +1707,7 @@ def extract_interface(pdb, chain_data_d, full_chain=True):
                                                                   for chain_pdb in interface_chain_pdbs])))
     if len(interface_pdb.chain_ids) == 2:
         for temp_name in temp_chain_d:
-            interface_pdb.chain(temp_name).set_atoms_attributes(chain=temp_chain_d[temp_name])
-            # Todo edit this mechanism! ^
+            interface_pdb.chain(temp_name).chain_id = temp_chain_d[temp_name]
 
     return interface_pdb
 

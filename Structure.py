@@ -925,14 +925,31 @@ class Residue(ResidueFragment, StructureBase):
         self._atoms = parent._atoms
         # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
-    # @property
-    # def log(self) -> Logger:
-    #     """Access to the Structure logger"""
-    #     return self._log.log
+    def is_residue_valid(self) -> bool:
+        """Returns True if the Residue is constructed properly otherwise raises an error
 
-    # @log.setter
-    # def log(self, log_object: Log):
-    #     self._log = log_object
+        Raises:
+            ValueError: If the Residue is set improperly
+        """
+        remove_atom_indices, found_types = [], set()
+        atoms = self.atoms
+        current_residue_number, current_residue_type = atoms[0].residue_number, atoms[0].residue_type
+        for idx, atom in enumerate(atoms[1:], 1):
+            if atom.residue_number == current_residue_number and atom.residue_type == current_residue_type:
+                if atom.type not in found_types:
+                    found_types.add(atom.type)
+                else:
+                    raise ValueError(f'Couldn\'t {self.assign_atoms.__name__}. The Atom type at index {idx} was already'
+                                     f'observed')
+            else:
+                raise ValueError(f'Couldn\'t {self.assign_atoms.__name__}. The Atom at index {idx} doesn\'t have the '
+                                 f'same properties as all previous Atoms')
+
+        if protein_required_types.difference(found_types):  # modify if building NucleotideResidue
+            raise ValueError(f'Couldn\'t {self.assign_atoms.__name__}. The provided Atoms don\'t contain the required '
+                             f'types ({", ".join(protein_required_types)}) to build a {type(self).__name__}')
+
+        return True
 
     @property
     def start_index(self) -> int:
