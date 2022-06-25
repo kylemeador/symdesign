@@ -2437,22 +2437,27 @@ class Structure(StructureBase):
     @property
     def ca_atoms(self) -> list[Atom]:
         """Return CA Atoms from the Structure"""
-        return self.atoms[self.ca_indices]
+        return self._atoms.atoms[self.ca_indices].tolist()
 
     @property
     def cb_atoms(self) -> list[Atom]:
         """Return CB Atoms from the Structure"""
-        return self.atoms[self.cb_indices]
+        return self._atoms.atoms[self.cb_indices].tolist()
 
     @property
     def backbone_atoms(self) -> list[Atom]:
         """Return backbone Atoms from the Structure"""
-        return self.atoms[self.backbone_indices]
+        return self._atoms.atoms[self.backbone_indices].tolist()
 
     @property
     def backbone_and_cb_atoms(self) -> list[Atom]:
         """Return backbone and CB Atoms from the Structure"""
-        return self.atoms[self.backbone_and_cb_indices]
+        return self._atoms.atoms[self.backbone_and_cb_indices].tolist()
+
+    @property
+    def heavy_atoms(self) -> list[Atom]:
+        """Return heavy Atoms from the Structure"""
+        return self._atoms.atoms[self.heavy_atom_indices].tolist()
 
     def atom(self, atom_number: int) -> Atom | None:
         """Return the Atom specified by atom number if a matching Atom is found, otherwise None"""
