@@ -495,6 +495,22 @@ class Atoms:
         else:
             self.atoms = np.array(atoms)
 
+    def are_dependents(self) -> bool:
+        """Check if any of the Atom instance are dependents on another Structure"""
+        for atom in self:
+            if atom.is_dependent():
+                return True
+        return False
+
+    def reindex(self, start_at: int = 0):
+        """Set each Atom instance index according to incremental Atoms/Coords index
+
+        Args:
+            start_at: The integer to start renumbering at
+        """
+        for idx, atom in enumerate(self, start_at):
+            atom.index = idx
+
     def delete(self, indices: Sequence[int]):
         """Delete Atom instances from the Atoms container
 
@@ -1653,7 +1669,14 @@ class Residues:
         else:
             self.residues = np.array(residues)
 
-    def reindex_residue_atoms(self, start_at: int = 0):  # , offset=None):
+    def are_dependents(self) -> bool:
+        """Check if any of the Residue instance are dependents on another Structure"""
+        for residue in self:
+            if residue.is_dependent():
+                return True
+        return False
+
+    def reindex_atoms(self, start_at: int = 0):  # , offset=None):
         """Set each member Residue indices according to incremental Atoms/Coords index
 
         Args:
@@ -2772,7 +2795,7 @@ class Structure(StructureBase):
             residue.atom_indices.pop(residue_delete_index)
         # must re-index all succeeding residues
         # This applies to all Residue objects, not only Structure Residue objects because modifying Residues object
-        self._residues.reindex_residue_atoms()  # Todo start_at=residue.index)
+        self._residues.reindex_atoms(start_at=residue.index)
         # self.log.debug('Deleting indices from Atoms: %s' % delete_indices)
         # self.log.debug('Range of indices in Atoms: %s' % self._atoms.atoms.shape[0])
         # self.log.debug('Last Residue atom_indices: %s' % self._residues.residues[-1].atom_indices)
@@ -2827,7 +2850,7 @@ class Structure(StructureBase):
         self._coords.insert(new_residue.coords, at=new_residue.start_index)
         # insert the new_residue into the Structure Residues
         self._residues.insert(new_residue, at=residue_index)
-        self._residues.reindex_residue_atoms(start_at=residue_index)
+        self._residues.reindex_atoms(start_at=residue_index)
         # self._atoms.insert(new_atoms, at=self._residues)
         # new_residue.parent = self  # Todo hide ._ attributes with parents
         new_residue._atoms = self._atoms
