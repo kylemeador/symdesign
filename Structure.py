@@ -996,6 +996,13 @@ class Residue(ResidueFragment, StructureBase):
             raise AttributeError('The supplied atoms are not of the class Atoms! Pass an Atoms object not a Atoms view.'
                                  ' To pass the Atoms object for a Structure, use the private attribute ._atoms')
 
+    def renumber_atoms(self):  # in Structure too
+        """Renumber all Atom objects sequentially starting with 1"""
+        for idx, atom in enumerate(self.atoms, 1):
+            atom.number = idx
+
+    def delegate_atoms(self):
+        """Set the Residue atoms from a parent StructureBase"""
         side_chain, heavy_atoms = [], []
         for idx, atom in enumerate(self.atoms):
             match atom.type:
