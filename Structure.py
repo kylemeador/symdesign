@@ -2106,9 +2106,33 @@ class Structure(StructureBase):
         else:
             self._atoms = Atoms(atoms)
 
-    def set_atoms(self, atoms: Atoms | list[Atom]):
-        """Set the Structure atom indices, Atom instances to an Atoms object, and create Residue objects"""
-        self._atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
+    # # Todo enable this type of functionality
+    # @atoms.setter
+    # def atoms(self, atoms: Atoms):
+    #     self._atoms.replace(self._atom_indices, atoms)
+
+    def _validate_coords(self, from_source: str = 'atoms', coords: np.ndarray = None):
+        """Ensure that the StructureBase coordinates are formatted correctly
+
+        Args:
+            from_source: The source to set the coordinates from if they are missing
+            coords: The coordinates to assign to the Structure. Optional, will use Residues.coords if not specified
+        """
+        if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) hasn't been populated
+            # otherwise, try to set from self.from_source. might want to catch missing .coords error here
+            self._coords.set(np.concatenate(coords
+                                            if coords else [residue.coords for residue in getattr(self, from_source)]))
+
+        if self.number_of_atoms != len(self.coords):  # number_of_atoms was just set by self._atom_indices
+            raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords ({len(self.coords)}). '
+                             f'Consider initializing without coords if this isn\'t expected')
+
+    # Todo create add_atoms that is like list append
+    def add_atoms(self, atom_list):
+        """Add Atoms in atom_list to the Structure instance"""
+        raise NotImplementedError('This function (add_atoms) is currently broken')
+        atoms = self.atoms.tolist()
+        atoms.extend(atom_list)
         self.atoms = atoms
         self.create_residues()
         # self.set_residues_attributes(_atoms=atoms)
