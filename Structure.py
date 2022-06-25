@@ -1745,7 +1745,8 @@ class Structure(StructureBase):
         parent: If a Structure is creating this Structure as a division of itself, pass the parent instance
     """
     _atoms: Atoms | None
-    _coords_indexed_residues: list[Residue] | np.ndarray | None
+    _coords_indexed_residues: list[Residue]
+    _coords_indexed_residue_atoms: list[int]
     _residues: Residues | None
     _residue_indices: list[int] | None
     biomt: list
@@ -2090,17 +2091,20 @@ class Structure(StructureBase):
         Returns:
             Each Residue which owns the corresponding index in the .coords attribute
         """
-        try:
+        # try:
+        if self.is_parent():
             return self._coords_indexed_residues[self._atom_indices].tolist()
-        except (AttributeError, TypeError):  # Todo self.is_parent()
-            raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
-                                 f'{self.coords_indexed_residues.__name__} can only be accessed by the Structure object'
-                                 f' that owns these coordinates and therefore owns this Structure')
+        else:
+            return self.parent._coords_indexed_residues[self._atom_indices].tolist()
+        # except (AttributeError, TypeError):
+        #     raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
+        #                          f'{self.coords_indexed_residues.__name__} can only be accessed by the Structure object'
+        #                          f' that owns these coordinates and therefore owns this Structure')
 
-    @coords_indexed_residues.setter
-    def coords_indexed_residues(self, residues: list[Residue] | np.ndarray):
-        """Create a map of the coordinate indices to the Residue"""
-        self._coords_indexed_residues = np.array(residues)
+    # @coords_indexed_residues.setter
+    # def coords_indexed_residues(self, residues: list[Residue]):
+    #     """Create a map of the coordinate indices to the Residue"""
+    #     self._coords_indexed_residues = np.array(residues)
 
     @property
     def coords_indexed_residue_atoms(self) -> list[int]:
@@ -2109,17 +2113,20 @@ class Structure(StructureBase):
         Returns:
             Index of the Atom position in the Residue for the index of the .coords attribute
         """
-        try:
+        # try:
+        if self.is_parent():
             return self._coords_indexed_residue_atoms[self._atom_indices].tolist()
-        except (AttributeError, TypeError):  # Todo self.is_parent()
-            raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
-                                 f'{self.coords_indexed_residue_atoms.__name__} can only be accessed by the Structure '
-                                 f'object that owns these coordinates and therefore owns this Structure')
+        else:
+            return self.parent._coords_indexed_residue_atoms[self._atom_indices].tolist()
+        # except (AttributeError, TypeError):
+        #     raise AttributeError(f'The Structure "{self.name}" doesn\'t "own" it\'s coordinates. The attribute '
+        #                          f'{self.coords_indexed_residue_atoms.__name__} can only be accessed by the Structure '
+        #                          f'object that owns these coordinates and therefore owns this Structure')
 
-    @coords_indexed_residue_atoms.setter
-    def coords_indexed_residue_atoms(self, indices):
-        """Create a map of the coordinate indices to the Residue and Residue atom index"""
-        self._coords_indexed_residue_atoms = np.array(indices)
+    # @coords_indexed_residue_atoms.setter
+    # def coords_indexed_residue_atoms(self, indices: list[int]):
+    #     """Create a map of the coordinate indices to the Residue and Residue atom index"""
+    #     self._coords_indexed_residue_atoms = np.array(indices)
 
     @property
     def number_of_residues(self) -> int:
@@ -2836,7 +2843,7 @@ class Structure(StructureBase):
 
         # re-index the coords and residues map
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
-        self.coords_indexed_residues, self.coords_indexed_residue_atoms = zip(*residues_atom_idx)
+        self._coords_indexed_residues, self._coords_indexed_residue_atoms = zip(*residues_atom_idx)
         # range_idx = prior_range_idx = 0
         # residue_indexed_ranges = []
         # for residue in self.residues:
