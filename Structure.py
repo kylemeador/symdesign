@@ -38,6 +38,8 @@ directives = Literal['special', 'same', 'different', 'charged', 'polar', 'hydrop
                      'branched']
 mutation_directives: tuple[directives, ...] = get_args(directives)
 transformation_mapping: dict[str, list[float] | list[list[float]] | np.ndarray]
+# protein_required_types = {'N', 'CA', 'O'}  # 'C', Removing 'C' for fragment library guide atoms...
+protein_required_types = {'N', 'CA', 'C', 'O'}
 # mutation_directives = \
 #     ['special', 'same', 'different', 'charged', 'polar', 'hydrophobic', 'aromatic', 'hbonding', 'branched']
 residue_properties = {'ALA': {'hydrophobic', 'apolar'},
@@ -136,12 +138,17 @@ hydrogens = {
     'TYR': {'H': 1, 'HA': 0, '1HB': 0, '2HB': 0, 'HD1': 0, 'HD2': 0, 'HE1': 0, 'HE2': 0, 'HH': 1},
     'VAL': {'H': 1, 'HA': 0, 'HB': 0, '1HG1': 0, '2HG1': 0, '3HG1': 0, '1HG2': 0, '2HG2': 0, '3HG2': 0}}
 termini = {'1H': 1, '2H': 1, '3H': 1, 'OXT': 1}
-for residue_type, residue_atoms in atomic_polarity_table.items():
+for res_type, residue_atoms in atomic_polarity_table.items():
     residue_atoms.update(termini)
-    residue_atoms.update(hydrogens[residue_type])
+    residue_atoms.update(hydrogens[res_type])
 
 
 class Log:
+    """Responsible for StructureBase logging operations
+
+    Args:
+        log: The logging.Logger to handle StructureBase logging. If none is passed a Logger with NullHandler is used
+    """
     def __init__(self, log: Logger | None = null_log):
         self.log = null_log if log is None else log
 
@@ -150,6 +157,12 @@ null_struct_log = Log()
 
 
 class Coords:
+    """Responsible for handling StructureBase coordinates by storing in a numpy.ndarray with shape (n, 3) where n is the
+     number of atoms in the structure and the 3 dimensions represent x, y, and z coordinates
+
+    Args:
+        coords: The coordinates to store. If none are passed an empty container will be generated
+    """
     coords: np.ndarray
 
     def __init__(self, coords: np.ndarray | list[list[float]] = None):
@@ -166,6 +179,8 @@ class Coords:
 
         Args:
             indices: The indices to delete from the Coords array
+        Sets:
+            self.coords = numpy.delete(self.coords, indices)
         """
         self.coords = np.delete(self.coords, indices, axis=0)
 
@@ -175,6 +190,8 @@ class Coords:
         Args:
             new_coords: The coords to include into Coords
             at: The index to perform the insert at
+        Sets:
+            self.coords = numpy.concatenate(self.coords[:at] + new_coords + self.coords[at:])
         """
         self.coords = \
             np.concatenate((self.coords[:at] if 0 <= at <= len(self.coords) else self.coords, new_coords,
@@ -379,7 +396,7 @@ class Atom(StructureBase):
     @property
     def sasa(self) -> float:
         """The Solvent accessible surface area for the Atom. Raises AttributeError if .sasa isn't set"""
-        # try:  # let the Residue owner handle this error
+        # try:  # let the Residue owner handle errors
         return self._sasa
         # except AttributeError:
         #     raise AttributeError
@@ -387,6 +404,8 @@ class Atom(StructureBase):
     @sasa.setter
     def sasa(self, sasa: float):
         self._sasa = sasa
+
+    # End state properties
 
     # @property
     # def coords(self):
@@ -426,26 +445,8 @@ class Atom(StructureBase):
         """Is the Atom a heavy atom?"""
         return 'H' in self.type
 
-    # def distance(self, atom, intra=False):
-    #     """returns distance (type float) between current instance of Atom and another instance of Atom"""
-    #     if self.chain == atom.chain and not intra:
-    #         # self.log.error('Atoms Are In The Same Chain')
-    #         return None
-    #     else:
-    #         distance = sqrt((self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2)
-    #         return distance
-
-    # def distance_squared(self, atom, intra=False):
-    #     """returns squared distance (type float) between current instance of Atom and another instance of Atom"""
-    #     if self.chain == atom.chain and not intra:
-    #         # self.log.error('Atoms Are In The Same Chain')
-    #         return None
-    #     else:
-    #         distance = (self.x - atom.x)**2 + (self.y - atom.y)**2 + (self.z - atom.z)**2
-    #         return distance
-
     def __key(self) -> tuple[float, str]:
-        return self.b_factor, self.type  # self.index, self.type
+        return self.b_factor, self.type
 
     def __str__(self, **kwargs) -> str:  # type=None, number=None, pdb=False, chain=None,
         """Represent Atom in PDB format"""
@@ -822,13 +823,13 @@ class ResidueFragment(Fragment):
 class Residue(ResidueFragment, StructureBase):
     _contact_order: float
     _start_index: int
-    atoms: Atoms
-    # backbone_indices: list[int]
-    # backbone_and_cb_indices: list[int]
+    _atoms: Atoms | None
+    _backbone_indices: list[int]
+    _backbone_and_cb_indices: list[int]
     chain: str
     coords: Coords
-    # sidechain_indices: list[int]
-    # heavy_atom_indices: list[int]
+    _sidechain_indices: list[int]
+    _heavy_atom_indices: list[int]
     local_density: float
     next_residue: Residue
     number: int
@@ -944,23 +945,15 @@ class Residue(ResidueFragment, StructureBase):
         self.backbone_and_cb_indices = getattr(self, '_cb_index', getattr(self, '_ca_index', None))
         self.sidechain_indices = side_chain
         self.heavy_atom_indices = self._bb_cb_indices + heavy_atoms
-        self.chain = atom.chain
-        self.number = atom.residue_number
-        self.number_pdb = atom.pdb_residue_number
-        self.type = atom.residue_type
+        # self.chain = atom.chain
+        # self.number = atom.residue_number
+        # self.number_pdb = atom.pdb_residue_number
+        # self.type = atom.residue_type
         # if not self.ca_index:  # this is likely a NH or a C=O so we don't have a full residue
         #     self.log.error('Residue %d has no CA atom!' % self.number)
-        #     # Todo this residue should be built, but as of 4/28/22 it only could be deleted
+        #     # Todo this residue should be built out, but as of 6/28/22 it can only be deleted
         #     self.ca_index = idx  # use the last found index as a rough guess
         #     self.secondary_structure = 'C'  # just a placeholder since stride shouldn't work
-        #     # raise DesignError('Residue %d has no CA atom!' % self.number)
-
-    # # This is the setter for all atom properties available above
-    # def set_atoms_attributes(self, **kwargs):
-    #     """Set attributes specified by key, value pairs for all atoms in the Residue"""
-    #     for kwarg, value in kwargs.items():
-    #         for atom in self.atoms:
-    #             setattr(atom, kwarg, value)
 
     @property
     def backbone_indices(self) -> list[int]:
@@ -1455,6 +1448,8 @@ class Residue(ResidueFragment, StructureBase):
     def contact_order(self, contact_order: float):
         self._contact_order = contact_order
 
+    # End state properties
+
     # @property
     # def number_of_atoms(self) -> int:
     #     """The number of atoms in the Structure"""
@@ -1543,27 +1538,6 @@ class Residue(ResidueFragment, StructureBase):
         """
         return np.linalg.norm(getattr(self, f'.{dtype}_coords') - getattr(other, f'.{dtype}_coords'))
 
-    # def in_contact(self, other_residue, distance_thresh=4.5, side_chain_only=False):
-    #     if side_chain_only:
-    #         for atom in self.atoms:
-    #             if not atom.is_backbone():
-    #                 for other_atom in other_residue.atoms:
-    #                     if not other_atom.is_backbone():
-    #                         if atom.distance(other_atom, intra=True) < distance_thresh:
-    #                             return True
-    #     else:
-    #         for atom in self.atoms:
-    #             for other_atom in other_residue.atoms:
-    #                 if atom.distance(other_atom, intra=True) < distance_thresh:
-    #                     return True
-    #     return False
-
-    # def in_contact_residuelist(self, residuelist, distance_thresh=4.5, side_chain_only=False):  # UNUSED
-    #     for residue in residuelist:
-    #         if self.in_contact(residue, distance_thresh, side_chain_only):
-    #             return True
-    #     return False
-
     # def residue_string(self, pdb: bool = False, chain: str = None, **kwargs) -> tuple[str, str, str]:
     #     """Format the Residue into the contained Atoms. The Atom number is truncated at 5 digits for PDB compliant
     #     formatting
@@ -1647,8 +1621,8 @@ class Residues:
                     prior_residue = residue
             else:
                 # self.residues[-1].start_index = self.residues[-2].atom_indices[-1] + 1
-                raise DesignError('%s: Starting index is outside of the allowable indices in the Residues object!'
-                                  % Residues.reindex_residue_atoms.__name__)
+                raise IndexError(f'{Residues.reindex_atoms.__name__}: Starting index is outside of the '
+                                 f'allowable indices in the Residues object!')
         else:  # when start_at is 0 or less
             prior_residue = self.residues[start_at]
             prior_residue.start_index = start_at
@@ -1986,15 +1960,16 @@ class Structure(StructureBase):
 
     @property
     def atoms(self) -> list[Atom] | None:
-        """Return the Atom objects in the Structure"""
+        """Return the Atom instances in the Structure"""
         try:
             return self._atoms.atoms[self._atom_indices].tolist()
-        except AttributeError:  # when self._atoms in not set or is None and doesn't have .atoms
+        except AttributeError:  # when self._atoms isn't set or is None and doesn't have .atoms
             return
 
     @atoms.setter
     def atoms(self, atoms: Atoms | list[Atom]):
         """Set the Structure atoms to an Atoms object"""
+        # Todo make this setter function in the same way as self._coords.replace?
         if isinstance(atoms, Atoms):
             self._atoms = atoms
         else:
@@ -2026,15 +2001,16 @@ class Structure(StructureBase):
 
     @property
     def residues(self) -> list[Residue] | None:  # TODO Residues iteration
-        """Return the Residue objects in the Structure"""
+        """Return the Residue instances in the Structure"""
         try:
             return self._residues.residues[self._residue_indices].tolist()
-        except AttributeError:  # when self._residues in not set or is None and doesn't have .residues
+        except AttributeError:  # when self._residues isn't set or is None and doesn't have .residues
             return
 
     @residues.setter
     def residues(self, residues: Residues | list[Residue]):
         """Set the Structure atoms to a Residues object"""
+        # Todo make this setter function in the same way as self._coords.replace?
         if isinstance(residues, Residues):
             self._residues = residues
         else:
@@ -2163,15 +2139,6 @@ class Structure(StructureBase):
 
         return np.concatenate(out_coords)
 
-    def add_atoms(self, atom_list):
-        """Add Atoms in atom_list to the Structure instance"""
-        raise NotImplementedError('This function (add_atoms) is currently broken')
-        atoms = self.atoms.tolist()
-        atoms.extend(atom_list)
-        self.atoms = atoms
-        # Todo need to update all referrers
-        # Todo need to add the atoms to coords
-
     def update_attributes(self, **kwargs):
         """Update attributes specified by keyword args for all Structure container members"""
         for structure_type in self.structure_containers:
@@ -2183,11 +2150,11 @@ class Structure(StructureBase):
         #     setattr(self, kwarg, value)
         # # self.set_structure_attributes(self.residues, **kwargs)
 
-    def set_atoms_attributes(self, **kwargs):  # Same function in Residue
-        """Set attributes specified by key, value pairs for all Atoms in the Structure"""
-        for atom in self.atoms:
-            for kwarg, value in kwargs.items():
-                setattr(atom, kwarg, value)
+    # def set_atoms_attributes(self, **kwargs):
+    #     """Set attributes specified by key, value pairs for all Atoms in the Structure"""
+    #     for atom in self.atoms:
+    #         for kwarg, value in kwargs.items():
+    #             setattr(atom, kwarg, value)
 
     def set_residues_attributes(self, numbers=None, **kwargs):  # Depreciated in favor of _residues.set_attributes()
         """Set attributes specified by key, value pairs for all Residues in the Structure"""
@@ -2273,6 +2240,18 @@ class Structure(StructureBase):
         for structure_index in structure_indices:
             self.__dict__.pop(structure_index, None)
 
+    # Todo each of the below properties could be part of same __getitem__ function
+    #  ex:
+    #   def __getitem__(self, value):
+    #       THE CRUX OF PROBLEM IS HOW TO SEPARATE THESE GET FROM OTHER STRUCTURE GET
+    #       if value.startswith('coords_indexed_')
+    #       try:
+    #           return getattr(self, f'_coords_indexed{value}_indices')
+    #       except AttributeError:
+    #           test_indice = getattr(self, f'_coords_indexed{value}_indices')
+    #           setattr(self, f'_coords_indexed{value}_indices', [idx for idx, atom_idx in enumerate(self._atom_indices)
+    #                                                             if atom_idx in test_indices])
+    #           return getattr(self, f'_coords_indexed{value}_indices')
     @property
     def coords_indexed_backbone_indices(self) -> list[int]:
         """Return backbone Atom indices from the Structure indexed to the Coords view"""
@@ -2376,17 +2355,13 @@ class Structure(StructureBase):
 
     @property
     def helix_cb_indices(self) -> list[int]:
-        """Only works on secondary structure assigned structures!"""
+        """Return helical CB indices. Only works if secondary structure has been assigned"""
         try:
             return self._helix_cb_indices
         except AttributeError:
             h_cb_indices = []
             for residue in self.residues:
-                if not residue.secondary_structure:
-                    self.log.error('Secondary Structures must be set before finding helical CB\'s! Error at Residue %s'
-                                   % residue.number)
-                    return
-                elif residue.secondary_structure == 'H':
+                if residue.secondary_structure == 'H':
                     h_cb_indices.append(residue.cb_atom_index)
             self._helix_cb_indices = h_cb_indices
             return self._helix_cb_indices
@@ -2412,7 +2387,7 @@ class Structure(StructureBase):
         return self.atoms[self.backbone_and_cb_indices]
 
     def atom(self, atom_number: int) -> Atom | None:
-        """Return the Atom specified by atom number or None if no matching atom number is found"""
+        """Return the Atom specified by atom number if a matching Atom is found, otherwise None"""
         for atom in self.atoms:
             if atom.number == atom_number:
                 return atom
@@ -2423,7 +2398,7 @@ class Structure(StructureBase):
         self.renumber_residues()
         self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
 
-    def renumber_atoms(self):
+    def renumber_atoms(self):  # in Residue too
         """Renumber all Atom objects sequentially starting with 1"""
         for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
@@ -2477,39 +2452,36 @@ class Structure(StructureBase):
                                f'Residues instead')
         return self.residues
 
-    def set_residues(self, residues: list[Residue] | Residues):  # UNUSED
-        """Set the Structure .residues, ._atom_indices, and .atoms"""
-        self.residues = residues
-        self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
-        self.atoms = self.residues[0]._atoms
-
-    # def add_residues(self, residue_list):
-    #     """Add Residue objects in a list to the Structure instance"""
-    #     raise NotImplementedError('This function is broken')  # TODO BROKEN
-    #     residues = self.residues
-    #     residues.extend(residue_list)
-    #     self.set_residues(residues)
-    #     # Todo need to add the residue coords to coords
+    # def set_residues(self, residues: list[Residue] | Residues):  # UNUSED
+    #     """Set the Structure .residues, ._atom_indices, and .atoms"""
+    #     self.residues = residues
+    #     self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
+    #     self.atoms = self.residues[0]._atoms
 
     # update_structure():
     #  self.reindex_atoms() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->
     #  self.set_atom_coordinates(self.coords) -> self.create_residues() -> self.set_length()
 
     def create_residues(self):
-        """For the Structure, create Residue instances. Doesn't allow for alternative atom locations"""
-        # required_types = {'N', 'CA', 'O'}  # 'C', Removing this for fragment library guide atoms...
-        required_types = {'N', 'CA', 'C', 'O'}
+        """For the Structure, create Residue instances/Residues object. Doesn't allow for alternative atom locations
+
+        Sets:
+            self._atom_indices (list[int])
+            self._residue_indices (list[int])
+            self._residues (Residues)
+        """
         new_residues, remove_atom_indices, found_types = [], [], set()
-        current_residue_number = self.atoms[0].residue_number
-        start_atom_index = 0
-        for idx, atom in enumerate(self.atoms):
+        atoms = self.atoms
+        current_residue_number = atoms[0].residue_number
+        start_atom_index = idx = 0
+        for idx, atom in enumerate(atoms):
             # if the current residue number is the same as the prior number and the atom.type is not already present
             # We get rid of alternate conformations upon PDB load, so must be a new residue with bad numbering
             if atom.residue_number == current_residue_number and atom.type not in found_types:
                 # atom_indices.append(idx)
                 found_types.add(atom.type)
             else:
-                if required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
+                if protein_required_types.difference(found_types):  # not an empty set, remove start idx to idx indices
                     remove_atom_indices.extend(list(range(start_atom_index, idx)))
                 else:  # proper format
                     new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), atoms=self._atoms,
@@ -2519,14 +2491,14 @@ class Structure(StructureBase):
                 current_residue_number = atom.residue_number
 
         # ensure last residue is added after stop iteration
-        if required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
+        if protein_required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
             remove_atom_indices.extend(list(range(start_atom_index, idx + 1)))
         else:  # proper format. For each need to increment one higher than the last v
             new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), atoms=self._atoms,
                                         coords=self._coords, log=self._log))
 
         self._residue_indices = list(range(len(new_residues)))
-        self.residues = new_residues
+        self._residues = Residues(new_residues)
         for prior_idx, residue in enumerate(new_residues[1:]):
             residue.prev_residue = new_residues[prior_idx]
             try:
@@ -2543,29 +2515,28 @@ class Structure(StructureBase):
     # when alt_location parsing allowed, there may be some use to this, however above works great without alt location
     # def create_residues(self):
     #     """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
-    #     # required_types = {'N', 'CA', 'O'}  # 'C', Removing this for fragment library guide atoms...
-    #     required_types = {'N', 'CA', 'C', 'O'}
     #     start_indices, residue_ranges = [], []
     #     remove_atom_indices = []
     #     remove_indices = []
     #     new_residues = []
     #     atom_indices, found_types = [], set()
-    #     current_residue_number = self.atoms[0].residue_number
-    #     start_atom_index, residue_idx = 0, 0
-    #     for idx, atom in enumerate(self.atoms):
+    #     atoms = self.atoms
+    #     current_residue_number = atoms[0].residue_number
+    #     start_atom_index = idx = 0
+    #     for idx, atom in enumerate(atoms):
     #         # if the current residue number is the same as the prior number and the atom.type is not already present
     #         # We get rid of alternate conformations upon PDB load, so must be a new residue with bad numbering
     #         if atom.residue_number == current_residue_number and atom.type not in found_types:
     #             atom_indices.append(idx)
     #             found_types.add(atom.type)
-    #         # if atom.residue_number == current_residue_number:  # current residue number is the same as the prior number
+    #         # if atom.residue_number == current_residue_number:  # current residue number the same as the prior number
     #         #     if atom.type not in found_types:  # the atom.type is not already present
     #         #         # atom_indices.append(idx)
     #         #         found_types.add(atom.type)
-    #         #     else:  # atom is already present. We got rid of alternate conformations upon PDB load, so new residue
+    #         #     else:  # atom is already present. We got rid of alternate conformations upon PDB load, so new residu
     #         #         remove_indices.append(idx)
     #         else:  # we are starting a new residue
-    #             if required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
+    #             if protein_required_types.difference(found_types):  # not an empty set, remove start idx to idx indice
     #                 remove_atom_indices.append(list(range(start_atom_index, idx)))  # remove_indices
     #             else:  # proper format
     #                 start_indices.append(start_atom_index)
@@ -2578,7 +2549,7 @@ class Structure(StructureBase):
     #             current_residue_number = atom.residue_number
     #
     #     # ensure last residue is added after stop iteration
-    #     if required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
+    #     if protein_required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
     #         remove_atom_indices.append(atom_indices)
     #     else:  # proper format
     #         start_indices.append(start_atom_index)
@@ -2594,13 +2565,13 @@ class Structure(StructureBase):
     #             atoms.pop(index)  # , atom_indices.pop(index)
     #
     #     self._atom_indices = list(range(len(atoms)))  # atom_indices
-    #     self.atoms = atoms
+    #     self._atoms = atoms
     #
     #     for start_index, residue_range in zip(start_indices, residue_ranges):
     #         new_residues.append(Residue(atom_indices=list(range(start_atom_index, start_atom_index + residue_range)),
     #                                     atoms=self._atoms, coords=self._coords, log=self._log))
     #     self._residue_indices = list(range(len(new_residues)))
-    #     self.residues = new_residues
+    #     self._residues = Residues(new_residues)
 
     def residue(self, residue_number: int, pdb: bool = False) -> Residue | None:
         """Retrieve the specified Residue
@@ -2954,9 +2925,7 @@ class Structure(StructureBase):
         if translation2 is not None:  # required for np.ndarray or None checks
             new_coords += np.array(translation2)
 
-        # print(new_coords)
         new_structure = self.__copy__()
-        # print('BEFORE', new_structure.coords)
         # this v should replace the actual numpy array located at coords after the _coords object has been copied
         new_structure.replace_coords(new_coords)
         # print('AFTER', new_structure.coords)
@@ -3774,7 +3743,7 @@ class Structure(StructureBase):
                 #                                     else 'NATAA'))
         else:
             for residue, directive in residue_directives.items():
-                allowed_aas = residue.\
+                allowed_aas = residue. \
                     mutation_possibilities_from_directive(directive, background=background.get(residue), **kwargs)
                 allowed_aas = {protein_letters_3to1_extended[aa.title()] for aa in allowed_aas}
                 allowed_aas = allowed_aas.union(include.get(residue, {}))
@@ -3978,7 +3947,7 @@ class Structures(Structure, UserList):
         return len(self.residues)
 
     @property
-    def coords_indexed_residues(self):
+    def coords_indexed_residues(self) -> list[Residue]:
         try:
             return self._coords_indexed_residues
         except AttributeError:
@@ -3986,7 +3955,7 @@ class Structures(Structure, UserList):
             return self._coords_indexed_residues
 
     @property
-    def coords_indexed_residue_atoms(self):
+    def coords_indexed_residue_atoms(self) -> list[int]:
         try:
             return self._coords_indexed_residue_atoms
         except AttributeError:
@@ -4645,20 +4614,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             for rotation_matrix in degeneracy_matrices:
                 number_of_monomers += 1
                 rot_centered_coords = transform_coordinate_sets(centered_coords_inv, rotation=rotation_matrix)
-                # debug_pdb2 = self.chain_representative.__copy__()
-                # debug_pdb2.replace_coords(rot_centered_coords)
-                # debug_pdb2.write(out_path='invert_set_invert_rot_ROT-%d%s.pdb' % (idx, self.name))
                 new_coords = transform_coordinate_sets(rot_centered_coords, rotation=rotation, translation=translation,
                                                        rotation2=rotation2, translation2=translation2)
-                # final_coords = transform_coordinate_sets(temp_coords, rotation=rot_op, translation=translation2)
-                # # Entity representative stays in the .chains attribute as chain[0] given the iterator slice above
-                # sub_symmetry_mate_pdb = self.chain_representative.__copy__()
-                # sub_symmetry_mate_pdb.replace_coords(new_coords)
-                # sub_symmetry_mate_pdb.set_atoms_attributes(chain=Structure.available_letters[idx])
-                # sub_symmetry_mate_pdb.name = Structure.available_letters[idx]
-                # sub_symmetry_mate_pdb.write(out_path='make_oligomer_transformed_CHAIN-%d%s.pdb' % (idx, self.name))
-                # self.chains.append(sub_symmetry_mate_pdb)
-                # # self.chains[idx] = sub_symmetry_mate_pdb
                 _, rot, tx, _ = superposition3d(new_coords, cb_coords)
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
         self.number_of_monomers = number_of_monomers
