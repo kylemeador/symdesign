@@ -2876,7 +2876,9 @@ class Structure(StructureBase):
         Returns:
             The newly inserted Residue object
         """
-        if self.is_dependent():  # Todo this check and error really isn't True with the Residues object shared...
+        # Todo solve this issue for self.is_dependents()
+        #  this check and error really isn't True with the Residues object shared. It can be overcome...
+        if self.is_dependent():
             raise DesignError(f'This Structure "{self.name}" is not the owner of it\'s attributes and therefore cannot '
                               'handle residue insertion!')
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
@@ -2950,6 +2952,7 @@ class Structure(StructureBase):
             self.secondary_structure = \
                 self.secondary_structure[:residue_index] + 'C' + self.secondary_structure[residue_index:]
 
+        # Todo solve this v for self.is_dependents()
         # re-index the coords and residues map
         residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
         self._coords_indexed_residues, self._coords_indexed_residue_atoms = zip(*residues_atom_idx)
