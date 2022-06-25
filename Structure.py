@@ -394,8 +394,8 @@ class Atom(StructureBase):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         super().__init__(**kwargs)
-        self._atom_indices = [index]
         self.index = index
+        self._atom_indices = [self.index]  # set self.index so that changes to self.index are reflected in _atom_indices
         self.number = number
         self.type = atom_type
         self.alt_location = alt_location
