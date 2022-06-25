@@ -897,7 +897,7 @@ class Residue(ResidueFragment, StructureBase):
     state_attributes: set[str] = {'_secondary_structure', '_sasa', '_sasa_aploar', '_sasa_polar'}
     type: str
 
-    def __init__(self, atom_indices: list[int] = None, **kwargs):
+    def __init__(self, atoms: list[Atoms] | Atoms = None, atom_indices: list[int] = None, **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         # kwargs passed to ResidueFragment -> Fragment
@@ -907,14 +907,32 @@ class Residue(ResidueFragment, StructureBase):
         #  atoms: Atoms = None,
         #        index=None
         # self.index = index
-        self._atom_indices = atom_indices
-        # self.parent = parent_structure  # Todo hide ._ attributes with parents
-        self.atoms = atoms
-        if coords:
-            self.coords = coords
-        self.log = log
-        # Todo hide ._ attributes with parents
-        # self.secondary_structure = None
+
+        parent = self.parent
+        if parent:  # we are setting up a dependent Residue
+            # self._atoms = parent._atoms  # Todo make empty Atoms for Structure objects?
+            # # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
+            self._atom_indices = atom_indices
+            try:
+                self._start_index = atom_indices[0]
+            except (TypeError, IndexError):
+                raise IndexError('The Residue wasn\'t passed atom_indices which are required for initialization')
+            self.delegate_atoms()
+        # we are setting up a parent (independent) Residue
+        elif atoms:  # is not None  # no parent passed, construct from atoms
+            self.assign_atoms(atoms)
+            self.is_residue_valid()
+            Structure._validate_coords(self, **kwargs)
+            self._start_index = 0
+            # update Atom instance attributes to ensure they are dependants of this instance
+            # must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
+            self._atoms.set_attributes(_parent=self)
+            self._atoms.reindex()
+            self.renumber_atoms()
+            self.delegate_atoms()
+        else:  # create an empty Residue
+            pass
+
         self._contact_order = 0.
         self.local_density = 0.
 
@@ -1926,12 +1944,13 @@ class Structure(StructureBase):
                  **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
-        self._atoms = None
-        self._atom_indices = None
-        self._coords = None
-        self._coords_indexed_residues = None
-        self._residues = None
-        self._residue_indices = None
+        super().__init__(**kwargs)
+        # self._atoms = None
+        # self._atom_indices = None
+        # self._coords = None
+        # self._coords_indexed_residues = None
+        # self._residues = None
+        # self._residue_indices = None
         self.biomt = biomt if biomt else []  # list of vectors to format
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
         self.name = name if name not in [None, False] else f'nameless_{type(self).__name__}'
@@ -1954,45 +1973,49 @@ class Structure(StructureBase):
             self._residue_indices = residue_indices  # None
             # set the atom_indices from the provided residues
             self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
-        # Todo hide ._ attributes with parents
-        elif residues is not None:
-            if not residue_indices:  # assume that the passed residues shouldn't be bound to an existing Structure
-                atoms = []
-                for residue in residues:
-                    atoms.extend(residue.atoms)
-                self.atom_indices = list(range(len(atoms)))
-                self.residue_indices = list(range(len(residues)))  # residue_indices
-                self.atoms = atoms
-                if isinstance(residues, Residues):  # already have a residues object
-                    pass
-                else:  # must create the residues object
-                    residues = Residues(residues)
-                # have to copy Residues object to set new attributes on each member Residue
-                self.residues = copy(residues)
-                # set residue attributes, index according to new Atoms/Coords index
-                # self._residues.set_attributes(_atoms=self._atoms)
-                self.set_residues_attributes(_atoms=self._atoms)
-                self._residues.reindex_residue_atoms()
-                self.set_coords(coords=np.concatenate([residue.coords for residue in residues]))
-            else:
-                self.residue_indices = residue_indices
-                self.set_residues(residues)
-                # self.parent = parent_structure  # Todo hide ._ attributes with parents
-                assert coords, \
-                    'Can\'t initialize Structure with residues and residue_indices when no Coords object is passed!'
-                self.coords = coords
-                # Todo hide ._ attributes with parents
-            # if coords is None:  # assumes that this is a Structure init without existing shared coords
-            #     # try:
-            #     #     self.coords = self.residues[0]._coords
-            #     coords = np.concatenate([residue.coords for residue in residues])
-            #     self.set_coords(coords=coords)
-            #     # except (IndexError, AssertionError):  # self.residues[0]._coords isn't the correct size
-            #     #     self.coords = None
-        # if coords is not None:  # must go after Atom containers as atoms don't have any/right coordinate info
-        #     self.coords = coords
+        # we are setting up a parent (independent) Structure
+        else:
+            if atoms:  # is not None
+                self.assign_atoms(atoms)
+                self.create_residues()
+                # ensure that coordinate lengths match atoms
+                self._validate_coords(from_source='residues', **kwargs)
+                # super()._validate_coords(from_source='residues', **kwargs)  # Todo upon "StructureWithAtomsMethods" container
+                # update Atom instance attributes to ensure they are dependants of this instance
+                # must do this after _validate_coords to ensure that coordinate info isn't overwritten
+                self._atoms.set_attributes(_parent=self)
+                self._atoms.reindex()
+                self.renumber_atoms()
+            # Todo move residues up, we should prefer it as less work needs to be done in the case both passed
+            elif residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
+                self.assign_residues(residues)
+                # self._residue_indices = list(range(len(residues)))
+                # if isinstance(residues, Residues):  # already have a residues object
+                #     # assume it is dependent on another Structure and clear runtime attributes
+                #     residues.reset_state()
+                # else:  # must create the residues object
+                #     residues = Residues(residues)
+                # # have to copy Residues object to set new attributes on each member Residue
+                # # self.residues = copy(residues)
+                # self._residues = copy(residues)
+                # # set residue attributes, index according to new Atoms/Coords index
+                # self._residues.set_attributes(_parent=self)
+                # # self.set_residues_attributes(_parent=self)
+                # self._residues.reindex_atoms()
+                # self._coords.set(np.concatenate([residue.coords for residue in residues]))
+                # # else:
+                # #     self._residue_indices = residue_indices
+                # #     self.set_residues(residues)
+                # #     # self.parent = parent_structure
+                # #     assert coords, \
+                # #         'Can\'t initialize Structure with residues and residue_indices when no Coords object is passed!'
+                # #     self.coords = coords
 
-        super().__init__(**kwargs)
+            # index the coordinates to the Residue they belong to and their associated atom_index
+            residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
+            self._coords_indexed_residues, self._coords_indexed_residue_atoms = zip(*residues_atom_idx)
+
+        # super().__init__(**kwargs)
 
     @classmethod
     def from_atoms(cls, atoms: list[Atom] | Atoms = None, coords: Coords | np.ndarray = None, **kwargs):
@@ -2810,8 +2833,9 @@ class Structure(StructureBase):
                 if protein_required_types.difference(found_types):  # not an empty set, remove start idx to idx indices
                     remove_atom_indices.extend(list(range(start_atom_index, idx)))
                 else:  # proper format
-                    new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), atoms=self._atoms,
-                                                coords=self._coords, log=self._log))
+                    # new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), atoms=self._atoms,
+                    #                             coords=self._coords, log=self._log))
+                    new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), parent=self))
                 start_atom_index = idx
                 found_types = {atom.type}  # atom_indices = [idx]
                 current_residue_number = atom.residue_number
@@ -2820,8 +2844,9 @@ class Structure(StructureBase):
         if protein_required_types.difference(found_types):  # not an empty set, remove indices from start idx to idx
             remove_atom_indices.extend(list(range(start_atom_index, idx + 1)))
         else:  # proper format. For each need to increment one higher than the last v
-            new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), atoms=self._atoms,
-                                        coords=self._coords, log=self._log))
+            # new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx + 1)), atoms=self._atoms,
+            #                             coords=self._coords, log=self._log))
+            new_residues.append(Residue(atom_indices=list(range(start_atom_index, idx)), parent=self))
 
         self._residue_indices = list(range(len(new_residues)))
         self._residues = Residues(new_residues)
@@ -4546,8 +4571,9 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         self.structure_containers.extend(['chains'])
         # Todo choose most symmetrically average by moving chain symmetry ops below to here
         representative = chains[0]
-        super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
-                         coords=representative._coords, **kwargs)
+        # super().__init__(residues=representative._residues, residue_indices=representative.residue_indices,
+        #                  coords=representative._coords, log=representative._log, **kwargs)
+        super().__init__(residue_indices=representative.residue_indices, **kwargs)
         self._chains = []
         chain_ids = [representative.name]
         # set representative transform as identity

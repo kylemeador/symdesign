@@ -640,9 +640,11 @@ class PDB(Structure):
             # # set residue attributes, index according to new Atoms/Coords index
             # self.set_residues_attributes(_atoms=self._atoms)
             # self._residues.set_attributes(_atoms=self._atoms)
-            self._residues.reindex_residue_atoms()
-            self.set_coords(coords=np.concatenate(coords))
-            self.chain_ids = remove_duplicates([residue.chain for residue in residues])
+            # self._residues.reindex_atoms()
+            # self._coords.set(np.concatenate([structure.coords for structure in structures]))
+            # index the coordinates to the Residue they belong to and their associated atom_index
+            residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
+            self._coords_indexed_residues, self._coords_indexed_residue_atoms = zip(*residues_atom_idx)
 
         if chains:
             if isinstance(chains, (list, Structures)):  # create the instance from existing chains
@@ -854,8 +856,9 @@ class PDB(Structure):
             {self.chain_ids[chain_idx]: sequence for chain_idx, sequence in enumerate(self.reference_sequence.values())}
 
         for chain_id, residue_indices in zip(self.chain_ids, chain_residues):
-            self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log,
-                                     residues=self._residues, residue_indices=residue_indices))
+            # self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log,
+            #                          residues=self._residues, residue_indices=residue_indices))
+            self.chains.append(Chain(name=chain_id, residue_indices=residue_indices, parent=self))
         # else:
         #     for chain_id in self.chain_ids:
         #         self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
@@ -1256,7 +1259,9 @@ class PDB(Structure):
             #                                               generated from a PDB API sequence search v
             data_name = data["name"]
             data['name'] = f'{self.name}_{data_name}' if isinstance(data_name, int) else data_name
-            self.entities.append(Entity.from_chains(**data, log=self._log))
+            # data has attributes chains, uniprot_id, and name
+            # self.entities.append(Entity.from_chains(**data))
+            self.entities.append(Entity.from_chains(**data, parent=self))
 
     def get_entity_info_from_atoms(self, tolerance: float = 0.9, **kwargs):  # Todo define inside create_entities?
         """Find all unique Entities in the input .pdb file. These are unique sequence objects
