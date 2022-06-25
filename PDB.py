@@ -629,14 +629,16 @@ class PDB(Structure):
                 atoms.extend(structure.atoms)
                 residues.extend(structure.residues)
                 coords.append(structure.coords)
-            self._atom_indices = list(range(len(atoms)))
-            self.atoms = atoms
-            self._residue_indices = list(range(len(residues)))
-            residues = Residues(residues)
-            # have to copy Residues object to set new attributes on each member Residue
-            self.residues = copy(residues)
-            # set residue attributes, index according to new Atoms/Coords index
-            self.set_residues_attributes(_atoms=self._atoms)
+            self.assign_residues(residues, atoms, coords=coords)
+            # self._atom_indices = list(range(len(atoms)))
+            # self.atoms = atoms
+            # self._residue_indices = list(range(len(residues)))
+            # residues = Residues(residues)
+            # # have to copy Residues object to set new attributes on each member Residue
+            # # self.residues = copy(residues)
+            # self._residues = copy(residues)
+            # # set residue attributes, index according to new Atoms/Coords index
+            # self.set_residues_attributes(_atoms=self._atoms)
             # self._residues.set_attributes(_atoms=self._atoms)
             self._residues.reindex_residue_atoms()
             self.set_coords(coords=np.concatenate(coords))

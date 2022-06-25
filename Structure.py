@@ -988,13 +988,72 @@ class Residue(ResidueFragment, StructureBase):
         """The particular Atom objects that the Residue owns"""
         return self._atoms.atoms[self._atom_indices].tolist()
 
-    @atoms.setter
-    def atoms(self, atoms: Atoms):
-        if isinstance(atoms, Atoms):
-            self._atoms = atoms
-        else:
-            raise AttributeError('The supplied atoms are not of the class Atoms! Pass an Atoms object not a Atoms view.'
-                                 ' To pass the Atoms object for a Structure, use the private attribute ._atoms')
+    # # Todo enable this type of functionality
+    # @atoms.setter
+    # def atoms(self, atoms: Atoms):
+    #     self._atoms.replace(self._atom_indices, atoms)
+
+    # Todo create add_atoms that is like list append
+
+    def assign_atoms(self, atoms: list[Atom] | Atoms, **kwargs):  # same function name in Structure
+        """Perform atom assignment using Structure.assign_atoms
+
+        Args:
+            atoms: The Atom instances to assign to the Residue
+        Keyword Args:
+            coords=None (numpy.ndarray): The coordinates to assign to the Structure.
+                Optional, will use Atom.coords if not specified
+        Sets:
+            self._atom_indices (list[int])
+
+            self._atoms (Atoms)
+        """
+        # remove_atom_indices, found_types = [], set()
+        # atom = atoms[0]
+        # current_residue_number, current_residue_type = atom.residue_number, atom.residue_type
+        # for idx, atom in enumerate(atoms[1:], 1):
+        #     if atom.residue_number == current_residue_number and atom.residue_type == current_residue_type:
+        #         if atom.type not in found_types:
+        #             found_types.add(atom.type)
+        #         else:
+        #             raise ValueError(f'Couldn\'t {self.assign_atoms.__name__}. The Atom type at index {idx} was already'
+        #                              f'observed')
+        #     else:
+        #         raise ValueError(f'Couldn\'t {self.assign_atoms.__name__}. The Atom at index {idx} doesn\'t have the '
+        #                          f'same properties as all previous Atoms')
+        #
+        # if protein_required_types.difference(found_types):  # modify if building NucleotideResidue
+        #     raise ValueError(f'Couldn\'t {self.assign_atoms.__name__}. The provided Atoms don\'t contain the required '
+        #                      f'types ({", ".join(protein_required_types)}) to build a {type(self).__name__}')
+
+        # # we have an adequate Residue, construct
+        # self._start_index = 0
+        Structure.assign_atoms(self, atoms)
+        # super().assign_atoms(atoms)  # Todo upon making "StructureWithAtomsMethods" container
+        # self._atom_indices = list(range(len(atoms)))
+        # if not isinstance(atoms, Atoms):  # must create the Atoms object
+        #     atoms = Atoms(atoms)
+        #
+        # if atoms.are_dependents():  # copy Atoms object to set new attributes on each member Atom
+        #     atoms = copy(atoms)
+        #     atoms.reset_state()  # clear runtime attributes
+        # self._atoms = atoms
+
+        # ensure that coordinate lengths match atoms
+        # Structure._validate_coords(self, **kwargs)
+        # super()._validate_coords()  # Todo upon making "StructureWithAtomsMethods" container
+        # if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) has already been populated
+        #     # otherwise, try to set from the passed atoms
+        #     self._coords.set(np.concatenate(coords if coords else [atom.coords for atom in atoms]))
+        #
+        # if self.number_of_atoms != len(self.coords):  # number_of_atoms was just set by self._atom_indices
+        #     raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords '
+        #                      f'({len(self.coords)}). Consider initializing without coords if this isn\'t expected')
+        # # update Atom instance attributes to ensure they are dependants of this instance
+        # # must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
+        # self._atoms.set_attributes(_parent=self)
+        # self._atoms.reindex()
+        # self.renumber_atoms()
 
     def renumber_atoms(self):  # in Structure too
         """Renumber all Atom objects sequentially starting with 1"""
@@ -2141,8 +2200,43 @@ class Structure(StructureBase):
         atoms = self.atoms.tolist()
         atoms.extend(atom_list)
         self.atoms = atoms
-        self.create_residues()
-        # self.set_residues_attributes(_atoms=atoms)
+        # Todo need to update all referrers
+        # Todo need to add the atoms to coords
+
+    def assign_atoms(self, atoms: Atoms | list[Atom], **kwargs):  # same function in Residue
+        """Assign Atom instances to the Structure, create Atoms object, and create Residue instances/Residues
+
+        This will make all Atom instances dependents of this Structure instance
+
+        Args:
+            atoms: The Atom instances to assign to the Structure
+        Keyword Args:
+            coords=None (numpy.ndarray): The coordinates to assign to the Structure.
+                Optional, will use Residues.coords if not specified
+        Sets:
+            self._atom_indices (list[int])
+
+            self._atoms (Atoms)
+        """
+        # set proper atoms attributes
+        self._atom_indices = list(range(len(atoms)))
+        if not isinstance(atoms, Atoms):  # must create the Atoms object
+            atoms = Atoms(atoms)
+
+        if atoms.are_dependents():  # copy Atoms object to set new attributes on each member Atom
+            atoms = copy(atoms)
+            atoms.reset_state()  # clear runtime attributes
+        self._atoms = atoms
+
+        # self.create_residues()
+        # # ensure that coordinate lengths match atoms
+        # self._validate_coords(from_source='residues', **kwargs)
+        # # super()._validate_coords(from_source='residues', **kwargs)  # Todo upon "StructureWithAtomsMethods" container
+        # # update Atom instance attributes to ensure they are dependants of this instance
+        # # must do this after _validate_coords to ensure that coordinate info isn't overwritten
+        # self._atoms.set_attributes(_parent=self)
+        # self._atoms.reindex()
+        # self.renumber_atoms()
 
     # @property
     # def number_of_atoms(self) -> int:
@@ -2177,6 +2271,65 @@ class Structure(StructureBase):
             self._residues = residues
         else:
             self._residues = Residues(residues)
+
+    # def add_residues(self, residue_list):
+    #     """Add Residue objects in a list to the Structure instance"""
+    #     raise NotImplementedError('This function is broken')  # TODO BROKEN
+    #     residues = self.residues
+    #     residues.extend(residue_list)
+    #     self.set_residues(residues)
+    #     # Todo need to add the residue coords to coords
+
+    def assign_residues(self, residues: Residues | list[Residue], atoms: Atoms | list[Atom] = None, **kwargs):
+        """Assign Residue instances to the Structure, create Residues object
+
+        This will make all Residue instances dependents of this Structure instance
+
+        Args:
+            residues: The Residue instances to assign to the Structure
+            atoms: The Atom instances to assign to the Structure. Optional, will use Residues.atoms if not specified
+        Keyword Args:
+            coords=None (numpy.ndarray): The coordinates to assign to the Structure. Optional, will use Residues.coords if not specified
+        Sets:
+            self._atom_indices (list[int])
+
+            self._atoms (Atoms)
+
+            self._residue_indices (list[int])
+
+            self._residues (Residues)
+        """
+        if not atoms:
+            atoms = []
+            for residue in residues:
+                atoms.extend(residue.atoms)
+        self.assign_atoms(atoms)
+        # # this is assign_atoms()
+        # self._atom_indices = list(range(len(atoms)))
+        # # self._start_index = 0  # used in Residue.assign_atoms
+        # self._atoms = Atoms(atoms)
+        # # self.atoms = atoms
+        # # # if so, copy Atoms object to set new attributes on each member Atom
+        # # self._atoms = copy(atoms)
+        # # update Atom instance attributes to ensure they are dependants of this instance
+        # self._atoms.set_attributes(_parent=self)
+        # # this is assign_atoms()
+        # set proper residues attributes
+        self._residue_indices = list(range(len(residues)))
+        if not isinstance(residues, Residues):  # must create the residues object
+            residues = Residues(residues)
+
+        if residues.are_dependents():  # copy Atoms object to set new attributes on each member Atom
+            residues = copy(residues)
+            residues.reset_state()  # clear runtime attributes
+        self._residues = residues
+
+        # ensure that coordinates lengths match
+        self._validate_coords(from_source='residues', **kwargs)
+        # update Residue instance attributes to ensure they are dependants of this instance
+        # must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
+        self._residues.set_attributes(_parent=self)
+        self._residues.reindex_atoms()
 
     # def store_coordinate_index_residue_map(self):
     #     self.coords_indexed_residues = [(residue, res_idx) for residue in self.residues for res_idx in residue.range]
