@@ -206,7 +206,7 @@ class StructureBase:
     _atom_indices: list[int] | None  # np.ndarray
     _coords: Coords
     _log: Log
-    _parent: StructureBase | None
+    __parent: StructureBase | None
 
     def __init__(self, chains=None, entities=None,  # Todo figure out if pulling by PDB init then remove?
                  design=None,  # Todo remove?
@@ -216,8 +216,6 @@ class StructureBase:
                  **kwargs):
         if parent:  # initialize StructureBase from parent
             self._parent = parent
-            self._log = parent._log
-            self._coords = parent._coords
         else:  # this is the parent
             # initialize Log
             if log:
@@ -251,10 +249,25 @@ class StructureBase:
     def parent(self) -> StructureBase | None:
         """Return the instance's "parent" StructureBase"""
         try:
-            return self._parent
+            return self.__parent
         except AttributeError:
-            self._parent = None
-            return self._parent
+            self.__parent = None
+            return self.__parent
+
+    # Placeholder getter for _parent setter so that derived classes automatically set _log and _coords from _parent set
+    @property
+    def _parent(self) -> StructureBase | None:
+        """Return the instance's "parent" StructureBase"""
+        return self.__parent
+
+    @_parent.setter
+    def _parent(self, parent: StructureBase) -> None:
+        """Return the instance's "parent" StructureBase"""
+        self.__parent = parent
+        self._log = parent._log
+        self._coords = parent._coords
+        #     self._atoms = parent._atoms  # Todo make empty Atoms for StructureBase objects?
+        #     self._residues = parent._residues  # Todo make empty Residues for StructureBase objects?
 
     def is_dependent(self) -> bool:
         """Is the StructureBase a dependent?"""
@@ -345,8 +358,11 @@ class Atom(StructureBase):
         self.element_symbol = element_symbol
         self.atom_charge = atom_charge
         # self.sasa = sasa
-        # if coords:
-        #     self.coords = coords
+        # # Set Atom from parent attributes. By default parent is None
+        # parent = self.parent
+        # if parent:
+        #     self._atoms = parent._atoms  # Todo make empty Atoms for Structure objects?
+        #     self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
     # @classmethod
     # def from_info(cls, *args):
@@ -840,6 +856,13 @@ class Residue(ResidueFragment, StructureBase):
         # self.secondary_structure = None
         self._contact_order = 0.
         self.local_density = 0.
+
+    @StructureBase._parent.setter
+    def _parent(self, parent: StructureBase):
+        """Set the Coords object while propagating changes to symmetry "mate" chains"""
+        StructureBase._parent.fset(self, parent)
+        self._atoms = parent._atoms
+        # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
     # @property
     # def log(self) -> Logger:
@@ -1759,14 +1782,15 @@ class Structure(StructureBase):
         # else:
         #     self._log = Log(log)
 
-        if atoms is not None:
-            self.set_atoms(atoms)  # this does the below commented steps
-            # self._atom_indices = list(range(len(atoms)))  # [atom.index for atom in atoms]
-            # self.atoms = atoms
-            # self.create_residues()
-            # self.parent = parent_structure  # Todo hide ._ attributes with parents
-            self.set_coords(coords)
-            # Todo hide ._ attributes with parents
+        parent = self.parent
+        if parent:  # we are setting up a dependent Structure
+            # self._atoms = parent._atoms
+            # self._residues = parent._residues
+            # must set this before setting _atom_indices
+            self._residue_indices = residue_indices  # None
+            # set the atom_indices from the provided residues
+            self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
+        # Todo hide ._ attributes with parents
         elif residues is not None:
             if not residue_indices:  # assume that the passed residues shouldn't be bound to an existing Structure
                 atoms = []
@@ -1812,9 +1836,15 @@ class Structure(StructureBase):
         return cls(atoms=atoms, coords=coords, **kwargs)
 
     @classmethod
-    def from_residues(cls, residues: list[Residue] | Residues = None, residue_indices: list[int] = None,
-                      coords: Coords | np.ndarray = None, **kwargs):
-        return cls(residues=residues, residue_indices=residue_indices, coords=coords, **kwargs)
+    def from_residues(cls, residues: list[Residue] | Residues = None, **kwargs):
+        return cls(residues=residues, **kwargs)
+
+    @StructureBase._parent.setter
+    def _parent(self, parent: StructureBase):
+        """Set the Coords object while propagating changes to symmetry "mate" chains"""
+        StructureBase._parent.fset(self, parent)
+        self._atoms = parent._atoms
+        self._residues = parent._residues
 
     # @property
     # def log(self) -> Logger:
@@ -2717,7 +2747,7 @@ class Structure(StructureBase):
         for _ in iter(delete_indices):
             self._atom_indices.pop(atom_delete_index)
         # must re-index all succeeding atoms
-        # This doesn't apply to all PDB Atoms only Structure Atoms! Need to modify at PDB level
+        # This doesn't apply to parent Atoms only Structure Atoms! Need to modify parent level
         self.reindex_atoms(start_at=atom_delete_index, offset=len(delete_indices))
 
         return delete_indices
