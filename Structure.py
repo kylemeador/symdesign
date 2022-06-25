@@ -2770,11 +2770,11 @@ class Structure(StructureBase):
                     self._atom_indices[:start_at] + [idx - offset for idx in self._atom_indices[start_at:]]
             else:
                 raise ValueError('Must include an offset when re-indexing atoms from a start_at position!')
+        elif self.is_parent():
+            # this shouldn't be used for a Structure object who is dependent on another Structure!
+            self._atom_indices = list(range(self.number_of_atoms))
         else:
-            # WARNING, this shouldn't be used for a Structure object whose self._atoms is shared with another Structure!
-            self.atom_indices = list(range(len(self.atom_indices)))
-        # for idx, atom in enumerate(self.atoms):
-        #     self.atoms[idx].index = idx
+            raise ValueError(f'{self.name}: Must include start_at when re-indexing atoms from a child structure!')
 
     # def set_atom_coordinates(self, coords):
     #     """Set/Replace all Atom coordinates with coords specified. Must be in the same order to apply correctly!"""
