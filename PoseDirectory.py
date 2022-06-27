@@ -39,7 +39,7 @@ from DesignMetrics import read_scores, interface_composition_similarity, unneces
     process_residue_info
 from JobResources import FragmentDatabase, JobResources
 from PDB import PDB
-from Pose import Pose, MultiModel, Models  # , Model
+from Pose import Pose, MultiModel, Models, Model
 from Query.UniProt import is_uniprot_thermophilic
 from SequenceProfile import parse_pssm, generate_mutations_from_reference, \
     simplify_mutation_dict, weave_sequence_dict, position_specific_jsd, sequence_difference, \
@@ -134,7 +134,7 @@ class PoseDirectory:
         self.fragment_observations = None  # [{'1_2_24': [(78, 87, ...), ...], ...}]
         self.info: dict = {}  # internal state info
         self._info: dict = {}  # internal state info at load time
-        self.init_pdb = None  # used if the pose structure has never been initialized previously
+        self.initial_model = None  # used if the pose structure has never been initialized previously
         self.interface_design_residues: set[int] | bool = False  # the residue numbers in the pose interface
         self.interface_residue_ids: dict[str, str] = {}
         # {'interface1': '23A,45A,46A,...' , 'interface2': '234B,236B,239B,...'}
@@ -974,9 +974,9 @@ class PoseDirectory:
     def find_entity_names(self) -> None:
         """Load the Structure source_path and extract the entity_names from the Structure"""
         self.start_log()
-        self.init_pdb = PDB.from_file(self.source_path, log=self.log)
-        # self.entity_names = [entity.name for entity in self.init_pdb.entities]
-        self.info['entity_names'] = [entity.name for entity in self.init_pdb.entities]
+        self.initial_model = Model.from_file(self.source_path, log=self.log)
+        # self.entity_names = [entity.name for entity in self.initial_model.entities]
+        self.info['entity_names'] = [entity.name for entity in self.initial_model.entities]
 
     def start_log(self, level: int = 2) -> None:
         """Initialize the logger for the Pose"""
@@ -1155,7 +1155,7 @@ class PoseDirectory:
                 except IndexError:  # glob found no files
                     self.source = None
         else:  # if the PoseDirectory was loaded as .pdb/mmCIF, the source should be loaded already
-            # self.source = self.init_pdb
+            # self.source = self.initial_model
             pass
 
     @property
@@ -1890,7 +1890,7 @@ class PoseDirectory:
                     else:
                         self.log.error(f'Couldn\'t locate the entity {name} at the specified source {source}')
                         source_idx += 1
-                        self.log.error('Falling back to source {source}')
+                        self.log.error(f'Falling back to source {source}')
                         if source == 'design':
                             file = sorted(glob(path.join(self.path, f'{name}*.pdb*')))
                             if file and len(file) == 1:
@@ -1949,7 +1949,7 @@ class PoseDirectory:
             return
 
         rename_chains = True  # because the result of entities, we should rename
-        if not entities and not self.source or not path.exists(self.source):  # Todo minimize I/O with transform...
+        if not entities and not self.source or not path.exists(self.source):  # minimize I/O with transform... Todo
             # in case we initialized design without a .pdb or clean_asu.pdb (Nanohedra)
             self.log.info('No source file found. Fetching source from Database and transforming to Pose')
             self.transform_entities_to_pose()
@@ -1959,34 +1959,40 @@ class PoseDirectory:
             # because the file wasn't specified on the way in, no chain names should be binding
             # rename_chains = True
 
-        if entities:
-            pdb = PDB.from_entities(entities, log=self.log, rename_chains=rename_chains)
-            #                       name='%s-asu' % str(self)
-        elif self.init_pdb:  # this is a fresh pose, and we already loaded so reuse
-            # careful, if some processing to the pdb has since occurred then this will be wrong!
-            pdb = self.init_pdb
-        else:
-            pdb = PDB.from_file(source if source else self.source, entity_names=self.entity_names, log=self.log)
-            #                              pass names if available ^
+        # if entities:
+        #     pdb = PDB.from_entities(entities, log=self.log, rename_chains=rename_chains)
+        #     #                       name='%s-asu' % str(self)
+        # elif self.initial_model:  # this is a fresh pose, and we already loaded so reuse
+        #     # careful, if some processing to the pdb has since occurred then this will be wrong!
+        #     pdb = self.initial_model
+        # else:
+        #     pdb = Model.from_file(source if source else self.source, entity_names=self.entity_names, log=self.log)
+        #     #                                pass names if available ^
 
         # Initialize the Pose with the pdb in PDB numbering so that residue_selectors are respected
-        if self.symmetric:
-            self.pose = Pose.from_asu(pdb, sym_entry=self.sym_entry, name=f'{self}-asu',
-                                      design_selector=self.design_selector, log=self.log,
-                                      resource_db=self.resources, fragment_db=self.fragment_db,
-                                      ignore_clashes=self.ignore_pose_clashes)
-            # generate oligomers for each entity in the pose
+        pose_kwargs = dict(name=f'{self}-asu' if self.sym_entry else str(self), sym_entry=self.sym_entry, log=self.log,
+                           design_selector=self.design_selector, ignore_clashes=self.ignore_pose_clashes,
+                           resource_db=self.resources, fragment_db=self.fragment_db)
+        if entities:
+            self.pose = Pose.from_entities(entities, entity_names=[entity.name for entity in entities], **pose_kwargs)
+        elif self.initial_model:  # this is a fresh Model, and we already loaded so reuse
+            # careful, if processing has occurred then this may be wrong!
+            self.pose = Pose.from_model(self.initial_model, **pose_kwargs)
+        else:
+            self.pose = Pose.from_file(source if source else self.source, entity_names=self.entity_names, **pose_kwargs)
+            #                                     pass names if available ^
+        if self.pose.symmetry:  # generate oligomers for each entity in the pose  # Todo move to SymmetricModel
             for idx, entity in enumerate(self.pose.entities):
                 if entity.number_of_monomers != self.sym_entry.group_subunit_numbers[idx]:
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
                 # write out new oligomers to the PoseDirectory
                 if self.write_oligomers:
                     entity.write_oligomer(out_path=path.join(self.path, f'{entity.name}_oligomer.pdb'))
-        else:
-            self.pose = Pose.from_model(pdb, name=str(self),
-                                        design_selector=self.design_selector, log=self.log,
-                                        resource_db=self.resources, fragment_db=self.fragment_db,
-                                        ignore_clashes=self.ignore_pose_clashes)
+        # else:
+        #     self.pose = Pose.from_model(pdb, name=str(self),
+        #                                 design_selector=self.design_selector, log=self.log,
+        #                                 resource_db=self.resources, fragment_db=self.fragment_db,
+        #                                 ignore_clashes=self.ignore_pose_clashes)
         # then modify numbering to ensure standard and accurate use during protocols
         self.pose.renumber_structure()
         if not self.entity_names:  # store the entity names if they were never generated
@@ -2071,9 +2077,9 @@ class PoseDirectory:
     @remove_structure_memory
     def rename_chains(self):
         """Standardize the chain names in incremental order found in the design source file"""
-        pdb = PDB.from_file(self.source, log=self.log)
-        pdb.reorder_chains()
-        pdb.write(out_path=self.asu_path)
+        model = Model.from_file(self.source, log=self.log)
+        model.reorder_chains()
+        model.write(out_path=self.asu_path)
 
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
     @close_logs
@@ -2082,27 +2088,28 @@ class PoseDirectory:
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         self.symmetry is used to specify the orientation
         """
-        if self.init_pdb:
-            pdb = self.init_pdb
+        if self.initial_model:
+            model = self.initial_model
         else:
-            pdb = PDB.from_file(self.source, log=self.log)
+            model = Model.from_file(self.source, log=self.log)
 
         if self.design_symmetry:
             if to_design_directory:
                 out_path = self.assembly_path
             else:
-                out_path = path.join(self.orient_dir, f'{pdb.name}.pdb')
+                out_path = path.join(self.orient_dir, f'{model.name}.pdb')
                 make_path(self.orient_dir)
 
-            pdb.orient(symmetry=self.design_symmetry)
+            model.orient(symmetry=self.design_symmetry)
 
-            orient_file = pdb.write(out_path=out_path)
-            self.log.critical(f'The oriented file was saved to {orient_file}')
+            orient_file = model.write(out_path=out_path)
+            self.log.info(f'The oriented file was saved to {orient_file}')
             # self.clear_pose_transformation()
-            for entity in pdb.entities:
+            for entity in model.entities:
                 entity.remove_mate_chains()
-            self.load_pose(entities=pdb.entities)
-            # self.save_asu(rename_chains=True)
+            # save the asu
+            # self.load_pose(source=orient_file)
+            self.load_pose(entities=model.entities)
         else:
             self.log.critical(PUtils.warn_missing_symmetry % self.orient.__name__)
 
@@ -2230,7 +2237,7 @@ class PoseDirectory:
         else:
             self.load_pose()
             raise DesignError('This might cause issues')
-            # pdb = PDB.from_file(self.source, log=self.log)
+            # pdb = Model.from_file(self.source, log=self.log)
             # asu = pdb.return_asu()
             # Todo ensure asu format matches pose.get_contacting_asu standard
             # asu.update_attributes_from_pdb(pdb)
@@ -2522,16 +2529,18 @@ class PoseDirectory:
         other_pose_metrics = self.pose_metrics()
 
         # Find all designs files Todo fold these into Model(s) and attack metrics from Pose objects?
-        design_structures = []
+        design_poses = []
         for file in self.get_designs():
             # decoy_name = path.splitext(path.basename(file))[0]  # name should match scored designs...
-            #                     pass names if available v
-            design = PDB.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True)
+            #   pass names if available v
+            pose = Pose.from_file(file, entity_names=self.entity_names, log=self.log, pose_format=True,
+                                  sym_entry=self.sym_entry, resource_db=self.resources, fragment_db=self.fragment_db,
+                                  design_selector=self.design_selector, ignore_clashes=self.ignore_pose_clashes)
             # pose format should already be the case, but lets make sure
             if self.symmetric:
-                for idx, entity in enumerate(design.entities):
+                for idx, entity in enumerate(pose.entities):
                     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **self.pose_transformation[idx])
-            design_structures.append(design)
+            design_poses.append(pose)
 
         # initialize empty design dataframes
         idx_slice = IndexSlice
@@ -2541,7 +2550,7 @@ class PoseDirectory:
         pose_sequences = {pose_source: self.pose.sequence}
         # Todo implement reference sequence from included file(s) or as with self.pose.sequence below
         pose_sequences.update({PUtils.reference_name: self.pose.sequence})
-        pose_sequences.update({structure.name: structure.sequence for structure in design_structures})
+        pose_sequences.update({pose.name: pose.sequence for pose in design_poses})
         all_mutations = generate_mutations_from_reference(self.pose.sequence, pose_sequences)
         #    generate_mutations_from_reference(''.join(self.pose.atom_sequences.values()), pose_sequences)
 
@@ -2597,9 +2606,9 @@ class PoseDirectory:
             self.log.debug(f'All designs with scores: {", ".join(all_design_scores.keys())}')
             # Remove designs with scores but no structures
             all_viable_design_scores = {}
-            for design in design_structures:
+            for pose in design_poses:
                 try:
-                    all_viable_design_scores[design.name] = all_design_scores.pop(design.name)
+                    all_viable_design_scores[pose.name] = all_design_scores.pop(pose.name)
                 except KeyError:  # structure wasn't scored, we will remove this later
                     pass
             # Create protocol dataframe
@@ -2663,7 +2672,7 @@ class PoseDirectory:
             # Todo add relevant missing scores such as those specified as 0 below
             # Todo may need to put source_df in scores file alternative
             source_df = DataFrame({pose_source: {PUtils.groups: job_key}}).T
-            scores_df = DataFrame({structure.name: {PUtils.groups: job_key} for structure in design_structures}).T
+            scores_df = DataFrame({pose.name: {PUtils.groups: job_key} for pose in design_poses}).T
             scores_df = concat([source_df, scores_df])
             for idx, entity in enumerate(self.pose.entities, 1):
                 source_df[f'buns_{idx}_unbound'] = 0
@@ -2798,22 +2807,9 @@ class PoseDirectory:
         per_residue_data['contact_order'][pose_source] = pose_source_contact_order_s
 
         # Compute structural measurements for all designs
-        for structure in design_structures:  # Takes 1-2 seconds for Structure -> assembly -> errat
-            if structure.name not in viable_designs:
+        for pose in design_poses:  # Takes 1-2 seconds for Structure -> assembly -> errat
+            if pose.name not in viable_designs:
                 continue
-            if self.symmetric:
-                design_pose = Pose.from_asu(structure, sym_entry=self.sym_entry, name=f'{structure.name}-asu',
-                                            design_selector=self.design_selector, log=self.log,
-                                            resource_db=self.resources, fragment_db=self.fragment_db,
-                                            ignore_clashes=self.ignore_pose_clashes)
-            else:
-                design_pose = Pose.from_model(structure, name=f'{structure.name}-model',
-                                              design_selector=self.design_selector, log=self.log,
-                                              resource_db=self.resources, fragment_db=self.fragment_db,
-                                              ignore_clashes=self.ignore_pose_clashes)
-
-            # assembly = SymmetricModel.from_asu(structure, sym_entry=self.sym_entry, log=self.log).assembly
-            #                                            ,symmetry=self.design_symmetry)
 
             # assembly.local_density()[:pose_length]  To get every residue in the pose.entities
             # per_residue_data['local_density'][structure.name] = \
@@ -2823,26 +2819,26 @@ class PoseDirectory:
             #     assembly.local_density(residue_numbers=self.interface_residues)[:pose_length]
 
             # must find interface residues before measure local_density
-            design_pose.find_and_split_interface()
-            interface_local_density[structure.name] = design_pose.interface_local_density()
-            assembly_minimally_contacting = design_pose.assembly_minimally_contacting
-            atomic_deviation[structure.name], per_residue_errat = \
+            pose.find_and_split_interface()
+            interface_local_density[pose.name] = pose.interface_local_density()
+            assembly_minimally_contacting = pose.assembly_minimally_contacting
+            atomic_deviation[pose.name], per_residue_errat = \
                 assembly_minimally_contacting.errat(out_path=self.data)
-            per_residue_data['errat_deviation'][structure.name] = per_residue_errat[:pose_length]
+            per_residue_data['errat_deviation'][pose.name] = per_residue_errat[:pose_length]
             # perform SASA measurements
             assembly_minimally_contacting.get_sasa()
             assembly_asu_residues = assembly_minimally_contacting.residues[:pose_length]
-            per_residue_data['sasa_hydrophobic_complex'][structure.name] = \
+            per_residue_data['sasa_hydrophobic_complex'][pose.name] = \
                 [residue.sasa_apolar for residue in assembly_asu_residues]
-            per_residue_data['sasa_polar_complex'][structure.name] = \
+            per_residue_data['sasa_polar_complex'][pose.name] = \
                 [residue.sasa_polar for residue in assembly_asu_residues]
-            per_residue_data['sasa_relative_complex'][structure.name] = \
+            per_residue_data['sasa_relative_complex'][pose.name] = \
                 [residue.relative_sasa for residue in assembly_asu_residues]
             per_residue_sasa_unbound_apolar, per_residue_sasa_unbound_polar, per_residue_sasa_unbound_relative = \
                 [], [], []
-            for entity in structure.entities:
+            for entity in pose.entities:
                 # entity.oligomer.get_sasa()
-                entity_oligomer = PDB.from_chains(entity.oligomer, log=self.log, entities=False)
+                entity_oligomer = Model.from_chains(entity.oligomer, log=self.log, entities=False)
                 entity_oligomer.get_sasa()
                 per_residue_sasa_unbound_apolar.extend(
                     [residue.sasa_apolar for residue in entity_oligomer.residues[:entity.number_of_residues]])
@@ -2850,9 +2846,9 @@ class PoseDirectory:
                     [residue.sasa_polar for residue in entity_oligomer.residues[:entity.number_of_residues]])
                 per_residue_sasa_unbound_relative.extend(
                     [residue.relative_sasa for residue in entity_oligomer.residues[:entity.number_of_residues]])
-            per_residue_data['sasa_hydrophobic_bound'][structure.name] = per_residue_sasa_unbound_apolar
-            per_residue_data['sasa_polar_bound'][structure.name] = per_residue_sasa_unbound_polar
-            per_residue_data['sasa_relative_bound'][structure.name] = per_residue_sasa_unbound_relative
+            per_residue_data['sasa_hydrophobic_bound'][pose.name] = per_residue_sasa_unbound_apolar
+            per_residue_data['sasa_polar_bound'][pose.name] = per_residue_sasa_unbound_polar
+            per_residue_data['sasa_relative_bound'][pose.name] = per_residue_sasa_unbound_relative
 
         scores_df['errat_accuracy'] = Series(atomic_deviation)
         scores_df['interface_local_density'] = Series(interface_local_density)

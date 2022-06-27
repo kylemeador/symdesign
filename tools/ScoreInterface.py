@@ -85,7 +85,7 @@ if __name__ == '__main__':
         # #     pdb.name = os.path.splitext(os.path.basename(interface_path))[0]
 
         # Viable for the design recap test where files are I32-01.pdb
-        interface_poses = [Pose.from_asu_file(interface_path, symmetry=os.path.basename(interface_path[0]))
+        interface_poses = [Pose.from_file(interface_path, symmetry=os.path.basename(interface_path[0]))
                            for interface_path in interface_filepaths]
 
     elif args.file:
@@ -104,7 +104,7 @@ if __name__ == '__main__':
         #         interface_pdb.write(os.path.join(args.output_dir, '%s-%d.pdb' % pdb_code_id_tuple))
 
         interface_filepaths = to_iterable(args.file, ensure_file=True)
-        interface_poses = [Pose.from_asu_file(interface_path, symmetry=os.path.basename(interface_path[0]))
+        interface_poses = [Pose.from_file(interface_path, symmetry=os.path.basename(interface_path[0]))
                            for interface_path in interface_filepaths]
     else:
         interface_poses = False
