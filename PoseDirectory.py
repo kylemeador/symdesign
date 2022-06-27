@@ -1945,7 +1945,7 @@ class PoseDirectory:
         """For the design info given by a PoseDirectory source, initialize the Pose with self.source file,
         self.symmetry, self.design_selector, self.fragment_database, and self.log objects
 
-        Handles clash testing and writing the assembly if those options are True
+        Handles Pose clash testing, writing the Pose
 
         Args:
             source: The file path to a source file
@@ -2064,13 +2064,13 @@ class PoseDirectory:
         prior_clashes = 0
         for idx, state in enumerate(multimodel, 1):
             clashes += (1 if state.is_clash() else 0)
-            state.write(out_path=path.join(self.path, 'state_%d.pdb' % idx))
-            print('State %d - Clashes: %s' % (idx, 'YES' if clashes > prior_clashes else 'NO'))
+            state.write(out_path=path.join(self.path, f'state_{idx}.pdb'))
+            print(f'State {idx} - Clashes: {"YES" if clashes > prior_clashes else "NO"}')
             prior_clashes = clashes
 
         if clashes/float(len(multimodel)) > clashing_threshold:
-            raise DesignError('The frequency of clashes (%f) exceeds the clashing threshold (%f)'
-                              % (clashes/float(len(multimodel)), clashing_threshold))
+            raise DesignError(f'The frequency of clashes ({clashes/float(len(multimodel))}) exceeds the clashing '
+                              f'threshold ({clashing_threshold})')
 
     @handle_design_errors(errors=(DesignError,))
     @close_logs
@@ -2128,10 +2128,6 @@ class PoseDirectory:
         main_cmd = copy(script_cmd)
         protocol = PUtils.refine
         if to_design_directory:  # original protocol to refine a pose as provided from Nanohedra
-            # self.pose = Pose.from_file(self.source, symmetry=self.design_symmetry, log=self.log)
-            # Todo unnecessary? call self.load_pose with a flag for the type of file? how to reconcile with interface
-            #  design and the asu versus pdb distinction. Can asu be implied by symmetry? Not for a trimer input that
-            #  needs to be oriented and refined
             # assign designable residues to interface1/interface2 variables, not necessary for non complex PDB jobs
             # try:
             self.identify_interface()
@@ -2299,7 +2295,7 @@ class PoseDirectory:
         self.pickle_info()  # Todo remove once PoseDirectory state can be returned to the SymDesign dispatch w/ MP
 
     def identify_interface(self):
-        """Find the interface(s) between each Entity in the Pose
+        """Find the interface(s) between each Entity in the Pose. Handles symmetric clash testing, writing the assembly
 
         Sets:
             self.interface_residue_ids (dict[str, str]):
@@ -2314,7 +2310,7 @@ class PoseDirectory:
             self.symmetric_assembly_is_clash()
             if self.output_assembly:
                 self.pose.write(assembly=True, out_path=self.assembly_path, increment_chains=self.increment_chains)
-                self.log.info('Symmetrically expanded assembly file written to: "%s"' % self.assembly_path)
+                self.log.info(f'Symmetric assembly written to: "{self.assembly_path}"')
         self.pose.find_and_split_interface()
 
         self.interface_design_residues = set()  # update False to set() or replace set() and add new residues

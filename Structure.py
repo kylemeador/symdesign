@@ -974,6 +974,9 @@ class Residue(ResidueFragment, StructureBase):
 
     @start_index.setter
     def start_index(self, index: int):
+        """Set Residue atom_indices starting with atom_indices[0] as start_index. Creates remainder incrementally and
+        updates individual Atom instance .index accordingly
+        """
         self._start_index = index
         self._atom_indices = list(range(index, index + self.number_of_atoms))
 
@@ -2010,30 +2013,6 @@ class Structure(StructureBase):
                 self._atoms.set_attributes(_parent=self)
                 self._atoms.reindex()
                 self.renumber_atoms()
-            # Todo move residues up, we should prefer it as less work needs to be done in the case both passed
-            elif residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
-                self.assign_residues(residues)
-                # self._residue_indices = list(range(len(residues)))
-                # if isinstance(residues, Residues):  # already have a residues object
-                #     # assume it is dependent on another Structure and clear runtime attributes
-                #     residues.reset_state()
-                # else:  # must create the residues object
-                #     residues = Residues(residues)
-                # # have to copy Residues object to set new attributes on each member Residue
-                # # self.residues = copy(residues)
-                # self._residues = copy(residues)
-                # # set residue attributes, index according to new Atoms/Coords index
-                # self._residues.set_attributes(_parent=self)
-                # # self.set_residues_attributes(_parent=self)
-                # self._residues.reindex_atoms()
-                # self._coords.set(np.concatenate([residue.coords for residue in residues]))
-                # # else:
-                # #     self._residue_indices = residue_indices
-                # #     self.set_residues(residues)
-                # #     # self.parent = parent_structure
-                # #     assert coords, \
-                # #         'Can\'t initialize Structure with residues and residue_indices when no Coords object is passed!'
-                # #     self.coords = coords
 
             # index the coordinates to the Residue they belong to and their associated atom_index
             residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]

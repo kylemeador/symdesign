@@ -678,6 +678,7 @@ class Models(Model):
 
     @property
     def number_of_models(self) -> int:
+        """The number of unique models that are found in the Models object"""
         return len(self.models)
 
     # @property
@@ -1108,13 +1109,13 @@ class SymmetricModel(Models):
         # set the symmetric coords according to the ASU
         self.generate_symmetric_coords()
         # Todo delete any saved attributes from the SymmetricModel
-        #  self.symmetric_coords
-        #  self.asu_equivalent_model_idx
-        #  self.oligomeric_equivalent_model_idxs
+        #  self._asu_model_idx
+        #  self._oligomeric_model_indices
 
     @property
     def asu_indices(self) -> slice:  # list[int]
         """Return the ASU indices"""
+        # Todo Always the same as _atom_indices due to sym/coords nature. Save slice mechanism, remove overhead!
         try:
             return self._asu_indices
         except AttributeError:
@@ -1405,8 +1406,8 @@ class SymmetricModel(Models):
         if not self.symmetry:
             # self.log.critical('%s: No symmetry set for %s! Cannot get symmetry mates'  # Todo
             #                   % (self.generate_assembly_symmetry_models.__name__, self.name))
-            raise SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}! Cannot '
-                                f'get symmetry mates')
+            raise SymmetryError(f'{self.generate_assembly_symmetry_models.__name__}: No symmetry set for {self.name}! '
+                                f'Cannot get symmetry mates')
         # if return_side_chains:  # get different function calls depending on the return type
         #     extract_pdb_atoms = getattr(PDB, 'atoms')
         # else:
@@ -1416,7 +1417,7 @@ class SymmetricModel(Models):
         # if self.dimension > 0:
         #     number_of_models = self.number_of_symmetry_mates
         # else:  # layer or space group
-        if surrounding_uc:
+        if surrounding_uc:  # if the surrounding_uc is requested, we might need to generate it
             if self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates:  # ensure surrounding coords exist
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
                 # raise SymmetryError('Cannot return the surrounding unit cells as no coordinates were generated '
@@ -1466,7 +1467,7 @@ class SymmetricModel(Models):
                 self.asu_equivalent_model_idx = model_idx
                 return
 
-        self.log.error(f'{self.find_asu_equivalent_symmetry_model.__name__} FAILED to find model')
+            self.log.error(f'FAILED to find {self.asu_model_index.__name__}')
 
     @property
     def oligomeric_model_indices(self) -> dict[Entity, list[int]] | dict:
@@ -2705,6 +2706,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
                              ' detected!')
+            raise NotImplementedError('These entities shouldn\'t necessarily be equal. This issue needs to be addressed'
+                                      'by expanding the __eq__ method of Entity to more accurately reflect what a '
+                                      'Structure object represents programmatically')
             return
         else:
             sym_string = ''
@@ -2714,7 +2718,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         entity1_coords = self.coords[entity1_indices]  # only get the coordinate indices we want
         entity1_tree = BallTree(entity1_coords)
         if len(entity2_coords) == 0:  # ensure the array is not empty
-            return []
+            return
         entity2_query = entity1_tree.query_radius(entity2_coords, distance)
 
         # Return residue numbers of identified coordinates
@@ -2749,6 +2753,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     def find_interface_residues(self, entity1: Entity = None, entity2: Entity = None, **kwargs):
         """Get unique Residues across an interface provided by two Entities
 
+        If the interface occurs between the same Entity which is non-symmetrically defined, but happens to occur along a
+        dimeric axis of symmetry (evaluates to True when the same Residue is found on each side of the interface), then
+        the residues are returned belonging to only one side of the interface
+
         Args:
             entity1: First Entity to measure interface between
             entity2: Second Entity to measure interface between
@@ -2777,10 +2785,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                       f'\n\t{entity2.name} found residue numbers: {", ".join(str(r.number) for r in entity2_residues)}')
 
         self.interface_residues[(entity1, entity2)] = (entity1_residues, entity2_residues)
-        entities = [entity1, entity2]
-        self.log.debug(f'Added interface_residues: {", ".join(f"{residue.number}{entities[idx].chain_id}")}'
-                       for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)])
-                       for residue in entity_residues)
+        # entities = [entity1, entity2]
+        # self.log.debug(f'Added interface_residues: {", ".join(f"{residue.number}{entities[idx].chain_id}")}'
+        #                for idx, entity_residues in enumerate(self.interface_residues[(entity1, entity2)])
+        #                for residue in entity_residues)
 
     def find_interface_atoms(self, entity1: Entity = None, entity2: Entity = None, distance: float = 4.68) -> \
             list[tuple[int, int]] | None:
