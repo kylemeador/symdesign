@@ -250,12 +250,9 @@ class StructureBase:
     __parent: StructureBase | None
     state_attributes: set[str]
 
-    def __init__(self, chains=None, entities=None,  # Todo figure out if pulling by PDB init then remove?
-                 design=None,  # Todo remove?
+    def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
                  # Todo ensure Pose/Models/SymmetricModel are swallowed
-                 pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None,
-                 parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None,
-                 **kwargs):
+                 , pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
         if parent:  # initialize StructureBase from parent
             self._parent = parent
         else:  # this is the parent
@@ -284,8 +281,8 @@ class StructureBase:
         try:
             super().__init__(**kwargs)
         except TypeError:
-            raise TypeError(f'The argument(s) passed to the StructureBase object were not recognized: '
-                            f'{", ".join(kwargs.keys())}')
+            raise TypeError(f'The argument(s) passed to the StructureBase object were not recognized and aren\'t '
+                            f'accepted by the object class: {", ".join(kwargs.keys())}')
 
     @property
     def parent(self) -> StructureBase | None:
@@ -1975,7 +1972,30 @@ class Structure(StructureBase):
             self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
         # we are setting up a parent (independent) Structure
         else:
-            if atoms:  # is not None
+            if residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
+                self.assign_residues(residues)
+                # self._residue_indices = list(range(len(residues)))
+                # if isinstance(residues, Residues):  # already have a residues object
+                #     # assume it is dependent on another Structure and clear runtime attributes
+                #     residues.reset_state()
+                # else:  # must create the residues object
+                #     residues = Residues(residues)
+                # # have to copy Residues object to set new attributes on each member Residue
+                # # self.residues = copy(residues)
+                # self._residues = copy(residues)
+                # # set residue attributes, index according to new Atoms/Coords index
+                # self._residues.set_attributes(_parent=self)
+                # # self.set_residues_attributes(_parent=self)
+                # self._residues.reindex_atoms()
+                # self._coords.set(np.concatenate([residue.coords for residue in residues]))
+                # # else:
+                # #     self._residue_indices = residue_indices
+                # #     self.set_residues(residues)
+                # #     # self.parent = parent_structure
+                # #     assert coords, \
+                # #         'Can\'t initialize Structure with residues and residue_indices when no Coords obj is passed'
+                # #     self.coords = coords
+            elif atoms:  # is not None
                 self.assign_atoms(atoms)
                 self.create_residues()
                 # ensure that coordinate lengths match atoms
@@ -2033,6 +2053,9 @@ class Structure(StructureBase):
         self._atoms = parent._atoms
         self._residues = parent._residues
 
+    def get_structure_containers(self) -> dict[str, Any]:
+        """Return the instance structural containers as a dictionary with attribute as key and container as value"""
+        return dict(log=self._log, coords=self._coords, atoms=self._atoms, residues=self._residues)
     # @property
     # def log(self) -> Logger:
     #     """Returns the log object holding the Logger"""
