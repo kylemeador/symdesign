@@ -207,7 +207,7 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         exp_des_clash_time_start = time.time()
         asu.uc_dimensions = uc_dimensions
         # asu.expand_matrices = sym_entry.expand_matrices
-        symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
+        symmetric_material = Pose.from_model(asu, sym_entry=sym_entry, ignore_clashes=True, log=log)
         #                      surrounding_uc=output_surrounding_uc, ^ ignores ASU clashes
         exp_des_clash_time_stop = time.time()
         exp_des_clash_time = exp_des_clash_time_stop - exp_des_clash_time_start
@@ -1502,8 +1502,8 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
             uc_dimensions = full_uc_dimensions[idx]
         else:
             uc_dimensions = None
-        symmetric_material = Pose.from_asu(asu, sym_entry=sym_entry, log=log, surrounding_uc=output_surrounding_uc,
-                                           ignore_clashes=True, uc_dimensions=uc_dimensions)
+        symmetric_material = Pose.from_model(asu, sym_entry=sym_entry, log=log, surrounding_uc=output_surrounding_uc,
+                                             ignore_clashes=True, uc_dimensions=uc_dimensions)
         # ignore ASU clashes since already checked ^
         # log.debug('Checked expand clash')
         # symmetric_material.entities[0].write_oligomer(

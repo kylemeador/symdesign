@@ -926,7 +926,7 @@ if __name__ == '__main__':
                 job.make_path(job.full_model_dir)
                 job.make_path(job.stride_dir)
                 all_entities, found_entity_names = [], []
-                for entity in [entity for design in pose_directories for entity in design.init_pdb.entities]:
+                for entity in [entity for pose in pose_directories for entity in pose.initial_model.entities]:
                     if entity.name not in found_entity_names:
                         all_entities.append(entity)
                         found_entity_names.append(entity.name)
