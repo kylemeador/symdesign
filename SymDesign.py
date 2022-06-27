@@ -1233,13 +1233,14 @@ if __name__ == '__main__':
     results, success, exceptions = [], [], []
     # ---------------------------------------------------
     if args.module == 'orient':
-        args.to_design_directory = True  # default to True when using this module
+        # args.to_design_directory = True  # default to True when using this module
         if args.multi_processing:
-            zipped_args = zip(pose_directories, repeat(args.to_design_directory))
-            results = SDUtils.mp_starmap(PoseDirectory.orient, zipped_args, processes=cores)
+            # zipped_args = zip(pose_directories, repeat(args.to_design_directory))
+            # results = SDUtils.mp_starmap(PoseDirectory.orient, zipped_args, processes=cores)
+            results = SDUtils.mp_map(PoseDirectory.orient, pose_directories, processes=cores)
         else:
             for design_dir in pose_directories:
-                results.append(design_dir.orient(to_design_directory=args.to_design_directory))
+                results.append(design_dir.orient())  # to_design_directory=args.to_design_directory))
 
         terminate(results=results)
     # ---------------------------------------------------

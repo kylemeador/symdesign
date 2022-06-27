@@ -75,7 +75,7 @@ class PoseDirectory:
     fragment_db: FragmentDatabase
     fragment_observations: list[dict] | None
     frag_file: str | Path
-    init_pdb: PDB | None
+    initial_model: Model | None
     initialized: bool
     name: str
     pose: Pose | None
@@ -2084,7 +2084,7 @@ class PoseDirectory:
     @handle_design_errors(errors=(DesignError, ValueError, RuntimeError))
     @close_logs
     @remove_structure_memory
-    def orient(self, to_design_directory=False):
+    def orient(self, to_design_directory: bool = True):
         """Orient the Pose with the prescribed symmetry at the origin and symmetry axes in canonical orientations
         self.symmetry is used to specify the orientation
         """
