@@ -303,7 +303,6 @@ class PDB(Structure):
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         # Unused args now
         #        cryst: dict[str, str | tuple[float]] = None, space_group: str = None, uc_dimensions: list[float] = None
-        # PDB defaults to Structure logger (log is False)
         super().__init__(**kwargs)
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
@@ -430,48 +429,48 @@ class PDB(Structure):
     # def uc_dimensions(self, dimensions):
     #     self._uc_dimensions = dimensions
 
-    def copy_metadata(self, other):
-        temp_metadata = \
-            {'api_entry': other.__dict__['api_entry'],
-             'cryst_record': other.__dict__['cryst_record'],
-             # 'cryst': other.__dict__['cryst'],
-             'design': other.__dict__['design'],
-             'entity_info': other.__dict__['entity_info'],
-             '_name': other.__dict__['_name'],
-             # 'space_group': other.__dict__['space_group'],
-             # '_uc_dimensions': other.__dict__['_uc_dimensions'],
-             'header': other.__dict__['header'],
-             # 'reference_aa': other.__dict__['reference_aa'],
-             'resolution': other.__dict__['resolution'],
-             'rotation_d': other.__dict__['rotation_d'],
-             'max_symmetry': other.__dict__['max_symmetry'],
-             'dihedral_chain': other.__dict__['dihedral_chain'],
-             }
-        # temp_metadata = copy(other.__dict__)
-        # temp_metadata.pop('atoms')
-        # temp_metadata.pop('residues')
-        # temp_metadata.pop('secondary_structure')
-        # temp_metadata.pop('number_of_atoms')
-        # temp_metadata.pop('number_of_residues')
-        self.__dict__.update(temp_metadata)
+    # def copy_metadata(self, other):  # Todo, rework for all Structure
+    #     temp_metadata = \
+    #         {'api_entry': other.__dict__['api_entry'],
+    #          'cryst_record': other.__dict__['cryst_record'],
+    #          # 'cryst': other.__dict__['cryst'],
+    #          'design': other.__dict__['design'],
+    #          'entity_info': other.__dict__['entity_info'],
+    #          '_name': other.__dict__['_name'],
+    #          # 'space_group': other.__dict__['space_group'],
+    #          # '_uc_dimensions': other.__dict__['_uc_dimensions'],
+    #          'header': other.__dict__['header'],
+    #          # 'reference_aa': other.__dict__['reference_aa'],
+    #          'resolution': other.__dict__['resolution'],
+    #          'rotation_d': other.__dict__['rotation_d'],
+    #          'max_symmetry': other.__dict__['max_symmetry'],
+    #          'dihedral_chain': other.__dict__['dihedral_chain'],
+    #          }
+    #     # temp_metadata = copy(other.__dict__)
+    #     # temp_metadata.pop('atoms')
+    #     # temp_metadata.pop('residues')
+    #     # temp_metadata.pop('secondary_structure')
+    #     # temp_metadata.pop('number_of_atoms')
+    #     # temp_metadata.pop('number_of_residues')
+    #     self.__dict__.update(temp_metadata)
 
-    def update_attributes_from_pdb(self, pdb):  # Todo copy full attribute dict without selected elements
-        # self.atoms = pdb.atoms
-        self.resolution = pdb.resolution
-        self.cryst_record = pdb.cryst_record
-        # self.cryst = pdb.cryst
-        self.dbref = pdb.dbref
-        self.design = pdb.design
-        self.header = pdb.header
-        self.reference_sequence = pdb._reference_sequence
-        # self.atom_sequences = pdb.atom_sequences
-        self.filepath = pdb.filepath
-        # self.chain_ids = pdb.chain_ids
-        self.entity_info = pdb.entity_info
-        self.name = pdb.name
-        self.secondary_structure = pdb.secondary_structure
-        # self.cb_coords = pdb.cb_coords
-        # self.bb_coords = pdb.bb_coords
+    # def update_attributes_from_pdb(self, pdb):  # Todo copy full attribute dict without selected elements
+    #     # self.atoms = pdb.atoms
+    #     self.resolution = pdb.resolution
+    #     self.cryst_record = pdb.cryst_record
+    #     # self.cryst = pdb.cryst
+    #     self.dbref = pdb.dbref
+    #     self.design = pdb.design
+    #     self.header = pdb.header
+    #     self.reference_sequence = pdb._reference_sequence
+    #     # self.atom_sequences = pdb.atom_sequences
+    #     self.filepath = pdb.filepath
+    #     # self.chain_ids = pdb.chain_ids
+    #     self.entity_info = pdb.entity_info
+    #     self.name = pdb.name
+    #     self.secondary_structure = pdb.secondary_structure
+    #     # self.cb_coords = pdb.cb_coords
+    #     # self.bb_coords = pdb.bb_coords
 
     # def readfile(self, pdb_lines=None, **kwargs):
     #     """Reads .pdb file and populates PDB instance"""
@@ -885,12 +884,13 @@ class PDB(Structure):
             if chain.name == chain_id:
                 return chain
 
-    def write(self, **kwargs) -> Optional[str]:  # Todo Depreciate. require Pose or self.cryst_record -> Structure?
-        """Write PDB Atoms to a file specified by out_path or with a passed file_handle
+    def write(self, **kwargs) -> str | bytes | None:  # Todo Depreciate. require Pose or self.cryst_record -> Structure?
+        """Write Atoms to a file specified by out_path or with a passed file_handle
 
         Returns:
             The name of the written file if out_path is used
         """
+        self.log.debug(f'Model is writing')
         if not kwargs.get('header') and self.cryst_record:
             kwargs['header'] = self.cryst_record
 
