@@ -4579,7 +4579,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     _uniprot_id: str
     api_entry: dict[str, dict[str, str]] | None
     dihedral_chain: str | None
-    is_oligomeric: bool
+    # is_oligomeric: bool
     max_symmetry: int | None
     rotation_d: dict[str, dict[str, int | np.ndarray]] | None
     symmetry: str | None
@@ -4588,7 +4588,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         """When init occurs chain_ids are set if chains were passed. If not, then they are auto generated"""
         self.api_entry = None  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
         self.dihedral_chain = None
-        self.is_oligomeric = False
+        self._is_oligomeric = False
         self.max_symmetry = None
         self.rotation_d = {}
         self.symmetry = None
@@ -4603,7 +4603,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         # set representative transform as identity
         self.chain_transforms.append(dict(rotation=identity_matrix, translation=origin))
         if len(chains) > 1:
-            self.is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
+            self._is_oligomeric = True  # inherent in Entity type is a single sequence. Therefore, must be oligomeric
             for idx, chain in enumerate(chains[1:]):
                 if chain.number_of_residues == self.number_of_residues and chain.sequence == self.sequence:
                     # do an apples to apples comparison
@@ -4668,7 +4668,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         """Set the Coords object while propagating changes to symmetry "mate" chains"""
-        if self.is_oligomeric:
+        if self._is_oligomeric:
             chains = self.chains  # populate the current chains (if not already) with current coords transformation
             self.chain_transforms.clear()  # remove all transforms
             # set new coords
@@ -4737,6 +4737,10 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             self._number_of_monomers = valid_subunit_number.get(self.symmetry, len(self._chain_ids))
             return self._number_of_monomers
 
+    def is_oligomeric(self) -> bool:
+        """Is the Entity oligomeric?"""
+        return self._is_oligomeric
+
     @number_of_monomers.setter
     def number_of_monomers(self, value: int):
         self._number_of_monomers = value
@@ -4775,7 +4779,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
                 # missing_at = 'prior_ca_coords'
                 # self.prior_ca_coords
                 self.__chain_transforms
-                if self.is_oligomeric:  # True if multiple chains
+                if self._is_oligomeric:  # True if multiple chains
                     current_ca_coords = self.get_ca_coords()
                     _, new_rot, new_tx, _ = superposition3d(current_ca_coords, self.prior_ca_coords)
                     # self._chain_transforms.extend([dict(rotation=np.matmul(transform['rotation'], rot),
@@ -4903,7 +4907,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         try:
             return self._oligomer
         except AttributeError:
-            # if not self.is_oligomeric:
+            # if not self._is_oligomeric:
             #     self.log.warning('The oligomer was requested but the Entity %s is not oligomeric. Returning the Entity '
             #                      'instead' % self.name)
             self._oligomer = self.chains
@@ -4942,7 +4946,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             translation2: The second translation to apply, expected array shape (3,)
         Sets:
             self.chain_transforms (list[transformation_mapping])
-            self.is_oligomeric=True (bool)
+            self._is_oligomeric=True (bool)
             self.number_of_monomers (int)
             self.symmetry (str)
         """
@@ -4964,7 +4968,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             raise ValueError(f'The symmetry {symmetry} is not a viable symmetry! You should try to add compatibility '
                              f'for it if you believe this is a mistake')
         self.symmetry = symmetry
-        self.is_oligomeric = True
+        self._is_oligomeric = True
         if rotation is None:
             rotation, inv_rotation = identity_matrix, identity_matrix
         else:
@@ -5659,7 +5663,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     #     super().copy_structures(self.structure_containers)
 
     def __copy__(self):
-        other = super().__copy__()
+        other: Entity = super().__copy__()
         # # create a copy of all chains
         # # structures = [other.chains]
         # # other.copy_structures(structures)
@@ -5667,7 +5671,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         # # attributes were updated in the super().__copy__, now need to set attributes in copied chains
         # # This style v accomplishes the update that the super().__copy__() started using self.structure_containers...
         # other.update_attributes(residues=other._residues, coords=other._coords)
-        if other.is_oligomeric:
+        if other.is_oligomeric():
             # self.log.info('Copy Entity. Clearing chains, chain_transforms')
             # other._chains.clear()
             other.remove_chain_transforms()

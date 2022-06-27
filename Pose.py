@@ -1468,47 +1468,55 @@ class SymmetricModel(Models):
 
         self.log.error(f'{self.find_asu_equivalent_symmetry_model.__name__} FAILED to find model')
 
-    def find_intra_oligomeric_equivalent_symmetry_models(self, entity: Entity, epsilon: float = 0.5):
+    @property
+    def oligomeric_model_indices(self) -> dict[Entity, list[int]] | dict:
+        try:
+            return self._oligomeric_model_indices
+        except AttributeError:
+            self._find_oligomeric_model_indices()
+            return self._oligomeric_model_indices
+
+    def _find_oligomeric_model_indices(self, epsilon: float = 0.5):
         """From an Entity's Chain members, find the SymmetricModel equivalent models using Chain center or mass
         compared to the symmetric model center of mass
 
         Args:
-            entity: The Entity with oligomeric chains that should be queried
             epsilon: The distance measurement tolerance to find similar symmetric models to the oligomer
         """
-        if self.oligomeric_equivalent_model_idxs.get(entity):  # we already found this information
-            self.log.debug('Skipping oligomeric identification as information already exists')
-            return
-        # number_of_atoms = len(self.coords)
         number_of_atoms = self.number_of_atoms
-        # need to slice through the specific Entity coords once we have the model
-        entity_indices = entity.atom_indices
-        entity_start, entity_end = entity_indices[0], entity_indices[-1]
-        entity_length = entity.number_of_atoms
-        entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
-        equivalent_models = []
-        for chain in entity.chains:
-            # chain_length = chain.number_of_atoms
-            # chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
-            chain_center_of_mass = chain.center_of_mass
-            # print('Chain', chain_center_of_mass.astype(int))
-            for model_num in range(self.number_of_symmetry_mates):  # Todo modify below to be with symmetric coms
-                sym_model_center_of_mass = \
-                    np.matmul(entity_center_of_mass_divisor,
-                              self.symmetric_coords[(model_num * number_of_atoms) + entity_start:
-                                                    (model_num * number_of_atoms) + entity_end + 1])
-                #                                             have to add 1 for slice ^
-                # print('Sym Model', sym_model_center_of_mass)
-                # if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
-                # if np.allclose(chain_center_of_mass, sym_model_center_of_mass):  # using np.rint()
-                if np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass) < epsilon:
-                    equivalent_models.append(model_num)
-                    break
+        for entity in self.entities:
+            if not entity.is_oligomeric():
+                self._oligomeric_model_indices[entity] = []
+                continue
+            # need to slice through the specific Entity coords once we have the model
+            entity_indices = entity.atom_indices
+            entity_start, entity_end = entity_indices[0], entity_indices[-1]
+            entity_length = entity.number_of_atoms
+            entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
+            equivalent_models = []
+            for chain in entity.chains:
+                # chain_length = chain.number_of_atoms
+                # chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
+                chain_center_of_mass = chain.center_of_mass
+                # print('Chain', chain_center_of_mass.astype(int))
+                for model_num in range(self.number_of_symmetry_mates):  # Todo modify below to be with symmetric coms
+                    sym_model_center_of_mass = \
+                        np.matmul(entity_center_of_mass_divisor,
+                                  self.symmetric_coords[(model_num * number_of_atoms) + entity_start:
+                                                        (model_num * number_of_atoms) + entity_end + 1])
+                    #                                             have to add 1 for slice ^
+                    # print('Sym Model', sym_model_center_of_mass)
+                    # if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
+                    # if np.allclose(chain_center_of_mass, sym_model_center_of_mass):  # using np.rint()
+                    if np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass) < epsilon:
+                        equivalent_models.append(model_num)
+                        break
 
-        assert len(equivalent_models) == len(entity.chains), \
-            f'The number of equivalent models ({len(equivalent_models)}) != the number of chains ({len(entity.chains)})'
+            if len(equivalent_models) != len(entity.chains):
+                raise SymmetryError(f'The number of equivalent models ({len(equivalent_models)}) '
+                                    f'!= the number of chains ({len(entity.chains)})')
 
-        self.oligomeric_equivalent_model_idxs[entity] = equivalent_models
+            self._oligomeric_model_indices[entity] = equivalent_models
 
     def return_asu_interaction_model_indices(self, calculate_contacts: bool = True, distance: float = 8., **kwargs) ->\
             list[int]:
@@ -1563,7 +1571,7 @@ class SymmetricModel(Models):
         else:
             return list(range(start_idx, end_idx))
 
-    def return_intra_oligomeric_symmetry_mate_indices(self, entity: Entity) -> list[int]:
+    def get_oligomeric_atom_indices(self, entity: Entity) -> list[int]:
         """Find the coordinate indices of the intra-oligomeric equivalent models in the SymmetricModel. Zero-indexed
 
         Args:
@@ -1571,16 +1579,15 @@ class SymmetricModel(Models):
         Returns:
             The indices in the SymmetricModel where the intra-oligomeric contacts are located
         """
-        self.find_intra_oligomeric_equivalent_symmetry_models(entity)
-        oligomeric_indices = []
         number_of_atoms = self.number_of_atoms
-        # number_of_atoms = len(self.coords)
-        for model_number in self.oligomeric_equivalent_model_idxs.get(entity):
-            start_idx = number_of_atoms * model_number
-            end_idx = number_of_atoms * (model_number + 1)
-            oligomeric_indices.extend(list(range(start_idx, end_idx)))
+        oligomeric_atom_indices = []
+        for model_number in self.oligomeric_model_indices.get(entity):
+            # start_idx = number_of_atoms * model_number
+            # end_idx = number_of_atoms * (model_number + 1)
+            oligomeric_atom_indices.extend(list(range(number_of_atoms * model_number,
+                                                      number_of_atoms * (model_number + 1))))
 
-        return oligomeric_indices
+        return oligomeric_atom_indices
 
     def return_asu_interaction_indices(self, **kwargs) -> list[int]:
         """Find the coordinate indices for the models in the SymmetricModel interacting with the asu. Zero-indexed
@@ -2681,12 +2688,12 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             # get all symmetric indices
             entity2_indices = [idx + (number_of_atoms * model_number)
                                for model_number in range(self.number_of_symmetry_mates) for idx in entity2_indices]
-            if entity1 == entity2:
-                # We don't want interactions with the symmetric asu model or intra-oligomeric contacts
-                if entity1.is_oligomeric:  # remove oligomeric protomers (contains asu)
-                    remove_indices = self.return_intra_oligomeric_symmetry_mate_indices(entity1)
+            # solve for entity2_indices to query
+            if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
+                if entity1.is_oligomeric():  # remove oligomeric protomers (contains asu)
+                    remove_indices = self.get_oligomeric_atom_indices(entity1)
                     self.log.info('Removing indices from models %s due to detected oligomer'
-                                  % ', '.join(map(str, self.oligomeric_equivalent_model_idxs.get(entity1))))
+                                  % ', '.join(map(str, self.oligomeric_model_indices.get(entity1))))
                     self.log.debug(f'Removing {len(remove_indices)} indices from symmetric query due to oligomer')
                 else:  # remove asu
                     remove_indices = self.return_asu_equivalent_symmetry_mate_indices()
@@ -2884,8 +2891,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             # asu frag subtraction is unnecessary THIS IS ALL WRONG DEPENDING ON THE CONTEXT
             if entity1 == entity2:
                 # We don't want interactions with the intra-oligomeric contacts
-                if entity1.is_oligomeric:  # remove oligomeric protomers (contains asu)
-                    skip_models = self.oligomeric_equivalent_model_idxs[entity1]
+                if entity1.is_oligomeric():  # remove oligomeric protomers (contains asu)
+                    skip_models = self.oligomeric_model_indices.get(entity1)
                     self.log.info(f'Skipping oligomeric models: {", ".join(map(str, skip_models))}')
                 else:  # probably a C1
                     skip_models = []
