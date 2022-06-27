@@ -842,7 +842,7 @@ class PoseDirectory:
             # total_residue_counts.append(entity.number_of_residues)
             ent_com = entity.distance_to_reference()
             metrics.update({
-                f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric else 'asymmetric',
+                f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
                 f'entity_{idx}_name': entity.name,
                 f'entity_{idx}_number_of_residues': entity.number_of_residues,
                 f'entity_{idx}_radius': ent_com,
@@ -1497,7 +1497,7 @@ class PoseDirectory:
         if len(self.symmetry_definition_files) != len(self.entity_names) or self.force_flags:
             self.load_pose()  # Need to initialize the pose so each entity can get sdf created
             for entity in self.pose.entities:
-                if entity.is_oligomeric:  # make symmetric energy in line with SymDesign energies v
+                if entity.is_oligomeric():  # make symmetric energy in line with SymDesign energies v
                     entity.make_sdf(out_path=self.data,
                                     modify_sym_energy_for_cryst=True if self.design_dimension in [2, 3] else False)
                 else:
