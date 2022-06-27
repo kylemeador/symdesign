@@ -20,7 +20,7 @@ from JobResources import fragment_factory, Database, FragmentDatabase
 from PDB import PDB, parse_cryst_record
 from SequenceProfile import SequenceProfile
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
-    write_frag_match_info_file, Fragment
+    write_frag_match_info_file, Fragment, StructureBase
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
     match_score_from_z_value, dictionary_lookup, digit_translate_table
 from classes.EulerLookup import EulerLookup, euler_factory
@@ -515,69 +515,20 @@ class Model(PDB):
     If you have multiple Models or States, use the MultiModel class to store and retrieve that data
     """
     def __init__(self, model: Structure = None, **kwargs):
-        # self.pdb = self.models[0]
-        # elif isinstance(pdb, PDB):
-        # self.biomt_header = ''
-        # self.biomt = []
-        # self.name = kwargs.get('name')
-        # if log:
-        #     self.log = log
-        # elif log is None:
-        #     self.log = null_log
-        # else:  # When log is explicitly passed as False, use the module logger
-        #     self.log = logger
 
         if model:
-            if isinstance(model, Model):
-                self = model  # Todo test that this works
-            # if isinstance(model, Structure):
+            if isinstance(model, Structure):
+                super().__init__(**model.get_structure_containers(), **kwargs)
             else:
                 raise NotImplementedError(f'Setting {type(self).__name__} with a {type(model).__name__} isn\'t '
                                           f'supported')
         else:
             super().__init__(**kwargs)
 
-        # elif pdb_file:
-        #     self.pdb = PDB.from_file(pdb_file, log=self.log, **kwargs)
-        # elif mmcif_file:
-        #     self.pdb = PDB.from_mmcif(mmcif_file, log=self.log, **kwargs)
-
-    # @classmethod
-    # def from_file(cls, file, **kwargs):
-    #     """Construct Models from multimodel PDB file using the PDB.chains
-    #     Ex: [Chain1, Chain1, ...]
-    #     """
-    #     pdb = PDB.from_file(file, **kwargs)
-    #     # new_model = cls(models=pdb.chains)
-    #     return cls(models=pdb.chains, **kwargs)
-    #
-    # @property
-    # def number_of_models(self) -> int:
-    #     return len(self.models)
-
-    # @property
-    # def pdb(self) -> PDB:
-    #     return self._pdb
-    #
-    # @pdb.setter
-    # def pdb(self, pdb):
-    #     self._pdb = pdb
-    #     # self.coords = pdb._coords
-
-    # @property
-    # def coords(self) -> np.ndarray:
-    #     """Return a view of the representative Coords from the Model. These may be the ASU if a SymmetricModel"""
-    #     return self.pdb._coords.coords
-    #     # return self._coords.coords
-    #
-    # @coords.setter
-    # def coords(self, coords):
-    #     if isinstance(coords, Coords):
-    #         self.pdb._coords = coords
-    #         # self._coords = coords
-    #     else:
-    #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
+    @classmethod
+    def from_model(cls, model, **kwargs):
+        """Initialize from an existing Model"""
+        return cls(model=model, **kwargs)
 
     @property
     def chain_breaks(self) -> list[int]:  # Todo KEEP
@@ -691,26 +642,23 @@ class Models(Model):
     symmetric copies) [or mutated Residues]. In PDB parlance, this would be a multimodel, however could be multiple
     PDB files that share a common element.
     """
-    def __init__(self, models: list = None, **kwargs):  # log=None,
-        # super().__init__(structures=models, **kwargs)
-        # # print('Initializing Models')
-        #
-        # # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
-        # # if log:
-        # #     self.log = log
-        # # elif log is None:
-        # #     self.log = null_log
-        # # else:  # When log is explicitly passed as False, use the module logger
-        # #     self.log = logger
-        # if self.structures:
-        #     self.models = self.structures  # Todo is this reference to structures via models stable? ENSURE it is
-        #
-        super().__init__(**kwargs)
+    _model_coords: Coords
 
-        if models and isinstance(models, list):
-            self.models = models
+    def __init__(self, models: Iterable[Model] = None, **kwargs):
+        if models:
+            for model in models:
+                if not isinstance(model, Model):
+                    raise TypeError(f'Can\'t initialize {type(self).__name__} with a {type(model).__name__}. Must be an'
+                                    f' iterable of Model')
+            self.models = [model for model in models]
         else:
+            super().__init__(**kwargs)
             self.models = []
+
+    @classmethod
+    def from_models(cls, models: Iterable[Model], **kwargs):
+        """Initialize from an iterable of Model"""
+        return cls(models=models, **kwargs)
 
     # @classmethod
     # def from_file(cls, file, **kwargs):
@@ -838,15 +786,17 @@ class SymmetricModel(Models):
         # initialize symmetry
         self.set_symmetry(sym_entry=sym_entry, symmetry=symmetry, uc_dimensions=uc_dimensions,
                           expand_matrices=expand_matrices)
-        if self.symmetry:  # set to a value if symmetry keyword args were passed
+        if self.symmetry:  # this is set if symmetry keyword args were passed
             self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
             # if generate_symmetry_mates:  # always set to False before. commenting out
             #     self.generate_assembly_symmetry_models(**kwargs)
 
     @classmethod
     def from_assembly(cls, assembly: list, sym_entry: SymEntry | int = None, symmetry: str = None, **kwargs):
-        assert (symmetry or sym_entry), 'Can\'t initialize a symmetric model without symmetry! Pass symmetry or ' \
-                                        'sym_entry with from_assembly()'
+        """Initialize from a symmetric assembly"""
+        if not symmetry or not sym_entry:
+            raise ValueError(f'Can\'t initialize {cls.from_assembly.__name__} without symmetry! Pass symmetry or '
+                             f'sym_entry with {cls.from_assembly.__name__}')
         return cls(models=assembly, sym_entry=sym_entry, symmetry=symmetry, **kwargs)
 
     # @classmethod
@@ -2461,7 +2411,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         self.ss_type_array = []  # stores secondary structure type ('H', 'S', ...)
 
         # Model init will handle Structure set up if a structure file is present
-        # SymmetricModel init will generate assembly coords if symmetry specification present
+        # SymmetricModel init will generate_symmetric_coords() if symmetry specification present
         super().__init__(**kwargs)
         if self.is_clash():
             if not self.ignore_clashes:
@@ -2472,23 +2422,6 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         self.create_design_selector()  # **self.design_selector)
         self.log.debug(f'Entities: {", ".join(entity.name for entity in self.entities)}')
         self.log.debug(f'Active Entities: {", ".join(entity.name for entity in self.active_entities)}')
-
-    @classmethod
-    def from_model(cls, model, **kwargs):
-        """Initialize a Pose from an existing Model"""
-        return cls(model=model, **kwargs)
-
-    # @classmethod
-    # def from_pdb_file(cls, pdb_file, **kwargs):
-    #     return cls(pdb_file=pdb_file, **kwargs)
-
-    # @classmethod
-    # def from_asu(cls, asu, **kwargs):
-    #     return cls(asu=asu, **kwargs)
-
-    # @classmethod
-    # def from_asu_file(cls, asu_file, **kwargs):
-    #     return cls(asu_file=asu_file, **kwargs)
 
     @property
     def fragment_db(self) -> FragmentDatabase:
