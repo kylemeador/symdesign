@@ -681,19 +681,17 @@ class Models(Model):
         """The number of unique models that are found in the Models object"""
         return len(self.models)
 
-    # @property
-    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
-    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
-    #     return self._model_coords.coords
-    #
-    # @model_coords.setter
-    # def model_coords(self, coords):
-    #     if isinstance(coords, Coords):
-    #         self._model_coords = coords
-    #     else:
-    #         raise AttributeError(
-    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
+    @property
+    def models_coords(self) -> np.ndarray:
+        """Return a concatenated view of the Coords from all models"""
+        return self._model_coords.coords
+
+    @models_coords.setter
+    def models_coords(self, coords: Coords | np.ndarray | list[list[float]]):
+        if isinstance(coords, Coords):
+            self._models_coords = coords
+        else:
+            self._models_coords = Coords(coords)
 
     def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, increment_chains: bool = False,
               **kwargs) -> str | bytes | None:
@@ -912,15 +910,6 @@ class SymmetricModel(Models):
         #     if generate_symmetry_mates:
         #         self.generate_assembly_symmetry_models(**kwargs)
 
-    # def set_asu_coords(self, coords):
-    #     # overwrite all the coords for each member Entity
-    #     self.pdb.replace_coords(coords)
-    #     self.generate_symmetric_coords()
-    #     # Todo delete any saved attributes from the SymmetricModel
-    #     #  self.symmetric_coords
-    #     #  self.asu_equivalent_model_idx
-    #     #  self.oligomeric_equivalent_model_idxs
-
     @property
     def chains(self) -> list[Entity]:
         """Return all the Chain objects including symmetric chains"""
@@ -1100,16 +1089,29 @@ class SymmetricModel(Models):
         return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
                  for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
-    @property
-    def asu_coords(self) -> np.ndarray:
-        """Return a view of the ASU Coords"""
-        return self._coords.coords[self.asu_indices]
+    def set_asu_coords(self, coords: Coords | np.ndarray | list[list[float]]):
+        """Set the coordinates corresponding to the asymmetric unit for the SymmetricModel"""
+        self._coords.set(coords)
+        if self.symmetry:
+            self.generate_symmetric_coords()
 
-    @asu_coords.setter
-    def asu_coords(self, coords: Coords):
-        self.coords = coords
-        # set the symmetric coords according to the ASU
-        self.generate_symmetric_coords()
+    # @property
+    # def asu_coords(self) -> np.ndarray:
+    #     """Return a view of the ASU Coords"""
+    #     return self._coords.coords[self.asu_indices]
+    #
+    # @asu_coords.setter
+    # def asu_coords(self, coords: Coords):
+    #     self.coords = coords
+    #     # set the symmetric coords according to the ASU
+    #     self.generate_symmetric_coords()
+
+    @StructureBase.coords.setter
+    def coords(self, coords: np.ndarray | list[list[float]]):
+        # self.coords = coords
+        StructureBase.coords.fset(self, coords)
+        if self.symmetry:  # set the symmetric coords according to the ASU
+            self.generate_symmetric_coords()
         # Todo delete any saved attributes from the SymmetricModel
         #  self._asu_model_idx
         #  self._oligomeric_model_indices
@@ -1126,12 +1128,15 @@ class SymmetricModel(Models):
 
     @property
     def symmetric_coords(self) -> np.ndarray:
-        """Return a view of the symmetric Coords"""
-        return self._coords.coords
+        """Return a view of the symmetric models Coords"""
+        return self._models_coords.coords
 
     @symmetric_coords.setter
-    def symmetric_coords(self, coords: Coords):
-        self._coords = coords
+    def symmetric_coords(self, coords: Coords | np.ndarray | list[list[float]]):
+        if isinstance(coords, Coords):
+            self._symmetric_coords = coords
+        else:
+            self._symmetric_coords = Coords(coords)
 
     @property
     def symmetric_coords_split(self) -> list[np.ndarray]:
@@ -2158,8 +2163,8 @@ class SymmetricModel(Models):
         asu_coords = [symmetric_coords_split_by_entity[group_idx][sym_idx]
                       for group_idx, sym_idx in enumerate(selected_asu_indices)]
         # self.log.critical('asu_coords: %s' % asu_coords)
-        # self.set_asu_coords(np.concatenate(asu_coords))
-        self.asu_coords = Coords(np.concatenate(asu_coords))  # Todo ensure correct
+        self.set_asu_coords(np.concatenate(asu_coords))
+        # self.asu_coords = Coords(np.concatenate(asu_coords))
         # for idx, entity in enumerate(self.entities):
         #     entity.make_oligomer(symmetry=self.sym_entry.groups[idx], **transform_solutions[idx])
 
