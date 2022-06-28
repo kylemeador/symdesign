@@ -370,6 +370,7 @@ class StructureBase:
 class Atom(StructureBase):
     """An Atom container with the full Structure coordinates and the Atom unique data"""
     # . Pass a reference to the full Structure coordinates for Keyword Arg coords=self.coords
+    __coords: list[float]
     index: int | None
     number: int | None
     type: str | None
@@ -387,8 +388,8 @@ class Atom(StructureBase):
 
     def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = None,
                  residue_type: str = None, chain: str = None, residue_number: int = None,
-                 code_for_insertion: str = None, occupancy: float = None, b_factor: float = None,
-                 element_symbol: str = None, atom_charge: str = None, **kwargs):
+                 code_for_insertion: str = None, coords: list[float] = None, occupancy: float = None,
+                 b_factor: float = None, element_symbol: str = None, atom_charge: str = None, **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         super().__init__(**kwargs)
@@ -402,6 +403,7 @@ class Atom(StructureBase):
         self.pdb_residue_number = residue_number
         self.residue_number = residue_number  # originally set the same as parsing
         self.code_for_insertion = code_for_insertion
+        self.__coords = coords if coords else []
         self.occupancy = occupancy
         self.b_factor = b_factor
         self.element_symbol = element_symbol
@@ -439,11 +441,14 @@ class Atom(StructureBase):
         self._sasa = sasa
 
     # End state properties
-
-    # @property
-    # def coords(self):
-    #     """This holds the atomic Coords which is a view from the Structure that created them"""
-    #     return self._coords.coords[self.index]  # [self.x, self.y, self.z]
+    @property
+    def coords(self) -> np.ndarray:
+        """The coordinates for the Atoms in the StructureBase object"""
+        # returns self.Coords.coords(a np.array)[sliced by the instance's atom_indices]
+        try:
+            return self._coords.coords[self._atom_indices]
+        except AttributeError:  # possibly the Atom was set with keyword argument coords instead of Structure Coords
+            return np.ndarray(self.__coords)  # this shouldn't be used often as it will be quite slow... give warning?
     #
     # @coords.setter
     # def coords(self, coords: np.ndarray | list[list[float]]):
