@@ -530,8 +530,14 @@ class Atoms:
         Args:
             start_at: The integer to start renumbering at
         """
-        for idx, atom in enumerate(self, start_at):
-            atom.index = idx
+        if start_at > 0:
+            if start_at < self.atoms.shape[0]:  # if in the Atoms index range
+                prior_atom = self.atoms[start_at - 1]
+                for idx, atom in enumerate(self.atoms[start_at:].tolist(), prior_atom.idx + 1):
+                    atom.index = idx
+        else:
+            for idx, atom in enumerate(self, start_at):
+                atom.index = idx
 
     def delete(self, indices: Sequence[int]):
         """Delete Atom instances from the Atoms container
@@ -979,6 +985,11 @@ class Residue(ResidueFragment, StructureBase):
         """
         self._start_index = index
         self._atom_indices = list(range(index, index + self.number_of_atoms))
+        for atom, index in zip(self._atoms.atoms[self._atom_indices].tolist(), self._atom_indices):
+            atom.index = index
+        # Todo test that atom._atom_indices is updated with change
+        if atom.index == atom._atom_indices[0]:
+            print('Atom .index and ._atom_indices[0] are the same:', atom.index, atom._atom_indices[0])
 
     @property
     def range(self) -> list[int]:
@@ -1809,7 +1820,7 @@ class Residues:
             start_at: The integer to start renumbering Residue, Atom objects at
         """
         residue: Residue
-        if start_at > 0:  # if not 0 or negative
+        if start_at > 0:
             if start_at < self.residues.shape[0]:  # if in the Residues index range
                 prior_residue = self.residues[start_at - 1]
                 # prior_residue.start_index = start_at
@@ -3096,33 +3107,26 @@ class Structure(StructureBase):
         # Convert incoming aa to residue index so that AAReference can fetch the correct amino acid
         reference_index = \
             protein_letters.find(protein_letters_3to1_extended.get(residue_type.title(), residue_type.upper()))
-        assert reference_index != -1, f'Insertion of residue_type "{residue_type}" is not allowed'
+        if reference_index == -1:
+            raise IndexError(f'{self.insert_residue_type.__name__} of residue_type "{residue_type}" is not allowed')
+        if at < 1:
+            raise IndexError(f'{self.insert_residue_type.__name__} at index {at} < 1 is not allowed')
+
         # Grab the reference atom coordinates and push into the atom list
         new_residue = copy(reference_aa.residue(reference_index))
-        # new_residue = copy(Structure.reference_aa.residue(reference_index))
-        assert at >= 1, f'Insertion at index "{at}" (less than 1) is not allowed'
         new_residue.number = at
         residue_index = at - 1  # since at is one-indexed integer, take from pose numbering to zero-indexed
-        # insert the new_residue atoms and coords into the Structure Atoms
-        # new_atoms = new_residue.atoms
-        # new_coords = new_residue.coords
-        self._atoms.insert(new_residue.atoms, at=new_residue.start_index)
+        # insert the new_residue coords and atoms into the Structure Atoms
         self._coords.insert(new_residue.coords, at=new_residue.start_index)
+        self._atoms.insert(new_residue.atoms, at=new_residue.start_index)
+        self._atoms.reindex(start_at=new_residue.start_index)
         # insert the new_residue into the Structure Residues
-        self._residues.insert(new_residue, at=residue_index)
+        self._residues.insert([new_residue], at=residue_index)
         self._residues.reindex_atoms(start_at=residue_index)
-        # self._atoms.insert(new_atoms, at=self._residues)
-        # new_residue.parent = self  # Todo hide ._ attributes with parents
-        new_residue._atoms = self._atoms
-        new_residue.coords = self._coords
-        # Todo hide ._ attributes with parents
-        # set this Structures new residue_indices. Must be the owner of all residues for this to work
-        # self._residue_indices.insert(residue_index, residue_index)
+        # after coords, atoms, residues insertion into "_" containers, set parent to self
+        new_residue.parent = self
+        # set new residue_indices and atom_indices
         self.insert_indices(at=residue_index, new_indices=[residue_index], dtype='residue')
-        # self._residue_indices = self._residue_indices.insert(residue_index, residue_index)
-        # set this Structures new atom_indices. Must be the owner of all residues for this to work
-        # for idx in reversed(range(new_residue.number_of_atoms)):
-        #     self._atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
         self.insert_indices(at=new_residue.start_index, new_indices=new_residue.atom_indices, dtype='atom')
         # self._atom_indices = self._atom_indices.insert(new_residue.start_index, idx + new_residue.start_index)
         self.renumber_structure()
