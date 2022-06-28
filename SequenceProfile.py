@@ -1763,7 +1763,7 @@ def residue_object_to_number(residue_dict):  # TODO DEPRECIATE
             for residue in _set:
                 resi_number = residue.residue_number
                 # resi_object = PDB.Residue(pdb.getResidueAtoms(pdb.chain_ids[i], residue)).ca
-                # assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.filepath))
+                # assert resi_object, DesignError('Residue \'%s\' missing from PDB \'%s\'' % (residue, pdb.file_path))
                 residue_num_set.append(resi_number)
             pairs.append(tuple(residue_num_set))
         residue_dict[entry] = pairs

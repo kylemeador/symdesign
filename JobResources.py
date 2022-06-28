@@ -158,7 +158,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 else:
                     asu = False
                     assembly = query_qs_bio(entry)
-                # get the specified filepath for the assembly state of interest
+                # get the specified file_path for the assembly state of interest
                 file_path = fetch_pdb_file(entry, assembly=assembly, asu=asu, out_dir=pdbs_dir)
 
                 if not file_path:
@@ -195,7 +195,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 #         entity_file_path = entity.write_oligomer(out_path=os.path.join(pdbs_dir, entry_entity_base))
                 #     pdb = PDB.from_chains(entity.chains, entity_names=[entry_entity])  # , log=None)
                 # else:
-                #     raise ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.filepath))
+                #     raise ValueError('No entity with the name %s found in file %s' % (entry_entity, pdb.file_path))
 
                 # write out file for the orient database
                 if symmetry == 'C1':  # translate the monomer to the origin
@@ -205,7 +205,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     # orient_file = entity.write(out_path=os.path.join(orient_dir, entry_entity_base))
                     orient_file = entity.write(out_path=self.oriented.store(name=entity.name))
                     entity.symmetry = symmetry
-                    entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
+                    entity.file_path = entity.write(out_path=self.oriented_asu.store(name=entity.name))
                     entity.stride(to_file=self.stride.store(name=entity.name))
                     all_entities.append(entity)  # .entities[0]
                 else:
@@ -226,7 +226,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                     entity = pdb.entities[0]
                     # entity.name = pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
                     entity.symmetry = symmetry
-                    entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
+                    entity.file_path = entity.write(out_path=self.oriented_asu.store(name=entity.name))
                     # save Stride results
                     entity.stride(to_file=self.stride.store(name=entity.name))
                     all_entities.append(entity)
@@ -239,7 +239,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 # entity = oriented_asu.entities[0]
                 # entity.name = oriented_pdb.name  # use oriented_pdb.name (pdbcode_assembly), not API name
                 entity.symmetry = symmetry
-                entity.filepath = entity.write(out_path=self.oriented_asu.store(name=entity.name))
+                entity.file_path = entity.write(out_path=self.oriented_asu.store(name=entity.name))
                 # save Stride results
                 entity.stride(to_file=self.stride.store(name=entity.name))
                 all_entities.append(entity)  # entry_entity,
@@ -251,7 +251,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 entity = oriented_asu.entities[0]
                 # entity.name = entry_entity  # make explicit
                 entity.symmetry = symmetry
-                entity.filepath = oriented_asu.filepath
+                entity.file_path = oriented_asu.file_path
                 all_entities.append(entity)
         non_str = ', '.join(non_viable_structures)
         orient_log.error(f'The Entit{f"ies {non_str} were" if len(non_viable_structures) > 1 else f"y {non_str} was"} '

@@ -365,8 +365,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         write_docked_pose_info(tx_dir, res_lev_sum_score, high_qual_match_count, unique_matched_monofrag_count,
                                unique_total_monofrags_count, percent_of_interface_covered, rot_mat1, internal_tx_param1,
                                sym_entry.setting_matrix1, external_tx_params1, rot_mat2, internal_tx_param2,
-                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1.filepath,
-                               pdb2.filepath, pose_id)
+                               sym_entry.setting_matrix2, external_tx_params2, cryst1_record, pdb1.file_path,
+                               pdb2.file_path, pose_id)
 
 
 def slice_variable_for_log(var, length=5):

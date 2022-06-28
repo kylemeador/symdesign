@@ -110,7 +110,7 @@ def main(int_db_dir, outdir, frag_length, interface_dist, individual=True, paire
     pdbs_of_interest = [PDB.from_file(pdb_path) for pdb_path in int_db_filepaths]
     # pdbs_of_interest = [SDUtils.read_pdb(pdb_path) for pdb_path in int_db_filepaths]
     for i, pdb in enumerate(pdbs_of_interest):
-        pdbs_of_interest[i].name = os.path.splitext(os.path.basename(pdb.filepath))[0]
+        pdbs_of_interest[i].name = os.path.splitext(os.path.basename(pdb.file_path))[0]
 
     if multi:
         zipped_args = zip(pdbs_of_interest, repeat(interface_dist), repeat(frag_length), repeat(outdir),

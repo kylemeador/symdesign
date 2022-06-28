@@ -580,11 +580,11 @@ def load_total_dataframe(pose: bool = False) -> pd.DataFrame:
 
 def generate_sequence_template(pdb_file):
     pdb = PDB.from_file(pdb_file, entities=False)
-    sequence = SeqRecord(Seq(''.join(chain.sequence for chain in pdb.chains), 'Protein'), id=pdb.filepath)
+    sequence = SeqRecord(Seq(''.join(chain.sequence for chain in pdb.chains), 'Protein'), id=pdb.file_path)
     sequence_mask = copy.copy(sequence)
     sequence_mask.id = 'residue_selector'
     sequences = [sequence, sequence_mask]
-    return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.filepath)[0]}_residue_selector_sequence')
+    return write_fasta(sequences, file_name=f'{os.path.splitext(pdb.file_path)[0]}_residue_selector_sequence')
 
 
 def get_sym_entry_from_nanohedra_directory(nanohedra_dir):

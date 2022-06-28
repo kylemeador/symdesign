@@ -130,9 +130,9 @@ def rand_perturb(pdb1_path, pdb2_path, set_matrix1, set_matrix2, rot_degen_matri
         pdb1_copy = copy.copy(pdb1)
         pdb2_copy = copy.copy(pdb2)
 
-        pdb1_rand_perturb_path = outdir + "/" + os.path.splitext(os.path.basename(pdb1.filepath))[
+        pdb1_rand_perturb_path = outdir + "/" + os.path.splitext(os.path.basename(pdb1.file_path))[
             0] + "_rand_perturb_" + str(perturb_number) + ".pdb"
-        pdb2_rand_perturb_path = outdir + "/" + os.path.splitext(os.path.basename(pdb2.filepath))[
+        pdb2_rand_perturb_path = outdir + "/" + os.path.splitext(os.path.basename(pdb2.file_path))[
             0] + "_rand_perturb_" + str(perturb_number) + ".pdb"
 
         logfile = open(outdir + "/" + "randomly_perturbed_log.txt", "a+")
