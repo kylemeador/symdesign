@@ -230,7 +230,7 @@ class Coords:
         yield from self.coords.tolist()
 
 
-null_coords = Coords()
+# null_coords = Coords()
 
 
 class StructureBase:
@@ -272,8 +272,8 @@ class StructureBase:
 
             # initialize Coords
             if coords is None:  # check this first
-                # most init occurs from Atom instances which are their parent until another StructureBase adopts them
-                self._coords = null_coords
+                # most init occurs from Atom instances that are their own parent until another StructureBase adopts them
+                self._coords = Coords()  # null_coords
             elif isinstance(coords, Coords):
                 self._coords = coords
             else:  # sets as None if coords wasn't passed and update later
