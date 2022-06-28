@@ -1625,7 +1625,7 @@ class SymmetricModel(Models):
                           f'Structure.__copy__. These may not be adequate and need to be overwritten')
         # Caution, this function will return poor if the number of atoms in the structure is 1!
         coords = structure.coords if return_side_chains else structure.get_backbone_and_cb_coords()
-
+        uc_number = 1
         if self.dimension == 0:
             # return self.return_point_group_copies(structure, **kwargs)
             number_of_symmetry_mates = self.number_of_symmetry_mates
@@ -1671,9 +1671,9 @@ class SymmetricModel(Models):
             symmetry_mate_pdb.coords = coord_set
             sym_mates.append(symmetry_mate_pdb)
 
-        assert len(sym_mates) == uc_number * self.number_of_symmetry_mates, \
-            f'Number of models ({len(sym_mates)}) is incorrect! ' \
-            f'Should be {uc_number * self.number_of_uc_symmetry_mates}'
+        if len(sym_mates) != uc_number * self.number_of_symmetry_mates:
+            raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be '
+                                f'{uc_number * self.number_of_uc_symmetry_mates}')
         return sym_mates
 
     # def return_point_group_copies(self, structure: Structure, return_side_chains: bool = True, **kwargs) -> \
@@ -2710,7 +2710,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                 self.log.debug(f'Number of indices before removal of "self" indices: {len(entity2_indices)}')
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
                 self.log.debug(f'Final indices remaining after removing "self": {len(entity2_indices)}')
-            entity2_coords = self.symmetric_coords[entity2_indices]  # only get the coordinate indices we want
+            entity2_coords = self.symmetric_coords[entity2_indices]  # get the symmetric indices from Entity 2
         elif entity1 == entity2:
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
@@ -2747,13 +2747,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                             for entity2_idx, entity1_contacts in enumerate(entity2_query)
                             for entity1_idx in entity1_contacts]
         if entity1 == entity2:  # solve symmetric results for asymmetric contacts
-            asymmetric_contacting_pairs, found_pairs = [], []
+            asymmetric_contacting_pairs, found_pairs = [], set()
             for pair1, pair2 in contacting_pairs:
                 # only add to contacting pair if we have never observed either
-                if (pair1, pair2) not in found_pairs or (pair2, pair1) not in found_pairs:
+                if (pair1, pair2) not in found_pairs:  # or (pair2, pair1) not in found_pairs:
                     asymmetric_contacting_pairs.append((pair1, pair2))
-                # add both pair orientations (1, 2) or (2, 1) regardless
-                found_pairs.extend([(pair1, pair2), (pair2, pair1)])
+                # add both pair orientations (1, 2) and (2, 1) regardless
+                found_pairs.update([(pair1, pair2), (pair2, pair1)])
 
             return asymmetric_contacting_pairs
         else:
@@ -2782,12 +2782,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             self.log.info(f'Interface search at {entity1.name} | {entity2.name} found no interface residues')
             self.interface_residues[(entity1, entity2)] = ([], [])
             return
-        # else:
-        if entity1 == entity2:  # symmetric query
+
+        if entity1 == entity2:  # if symmetric query
+            # is the interface is across a dimeric interface?
             for residue in entity2_residues:  # entity2 usually has fewer residues, this might be quickest
-                if residue in entity1_residues:  # the interface is dimeric and should only have residues on one side
-                    entity1_residues, entity2_residues = \
-                        sorted(set(entity1_residues).union(entity2_residues), key=lambda res: res.number), []
+                if residue in entity1_residues:  # the interface is dimeric
+                    # include all residues found to only one side and move on
+                    entity1_residues = sorted(set(entity1_residues).union(entity2_residues), key=lambda res: res.number)
+                    entity2_residues = []
                     break
         self.log.info(f'At Entity {entity1.name} | Entity {entity2.name} interface:'
                       f'\n\t{entity1.name} found residue numbers: {", ".join(str(r.number) for r in entity1_residues)}'
@@ -2874,25 +2876,33 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             self.fragment_queries (dict[tuple[Entity, Entity], list[dict[str, Any]]])
         """
         entity1_residues, entity2_residues = self.interface_residues.get((entity1, entity2))
-        if not entity1_residues or not entity2_residues:
+        # because the way self.interface_residues is set, when there is not interface, a check on entity1_residues is
+        # sufficient, however entity2_residues is empty with an interface present across a non-oligomeric dimeric 2-fold
+        if not entity1_residues:  # or not entity2_residues:
             self.log.info(f'No residues at the {entity1.name} | {entity2.name} interface. Fragments not available')
             self.fragment_queries[(entity1, entity2)] = []
             return
-        # Todo NOT Correct! .is_oligomeric checks to see if interface is 2-fold but could be 2-fold with Entity monomer
-        if entity1 == entity2 and entity1.is_oligomeric:
-            entity1_residues = set(entity1_residues + entity2_residues)
+
+        # residue_numbers1 = sorted(residue.number for residue in entity1_residues)
+        # surface_frags1 = entity1.get_fragments(residue_numbers=residue_numbers1,
+        #                                        representatives=self.fragment_db.reps)
+        frag_residues1 = entity1.assign_fragments(residue_numbers=entity1_residues,
+                                                  representatives=self.fragment_db.reps)
+
+        if not entity2_residues:  # entity1 == entity2 and not entity2_residues:
+            # entity1_residues = set(entity1_residues + entity2_residues)
             entity2_residues = entity1_residues
+            # residue_numbers2 = residue_numbers1
+        else:
+            # residue_numbers2 = sorted(residue.number for residue in entity2_residues)
+            # surface_frags2 = entity2.get_fragments(residue_numbers=residue_numbers2,
+            #                                        representatives=self.fragment_db.reps)
+        frag_residues2 = entity2.assign_fragments(residue_numbers=entity2_residues,
+                                                  representatives=self.fragment_db.reps)
 
-        residue_numbers1 = sorted(residue.number for residue in entity1_residues)
-        residue_numbers2 = sorted(residue.number for residue in entity2_residues)
-        self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface, searching for fragments at the '
-                       f'surface of:\n\tEntity {entity1.name}: Residues {", ".join(map(str, residue_numbers1))}'
-                       f'\n\tEntity {entity2.name}: Residues {", ".join(map(str, residue_numbers2))}')
-
-        # surface_frags1 = entity1.get_fragments(residue_numbers=residue_numbers1, representatives=self.fragment_db.reps)
-        # surface_frags2 = entity2.get_fragments(residue_numbers=residue_numbers2, representatives=self.fragment_db.reps)
-        frag_residues1 = entity1.assign_fragments(residue_numbers=entity1_residues, representatives=self.fragment_db.reps)
-        frag_residues2 = entity2.assign_fragments(residue_numbers=entity2_residues, representatives=self.fragment_db.reps)
+        # self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface, searching for fragments at the '
+        #                f'surface of:\n\tEntity {entity1.name}: Residues {", ".join(map(str, residue_numbers1))}'
+        #                f'\n\tEntity {entity2.name}: Residues {", ".join(map(str, residue_numbers2))}')
 
         if not frag_residues1 or not frag_residues2:
             self.log.info(f'No fragments found at the {entity1.name} | {entity2.name} interface')
