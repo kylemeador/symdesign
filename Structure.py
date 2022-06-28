@@ -1088,7 +1088,7 @@ class Residue(ResidueFragment, StructureBase):
         # self._atoms.reindex()
         # self.renumber_atoms()
 
-    def renumber_atoms(self):  # in Structure too
+    def renumber_atoms(self):  # in Structure too  Todo ContainsAtomsMixin
         """Renumber all Atom objects sequentially starting with 1"""
         for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
@@ -2544,7 +2544,7 @@ class Structure(StructureBase):
     #     # self.reindex_atoms()
     #     # self.coords = np.append(self.coords, [atom.coords for atom in atom_list])
     #     # self.set_atom_coordinates(self.coords)
-    #     # self.create_residues()
+    #     # self._create_residues()
     #     # self.set_length()
 
     # def get_atoms_by_indices(self, indices=None):  # UNUSED
@@ -2829,9 +2829,9 @@ class Structure(StructureBase):
 
     # update_structure():
     #  self.reindex_atoms() -> self.coords = np.append(self.coords, [atom.coords for atom in atoms]) ->
-    #  self.set_atom_coordinates(self.coords) -> self.create_residues() -> self.set_length()
+    #  self.set_atom_coordinates(self.coords) -> self._create_residues() -> self.set_length()
 
-    def create_residues(self):
+    def _create_residues(self):
         """For the Structure, create Residue instances/Residues object. Doesn't allow for alternative atom locations
 
         Sets:
@@ -2884,7 +2884,7 @@ class Structure(StructureBase):
         self._atom_indices = atom_indices
 
     # when alt_location parsing allowed, there may be some use to this, however above works great without alt location
-    # def create_residues(self):
+    # def _create_residues(self):
     #     """For the Structure, create all possible Residue instances. Doesn't allow for alternative atom locations"""
     #     start_indices, residue_ranges = [], []
     #     remove_atom_indices = []
@@ -3044,6 +3044,7 @@ class Structure(StructureBase):
         Returns:
             The indices of the Atoms being removed from the Structure
         """
+        raise NotImplementedError('This function has errors and shouldn\'t be used')
         # Todo using AA reference, align the backbone + CB atoms of the residue then insert side chain atoms?
         # if to.upper() in protein_letters_1to3:
         to = protein_letters_1to3.get(to.upper(), to).upper()
