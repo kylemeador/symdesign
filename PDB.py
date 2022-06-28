@@ -379,8 +379,8 @@ class PDB(Structure):
         else:
             raise ValueError(f'{type(self).__name__} couldn\'t be initialized as there is no specified Structure type')
 
-        if metadata and isinstance(metadata, PDB):
-            self.copy_metadata(metadata)
+        # if metadata and isinstance(metadata, PDB):
+        #     self.copy_metadata(metadata)
 
     @classmethod
     def from_file(cls, file: str | bytes, **kwargs):
@@ -1094,34 +1094,24 @@ class PDB(Structure):
             chain: The chain identifier to associate the new Residue with
         """
         new_residue = super().insert_residue_type(residue_type, at=at, chain=chain)
-        # If other structures, must update their atom_indices!
+        # must update other Structures indices
         residue_index = at - 1  # since at is one-indexed integer
         # for structures in [self.chains, self.entities]:
         for structure_type in self.structure_containers:
             structures = getattr(self, structure_type)
             idx = 0
             for idx, structure in enumerate(structures):  # iterate over Structures in each structure_container
-                try:  # update each Structures residue_ and atom_indices with additional indices
-                    res_insert_idx = structure.residue_indices.index(residue_index)
-                    structure.insert_indices(at=res_insert_idx, new_indices=[residue_index], dtype='residue')
-                    atom_insert_idx = structure.atom_indices.index(new_residue.start_index)
-                    structure.insert_indices(at=atom_insert_idx, new_indices=new_residue.atom_indices, dtype='atom')
-                    break  # must move to the next container to update the indices by a set increment
-                    # structure._residue_indices = structure.residue_indices.insert(res_insertion_idx, residue_index)
-                    # for idx in reversed(new_residue.atom_indices):
-                    #     structure._atom_indices = structure.atom_indices.insert(new_residue.start_index, idx)
-                    # below are not necessary
-                    # structure.coords_indexed_residues = \
-                    #     [(res_idx, res_atom_idx) for res_idx, residue in enumerate(structure.residues)
-                    #      for res_atom_idx in residue.range]
+                try:  # update each Structures _residue_ and _atom_indices with additional indices
+                    structure.insert_indices(at=structure.residue_indices.index(residue_index),
+                                             new_indices=[residue_index], dtype='residue')
+                    structure.insert_indices(at=structure.atom_indices.index(new_residue.start_index),
+                                             new_indices=new_residue.atom_indices, dtype='atom')
+                    break  # move to the next container to update the indices by a set increment
                 except (ValueError, IndexError):  # this should happen if the Atom is not in the Structure of interest
                     # edge case where the index is being appended to the c-terminus
                     if residue_index - 1 == structure.residue_indices[-1] and new_residue.chain == structure.chain_id:
-                        # res_insert_idx, atom_insert_idx =len(structure.residue_indices), len(structure.atom_indices)
-                        # res_insertion_idx = structure.residue_indices.index(residue_index - 1)
                         structure.insert_indices(at=structure.number_of_residues, new_indices=[residue_index],
                                                  dtype='residue')
-                        # atom_insertion_idx = structure.atom_indices.index(new_residue.start_index - 1)
                         structure.insert_indices(at=structure.number_of_atoms, new_indices=new_residue.atom_indices,
                                                  dtype='atom')
                         break  # must move to the next container to update the indices by a set increment
