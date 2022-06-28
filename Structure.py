@@ -926,9 +926,10 @@ class Residue(ResidueFragment, StructureBase):
                 raise IndexError('The Residue wasn\'t passed atom_indices which are required for initialization')
         # we are setting up a parent (independent) Residue
         elif atoms:  # is not None  # no parent passed, construct from atoms
-            self.assign_atoms(atoms)
+            self.assign_atoms(atoms, atoms_only=False)
             self.is_residue_valid()
-            Structure._validate_coords(self, **kwargs)
+            Structure._populate_coords(self, **kwargs)
+            Structure._validate_coords(self)
             self._start_index = 0
             # update Atom instance attributes to ensure they are dependants of this instance
             # must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
@@ -2247,11 +2248,15 @@ class Structure(StructureBase):
         # Todo need to update all referrers
         # Todo need to add the atoms to coords
 
-    def assign_atoms(self, atoms: Atoms | list[Atom], **kwargs):  # same function in Residue
+    def assign_atoms(self, atoms: Atoms | list[Atom], atoms_only: bool = True, **kwargs):  # same function in Residue
         """Assign Atom instances to the Structure, create Atoms object, and create Residue instances/Residues
 
         Args:
             atoms: The Atom instances to assign to the Structure
+            atoms_only: Whether Atom instances are being assigned on their own. Residues will be created if so.
+                If not, indicate False and use other Structure information such as Residue instances to complete set up.
+                When False, atoms won't become dependents of this instance until specifically called using
+                Atoms.set_attributes(_parent=self)
         Keyword Args:
             coords=None (numpy.ndarray): The coordinates to assign to the Structure.
                 Optional, will use Residues.coords if not specified
@@ -2260,7 +2265,6 @@ class Structure(StructureBase):
 
             self._atoms (Atoms)
         """
-        # Todo    ^^^     This will make all Atom instances dependents of this Structure instance
         # set proper atoms attributes
         self._atom_indices = list(range(len(atoms)))
         if not isinstance(atoms, Atoms):  # must create the Atoms object
@@ -2270,16 +2274,18 @@ class Structure(StructureBase):
             atoms = copy(atoms)
             atoms.reset_state()  # clear runtime attributes
         self._atoms = atoms
+        self.renumber_atoms()
 
-        # self.create_residues()
-        # # ensure that coordinate lengths match atoms
-        # self._validate_coords(from_source='residues', **kwargs)
-        # # super()._validate_coords(from_source='residues', **kwargs)  # Todo upon "StructureWithAtomsMethods" container
-        # # update Atom instance attributes to ensure they are dependants of this instance
-        # # must do this after _validate_coords to ensure that coordinate info isn't overwritten
-        # self._atoms.set_attributes(_parent=self)
-        # self._atoms.reindex()
-        # self.renumber_atoms()
+        if atoms_only:
+            self._populate_coords(**kwargs)  # coords may be passed
+            self._create_residues()
+            # ensure that coordinate lengths match atoms
+            self._validate_coords()
+            # update Atom instance attributes to ensure they are dependants of this instance
+            # must do this after _populate_coords to ensure that coordinate info isn't overwritten
+            self._atoms.set_attributes(_parent=self)
+            if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
+                self._atoms.reindex()
 
     # @property
     # def number_of_atoms(self) -> int:
@@ -2346,12 +2352,7 @@ class Structure(StructureBase):
             atoms = []
             for residue in residues:
                 atoms.extend(residue.atoms)
-        self.assign_atoms(atoms)
-        # Todo remove atoms calls below if they are put into assign_atoms()
-        # update Atom instance attributes to ensure they are dependants of this instance
-        self._atoms.set_attributes(_parent=self)
-        self.renumber_atoms()
-        # calls til here
+        self.assign_atoms(atoms, atoms_only=False)
 
         # set proper residues attributes
         self._residue_indices = list(range(len(residues)))
@@ -2363,10 +2364,13 @@ class Structure(StructureBase):
             residues.reset_state()  # clear runtime attributes
         self._residues = residues
 
+        self._populate_coords(from_source='residues', **kwargs)
         # ensure that coordinates lengths match
-        self._validate_coords(from_source='residues', **kwargs)
+        self._validate_coords()
+        # update Atom instance attributes to ensure they are dependants of this instance
+        self._atoms.set_attributes(_parent=self)
         # update Residue instance attributes to ensure they are dependants of this instance
-        # must do this after (potential) coords setting to ensure that coordinate info isn't overwritten
+        # perform after populate_coords due to possible coords setting to ensure that 'residues' .coords not overwritten
         self._residues.set_attributes(_parent=self)
         self._residues.reindex_atoms()
 
