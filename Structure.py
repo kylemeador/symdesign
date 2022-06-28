@@ -2015,17 +2015,6 @@ class Structure(StructureBase):
                 # #     self.coords = coords
             elif atoms:  # is not None
                 self.assign_atoms(atoms)
-                self.create_residues()
-                # Todo, make sure that we check and set properly
-                #  consolidation to one function doesn't seem to fit the bill for each Structure initialization method
-                # ensure that coordinate lengths match atoms
-                self._validate_coords(from_source='residues', **kwargs)
-                # super()._validate_coords(from_source='residues', **kwargs)  # Todo upon "StructureWithAtomsMethods" container
-                # update Atom instance attributes to ensure they are dependants of this instance
-                # must do this after _validate_coords to ensure that coordinate info isn't overwritten
-                self._atoms.set_attributes(_parent=self)
-                self._atoms.reindex()
-                self.renumber_atoms()
 
             # index the coordinates to the Residue they belong to and their associated atom_index
             residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
@@ -2219,19 +2208,30 @@ class Structure(StructureBase):
     # def atoms(self, atoms: Atoms):
     #     self._atoms.replace(self._atom_indices, atoms)
 
-    def _validate_coords(self, from_source: structure_container_types = 'atoms', coords: np.ndarray = None):
-        """Ensure that the StructureBase coordinates are formatted correctly. If not, initialize them from_source coords
+    def _populate_coords(self, from_source: structure_container_types = 'atoms', coords: np.ndarray = None):
+        """Set up the coordinates, initializing them from_source coords if none are set
 
-        self._coords should only be set if the calling Structure is a parent
+        Only useful if the calling Structure is a parent, and coordinate initialization has yet to occur
         Args:
             from_source: The source to set the coordinates from if they are missing
             coords: The coordinates to assign to the Structure. Optional, will use from_source.coords if not specified
         """
         if self._coords.coords.shape[0] == 0:  # check if Coords (_coords) hasn't been populated
-            # otherwise, try to set from self.from_source. might want to catch missing .coords error here
-            self._coords.set(np.concatenate(coords
-                                            if coords else [source.coords for source in getattr(self, from_source)]))
+            # if it hasn't, then coords weren't passed. try to set from self.from_source. catch missing from_source
+            try:
+                self._coords.set(np.concatenate(coords if coords else [s.coords for s in getattr(self, from_source)]))
+            except AttributeError:
+                try:  # probably missing from_source. .coords is available in all structure_container_types...
+                    getattr(self, from_source)
+                except AttributeError:
+                    raise AttributeError(f'{from_source} is not set on the current {type(self).__name__} instance!')
+                raise AttributeError(f'Missing .coords attribute on the current {type(self).__name__} '
+                                     f'instance.{from_source} attribute. This is really not supposed to happen! '
+                                     f'Congrats you broke a core feature! 0.15 bitcoin have been added to your wallet')
 
+    def _validate_coords(self):
+        """Ensure that the StructureBase coordinates are formatted correctly"""
+        # this is the functionality we are testing most of the time
         if self.number_of_atoms != len(self.coords):  # number_of_atoms was just set by self._atom_indices
             raise ValueError(f'The number of Atoms ({self.number_of_atoms}) != number of Coords ({len(self.coords)}). '
                              f'Consider initializing {type(self).__name__} without explicitly passing coords if this '
