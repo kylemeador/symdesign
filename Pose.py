@@ -1235,20 +1235,82 @@ class SymmetricModel(Models):
                                 cryst_record=self.cryst_record, entities=False)
             return self._assembly_minimally_contacting
 
-    def generate_symmetric_coords(self, **kwargs):
+    def generate_symmetric_coords(self, surrounding_uc: bool = True):
         """Expand the asu using self.symmetry for the symmetry specification, and optional unit cell dimensions if
         self.dimension > 0. Expands assembly to complete point group, unit cell, or surrounding unit cells
 
-        Keyword Args:
-            surrounding_uc=True (bool): Whether the 3x3 layer group, or 3x3x3 space group should be generated
+        Args:
+            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         """
-        if self.dimension == 0:
-            self.generate_point_group_coords(**kwargs)
-        else:
-            # self.expand_uc_coords(**kwargs)
-            self.generate_lattice_coords(**kwargs)
+        # if not self.symmetry:
+        #     raise SymmetryError(f'{self.generate_symmetric_coords.__name__}: No symmetry set for {self.name}!')
 
-        self.log.info(f'Generated {self.number_of_symmetry_mates} Symmetric copies')
+        if self.dimension == 0:
+            # self.generate_point_group_coords(**kwargs)
+
+    # def generate_point_group_coords(self, **kwargs):  # return_side_chains=True,
+    #     """Find the coordinates of the symmetry mates using the coordinates and the input expansion matrices
+    #
+    #     Sets:
+    #         self.number_of_symmetry_mates (int)
+    #         self.symmetric_coords (Coords)
+    #     """
+        # if return_side_chains:  # get different function calls depending on the return type # todo
+        #     # get_pdb_coords = getattr(PDB, 'coords')
+        #     self.coords_type = 'all'
+        # else:
+        #     # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+        #     self.coords_type = 'bb_cb'
+
+        # self.number_of_symmetry_mates = valid_subunit_number[self.symmetry]
+            symmetric_coords = Coords((np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
+                                                 self.expand_matrices) + self.expand_translations).reshape(-1, 3))
+        # number_of_atoms = self.number_of_atoms
+        # number_of_atoms = len(self.coords)
+        # model_coords = np.empty((number_of_atoms * self.number_of_symmetry_mates, 3), dtype=float)
+        # for idx, rotation in enumerate(self.expand_matrices):
+        #     model_coords[idx * number_of_atoms: (idx + 1) * number_of_atoms] = \
+        #         np.matmul(self.coords, np.transpose(rotation))
+        # self.symmetric_coords = Coords(model_coords)
+
+    # def generate_lattice_coords(self, surrounding_uc: bool = True, **kwargs):  # return_side_chains=True
+    #     """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in the unit cell
+    #
+    #     Args:
+    #         surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
+    #     Sets:
+    #         self.number_of_symmetry_mates (int)
+    #         self.symmetric_coords (Coords)
+    #     """
+        # if return_side_chains:  # get different function calls depending on the return type  # todo
+        #     # get_pdb_coords = getattr(PDB, 'coords')
+        #     self.coords_type = 'all'
+        # else:
+        #     # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+        #     self.coords_type = 'bb_cb'
+        else:
+            if surrounding_uc:
+                shift_3d = [0., 1., -1.]
+                if self.dimension == 3:
+                    z_shifts, uc_number = shift_3d, 27
+                elif self.dimension == 2:
+                    z_shifts, uc_number = [0.], 9
+                else:
+                    raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
+
+                # set the number_of_symmetry_mates to account for the unit cell number
+                self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
+                uc_frac_coords = self.return_unit_cell_coords(self.coords, fractional=True)
+                surrounding_frac_coords = \
+                    np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d for z in z_shifts])
+                symmetric_coords = self.frac_to_cart(surrounding_frac_coords)
+            else:
+                # must set number_of_symmetry_mates before self.return_unit_cell_coords as it relies on copy number
+                # self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates
+                # uc_number = 1
+                symmetric_coords = self.return_unit_cell_coords(self.coords)
+
+        self.symmetric_coords = Coords(symmetric_coords)
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return fractional coordinates from cartesian coordinates
@@ -1316,69 +1378,6 @@ class SymmetricModel(Models):
         m_inv = [m_inv_0, m_inv_1, m_inv_2]
 
         return np.matmul(frac_coords, np.transpose(m_inv))
-
-    def generate_point_group_coords(self, **kwargs):  # return_side_chains=True,
-        """Find the coordinates of the symmetry mates using the coordinates and the input expansion matrices
-
-        Sets:
-            self.number_of_symmetry_mates (int)
-            self.symmetric_coords (Coords)
-        """
-        # if return_side_chains:  # get different function calls depending on the return type # todo
-        #     # get_pdb_coords = getattr(PDB, 'coords')
-        #     self.coords_type = 'all'
-        # else:
-        #     # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
-        #     self.coords_type = 'bb_cb'
-
-        # self.number_of_symmetry_mates = valid_subunit_number[self.symmetry]
-        self.symmetric_coords = Coords((np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
-                                                  self.expand_matrices) + self.expand_translations).reshape(-1, 3))
-        # number_of_atoms = self.number_of_atoms
-        # number_of_atoms = len(self.coords)
-        # model_coords = np.empty((number_of_atoms * self.number_of_symmetry_mates, 3), dtype=float)
-        # for idx, rotation in enumerate(self.expand_matrices):
-        #     model_coords[idx * number_of_atoms: (idx + 1) * number_of_atoms] = \
-        #         np.matmul(self.coords, np.transpose(rotation))
-        # self.symmetric_coords = Coords(model_coords)
-
-    def generate_lattice_coords(self, surrounding_uc: bool = True, **kwargs):  # return_side_chains=True
-        """Generates unit cell coordinates for a symmetry group. Modifies model_coords to include all in the unit cell
-
-        Args:
-            surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
-        Sets:
-            self.number_of_symmetry_mates (int)
-            self.symmetric_coords (Coords)
-        """
-        # if return_side_chains:  # get different function calls depending on the return type  # todo
-        #     # get_pdb_coords = getattr(PDB, 'coords')
-        #     self.coords_type = 'all'
-        # else:
-        #     # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
-        #     self.coords_type = 'bb_cb'
-
-        if surrounding_uc:
-            shift_3d = [0., 1., -1.]
-            if self.dimension == 3:
-                z_shifts, uc_number = shift_3d, 27
-            elif self.dimension == 2:
-                z_shifts, uc_number = [0.], 9
-            else:
-                raise SymmetryError(f'The specified dimension "{self.dimension}" is not crystalline')
-
-            self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates * uc_number
-            uc_frac_coords = self.return_unit_cell_coords(self.coords, fractional=True)
-            surrounding_frac_coords = \
-                np.concatenate([uc_frac_coords + [x, y, z] for x in shift_3d for y in shift_3d for z in z_shifts])
-            symmetric_coords = self.frac_to_cart(surrounding_frac_coords)
-        else:
-            # must set number_of_symmetry_mates before self.return_unit_cell_coords as it relies on copy number
-            # self.number_of_symmetry_mates = self.number_of_uc_symmetry_mates
-            # uc_number = 1
-            symmetric_coords = self.return_unit_cell_coords(self.coords)
-
-        self.symmetric_coords = Coords(symmetric_coords)
 
     def get_assembly_symmetry_models(self, **kwargs) -> list[Structure]:
         """Return symmetry mates as a collection of Structures with symmetric coordinates
