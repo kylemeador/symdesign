@@ -706,13 +706,15 @@ class Models(Model):
         Returns:
             The name of the written file if out_path is used
         """
-        def model_write(handle):
+        self.log.debug(f'Models is writing')
+
+        def models_write(handle):
             self.write_header(handle, **kwargs)
             # self.models is populated
             if increment_chains:  # assembly requested, check on the mechanism of symmetric writing
                 # we won't allow incremental chains when the Model is plain as the models are all the same and
                 # therefore belong with the models label
-                available_chain_ids = Structure.return_chain_generator()
+                available_chain_ids = self.return_chain_generator()
                 for structure in self.models:
                     for entity in structure.entities:
                         chain = next(available_chain_ids)
@@ -733,11 +735,11 @@ class Models(Model):
                     handle.write('ENDMDL\n')
 
         if file_handle:
-            model_write(file_handle)
+            models_write(file_handle)
             return
         else:
             with open(out_path, 'w') as outfile:
-                model_write(outfile)
+                models_write(outfile)
             return out_path
 
     def __getitem__(self, idx: int) -> Structure:
@@ -2356,23 +2358,34 @@ class SymmetricModel(Models):
         Returns:
             The name of the written file if out_path is used
         """
+        self.log.debug(f'SymmetricModel is writing')
+
         def symmetric_model_write(handle):
             self.write_header(handle, **kwargs)
             if assembly:  # will make models and use next logic steps to write them out
                 self.generate_assembly_symmetry_models(**kwargs)
                 # self.models is populated, use Models.write() to finish
                 super().write(file_handle=handle, **kwargs)
-            else:  # skip models, using biomt_record/cryst_record for sym
+            else:  # skip models, write asu using biomt_record/cryst_record for sym
                 for entity in self.entities:
                     entity.write(file_handle=handle, **kwargs)
 
-        if file_handle:
-            symmetric_model_write(file_handle)
+        def model_write(handle):
+            self.write_header(handle, **kwargs)
+            super(Model, Models).write(file_handle=handle, **kwargs)
+
+        if file_handle:  # Todo should the use of self.write_header() with file_handle be disabled?
+            if self.symmetry:
+                symmetric_model_write(file_handle)
+            else:
+                model_write(file_handle)
             return
         else:
             with open(out_path, 'w') as outfile:
-                symmetric_model_write(outfile)
-
+                if self.symmetry:
+                    symmetric_model_write(outfile)
+                else:
+                    model_write(outfile)
             return out_path
 
 
