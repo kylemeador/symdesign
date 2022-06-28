@@ -914,14 +914,11 @@ class Residue(ResidueFragment, StructureBase):
 
         parent = self.parent
         if parent:  # we are setting up a dependent Residue
-            # self._atoms = parent._atoms  # Todo make empty Atoms for Structure objects?
-            # # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
             self._atom_indices = atom_indices
             try:
                 self._start_index = atom_indices[0]
             except (TypeError, IndexError):
                 raise IndexError('The Residue wasn\'t passed atom_indices which are required for initialization')
-            self.delegate_atoms()
         # we are setting up a parent (independent) Residue
         elif atoms:  # is not None  # no parent passed, construct from atoms
             self.assign_atoms(atoms)
@@ -933,9 +930,9 @@ class Residue(ResidueFragment, StructureBase):
             self._atoms.set_attributes(_parent=self)
             self._atoms.reindex()
             self.renumber_atoms()
-            self.delegate_atoms()
         else:  # create an empty Residue
-            pass
+            self._atoms = Atoms()
+        self.delegate_atoms()
 
         self._contact_order = 0.
         self.local_density = 0.
