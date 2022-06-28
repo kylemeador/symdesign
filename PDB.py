@@ -315,7 +315,7 @@ class PDB(Structure):
     design: bool
     entities: list[Entity] | Structures | bool | None
     entity_info: list[dict[str, list | str]]
-    filepath: str | bytes | None
+    # file_path: str | bytes | None
     header: list
     multimodel: bool
     original_chain_ids: list[str]
@@ -324,7 +324,7 @@ class PDB(Structure):
     # space_group: str | None
     # uc_dimensions: list[float] | None
 
-    def __init__(self, filepath: str | bytes = None,
+    def __init__(self,
                  chains: list[Chain] | Structures | bool = None, entities: list[Entity] | Structures | bool = None,
                  cryst_record: str = None, design: bool = False,
                  dbref: dict[str, dict[str, str]] = None, entity_info: list[dict[str, list | str]] = None,
@@ -354,7 +354,7 @@ class PDB(Structure):
         self.entity_info = entity_info if entity_info else []
         # [{'chains': [Chain objs], 'seq': 'GHIPLF...', 'name': 'A'}, ...]
         # ^ ZERO-indexed for recap project!!!
-        self.filepath = filepath
+        # self.file_path = file_path
         self.header = []
         self.multimodel = multimodel
         self.original_chain_ids = []  # [original_chain_id1, id2, ...]
@@ -396,13 +396,13 @@ class PDB(Structure):
     @classmethod
     def from_pdb(cls, file: str | bytes, **kwargs):
         """Create a new PDB from a .pdb formatted file"""
-        return cls(filepath=file, **read_pdb_file(file, **kwargs))
+        return cls(file_path=file, **read_pdb_file(file, **kwargs))
 
     @classmethod
     def from_mmcif(cls, file: str | bytes, **kwargs):
         """Create a new PDB from a .pdb formatted file"""
         raise NotImplementedError(mmcif_error)
-        return cls(filepath=file, **read_mmcif_file(file, **kwargs))
+        return cls(file_path=file, **read_mmcif_file(file, **kwargs))
 
     @classmethod
     def from_chains(cls, chains: list[Chain] | Structures, **kwargs):
@@ -499,7 +499,7 @@ class PDB(Structure):
     #     self.header = pdb.header
     #     self.reference_sequence = pdb._reference_sequence
     #     # self.atom_sequences = pdb.atom_sequences
-    #     self.filepath = pdb.filepath
+    #     self.file_path = pdb.file_path
     #     # self.chain_ids = pdb.chain_ids
     #     self.entity_info = pdb.entity_info
     #     self.name = pdb.name
@@ -510,10 +510,10 @@ class PDB(Structure):
     # def readfile(self, pdb_lines=None, **kwargs):
     #     """Reads .pdb file and populates PDB instance"""
     #     if not pdb_lines:
-    #         with open(self.filepath, 'r') as f:
+    #         with open(self.file_path, 'r') as f:
     #             pdb_lines = f.readlines()
     #
-    #     path, extension = os.path.splitext(self.filepath)
+    #     path, extension = os.path.splitext(self.file_path)
     #     if extension[-1].isdigit():
     #         # If last character is not a letter, then the file is an assembly, or the extension was provided weird
     #         self.assembly = True
@@ -626,7 +626,7 @@ class PDB(Structure):
     #             self.cryst = {'space': self.space_group, 'a_b_c': tuple(self.uc_dimensions[:3]),
     #                           'ang_a_b_c': tuple(self.uc_dimensions[3:])}
     #     if not atom_info:
-    #         raise DesignError(f'The file {self.filepath} has no atom records!')
+    #         raise DesignError(f'The file {self.file_path} has no atom records!')
     #
     #     self.process_model(atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)], coords=coords,
     #                        seqres=seq_res_lines, **kwargs)
@@ -958,8 +958,8 @@ class PDB(Structure):
         if not log:
             log = self.log
 
-        if self.filepath:
-            pdb_file_name = os.path.basename(self.filepath)
+        if self.file_path:
+            pdb_file_name = os.path.basename(self.file_path)
         else:
             pdb_file_name = f'{self.name}.pdb'
         # Todo change output to logger with potential for file and stdout
@@ -1608,10 +1608,10 @@ class PDB(Structure):
     #     return asu
 
         # if outpath:
-        #     asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(self.filepath))[0] + '.pdb')
+        #     asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(self.file_path))[0] + '.pdb')
         #     # asu_file_name = os.path.join(outpath, os.path.splitext(os.path.basename(file))[0] + '_%s' % 'asu.pdb')
         # else:
-        #     asu_file_name = os.path.splitext(self.filepath)[0] + '_asu.pdb'
+        #     asu_file_name = os.path.splitext(self.file_path)[0] + '_asu.pdb'
 
         # asu_pdb.write(asu_file_name, cryst1=asu_pdb.cryst)
         #

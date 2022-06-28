@@ -1944,6 +1944,7 @@ class Structure(StructureBase):
     _residue_indices: list[int] | None
     biomt: list
     biomt_header: str
+    file_path: str | bytes | None
     name: str
     secondary_structure: str | None
     sasa: float | None
@@ -1956,6 +1957,7 @@ class Structure(StructureBase):
 
     def __init__(self, atoms: list[Atom] | Atoms = None, residues: list[Residue] | Residues = None,
                  residue_indices: list[int] = None, name: str = None,
+                 file_path: str | bytes = None,
                  biomt: list = None, biomt_header: str = None,
                  **kwargs):
         # kwargs passed to StructureBase
@@ -1969,6 +1971,7 @@ class Structure(StructureBase):
         # self._residue_indices = None
         self.biomt = biomt if biomt else []  # list of vectors to format
         self.biomt_header = biomt_header if biomt_header else ''  # str with already formatted header
+        self.file_path = file_path
         self.name = name if name not in [None, False] else f'nameless_{type(self).__name__}'
         self.secondary_structure = None
         self.sasa = None
@@ -2731,27 +2734,27 @@ class Structure(StructureBase):
             return self._helix_cb_indices
 
     @property
-    def ca_atoms(self) -> list[Atom]:
+    def ca_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
         """Return CA Atoms from the Structure"""
         return self._atoms.atoms[self.ca_indices].tolist()
 
     @property
-    def cb_atoms(self) -> list[Atom]:
+    def cb_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
         """Return CB Atoms from the Structure"""
         return self._atoms.atoms[self.cb_indices].tolist()
 
     @property
-    def backbone_atoms(self) -> list[Atom]:
+    def backbone_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
         """Return backbone Atoms from the Structure"""
         return self._atoms.atoms[self.backbone_indices].tolist()
 
     @property
-    def backbone_and_cb_atoms(self) -> list[Atom]:
+    def backbone_and_cb_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
         """Return backbone and CB Atoms from the Structure"""
         return self._atoms.atoms[self.backbone_and_cb_indices].tolist()
 
     @property
-    def heavy_atoms(self) -> list[Atom]:
+    def heavy_atoms(self) -> list[Atom]:  # Todo ContainsAtomsMixin
         """Return heavy Atoms from the Structure"""
         return self._atoms.atoms[self.heavy_atom_indices].tolist()
 
@@ -2767,7 +2770,7 @@ class Structure(StructureBase):
         self.renumber_residues()
         self.log.debug(f'{self.name} was formatted in Pose numbering (residues now 1 to {self.number_of_residues})')
 
-    def renumber_atoms(self):  # in Residue too
+    def renumber_atoms(self):  # in Residue too  Todo ContainsAtomsMixin
         """Renumber all Atom objects sequentially starting with 1"""
         for idx, atom in enumerate(self.atoms, 1):
             atom.number = idx
@@ -5128,8 +5131,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     #     if not log:
     #         log = self.log
     #
-    #     if self.filepath:
-    #         pdb_file_name = os.path.basename(self.filepath)
+    #     if self.file_path:
+    #         pdb_file_name = os.path.basename(self.file_path)
     #     else:
     #         pdb_file_name = '%s.pdb' % self.name
     #     # Todo change output to logger with potential for file and stdout

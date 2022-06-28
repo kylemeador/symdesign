@@ -357,7 +357,7 @@ def map_align_interface_chains_km_mp(pdb1, pdb2, ref_pdb1, ref_pdb2, id_1, id_2,
         # print('returning', irmsd, None, 'inside _mp')
         return irmsd, None
     except (Bio.PDB.PDBExceptions.PDBException, Exception) as e:
-        return None, ((pdb1.filepath, pdb2.filepath), e)
+        return None, ((pdb1.file_path, pdb2.file_path), e)
 
 
 def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, task, ref_pdb1_int_chids_resnums_dict,
@@ -469,7 +469,7 @@ def map_align_interface_chains_km(pdb1, pdb2, ref_pdb1, ref_pdb2,  id_1, id_2, t
         # except Bio.PDB.PDBExceptions.PDBException:
         #
         #     raise Exception('reference2 (%s) and query2 (%s) have different atom lengths ref2 (chains:%s, len:%d) '
-        #                     '!= query2 (chains:%s, len:%d)' % (pdb2.filepath, ref_pdb2.filepath, pdb2_perm,
+        #                     '!= query2 (chains:%s, len:%d)' % (pdb2.file_path, ref_pdb2.file_path, pdb2_perm,
         #                                                        len(pdb2_perm_ca_atoms), ref_pdb2_int_chids,
         #                                                        len(ref_pdb2_ca_int_ch_atoms)))
         # rot_2, tx_2 not used
