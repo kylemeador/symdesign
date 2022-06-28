@@ -94,12 +94,18 @@ def parse_seqres(seqres_lines: list[str]) -> dict[str, str]:
     return reference_sequence
 
 
-def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> dict[str, Any]:
+def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coords: bool = True, **kwargs) -> dict[str, Any]:
     """Reads .pdb file and returns structural information pertaining to parsed file
+
+    By default, returns the coordinates as a separate numpy.ndarray which is parsed directly by Structure. This will be
+    associated with each Atom however, separate parsing is done for efficiency. To include coordinate info with the
+    individual Atom instances, pass separate_coords=False. (Not recommended)
 
     Args:
         file: The path to the file to parse
         pdb_lines: If lines are already read, provide the lines instead
+        separate_coords: Whether to separate parsed coordinates from Atom instances. Will be returned as two separate
+            entries in the parsed dictionary, otherwise returned with coords=None
     Returns:
         The dictionary containing all the parsed structural information
     """
@@ -112,7 +118,17 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
 
     # PDB
     assembly: bool = False
-    atom_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
+    # type to info index:   1    2    3    4    5    6    7     11     12   13   14
+    temp_info: list[tuple[int, str, str, str, str, int, str, float, float, str, str]] = []
+    # if separate_coords:
+    #     # type to info index:   1    2    3    4    5    6    7 8,9,10    11     12   13   14
+    #     atom_info: list[tuple[int, str, str, str, str, int, str, None, float, float, str, str]] = []
+    # else:
+    #     # type to info index:   1    2    3    4    5    6    7      8,9,10      11     12   13   14
+    #     atom_info: list[tuple[int, str, str, str, str, int, str, list[float], float, float, str, str]] = []
+    #     # atom_info: dict[int | str | list[float]] = {}
+
+    # atom_info: dict[int | str | list[float]] = {}
     coords: list[list[float]] = []
     # cryst: dict[str, str | tuple[float]] = {}
     cryst_record: str = ''
@@ -163,10 +179,22 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
             else:
                 atom_type = line[slice_atom_type].strip()
             # prepare line information for population of Atom objects
-            atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
+            temp_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
                               int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
                               float(line[slice_occ]), float(line[slice_temp_fact]),
                               line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
+            # atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
+            #                   int(line[slice_residue_number]), line[slice_code_for_insertion].strip(), None,
+            #                   float(line[slice_occ]), float(line[slice_temp_fact]),
+            #                   line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
+            # atom_info.append(dict(number=int(line[slice_number]), type=atom_type, alt_location=alt_loc_str,
+            #                       residue_type=residue_type, chain=line[slice_chain],
+            #                       residue_number=int(line[slice_residue_number]),
+            #                       code_for_insertion=line[slice_code_for_insertion].strip(),
+            #                       coords=[float(line[slice_x]), float(line[slice_y]), float(line[slice_z])]
+            #                       occupancy=float(line[slice_occ]), b_factor=float(line[slice_temp_fact]),
+            #                       element_symbol=line[slice_element_symbol].strip(),
+            #                       charge=line[slice_atom_charge].strip()))
             # prepare the atomic coordinates for addition to numpy array
             coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
         elif remark == 'MODEL ':
@@ -236,14 +264,21 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, **kwargs) -> d
             # uc_dimensions, space_group = parse_cryst_record(cryst_record)
             # cryst = {'space': space_group, 'a_b_c': tuple(uc_dimensions[:3]), 'ang_a_b_c': tuple(uc_dimensions[3:])}
 
-    if not atom_info:
+    if not temp_info:
         raise ValueError(f'The file {file} has no ATOM records!')
 
     return dict(assembly=assembly,
-                atoms=[Atom(idx, *info) for idx, info in enumerate(atom_info)],
+                atoms=[Atom(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords else
+                # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
+                [Atom(index=idx, number=number, type=_type, alt_location=alt_location, residue_type=residue_type,
+                      chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
+                      coords=coords[idx], occupancy=occupancy, b_factor=b_factor, element_symbol=element_symbol,
+                      charge=charge) for idx, (number, _type, alt_location, residue_type, chain, residue_number,
+                                               code_for_insertion, occupancy, b_factor, element_symbol, charge)
+                 in enumerate(temp_info)],
                 biomt=biomt,  # go to Structure
                 biomt_header=biomt_header,  # go to Structure
-                coords=coords,
+                coords=coords if separate_coords else None,
                 # cryst=cryst,
                 cryst_record=cryst_record,
                 dbref=dbref,
