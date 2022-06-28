@@ -2181,7 +2181,7 @@ class Structure(StructureBase):
             dtype: The type of indices to modify. Can be either 'atom' or 'residue'
         """
         if new_indices is None:
-            new_indices = []
+            return  # new_indices = []
         try:
             indices = getattr(self, f'{dtype}_indices')
         except AttributeError:
