@@ -747,11 +747,11 @@ class Models(Model):
 
 
 class SymmetricModel(Models):
+    _asu_model_idx: int
+    _oligomeric_model_indices: dict[Entity, list[int]]
     assembly_tree: BinaryTree | None
-    asu_equivalent_model_idx: int | None
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
-    oligomeric_equivalent_model_idxs: dict[Entity, list[int]] | dict
     uc_dimensions: list[float] | None
 
     def __init__(self, sym_entry: SymEntry | int = None, symmetry: str = None,
@@ -780,10 +780,10 @@ class SymmetricModel(Models):
         # self.models = []  # from Models
         # self.model_coords = [] <- designated as symmetric_coords
         self.assembly_tree = None  # stores a sklearn tree for coordinate searching
-        self.asu_equivalent_model_idx = None
+        # self._asu_model_idx = None
         self.expand_matrices = None
         self.expand_translations = None
-        self.oligomeric_equivalent_model_idxs = {}
+        # self._oligomeric_model_indices = {}
         self.uc_dimensions = None  # uc_dimensions
 
         # initialize symmetry
@@ -1121,7 +1121,7 @@ class SymmetricModel(Models):
         try:
             return self._asu_indices
         except AttributeError:
-            self._asu_indices = self.return_asu_equivalent_symmetry_mate_indices(as_slice=True)
+            self._asu_indices = self.get_asu_atom_indices(as_slice=True)
             return self._asu_indices
 
     @property
@@ -1224,7 +1224,7 @@ class SymmetricModel(Models):
             if not self.models:
                 self.generate_assembly_symmetry_models()  # defaults to surrounding_uc generation
             # only return contacting
-            interacting_model_indices = self.return_asu_interaction_model_indices()
+            interacting_model_indices = self.get_asu_interaction_model_indices()
             self.log.debug(f'Found selected models {interacting_model_indices} for assembly')
 
             chains = []
@@ -1443,31 +1443,29 @@ class SymmetricModel(Models):
                                                              ((coord_idx + 1) * number_of_atoms)]
             self.models.append(symmetry_mate_pdb)
 
-    def find_asu_equivalent_symmetry_model(self):
-        """Find the asu equivalent model in the SymmetricModel. Zero-indexed
-
-        Sets:
-            self.asu_equivalent_model_idx (int):
-                The index of the number of models where the ASU can be found
-        """
-        if self.asu_equivalent_model_idx:  # we already found this information
-            self.log.debug('Skipping ASU identification as information already exists')
-            return
-
-        template_residue = self.n_terminal_residue
-        atom_ca_coord, atom_idx = template_residue.ca_coords, template_residue.ca_atom_index
-        # entity1_number, entity2_number = self.number_of_residues_per_entity
-        # entity2_n_term_residue_idx = entity1_number + 1
-        # entity2_n_term_residue = self.residues[entity2_n_term_residue_idx]
-        # entity2_ca_idx = entity2_n_term_residue.ca_atom_index
-        number_of_atoms = self.number_of_atoms
-        # number_of_atoms = len(self.coords)
-        for model_idx in range(self.number_of_symmetry_mates):
-            if np.allclose(atom_ca_coord, self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]):
-                # if (atom_ca_coord ==
-                #         self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]).all():
-                self.asu_equivalent_model_idx = model_idx
-                return
+    @property
+    def asu_model_index(self) -> int:
+        """The asu equivalent model in the SymmetricModel. Zero-indexed"""
+        try:
+            # if self._asu_model_idx:  # we already found this information
+            #     self.log.debug('Skipping ASU identification as information already exists')
+            #     return
+            return self._asu_model_idx
+        except AttributeError:
+            template_residue = self.n_terminal_residue
+            atom_ca_coord, atom_idx = template_residue.ca_coords, template_residue.ca_atom_index
+            # entity1_number, entity2_number = self.number_of_residues_per_entity
+            # entity2_n_term_residue_idx = entity1_number + 1
+            # entity2_n_term_residue = self.residues[entity2_n_term_residue_idx]
+            # entity2_ca_idx = entity2_n_term_residue.ca_atom_index
+            number_of_atoms = self.number_of_atoms
+            # number_of_atoms = len(self.coords)
+            for model_idx in range(self.number_of_symmetry_mates):
+                if np.allclose(atom_ca_coord, self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]):
+                    # if (atom_ca_coord ==
+                    #         self.symmetric_coords[(model_idx * number_of_atoms) + atom_idx]).all():
+                    self._asu_model_idx = model_idx
+                    return self._asu_model_idx
 
             self.log.error(f'FAILED to find {self.asu_model_index.__name__}')
 
@@ -1521,7 +1519,7 @@ class SymmetricModel(Models):
 
             self._oligomeric_model_indices[entity] = equivalent_models
 
-    def return_asu_interaction_model_indices(self, calculate_contacts: bool = True, distance: float = 8., **kwargs) ->\
+    def get_asu_interaction_model_indices(self, calculate_contacts: bool = True, distance: float = 8., **kwargs) ->\
             list[int]:
         """From an ASU, find the symmetric models that immediately surround the ASU
 
@@ -1557,17 +1555,16 @@ class SymmetricModel(Models):
 
         return interacting_models
 
-    def return_asu_equivalent_symmetry_mate_indices(self, as_slice: bool = False) -> list[int] | slice:
+    def get_asu_atom_indices(self, as_slice: bool = False) -> list[int] | slice:
         """Find the coordinate indices of the asu equivalent model in the SymmetricModel. Zero-indexed
 
         Returns:
             The indices in the SymmetricModel where the ASU is also located
         """
-        self.find_asu_equivalent_symmetry_model()
+        asu_model_idx = self.asu_model_index
         number_of_atoms = self.number_of_atoms
-        # number_of_atoms = len(self.coords)
-        start_idx = number_of_atoms * self.asu_equivalent_model_idx
-        end_idx = number_of_atoms * (self.asu_equivalent_model_idx + 1)
+        start_idx = number_of_atoms * asu_model_idx
+        end_idx = number_of_atoms * (asu_model_idx + 1)
 
         if as_slice:
             return slice(start_idx, end_idx)
@@ -1592,7 +1589,7 @@ class SymmetricModel(Models):
 
         return oligomeric_atom_indices
 
-    def return_asu_interaction_indices(self, **kwargs) -> list[int]:
+    def get_asu_interaction_indices(self, **kwargs) -> list[int]:
         """Find the coordinate indices for the models in the SymmetricModel interacting with the asu. Zero-indexed
 
         Keyword Args:
@@ -1602,7 +1599,7 @@ class SymmetricModel(Models):
         Returns:
             The indices in the SymmetricModel where the asu contacts other models
         """
-        model_numbers = self.return_asu_interaction_model_indices(**kwargs)
+        model_numbers = self.get_asu_interaction_model_indices(**kwargs)
         interacting_indices = []
         number_of_atoms = self.number_of_atoms
         # number_of_atoms = len(self.coords)
@@ -2301,7 +2298,7 @@ class SymmetricModel(Models):
         if self.assembly_tree:
             return
 
-        # model_asu_indices = self.return_asu_equivalent_symmetry_mate_indices()
+        # model_asu_indices = self.get_asu_atom_indices()
         # if self.coords_type == 'bb_cb':  # grab every coord in the model
         #     model_indices = np.arange(len(self.symmetric_coords))
         #     asu_indices = []
@@ -2710,7 +2707,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                                   % ', '.join(map(str, self.oligomeric_model_indices.get(entity1))))
                     self.log.debug(f'Removing {len(remove_indices)} indices from symmetric query due to oligomer')
                 else:  # remove asu
-                    remove_indices = self.return_asu_equivalent_symmetry_mate_indices()
+                    remove_indices = self.get_asu_atom_indices()
                 self.log.debug(f'Number of indices before removal of "self" indices: {len(entity2_indices)}')
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
                 self.log.debug(f'Final indices remaining after removing "self": {len(entity2_indices)}')
