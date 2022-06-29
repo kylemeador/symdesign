@@ -3298,9 +3298,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                     if entity not in metric_d:
                         metric_d[entity] = fragment_metric_template
 
-                    align_type = SequenceProfile.idx_to_alignment_type[idx]
-                    metric_d[entity]['center_residues'].union(metrics[align_type]['center']['residues'])
-                    metric_d[entity]['total_residues'].union(metrics[align_type]['total']['residues'])
+                    align_type = alignment_types[idx]
+                    metric_d[entity]['center_residues'].update(metrics[align_type]['center']['residues'])
+                    metric_d[entity]['total_residues'].update(metrics[align_type]['total']['residues'])
                     metric_d[entity]['nanohedra_score'] += metrics[align_type]['total']['score']
                     metric_d[entity]['nanohedra_score_center'] += metrics[align_type]['center']['score']
                     metric_d[entity]['multiple_fragment_ratio'] += metrics[align_type]['multiple_ratio']
@@ -3323,9 +3323,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             for query_pair, metrics in self.fragment_metrics.items():
                 if not metrics:
                     continue
-                metric_d['center_residues'].union(
+                metric_d['center_residues'].update(
                     metrics['mapped']['center']['residues'].union(metrics['paired']['center']['residues']))
-                metric_d['total_residues'].union(
+                metric_d['total_residues'].update(
                     metrics['mapped']['total']['residues'].union(metrics['paired']['total']['residues']))
                 metric_d['nanohedra_score'] += metrics['total']['total']['score']
                 metric_d['nanohedra_score_center'] += metrics['total']['center']['score']
