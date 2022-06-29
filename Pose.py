@@ -745,6 +745,10 @@ class Models(Model):
 
 
 class SymmetricModel(Models):
+    _assembly: Model
+    _assembly_minimally_contacting: Model
+    _assembly_tree: BinaryTree  # stores a sklearn tree for coordinate searching
+    _asu_indices: slice  # list[int]
     _asu_model_idx: int
     _oligomeric_model_indices: dict[Entity, list[int]]
     assembly_tree: BinaryTree | None
@@ -777,7 +781,6 @@ class SymmetricModel(Models):
         # kwargs['sym_entry'] = sym_entry
         # self.models = []  # from Models
         # self.model_coords = [] <- designated as symmetric_coords
-        self.assembly_tree = None  # stores a sklearn tree for coordinate searching
         # self._asu_model_idx = None
         self.expand_matrices = None
         self.expand_translations = None
@@ -1541,7 +1544,7 @@ class SymmetricModel(Models):
             # Select only coords that are BB or CB from the model coords
             # bb_cb_indices = None if self.coords_type == 'bb_cb' else self.backbone_and_cb_indices
             bb_cb_indices = self.backbone_and_cb_indices
-            self.generate_assembly_tree()
+            # self.generate_assembly_tree()
             asu_query = self.assembly_tree.query_radius(self.coords[bb_cb_indices], distance)
             # coords_length = len(bb_cb_indices)
             # contacting_model_indices = [assembly_idx // coords_length
@@ -2287,7 +2290,7 @@ class SymmetricModel(Models):
         # else:
         #     asu_indices = None
 
-        self.generate_assembly_tree()
+        # self.generate_assembly_tree()
         # clashes = asu_coord_tree.two_point_correlation(self.symmetric_coords[model_indices_without_asu], [distance])
         clashes = self.assembly_tree.two_point_correlation(self.coords[self.backbone_and_cb_indices], [distance])
         if clashes[0] > 0:
@@ -2296,42 +2299,38 @@ class SymmetricModel(Models):
         else:
             return False  # no clash
 
-    def generate_assembly_tree(self):
-        """Create a tree structure from all the coordinates in the symmetric assembly
+    @property
+    def assembly_tree(self) -> BinaryTree:
+        """Holds the tree structure of the symmetric_coords"""
+        try:
+            return self._assembly_tree
+        except AttributeError:
+            # model_asu_indices = self.get_asu_atom_indices()
+            # if self.coords_type == 'bb_cb':  # grab every coord in the model
+            #     model_indices = np.arange(len(self.symmetric_coords))
+            #     asu_indices = []
+            # else:  # Select only coords that are BB or CB from the model coords
+            asu_indices = self.backbone_and_cb_indices
+            # We have all the BB/CB indices from ASU, must multiply this int's in self.number_of_symmetry_mates
+            # to get every BB/CB coord in the model
+            # Finally we take out those indices that are inclusive of the model_asu_indices like below
+            # model_indices = self.get_symmetric_indices(asu_indices)
+            # # # make a boolean mask where the model indices of interest are True
+            # # without_asu_mask = np.logical_or(model_indices < model_asu_indices[0],
+            # #                                  model_indices > model_asu_indices[-1])
+            # # model_indices_without_asu = model_indices[without_asu_mask]
+            # # take the boolean mask and filter the model indices mask to leave only symmetry mate indices, NOT asu
+            # model_indices_without_asu = self.get_symmetric_indices(asu_indices)[len(asu_indices):]
+            # selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
+            # all_assembly_coords_length = len(asu_indices) * self.number_of_symmetry_mates
+            # assert selected_assembly_coords == all_assembly_coords_length, \
+            #     '%s: Ran into an issue indexing' % self.symmetric_assembly_is_clash.__name__
 
-        Sets:
-            self.assembly_tree (sklearn.neighbors._ball_tree.BinaryTree): The constructed coordinate tree
-        """
-        if self.assembly_tree:
-            return
-
-        # model_asu_indices = self.get_asu_atom_indices()
-        # if self.coords_type == 'bb_cb':  # grab every coord in the model
-        #     model_indices = np.arange(len(self.symmetric_coords))
-        #     asu_indices = []
-        # else:  # Select only coords that are BB or CB from the model coords
-        number_asu_atoms = self.number_of_atoms
-        asu_indices = self.backbone_and_cb_indices
-        # We have all the BB/CB indices from ASU, must multiply this int's in self.number_of_symmetry_mates
-        # to get every BB/CB coord in the model
-        # Finally we take out those indices that are inclusive of the model_asu_indices like below
-        model_indices = np.array([idx + (model_number * number_asu_atoms)
-                                  for model_number in range(self.number_of_symmetry_mates) for idx in asu_indices])
-
-        # # make a boolean mask where the model indices of interest are True
-        # without_asu_mask = np.logical_or(model_indices < model_asu_indices[0],
-        #                                  model_indices > model_asu_indices[-1])
-        # model_indices_without_asu = model_indices[without_asu_mask]
-        # take the boolean mask and filter the model indices mask to leave only symmetry mate bb/cb indices, NOT asu
-        model_indices_without_asu = model_indices[len(asu_indices):]
-        # selected_assembly_coords = len(model_indices_without_asu) + len(asu_indices)
-        # all_assembly_coords_length = len(asu_indices) * self.number_of_symmetry_mates
-        # assert selected_assembly_coords == all_assembly_coords_length, \
-        #     '%s: Ran into an issue indexing' % self.symmetric_assembly_is_clash.__name__
-
-        # asu_coord_tree = BallTree(self.coords[asu_indices])
-        # return BallTree(self.symmetric_coords[model_indices_without_asu])
-        self.assembly_tree = BallTree(self.symmetric_coords[model_indices_without_asu])
+            # asu_coord_tree = BallTree(self.coords[asu_indices])
+            # return BallTree(self.symmetric_coords[model_indices_without_asu])
+            self._assembly_tree = \
+                BallTree(self.symmetric_coords[self.get_symmetric_indices(asu_indices)[len(asu_indices):]])
+            return self._assembly_tree
 
     def format_biomt(self, **kwargs) -> str:
         """Return the SymmetricModel expand_matrices as a BIOMT record
