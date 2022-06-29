@@ -1641,6 +1641,17 @@ class SymmetricModel(Models):
 
         return interacting_indices
 
+    def get_symmetric_indices(self, indices: list[int]) -> list[int]:
+        """Extend asymmetric indices across the symmetric_coords using the symmetry state
+
+        Args:
+            indices: The asymmetric indices to symmetrize
+        Returns:
+            The symmetric indices of the asymmetric input
+        """
+        atom_num = self.number_of_atoms
+        return [idx + (atom_num * model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
+
     def return_symmetric_copies(self, structure: Structure, return_side_chains: bool = True,
                                 surrounding_uc: bool = True, **kwargs) -> list[Structure]:
         """Expand the provided Structure using self.symmetry for the symmetry specification
@@ -2719,10 +2730,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             return
 
         if self.symmetry:  # get the symmetric indices of interest
-            self.log.debug(f'Number of Atoms in Pose: {number_of_atoms}')
-            # get all symmetric indices
-            entity2_indices = [idx + (number_of_atoms * model_number)
-                               for model_number in range(self.number_of_symmetry_mates) for idx in entity2_indices]
+            entity2_indices = self.get_symmetric_indices(entity2_indices)
             # solve for entity2_indices to query
             if entity1 == entity2:  # We don't want symmetry interactions with the asu model or intra-oligomeric models
                 if entity1.is_oligomeric():  # remove oligomeric protomers (contains asu)
@@ -2861,15 +2869,13 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             for residue in residues2:
                 entity2_indices.extend(residue.heavy_atom_indices)
 
-        if self.symmetry:  # get all symmetric indices
-            # number_of_atoms = len(self.coords)
-            number_of_atoms = self.number_of_atoms
-            entity2_indices = [idx + (number_of_atoms * model_number)
-                               for model_number in range(self.number_of_symmetry_mates) for idx in entity2_indices]
+        if self.symmetry:  # get all symmetric indices for entity2
+            query_coords = self.symmetric_coords[self.get_symmetric_indices(entity2_indices)]
+        else:
+            query_coords = self.coords[entity2_indices]
 
         interface_atom_tree = BallTree(self.coords[entity1_indices])
-        # self.coords uses the symmetric coords if a symmetric model
-        atom_query = interface_atom_tree.query_radius(self.coords[entity2_indices], distance)
+        atom_query = interface_atom_tree.query_radius(query_coords, distance)
         contacting_pairs = [(entity1_indices[entity1_idx], entity2_indices[entity2_idx])
                             for entity2_idx, entity1_contacts in enumerate(atom_query)
                             for entity1_idx in entity1_contacts]
