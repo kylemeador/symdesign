@@ -652,6 +652,11 @@ class ContainsAtomsMixin:  # Todo put Atoms requiring methods in here
         super().__init__(**kwargs)
         pass
 
+    @property
+    def start_index(self) -> int:
+        """The first atomic index of the Structure"""
+        return self._atom_indices[0]
+
 
 class GhostFragment:
     guide_coords: np.ndarray
