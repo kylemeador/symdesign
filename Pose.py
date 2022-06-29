@@ -750,11 +750,21 @@ class SymmetricModel(Models):
     _assembly_tree: BinaryTree  # stores a sklearn tree for coordinate searching
     _asu_indices: slice  # list[int]
     _asu_model_idx: int
+    _center_of_mass_symmetric_entities: list[np.ndarray]
+    _center_of_mass_symmetric_models: np.ndarray
     _oligomeric_model_indices: dict[Entity, list[int]]
-    assembly_tree: BinaryTree | None
+    _symmetric_coords: Coords
+    _symmetric_coords_by_entity: list[np.ndarray]
+    _symmetric_coords_split: list[np.ndarray]
+    _symmetric_coords_split_by_entity: list[list[np.ndarray]]
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
     uc_dimensions: list[float] | None
+    state_attributes: set[str] = super().state_attributes | \
+        {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
+         '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models', '_oligomeric_model_indices',
+         '_symmetric_coords', '_symmetric_coords_by_entity', '_symmetric_coords_split',
+         '_symmetric_coords_split_by_entity'}
 
     def __init__(self, sym_entry: SymEntry | int = None, symmetry: str = None,
                  uc_dimensions: list[float] = None, expand_matrices: np.ndarray | list = None,
@@ -1194,7 +1204,12 @@ class SymmetricModel(Models):
         """The individual centers of mass for each model in the symmetric system"""
         # number_of_atoms = self.number_of_atoms
         # return np.matmul(np.full(number_of_atoms, 1 / number_of_atoms), self.symmetric_coords_split)
-        return np.matmul(self.center_of_mass, self.expand_matrices)
+        # return np.matmul(self.center_of_mass, self.expand_matrices)
+        try:
+            return self._center_of_mass_symmetric_models
+        except AttributeError:
+            self._center_of_mass_symmetric_models = self.return_symmetric_coords(self.center_of_mass)
+            return self._center_of_mass_symmetric_models
 
     @property
     def center_of_mass_symmetric_entities(self) -> list[np.ndarray]:
@@ -1205,7 +1220,13 @@ class SymmetricModel(Models):
         #     self._center_of_mass_symmetric_entities.append(np.matmul(np.full(num_atoms, 1 / num_atoms),
         #                                                              entity_coords))
         # return self._center_of_mass_symmetric_entities
-        return [np.matmul(entity.center_of_mass, self.expand_matrices) for entity in self.entities]
+        # return [np.matmul(entity.center_of_mass, self.expand_matrices) for entity in self.entities]
+        try:
+            return self._center_of_mass_symmetric_entities
+        except AttributeError:
+            self._center_of_mass_symmetric_entities = [self.return_symmetric_coords(entity.center_of_mass)
+                                                       for entity in self.entities]
+            return self._center_of_mass_symmetric_entities
 
     @property
     def assembly(self) -> Model:
@@ -1494,33 +1515,33 @@ class SymmetricModel(Models):
         Args:
             epsilon: The distance measurement tolerance to find similar symmetric models to the oligomer
         """
-        number_of_atoms = self.number_of_atoms
-        for entity in self.entities:
+        # number_of_atoms = self.number_of_atoms
+        for entity_symmetric_centers_of_mass, entity in zip(self.center_of_mass_symmetric_entities, self.entities):
             if not entity.is_oligomeric():
                 self._oligomeric_model_indices[entity] = []
                 continue
             # need to slice through the specific Entity coords once we have the model
-            entity_indices = entity.atom_indices
-            entity_start, entity_end = entity_indices[0], entity_indices[-1]
-            entity_length = entity.number_of_atoms
-            entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
+            # entity_indices = entity.atom_indices
+            # entity_start, entity_end = entity_indices[0], entity_indices[-1]
+            # entity_length = entity.number_of_atoms
+            # entity_center_of_mass_divisor = np.full(entity_length, 1 / entity_length)
             equivalent_models = []
             for chain in entity.chains:
                 # chain_length = chain.number_of_atoms
                 # chain_center_of_mass = np.matmul(np.full(chain_length, 1 / chain_length), chain.coords)
                 chain_center_of_mass = chain.center_of_mass
                 # print('Chain', chain_center_of_mass.astype(int))
-                for model_num in range(self.number_of_symmetry_mates):  # Todo modify below to be with symmetric coms
-                    sym_model_center_of_mass = \
-                        np.matmul(entity_center_of_mass_divisor,
-                                  self.symmetric_coords[(model_num * number_of_atoms) + entity_start:
-                                                        (model_num * number_of_atoms) + entity_end + 1])
-                    #                                             have to add 1 for slice ^
+                for model_idx, sym_model_center_of_mass in enumerate(entity_symmetric_centers_of_mass):
+                    # sym_model_center_of_mass = \
+                    #     np.matmul(entity_center_of_mass_divisor,
+                    #               self.symmetric_coords[(model_idx * number_of_atoms) + entity_start:
+                    #                                     (model_idx * number_of_atoms) + entity_end + 1])
+                    # #                                             have to add 1 for slice ^
                     # print('Sym Model', sym_model_center_of_mass)
                     # if np.allclose(chain_center_of_mass.astype(int), sym_model_center_of_mass.astype(int)):
                     # if np.allclose(chain_center_of_mass, sym_model_center_of_mass):  # using np.rint()
                     if np.linalg.norm(chain_center_of_mass - sym_model_center_of_mass) < epsilon:
-                        equivalent_models.append(model_num)
+                        equivalent_models.append(model_idx)
                         break
 
             if len(equivalent_models) != len(entity.chains):
