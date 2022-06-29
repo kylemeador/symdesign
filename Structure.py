@@ -92,7 +92,8 @@ gxg_sasa = {'A': 129, 'R': 274, 'N': 195, 'D': 193, 'C': 167, 'E': 223, 'Q': 225
 def unknown_index():
     return -1
 
-
+polarity_types_literal = Literal['apolar', 'polar']
+polarity_types: tuple[polarity_types_literal, ...] = get_args(polarity_types_literal)
 atomic_polarity_table = {  # apolar = 0, polar = 1
     'ALA': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0}),
     'ARG': defaultdict(unknown_index, {'N': 1, 'CA': 0, 'C': 0, 'O': 1, 'CB': 0, 'CG': 0, 'CD': 0, 'NE': 1, 'CZ': 0, 'NH1': 1, 'NH2': 1}),
@@ -2531,6 +2532,54 @@ class Structure(StructureBase):
     #     self._coords_indexed_residues = np.array(residues)
 
     @property
+    def backbone_coords_indexed_residues(self) -> list[Residue]:
+        """Returns the Residue associated with each backbone Atom/Coord in the Structure
+
+        Returns:
+            Each Residue which owns the corresponding index in the .atoms/.coords attribute
+        """
+        if self.is_parent():
+            return self._coords_indexed_residues[self.backbone_indices].tolist()
+        else:
+            return self.parent._coords_indexed_residues[self.backbone_indices].tolist()
+
+    @property
+    def backbone_and_cb_coords_indexed_residues(self) -> list[Residue]:
+        """Returns the Residue associated with each backbone and CB Atom/Coord in the Structure
+
+        Returns:
+            Each Residue which owns the corresponding index in the .atoms/.coords attribute
+        """
+        if self.is_parent():
+            return self._coords_indexed_residues[self.backbone_and_cb_indices].tolist()
+        else:
+            return self.parent._coords_indexed_residues[self.backbone_and_cb_indices].tolist()
+
+    @property
+    def heavy_coords_indexed_residues(self) -> list[Residue]:
+        """Returns the Residue associated with each heavy Atom/Coord in the Structure
+
+        Returns:
+            Each Residue which owns the corresponding index in the .atoms/.coords attribute
+        """
+        if self.is_parent():
+            return self._coords_indexed_residues[self.heavy_indices].tolist()
+        else:
+            return self.parent._coords_indexed_residues[self.heavy_indices].tolist()
+
+    @property
+    def side_chain_coords_indexed_residues(self) -> list[Residue]:
+        """Returns the Residue associated with each side chain Atom/Coord in the Structure
+
+        Returns:
+            Each Residue which owns the corresponding index in the .atoms/.coords attribute
+        """
+        if self.is_parent():
+            return self._coords_indexed_residues[self.side_chain_indices].tolist()
+        else:
+            return self.parent._coords_indexed_residues[self.side_chain_indices].tolist()
+
+    @property
     def coords_indexed_residue_atoms(self) -> list[int]:
         """Returns a map of the Residue atom_indices for each Coord in the Structure
 
@@ -3453,12 +3502,16 @@ class Structure(StructureBase):
             residues = self.get_residues(numbers=residue_numbers)
             for residue in residues:
                 coords.extend(residue.heavy_coords)
-            coords_indexed_residues = [residue for residue in residues for _ in residue.heavy_atom_indices]
-        else:
-            heavy_atom_indices = self.heavy_atom_indices
-            coords = self.coords[heavy_atom_indices]
-            coords_indexed_residues = \
-                [residue for idx, residue in enumerate(self.coords_indexed_residues) if idx in heavy_atom_indices]
+            coords_indexed_residues = [residue for residue in residues for _ in residue.heavy_indices]
+        else:  # use all Residue instances
+            residues = self.residues
+            coords = self.heavy_coords
+            coords_indexed_residues = self.heavy_coords_indexed_residues
+
+        # in case this was already called, we should set all to 0.
+        if residues[0].local_density > 0:
+            for residue in residues:
+                residue.local_density = 0.
 
         all_atom_tree = BallTree(coords)
         all_atom_counts_query = all_atom_tree.query_radius(coords, distance, count_only=True)
@@ -3507,14 +3560,10 @@ class Structure(StructureBase):
             coords_type = 'coords'
             def measure_function(atom): return True
 
-        # set up the query indices
-        if self.contains_hydrogen:
-            heavy_atom_indices = self.heavy_atom_indices
-            atom_tree = BallTree(self.coords[heavy_atom_indices])
-            temp_coords_indexed_residues = self.coords_indexed_residues
-            coords_indexed_residues = [temp_coords_indexed_residues[idx] for idx in heavy_atom_indices]
-            # temp_coords_indexed_residue_atoms = self.coords_indexed_residue_atoms
-            # coords_indexed_residue_atoms = [temp_coords_indexed_residue_atoms[idx] for idx in heavy_atom_indices]
+        # set up the query indices. BallTree is faster upon timeit with 131 msec/loop
+        if self.contains_hydrogen():
+            atom_tree = BallTree(self.heavy_coords)
+            coords_indexed_residues = self.heavy_coords_indexed_residues
         else:
             atom_tree = BallTree(self.coords)
             coords_indexed_residues = self.coords_indexed_residues
@@ -4199,17 +4248,20 @@ class Structure(StructureBase):
         Returns:
             The floats representing the contact order for each Residue in the Structure
         """
-        # distance of 6 angstroms between heavy atoms was used for 1998 contact order work,
-        # subsequent residue wise contact order has focused on the Cb Cb heuristic of 12 A
-        # I think that an atom-atom based measure is more accurate, if slightly more time
-        # The BallTree creation is the biggest time cost regardless
+        # Get heavy Atom coordinates
+        coords = self.heavy_coords
+        # make and query a tree
+        tree = BallTree(coords)
+        query = tree.query_radius(coords, distance)
 
-        # Get CB Atom Coordinates including CA coordinates for Gly residues
-        tree = BallTree(self.coords)  # [self.heavy_atom_indices])  # Todo
-        # entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
-        query = tree.query_radius(self.coords, distance)  # get v residue w/ [0]
-        coords_indexed_residues = self.coords_indexed_residues
-        contacting_pairs = set((coords_indexed_residues[idx1], coords_indexed_residues[idx2])
+        residues = self.residues
+        # in case this was already called, we should set all to 0.
+        if residues[0].contact_order > 0:
+            for residue in residues:
+                residue.contact_order = 0.
+
+        heavy_atom_coords_indexed_residues = self.heavy_coords_indexed_residues
+        contacting_pairs = set((heavy_atom_coords_indexed_residues[idx1], heavy_atom_coords_indexed_residues[idx2])
                                for idx2, contacts in enumerate(query) for idx1 in contacts)
         # Residue.contact_order starts as 0., so we are adding any observation to that attribute
         for residue1, residue2 in contacting_pairs:
@@ -4217,8 +4269,8 @@ class Structure(StructureBase):
             if residue_sequence_distance >= sequence_distance_cutoff:
                 residue1.contact_order += residue_sequence_distance
 
-        number_residues = self.number_of_residues
-        for residue in self.residues:
+        number_residues = len(residues)
+        for residue in residues:
             residue.contact_order /= number_residues
 
         return [residue.contact_order for residue in residues]
