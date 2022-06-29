@@ -693,7 +693,9 @@ class PDB(Structure):
                     chain._start_indices(at=self.chains[prior_idx].atom_indices[-1] + 1, dtype='atom')
                     chain._start_indices(at=self.chains[prior_idx].residue_indices[-1] + 1, dtype='residue')
                 # set the arrayed attributes for all PDB containers
-                self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
+                # self._update_structure_container_attributes(_atoms=self._atoms, _residues=self._residues,
+                #                                            _coords=self._coords)
+                self._update_structure_container_attributes(_parent=self)
                 if rename_chains:
                     self.reorder_chains()
 
@@ -722,7 +724,9 @@ class PDB(Structure):
                     entity._start_indices(at=self.entities[prior_idx].atom_indices[-1] + 1, dtype='atom')
                     entity._start_indices(at=self.entities[prior_idx].residue_indices[-1] + 1, dtype='residue')
                 # set the arrayed attributes for all PDB containers (chains, entities)
-                self.update_attributes(_atoms=self._atoms, _residues=self._residues, _coords=self._coords)
+                # self._update_structure_container_attributes(_atoms=self._atoms, _residues=self._residues,
+                #                                            _coords=self._coords)
+                self._update_structure_container_attributes(_parent=self)
                 if rename_chains:  # set each successive Entity to have an incrementally higher chain id
                     available_chain_ids = self.return_chain_generator()
                     for idx, entity in enumerate(self.entities):
@@ -1650,7 +1654,8 @@ class PDB(Structure):
         # print('Updating new copy of \'%s\' attributes' % self.name)
         # This style v accomplishes the update that the super().__copy__() started using self.structure_containers
         # providing references to new, shared objects to each individual Structure container in the PDB
-        other.update_attributes(_residues=other._residues, _coords=other._coords)
+        # other.update_attributes(_residues=other._residues, _coords=other._coords)
+        other._update_structure_container_attributes(_parent=other)
         # memory_l = [self, self.chains[0], self.entities[0], self.entities[0].chains[0]]
         # memory_o = [other, other.chains[0], other.entities[0], other.entities[0].chains[0]]
         # print('The id in memory of self : %s\nstored coordinates is: %s' % (memory_l, list(map(getattr, memory_l, repeat('_coords')))))
