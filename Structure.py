@@ -4351,40 +4351,63 @@ class Structure(StructureBase):
 
 
 class Structures(Structure, UserList):
-    # todo
-    #  The inheritance of both a Structure and UserClass may get sticky...
-    #  As all the functions I have here overwrite Structure class functions, the inheritance may not be necessary
-    """Keep track of groups of Structure objects"""
-    def __init__(self, structures: list = None, **kwargs):  # log=None,
-        super().__init__(**kwargs)
-        # print('Initializing Structures')
-        # super().__init__()  # without passing **kwargs, there is no need to ensure base Object class is protected
-        # if log:
-        #     self.log = log
-        # elif log is None:
-        #     self.log = null_log
-        # else:  # When log is explicitly passed as False, use the module logger
-        #     self.log = logger
+    # Todo mesh inheritance of both  Structure and UserClass...
+    #  are all concatenated Structure methods and attributes accounted for?
+    #  ensure UserList .append(), .extend() etc. are allowed and work as intended or overwrite them
+    """Keep track of groups of Structure objects
 
-        if isinstance(structures, list):
-            if all([True if isinstance(structure, Structure) else False for structure in structures]):
-                # self.structures = structures
-                self.data = structures
-        #     else:
-        #         # self.structures = []
-        #         self.data = []
-        # else:
-        #     # self.structures = []
-        #     self.data = []
+    Pass the parent Structure with parent= to initialize .log, .coords, .atoms, and .residues
 
-    # @classmethod
-    # def from_file(cls, file, **kwargs):
-    #     """Construct Models from multimodel PDB file using the PDB.chains
-    #     Ex: [Chain1, Chain1, ...]
-    #     """
-    #     pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function
-    #     # new_model = cls(models=pdb.chains)
-    #     return cls(structures=pdb.chains, **kwargs)
+    Args:
+        structures: The Iterable of Structure to set the Structures with
+        dtype: The specific subclass of Structure that Structures contains
+    """
+    data: list[Structure]
+    dtype: str  # the type of Structure in instance
+
+    def __init__(self, structures: Iterable[Structure], dtype: str = None, **kwargs):
+        super().__init__(initlist=structures, **kwargs)  # initlist sets UserList.data to Iterable[Structure]
+
+        # Todo should Structures be allowed to be a parent...
+        if not self.data:  # set up an empty Structures
+            pass
+        elif all([True if isinstance(structure, Structure) else False for structure in self]):
+            # self.data = [structure for structure in structures]
+            self._atom_indices = []
+            for structure in self:
+                self._atom_indices.extend(structure.atom_indices)
+            self._residue_indices = []
+            for structure in self:
+                self._residue_indices.extend(structure.residue_indices)
+        else:
+            raise ValueError(f'Can\'t set {type(self).__name__} by passing '
+                             f'{", ".join(type(structure) for structure in self)}, must set with type [Structure, ...]'
+                             f'or an empty constructor. Ex: Structures()')
+
+        self.dtype = dtype if dtype else 'Structure'  # Todo Polymer?
+        # overwrite attributes in Structure
+        try:
+            self.name = f'{self.parent.name}-{self.dtype}_{Structures.__name__}'
+        except AttributeError:  # if not .parent.name
+            self._name = f'{"-".join(structure.name for structure in self)}_{Structures.__name__}'
+
+    # this setter would work in a world where Structures has it's own .coords, .atoms, and .residues
+    # @StructureBase._parent.setter
+    # def _parent(self, parent: StructureBase):
+    #     """Set the Coords object while propagating changes to symmetry "mate" chains"""
+    #     # peel parent off to protect StructureBase from .coords, .atoms, and .residues as these don't index parent
+    #     self._log = parent._log
+    #     self._coords = Coords(np.concatenate([structure.coords for structure in self.data]))
+    #
+    #     atoms = []
+    #     for structure in self.data:
+    #         atoms.extend(structure.atoms)
+    #     self._atoms = Atoms(atoms)
+    #
+    #     residues = []
+    #     for structure in self.data:
+    #         residues.extend(structure.residues)
+    #     self._residues = Residues(residues)
 
     @property
     def structures(self) -> list[Structure]:
@@ -4411,67 +4434,71 @@ class Structures(Structure, UserList):
     def number_of_structures(self):
         return len(self.data)
 
-    @property
-    def coords(self) -> np.ndarray:
-        """Return a view of the Coords from the Structures"""
-        try:
-            return self._coords.coords
-        except AttributeError:
-            # coords = [structure.coords for structure in self.data]  # self.structures
-            self._coords = Coords(np.concatenate([structure.coords for structure in self.data]))
+    # @property
+    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
+    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
+    #     return self._model_coords.coords
+    #
+    # @model_coords.setter
+    # def model_coords(self, coords):
+    #     if isinstance(coords, Coords):
+    #         self._model_coords = coords
+    #     else:
+    #         raise AttributeError(
+    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
+    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
 
-            return self._coords.coords
+    # @property
+    # def coords(self) -> np.ndarray:
+    #     """Return a view of the Coords from the Structures"""
+    #     try:
+    #         return self._coords.coords
+    #     except AttributeError:  # if not set by parent, try to set from each individual structure
+    #         self._coords = Coords(np.concatenate([structure.coords for structure in self]))
+    #         return self._coords.coords
+    #
+    # @property
+    # def atoms(self):
+    #     """Return a view of the Atoms from the Structures"""
+    #     try:
+    #         return self._atoms.atoms.tolist()
+    #     except AttributeError:  # if not set by parent, try to set from each individual structure
+    #         atoms = []
+    #         # for structure in self.structures:
+    #         for structure in self:
+    #             atoms.extend(structure.atoms)
+    #         self._atoms = Atoms(atoms)
+    #         return self._atoms.atoms.tolist()
+    #
+    # @property
+    # def residues(self):
+    #     try:
+    #         return self._residues.residues.tolist()
+    #     except AttributeError:  # if not set by parent, try to set from each individual structure
+    #         residues = []
+    #         for structure in self:
+    #             residues.extend(structure.residues)
+    #         self._residues = Residues(residues)
+    #         return self._residues.residues.tolist()
 
-    @property
-    def atoms(self):
-        """Return a view of the Atoms from the Structures"""
-        try:
-            return self._atoms.atoms.tolist()
-        except AttributeError:
-            atoms = []
-            # for structure in self.structures:
-            for structure in self.data:
-                atoms.extend(structure.atoms)
-            self._atoms = Atoms(atoms)
-            return self._atoms.atoms.tolist()
-
-    @property
-    def number_of_atoms(self):
-        """Return the number of atoms/coords in the Structures"""
-        return len(self.atoms)
-
-    @property
-    def residues(self):  # TODO Residues iteration
-        try:
-            return self._residues.residues.tolist()
-        except AttributeError:
-            residues = []
-            for structure in self.data:
-                residues.extend(structure.residues)
-            self._residues = Residues(residues)
-            return self._residues.residues.tolist()
-
-    @property
-    def number_of_residues(self):
-        return len(self.residues)
-
-    @property
-    def coords_indexed_residues(self) -> list[Residue]:
-        try:
-            return self._coords_indexed_residues
-        except AttributeError:
-            self._coords_indexed_residues = [residue for residue in self.residues for _ in residue.range]
-            return self._coords_indexed_residues
-
-    @property
-    def coords_indexed_residue_atoms(self) -> list[int]:
-        try:
-            return self._coords_indexed_residue_atoms
-        except AttributeError:
-            self._coords_indexed_residue_atoms = \
-                [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
-            return self._coords_indexed_residue_atoms
-
+    # the use of Structure methods for coords_indexed_residue* should work well
+    # @property
+    # def coords_indexed_residues(self) -> np.ndarray:
+    #     try:
+    #         return self._coords_indexed_residues
+    #     except AttributeError:
+    #         self._coords_indexed_residues = np.array([residue for residue in self.residues for _ in residue.range])
+    #         return self._coords_indexed_residues
+    #
+    # @property
+    # def coords_indexed_residue_atoms(self) -> np.ndarray:
+    #     try:
+    #         return self._coords_indexed_residue_atoms
+    #     except AttributeError:
+    #         self._coords_indexed_residue_atoms = \
+    #             np.array([res_atom_idx for residue in self.residues for res_atom_idx in residue.range])
+    #         return self._coords_indexed_residue_atoms
+    #
     # @property
     # def residue_indexed_atom_indices(self) -> list[list[int]]:
     #     """For every Residue in the Structure provide the Residue instance indexed, Structures Atom indices
@@ -4490,28 +4517,17 @@ class Structures(Structure, UserList):
     #             prior_range_idx = range_idx
     #         return self._residue_indexed_atom_indices
 
-    # @property
-    # def model_coords(self):  # TODO RECONCILE with coords, SymmetricModel, and State variation
-    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
-    #     return self._model_coords.coords
-    #
-    # @model_coords.setter
-    # def model_coords(self, coords):
-    #     if isinstance(coords, Coords):
-    #         self._model_coords = coords
-    #     else:
-    #         raise AttributeError(
-    #             'The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #             'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
-
     @property
     def backbone_indices(self):
         try:
             return self._backbone_indices
         except AttributeError:
             self._backbone_indices = []
-            for structure in self.data:
-                self._backbone_indices.extend(structure.coords_indexed_backbone_indices)
+            for structure in self:
+                self._backbone_indices.extend(structure.backbone_indices)
+                # this way would be according to indexing operations performed on this structure.coords/.atoms
+                # start_index = structure.start_index
+                # self._backbone_indices.extend([idx - start_index for idx in structure.backbone_indices])
             return self._backbone_indices
 
     @property
@@ -4520,8 +4536,11 @@ class Structures(Structure, UserList):
             return self._backbone_and_cb_indices
         except AttributeError:
             self._backbone_and_cb_indices = []
-            for structure in self.data:
-                self._backbone_and_cb_indices.extend(structure.coords_indexed_backbone_and_cb_indices)
+            for structure in self:
+                self._backbone_and_cb_indices.extend(structure.backbone_and_cb_indices)
+                # this way would be according to indexing operations performed on this structure.coords/.atoms
+                # start_index = structure.start_index
+                # self._backbone_and_cb_indices.extend([idx - start_index for idx in structure.backbone_and_cb_indices])
             return self._backbone_and_cb_indices
 
     @property
@@ -4530,8 +4549,11 @@ class Structures(Structure, UserList):
             return self._cb_indices
         except AttributeError:
             self._cb_indices = []
-            for structure in self.data:
-                self._cb_indices.extend(structure.coords_indexed_cb_indices)
+            for structure in self:
+                self._cb_indices.extend(structure.cb_indices)
+                # this way would be according to indexing operations performed on this structure.coords/.atoms
+                # start_index = structure.start_index
+                # self._cb_indices.extend([idx - start_index for idx in structure.cb_indices])
             return self._cb_indices
 
     @property
@@ -4540,112 +4562,156 @@ class Structures(Structure, UserList):
             return self._ca_indices
         except AttributeError:
             self._ca_indices = []
-            for structure in self.structures:
-                self._ca_indices.extend(structure.coords_indexed_ca_indices)
+            for structure in self:
+                self._ca_indices.extend(structure.ca_indices)
+                # this way would be according to indexing operations performed on this structure.coords/.atoms
+                # start_index = structure.start_index
+                # self._ca_indices.extend([idx - start_index for idx in structure.ca_indices])
             return self._ca_indices
 
-    # @property
-    # def center_of_mass(self):
-    #     """Returns: (numpy.ndarray)"""
-    #     structure_length = self.number_of_atoms
-    #     return np.matmul(np.full(structure_length, 1 / structure_length), self.coords)
+    @property
+    def heavy_indices(self):
+        try:
+            return self._heavy_indices
+        except AttributeError:
+            self._heavy_indices = []
+            for structure in self:
+                self._heavy_indices.extend(structure.heavy_indices)
+                # this way would be according to indexing operations performed on this structure.coords/.atoms
+                # start_index = structure.start_index
+                # self._heavy_indices.extend([idx - start_index for idx in structure.heavy_indices])
+            return self._heavy_indices
 
-    def translate(self, tx):
-        for structure in self.data:
-            structure.translate(tx)
+    @property
+    def side_chain_indices(self):
+        try:
+            return self._side_chain_indices
+        except AttributeError:
+            self._side_chain_indices = []
+            for structure in self:
+                self._side_chain_indices.extend(structure.side_chain_indices)
+                # this way would be according to indexing operations performed on this structure.coords/.atoms
+                # start_index = structure.start_index
+                # self._heavy_indices.extend([idx - start_index for idx in structure.side_chain_indices])
+            return self._side_chain_indices
 
-    def rotate(self, rotation):
-        for structure in self.data:
-            structure.rotate(rotation)
-
-    def transform(self, **kwargs):  # rotation=None, translation=None):
-        for structure in self.data:
-            structure.transform(**kwargs)
-
-    # def replace_coords(self, new_coords):
-    #     """Replace the current Coords array with a new Coords array"""
-    #     self._coords.coords = new_coords
-    #     total_atoms = 0
-    #     for structure in self.data:
-    #         new_atoms = total_atoms + structure.number_of_atoms
-    #         self._coords.coords[total_atoms: new_atoms] = structure.coords
-    #         total_atoms = new_atoms
-
-    # @classmethod
-    # def return_transformed_copy(cls, **kwargs):  # rotation=None, translation=None, rotation2=None, translation2=None):
-    #     # return Structures(structures=[structure.return_transformed_copy(**kwargs) for structure in self.structures])
-    #     return cls([structure.return_transformed_copy(**kwargs) for structure in self.structures])
-    #     # return cls(structures=[structure.return_transformed_copy(**kwargs) for structure in self.structures])
+    # These below should work when performed using the Structure superclass methods
+    # def translate(self, **kwargs):
+    #     """Perform a translation to the Structures ensuring only the Structure containers of interest are translated
+    #     ensuring the underlying coords are not modified
     #
-    def return_transformed_copy(self, **kwargs):  # rotation=None, translation=None, rotation2=None, translation2=None):
-        # print('Structures type %s' % self.__class__)
-        new_structures = self.__new__(self.__class__)
-        # print('Transformed Structure type (__new__) %s' % type(new_structures))
-        # print('self.__dict__ is %s' % self.__dict__)
-        new_structures.__init__([structure.return_transformed_copy(**kwargs) for structure in self.data],
-                                log=self.log)  # self.__dict__
-        # print('Transformed Structures, structures %s' % [structure for structure in new_structures.structures])
-        # print('Transformed Structures, models %s' % [structure for structure in new_structures.models])
-        return new_structures
-        # return Structures(structures=[structure.return_transformed_copy(**kwargs) for structure in self.structures])
+    #     Keyword Args:
+    #         translation=None (numpy.ndarray | list[float]): The first translation to apply, expected array shape (3,)
+    #     """
+    #     for structure in self:
+    #         structure.translate(**kwargs)
+    #
+    # def rotate(self, **kwargs):
+    #     """Perform a rotation to the Structures ensuring only the Structure containers of interest are rotated ensuring
+    #     the underlying coords are not modified
+    #
+    #     Keyword Args:
+    #         rotation=None (numpy.ndarray | list[list[float]]): The first rotation to apply, expected array shape (3, 3)
+    #     """
+    #     for structure in self:
+    #         structure.rotate(**kwargs)
+    #
+    # def transform(self, **kwargs):
+    #     """Perform a specific transformation to the Structures ensuring only the Structure containers of interest are
+    #     transformed ensuring the underlying coords are not modified
+    #
+    #     Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
+    #     rotation, translation, rotation2, translation2
+    #
+    #     Keyword Args:
+    #         rotation=None (numpy.ndarray | list[list[float]]): The first rotation to apply, expected array shape (3, 3)
+    #         translation=None (numpy.ndarray | list[float]): The first translation to apply, expected array shape (3,)
+    #         rotation2=None (numpy.ndarray | list[list[float]]): The second rotation to apply, expected array shape (3,
+    #             3)
+    #         translation2=None (numpy.ndarray | list[float]): The second translation to apply, expected array shape (3,)
+    #     """
+    #     for structure in self:
+    #         structure.transform(**kwargs)
+    #
+    # def return_transformed_copy(self, **kwargs):  # rotation=None, translation=None, rotation2=None, translation2=None):
+    #     """Make a semi-deep copy of the Structure object with the coordinates transformed in cartesian space
+    #
+    #     Transformation proceeds by matrix multiplication and vector addition with the order of operations as:
+    #     rotation, translation, rotation2, translation2
+    #
+    #     Keyword Args:
+    #         rotation=None (numpy.ndarray | list[list[float]]): The first rotation to apply, expected array shape (3, 3)
+    #         translation=None (numpy.ndarray | list[float]): The first translation to apply, expected array shape (3,)
+    #         rotation2=None (numpy.ndarray | list[list[float]]): The second rotation to apply, expected array shape (3,
+    #             3)
+    #         translation2=None (numpy.ndarray | list[float]): The second translation to apply, expected array shape (3,)
+    #     """
+    #     new_structures = self.__new__(self.__class__)
+    #     # print('Transformed Structure type (__new__) %s' % type(new_structures))
+    #     # print('self.__dict__ is %s' % self.__dict__)
+    #     new_structures.__init__([structure.return_transformed_copy(**kwargs) for structure in self])
+    #     # print('Transformed Structures, structures %s' % [structure for structure in new_structures.structures])
+    #     # print('Transformed Structures, models %s' % [structure for structure in new_structures.models])
+    #     return new_structures
+    #     # return Structures(structures=[structure.return_transformed_copy(**kwargs) for structure in self.structures])
 
-    def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, increment_chains: bool = True,
-              header: str = None, **kwargs) -> str | None:
-        """Write Structures to a file specified by out_path or with a passed file_handle
+    # def write(self, out_path: bytes | str = os.getcwd(), file_handle: IO = None, increment_chains: bool = True,
+    #           header: str = None, **kwargs) -> str | None:
+    #     """Write Structures to a file specified by out_path or with a passed file_handle
+    #
+    #     Args:
+    #         out_path: The location where the Structure object should be written to disk
+    #         file_handle: Used to write Structure details to an open FileObject
+    #         increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
+    #         header: If there is header information that should be included. Pass new lines with a "\n"
+    #     Returns:
+    #         The name of the written file if out_path is used
+    #     """
+    #     if file_handle:  # _Todo increment_chains compatibility
+    #         file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+    #         return
+    #
+    #     with open(out_path, 'w') as f:
+    #         if header:
+    #             if isinstance(header, str):
+    #                 f.write(header)
+    #             # if isinstance(header, Iterable):
+    #
+    #         if increment_chains:
+    #             available_chain_ids = self.return_chain_generator()
+    #             for structure in self.structures:
+    #                 chain = next(available_chain_ids)
+    #                 structure.write(file_handle=f, chain=chain)
+    #                 c_term_residue = structure.c_terminal_residue
+    #                 f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
+    #                                                                       c_term_residue.type, chain,
+    #                                                                       c_term_residue.number))
+    #         else:
+    #             for model_number, structure in enumerate(self.structures, 1):
+    #                 f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
+    #                 structure.write(file_handle=f)
+    #                 c_term_residue = structure.c_terminal_residue
+    #                 f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
+    #                                                                       c_term_residue.type, structure.chain_id,
+    #                                                                       c_term_residue.number))
+    #                 f.write('ENDMDL\n')
+    #
+    #     return out_path
 
-        Args:
-            out_path: The location where the Structure object should be written to disk
-            file_handle: Used to write Structure details to an open FileObject
-            increment_chains: Whether to write each Structure with a new chain name, otherwise write as a new Model
-            header: If there is header information that should be included. Pass new lines with a "\n"
-        Returns:
-            The name of the written file if out_path is used
-        """
-        if file_handle:  # Todo increment_chains compatibility
-            file_handle.write('%s\n' % self.return_atom_string(**kwargs))
-            return
-
-        with open(out_path, 'w') as f:
-            if header:
-                if isinstance(header, str):
-                    f.write(header)
-                # if isinstance(header, Iterable):
-
-            if increment_chains:
-                available_chain_ids = self.return_chain_generator()
-                for structure in self.structures:
-                    chain = next(available_chain_ids)
-                    structure.write(file_handle=f, chain=chain)
-                    c_term_residue = structure.c_terminal_residue
-                    f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
-                                                                          c_term_residue.type, chain,
-                                                                          c_term_residue.number))
-            else:
-                for model_number, structure in enumerate(self.structures, 1):
-                    f.write('{:9s}{:>4d}\n'.format('MODEL', model_number))
-                    structure.write(file_handle=f)
-                    c_term_residue = structure.c_terminal_residue
-                    f.write('{:6s}{:>5d}      {:3s} {:1s}{:>4d}\n'.format('TER', c_term_residue.atoms[-1].number + 1,
-                                                                          c_term_residue.type, structure.chain_id,
-                                                                          c_term_residue.number))
-                    f.write('ENDMDL\n')
-
-        return out_path
-
-    def __repr__(self):
-        return '<Structure.Structures object at %s>' % id(self)
+    def __repr__(self) -> str:
+        return f'<Structure.Structures object at {id(self)}>'
 
     # def __str__(self):
     #     return self.name
 
-    # def __len__(self) -> int:
-    #     return len(self.structures)
+    def __len__(self) -> int:
+        return len(self.data)
 
-    # def __iter__(self):
-    #     yield from iter(self.structures)
+    def __iter__(self) -> Structure:
+        yield from iter(self.data)
 
-    # def __getitem__(self, idx):
-    #     return self.structures[idx]
+    def __getitem__(self, idx: int) -> Structure:
+        return self.data[idx]
 
 
 class Chain(Structure):
