@@ -453,20 +453,53 @@ class Atom(StructureBase):
         try:
             return self._coords.coords[self._atom_indices]
         except AttributeError:  # possibly the Atom was set with keyword argument coords instead of Structure Coords
-            return np.ndarray(self.__coords)  # this shouldn't be used often as it will be quite slow... give warning?
-    #
-    # @coords.setter
-    # def coords(self, coords: np.ndarray | list[list[float]]):
-    #     if isinstance(coords, Coords):
-    #         self._coords = coords
-    #     else:
-    #         raise AttributeError('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #                              'view. To pass the Coords object for a Structure, use the private attribute _coords')
+            # this shouldn't be used often as it will be quite slow... give warning?
+            # Todo try this
+            #  self.parent._collect_coords()  # this should grab all Atom coords and make them _coords (Coords)
+            return self.__coords
+
+    @property
+    def x(self) -> float:
+        """Access the value for the x coordinate"""
+        return self.coords[0]
+
+    @x.setter
+    def x(self, x: float):
+        """Set the value for the x coordinate"""
+        try:
+            self._coords.replace(self._atom_indices, [x, self.coords[1], self.coords[2]])
+        except AttributeError:  # when _coords not used
+            self.__coords = [x, self.coords[1], self.coords[2]]
+
+    @property
+    def y(self) -> float:
+        """Access the value for the y coordinate"""
+        return self.coords[1]
+
+    @y.setter
+    def y(self, y: float):
+        """Set the value for the y coordinate"""
+        try:
+            self._coords.replace(self._atom_indices, [self.coords[0], y, self.coords[2]])
+        except AttributeError:  # when _coords not used
+            self.__coords = [self.coords[0], y, self.coords[2]]
+
+    @property
+    def z(self) -> float:
+        """Access the value for the z coordinate"""
+        return self.coords[2]
+
+    @z.setter
+    def z(self, z: float):
+        """Set the value for the z coordinate"""
+        try:
+            self._coords.replace(self._atom_indices, [self.coords[0], self.coords[1], z])
+        except AttributeError:  # when _coords not used
+            self.__coords = [self.coords[0], self.coords[1], z]
 
     def is_backbone(self) -> bool:
         """Is the Atom is a backbone Atom? These include N, CA, C, and O"""
-        # backbone_specific_atom_type = ['N', 'CA', 'C', 'O']  # Todo make a class attribute
-        return self.type in ['N', 'CA', 'C', 'O']
+        return self.type in protein_backbone_atom_types
 
     def is_cb(self, gly_ca: bool = True) -> bool:
         """Is the Atom a CB atom? Default returns True if Glycine and Atom is CA
@@ -491,21 +524,21 @@ class Atom(StructureBase):
     def __key(self) -> tuple[float, str]:
         return self.b_factor, self.type
 
-    def __str__(self, **kwargs) -> str:  # type=None, number=None, pdb=False, chain=None,
+    def __str__(self) -> str:  # type=None, number=None, pdb=False, chain=None, **kwargs
         """Represent Atom in PDB format"""
         # this annoyingly doesn't comply with the PDB format specifications because of the atom type field
         # ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- PDB format
         # ATOM     32 CG2  VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  <-- fstring print
-        # return'{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   {:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'
-        return '{:6s}%s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-            .format('ATOM', self.type, self.alt_location, self.code_for_insertion, self.occupancy, self.b_factor,
+        # Todo make return like PDB format correctly ^
+        return 'ATOM  %s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+            .format(self.type, self.alt_location, self.code_for_insertion, self.occupancy, self.b_factor,
                     self.element_symbol, self.atom_charge)
-        # ^ For future implement in residue writes
-        # v old atom writes
-        # return '{:6s}{:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
-        #        .format('ATOM', self.number, self.type, self.alt_location, self.residue_type, (chain or self.chain),
-        #                getattr(self, '%sresidue_number' % ('pdb_' if pdb else '')), self.code_for_insertion,
-        #                self.occupancy, self.b_factor, self.element_symbol, self.atom_charge)
+        # Todo if parent:  # return full ATOM record
+        # return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
+        #     '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+        #     .format(self.index, self.type, self.alt_location, self.residue_type, self.chain, self.residue_number,
+        #             self.code_for_insertion, *list(self.coords), self.occupancy, self.b_factor, self.element_symbol,
+        #             self.atom_charge)
 
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
@@ -895,17 +928,29 @@ class ResidueFragment(Fragment):
 
 
 class Residue(ResidueFragment, StructureBase):
-    _contact_order: float
-    _start_index: int
-    _atoms: Atoms | None
+    __backbone_indices: list[int]
+    __backbone_and_cb_indices: list[int]
+    __heavy_indices: list[int]
+    __side_chain_indices: list[int]
+    _atoms: Atoms
     _backbone_indices: list[int]
     _backbone_and_cb_indices: list[int]
+    _heavy_indices: list[int]
+    _side_chain_indices: list[int]
+    _start_index: int
+    _c_index: int
+    _ca_index: int
+    _cb_index: int
+    _h_index: int
+    _n_index: int
+    _o_index: int
+    _contact_order: float
+    _local_density: float
+    _next_residue: Residue
+    _prev_residue: Residue
+    _secondary_structure: str
     chain: str
-    coords: Coords
-    _sidechain_indices: list[int]
-    _heavy_atom_indices: list[int]
-    local_density: float
-    next_residue: Residue
+    # coords: Coords
     number: int
     number_pdb: int
     state_attributes: set[str] = super().state_attributes | \
@@ -933,7 +978,7 @@ class Residue(ResidueFragment, StructureBase):
                 raise IndexError('The Residue wasn\'t passed atom_indices which are required for initialization')
         # we are setting up a parent (independent) Residue
         elif atoms:  # is not None  # no parent passed, construct from atoms
-            self.assign_atoms(atoms, atoms_only=False)
+            self._assign_atoms(atoms, atoms_only=False)
             self.is_residue_valid()
             Structure._populate_coords(self, **kwargs)
             Structure._validate_coords(self)
@@ -946,9 +991,6 @@ class Residue(ResidueFragment, StructureBase):
         else:  # create an empty Residue
             self._atoms = Atoms()
         self.delegate_atoms()
-
-        self._contact_order = 0.
-        self.local_density = 0.
 
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
@@ -1954,8 +1996,15 @@ class Structure(StructureBase):
         parent: If a Structure is creating this Structure as a division of itself, pass the parent instance
     """
     _atoms: Atoms | None
-    _coords_indexed_residues: list[Residue]
-    _coords_indexed_residue_atoms: list[int]
+    _backbone_and_cb_indices: list[int]
+    _backbone_indices: list[int]
+    _ca_indices: list[int]
+    _cb_indices: list[int]
+    _heavy_indices: list[int]
+    _helix_cb_indices: list[int]
+    _side_chain_indices: list[int]
+    _coords_indexed_residues: np.ndarray  # list[Residue]
+    _coords_indexed_residue_atoms: np.ndarray  # list[int]
     _residues: Residues | None
     _residue_indices: list[int] | None
     biomt: list
