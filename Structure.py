@@ -1268,8 +1268,7 @@ class Residue(ResidueFragment, StructureBase):
     def heavy_indices(self, indices: Sequence[int]):
         self.__heavy_indices = indices
 
-    @property
-    def contains_hydrogen(self) -> bool:
+    def contains_hydrogen(self) -> bool:  # in Structure too
         """Returns whether the Residue contains hydrogen atoms"""
         return self.heavy_indices != self._atom_indices
 
@@ -2139,10 +2138,9 @@ class Structure(StructureBase):
     #     else:
     #         raise TypeError(f'The log type ({type(log)}) is not of the specified type logging.Logger')
 
-    @property
-    def contains_hydrogen(self) -> bool:
+    def contains_hydrogen(self) -> bool:  # in Residue too
         """Returns whether the Structure contains hydrogen atoms"""
-        return self.residues[0].contains_hydrogen
+        return self.residues[0].contains_hydrogen()
 
     # Below properties are considered part of the Structure state
     # Todo refactor properties to below here for accounting
@@ -3617,7 +3615,7 @@ class Structure(StructureBase):
         # SEQ A   10 PHE :   64.55
         # ...
         # \n EOF
-        if self.contains_hydrogen:
+        if self.contains_hydrogen():
             include_hydrogen = ['--hydrogen']  # the addition of hydrogen skews results quite a bit
         else:
             include_hydrogen = []
