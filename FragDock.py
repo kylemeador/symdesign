@@ -92,8 +92,8 @@ def find_docked_poses(sym_entry, ijk_frag_db, pdb1, pdb2, optimal_tx_params, com
         # Check if PDB1 and PDB2 backbones clash
         oligomer1_oligomer2_clash_time_start = time.time()
         # Todo @profile for KDTree or Neighbors 'brute'
-        kdtree_oligomer1_backbone = BallTree(pdb1_copy.get_backbone_and_cb_coords())
-        asu_cb_clash_count = kdtree_oligomer1_backbone.two_point_correlation(pdb2_copy.get_backbone_and_cb_coords(),
+        kdtree_oligomer1_backbone = BallTree(pdb1_copy.backbone_and_cb_coords)
+        asu_cb_clash_count = kdtree_oligomer1_backbone.two_point_correlation(pdb2_copy.backbone_and_cb_coords,
                                                                              [clash_dist])
         oligomer1_oligomer2_clash_time_end = time.time()
         oligomer1_oligomer2_clash_time = oligomer1_oligomer2_clash_time_end - oligomer1_oligomer2_clash_time_start
@@ -478,11 +478,12 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
                  % (pdb1.name, pdb2.name, pdb1.filepath, pdb2.filepath))
 
     # Set up Building Block2
-    pdb2_bb_cb_coords = pdb2.get_backbone_and_cb_coords()
+    pdb2_bb_cb_coords = pdb2.backbone_and_cb_coords
     oligomer2_backbone_cb_tree = BallTree(pdb2_bb_cb_coords)
 
     # Get Surface Fragments With Guide Coordinates Using COMPLETE Fragment Database
     get_complete_surf_frags2_time_start = time.time()
+    # complete_surf_frags2 = pdb2.get_fragment_residues(residues=pdb1.surface_residues, representatives=ijk_frag_db.reps)
     complete_surf_frags2 = \
         pdb2.get_fragments(residue_numbers=pdb2.get_surface_residues(), representatives=ijk_frag_db.reps)
 
@@ -512,9 +513,10 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # log.debug('init_surf_frag2_residues: %s' % slice_variable_for_log(init_surf_frag2_residues))
 
     # Set up Building Block1
-    oligomer1_backbone_cb_tree = BallTree(pdb1.get_backbone_and_cb_coords())
+    oligomer1_backbone_cb_tree = BallTree(pdb1.backbone_and_cb_coords)
 
     get_complete_surf_frags1_time_start = time.time()
+    # surf_frags1 = pdb1.get_fragment_residues(residues=pdb1.surface_residues, representatives=ijk_frag_db.reps)
     surf_frags1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues(), representatives=ijk_frag_db.reps)
 
     # calculate the initial match type by finding the predominant surface type
@@ -635,6 +637,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #################################
     if overlapping_ghost_frags:  # Todo finalize this!
         # surface ghost frag overlap from the same oligomer scratch code
+        # surf_frags1 = pdb1.get_fragment_residues(residues=pdb1.surface_residues, representatives=ijk_frag_db.reps)
         # surf_frags1 = pdb1.get_fragments(residue_numbers=pdb1.get_surface_residues())
         ghost_frags_by_residue1 = \
             [frag.get_ghost_fragments(ijk_frag_db.indexed_ghosts, clash_tree=oligomer1_backbone_cb_tree)
@@ -1243,13 +1246,13 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     #                           'rotation2': full_inv_rotation1[:, None, :, :],
     #                           'translation2': None}
     int_cb_and_frags_start = time.time()
-    pdb1_cb_balltree = BallTree(pdb1.get_cb_coords())
-    # pdb2_tiled_cb_coords = np.tile(pdb2.get_cb_coords(), (number_non_clashing_transforms, 1, 1))
+    pdb1_cb_balltree = BallTree(pdb1.cb_coords)
+    # pdb2_tiled_cb_coords = np.tile(pdb2.cb_coords(), (number_non_clashing_transforms, 1, 1))
     # transformed_pdb2_tiled_cb_coords = transform_coordinate_sets(pdb2_tiled_cb_coords, **tile_transform1)
     # inverse_transformed_pdb2_tiled_cb_coords = \
     #     transform_coordinate_sets(transformed_pdb2_tiled_cb_coords, **tile_transform2)
     inverse_transformed_pdb2_tiled_cb_coords = \
-        transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2.get_cb_coords(),
+        transform_coordinate_sets(transform_coordinate_sets(np.tile(pdb2.cb_coords,
                                                                     (number_non_clashing_transforms, 1, 1)),
                                                             **{'rotation': full_rotation2,
                                                                'translation': full_int_tx2[:, None, :],

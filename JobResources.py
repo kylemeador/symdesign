@@ -694,7 +694,7 @@ class FragmentDB:
 
     # def get_monofrag_cluster_rep_dict(self):
         self.reps = {int(os.path.splitext(file)[0]):
-                     PDB.from_file(os.path.join(root, file), entities=False, log=None).get_ca_coords()
+                     PDB.from_file(os.path.join(root, file), entities=False, log=None).ca_coords
                      for root, dirs, files in os.walk(monofrag_cluster_rep_dirpath) for file in files}
 
     def get_intfrag_cluster_rep_dict(self):
@@ -745,7 +745,7 @@ class FragmentDB:
         """From the fragment database, precompute all required data into arrays to populate Ghost Fragments"""
         for i_type in self.paired_frags:
             # must look up the partner coords by using stored chain_id
-            stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).get_backbone_coords()
+            stacked_bb_coords = np.array([frag_pdb.chain(frag_paired_chain).backbone_coords
                                           for j_dict in self.paired_frags[i_type].values()
                                           for frag_pdb, frag_paired_chain in j_dict.values()])
             # guide coords are stored with chain_id "9"

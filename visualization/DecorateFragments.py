@@ -31,9 +31,10 @@ def decorate_with_fragments(pdb_path, out_path=os.getcwd()):
     pdb1.renumber_residues()
 
     # Get Oligomer 1 Ghost Fragments With Guide Coordinates Using Initial Match Fragment Database
-    kdtree_oligomer1_backbone = BallTree(np.array(pdb1.get_backbone_coords()))
-    surface_residue_numbers = pdb1.get_surface_residues()
-    surf_frags_1 = pdb1.get_fragments(residue_numbers=surface_residue_numbers)
+    kdtree_oligomer1_backbone = BallTree(np.array(pdb1.backbone_coords))
+    surface_residues = pdb1.surface_residues
+    raise NotImplementedError('This is missing the FragmentDatabase. fragment_factory()')
+    surf_frags_1 = pdb1.get_fragment_residues(residues=pdb1.surface_residues, representatives=)
 
     ghost_frag_list = []
     # ghost_frag_guide_coords_list = []

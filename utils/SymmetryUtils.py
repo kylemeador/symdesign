@@ -289,8 +289,7 @@ def get_central_asu(pdb, uc_dimensions, design_dimension):  # Todo remove from F
         return pdb
     else:
         xyz_min_shifted_pdb_asu_coords_frac = cart_to_frac(pdb.coords, uc_dimensions) + xyz_min_shift_vec_frac
-        xyz_min_shifted_pdb_asu_coords_cart = frac_to_cart(xyz_min_shifted_pdb_asu_coords_frac, uc_dimensions)
-        pdb.replace_coords(xyz_min_shifted_pdb_asu_coords_cart)
+        pdb.coords = frac_to_cart(xyz_min_shifted_pdb_asu_coords_frac, uc_dimensions)
         # xyz_min_shifted_asu_pdb = copy.copy(pdb)
         # xyz_min_shifted_asu_pdb.set_coords(xyz_min_shifted_pdb_asu_coords_cart)
 
