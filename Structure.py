@@ -642,6 +642,12 @@ class Atoms:
         yield from self.atoms.tolist()
 
 
+class ContainsAtomsMixin:  # Todo put Atoms requiring methods in here
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        pass
+
+
 class GhostFragment:
     guide_coords: np.ndarray
     i_type: int
