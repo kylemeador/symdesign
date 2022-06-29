@@ -1595,6 +1595,25 @@ class Residue(ResidueFragment, StructureBase):
 
     # Below properties are considered part of the Residue state
     @property
+    def local_density(self) -> float:
+        """Describes how many heavy Atoms are within a distance (default = 12 Angstroms) of Residue heavy Atoms"""
+        try:
+            return self._local_density
+        except AttributeError:
+            self._local_density = 0.  # set to 0 so summation can occur
+            try:
+                self.parent.local_density()
+                return self._local_density
+            except AttributeError:
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.local_density.__name__}" '
+                                     f'attribute! Ensure you call {Structure.local_density.__name__} before you request'
+                                     f' Residue local density information')
+
+    @local_density.setter
+    def local_density(self, local_density: float):
+        self._local_density = local_density
+
+    @property
     def secondary_structure(self) -> str:
         """Return the secondary structure designation as defined by a secondary structure calculation"""
         try:
@@ -1650,9 +1669,14 @@ class Residue(ResidueFragment, StructureBase):
                 self._segregate_sasa()
                 return self._sasa_apolar
             except AttributeError:  # missing atom.sasa
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_apolar.__name__}" '
-                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                                     f'Residue SASA information')
+                try:  # to use parent to get_sasa()
+                    self.parent.get_sasa()
+                    self._segregate_sasa()
+                    return self._sasa_apolar
+                except AttributeError:
+                    raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_apolar.__name__}" '
+                                         f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                                         f'Residue SASA information')
 
     @sasa_apolar.setter
     def sasa_apolar(self, sasa: float | int):
@@ -1670,9 +1694,14 @@ class Residue(ResidueFragment, StructureBase):
                 self._segregate_sasa()
                 return self._sasa_polar
             except AttributeError:  # missing atom.sasa
-                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_polar.__name__}" '
-                                     f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
-                                     f'Residue SASA information')
+                try:  # to use parent to get_sasa()
+                    self.parent.get_sasa()
+                    self._segregate_sasa()
+                    return self._sasa_polar
+                except AttributeError:
+                    raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.sasa_polar.__name__}" '
+                                         f'attribute! Ensure you call {Structure.get_sasa.__name__} before you request '
+                                         f'Residue SASA information')
 
     @sasa_polar.setter
     def sasa_polar(self, sasa: float | int):
@@ -1690,9 +1719,14 @@ class Residue(ResidueFragment, StructureBase):
         try:
             return self._contact_order
         except AttributeError:
-            raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.contact_order.__name__}" attribute!'
-                                 f' Ensure you call {Structure.contact_order.__name__} before you request Residue '
-                                 f'contact order information')
+            self._contact_order = 0.  # set to 0 so summation can occur
+            try:
+                self.parent.contact_order
+                return self._contact_order
+            except AttributeError:
+                raise AttributeError(f'Residue {self.number}{self.chain} has no ".{self.contact_order.__name__}" '
+                                     f'attribute! Ensure you call {Structure.contact_order.__name__} before you request'
+                                     f' Residue contact order information')
 
     @contact_order.setter
     def contact_order(self, contact_order: float):
