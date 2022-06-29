@@ -999,6 +999,15 @@ class Residue(ResidueFragment, StructureBase):
         self._atoms = parent._atoms
         # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
+    @StructureBase.coords.setter
+    def coords(self, coords: np.ndarray | list[list[float]]):
+        """Set the Residue coords according to a new coordinate system. Transforms .guide_coords to the new reference"""
+        if self.i_type:  # a Fragment has been assigned. Transform the guide_coords according to the new coords
+            _, rot, tx, _ = superposition3d(self.coords, coords)
+            self.guide_coords = np.matmul(self.guide_coords, np.transpose(rot))
+        StructureBase.coords.fset(self, coords)  # prefer this over below, as this mechanism could change
+        # self._coords.replace(self._atom_indices, coords)
+
     def is_residue_valid(self) -> bool:
         """Returns True if the Residue is constructed properly otherwise raises an error
 
