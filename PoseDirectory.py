@@ -50,8 +50,7 @@ from SymDesignUtils import unpickle, start_log, null_log, handle_errors, write_s
     condensed_to_square, sym, index_intersection, z_score, large_color_array, starttime
 from classes.EulerLookup import EulerLookup
 from classes.SymEntry import SymEntry, symmetry_factory
-from utils.SymmetryUtils import identity_matrix, origin
-
+from utils.SymmetryUtils import identity_matrix, origin, SymmetryError
 
 # Globals
 logger = start_log(name=__name__)
@@ -831,21 +830,22 @@ class PoseDirectory:
         # total_residue_counts = []
         minimum_radius, maximum_radius = float('inf'), 0
         for idx, entity in enumerate(self.pose.entities, 1):
-            min_rad = entity.distance_to_reference(measure='min')
+            if self.design_dimension and self.design_dimension > 0:
+                raise SymmetryError('Need to add keyword reference= to Structure.distance_from_reference() call')
+            min_rad = entity.distance_from_reference(measure='min')  # Todo add reference=
             if min_rad < minimum_radius:
                 minimum_radius = min_rad
-            max_rad = entity.distance_to_reference(measure='max')
+            max_rad = entity.distance_from_reference(measure='max')  # Todo add reference=
             if max_rad > maximum_radius:
                 maximum_radius = max_rad
             # distances.append(np.array([ent_idx, ent_com, min_rad, max_rad]))
             # distances[entity] = np.array([ent_idx, ent_com, min_rad, max_rad, entity.number_of_residues])
             # total_residue_counts.append(entity.number_of_residues)
-            ent_com = entity.distance_to_reference()
             metrics.update({
                 f'entity_{idx}_symmetry': entity.symmetry if entity.is_oligomeric() else 'asymmetric',
                 f'entity_{idx}_name': entity.name,
                 f'entity_{idx}_number_of_residues': entity.number_of_residues,
-                f'entity_{idx}_radius': ent_com,
+                f'entity_{idx}_radius': entity.distance_from_reference(),  # Todo add reference=
                 f'entity_{idx}_min_radius': min_rad, f'entity_{idx}_max_radius': max_rad,
                 f'entity_{idx}_n_terminal_helix': entity.is_termini_helical(),
                 f'entity_{idx}_c_terminal_helix': entity.is_termini_helical(termini='c'),
@@ -2751,7 +2751,7 @@ class PoseDirectory:
         per_residue_data = {'errat_deviation': {}, 'hydrophobic_collapse': {}, 'contact_order': {},
                             'sasa_hydrophobic_complex': {}, 'sasa_polar_complex': {}, 'sasa_relative_complex': {},
                             'sasa_hydrophobic_bound': {}, 'sasa_polar_bound': {}, 'sasa_relative_bound': {}}
-        interface_local_density, atomic_deviation = {pose_source: self.pose.interface_local_density()}, {}
+        interface_local_density, atomic_deviation = {pose_source: self.pose.local_density_interface()}, {}
         pose_assembly_minimally_contacting = self.pose.assembly_minimally_contacting
         # perform SASA measurements
         pose_assembly_minimally_contacting.get_sasa()
@@ -2823,7 +2823,8 @@ class PoseDirectory:
 
             # must find interface residues before measure local_density
             pose.find_and_split_interface()
-            interface_local_density[pose.name] = pose.interface_local_density()
+            # this is a measurement of interface_connectivity like from Rosetta  Todo remove Rosetta and use here
+            interface_local_density[pose.name] = pose.local_density_interface()
             assembly_minimally_contacting = pose.assembly_minimally_contacting
             atomic_deviation[pose.name], per_residue_errat = \
                 assembly_minimally_contacting.errat(out_path=self.data)

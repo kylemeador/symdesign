@@ -18,7 +18,7 @@ import PathUtils as PUtils
 from DesignMetrics import calculate_match_metrics, fragment_metric_template, format_fragment_metrics
 from JobResources import fragment_factory, Database, FragmentDatabase
 from PDB import PDB, parse_cryst_record
-from SequenceProfile import SequenceProfile
+from SequenceProfile import SequenceProfile, alignment_types
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
     write_frag_match_info_file, Fragment, StructureBase
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
@@ -1109,12 +1109,13 @@ class SymmetricModel(Models):
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.coords = coords
-        StructureBase.coords.fset(self, coords)
+        StructureBase.coords.fset(self, coords)  # prefer this over below, as this mechanism could change
+        # self._coords.replace(self._atom_indices, coords)
         if self.symmetry:  # set the symmetric coords according to the ASU
             self.generate_symmetric_coords()
-        # Todo delete any saved attributes from the SymmetricModel
-        #  self._asu_model_idx
-        #  self._oligomeric_model_indices
+
+        # delete any saved attributes from the SymmetricModel (or Model)
+        self.reset_state()
 
     @property
     def asu_indices(self) -> slice:  # list[int]
@@ -1131,12 +1132,14 @@ class SymmetricModel(Models):
         """Return a view of the symmetric models Coords"""
         return self._models_coords.coords
 
-    @symmetric_coords.setter
-    def symmetric_coords(self, coords: Coords | np.ndarray | list[list[float]]):
-        if isinstance(coords, Coords):
-            self._symmetric_coords = coords
-        else:
-            self._symmetric_coords = Coords(coords)
+    # @symmetric_coords.setter
+    # def symmetric_coords(self, coords: np.ndarray | list[list[float]]):
+    #     if isinstance(coords, Coords):
+    #         self._symmetric_coords = coords
+    #     else:
+    #         self._symmetric_coords = Coords(coords)
+    #     Todo make below standard (like StructureBase) once symmetric_coords are part of other Structures (Entity?)
+    #     self._symmetric_coords.replace(self.get_symmetric_indices(self._atom_indices), coords)
 
     @property
     def symmetric_coords_split(self) -> list[np.ndarray]:
@@ -1202,7 +1205,7 @@ class SymmetricModel(Models):
         return [np.matmul(entity.center_of_mass, self.expand_matrices) for entity in self.entities]
 
     @property
-    def assembly(self) -> Structure:
+    def assembly(self) -> Model:
         """Provides the Structure object containing all symmetric chains in the assembly unless the design is 2- or 3-D
         then the assembly only contains the contacting models"""
         try:
@@ -1216,12 +1219,12 @@ class SymmetricModel(Models):
                 chains = []
                 for model in self.models:
                     chains.extend(model.chains)
-                self._assembly = PDB.from_chains(chains, name='assembly', log=self.log, entities=False,
-                                                 biomt_header=self.format_biomt(), cryst_record=self.cryst_record)
+                self._assembly = Model.from_chains(chains, name='assembly', log=self.log, entities=False,
+                                                   biomt_header=self.format_biomt(), cryst_record=self.cryst_record)
             return self._assembly
 
     @property
-    def assembly_minimally_contacting(self) -> Structure:  # Todo reconcile mechanism with Entity.oligomer
+    def assembly_minimally_contacting(self) -> Model:  # Todo reconcile mechanism with Entity.oligomer
         """Provides the Structure object only containing the Symmetric Models contacting the ASU"""
         try:
             return self._assembly_minimally_contacting
@@ -1236,8 +1239,8 @@ class SymmetricModel(Models):
             for idx in [0] + interacting_model_indices:  # add the ASU to the model first
                 chains.extend(self.models[idx].chains)
             self._assembly_minimally_contacting = \
-                PDB.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
-                                cryst_record=self.cryst_record, entities=False)
+                Model.from_chains(chains, name='assembly', log=self.log, biomt_header=self.format_biomt(),
+                                  cryst_record=self.cryst_record, entities=False)
             return self._assembly_minimally_contacting
 
     def generate_symmetric_coords(self, surrounding_uc: bool = True):
@@ -1264,7 +1267,7 @@ class SymmetricModel(Models):
         #     # get_pdb_coords = getattr(PDB, 'coords')
         #     self.coords_type = 'all'
         # else:
-        #     # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+        #     # get_pdb_coords = getattr(PDB, 'backbone_and_cb_coords')
         #     self.coords_type = 'bb_cb'
 
         # self.number_of_symmetry_mates = valid_subunit_number[self.symmetry]
@@ -1291,7 +1294,7 @@ class SymmetricModel(Models):
         #     # get_pdb_coords = getattr(PDB, 'coords')
         #     self.coords_type = 'all'
         # else:
-        #     # get_pdb_coords = getattr(PDB, 'get_backbone_and_cb_coords')
+        #     # get_pdb_coords = getattr(PDB, 'backbone_and_cb_coords')
         #     self.coords_type = 'bb_cb'
         else:
             if surrounding_uc:
@@ -1315,7 +1318,7 @@ class SymmetricModel(Models):
                 # uc_number = 1
                 symmetric_coords = self.return_unit_cell_coords(self.coords)
 
-        self.symmetric_coords = Coords(symmetric_coords)
+        self._symmetric_coords = Coords(symmetric_coords)
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return fractional coordinates from cartesian coordinates
@@ -1629,7 +1632,7 @@ class SymmetricModel(Models):
                           f'{type(self).__name__} is being taken which is probably relying on PDB.__copy__ or '
                           f'Structure.__copy__. These may not be adequate and need to be overwritten')
         # Caution, this function will return poor if the number of atoms in the structure is 1!
-        coords = structure.coords if return_side_chains else structure.get_backbone_and_cb_coords()
+        coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
         uc_number = 1
         if self.dimension == 0:
             # return self.return_point_group_copies(structure, **kwargs)
@@ -1692,7 +1695,7 @@ class SymmetricModel(Models):
     #         The symmetric copies of the input structure
     #     """
     #     # Caution, this function will return poor if the number of atoms in the structure is 1!
-    #     coords = structure.coords if return_side_chains else structure.get_backbone_and_cb_coords()
+    #     coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
     #     # Favoring this alternative way as it is more explicit
     #     coord_set = (np.matmul(np.tile(coords, (self.number_of_symmetry_mates, 1, 1)),
     #                            self.expand_matrices) + self.expand_translations).reshape(-1, 3)
@@ -1716,7 +1719,7 @@ class SymmetricModel(Models):
     #         The symmetric copies of the input structure
     #     """
     #     # Caution, this function will return poor if the number of atoms in the structure is 1!
-    #     coords = structure.coords if return_side_chains else structure.get_backbone_and_cb_coords()
+    #     coords = structure.coords if return_side_chains else structure.backbone_and_cb_coords
     #
     #     if surrounding_uc:
     #         # return self.return_surrounding_unit_cell_symmetry_mates(structure, **kwargs)  # return_side_chains
@@ -2187,12 +2190,12 @@ class SymmetricModel(Models):
                 np.zeros(sum(map(prod, combinations((entity.number_of_monomers for entity in entities), 2))))
             for entity1, entity2 in combinations(entities, 2):
                 for chain1 in entity1.chains:
-                    chain_cb_coord_tree = BallTree(chain1.get_cb_coords())
+                    chain_cb_coord_tree = BallTree(chain1.cb_coords)
                     for chain2 in entity2.chains:
                         entity_combinations.append((entity1, entity2))
                         chain_combinations.append((chain1, chain2))
                         contact_count[idx] = \
-                            chain_cb_coord_tree.two_point_correlation(chain2.get_cb_coords(), [distance])[0]
+                            chain_cb_coord_tree.two_point_correlation(chain2.cb_coords, [distance])[0]
                         idx += 1
 
             max_contact_idx = contact_count.argmax()
@@ -2629,7 +2632,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         index_cluster_labels = kmeans_cluster_model.labels_
         # find the label where the asu is nearest too
         asu_label = kmeans_cluster_model.predict(entities_asu_com[None, :])  # add new first axis
-        # asu_interface_labels = kmeans_cluster_model.predict(interface_asu_structure.get_cb_coords())
+        # asu_interface_labels = kmeans_cluster_model.predict(interface_asu_structure.cb_coords)
 
         # closest_interface_indices = np.where(index_cluster_labels == 0, True, False)
         # [False, False, False, True, True, True, True, True, True, False, False, False, False, False, ...]
@@ -2695,10 +2698,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         if not entity1_indices or not entity2_indices:
             return
 
-        # coords_length = len(self.coords)
-        number_of_atoms = self.number_of_atoms
-        if self.symmetry:
-            sym_string = 'symmetric '
+        if self.symmetry:  # get the symmetric indices of interest
             self.log.debug(f'Number of Atoms in Pose: {number_of_atoms}')
             # get all symmetric indices
             entity2_indices = [idx + (number_of_atoms * model_number)
@@ -2716,6 +2716,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                 entity2_indices = list(set(entity2_indices).difference(remove_indices))
                 self.log.debug(f'Final indices remaining after removing "self": {len(entity2_indices)}')
             entity2_coords = self.symmetric_coords[entity2_indices]  # get the symmetric indices from Entity 2
+            sym_string = 'symmetric '
         elif entity1 == entity2:
             # without symmetry, we can't measure this, unless intra-oligomeric contacts are desired
             self.log.warning('Entities are the same, but no symmetry is present. The interface between them will not be'
@@ -2723,7 +2724,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
             raise NotImplementedError('These entities shouldn\'t necessarily be equal. This issue needs to be addressed'
                                       'by expanding the __eq__ method of Entity to more accurately reflect what a '
                                       'Structure object represents programmatically')
-            return
+            # return
         else:
             sym_string = ''
             entity2_coords = self.coords[entity2_indices]  # only get the coordinate indices we want
@@ -2738,15 +2739,10 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         # Return residue numbers of identified coordinates
         self.log.info(f'Querying {len(entity1_indices)} CB residues in Entity {entity1.name} versus, '
                       f'{len(entity2_indices)} CB residues in {sym_string}Entity {entity2.name}')
-        # contacting_pairs = [(pdb_residues[entity1_indices[entity1_idx]],
-        #                      pdb_residues[entity2_indices[entity2_idx]])
-        #                    for entity2_idx in range(entity2_query.size) for entity1_idx in entity2_query[entity2_idx]]
 
-        # contacting_pairs = [(pdb_atoms[entity1_indices[entity1_idx]].residue_number,
-        #                      pdb_atoms[entity2_indices[entity2_idx]].residue_number)
-        #                     for entity2_idx, entity1_contacts in enumerate(entity2_query)
-        #                     for entity1_idx in entity1_contacts]
         coords_indexed_residues = self.coords_indexed_residues
+        # get the modulus of the number_of_atoms to account for symmetry if used
+        number_of_atoms = self.number_of_atoms
         contacting_pairs = [(coords_indexed_residues[entity1_indices[entity1_idx]],
                              coords_indexed_residues[entity2_indices[entity2_idx] % number_of_atoms])
                             for entity2_idx, entity1_contacts in enumerate(entity2_query)
@@ -2821,19 +2817,29 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         Returns:
             The Atom indices for the interface
         """
-        residues1, residues2 = self.interface_residues.get((entity1, entity2))
+        try:
+            residues1, residues2 = self.interface_residues[(entity1, entity2)]
+        except KeyError:  # when interface_residues haven't been set
+            self.find_interface_residues(entity1=entity1, entity2=entity2)
+            try:
+                residues1, residues2 = self.interface_residues[(entity1, entity2)]
+            except KeyError:
+                raise DesignError(f'{self.find_interface_atoms.__name__} can\'t access interface_residues as the Entity'
+                                  f' pair {entity1.name}, {entity2.name} hasn\'t located interface_residues')
+
         if not residues1:
             return
-        if not residues2:  # check if the interface is a self and all residues are in residues1
-            residues2 = residues1
-
         entity1_indices: list[int] = []
         for residue in residues1:
             entity1_indices.extend(residue.heavy_atom_indices)
 
-        entity2_indices: list[int] = []
-        for residue in residues2:
-            entity2_indices.extend(residue.heavy_atom_indices)
+        if not residues2:  # check if the interface is a symmetric self dimer and all residues are in residues1
+            # residues2 = residues1
+            entity2_indices = entity1_indices
+        else:
+            entity2_indices: list[int] = []
+            for residue in residues2:
+                entity2_indices.extend(residue.heavy_atom_indices)
 
         if self.symmetry:  # get all symmetric indices
             # number_of_atoms = len(self.coords)
@@ -2849,8 +2855,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                             for entity1_idx in entity1_contacts]
         return contacting_pairs
 
-    def interface_local_density(self, distance: float = 12.) -> float:
-        """Returns the average density of heavy atoms which neighbor the Atoms in the Pose interface
+    def local_density_interface(self, distance: float = 12.) -> float:
+        """Returns the density of heavy Atoms neighbors within 'distance' Angstroms to Atoms in the Pose interface
 
         Args:
             distance: The cutoff distance with which Atoms should be included in local density
@@ -2863,9 +2869,11 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                 split_number_pairs_and_sort(self.find_interface_atoms(entity1=entity1, entity2=entity2))
             interface_indices1.extend(atoms_indices1), interface_indices2.extend(atoms_indices2)
 
-        # operation assumes ASU is model_coords group 1
-        # self.coords uses the symmetric coords if a symmetric model
-        interface_coords = self.coords[list(set(interface_indices1).union(interface_indices2))]
+        if self.symmetry:
+            interface_coords = self.symmetric_coords[list(set(interface_indices1).union(interface_indices2))]
+        else:
+            interface_coords = self.coords[list(set(interface_indices1).union(interface_indices2))]
+
         interface_tree = BallTree(interface_coords)
         interface_counts = interface_tree.query_radius(interface_coords, distance, count_only=True)
 
@@ -2891,19 +2899,19 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         # residue_numbers1 = sorted(residue.number for residue in entity1_residues)
         # surface_frags1 = entity1.get_fragments(residue_numbers=residue_numbers1,
         #                                        representatives=self.fragment_db.reps)
-        frag_residues1 = entity1.assign_fragments(residue_numbers=entity1_residues,
-                                                  representatives=self.fragment_db.reps)
-
+        frag_residues1 = entity1.get_fragment_residues(residue_numbers=entity1_residues,
+                                                       representatives=self.fragment_db.reps)
         if not entity2_residues:  # entity1 == entity2 and not entity2_residues:
             # entity1_residues = set(entity1_residues + entity2_residues)
             entity2_residues = entity1_residues
+            frag_residues2 = frag_residues1
             # residue_numbers2 = residue_numbers1
         else:
             # residue_numbers2 = sorted(residue.number for residue in entity2_residues)
             # surface_frags2 = entity2.get_fragments(residue_numbers=residue_numbers2,
             #                                        representatives=self.fragment_db.reps)
-        frag_residues2 = entity2.assign_fragments(residue_numbers=entity2_residues,
-                                                  representatives=self.fragment_db.reps)
+            frag_residues2 = entity2.get_fragment_residues(residue_numbers=entity2_residues,
+                                                           representatives=self.fragment_db.reps)
 
         # self.log.debug(f'At Entity {entity1.name} | Entity {entity2.name} interface, searching for fragments at the '
         #                f'surface of:\n\tEntity {entity1.name}: Residues {", ".join(map(str, residue_numbers1))}'
@@ -2936,7 +2944,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                 entity2_residues.extend(frag for sym_idx, frag in enumerate(frag_mates) if sym_idx not in skip_models)
             self.log.debug(f'Entity {entity2.name} has {len(frag_residues2)} symmetric fragments')
 
-        entity1_coords = entity1.get_backbone_and_cb_coords()  # for clash check, we only want the backbone and CB
+        entity1_coords = entity1.backbone_and_cb_coords  # for clash check, we only want the backbone and CB
         ghostfrag_surfacefrag_pairs = find_fragment_overlap(entity1_coords, frag_residues1, frag_residues2,
                                                             fragdb=self.fragment_db, euler_lookup=self.euler_lookup)
         self.log.info(f'Found {len(ghostfrag_surfacefrag_pairs)} overlapping fragment pairs at the {entity1.name} | '
@@ -3160,8 +3168,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                 self.log.debug('Query Pair: %s, %s\n\tFragment Info:%s' % (query_pair[0].name, query_pair[1].name,
                                                                            fragment_info))
                 for query_idx, entity in enumerate(query_pair):
-                    entity.assign_fragments(fragments=fragment_info,
-                                            alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
+                    entity.map_fragments_to_profile(fragments=fragment_info, alignment_type=alignment_types[query_idx])
         for entity in self.entities:
             # TODO Insert loop identifying comparison of SEQRES and ATOM before SeqProf.calculate_design_profile()
             if entity not in self.active_entities:  # we shouldn't design, add a null profile instead
@@ -3224,6 +3231,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         """Return fragment metrics from the Pose. Entire Pose unless by_interface or by_entity is used
 
         Uses data from self.fragment_queries unless fragments are passed
+
         Args:
             fragments: A list of fragment observations
             by_interface: Return fragment metrics for each particular interface found in the Pose
@@ -3235,7 +3243,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                       central_residues_with_fragment_overlap, multiple_frag_ratio, fragment_content_d}, ... }
         """
         # Todo consolidate return to (dict[(dict)]) like by_entity
-        # Todo once moved to pose, incorporate these?
+        # Todo incorporate these
         #  'fragment_cluster_ids': ','.join(clusters),
         #  'total_interface_residues': total_residues,
         #  'percent_residues_fragment_total': percent_interface_covered,
@@ -3256,9 +3264,9 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                         continue
                     if (entity1, entity2) in query_pair or (entity2, entity1) in query_pair:
                         return format_fragment_metrics(metrics)
-                self.log.info('Couldn\'t locate query metrics for Entity pair %s, %s' % (entity1.name, entity2.name))
+                self.log.info(f'Couldn\'t locate query metrics for Entity pair {entity1.name}, {entity2.name}')
             else:
-                self.log.error('%s: entity1 or entity1 can\'t be None!' % self.return_fragment_metrics.__name__)
+                self.log.error(f'{self.return_fragment_metrics.__name__}: entity1 or entity1 can\'t be None!')
 
             return fragment_metric_template
         elif by_entity:
@@ -3316,7 +3324,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
                 metric_d['percent_fragment_coil'] /= (metric_d['number_fragments'] * 2)  # account for 2x observations
             except ZeroDivisionError:
                 metric_d['percent_fragment_helix'], metric_d['percent_fragment_strand'], \
-                    metric_d['percent_fragment_coil'] = 0, 0, 0
+                    metric_d['percent_fragment_coil'] = 0., 0., 0.
 
             return metric_d
 
@@ -3810,9 +3818,9 @@ def get_interface_fragment_residue_numbers(pdb1, pdb2, interacting_pairs):
 
 def get_interface_fragment_chain_residue_numbers(pdb1, pdb2, cb_distance=8):
     """Given two PDBs, return the unique chain and interacting residue lists"""
-    pdb1_cb_coords = pdb1.get_cb_coords()
+    pdb1_cb_coords = pdb1.cb_coords
     pdb1_cb_indices = pdb1.cb_indices
-    pdb2_cb_coords = pdb2.get_cb_coords()
+    pdb2_cb_coords = pdb2.cb_coords
     pdb2_cb_indices = pdb2.cb_indices
 
     pdb1_cb_kdtree = BallTree(np.array(pdb1_cb_coords))

@@ -31,6 +31,8 @@ from SymDesignUtils import handle_errors, unpickle, get_base_root_paths_recursiv
 logger = start_log(name=__name__)
 index_offset = 1
 # alph_3_aa = ['A', 'R', 'N', 'D', 'C', 'Q', 'E', 'G', 'H', 'I', 'L', 'K', 'M', 'F', 'P', 'S', 'T', 'W', 'Y', 'V']
+alignment_types_literal = Literal['mapped', 'paired']
+alignment_types: tuple[alignment_types_literal] = get_args(alignment_types_literal)
 sequence_type_literal = Literal['reference', 'structure']
 sequence_types: tuple[sequence_type_literal] = get_args(sequence_type_literal)
 protein_letter_literals = \
@@ -189,7 +191,7 @@ class SequenceProfile:
     Currently, Entity and Pose contain the necessary .reference_sequence attribute. Any Structure object with a
     .reference_sequence attribute could be used however
     """
-    idx_to_alignment_type = {0: 'mapped', 1: 'paired'}
+    number_of_residues: int
     reference_sequence: str
     structure_sequence: str
 
@@ -215,29 +217,23 @@ class SequenceProfile:
         # self.sequence_source = None
         self.sequence_file: str | bytes | None = None
 
-    @classmethod
-    def from_structure(cls, structure=None):
-        return cls(structure=structure)
-
-    @property
-    def profile_length(self):
-        return self.number_of_residues
-
-    @property
-    def offset(self) -> int:
-        """Return the starting index for the Entity based on pose numbering of the residues"""
-        return self.residues[0].number - 1
-
-    # @offset.setter
-    # def offset(self, offset):
-    #     self._entity_offset = offset
+    # @classmethod
+    # def from_structure(cls, structure=None):
+    #     return cls(structure=structure)
 
     # @property
-    # def structure_sequence(self):
-    #     return self.sequence
+    # def profile_length(self) -> int:
+    #     """Returns the number of Structured residues"""
+    #     return self.number_of_residues
 
-    # def set_profile_length(self):
-    #     self.profile_length = len(self.profile)
+    @property
+    def offset_index(self) -> int:
+        """Return the starting index for the Entity based on pose numbering of the residues. Zero-indexed"""
+        return self.residues[0].number - 1
+
+    # @offset_index.setter
+    # def offset_index(self, offset_index):
+    #     self._entity_offset = offset_index
 
     @property
     def msa(self) -> MultipleSequenceAlignment | None:
@@ -295,7 +291,7 @@ class SequenceProfile:
         if fragments:  # add fragment information to the SequenceProfile
             if self.fragment_map is None:
                 raise AttributeError('Fragments were specified but have not been added to the SequenceProfile! '
-                                     f'Call {type(self).__name__}.assign_fragments() with fragment information')
+                                     f'Call {self.map_fragments_to_profile.__name__} with fragment information')
             elif self.fragment_db:  # fragments have already been added, connect DB info
                 retrieve_fragments = [fragment['cluster'] for idx_d in self.fragment_map.values()
                                       for fragments in idx_d.values() for fragment in fragments
@@ -315,9 +311,9 @@ class SequenceProfile:
         """Check Pose and evolutionary profile for equality before proceeding"""
         rerun, second, success = False, False, False
         while not success:
-            if self.profile_length != len(self.evolutionary_profile):
+            if self.number_of_residues != len(self.evolutionary_profile):
                 self.log.warning(f'{self.name}: Profile and Pose are different lengths!\nProfile='
-                                 f'{len(self.evolutionary_profile)}, Pose={self.profile_length}')
+                                 f'{len(self.evolutionary_profile)}, Pose={self.number_of_residues}')
                 rerun = True
 
             if not rerun:
@@ -432,7 +428,7 @@ class SequenceProfile:
             Ex: {1: {'A': 0, 'R': 0, ..., 'lod': {'A': -5, 'R': -5, ...}, 'type': 'W', 'info': 3.20, 'weight': 0.73},
                  2: {}, ...}
         """
-        self.evolutionary_profile = self.populate_design_dictionary(self.profile_length, alph_3_aa)
+        self.evolutionary_profile = self.populate_design_dictionary(self.number_of_residues, alph_3_aa)
         structure_sequence = self.structure_sequence
         for idx, residue_number in enumerate(self.evolutionary_profile):
             self.evolutionary_profile[residue_number]['lod'] = copy(aa_counts)
@@ -866,7 +862,7 @@ class SequenceProfile:
             self.fragment_profile
         """
         # v now done at the pose_level
-        # self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
+        # self.map_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
         # if self.fragment_map is not None:
         self.generate_fragment_profile()
         self.simplify_fragment_profile()
@@ -876,40 +872,41 @@ class SequenceProfile:
         #             for query_idx, entity in enumerate(query_pair):
         #                 if entity.name == self.name:
         #                     # add to fragment map
-        #                     self.assign_fragments(fragments=fragments,
-        #                                           alignment_type=SequenceProfile.idx_to_alignment_type[query_idx])
+        #                  self.map_fragments_to_profile(fragments=fragments, alignment_type=alignment_types[query_idx])
         #     else:
         #         self.log.error('No fragment information associated with the Entity %s yet! You must add to the profile '
         #                        'otherwise only evolutionary values will be used.\n%s'
         #                        % (self.name, add_fragment_profile_instructions))
         #         return
 
-    def assign_fragments(self, fragments=None, alignment_type=None):
+    def map_fragments_to_profile(self, fragments: list[dict[str, int | str, float]] = None,
+                                 alignment_type: alignment_types_literal = None):
         """Distribute fragment information to self.fragment_map. One-indexed residue dictionary
 
-        Keyword Args:
-            fragments=None (list): The fragment list to assign to the sequence profile with format
-            [{'mapped': residue_number1, 'paired': residue_number2, 'cluster': cluster_id, 'match': match_score}]
-            alignment_type=None (str): Either mapped or paired
+        Args:
+            fragments: The fragment list to assign to the sequence profile with format
+                [{'mapped': residue_number1 (int), 'paired': residue_number2 (int), 'cluster': cluster_id (str),
+                  'match': match_score (float)}]
+            alignment_type: Either 'mapped' or 'paired'
         Sets:
-            self.fragment_map (dict): {1: [{'chain': 'mapped', 'cluster': 1_2_123, 'match': 0.61}, ...], ...}
+            self.fragment_map (dict[int, list[dict[str, str | float]]]):
+                {1: [{'chain': 'mapped', 'cluster': '1_2_123', 'match': 0.61}, ...], ...}
         """
-        if alignment_type not in ['mapped', 'paired']:
+        if alignment_type not in alignment_types:
             return
 
         if not self.fragment_map:
-            self.fragment_map = self.populate_design_dictionary(self.profile_length,
+            self.fragment_map = self.populate_design_dictionary(self.number_of_residues,
                                                                 [j for j in range(*self.fragment_db.fragment_range)],
                                                                 dtype='list')
         if not fragments:
-            # self.fragment_map = {}
             return
         #     print('New fragment_map')
         # print(fragments)
         # print(self.name)
         # print(self.offset)
         for fragment in fragments:
-            residue_number = fragment[alignment_type] - self.offset
+            residue_number = fragment[alignment_type] - self.offset_index
             for j in range(*self.fragment_db.fragment_range):  # lower_bound, upper_bound
                 self.fragment_map[residue_number + j][j].append({'chain': alignment_type,
                                                                  'cluster': fragment['cluster'],
@@ -917,7 +914,7 @@ class SequenceProfile:
         # should be unnecessary when fragments are generated internally
         # remove entries which don't exist on protein because of fragment_index +- residues
         not_available = [residue_number for residue_number in self.fragment_map
-                         if residue_number <= 0 or residue_number > self.profile_length]
+                         if residue_number <= 0 or residue_number > self.number_of_residues]
         for residue_number in not_available:
             self.log.info(f'In "{self.name}", residue {residue_number} is represented by a fragment but there is no '
                           f'Atom record for it. Fragment index will be deleted')
@@ -1247,7 +1244,7 @@ class SequenceProfile:
         # ^ {78: [14, 67, 87, 109], ...}  green
 
         # solve for consensus residues using the residue graph
-        self.assign_fragments(fragments=fragment_source, alignment_type=alignment_type)
+        self.map_fragments_to_profile(fragments=fragment_source, alignment_type=alignment_type)
         consensus_residues = {}
         all_pose_fragment_pairs = list(residue_freq_map.keys())
         residue_cluster_map = offset_index(self.cluster_map)  # change so it is one-indexed

@@ -64,9 +64,9 @@ def get_contacting_asu(pdb1, pdb2, contact_dist=8, **kwargs):
     max_contact_count = 0
     max_contact_chain1, max_contact_chain2 = None, None
     for chain1 in pdb1.chains:
-        pdb1_cb_coords_kdtree = BallTree(chain1.get_cb_coords())
+        pdb1_cb_coords_kdtree = BallTree(chain1.cb_coords)
         for chain2 in pdb2.chains:
-            contact_count = pdb1_cb_coords_kdtree.two_point_correlation(chain2.get_cb_coords(), [contact_dist])[0]
+            contact_count = pdb1_cb_coords_kdtree.two_point_correlation(chain2.cb_coords, [contact_dist])[0]
 
             if contact_count > max_contact_count:
                 max_contact_count = contact_count
@@ -92,10 +92,10 @@ def get_interface_residues(pdb1, pdb2, cb_distance=9.0):
     pdb1_coords_indexed_residues = pdb1.coords_indexed_residues
     pdb2_coords_indexed_residues = pdb2.coords_indexed_residues
 
-    pdb1_cb_kdtree = BallTree(pdb1.get_cb_coords())
+    pdb1_cb_kdtree = BallTree(pdb1.cb_coords)
 
     # Query PDB1 CB Tree for all PDB2 CB Atoms within "cb_distance" in A of a PDB1 CB Atom
-    query = pdb1_cb_kdtree.query_radius(pdb2.get_cb_coords(), cb_distance)
+    query = pdb1_cb_kdtree.query_radius(pdb2.cb_coords, cb_distance)
 
     # Get ResidueNumber, ChainID for all Interacting PDB1 CB, PDB2 CB Pairs
     # interacting_pairs = [(pdb1_residue.number, pdb1_residue.chain, pdb2_residue.number, pdb2_residue.chain)

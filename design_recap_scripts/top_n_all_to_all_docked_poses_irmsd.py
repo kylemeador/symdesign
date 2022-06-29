@@ -142,9 +142,9 @@ def rotated_translated_pdb(pdb, rot, tx):
 
 ######################### FUNCTION TO RETRIEVE INTERFACE CHAIN IDS AND RESIDUE NUMBERS #################################
 def interface_chains_and_resnums(pdb1, pdb2, cb_distance=9.0):
-    pdb1_cb_coords = pdb1.get_cb_coords()
+    pdb1_cb_coords = pdb1.cb_coords
     pdb1_cb_indices = pdb1.cb_indices
-    pdb2_cb_coords = pdb2.get_cb_coords()
+    pdb2_cb_coords = pdb2.cb_coords
     pdb2_cb_indices = pdb2.cb_indices
 
     pdb1_cb_kdtree = sklearn.neighbors.BallTree(np.array(pdb1_cb_coords))

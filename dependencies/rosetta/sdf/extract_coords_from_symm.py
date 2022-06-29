@@ -40,7 +40,7 @@ if __name__ == '__main__':
     final_coords = np.array(coords)
     t32_rosetta = PDB.from_file(t32_rosetta_file)
     t32_orient = PDB.from_file(t32_orient_file)
-    _, rot, tx, _ = superposition3d(t32_orient.entities[0].get_cb_coords(), t32_rosetta.entities[0].get_cb_coords())
+    _, rot, tx, _ = superposition3d(t32_orient.entities[0].cb_coords, t32_rosetta.entities[0].cb_coords)
     final_coords = np.matmul(final_coords, np.transpose(rot)) + tx
 
     # with open(new_file, 'w') as f:

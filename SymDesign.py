@@ -2049,7 +2049,7 @@ if __name__ == '__main__':
                     # disorder = generate_mutations(source_entity.structure_sequence, source_entity.reference_sequence,
                     #                               only_gaps=True)
                     # disorder = source_entity.disorder
-                    source_offset = source_entity.offset
+                    source_offset = source_entity.offset_index
                     indexed_disordered_residues = {res_number + source_offset + prior_offset: mutation
                                                    for res_number, mutation in source_entity.disorder.items()}
                     # Todo, moved below indexed_disordered_residues on 7/26, ensure correct!
