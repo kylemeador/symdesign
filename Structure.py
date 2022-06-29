@@ -234,6 +234,8 @@ class Coords:
 
 
 # null_coords = Coords()
+# parent Structure controls these attributes
+parent_attributes = {'__parent', '_coords', '_log', '_atoms', '_residues'}
 
 
 class StructureBase:
@@ -548,6 +550,9 @@ class Atom(StructureBase):
 
     def __hash__(self) -> int:
         return hash(self.__key())
+
+    # Todo only copy the mutable objects like _atom_indices
+    # def __copy__(self):
 
 
 class Atoms:
@@ -1883,6 +1888,16 @@ class Residue(ResidueFragment, StructureBase):
 
     def __hash__(self) -> int:
         return hash(self.__key())
+
+    # Todo only copy mutable objects like
+    #  _atom_indices
+    #  __backbone_indices
+    #  __backbone_and_cb_indices
+    #  __heavy_indices
+    #  __side_chain_indices
+    #  next_residue
+    #  prev_residue
+    # def __copy__(self):
 
 
 class Residues:
@@ -4432,15 +4447,35 @@ class Structure(StructureBase):
     def __key(self) -> tuple[str, int, ...]:
         return self.name, *self._residue_indices
 
-    def __copy__(self) -> Structure:
+    def __copy__(self):
         other = self.__class__.__new__(self.__class__)
-        other.__dict__ = self.__dict__.copy()
-        # other.__dict__ = {}  # Todo
-        # for attr, value in self.__dict__.items():  # Todo
-        for attr, value in other.__dict__.items():
-            other.__dict__[attr] = copy(value)
-        # other._residues.set_attributes(_coords=other._coords)  # , _log=other._log)  # , _atoms=other._atoms)
-        other.set_residues_attributes(_coords=other._coords)  # , _log=other._log)  # , _atoms=other._atoms)
+        # other.__dict__ = self.__dict__.copy()
+        # copy each of the key value pairs in the new object dictionary
+        # for attr, value in other.__dict__.items():
+        for attr, obj in self.__dict__.items():
+            if attr not in parent_attributes:
+                other.__dict__[attr] = copy(obj)
+        # other._residues.set_attributes(_coords=other._coords)
+        if self.is_parent():  # this Structure is the parent, it's copy should be too
+            # set the copying Structure attribute ".spawn" to indicate to dependents the "other" of this copy
+            self.spawn = other
+            for attr in parent_attributes:
+                other.__dict__[attr] = copy(self.__dict__[attr])
+            other._atoms.set_attributes(_parent=other)
+            other._residues.set_attributes(_parent=other)
+            other._copy_structure_containers()
+            other._update_structure_container_attributes(_parent=other)
+            # remove the attribute spawn after other Structure containers are copied
+            del self.spawn
+        else:  # this Structure is a dependent, it's copy should be too
+            try:
+                other._parent = self.parent.spawn
+            except AttributeError:  # this copy was initiated by a Structure that is not the parent
+                self.log.warning(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                                 f'previously')
+                # raise Warning(f'The copied {type(self).__name__} is being set as a parent. It was a dependent '
+                #               f'previously')
+                pass
 
         return other
 
@@ -5934,7 +5969,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
     #     # super()._copy_structure_containers([self.chains])
     #     super()._copy_structure_containers(self.structure_containers)
 
-    def __copy__(self):
+    def __copy__(self) -> Entity:
         other: Entity = super().__copy__()
         # # create a copy of all chains
         # # structures = [other.chains]

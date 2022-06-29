@@ -1643,40 +1643,43 @@ class PDB(Structure):
     #     except TypeError:  # This catches an empty instance with no data
     #         return False
 
-    def __copy__(self):
-        other = super().__copy__()
-        # create a copy of all chains and entities
-        # structures = [other.chains, other.entities]
-        # other._copy_structure_containers(structures)
-        other._copy_structure_containers()  # uses self.structure_containers
-        # these were updated in the super().__copy__, now need to set attributes in copied chains and entities
-        # other._update_structure_container_attributes(residues=copy(self._residues), coords=copy(self._coords))
-        # print('Updating new copy of \'%s\' attributes' % self.name)
-        # This style v accomplishes the update that the super().__copy__() started using self.structure_containers
-        # providing references to new, shared objects to each individual Structure container in the PDB
-        # other.update_attributes(_residues=other._residues, _coords=other._coords)
-        other._update_structure_container_attributes(_parent=other)
-        # memory_l = [self, self.chains[0], self.entities[0], self.entities[0].chains[0]]
-        # memory_o = [other, other.chains[0], other.entities[0], other.entities[0].chains[0]]
-        # print('The id in memory of self : %s\nstored coordinates is: %s' % (memory_l, list(map(getattr, memory_l, repeat('_coords')))))
-        # print('The id in memory of other: %s\nstored coordinates is: %s' % (memory_o, list(map(getattr, memory_o, repeat('_coords')))))
-
-        # # This routine replaces the .chains container of .entities with all chains that are PDB copies
-        # # UPDATE built in deepcopy would handle this perfectly fine..., it has a bit of overhead in copying though
-        # for idx_ch, chain in enumerate(self.chains):
-        #     for idx_ent, entity in enumerate(self.entities):
-        #         if entity.is_oligomeric:
-        #             # This check prevents copies when the Entity has full control over it's chains
-        #             break
-        #         elif chain in entity.chains:
-        #             equivalent_idx = entity.chains.index(chain)
-        #             other.entities[idx_ent].chains.pop(equivalent_idx)
-        #             other.entities[idx_ent].chains.insert(equivalent_idx, other.chains[idx_ch])
-        #             # break  # There shouldn't be any chains which belong to multiple Entities
-        # memory_n = [other, other.chains[0], other.entities[0], other.entities[0].chains[0]]
-        # print('The id in memory of Nothr: %s\nstored coordinates is: %s' % (memory_n, list(map(getattr, memory_n, repeat('_coords')))))
-
-        return other
+    # def __copy__(self):
+    #     other = super().__copy__()
+    #     # create a copy of all chains and entities
+    #     # structures = [other.chains, other.entities]
+    #     # other._copy_structure_containers(structures)
+    #     other._copy_structure_containers()  # uses self.structure_containers
+    #     # these were updated in the super().__copy__, now need to set attributes in copied chains and entities
+    #     # other._update_structure_container_attributes(residues=copy(self._residues), coords=copy(self._coords))
+    #     # print('Updating new copy of \'%s\' attributes' % self.name)
+    #     # This style v accomplishes the update that the super().__copy__() started using self.structure_containers
+    #     # providing references to new, shared objects to each individual Structure container in the PDB
+    #     # other.update_attributes(_residues=other._residues, _coords=other._coords)
+    #     other._update_structure_container_attributes(_parent=other)
+    #     # memory_l = [self, self.chains[0], self.entities[0], self.entities[0].chains[0]]
+    #     # memory_o = [other, other.chains[0], other.entities[0], other.entities[0].chains[0]]
+    #     # print('The id in memory of self : %s\nstored coordinates is: %s' % \
+    #             (memory_l, list(map(getattr, memory_l, repeat('_coords')))))
+    #     # print('The id in memory of other: %s\nstored coordinates is: %s' % \
+    #             (memory_o, list(map(getattr, memory_o, repeat('_coords')))))
+    #
+    #     # # This routine replaces the .chains container of .entities with all chains that are PDB copies
+    #     # # UPDATE built in deepcopy would handle this perfectly fine..., it has a bit of overhead in copying though
+    #     # for idx_ch, chain in enumerate(self.chains):
+    #     #     for idx_ent, entity in enumerate(self.entities):
+    #     #         if entity.is_oligomeric:
+    #     #             # This check prevents copies when the Entity has full control over it's chains
+    #     #             break
+    #     #         elif chain in entity.chains:
+    #     #             equivalent_idx = entity.chains.index(chain)
+    #     #             other.entities[idx_ent].chains.pop(equivalent_idx)
+    #     #             other.entities[idx_ent].chains.insert(equivalent_idx, other.chains[idx_ch])
+    #     #             # break  # There shouldn't be any chains which belong to multiple Entities
+    #     # memory_n = [other, other.chains[0], other.entities[0], other.entities[0].chains[0]]
+    #     # print('The id in memory of Nothr: %s\nstored coordinates is: %s' % \
+    #             (memory_n, list(map(getattr, memory_n, repeat('_coords')))))
+    #
+    #     return other
 
 
 def extract_interface(pdb, chain_data_d, full_chain=True):
