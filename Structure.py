@@ -3638,21 +3638,45 @@ class Structure(StructureBase):
         # Todo change to sasa property to call this automatically if AttributeError?
         self.sasa = sum([residue.sasa for residue in self.residues])
 
-    def get_surface_residues(self, probe_radius: float = 2.2, sasa_thresh: float = 0.) -> list[int]:  # sasa_thresh=0.25
-        """Get the residues who reside on the surface of the molecule
+    @property
+    def surface_residues(self, relative_sasa_thresh: float = 0.25, **kwargs) -> list[Residue]:
+        """Get the Residue instances that reside on the surface of the molecule
 
         Args:
-            probe_radius: The radius which surface area should be generated
-            sasa_thresh: The area threshold that the residue should have before it is considered "surface"
+            relative_sasa_thresh: The area threshold that the Residue should have before it is considered "surface"
+                Default cutoff percent is based on Levy, E. 2010
+        Keyword Args:
+            atom=True (bool): Whether the output should be generated for each atom.
+                If False, will be generated for each Residue
+            probe_radius=1.4 (float): The radius which surface area should be generated
         Returns:
-            The surface residue numbers
+            The surface Residue instances
         """
         if not self.sasa:
-            self.get_sasa(probe_radius=probe_radius, atom=False)  # , sasa_thresh=sasa_thresh)
+            self.get_sasa(**kwargs)
 
-        return [residue.number for residue in self.residues if residue.sasa > sasa_thresh]
-        # Todo make dynamic based on relative threshold seen with Levy 2010
-        # return [residue.number for residue in self.residues if residue.relative_sasa > sasa_thresh]
+        # return [residue.number for residue in self.residues if residue.sasa > sasa_thresh]
+        return [residue for residue in self.residues if residue.relative_sasa >= relative_sasa_thresh]
+
+    @property
+    def core_residues(self, relative_sasa_thresh: float = 0.25, **kwargs) -> list[Residue]:
+        """Get the Residue instances that reside in the core of the molecule
+
+        Args:
+            relative_sasa_thresh: The area threshold that the Residue should fall below before it is considered "core"
+                Default cutoff percent is based on Levy, E. 2010
+        Keyword Args:
+            atom=True (bool): Whether the output should be generated for each atom.
+                If False, will be generated for each Residue
+            probe_radius=1.4 (float): The radius which surface area should be generated
+        Returns:
+            The core Residue instances
+        """
+        if not self.sasa:
+            self.get_sasa(**kwargs)
+
+        # return [residue.number for residue in self.residues if residue.sasa > sasa_thresh]
+        return [residue for residue in self.residues if residue.relative_sasa < relative_sasa_thresh]
 
     # def get_residue_surface_area(self, residue_number, probe_radius=2.2):
     #     """Get the surface area for specified residues
