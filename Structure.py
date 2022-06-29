@@ -1529,52 +1529,33 @@ class Residue(ResidueFragment, StructureBase):
     def o_index(self, index: int):
         self._o_index = index
 
-    # @property
-    # def number(self):
-    #     return self._number
-    #     # try:
-    #     #     return self.ca.residue_number
-    #     # except AttributeError:
-    #     #     return self.n.residue_number
-    #
-    # @number.setter
-    # def number(self, number):
-    #     self._number = number
-    #
-    # @property
-    # def number_pdb(self):
-    #     return self._number_pdb
-    #
-    # @number_pdb.setter
-    # def number_pdb(self, number_pdb):
-    #     self._number_pdb = number_pdb
-    #     # try:
-    #     #     return self.ca.pdb_residue_number
-    #     # except AttributeError:
-    #     #     return self.n.pdb_residue_number
-    #
-    # @property
-    # def chain(self):
-    #     return self._chain
-    #     # try:
-    #     #     return self.ca.chain
-    #     # except AttributeError:
-    #     #     return self.n.chain
-    # @chain.setter
-    # def chain(self, chain):
-    #     self._chain = chain
-    #
-    # @property
-    # def type(self):
-    #     return self._type
-    #     # try:
-    #     #     return self.ca.residue_type
-    #     # except AttributeError:
-    #     #     return self.n.chain
-    #
-    # @type.setter
-    # def type(self, _type):
-    #     self._type = _type
+    @property
+    def next_residue(self) -> Residue | None:
+        """The next Residue in the Structure if this Residue is part of a polymer"""
+        try:
+            return self._next_residue
+        except AttributeError:
+            return
+
+    @next_residue.setter
+    def next_residue(self, other: Residue):
+        """Set the next_residue for this Residue and the prev_residue for the other Residue"""
+        self._next_residue = other
+        other.prev_residue = self
+
+    @property
+    def prev_residue(self) -> Residue | None:
+        """The previous Residue in the Structure if this Residue is part of a polymer"""
+        try:
+            return self._prev_residue
+        except AttributeError:
+            return
+
+    @prev_residue.setter
+    def prev_residue(self, other: Residue):
+        """Set the prev_residue for this Residue and the next_residue for the other Residue"""
+        self._prev_residue = other
+        other.next_residue = self
 
     def get_upstream(self, number: int) -> list[Residue]:
         """Get the Residues upstream of (n-terminal to) the current Residue
@@ -1874,6 +1855,12 @@ class Residues:
                             f'numpy.ndarray of {Residue.__name__} instances or list[{Residue.__name__}]')
         else:
             self.residues = np.array(residues)
+        self.find_prev_and_next()
+
+    def find_prev_and_next(self):
+        """Set prev_residue and next_residue attributes for each Residue. One inherently sets the other in Residue"""
+        for next_idx, residue in enumerate(self.residues[:-1], 1):
+            residue.next_residue = self.residues[next_idx]
 
     def are_dependents(self) -> bool:
         """Check if any of the Residue instance are dependents on another Structure"""
@@ -1948,6 +1935,8 @@ class Residues:
         other.residues = self.residues.copy()
         for idx, residue in enumerate(other.residues):
             other.residues[idx] = copy(residue)
+
+        other.find_prev_and_next()
 
         return other
 
@@ -2961,12 +2950,6 @@ class Structure(StructureBase):
 
         self._residue_indices = list(range(len(new_residues)))
         self._residues = Residues(new_residues)
-        for prior_idx, residue in enumerate(new_residues[1:]):
-            residue.prev_residue = new_residues[prior_idx]
-            try:
-                residue.next_residue = new_residues[prior_idx + 2]  # the next_index
-            except IndexError:  # we hit the last residue
-                continue
 
         # remove bad atom_indices
         atom_indices = self._atom_indices
