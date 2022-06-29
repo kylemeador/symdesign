@@ -521,8 +521,8 @@ class Atom(StructureBase):
         """Is the Atom a heavy atom?"""
         return 'H' in self.type
 
-    def __key(self) -> tuple[float, str]:
-        return self.b_factor, self.type
+    def __key(self) -> tuple[int, str, str, float]:
+        return self.index, self.type, self.residue_type, self.b_factor
 
     def __str__(self) -> str:  # type=None, number=None, pdb=False, chain=None, **kwargs
         """Represent Atom in PDB format"""
