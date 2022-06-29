@@ -2040,6 +2040,8 @@ class Structure(StructureBase):
     """Structure object handles Atom/Residue/Coords manipulation of all Structure containers.
     Must pass parent and residue_indices, atoms and coords, or residues to initialize
 
+    Polymer/Chain designation. This designation essentially means it contains Residue instances in a Residues object
+
     Args:
         atoms: The Atom instances which should constitute a new Structure instance
         name:
@@ -2163,6 +2165,7 @@ class Structure(StructureBase):
     def get_structure_containers(self) -> dict[str, Any]:
         """Return the instance structural containers as a dictionary with attribute as key and container as value"""
         return dict(log=self._log, coords=self._coords, atoms=self._atoms, residues=self._residues)
+
     # @property
     # def log(self) -> Logger:
     #     """Returns the log object holding the Logger"""
@@ -3341,7 +3344,7 @@ class Structure(StructureBase):
             if prior_residue and next_residue:
                 if prior_residue.chain == next_residue.chain:
                     res_with_info = prior_residue
-                else:  # we have a discrepancy which means this is a Structure termini
+                else:  # we have a discrepancy which means this is an internal termini
                     raise DesignError(chain_assignment_error)
             else:  # we can solve as this represents an absolute termini case
                 res_with_info = prior_residue if prior_residue else next_residue
@@ -4493,6 +4496,7 @@ class Structure(StructureBase):
 
 class Structures(Structure, UserList):
     # Todo mesh inheritance of both  Structure and UserClass...
+    #  FROM set_residues_attributes in Structure, check all Structure attributes and methods that could be in conflict
     #  are all concatenated Structure methods and attributes accounted for?
     #  ensure UserList .append(), .extend() etc. are allowed and work as intended or overwrite them
     """Keep track of groups of Structure objects
