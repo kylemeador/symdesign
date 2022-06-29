@@ -20,7 +20,7 @@ from JobResources import fragment_factory, Database, FragmentDatabase
 from PDB import PDB, parse_cryst_record
 from SequenceProfile import SequenceProfile, alignment_types
 from Structure import Coords, Structure, Structures, Chain, Entity, Residue, Residues, GhostFragment, MonoFragment, \
-    write_frag_match_info_file, Fragment, StructureBase
+    write_frag_match_info_file, Fragment, StructureBase, ContainsAtomsMixin
 from SymDesignUtils import DesignError, calculate_overlap, z_value_from_match_score, start_log, null_log, \
     match_score_from_z_value, dictionary_lookup, digit_translate_table
 from classes.EulerLookup import EulerLookup, euler_factory
@@ -1652,12 +1652,12 @@ class SymmetricModel(Models):
         atom_num = self.number_of_atoms
         return [idx + (atom_num * model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
 
-    def return_symmetric_copies(self, structure: Structure, return_side_chains: bool = True,
+    def return_symmetric_copies(self, structure: ContainsAtomsMixin, return_side_chains: bool = True,
                                 surrounding_uc: bool = True, **kwargs) -> list[Structure]:
         """Expand the provided Structure using self.symmetry for the symmetry specification
 
         Args:
-            structure: A Structure object with .coords/.get_backbone_and_cb_coords() methods
+            structure: A ContainsAtomsMixin Structure object with .coords/.backbone_and_cb_coords methods
             return_side_chains: Whether to make the structural copy with side chains
             surrounding_uc: Whether the 3x3 layer group, or 3x3x3 space group should be generated
         Returns:
