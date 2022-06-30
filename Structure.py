@@ -2528,6 +2528,9 @@ class Structure(StructureBase):
             for residue in residues:
                 atoms.extend(residue.atoms)
         self._assign_atoms(atoms, atoms_only=False)
+        # done below with _residues.reindex_atoms(), not necessary here
+        # if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
+        #     self._atoms.reindex()
 
         # set proper residues attributes
         self._residue_indices = list(range(len(residues)))
