@@ -664,13 +664,13 @@ class PoseDirectory:
         except AttributeError:
             return
 
-    @property
-    def number_of_symmetry_mates(self) -> int | None:
-        """The number of symmetric copies in the full symmetric system"""
-        try:
-            return self.sym_entry.number_of_operations
-        except AttributeError:
-            return
+    # @property
+    # def number_of_symmetry_mates(self) -> int | None:
+    #     """The number of symmetric copies in the full symmetric system"""
+    #     try:
+    #         return self.sym_entry.number_of_operations
+    #     except AttributeError:
+    #         return
 
     @property
     def trajectories(self) -> str | bytes:
@@ -1449,7 +1449,7 @@ class PoseDirectory:
             if not sym_def_file:
                 sym_def_file = self.sym_def_file
             variables.extend([('symmetry', symmetry_protocol), ('sdf', sym_def_file)] if symmetry_protocol else [])
-            out_of_bounds_residue = self.pose.number_of_residues * self.number_of_symmetry_mates + 1
+            out_of_bounds_residue = self.pose.number_of_residues * self.pose.number_of_symmetry_mates + 1
         else:
             variables.append(('symmetry', symmetry_protocol))
             out_of_bounds_residue = self.pose.number_of_residues + 1
