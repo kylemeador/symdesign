@@ -760,7 +760,7 @@ class SymmetricModel(Models):
     expand_matrices: np.ndarray | list[list[float]] | None
     expand_translations: np.ndarray | list[float] | None
     uc_dimensions: list[float] | None
-    state_attributes: set[str] = super().state_attributes | \
+    state_attributes: set[str] = Models.state_attributes | \
         {'_assembly', '_assembly_minimally_contacting', '_assembly_tree', '_asu_indices', '_asu_model_idx',
          '_center_of_mass_symmetric_entities', '_center_of_mass_symmetric_models', '_oligomeric_model_indices',
          '_symmetric_coords', '_symmetric_coords_by_entity', '_symmetric_coords_split',
