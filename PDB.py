@@ -361,7 +361,7 @@ class PDB(Structure):
         self.multimodel = multimodel
         self.original_chain_ids = []  # [original_chain_id1, id2, ...]
         self.resolution = resolution
-        self.reference_sequence = reference_sequence if reference_sequence else {}
+        self._reference_sequence = reference_sequence if reference_sequence else {}
         # ^ SEQRES or PDB API entries. key is chainID, value is 'AGHKLAIDL'
         # self.space_group = space_group
         # self.resource_db: Database = kwargs.get('resource_db', None)  # Todo in Pose
@@ -430,9 +430,9 @@ class PDB(Structure):
     def reference_sequence(self) -> str:
         return ''.join(self._reference_sequence.values())
 
-    @reference_sequence.setter
-    def reference_sequence(self, reference_sequence: dict[str, str]) -> str:
-        self._reference_sequence = reference_sequence
+    # @reference_sequence.setter
+    # def reference_sequence(self, reference_sequence: dict[str, str]) -> str:
+    #     self._reference_sequence = reference_sequence
 
     # @property
     # def symmetry(self) -> dict:
@@ -894,8 +894,8 @@ class PDB(Structure):
         # Todo this isn't super accurate. Perhaps SEQRES lines are not indexed to ATOM records
         #  Ideally we want a DB like PDB API or UniProtKB which we fetch in Entity
         # chain_map = dict(zip(self.chain_ids, self.original_chain_ids))
-        self.reference_sequence = {self.chain_ids[chain_idx]: sequence
-                                   for chain_idx, sequence in enumerate(self._reference_sequence.values())}
+        self._reference_sequence = {self.chain_ids[chain_idx]: sequence
+                                    for chain_idx, sequence in enumerate(self._reference_sequence.values())}
 
         for chain_id, residue_indices in zip(self.chain_ids, chain_residues):
             # self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log,
