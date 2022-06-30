@@ -390,14 +390,15 @@ class Atom(StructureBase):
     code_for_insertion: str | None
     occupancy: float | None
     b_factor: float | None
-    element_symbol: str | None
-    atom_charge: str | None
+    element: str | None
+    charge: str | None
     state_attributes: set[str] = super().state_attributes | {'_sasa'}
+    state_attributes: set[str] = StructureBase.state_attributes | {'_sasa'}
 
     def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = None,
                  residue_type: str = None, chain: str = None, residue_number: int = None,
                  code_for_insertion: str = None, coords: list[float] = None, occupancy: float = None,
-                 b_factor: float = None, element_symbol: str = None, atom_charge: str = None, **kwargs):
+                 b_factor: float = None, element: str = None, charge: str = None, **kwargs):
         # kwargs passed to StructureBase
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         super().__init__(**kwargs)
@@ -414,8 +415,8 @@ class Atom(StructureBase):
         self.__coords = coords if coords else []
         self.occupancy = occupancy
         self.b_factor = b_factor
-        self.element_symbol = element_symbol
-        self.atom_charge = atom_charge
+        self.element = element
+        self.charge = charge
         # self.sasa = sasa
         # # Set Atom from parent attributes. By default parent is None
         # parent = self.parent
@@ -423,12 +424,15 @@ class Atom(StructureBase):
         #     self._atoms = parent._atoms  # Todo make empty Atoms for Structure objects?
         #     self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
-    # @classmethod
-    # def from_info(cls, *args):
-    #     # number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, occupancy, b_factor,
-    #     # element_symbol, atom_charge
-    #     """Initialize without coordinates"""
-    #     return cls(*args)
+    @classmethod
+    def without_coordinates(cls, idx, number, atom_type, alt_location, residue_type, chain, residue_number,
+                            code_for_insertion, occupancy, b_factor, element, charge):
+        # number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, occupancy, b_factor,
+        # element, charge
+        """Initialize without coordinates"""
+        return cls(index=idx, number=number, atom_type=atom_type, alt_location=alt_location, residue_type=residue_type,
+                   chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
+                   occupancy=occupancy, b_factor=b_factor, element=element, charge=charge)
 
     # @property
     # def atom_indices(self) -> int:
@@ -535,13 +539,13 @@ class Atom(StructureBase):
         # Todo make return like PDB format correctly ^
         return 'ATOM  %s {:^4s}{:1s}%s %s%s{:1s}   %s{:6.2f}{:6.2f}          {:>2s}{:2s}'\
             .format(self.type, self.alt_location, self.code_for_insertion, self.occupancy, self.b_factor,
-                    self.element_symbol, self.atom_charge)
+                    self.element, self.charge)
         # Todo if parent:  # return full ATOM record
         # return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
         #     '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
         #     .format(self.index, self.type, self.alt_location, self.residue_type, self.chain, self.residue_number,
-        #             self.code_for_insertion, *list(self.coords), self.occupancy, self.b_factor, self.element_symbol,
-        #             self.atom_charge)
+        #             self.code_for_insertion, *list(self.coords), self.occupancy, self.b_factor, self.element,
+        #             self.charge)
 
     def __eq__(self, other: Atom) -> bool:
         if isinstance(other, Atom):
@@ -1881,7 +1885,7 @@ class Residue(ResidueFragment, StructureBase):
         # To
         #  'ATOM     32  CG2 VAL A 132       9.902  -5.550   0.695  1.00 17.48           C  0'
         # self.type, self.alt_location, self.code_for_insertion, self.occupancy, self.b_factor,
-        #                     self.element_symbol, self.atom_charge)
+        #                     self.element, self.charge)
         # res_str = self.residue_string(**kwargs)
         res_str = format(self.type, '3s'), (chain or self.chain), \
             format(getattr(self, f'number{"_pdb" if pdb else ""}'), '4d')
