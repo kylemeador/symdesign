@@ -6227,6 +6227,6 @@ def parse_stride(stride_file, **kwargs):
     return ''.join(line[24:25] for line in stride_output if line[0:3] == 'ASG')
 
 
-reference_residues = unpickle(reference_residues_pkl)  # zero-indexed 1 letter alphabetically sorted aa at the origin
-reference_aa = Structure.from_residues(residues=reference_residues)
-# pickle_object(ref, '/home/kylemeador/symdesign/data/AAreferenceStruct.pkl', out_path='')
+# reference_residues = unpickle(reference_residues_pkl)  # zero-indexed 1 letter alphabetically sorted aa at the origin
+# reference_aa = Structure.from_residues(residues=reference_residues)
+# # pickle_object(ref, '/home/kylemeador/symdesign/data/AAreferenceStruct.pkl', out_path='')
