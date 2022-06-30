@@ -3668,22 +3668,22 @@ class Structure(StructureBase):
 
         residues = self.residues
         # check first and last residue with different considerations given covalent bonds
-        first_residue = residues[0]
+        residue = residues[0]
         # query the first residue with chosen coords type against the atom_tree
-        residue_query = atom_tree.query_radius(getattr(first_residue, coords_type), distance)
+        residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
         # reduce the dimensions and format as a single array
         all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
         # We must subtract the N and C atoms from the adjacent residues for each residue as these are within a bond
-        clashes = all_contacts.difference(first_residue.atom_indices +
-                                          [first_residue.next_residue.atom_indices[first_residue.next_residue.n_index]])
+        clashes = all_contacts.difference(residue.atom_indices +
+                                          [residue.next_residue.atom_indices[residue.next_residue.n_index]])
         handle_clash_reporting(clashes) if any(clashes) else None
 
-        last_res = residues[-1]
-        residue_query = atom_tree.query_radius(getattr(last_res, coords_type), distance)
+        residue = residues[-1]
+        residue_query = atom_tree.query_radius(getattr(residue, coords_type), distance)
         all_contacts = set(np.concatenate(residue_query).ravel().tolist())  # Todo remove ravel()
-        clashes = all_contacts.difference(last_res.atom_indices +
-                                          [last_res.prev_residue.atom_indices[last_res.prev_residue.c_index],
-                                           last_res.prev_residue.atom_indices[last_res.prev_residue.o_index]])
+        clashes = all_contacts.difference(residue.atom_indices +
+                                          [residue.prev_residue.atom_indices[residue.prev_residue.c_index],
+                                           residue.prev_residue.atom_indices[residue.prev_residue.o_index]])
         handle_clash_reporting(clashes) if any(clashes) else None
 
         # perform routine for all middle residues
@@ -3701,8 +3701,8 @@ class Structure(StructureBase):
             handle_clash_reporting(clashes) if any(clashes) else None
 
         if measured_clashes:
-            bb_info = '\n\t'.join('Residue %5d: %s' % (residue.number, str(other).split('\n')[atom_idx])
-                                  for residue, other, atom_idx in measured_clashes)
+            bb_info = '\n\t'.join('Residue %5d: %s' % (residue.number, atom.return_atom_record())
+                                  for residue, other, atom in measured_clashes)
             self.log.critical(f'{self.name} contains {len(measured_clashes)} {measure} clashes from the following '
                               f'Residues to the corresponding Atom:\n\t{bb_info}')
             # if other_clashes:
