@@ -788,6 +788,9 @@ class SymmetricModel(Models):
             self.generate_symmetric_coords(surrounding_uc=surrounding_uc)  # default has surrounding_uc=True
             # if generate_symmetry_mates:  # always set to False before. commenting out
             #     self.generate_assembly_symmetry_models(**kwargs)
+            if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
+                self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
+                self.set_contacting_asu()
 
     @classmethod
     def from_assembly(cls, assembly: list, sym_entry: SymEntry | int = None, symmetry: str = None, **kwargs):
@@ -2282,8 +2285,9 @@ class SymmetricModel(Models):
             self: To a Model with the minimal set of Entities containing the maximally touching configuration
         """
         entities = self.find_contacting_asu(**kwargs)
-        # self = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)  # Todo remove .pdb
-        self._pdb = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)
+        # self = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)
+        # self._pdb = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)
+        self.process_model(entities=entities)
 
     # def make_oligomers(self):
     #     """Generate oligomers for each Entity in the SymmetricModel"""
@@ -2483,14 +2487,14 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
         for entity in self.entities:
             entity.fragment_db = fragment_db
 
-    @SymmetricModel.asu.setter
-    def asu(self, asu):
-        self.pdb = asu  # process incoming structure as normal
-        if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
-            # self.log.debug('self.number_of_entities (%d) self.number_of_chains (%d)'
-            #                % (self.number_of_entities, self.number_of_chains))
-            self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
-            self.set_contacting_asu()  # find maximally touching ASU and set ._pdb
+    # @SymmetricModel.asu.setter
+    # def asu(self, asu):
+    #     self.pdb = asu  # process incoming structure as normal
+    #     if self.number_of_entities != self.number_of_chains:  # ensure the structure is an asu
+    #         # self.log.debug('self.number_of_entities (%d) self.number_of_chains (%d)'
+    #         #                % (self.number_of_entities, self.number_of_chains))
+    #         self.log.debug('Setting Pose ASU to the ASU with the most contacting interface')
+    #         self.set_contacting_asu()  # find maximally touching ASU and set ._pdb
 
     @property
     def active_entities(self):
