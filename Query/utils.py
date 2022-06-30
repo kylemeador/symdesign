@@ -1,5 +1,7 @@
+from __future__ import annotations
+
 import time
-from typing import Any, Optional
+from typing import Any, Container
 
 import requests
 
@@ -8,7 +10,7 @@ from SymDesignUtils import start_log
 # Globals
 logger = start_log(name=__name__)
 input_string = '\nInput: '
-confirmation_string = 'If this is correct, indicate \'y\', if not \'n\', and you can re-input.%s' % input_string
+confirmation_string = 'If this is correct, indicate "y", if not "n", and you can re-input%s' % input_string
 bool_d = {'y': True, 'n': False, 'yes': True, 'no': False, '': True}
 boolean_input_string = '\nPlease specify [y/n]%s' % input_string
 invalid_string = 'Invalid choice, please try again.'
@@ -17,72 +19,89 @@ format_string = '\t%s\t\t%s'
 numbered_format_string = format_string % ('%d - %s', '%s')
 
 
-def validate_input(prompt, response=None):
-    _input = input(prompt)
+def validate_input(prompt: str, response: Container[str]) -> str:
+    """Following a provided prompt, validate that the user input is a valid response then return the response outcome
+
+    Args:
+        prompt: The desired prompt
+        response: The response values to accept as keys and the resulting data to return as values
+    Returns:
+        The data matching the chosen response key
+    """
+    _input = input(f'{prompt}\nChoose from [{", ".join(response)}]{input_string}')
     while _input not in response:
-        _input = input('Invalid input... \'%s\' not a valid response. Try again%s' % (_input, input_string))
+        _input = input(f'Invalid input... "{_input}" not a valid response. Try again{input_string}')
 
     return _input
 
 
+def validate_input_return_response_value(prompt: str, response: dict[str, Any]) -> Any:
+    """Following a provided prompt, validate that the user input is a valid response then return the response outcome
+
+    Args:
+        prompt: The desired prompt
+        response: The response values to accept as keys and the resulting data to return as values
+    Returns:
+        The data matching the chosen response key
+    """
+    _input = input(f'{prompt}\nChoose from [{", ".join(response)}]{input_string}')
+    while _input not in response:
+        _input = input(f'Invalid input... "{_input}" not a valid response. Try again{input_string}')
+
+    return response[_input]
+
+
 def confirm_input_action(input_message):
-    confirm = input('%s\n%s' % (input_message, confirmation_string)).lower()
+    confirm = input(f'{input_message}\n{confirmation_string}').lower()
     while confirm not in bool_d:
-        confirm = input('%s %s is not a valid choice!' % (invalid_string, confirm))
+        confirm = input(f'{invalid_string} {confirm} is not a valid choice!')
 
     return confirm
 
 
-def validate_type(value, dtype=str):
+def validate_type(value: Any, dtype=str) -> bool:
     """Provide a user prompt to ensure the user input is what is desired
 
     Returns:
-        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
+        A True value indicates the user wants to proceed. False indicates we should get input again.
     """
     try:
         dtype(value)
         return True
     except ValueError:
-        print('The value \'%s\' cannot be converted to the type %s. Try again...' % (value, float))
+        print(f'The value "{value}" cannot be converted to the type {type(dtype).__name__}. Try again...')
         return False
 
 
-def boolean_choice():
-    """Retrieve user input from a requested prompt to control desired program flow. Ex prompt: Please specify [y/n]
+def boolean_choice() -> bool:
+    """Retrieve user input from a boolean confirmation prompt (Please specify [y/n]) to control program flow
 
     Returns:
-        (bool): A True value indicates the user wants to proceed. False indicates we do not want to proceed, possibly
+        A True value indicates the user wants to proceed. False indicates we do not want to proceed, possibly
             gathering user input again or declining an option
     """
     confirm = input(boolean_input_string).lower()
     while confirm not in bool_d:
-        # if confirm in bool_d:  # we can find the answer
-        #     break
-        # else:
-        confirm = input('\'%s\' is not a valid choice! Chose either [y/n]%s' % (confirm, input_string))
+        confirm = input(f'"{confirm}" is not a valid choice! Chose either [y/n]{input_string}').lower()
 
     return bool_d[confirm]
 
 
-def verify_choice():
-    """Provide a user prompt to ensure the user input is what is desired
+def verify_choice() -> bool:
+    """Provide a verification prompt (If this is correct, indicate y, if not n, and you can re-input) to ensure a prior
+    input was desired
 
     Returns:
-        (bool): A True value indicates the user wants to proceed. False indicates we should get input again.
+        A True value indicates the user wants to proceed. False indicates we should get input again.
     """
     confirm = input(confirmation_string).lower()
     while confirm not in bool_d:
-        # if confirm in bool_d:  # we can find the answer
-        #     break
-        # else:
-        confirm = input('\'%s\' is not a valid choice! Chose either [y/n]%s' % (confirm, input_string))
+        confirm = input(f'"{confirm}" is not a valid choice! Chose either [y/n]{input_string}')
 
     return bool_d[confirm]
-    # else:
-    #     return False
 
 
-def connection_exception_handler(url: str, max_attempts: int = 5) -> Optional[Any]:
+def connection_exception_handler(url: str, max_attempts: int = 5) -> Any | None:
     """Wrap requests GET commands in an exception handler which attempts to aqcuire the data multiple times if the
     connection is refused due to a high volume of requests
 

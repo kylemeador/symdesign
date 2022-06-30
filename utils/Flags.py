@@ -366,7 +366,7 @@ parser_refine_arguments = {
 parser_nanohedra = dict(nanohedra=dict(help=f'Run or submit jobs to {nano.title()}.py'))
 # parser_dock = subparsers.add_parser(nano, help='Run or submit jobs to %s.py.\nUse the Module arguments -c1/-c2, -o1/-o2, or -q to specify PDB Entity codes, building block directories, or query the PDB for building blocks to dock' % nano.title())
 parser_nanohedra_arguments = {
-    ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry, required=True,
+    ('-e', '--entry', f'--{sym_entry}'): dict(type=int, default=None, dest=sym_entry,  # required=True,
                                               help=f'The entry number of {nano.title()} docking combinations to use'),
     ('-mv', '--match_value'): dict(type=float, default=0.5, dest='high_quality_match_value',
                                    help='What is the minimum match score required for a high quality fragment?'),
@@ -394,21 +394,21 @@ parser_nanohedra_arguments = {
                                                   'infinite materials\nDefault=%(default)s')
 }
 # parser_dock_mutual1 = parser_dock.add_mutually_exclusive_group(required=True)
-parser_nanohedra_mutual1_group = dict(required=True)
+parser_nanohedra_mutual1_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 parser_nanohedra_mutual1_arguments = {
     ('-c1', '--pdb_codes1'): dict(type=os.path.abspath, default=None,
-                                  help='File with list of PDB_entity codes for component 1'),
+                                  help=f'File with list of PDB_entity codes for {nano} component 1'),
     ('-o1', f'--{nano_entity_flag1}'): dict(type=os.path.abspath, default=None,
-                                            help='Disk location where the first oligomer(s) are located'),
+                                            help=f'Disk location where {nano} component 1 file(s) are located'),
     ('-Q', '--query_codes'): dict(action='store_true', help='Query the PDB API for corresponding codes')
 }
 # parser_dock_mutual2 = parser_dock.add_mutually_exclusive_group()
-parser_nanohedra_mutual2_group = dict(required=False)
+parser_nanohedra_mutual2_group = dict()  # required=False
 parser_nanohedra_mutual2_arguments = {
-    ('-c2', '--pdb_codes2'): dict(type=os.path.abspath,
-                                  help='File with list of PDB_entity codes for component 2', default=None),
+    ('-c2', '--pdb_codes2'): dict(type=os.path.abspath, default=None,
+                                  help=f'File with list of PDB_entity codes for {nano} component 2'),
     ('-o2', f'--{nano_entity_flag2}'): dict(type=os.path.abspath, default=None,
-                                            help='Disk location where the second oligomer(s) are located'),
+                                            help=f'Disk location where {nano} component 2 file(s) are located'),
 }
 # ---------------------------------------------------
 parser_cluster = dict(cluster_poses=dict(help='Cluster all poses by their spatial or interfacial similarity.\nThis is'
@@ -440,7 +440,7 @@ parser_interface_design_arguments = {
                                                 help='How many unique sequences should be generated for each input?'
                                                      '\nDefault=%(default)s'),
     ('--overwrite',): dict(action='store_true',
-                           help='Whether to overwrite existing structures upon job fullfillment\nDefault=%(default)s'),
+                           help='Whether to overwrite existing structures upon job fulfillment\nDefault=%(default)s'),
     ('-sb', f'--{structure_background}'): dict(action='store_true',
                                                help='Whether to skip all constraints and measure the structure in an '
                                                     'optimal context\nDefault=%(default)s'),
@@ -607,7 +607,8 @@ parser_select_sequences_arguments = {
     ('-wf', '--weight_function'): dict(choices=metric_weight_functions, default='normalize',
                                        help='How to standardize metrics during selection weighting'
                                             '\nDefault=%(default)s')
-}# ---------------------------------------------------
+}
+# ---------------------------------------------------
 parser_select_designs = dict(select_designs=dict(help=f'From the provided poses, select designs based on specified '
                                                       f'selection criteria using metrics.\nEssentially shorthand for'
                                                       f'{select_sequences} with --skip_sequence_generation'))
@@ -626,7 +627,6 @@ parser_select_designs_arguments = {
                                          'specified number of sequences (Where Default=No Limit).\nOtherwise the '
                                          'specified number will be selected from each pose (Where Default=1/pose)'),
     (f'--{protocol}',): dict(type=str, help='Use specific protocol(s) to filter designs?', default=None, nargs='*'),
-    # ('--prefix',): dict(type=str, metavar='string', help='String to prepend to selection output name'),
     ('--save_total',): dict(action='store_false',
                             help='If --total is used, should the total dataframe be saved?\nDefault=%(default)s'),
     ('--total',): dict(action='store_true',
@@ -646,8 +646,8 @@ parser_multicistronic = dict(multicistronic=dict(help='Generate nucleotide seque
                                                       '-f/--file argument'))
 # parser_multicistronic = subparsers.add_parser('multicistronic', help='Generate nucleotide sequences\n for selected designs by codon optimizing protein sequences, then concatenating nucleotide sequences. REQUIRES an input .fasta file specified as -f/--file')
 parser_multicistronic_arguments = {
-    ('-c', '--csv'): dict(action='store_true',
-                          help='Write the sequences file as a .csv instead of the default .fasta\nDefault=%(default)s'),
+    ('--csv',): dict(action='store_true',
+                     help='Write the sequences file as a .csv instead of the default .fasta\nDefault=%(default)s'),
     ('-ms', '--multicistronic_intergenic_sequence'): dict(type=str,
                                                           help='The sequence to use in the intergenic region of a '
                                                                'multicistronic expression output'),
@@ -656,7 +656,6 @@ parser_multicistronic_arguments = {
     ('-opt', '--optimize_species'): dict(type=str, default='e_coli',
                                          help='The organism where expression will occur and nucleotide usage should be '
                                               'optimized\nDefault=%(default)s'),
-    # ('--prefix',): dict(type=str, metavar='string', help='String to prepend to sequence output file'),
 }
 # ---------------------------------------------------
 # parser_asu = subparsers.add_parser('find_asu', help='From a symmetric assembly, locate an ASU and save the result.')
@@ -717,7 +716,7 @@ parser_input_arguments = {
                                                'residue_number9:directive ...]')
 }
 # parser_input_mutual = parser_input.add_mutually_exclusive_group()
-parser_input_mutual_group = dict()  # required=True, adding below for different levels of parsing
+parser_input_mutual_group = dict()  # required=True <- adding kwarg below to different parsers depending on need
 parser_input_mutual_arguments = {
     ('-d', '--directory'): dict(type=os.path.abspath, metavar=ex_path('your_pdb_files'),
                                 help='Master directory where poses to be designed are located. This may be\nthe'
@@ -774,7 +773,7 @@ module_parsers = dict(refine=parser_refine,
                       )
 input_parsers = dict(input=parser_input_group,
                      input_mutual=parser_input_mutual_group)  # _mutual
-output_parsers = dict(input=parser_output_group)
+output_parsers = dict(output=parser_output_group)
 option_parsers = dict(options=parser_options_group)
 residue_selector_parsers = dict(residue_selector=parser_residue_selector_group)
 parser_arguments = dict(options_arguments=parser_options_arguments,
@@ -830,11 +829,12 @@ module_subargparser = dict(title='module arguments', dest='module',  # metavar='
                                        'utility modules listed at the bottom starting with check_clashes.\nTo see '
                                        'example commands or algorithmic specifics of each Module enter:\n%s\n\nTo get '
                                        'help with Module arguments enter:\n%s' % (submodule_guide, submodule_help))
+module_required = ['nanohedra_mutual1']
 # for all parsing of module arguments
 subparsers = argparsers[parser_module].add_subparsers(required=True, **module_subargparser)
 # for parsing of guide based module info
 guide_subparsers = argparsers[parser_guide_module].add_subparsers(**module_subargparser)
-module_suparsers: Dict[str, argparse.ArgumentParser] = {}
+module_suparsers: dict[str, argparse.ArgumentParser] = {}
 for parser_name, parser_kwargs in module_parsers.items():
     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
     # if arguments:
@@ -842,15 +842,18 @@ for parser_name, parser_kwargs in module_parsers.items():
     if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
         # remove any indication to "mutual" of the argparse group v
         exclusive_parser = \
-            module_suparsers['_'.join(parser_name.split('_')[:-1])].add_mutually_exclusive_group(**parser_kwargs)
+            module_suparsers['_'.join(parser_name.split('_')[:-1])].\
+            add_mutually_exclusive_group(**parser_kwargs, **(dict(required=True) if parser_name in module_required
+                                                             else {}))
+        # add the key word argument "required" to mutual parsers that use it ^
         for args, kwargs in arguments.items():
             exclusive_parser.add_argument(*args, **kwargs)
     else:  # save the subparser in a dictionary to access with mutual groups
+        guide_subparsers.add_parser(name=parser_name, **parser_kwargs[parser_name])
         module_suparsers[parser_name] = subparsers.add_parser(prog=f'python SymDesign.py {parser_name} '
                                                                    f'[input_arguments] [optional_arguments]',
                                                               formatter_class=Formatter, allow_abbrev=False,
                                                               name=parser_name, **parser_kwargs[parser_name])
-        guide_subparsers.add_parser(name=parser_name, **parser_kwargs[parser_name])
         for args, kwargs in arguments.items():
             module_suparsers[parser_name].add_argument(*args, **kwargs)
 # print(module_suparsers['nanohedra'])
@@ -913,7 +916,7 @@ for parser_name, parser_kwargs in output_parsers.items():
     arguments = parser_arguments.get(f'{parser_name}_arguments', {})
     if arguments:
         if 'mutual' in parser_name:  # only has a dictionary as parser_arguments
-            exclusive_parser = output_group.add_mutually_exclusive_group(required=True, **parser_kwargs)
+            exclusive_parser = output_group.add_mutually_exclusive_group(**parser_kwargs)
             for args, kwargs in arguments.items():
                 exclusive_parser.add_argument(*args, **kwargs)
         else:  # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
@@ -934,8 +937,8 @@ entire_argparser = dict(fromfile_prefix_chars='@', allow_abbrev=False,  # exit_o
                                     'computational clusters for parallel processing'
                                     % (program_name, nano.title(), program_command),
                         formatter_class=Formatter, usage=usage_string,
-                        parents=[argparsers.get(parser) for parser in [parser_module, parser_options,
-                                                                       parser_residue_selector, parser_output]])
+                        parents=[argparsers.get(parser) for parser in [parser_options, parser_residue_selector,
+                                                                       parser_output]])
 argparsers[parser_entire] = argparse.ArgumentParser(**entire_argparser)
 parser = argparsers[parser_entire]
 # can't set up parser_input via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
@@ -953,6 +956,27 @@ for parser_name, parser_kwargs in input_parsers.items():
             for args, kwargs in arguments.items():
                 input_group.add_argument(*args, **kwargs)
 
+# can't set up parser_module via a parent due to mutually_exclusive groups formatting messed up in help, repeat above
+# Set up entire ArgumentParser with module arguments
+subparsers = parser.add_subparsers(**module_subargparser)
+entire_module_suparsers: dict[str, argparse.ArgumentParser] = {}
+for parser_name, parser_kwargs in module_parsers.items():
+    arguments = parser_arguments.get(f'{parser_name}_arguments', {})
+    # if arguments:
+    # has args as dictionary key (flag names) and keyword args as dictionary values (flag params)
+    if 'mutual' in parser_name:  # we must create a mutually_exclusive_group from already formed subparser
+        # remove any indication to "mutual" of the argparse group v
+        exclusive_parser = \
+            entire_module_suparsers['_'.join(parser_name.split('_')[:-1])].add_mutually_exclusive_group(**parser_kwargs)
+        for args, kwargs in arguments.items():
+            exclusive_parser.add_argument(*args, **kwargs)
+    else:  # save the subparser in a dictionary to access with mutual groups
+        entire_module_suparsers[parser_name] = subparsers.add_parser(prog=f'python SymDesign.py {parser_name} '
+                                                                          f'[input_arguments] [optional_arguments]',
+                                                                     formatter_class=Formatter, allow_abbrev=False,
+                                                                     name=parser_name, **parser_kwargs[parser_name])
+        for args, kwargs in arguments.items():
+            entire_module_suparsers[parser_name].add_argument(*args, **kwargs)
 # print('after_adding_Args')
 # for group in parser._action_groups:
 #     for arg in group._group_actions:

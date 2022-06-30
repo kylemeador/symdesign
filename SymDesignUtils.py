@@ -797,7 +797,7 @@ def get_file_paths_recursively(directory: str | bytes, extension: str = None, so
     return sorted(file_generator) if sort else list(file_generator)
 
 
-def get_directory_file_paths(directory: str | bytes, suffix: str = '', extension: str = '.pdb', sort: bool = True) -> \
+def get_directory_file_paths(directory: str | bytes, suffix: str = '', extension: str = '.pdb*', sort: bool = True) -> \
         list[str | bytes]:
     """Return all files in a directory with specified extensions and suffixes
 
@@ -811,7 +811,7 @@ def get_directory_file_paths(directory: str | bytes, suffix: str = '', extension
         The list of files matching the search
     """
     directory = os.path.abspath(directory)
-    file_generator = (os.path.join(directory, file) for file in glob(os.path.join(directory, f'*{suffix}*{extension}')))
+    file_generator = (file for file in glob(os.path.join(directory, f'*{suffix}*{extension}')))
 
     return sorted(file_generator) if sort else list(file_generator)
 

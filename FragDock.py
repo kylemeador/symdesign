@@ -6,6 +6,7 @@ from math import floor
 from typing import Union
 
 import numpy as np
+import psutil
 from sklearn.neighbors import BallTree
 
 from ClusterUtils import cluster_transformation_pairs, find_cluster_representatives
@@ -1121,7 +1122,9 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
     # log.info('\tCopy and Transform All Oligomer1 and Oligomer2 coords for clash testing (took %f s)'
     #          % transfrom_clash_coords_time)
 
-    memory_constraint = 15000000000  # 60 gB available, then half this for the space during calculation and storage
+    # Set up chunks of coordinate transforms for clashing
+    # memory_constraint = 15000000000  # 60 gB available, then half this for the space during calculation and storage
+    memory_constraint = psutil.virtual_memory().available / 4  # use half of available during calculation and storage
     # assume each element has 8 bytes
     element_memory = 8
     number_of_elements_available = memory_constraint / element_memory
@@ -1162,6 +1165,7 @@ def nanohedra_dock(sym_entry: SymEntry, ijk_frag_db: FragmentDatabase, euler_loo
         asu_clash_counts[chunk_slice] = \
             [oligomer1_backbone_cb_tree.two_point_correlation(inverse_transformed_pdb2_tiled_coords[idx], clash_vect)[0]
              for idx in range(inverse_transformed_pdb2_tiled_coords.shape[0])]
+        del inverse_transformed_pdb2_tiled_coords
         # print('asu_clash_counts: %s' % asu_clash_counts)
     check_clash_coords_time = time.time() - check_clash_coords_start
 
@@ -1699,7 +1703,8 @@ if __name__ == '__main__':
     if len(sys.argv) > 1:
         # Parsing Command Line Input
         sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
-            output_surrounding_uc, min_matched, timer, initial, debug = get_docking_parameters(sys.argv)
+        output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value = \
+            get_docking_parameters(sys.argv)
 
         # Master Log File
         master_log_filepath = os.path.join(master_outdir, master_log)
@@ -1766,7 +1771,8 @@ if __name__ == '__main__':
             nanohedra_dock(symmetry_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1_path, pdb2_path,
                            rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
                            output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                           keep_time=timer)  # log=bb_logger,
+                           keep_time=timer, high_quality_match_value=high_quality_match_value,
+                           initial_z_value=initial_z_value)  # log=bb_logger,
             master_logger.info('COMPLETE ==> %s\n\n' % os.path.join(master_outdir, building_blocks))
 
         except KeyboardInterrupt:

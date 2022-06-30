@@ -31,8 +31,8 @@ if __name__ == '__main__':
     elif len(sys.argv) > 1 and sys.argv[1] == '-dock':
 
         # Parsing Command Line Input
-        sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, \
-            output_assembly, output_surrounding_uc, min_matched, timer, initial, debug = \
+        sym_entry_number, pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2, master_outdir, output_assembly, \
+            output_surrounding_uc, min_matched, timer, initial, debug, high_quality_match_value, initial_z_value = \
             get_docking_parameters(sys.argv)
 
         # Master Output Directory and Master Log File
@@ -180,7 +180,8 @@ if __name__ == '__main__':
                 nanohedra_dock(sym_entry, ijk_frag_db, euler_lookup, master_outdir, pdb1_path, pdb2_path,
                                rotation_step1=rot_step_deg1, rotation_step2=rot_step_deg2, min_matched=min_matched,
                                output_assembly=output_assembly, output_surrounding_uc=output_surrounding_uc,
-                               keep_time=timer)  # log=bb_logger,
+                               keep_time=timer, high_quality_match_value=high_quality_match_value,
+                               initial_z_value=initial_z_value)  # log=bb_logger,
 
                 # with open(master_log_filepath, 'a+') as master_log_file:
                 master_logger.info('COMPLETE ==> %s' % os.path.join(master_outdir, building_blocks))

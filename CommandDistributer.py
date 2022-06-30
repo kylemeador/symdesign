@@ -1,13 +1,13 @@
+"""Module for Distribution of commands found for individual poses to SLURM/PBS computational cluster
 """
-Module for Distribution of Rosetta commands found for individual poses to SLURM/PBS computational cluster
-Finds commands within received directories (poses)
-"""
+from __future__ import annotations
+
 import argparse
 import os
 import signal
 import subprocess
 from itertools import repeat, chain
-from typing import Union, List
+from typing import Any
 
 from PathUtils import stage, sbatch_template_dir, nano, rosetta_main, rosetta_extras, dalphaball, submodule_help, \
     cmd_dist, program_name, interface_design, interface_metrics, optimize_designs, refine, rosetta_scripts, \
@@ -130,9 +130,9 @@ def exit_gracefully(signum, frame):
         # run(file, '/dev/null', program='rm')
 
 
-def create_file(file):
+def create_file(file: str | bytes = None):
     """If file doesn't exist, create a blank one"""
-    if not os.path.exists(file):
+    if file and not os.path.exists(file):
         with open(file, 'w') as new_file:
             dummy = True
 
@@ -151,19 +151,23 @@ def run(cmd: str, log_file_name: str, program: str = None, srun: str = None) -> 
     cluster_prefix = srun if srun else []
     program = [program] if program else []
     command = [cmd] if isinstance(cmd, str) else cmd
-    with open(log_file_name, 'a') as log_f:
-        command = cluster_prefix + program + command
-        log_f.write('Command: %s\n' % subprocess.list2cmdline(command))
-        p = subprocess.Popen(command, stdout=log_f, stderr=log_f)
+    if log_file_name:
+        with open(log_file_name, 'a') as log_f:
+            command = cluster_prefix + program + command
+            log_f.write('Command: %s\n' % subprocess.list2cmdline(command))
+            p = subprocess.Popen(command, stdout=log_f, stderr=log_f)
+            p.communicate()
+    else:
+        p = subprocess.Popen(command)
         p.communicate()
 
     return p.returncode == 0
 
 
-def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.getcwd(), scale: str = None,
-               success_file: Union[str, bytes] = None, failure_file: Union[str, bytes] = None, max_jobs: int = 80,
-               number_of_commands: int = None, mpi: int = None, log_file: Union[str, bytes] = None,
-               finishing_commands: List[str] = None, **kwargs) -> str:
+def distribute(file: str | bytes = None, out_path: str | bytes = os.getcwd(), scale: str = None,
+               success_file: str | bytes = None, failure_file: str | bytes = None, max_jobs: int = 80,
+               number_of_commands: int = None, mpi: int = None, log_file: str | bytes = None,
+               finishing_commands: list[str] = None, **kwargs) -> str:
     """Take a file of commands formatted for execution in the SLURM environment and process into a sbatch script
 
     Args:
@@ -245,7 +249,7 @@ def distribute(file: Union[str, bytes] = None, out_path: Union[str, bytes] = os.
 
 
 # @handle_errors(errors=(FileNotFoundError,))
-def update_status(serialized_info: Union[str, bytes], stage: str, mode: str = 'check'):
+def update_status(serialized_info: str | bytes, stage: str, mode: str = 'check'):
     """Update the serialized info for a designs commands such as checking or removing status, and marking completed"""
     info = unpickle(serialized_info)
     if mode == 'check':
@@ -319,7 +323,8 @@ if __name__ == '__main__':
             cmd_end_slice = cmd_start_slice + number_of_processes
         else:  # not in SLURM, use multiprocessing
             cmd_start_slice, cmd_end_slice = None, None
-        specific_commands = list(map(str.strip, all_commands[cmd_start_slice:cmd_end_slice]))
+        # set the type for below if the specific command can be split further
+        specific_commands: list[str] | list[list[str]] = list(map(str.strip, all_commands[cmd_start_slice:cmd_end_slice]))
 
         # Prepare Commands
         if len(specific_commands[0].split()) > 1:  # the commands probably have a program preceding the command
@@ -330,8 +335,11 @@ if __name__ == '__main__':
 
         if args.log_file:
             log_files = [args.log_file for _ in specific_commands]
-        else:  # todo overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
+        elif program == 'bash':
+            # v this overlaps with len(specific_commands[0].split()) > 1 as only shell scripts really satisfy this
             log_files = ['%s.log' % os.path.splitext(shell_path)[0] for shell_path in specific_commands]
+        else:
+            log_files = [None for shell_path in specific_commands]
 
         # iteration = 0
         # complete = False
