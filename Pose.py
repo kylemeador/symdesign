@@ -1289,8 +1289,8 @@ class SymmetricModel(Models):
         #     self.coords_type = 'bb_cb'
 
         # self.number_of_symmetry_mates = valid_subunit_number[self.symmetry]
-            symmetric_coords = Coords((np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
-                                                 self.expand_matrices) + self.expand_translations).reshape(-1, 3))
+            symmetric_coords = (np.matmul(np.tile(self.coords, (self.number_of_symmetry_mates, 1, 1)),
+                                          self.expand_matrices) + self.expand_translations).reshape(-1, 3)
         # number_of_atoms = self.number_of_atoms
         # number_of_atoms = len(self.coords)
         # model_coords = np.empty((number_of_atoms * self.number_of_symmetry_mates, 3), dtype=float)
@@ -1336,7 +1336,7 @@ class SymmetricModel(Models):
                 # uc_number = 1
                 symmetric_coords = self.return_unit_cell_coords(self.coords)
 
-        self._symmetric_coords = Coords(symmetric_coords)
+        self._models_coords = Coords(symmetric_coords)
 
     def cart_to_frac(self, cart_coords: np.ndarray | Iterable | int | float) -> np.ndarray:
         """Return fractional coordinates from cartesian coordinates
