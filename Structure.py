@@ -235,7 +235,7 @@ class Coords:
 
 # null_coords = Coords()
 # parent Structure controls these attributes
-parent_attributes = {'__parent', '_coords', '_log', '_atoms', '_residues'}
+parent_attributes = {'_StructureBase__parent', '_coords', '_log', '_atoms', '_residues'}
 
 
 class StructureBase:
@@ -262,6 +262,7 @@ class StructureBase:
         if parent:  # initialize StructureBase from parent
             self._parent = parent
         else:  # this is the parent
+            self.__parent = None  # requries use of _StructureBase__parent attribute checks
             # initialize Log
             if log:
                 if log is True:  # use the module logger
@@ -293,34 +294,38 @@ class StructureBase:
     @property
     def parent(self) -> StructureBase | None:
         """Return the instance's "parent" StructureBase"""
-        try:
-            return self.__parent
-        except AttributeError:
-            self.__parent = None
-            return self.__parent
+        # try:
+        return self.__parent
+        # except AttributeError:
+        #     self.__parent = None
+        #     return self.__parent
 
     # Placeholder getter for _parent setter so that derived classes automatically set _log and _coords from _parent set
     @property
     def _parent(self) -> StructureBase | None:
         """Return the instance's "parent" StructureBase"""
-        return self.__parent
+        return self.parent
 
     @_parent.setter
-    def _parent(self, parent: StructureBase) -> None:
+    def _parent(self, parent: StructureBase):
         """Return the instance's "parent" StructureBase"""
+        # print('setting __parent')
         self.__parent = parent
+        # print('type(self)', type(self))
+        # print('id(self)', id(self))
+        # print('self.__parent is', self.__parent)
         self._log = parent._log
         self._coords = parent._coords
-        #     self._atoms = parent._atoms  # Todo make empty Atoms for StructureBase objects?
-        #     self._residues = parent._residues  # Todo make empty Residues for StructureBase objects?
+        # self._atoms = parent._atoms  # Todo make empty Atoms for StructureBase objects?
+        # self._residues = parent._residues  # Todo make empty Residues for StructureBase objects?
 
     def is_dependent(self) -> bool:
         """Is the StructureBase a dependent?"""
-        return self._parent is not None
+        return self.__parent is not None
 
     def is_parent(self) -> bool:
         """Is the StructureBase a parent?"""
-        return self._parent is None
+        return self.__parent is None
 
     @property
     def log(self) -> Logger:
@@ -1013,7 +1018,26 @@ class Residue(ResidueFragment, StructureBase):
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
         """Set the Coords object while propagating changes to symmetry "mate" chains"""
-        StructureBase._parent.fset(self, parent)
+        # all of the below comments get at the issue of calling self.__parent here
+        # I think I have to call _StructureBase__parent to access this variable for some reason having to do with class
+        # inheritance
+
+        # # StructureBase._parent.fset(self, parent)
+        # print('type(parent)', type(parent))
+        # print('super(Residue, Residue)._parent', super(Residue, Residue)._parent)
+        # print('super(Residue, Residue)._parent.fset', super(Residue, Residue)._parent.fset)
+        # try:
+        #     print('self._log is', self._log)
+        # except AttributeError:
+        #     print('No log yet')
+        super(Residue, Residue)._parent.fset(self, parent)
+        # super()._parent.fset(self, parent)
+        # print('id(self)', id(self))
+        # print('self._log is', self._log)
+        # print('self._parent is', self._parent)
+        # print('self.is_dependent()', self.is_dependent())
+        # # print('self.__parent is', self.__parent)  # WTF doesn't this work?
+        # print('self.__dict__', self.__dict__)
         self._atoms = parent._atoms
         # self._residues = parent._residues  # Todo make empty Residues for Structure objects?
 
@@ -2166,7 +2190,7 @@ class Structure(StructureBase):
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
         """Set the Coords object while propagating changes to symmetry "mate" chains"""
-        StructureBase._parent.fset(self, parent)
+        super(Residue, Residue)._parent.fset(self, parent)
         self._atoms = parent._atoms
         self._residues = parent._residues
 
