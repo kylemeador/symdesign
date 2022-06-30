@@ -5190,9 +5190,9 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
                 self._reference_sequence = self.structure_sequence
             return self._reference_sequence
 
-    @reference_sequence.setter
-    def reference_sequence(self, sequence):
-        self._reference_sequence = sequence
+    # @reference_sequence.setter
+    # def reference_sequence(self, sequence):
+    #     self._reference_sequence = sequence
 
     @property
     def disorder(self) -> dict[int, dict[str, str]]:
@@ -5230,10 +5230,10 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
                                  f'Retrieving closest entity_id by PDB API structure sequence')
                 entity_id = retrieve_entity_id_by_sequence(self.sequence)
                 if not entity_id:
-                    self.reference_sequence = None
+                    self._reference_sequence = None
                     return
         self.log.debug('Retrieving Entity reference sequence from PDB')
-        self.reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
+        self._reference_sequence = get_entity_reference_sequence(entity_id=entity_id)
 
     # def retrieve_info_from_api(self):
     #     """Retrieve information from the PDB API about the Entity
