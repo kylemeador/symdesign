@@ -120,8 +120,8 @@ def rotated_translated_atoms(atom_list, rot, tx):
                                 atom.residue_number,
                                 atom.code_for_insertion, x_transformed, y_transformed,
                                 z_transformed,
-                                atom.occ, atom.temp_fact, atom.element_symbol,
-                                atom.atom_charge)
+                                atom.occ, atom.temp_fact, atom.element,
+                                atom.charge)
         transformed_atom_list.append(atom_transformed)
         atom_count += 1
 

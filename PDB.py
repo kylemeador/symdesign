@@ -678,9 +678,9 @@ class PDB(Structure):
             # self._residues.set_attributes(_atoms=self._atoms)
             # self._residues.reindex_atoms()
             # self._coords.set(np.concatenate([structure.coords for structure in structures]))
-            # index the coordinates to the Residue they belong to and their associated atom_index
-            residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
-            self._coords_indexed_residues, self._coords_indexed_residue_atoms = zip(*residues_atom_idx)
+            # # index the coordinates to the Residue they belong to and their associated atom_index
+            # residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
+            # self._coords_indexed_residues, self._coords_indexed_residue_atoms = zip(*residues_atom_idx)
 
         if chains:
             if isinstance(chains, (list, Structures)):  # create the instance from existing chains

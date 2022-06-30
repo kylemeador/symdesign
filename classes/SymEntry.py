@@ -1321,7 +1321,7 @@ if __name__ == '__main__':
     code_for_insertion = ''
     occ = 1
     temp_fact = 20.0
-    atom_charge = ''
+    charge = ''
     atom_types = ['O', 'N', 'C']
     chain_letters = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
     atom_idx = 1
@@ -1334,7 +1334,7 @@ if __name__ == '__main__':
         for point_idx, point in enumerate(points):
             atom_type = atom_types[point_idx]
             atoms.append(atom_string.format('ATOM', format(atom_type, '3s'), alt_location, code_for_insertion, occ, temp_fact,
-                                            atom_type, atom_charge)
+                                            atom_type, charge)
                          % (format(atom_idx, '5d'), '%s%2d' % (atom_type, set_idx), chain, format(point_idx + 1, '4d'),
                             '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(point))))
             atom_idx += 1
@@ -1342,7 +1342,7 @@ if __name__ == '__main__':
     # add origin
     atom_idx = 1
     atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
-                                    'C', atom_charge)
+                                    'C', charge)
                  % (format(atom_idx, '5d'), 'GLY', 'O', format(0, '4d'),
                     '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple([0, 0, 0]))))
     # add axis
@@ -1354,7 +1354,7 @@ if __name__ == '__main__':
         axis_point = axis_list.copy()
         axis_point[axis_idx] = axis_length
         atoms.append(atom_string.format('ATOM', format('C', '3s'), alt_location, code_for_insertion, occ, temp_fact,
-                                        'C', atom_charge)
+                                        'C', charge)
                      % (format(atom_idx, '5d'), 'GLY', axis_type[axis_idx], format(axis_idx + 1, '4d'),
                         '{:8.3f}{:8.3f}{:8.3f}'.format(*tuple(axis_point))))
 
