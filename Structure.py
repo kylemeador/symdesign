@@ -4517,15 +4517,15 @@ class Structure(StructureBase):
 
         return other
 
-    def __eq__(self, other: Structure):
+    def __eq__(self, other: Structure) -> bool:
         if isinstance(other, Structure):
             return self.__key() == other.__key()
         raise NotImplementedError(f'Can\' compare {type(self).__name__} instance to {type(other).__name__} instance')
 
-    def __hash__(self):
+    def __hash__(self) -> int:
         return hash(self.__key())
 
-    def __str__(self):
+    def __str__(self) -> str:
         return self.name
 
 
