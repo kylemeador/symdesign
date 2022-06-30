@@ -2448,7 +2448,7 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     def __init__(self, fragment_db: FragmentDatabase = None, resource_db: Database = None,
                  design_selector: dict[str, dict[str, dict[str, set[int] | set[str] | None]]] = None, **kwargs):
         #          euler_lookup: EulerLookup = None,
-        self.design_selector = design_selector  # kwargs.get('design_selector', {})
+        self.design_selector = design_selector if design_selector else {}  # kwargs.get('design_selector', {})
         self.design_selector_entities = set()
         self.design_selector_indices = set()
         self.euler_lookup = euler_factory()  # kwargs.get('euler_lookup', None)
