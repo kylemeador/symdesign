@@ -473,7 +473,7 @@ class State(Structures):
         return super().write(increment_chains=increment_chains, **kwargs)
 
         # if file_handle:  # Todo handle with multiple Structure containers
-        #     file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+        #     file_handle.write('%s\n' % self.return_atom_record(**kwargs))
         #     return
         #
         # with open(out_path, 'w') as f:

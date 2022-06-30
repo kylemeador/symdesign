@@ -3765,14 +3765,14 @@ class Structure(StructureBase):
         p = subprocess.Popen([free_sasa_exe_path, '--format=%s' % out_format, '--probe-radius', str(probe_radius),
                               '-c', free_sasa_configuration_path] + include_hydrogen,
                              stdout=subprocess.PIPE, stdin=subprocess.PIPE, stderr=subprocess.PIPE)
-        out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
+        out, err = p.communicate(input=self.return_atom_record().encode('utf-8'))
         # if err:  # usually results from Hydrogen atoms, silencing
         #     self.log.warning('\n%s' % err.decode('utf-8'))
         sasa_output = out.decode('utf-8').split('\n')
         if_idx = 0
         if atom:
             # slice removes first REMARK, MODEL and final TER, MODEL regardless of # of chains, TER inclusion
-            # since return_atom_string doesn't have models, these won't be present and no option to freesasa about model
+            # since return_atom_record doesn't have models, these won't be present and no option to freesasa about model
             # would be provided with above subprocess call
             atoms = self.atoms
             for line_split in map(str.split, sasa_output[5:-2]):  # slice could remove need for if ATOM
@@ -3879,12 +3879,12 @@ class Structure(StructureBase):
         out_path = out_path if out_path[-1] == os.sep else out_path + os.sep  # errat needs trailing "/"
         errat_cmd = [errat_exe_path, out_path]  # for passing atoms by stdin
         # p = subprocess.Popen(errat_cmd, stdin=subprocess.PIPE, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
-        # out, err = p.communicate(input=self.return_atom_string().encode('utf-8'))
-        # logger.info(self.return_atom_string()[:120])
+        # out, err = p.communicate(input=self.return_atom_record().encode('utf-8'))
+        # logger.info(self.return_atom_record()[:120])
         iteration = 1
         all_residue_scores = []
         while iteration < 5:
-            p = subprocess.run(errat_cmd, input=self.return_atom_string(), encoding='utf-8', capture_output=True)
+            p = subprocess.run(errat_cmd, input=self.return_atom_record(), encoding='utf-8', capture_output=True)
             all_residue_scores = p.stdout.strip().split('\n')
             if len(all_residue_scores) - 1 == self.number_of_residues:  # subtract overall_score from all_residue_scores
                 break
@@ -4093,7 +4093,7 @@ class Structure(StructureBase):
         """
         return getattr(np, measure)(np.linalg.norm(self.coords - reference, axis=1))
 
-    def return_atom_string(self, **kwargs) -> str:
+    def return_atom_record(self, **kwargs) -> str:
         """Provide the Structure Atoms as a PDB file string
 
         Keyword Args:
@@ -4159,13 +4159,13 @@ class Structure(StructureBase):
             The name of the written file if out_path is used
         """
         if file_handle:
-            file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+            file_handle.write('%s\n' % self.return_atom_record(**kwargs))
             return
 
         if out_path:
             with open(out_path, 'w') as outfile:
                 self.write_header(outfile, **kwargs)
-                outfile.write('%s\n' % self.return_atom_string(**kwargs))
+                outfile.write('%s\n' % self.return_atom_record(**kwargs))
 
             return out_path
 
@@ -4866,7 +4866,7 @@ class Structures(Structure, UserList):
     #         The name of the written file if out_path is used
     #     """
     #     if file_handle:  # _Todo increment_chains compatibility
-    #         file_handle.write('%s\n' % self.return_atom_string(**kwargs))
+    #         file_handle.write('%s\n' % self.return_atom_record(**kwargs))
     #         return
     #
     #     with open(out_path, 'w') as f:
@@ -5465,7 +5465,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         if file_handle:
             if self.chains:
                 for chain in self.chains:
-                    file_handle.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
+                    file_handle.write('%s\n' % chain.return_atom_record(atom_offset=offset, **kwargs))
                     offset += chain.number_of_atoms
 
         if out_path:
@@ -5473,7 +5473,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
                 with open(out_path, 'w') as outfile:
                     self.write_header(outfile, asu=False, **kwargs)  # function implies we want all chains, i.e. asu=False
                     for idx, chain in enumerate(self.chains, 1):
-                        outfile.write('%s\n' % chain.return_atom_string(atom_offset=offset, **kwargs))
+                        outfile.write('%s\n' % chain.return_atom_record(atom_offset=offset, **kwargs))
                         offset += chain.number_of_atoms
 
             return out_path
