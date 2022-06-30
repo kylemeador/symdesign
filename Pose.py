@@ -287,7 +287,6 @@ class MultiModel:
         # yield from self.enumerate_models()
 
 
-# (BaseModel)?
 class State(Structures):
     """A collection of Structure objects comprising one distinct configuration"""
     # def __init__(self, structures=None, **kwargs):  # log=None,
@@ -531,102 +530,46 @@ class Model(PDB):
         return cls(model=model, **kwargs)
 
     @property
-    def chain_breaks(self) -> list[int]:  # Todo KEEP
-        return [entity.c_terminal_residue.number for entity in self.entities]
+    def chain_breaks(self) -> list[int]:
+        return [structure.c_terminal_residue.number for structure in self.chains]
 
     @property
-    def atom_indices_per_chain(self) -> list[list[int]]:
+    def entity_breaks(self) -> list[int]:
+        return [structure.c_terminal_residue.number for structure in self.entities]
+
+    @property
+    def atom_indices_per_chain(self) -> list[list[int]]:  # UNUSED
         """Return the atom indices for each Chain in the Model"""
-        return [chain.atom_indices for chain in self.chains]
+        return [structure.atom_indices for structure in self.chains]
 
     @property
     def atom_indices_per_entity(self) -> list[list[int]]:
         """Return the atom indices for each Entity in the Model"""
-        return [entity.atom_indices for entity in self.entities]
+        return [structure.atom_indices for structure in self.entities]
 
     @property
-    def residue_indices_per_chain(self) -> list[list[int]]:
-        return [chain.residue_indices for chain in self.chains]
+    def residue_indices_per_chain(self) -> list[list[int]]:  # UNUSED
+        return [structure.residue_indices for structure in self.chains]
 
     @property
     def residue_indices_per_entity(self) -> list[list[int]]:
-        return [entity.residue_indices for entity in self.entities]
+        return [structure.residue_indices for structure in self.entities]
 
     @property
-    def number_of_atoms_per_chain(self) -> list[int]:
-        return [chain.number_of_atoms for chain in self.chains]
+    def number_of_atoms_per_chain(self) -> list[int]:  # UNUSED
+        return [structure.number_of_atoms for structure in self.chains]
 
     @property
-    def number_of_atoms_per_entity(self) -> list[int]:
-        return [entity.number_of_atoms for entity in self.entities]
+    def number_of_atoms_per_entity(self) -> list[int]:  # UNUSED
+        return [structure.number_of_atoms for structure in self.entities]
 
     @property
-    def number_of_residues_per_chain(self) -> list[int]:
-        return [chain.number_of_residues for chain in self.chains]
+    def number_of_residues_per_chain(self) -> list[int]:  # UNUSED
+        return [structure.number_of_residues for structure in self.chains]
 
     @property
-    def number_of_residues_per_entity(self) -> list[int]:
-        return [entity.number_of_residues for entity in self.entities]
-
-    # @property
-    # def coords_indexed_residues(self):  # TODO CONNECT
-    #     try:
-    #         return self._coords_indexed_residues
-    #     except AttributeError:
-    #         self._coords_indexed_residues = \
-    #             [residue for residue in self.residues for _ in residue.range]
-    #         return self._coords_indexed_residues
-    #
-    # @property
-    # def coords_indexed_residue_atoms(self):  # TODO CONNECT
-    #     try:
-    #         return self._coords_indexed_residue_atoms
-    #     except AttributeError:
-    #         self._coords_indexed_residue_atoms = \
-    #             [res_atom_idx for residue in self.residues for res_atom_idx in residue.range]
-    #         return self._coords_indexed_residue_atoms
-
-    # @property
-    # def model_coords(self) -> np.ndarray:  # DONE RECONCILE with coords, SymmetricModel, and State variation
-    #     """Return a view of the modelled Coords. These may be symmetric if a SymmetricModel"""
-    #     return self._model_coords.coords
-    #
-    # @model_coords.setter
-    # def model_coords(self, coords: Coords):
-    #     # if isinstance(coords, Coords):
-    #     try:
-    #         coords.coords  # are they Coords?
-    #         self._model_coords = coords
-    #     # else:
-    #     except AttributeError:
-    #         raise AttributeErr('The supplied coordinates are not of class Coords!, pass a Coords object not a Coords '
-    #                              'view. To pass the Coords object for a Strucutre, use the private attribute _coords')
-
-    # def format_seqres(self, **kwargs) -> str:
-    #     """Format the reference sequence present in the SEQRES remark for writing to the output header
-    #
-    #     Keyword Args:
-    #         **kwargs
-    #     Returns:
-    #         The PDB formatted SEQRES record
-    #     """
-    #     # if self.reference_sequence:
-    #     #     formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
-    #     #     formated_reference_sequence = \
-    #     #         {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
-    #     #          for chain, sequence in formated_reference_sequence.items()}
-    #     if self.reference_sequence:
-    #         formated_reference_sequence = \
-    #             {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
-    #              for chain, sequence in self.reference_sequence.items()}  # .reference_sequence doesn't have chains
-    #         chain_lengths = {chain: len(sequence) for chain, sequence in self.reference_sequence.items()}
-    #         return '%s\n' \
-    #                % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
-    #                            % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
-    #                            for chain, sequence in formated_reference_sequence.items()
-    #                            for line_number in range(1, 1 + ceil(len(sequence)/seq_res_len)))
-    #     else:
-    #         return ''
+    def number_of_residues_per_entity(self) -> list[int]:  # UNUSED
+        return [structure.number_of_residues for structure in self.entities]
 
     def format_header(self, **kwargs) -> str:
         """Return the BIOMT and the SEQRES records based on the Model
@@ -919,23 +862,23 @@ class SymmetricModel(Models):
         """Return the Entity corresponding to the provided chain_id"""
         return self.entity_from_chain(chain_id)
 
-    # Todo decide which to use. Below or Model
-    # each of the below functions with raise NotImplementedError need to be removed or solved
-    @property
-    def atom_indices_per_chain(self) -> list[list[int]]:
-        """Return the atom indices for each Chain in the Model"""
-        raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
-        return [chain.atom_indices for chain in self.chains]
-
-    @property
-    def residue_indices_per_chain(self) -> list[list[int]]:
-        raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
-        return [chain.residue_indices for chain in self.chains]
-
-    @property
-    def number_of_atoms_per_chain(self) -> list[int]:
-        raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
-        return [chain.number_of_atoms for chain in self.chains]
+    # # Todo decide which to use. Below or Model
+    # # each of the below functions with raise NotImplementedError need to be removed or solved
+    # @property
+    # def atom_indices_per_chain(self) -> list[list[int]]:
+    #     """Return the atom indices for each Chain in the Model"""
+    #     raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
+    #     return [chain.atom_indices for chain in self.chains]
+    #
+    # @property
+    # def residue_indices_per_chain(self) -> list[list[int]]:
+    #     raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
+    #     return [chain.residue_indices for chain in self.chains]
+    #
+    # @property
+    # def number_of_atoms_per_chain(self) -> list[int]:
+    #     raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
+    #     return [chain.number_of_atoms for chain in self.chains]
 
     # Todo this is same as atom_indices_per_entity_symmetric
     # @property
