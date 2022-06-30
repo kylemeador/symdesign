@@ -919,6 +919,7 @@ class SymmetricModel(Models):
         """Return the Entity corresponding to the provided chain_id"""
         return self.entity_from_chain(chain_id)
 
+    # Todo decide which to use. Below or Model
     # each of the below functions with raise NotImplementedError need to be removed or solved
     @property
     def atom_indices_per_chain(self) -> list[list[int]]:
@@ -936,24 +937,29 @@ class SymmetricModel(Models):
         raise NotImplementedError(f'This function is not implemented for a {type(self).__name__}')
         return [chain.number_of_atoms for chain in self.chains]
 
-    @property
-    def atom_indices_per_entity_model(self) -> list[list[int]]:
-        # Todo
-        #   alternative solution may be quicker by performing the following multiplication then .flatten()
-        #   broadcast entity_indices ->
-        #   (np.arange(model_number) * coords_length).T
-        #   |
-        #   v
-        number_of_atoms = self.number_of_atoms
-        # number_of_atoms = len(self.coords)
-        return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
-                 for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
+    # Todo this is same as atom_indices_per_entity_symmetric
+    # @property
+    # def atom_indices_per_entity_model(self) -> list[list[int]]:
+    #     # Todo
+    #     #   alternative solution may be quicker by performing the following multiplication then .flatten()
+    #     #   broadcast entity_indices ->
+    #     #   (np.arange(model_number) * coords_length).T
+    #     #   |
+    #     #   v
+    #     number_of_atoms = self.number_of_atoms
+    #     # number_of_atoms = len(self.coords)
+    #     return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_models)
+    #              for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
+    #  Todo this is used in atom_indices_per_entity_symmetric
+    #     return [self.get_symmetric_indices(entity_indices) for entity_indices in self.atom_indices_per_entity]
 
+    # Todo make asymmetric compatible
     @property
     def sequence(self) -> str:
         """Holds the SymmetricModel amino acid sequence"""
         return ''.join(entity.sequence for entity in self.entities)
 
+    # Todo make asymmetric compatible
     @property
     def reference_sequence(self) -> str:
         """Return the entire SymmetricModel sequence, constituting all Residues, not just structurally modelled ones
