@@ -1048,7 +1048,7 @@ class Residue(ResidueFragment, StructureBase):
         if self.i_type:  # a Fragment has been assigned. Transform the guide_coords according to the new coords
             _, rot, tx, _ = superposition3d(self.coords, coords)
             self.guide_coords = np.matmul(self.guide_coords, np.transpose(rot))
-        StructureBase.coords.fset(self, coords)  # prefer this over below, as this mechanism could change
+        super(Residue, Residue).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
         # self._coords.replace(self._atom_indices, coords)
 
     def is_residue_valid(self) -> bool:
@@ -2191,7 +2191,7 @@ class Structure(StructureBase):
     @StructureBase._parent.setter
     def _parent(self, parent: StructureBase):
         """Set the Coords object while propagating changes to symmetry "mate" chains"""
-        super(Residue, Residue)._parent.fset(self, parent)
+        super(Structure, Structure)._parent.fset(self, parent)
         self._atoms = parent._atoms
         self._residues = parent._residues
 
@@ -5023,7 +5023,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
             chains = self.chains  # populate the current chains (if not already) with current coords transformation
             self.chain_transforms.clear()  # remove all transforms
             # set coords with new coords
-            StructureBase.coords.fset(self, coords)  # prefer this over below, as this mechanism could change
+            super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as  mechanism could change
             # self._coords.replace(self._atom_indices, coords)
 
             # find the transform between the new coords and the current mate chain coords
@@ -5033,7 +5033,7 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
                 self.chain_transforms.append(dict(rotation=rot, translation=tx))
             self._chains.clear()  # remove old chain information so that it is regenerated next time chains are needed
         else:  # accept the new coords
-            StructureBase.coords.fset(self, coords)  # prefer this over below, as this mechanism could change
+            super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as mechanism could change
             # self._coords.replace(self._atom_indices, coords)
 
     @property

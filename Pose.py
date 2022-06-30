@@ -1109,7 +1109,7 @@ class SymmetricModel(Models):
     @StructureBase.coords.setter
     def coords(self, coords: np.ndarray | list[list[float]]):
         # self.coords = coords
-        StructureBase.coords.fset(self, coords)  # prefer this over below, as this mechanism could change
+        super(Structure, Structure).coords.fset(self, coords)  # prefer this over below, as this mechanism could change
         # self._coords.replace(self._atom_indices, coords)
         if self.symmetry:  # set the symmetric coords according to the ASU
             self.generate_symmetric_coords()
