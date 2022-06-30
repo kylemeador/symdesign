@@ -308,7 +308,7 @@ class PDB(Structure):
         metadata, log, name, and pose_format to initialize
     """
     api_entry: dict[str, Any] | None
-    assembly: bool
+    biological_assembly: bool
     chain_ids: list[str]
     chains: list[Chain] | Structures | bool | None
     # cryst: dict[str, str | tuple[float]] | None
@@ -344,7 +344,7 @@ class PDB(Structure):
         self.api_entry = None
         # {'entity': {1: {'A', 'B'}, ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
         #  'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}
-        self.assembly = False
+        self.biological_assembly = False
         self.chain_ids = []  # unique chain IDs
         self.chains = []
         # self.cryst = cryst
@@ -1182,7 +1182,7 @@ class PDB(Structure):
 
         if self.name and len(self.name) == 4:
             self.api_entry = get_pdb_info_by_entry(self.name)
-            if self.assembly:
+            if self.biological_assembly:
                 # self.api_entry.update(get_pdb_info_by_assembly(self.name))
                 self.api_entry['assembly'] = get_pdb_info_by_assembly(self.name)
             if not self.api_entry:
@@ -1225,7 +1225,7 @@ class PDB(Structure):
             # chains in the structure and the number of Entity chains will not be equal after prior attempts
             self.retrieve_pdb_info_from_api()  # First try to set self.api_entry if possible
             if self.api_entry:  # self.api_entry = {'entity': {1: ['A', 'B'], ...}, ...}
-                if self.assembly:  # When PDB API is returning information on the asu and assembly is different
+                if self.biological_assembly:  # When PDB API is returning information on the asu and assembly is different
                     if self.multimodel:  # ensure the renaming of chains is handled correctly
                         for ent_idx, chains in self.api_entry.get('entity').items():
                             # chain_set = set(chains)
