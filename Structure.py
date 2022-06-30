@@ -232,6 +232,13 @@ class Coords:
     def __iter__(self) -> list[float, float, float]:
         yield from self.coords.tolist()
 
+    def __copy__(self):
+        other = self.__class__.__new__(self.__class__)
+        # other.__dict__ = self.__dict__.copy()
+        other.coords = self.coords.copy()
+
+        return other
+
 
 # null_coords = Coords()
 # parent Structure controls these attributes
