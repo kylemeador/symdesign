@@ -698,15 +698,13 @@ class PDB(Structure):
                 # self._update_structure_container_attributes(_atoms=self._atoms, _residues=self._residues,
                 #                                            _coords=self._coords)
                 self._update_structure_container_attributes(_parent=self)
-                if rename_chains:
-                    self.reorder_chains()
-
+                self.chain_ids = [chain.name for chain in self.chains]
             else:  # create Chains from Residues. Sets self.chain_ids
-                # if self.multimodel:  # discrepancy is not possible
-                self.create_chains()
-                # else:
-                #     self.create_chains(solve_discrepancy=solve_discrepancy)
-                self.log.debug(f'Loaded with Chains: {",".join(self.chain_ids)}')
+                self._create_chains()
+
+            self.log.debug(f'Loaded with Chains: {",".join(self.chain_ids)}')
+            if rename_chains:
+                self.reorder_chains()
 
         # if seqres:
         #     self.parse_seqres(seqres)
@@ -846,7 +844,7 @@ class PDB(Structure):
         for chain in self.chains:
             chain.renumber_residues()
 
-    def create_chains(self):
+    def _create_chains(self):
         """For all the Residues in the PDB, create Chain objects which contain their member Residues
 
         Sets:
@@ -898,22 +896,15 @@ class PDB(Structure):
                                     for chain_idx, sequence in enumerate(self._reference_sequence.values())}
 
         for chain_id, residue_indices in zip(self.chain_ids, chain_residues):
-            # self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log,
-            #                          residues=self._residues, residue_indices=residue_indices))
             self.chains.append(Chain(name=chain_id, residue_indices=residue_indices, parent=self))
-        # else:
-        #     for chain_id in self.chain_ids:
-        #         self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log, residues=self._residues,
-        #                                  residue_indices=[idx for idx, residue in enumerate(residues)
-        #                                                   if residue.chain == chain_id]))
 
-    def get_chains(self, names: Container = None) -> list[Chain]:  # Unused
-        """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
-        returned"""
-        if names and isinstance(names, Iterable):
-            return [chain for chain in self.chains if chain.name in names]
-        else:
-            return self.chains
+    # def get_chains(self, names: Container = None) -> list[Chain]:  # Unused
+    #     """Retrieve Chains in PDB. Returns all by default. If a list of names is provided, the selected Chains are
+    #     returned"""
+    #     if names and isinstance(names, Iterable):
+    #         return [chain for chain in self.chains if chain.name in names]
+    #     else:
+    #         return self.chains
 
     def chain(self, chain_id: str) -> Chain | None:
         """Return the Chain object specified by the passed chain ID from the PDB object

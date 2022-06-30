@@ -4895,10 +4895,11 @@ class Structures(Structure, UserList):
 
 
 class Chain(Structure):
-    def __init__(self, **kwargs):  # name=None, residues=None,  residue_indices=None, coords=None, log=None
-        super().__init__(**kwargs)  # name=name, residues=residues, residue_indices=residue_indices, coords=coords,
-        # log=log
-        # self.chain_id = self.name
+    def __init__(self, **kwargs):
+        super().__init__(**kwargs)
+        # only if this instance is a Chain, set residues_attributes as in chain_id.setter
+        if type(self) == Chain:
+            self.set_residues_attributes(chain=self.name)
 
     @property
     def chain_id(self):
@@ -4907,7 +4908,6 @@ class Chain(Structure):
     @chain_id.setter
     def chain_id(self, chain_id):
         self.name = chain_id
-        # self._residues.set_attributes(chain=chain_id)
         self.set_residues_attributes(chain=chain_id)
 
 
@@ -5066,7 +5066,6 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
 
     @chain_id.setter
     def chain_id(self, chain_id):
-        # self._residues.set_attributes(chain=chain_id)
         self.set_residues_attributes(chain=chain_id)
         try:
             self._chain_ids[0] = chain_id

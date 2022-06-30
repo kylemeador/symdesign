@@ -910,10 +910,10 @@ class SymmetricModel(Models):
         #     if generate_symmetry_mates:
         #         self.generate_assembly_symmetry_models(**kwargs)
 
-    @property
-    def chains(self) -> list[Entity]:
-        """Return all the Chain objects including symmetric chains"""
-        return [chain for entity in self.entities for chain in entity.chains]
+    # @property
+    # def chains(self) -> list[Entity]:
+    #     """Return all the Chain objects including symmetric chains"""
+    #     return [chain for entity in self.entities for chain in entity.chains]
 
     def chain(self, chain_id: str) -> Chain:
         """Return the Entity corresponding to the provided chain_id"""
