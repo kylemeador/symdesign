@@ -32,10 +32,10 @@ logger = start_log(name=__name__)
 seq_res_len = 52
 qsbio_confirmed = unpickle(qs_bio)
 slice_remark, slice_number, slice_atom_type, slice_alt_location, slice_residue_type, slice_chain, \
-    slice_residue_number, slice_code_for_insertion, slice_x, slice_y, slice_z, slice_occ, slice_temp_fact, \
-    slice_element_symbol, slice_atom_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
-    slice(21, 22), slice(22, 26), slice(26, 27), slice(30, 38), slice(38, 46), slice(46, 54), slice(54, 60), \
-    slice(60, 66), slice(76, 78), slice(78, 80)
+slice_residue_number, slice_code_for_insertion, slice_x, slice_y, slice_z, slice_occ, slice_temp_fact, \
+slice_element, slice_charge = slice(0, 6), slice(6, 11), slice(12, 16), slice(16, 17), slice(17, 20), \
+                              slice(21, 22), slice(22, 26), slice(26, 27), slice(30, 38), slice(38, 46), slice(46, 54), slice(54, 60), \
+                              slice(60, 66), slice(76, 78), slice(78, 80)
 
 
 def parse_cryst_record(cryst_record) -> tuple[list[float], str]:  # Todo make PDB module method
@@ -155,8 +155,8 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
     # for line_tokens in map(str.split, pdb_lines):
     #     # 0       1       2          3             4             5      6               7                   8  9
     #     # remark, number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion, x, y,
-    #     #     10 11   12         13              14
-    #     #     z, occ, temp_fact, element_symbol, atom_charge = \
+    #     #     10 11   12         13       14
+    #     #     z, occ, temp_fact, element, charge = \
     #     #     line[6:11].strip(), int(line[6:11]), line[12:16].strip(), line[16:17].strip(), line[17:20].strip(),
     #     #     line[21:22], int(line[22:26]), line[26:27].strip(), float(line[30:38]), float(line[38:46]), \
     #     #     float(line[46:54]), float(line[54:60]), float(line[60:66]), line[76:78].strip(), line[78:80].strip()
@@ -182,19 +182,19 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
             temp_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
                               int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
                               float(line[slice_occ]), float(line[slice_temp_fact]),
-                              line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
+                              line[slice_element].strip(), line[slice_charge].strip()))
             # atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
             #                   int(line[slice_residue_number]), line[slice_code_for_insertion].strip(), None,
             #                   float(line[slice_occ]), float(line[slice_temp_fact]),
-            #                   line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
+            #                   line[slice_element].strip(), line[slice_charge].strip()))
             # atom_info.append(dict(number=int(line[slice_number]), type=atom_type, alt_location=alt_loc_str,
             #                       residue_type=residue_type, chain=line[slice_chain],
             #                       residue_number=int(line[slice_residue_number]),
             #                       code_for_insertion=line[slice_code_for_insertion].strip(),
             #                       coords=[float(line[slice_x]), float(line[slice_y]), float(line[slice_z])]
             #                       occupancy=float(line[slice_occ]), b_factor=float(line[slice_temp_fact]),
-            #                       element_symbol=line[slice_element_symbol].strip(),
-            #                       charge=line[slice_atom_charge].strip()))
+            #                       element_symbol=line[slice_element].strip(),
+            #                       charge=line[slice_charge].strip()))
             # prepare the atomic coordinates for addition to numpy array
             coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
         elif remark == 'MODEL ':
@@ -268,13 +268,15 @@ def read_pdb_file(file: str | bytes, pdb_lines: list[str] = None, separate_coord
         raise ValueError(f'The file {file} has no ATOM records!')
 
     return dict(assembly=assembly,
-                atoms=[Atom(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords else
+                atoms=[Atom.without_coordinates(idx, *info) for idx, info in enumerate(temp_info)] if separate_coords
+                else
                 # initialize with individual coords. Not sure why anyone would do this, but include for compatibility
-                [Atom(index=idx, number=number, type=_type, alt_location=alt_location, residue_type=residue_type,
-                      chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
-                      coords=coords[idx], occupancy=occupancy, b_factor=b_factor, element_symbol=element_symbol,
-                      charge=charge) for idx, (number, _type, alt_location, residue_type, chain, residue_number,
-                                               code_for_insertion, occupancy, b_factor, element_symbol, charge)
+                [Atom(index=idx, number=number, atom_type=atom_type, alt_location=alt_location,
+                      residue_type=residue_type, chain=chain, residue_number=residue_number,
+                      code_for_insertion=code_for_insertion, coords=coords[idx], occupancy=occupancy, b_factor=b_factor,
+                      element=element, charge=charge)
+                 for idx, (number, atom_type, alt_location, residue_type, chain, residue_number, code_for_insertion,
+                           occupancy, b_factor, element, charge)
                  in enumerate(temp_info)],
                 biomt=biomt,  # go to Structure
                 biomt_header=biomt_header,  # go to Structure
@@ -555,7 +557,7 @@ class PDB(Structure):
     #             atom_info.append((int(line[slice_number]), atom_type, alt_loc_str, residue_type, line[slice_chain],
     #                               int(line[slice_residue_number]), line[slice_code_for_insertion].strip(),
     #                               float(line[slice_occ]), float(line[slice_temp_fact]),
-    #                               line[slice_element_symbol].strip(), line[slice_atom_charge].strip()))
+    #                               line[slice_element].strip(), line[slice_charge].strip()))
     #             # prepare the atomic coordinates for addition to numpy array
     #             coords.append([float(line[slice_x]), float(line[slice_y]), float(line[slice_z])])
     #         elif remark == 'MODEL ':
