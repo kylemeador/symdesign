@@ -1590,7 +1590,7 @@ class SymmetricModel(Models):
         return [idx + (atom_num * model_num) for model_num in range(self.number_of_symmetry_mates) for idx in indices]
 
     def return_symmetric_copies(self, structure: ContainsAtomsMixin, return_side_chains: bool = True,
-                                surrounding_uc: bool = True, **kwargs) -> list[Structure]:
+                                surrounding_uc: bool = True, **kwargs) -> list[ContainsAtomsMixin]:
         """Expand the provided Structure using self.symmetry for the symmetry specification
 
         Args:
