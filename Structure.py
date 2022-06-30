@@ -258,7 +258,8 @@ class StructureBase:
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
                  # Todo ensure Pose/Models/SymmetricModel are swallowed
-                 , pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
+                 , assembly=None, header=None,
+                 pose_format=None, query_by_sequence=True, entity_names=None, rename_chains=None, **kwargs):
         if parent:  # initialize StructureBase from parent
             self._parent = parent
         else:  # this is the parent
