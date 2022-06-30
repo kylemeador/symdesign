@@ -254,7 +254,7 @@ class StructureBase:
     _coords: Coords
     _log: Log
     __parent: StructureBase | None
-    state_attributes: set[str]
+    state_attributes: set[str] = set()
 
     def __init__(self, parent: StructureBase = None, log: Log | Logger | bool = True, coords: np.ndarray | Coords = None
                  # Todo ensure Pose/Models/SymmetricModel are swallowed
@@ -392,7 +392,6 @@ class Atom(StructureBase):
     b_factor: float | None
     element: str | None
     charge: str | None
-    state_attributes: set[str] = super().state_attributes | {'_sasa'}
     state_attributes: set[str] = StructureBase.state_attributes | {'_sasa'}
 
     def __init__(self, index: int = None, number: int = None, atom_type: str = None, alt_location: str = None,
@@ -762,10 +761,8 @@ class Fragment:
         self.i_type = fragment_type
         self.guide_coords = guide_coords
         self.fragment_length = fragment_length
-        super().__init__()
-        # super().__init__(**kwargs)
-        # ^ no keyword args now. If any subclass of Fragment requires subsequent inheritence, need to add kwargs and
-        # likely FragmentBase to generate the proper method resolution order (MRO)
+        super().__init__(**kwargs)
+        # may need FragmentBase to clean extras for proper method resolution order (MRO)
 
     @property
     def type(self) -> int:
@@ -974,7 +971,7 @@ class Residue(ResidueFragment, StructureBase):
     # coords: Coords
     number: int
     number_pdb: int
-    state_attributes: set[str] = super().state_attributes | \
+    state_attributes: set[str] = StructureBase.state_attributes | \
         {'_secondary_structure', '_sasa', '_sasa_aploar', '_sasa_polar', '_contact_order', '_backbone_indices',
          '_backbone_and_cb_indices', '_heavy_indices', '_side_chain_indices', '_local_density'}
     type: str
@@ -1562,7 +1559,7 @@ class Residue(ResidueFragment, StructureBase):
     def next_residue(self, other: Residue):
         """Set the next_residue for this Residue and the prev_residue for the other Residue"""
         self._next_residue = other
-        other.prev_residue = self
+        other._prev_residue = self
 
     @property
     def prev_residue(self) -> Residue | None:
@@ -1576,7 +1573,7 @@ class Residue(ResidueFragment, StructureBase):
     def prev_residue(self, other: Residue):
         """Set the prev_residue for this Residue and the next_residue for the other Residue"""
         self._prev_residue = other
-        other.next_residue = self
+        other._next_residue = self
 
     def get_upstream(self, number: int) -> list[Residue]:
         """Get the Residues upstream of (n-terminal to) the current Residue
@@ -2078,7 +2075,7 @@ class Structure(StructureBase):
     secondary_structure: str | None
     sasa: float | None
     structure_containers: list | list[str]
-    state_attributes: set[str] = super().state_attributes | \
+    state_attributes: set[str] = StructureBase.state_attributes | \
         {'_sequence', '_backbone_and_cb_indices', '_backbone_indices', '_ca_indices', '_cb_indices',
          '_heavy_indices', '_coords_indexed_backbone_indices', '_coords_indexed_backbone_and_cb_indices',
          '_coords_indexed_cb_indices', '_coords_indexed_ca_indices', '_helix_cb_indices'}
@@ -2301,7 +2298,7 @@ class Structure(StructureBase):
             raise AttributeError(f'The dtype {dtype}_indices was not found the Structure object. Possible values of '
                                  f'dtype are atom or residue')
         first_index = indices[0]
-        setattr(self, f'{dtype}_indices', [at + prior_idx - first_index for prior_idx in indices])
+        setattr(self, f'_{dtype}_indices', [at + prior_idx - first_index for prior_idx in indices])
 
     def _insert_indices(self, at: int = 0, new_indices: list[int] = None, dtype: atom_or_residue = None):
         """Modify Structure container indices by a set integer amount
@@ -2319,7 +2316,7 @@ class Structure(StructureBase):
             raise AttributeError(f'The dtype {dtype}_indices was not found the Structure object. Possible values of '
                                  f'dtype are atom or residue')
         number_new = len(new_indices)
-        setattr(self, f'{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
+        setattr(self, f'_{dtype}_indices', indices[:at] + new_indices + [idx + number_new for idx in indices[at:]])
 
     @property
     def atoms(self) -> list[Atom] | None:

@@ -658,7 +658,7 @@ class PDB(Structure):
 
         # add lists together, only one is populated from class construction
         structures = (chains if isinstance(chains, (list, Structures)) else []) + \
-                     (entities if not isinstance(entities, (list, Structures)) else [])
+                     (entities if isinstance(entities, (list, Structures)) else [])
         if structures:  # create from existing
             atoms, residues, coords = [], [], []
             for structure in structures:
@@ -894,8 +894,8 @@ class PDB(Structure):
         # Todo this isn't super accurate. Perhaps SEQRES lines are not indexed to ATOM records
         #  Ideally we want a DB like PDB API or UniProtKB which we fetch in Entity
         # chain_map = dict(zip(self.chain_ids, self.original_chain_ids))
-        self.reference_sequence = \
-            {self.chain_ids[chain_idx]: sequence for chain_idx, sequence in enumerate(self.reference_sequence.values())}
+        self.reference_sequence = {self.chain_ids[chain_idx]: sequence
+                                   for chain_idx, sequence in enumerate(self._reference_sequence.values())}
 
         for chain_id, residue_indices in zip(self.chain_ids, chain_residues):
             # self.chains.append(Chain(name=chain_id, coords=self._coords, log=self._log,
