@@ -415,7 +415,7 @@ class Atom(StructureBase):
         #          parent: StructureBase = None, log: Log | Logger | bool = True, coords: list[list[float]] = None
         super().__init__(**kwargs)
         self.index = index
-        self._atom_indices = [self.index]  # set self.index so that changes to self.index are reflected in _atom_indices
+        # self._atom_indices = [self.index]  # set self.index so that changes to self.index are reflected in _atom_indices
         self.number = number
         self.type = atom_type
         self.alt_location = alt_location
@@ -446,10 +446,10 @@ class Atom(StructureBase):
                    chain=chain, residue_number=residue_number, code_for_insertion=code_for_insertion,
                    occupancy=occupancy, b_factor=b_factor, element=element, charge=charge)
 
-    # @property
-    # def atom_indices(self) -> int:
-    #     """The index of the Atom in the Atoms/Coords container"""  # Todo separate __doc__?
-    #     return self._atom_indices
+    @property
+    def _atom_indices(self) -> list[int]:
+        """The index of the Atom in the Atoms/Coords container"""
+        return [self.index]
 
     # Below properties are considered part of the Atom state
     @property
@@ -470,7 +470,9 @@ class Atom(StructureBase):
         """The coordinates for the Atoms in the StructureBase object"""
         # returns self.Coords.coords(a np.array)[sliced by the instance's atom_indices]
         try:
-            return self._coords.coords[self._atom_indices]
+            # return self._coords.coords[self.index]
+            # ^ this method is what is needed, but not in line with API. v call flatten() to return correct shape
+            return self._coords.coords[self._atom_indices].flatten()
         except AttributeError:  # possibly the Atom was set with keyword argument coords instead of Structure Coords
             # this shouldn't be used often as it will be quite slow... give warning?
             # Todo try this
@@ -542,6 +544,18 @@ class Atom(StructureBase):
 
     def __key(self) -> tuple[int, str, str, float]:
         return self.index, self.type, self.residue_type, self.b_factor
+
+    def return_atom_record(self) -> str:
+        """Provide the Atom as an Atom record string
+
+        Returns:
+            The archived .pdb formatted ATOM records for the Structure
+        """
+        return 'ATOM  {:5d} {:^4s}{:1s}{:3s} {:1s}{:4d}{:1s}   '\
+            '{:8.3f}{:8.3f}{:8.3f}{:6.2f}{:6.2f}          {:>2s}{:2s}'\
+            .format(self.index, self.type, self.alt_location, self.residue_type, self.chain, self.residue_number,
+                    self.code_for_insertion, *list(self.coords), self.occupancy, self.b_factor, self.element,
+                    self.charge)
 
     def __str__(self) -> str:  # type=None, number=None, pdb=False, chain=None, **kwargs
         """Represent Atom in PDB format"""
@@ -1098,9 +1112,6 @@ class Residue(ResidueFragment, StructureBase):
         self._atom_indices = list(range(index, index + self.number_of_atoms))
         for atom, index in zip(self._atoms.atoms[self._atom_indices].tolist(), self._atom_indices):
             atom.index = index
-        # Todo test that atom._atom_indices is updated with change
-        if atom.index == atom._atom_indices[0]:
-            print('DEBUG Atom .index and ._atom_indices[0] are the same:', atom.index, atom._atom_indices[0])
 
     @property
     def range(self) -> list[int]:
@@ -1982,9 +1993,9 @@ class Residues:
                 raise IndexError(f'{Residues.reindex_atoms.__name__}: Starting index is outside of the '
                                  f'allowable indices in the Residues object!')
         else:  # when start_at is 0 or less
-            prior_residue = self.residues[start_at]
+            prior_residue = self.residues[0]
             prior_residue.start_index = start_at
-            for residue in self.residues[start_at + 1:].tolist():
+            for residue in self.residues[1:].tolist():
                 residue.start_index = prior_residue.atom_indices[-1] + 1
                 prior_residue = residue
 
