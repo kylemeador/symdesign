@@ -1444,7 +1444,7 @@ class SymmetricModel(Models):
         # if self.dimension > 0:
         #     number_of_models = self.number_of_symmetry_mates
         # else:  # layer or space group
-        if surrounding_uc:  # if the surrounding_uc is requested, we might need to generate it
+        if self.dimension > 0 and surrounding_uc:  # if the surrounding_uc is requested, we might need to generate it
             if self.number_of_symmetry_mates == self.number_of_uc_symmetry_mates:  # ensure surrounding coords exist
                 self.generate_symmetric_coords(surrounding_uc=surrounding_uc)
                 # raise SymmetryError('Cannot return the surrounding unit cells as no coordinates were generated '
