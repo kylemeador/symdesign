@@ -1084,10 +1084,11 @@ class SymmetricModel(Models):
         # (np.arange(model_number) * number_of_atoms).T
         # |
         # v
-        number_of_atoms = self.number_of_atoms
+        # number_of_atoms = self.number_of_atoms
         # number_of_atoms = len(self.coords)
-        return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
-                 for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
+        return [self.get_symmetric_indices(entity_indices) for entity_indices in self.atom_indices_per_entity]
+        # return [[idx + (number_of_atoms * model_number) for model_number in range(self.number_of_symmetry_mates)
+        #          for idx in entity_indices] for entity_indices in self.atom_indices_per_entity]
 
     def set_asu_coords(self, coords: Coords | np.ndarray | list[list[float]]):
         """Set the coordinates corresponding to the asymmetric unit for the SymmetricModel"""
