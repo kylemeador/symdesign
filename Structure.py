@@ -2122,36 +2122,38 @@ class Structure(StructureBase):
             # set the atom_indices from the provided residues
             self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
         # we are setting up a parent (independent) Structure
-        else:
-            if residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
-                self._assign_residues(residues)
-                # self._residue_indices = list(range(len(residues)))
-                # if isinstance(residues, Residues):  # already have a residues object
-                #     # assume it is dependent on another Structure and clear runtime attributes
-                #     residues.reset_state()
-                # else:  # must create the residues object
-                #     residues = Residues(residues)
-                # # have to copy Residues object to set new attributes on each member Residue
-                # # self.residues = copy(residues)
-                # self._residues = copy(residues)
-                # # set residue attributes, index according to new Atoms/Coords index
-                # self._residues.set_attributes(_parent=self)
-                # # self.set_residues_attributes(_parent=self)
-                # self._residues.reindex_atoms()
-                # self._coords.set(np.concatenate([residue.coords for residue in residues]))
-                # # else:
-                # #     self._residue_indices = residue_indices
-                # #     self.set_residues(residues)
-                # #     # self.parent = parent_structure
-                # #     assert coords, \
-                # #         'Can\'t initialize Structure with residues and residue_indices when no Coords obj is passed'
-                # #     self.coords = coords
-            elif atoms:  # is not None
-                self._assign_atoms(atoms)
+        elif residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
+            self._assign_residues(residues)
+            # self._residue_indices = list(range(len(residues)))
+            # if isinstance(residues, Residues):  # already have a residues object
+            #     # assume it is dependent on another Structure and clear runtime attributes
+            #     residues.reset_state()
+            # else:  # must create the residues object
+            #     residues = Residues(residues)
+            # # have to copy Residues object to set new attributes on each member Residue
+            # # self.residues = copy(residues)
+            # self._residues = copy(residues)
+            # # set residue attributes, index according to new Atoms/Coords index
+            # self._residues.set_attributes(_parent=self)
+            # # self.set_residues_attributes(_parent=self)
+            # self._residues.reindex_atoms()
+            # self._coords.set(np.concatenate([residue.coords for residue in residues]))
+            # # else:
+            # #     self._residue_indices = residue_indices
+            # #     self.set_residues(residues)
+            # #     # self.parent = parent_structure
+            # #     assert coords, \
+            # #         'Can\'t initialize Structure with residues and residue_indices when no Coords obj is passed'
+            # #     self.coords = coords
+        elif atoms:  # is not None
+            self._assign_atoms(atoms)
+        else:  # set up an empty Structure or let subclass handle population
+            pass
 
-            # index the coordinates to the Residue they belong to and their associated atom_index
-            residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
-            self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
+    def _set_coords_indexed(self):
+        """Index the coordinates to the Residue they belong to and their associated atom_index"""
+        residues_atom_idx = [(residue, res_atom_idx) for residue in self.residues for res_atom_idx in residue.range]
+        self._coords_indexed_residues, self._coords_indexed_residue_atoms = map(np.array, zip(*residues_atom_idx))
 
         # super().__init__(**kwargs)
 
@@ -2418,6 +2420,7 @@ class Structure(StructureBase):
             self._atoms.set_attributes(_parent=self)
             if not self.file_path:  # assume this instance wasn't parsed and Atom indices are incorrect
                 self._atoms.reindex()
+            self._set_coords_indexed()
 
     # @property
     # def number_of_atoms(self) -> int:
@@ -2505,6 +2508,7 @@ class Structure(StructureBase):
         # perform after populate_coords due to possible coords setting to ensure that 'residues' .coords not overwritten
         self._residues.set_attributes(_parent=self)
         self._residues.reindex_atoms()
+        self._set_coords_indexed()
 
     # def store_coordinate_index_residue_map(self):
     #     self.coords_indexed_residues = [(residue, res_idx) for residue in self.residues for res_idx in residue.range]
