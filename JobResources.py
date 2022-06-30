@@ -111,7 +111,7 @@ class Database:  # Todo ensure that the single object is completely loaded befor
 
         return object_db.retrieve_file(name)
 
-    def orient_entities(self, entity_ids: Iterable[str], symmetry: str = 'C1') -> List[Entity]:
+    def orient_entities(self, entity_ids: Iterable[str], symmetry: str = 'C1') -> list[Entity] | list:
         """Given entity_ids and their corresponding symmetry, retrieve .pdb files, orient and save Database files then
         return the ASU for each
 
@@ -121,6 +121,8 @@ class Database:  # Todo ensure that the single object is completely loaded befor
         Returns:
             The resulting asymmetric Entities that have been oriented
         """
+        if not entity_ids:
+            return []
         self.oriented.make_path()
         orient_dir = self.oriented.location
         # os.makedirs(orient_dir, exist_ok=True)
@@ -253,9 +255,11 @@ class Database:  # Todo ensure that the single object is completely loaded befor
                 entity.symmetry = symmetry
                 entity.file_path = oriented_asu.file_path
                 all_entities.append(entity)
-        non_str = ', '.join(non_viable_structures)
-        orient_log.error(f'The Entit{f"ies {non_str} were" if len(non_viable_structures) > 1 else f"y {non_str} was"} '
-                         f'unable to be oriented properly')
+        if non_viable_structures:
+            non_str = ', '.join(non_viable_structures)
+            orient_log.error(f'The Entit'
+                             f'{f"ies {non_str} were" if len(non_viable_structures) > 1 else f"y {non_str} was"} '
+                             f'unable to be oriented properly')
         return all_entities
 
     def preprocess_entities_for_design(self, entities: list[Entity], script_out_path: str | bytes = os.getcwd(),

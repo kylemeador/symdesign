@@ -276,7 +276,7 @@ class SymEntry:
             for entry_group_symmetry, (int_dof, set_mat, ext_dof) in group_info:
                 if group_symmetry == entry_group_symmetry:
                     self._int_dof_groups.append(int_dof)
-                    self._setting_matrices.append(set_mat)
+                    self._setting_matrices.append(setting_matrices[set_mat])
                     ref_frame_tx_dof = list(map(str.strip, ext_dof.strip('<>').split(',')))
                     self._ref_frame_tx_dof.append(ref_frame_tx_dof)
                     if group_idx <= 1:
@@ -667,8 +667,12 @@ class SymEntryFactory:
         Returns:
             The instance of the specified SymEntry
         """
-        sym_map_string = '|'.join(sym_map)
-        entry_key = sym_map_string
+        if sym_map:
+            sym_map_string = '|'.join(sym_map)
+        else:
+            sym_map_string = 'None'
+
+        entry_key = f'{entry}|{sym_map_string}'
         symmetry = self._entries.get(entry_key)
         if symmetry:
             return symmetry
@@ -909,6 +913,7 @@ def get_uc_dimensions(uc_string, e=1, f=0, g=0):
 highest_point_group_msg = f'If this is a point group. You likely need to modify the current highest cyclic symmetry ' \
                           f'{max_sym} in {PUtils.path_to_sym_utils}, then run the file using "python ' \
                           f'{PUtils.path_to_sym_utils}".'
+example_symmetry_specification = 'RESULT:{SUBSYMMETRY}{SUBSYMMETRY}...'
 
 
 def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym_map: List[str] = None) -> \
@@ -929,13 +934,14 @@ def parse_symmetry_to_sym_entry(sym_entry: int = None, symmetry: str = None, sym
                 # we only have the resulting symmetry, set it and then solve by lookup_sym_entry_by_symmetry_combination
                 sym_map = [symmetry]
             elif len(symmetry) > 3:
-                if '}:' in symmetry:
+                if ':{' in symmetry:  # we have a symmetry specification of typical type result:{subsymmetry}{}...
                     sym_map = [split.strip('}:') for split in symmetry.split('{')]
                 elif 'cryst' in symmetry.lower():  # this is crystal specification
                     return  # we will have to set this up after parsing cryst records
                 else:  # this is some Rosetta based symmetry?
                     sym_str1, sym_str2, sym_str3, *_ = symmetry
                     sym_map = f'{sym_str1} C{sym_str2} C{sym_str3}'.split()
+                    logger.error(f'Symmetry specification "{symmetry}" is not understood, trying to solve anyway\n\n')
             elif symmetry in valid_symmetries:
                 logger.critical(f'{parse_symmetry_to_sym_entry.__name__}: The functionality of passing symmetry as '
                                 f'{symmetry} hasn\'t been tested thoroughly yet!')
@@ -1059,11 +1065,12 @@ def lookup_sym_entry_by_symmetry_combination(result: str, *symmetry_operators: s
                   f' specify the preferred Entry Number (ex: --{PUtils.sym_entry} 1) to proceed')
             exit()
     elif symmetry_operators:
-        raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s".'
-                         'Try to reformat your symmetry specification to include only symmetries that are group '
-                         'members of the resulting symmetry such as %s'
+        raise ValueError('The specified symmetries "%s" could not be coerced to make the resulting symmetry "%s". '
+                         'Try to reformat your symmetry specification if this is the result of a typo to include only '
+                         'symmetries that are group members of the resulting symmetry such as %s\nUse the format %s '
+                         'during your specification'
                          % (', '.join(symmetry_operators), result,
-                            ', '.join(all_sym_entry_dict.get(result, {}).keys())))
+                            ', '.join(all_sym_entry_dict.get(result, {}).keys()), example_symmetry_specification))
     else:  # no symemtry_operators
         if result_entries:
             print('\033[1mFound specified symmetries matching including %s\033[0m'

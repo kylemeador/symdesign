@@ -54,7 +54,7 @@ def query_mode(arg_list):
 def get_docking_parameters(arg_list):
     valid_flags = ['-dock', '-entry', '-oligomer1', '-oligomer2', '-rot_step1', '-rot_step2', '-outdir',
                    '-output_uc', '-output_surrounding_uc', '-min_matched', '-output_exp_assembly', '-output_assembly',
-                   '-no_time', '-initial', '-debug']
+                   '-no_time', '-initial', '-debug', '-high_quality_match_value', '-initial_z_value']
     if '-outdir' in arg_list:
         outdir_index = arg_list.index('-outdir') + 1
         if outdir_index < len(arg_list):
@@ -66,8 +66,7 @@ def get_docking_parameters(arg_list):
         logger.error('OUTPUT DIRECTORY NOT SPECIFIED\n')
         exit(1)
 
-    if not os.path.exists(outdir):
-        os.makedirs(outdir)
+    os.makedirs(outdir, exist_ok=True)
 
     # CHECK INPUT FLAGS
     for sys_input in arg_list:
@@ -119,11 +118,11 @@ def get_docking_parameters(arg_list):
     if '-rot_step1' in arg_list:
         rot_step_index1 = arg_list.index('-rot_step1') + 1
         if rot_step_index1 < len(arg_list):
-            if arg_list[rot_step_index1].isdigit():
-                rot_step_deg1 = int(arg_list[rot_step_index1])
-            else:
-                logger.error("ROTATION STEP SPECIFIED IS NOT AN INTEGER\n")
-                exit(1)
+            # if arg_list[rot_step_index1].isdigit():
+            rot_step_deg1 = float(arg_list[rot_step_index1])
+            # else:
+            #     logger.error("ROTATION STEP SPECIFIED IS NOT AN INTEGER\n")
+            #     exit(1)
         else:
             logger.error("ROTATION STEP NOT SPECIFIED\n")
             exit(1)
@@ -133,11 +132,11 @@ def get_docking_parameters(arg_list):
     if "-rot_step2" in arg_list:
         rot_step_index2 = arg_list.index('-rot_step2') + 1
         if rot_step_index2 < len(arg_list):
-            if arg_list[rot_step_index2].isdigit():
-                rot_step_deg2 = int(arg_list[rot_step_index2])
-            else:
-                logger.error("ROTATION STEP SPECIFIED IS NOT AN INTEGER\n")
-                exit(1)
+            # if arg_list[rot_step_index2].isdigit():
+            rot_step_deg2 = float(arg_list[rot_step_index2])
+            # else:
+            #     logger.error("ROTATION STEP SPECIFIED IS NOT AN INTEGER\n")
+            #     exit(1)
         else:
             logger.error("ROTATION STEP NOT SPECIFIED\n")
             exit(1)
@@ -167,6 +166,34 @@ def get_docking_parameters(arg_list):
     else:
         min_matched = 3
 
+    if '-high_quality_match_value' in arg_list:
+        high_quality_match_value_index = arg_list.index('-high_quality_match_value') + 1
+        if high_quality_match_value_index < len(arg_list):
+            # if arg_list[high_quality_match_value_index].isdigit():
+            high_quality_match_value = float(arg_list[high_quality_match_value_index])
+            # else:
+            #     logger.error("HIGH QUALITY MATCH VALUE IS NOT A FLOAT\n")
+            #     exit(1)
+        else:
+            logger.error("ERROR: HIGH QUALITY MATCH VALUE NOT SPECIFIED\n")
+            exit(1)
+    else:
+        high_quality_match_value = 0.5
+
+    if '-initial_z_value' in arg_list:
+        initial_z_value_index = arg_list.index('-initial_z_value') + 1
+        if initial_z_value_index < len(arg_list):
+            # if arg_list[initial_z_value_index].isdigit():
+            initial_z_value = float(arg_list[initial_z_value_index])
+            # else:
+            #     logger.error("INITIAL Z VALUE IS NOT AN FLOAT\n")
+            #     exit(1)
+        else:
+            logger.error("ERROR: INITIAL Z VALUE NOT SPECIFIED\n")
+            exit(1)
+    else:
+        initial_z_value = 1.
+
     if '-no_time' in arg_list:
         keep_time = False
     else:
@@ -183,7 +210,7 @@ def get_docking_parameters(arg_list):
         debug = False
 
     return entry, pdb_dir1_path, pdb_dir2_path, rot_step_deg1, rot_step_deg2, outdir, output_assembly, \
-        output_surrounding_uc, min_matched, keep_time, initial, debug
+        output_surrounding_uc, min_matched, keep_time, initial, debug, high_quality_match_value, initial_z_value
 
 
 def postprocess_mode(arg_list):

@@ -40,13 +40,13 @@ from ProteinExpression import find_expression_tags, find_matching_expression_tag
     select_tags_for_sequence, remove_expression_tags, expression_tags, optimize_protein_sequence, \
     default_multicistronic_sequence
 from Query.PDB import retrieve_pdb_entries_by_advanced_query
-from Query.utils import input_string, bool_d, validate_input, boolean_choice, invalid_string
+from Query.utils import input_string, bool_d, boolean_choice, invalid_string, validate_input_return_response_value
 from SequenceProfile import generate_mutations, find_orf_offset, write_fasta, read_fasta_file  # , pdb_to_pose_offset
 from classes.EulerLookup import euler_factory
 from classes.SymEntry import SymEntry, parse_symmetry_to_sym_entry, symmetry_factory
 from utils.CmdLineArgParseUtils import query_mode
 from utils.Flags import argparsers, parser_entire, parser_options, parser_module, parser_input, parser_guide_module, \
-    process_design_selector_flags, parser_residue_selector
+    process_design_selector_flags, parser_residue_selector, parser_output
 from utils.GeneralUtils import write_docking_parameters
 from utils.SetUp import set_up_instructions
 from utils.guide import interface_design_guide, analysis_guide, interface_metrics_guide, select_poses_guide, \
@@ -513,7 +513,7 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
                 exit(exit_code)
             job.make_path(job.sbatch_scripts)
             if pose_directories:
-                command_file = SDUtils.write_commands([os.path.join(des.scripts, '%s.sh' % stage) for des in success],
+                command_file = SDUtils.write_commands([os.path.join(des.scripts, f'{stage}.sh') for des in success],
                                                       out_path=job_paths, name='_'.join(default_output_tuple))
                 sbatch_file = distribute(file=command_file, out_path=job.sbatch_scripts, scale=args.module)
                 #                                                                        ^ for sbatch template
@@ -534,9 +534,9 @@ def terminate(results: list[Any] | dict = None, output: bool = True, **kwargs):
             else:
                 logger.info(f'Once you are satisfied, enter the following to distribute:\n\tsbatch {sbatch_file}')
 
-    # test for the size of each of the designdirectories
-    if pose_directories:
-        print('Average_design_directory_size equals %f' % (float(psutil.virtual_memory().used) / len(pose_directories)))
+    # # test for the size of each of the designdirectories
+    # if pose_directories:
+    #     print('Average_design_directory_size equals %f' % (float(psutil.virtual_memory().used) / len(pose_directories)))
 
     print('\n')
     exit(exit_code)
@@ -612,7 +612,6 @@ if __name__ == '__main__':
     # Display the program guide if requested
     # -----------------------------------------------------------------------------------------------------------------
     if args.guide:  # or not args.module:
-    # if '--guide' in sys.argv:  # or not args.module:
         args, additional_args = argparsers[parser_guide_module].parse_known_args(additional_args, args)
         if args.module == PUtils.analysis:
             print(analysis_guide)
@@ -654,6 +653,13 @@ if __name__ == '__main__':
     elif args.set_up:
         set_up_instructions()
         exit()
+    elif '--query' in sys.argv:
+        query_mode([__file__, '-query'] + additional_args)
+        exit()
+    elif '-query' in additional_args:
+        query_mode([__file__] + additional_args)
+        # print(f'Query {PUtils.nano.title()}.py with: {", ".join(query_flags)}')
+        exit()
     # ---------------------------------------------------
     # elif args.flags:  # Todo
     #     if args.template:
@@ -679,34 +685,43 @@ if __name__ == '__main__':
     # Initialize program with provided flags and arguments
     # -----------------------------------------------------------------------------------------------------------------
     # parse arguments for the actual runtime which accounts for differential argument ordering from standard argparse
-    argparser_order = [parser_options, parser_input, parser_residue_selector]
+    argparser_order = [parser_options, parser_residue_selector, parser_output, parser_input]
     args, additional_args = argparsers[parser_module].parse_known_args()
+    if args.module == PUtils.nano:  # we need to add a dummy input for argparse to happily continue with required args
+        additional_args.extend(['--file', 'dummy'])
     for argparser in argparser_order:
         args, additional_args = argparsers[argparser].parse_known_args(args=additional_args, namespace=args)
+
     if additional_args:
         exit(f'\nSuspending run. Found flag(s) that are not recognized program wide: {", ".join(additional_args)}\n'
              f'Please correct (try adding --help if unsure), and resubmit your command\n')
         queried_flags = None
     else:
+        if args.module == PUtils.nano:  # remove the dummy input
+            del args.file
         queried_flags = vars(args)
     # -----------------------------------------------------------------------------------------------------------------
     # Find base symdesign_directory and check for proper set up of program i/o
     # -----------------------------------------------------------------------------------------------------------------
     # Check if output already exists  # or provide --overwrite
-    if args.output_file and os.path.exists(args.output_file) and args.module not in PUtils.analysis:
+    if args.output_file and os.path.exists(args.output_file) and args.module not in PUtils.analysis \
+            and not args.overwrite:
         exit(f'The specified output file "{args.output_file}" already exists, this will overwrite your old '
-             f'data! Please specify a new name with with -Of/--output_file')
+             f'data! Please specify a new name with with -Of/--output_file, or append --overwrite to your command')
         symdesign_directory = None
     elif args.output_directory:
-        if os.path.exists(args.output_directory):
+        if os.path.exists(args.output_directory) and not args.overwrite:
             exit(f'The specified output directory "{args.output_directory}" already exists, this will overwrite '
-                 f'your old data! Please specify a new name with with -Od/--output_directory, --prefix or --suffix')
+                 f'your old data! Please specify a new name with with -Od/--output_directory, --prefix or --suffix, or '
+                 f'append --overwrite to your command')
+            symdesign_directory = None
         else:
             queried_flags['output_directory'] = True
             symdesign_directory = args.output_directory
     else:
         symdesign_directory = SDUtils.get_base_symdesign_dir(
             (args.directory or (args.project or args.single or [None])[0] or os.getcwd()))
+
     if not symdesign_directory:  # check if there is a file and see if we can solve there
         if args.file:
             with open(args.file, 'r') as f:
@@ -714,7 +729,6 @@ if __name__ == '__main__':
         else:  # assume new input and make in the current directory
             symdesign_directory = os.path.join(os.getcwd(), PUtils.program_output)
         os.makedirs(symdesign_directory, exist_ok=True)
-
     # -----------------------------------------------------------------------------------------------------------------
     # Start Logging - Root logs to stream with level warning
     # -----------------------------------------------------------------------------------------------------------------
@@ -722,7 +736,7 @@ if __name__ == '__main__':
         # Root logs to stream with level debug
         logger = SDUtils.start_log(level=1)
         SDUtils.set_logging_to_debug()
-        logger.debug('Debug mode. Produces verbose output and not written to any .log files')
+        logger.debug('Debug mode. Generates verbose output. No writing to .log files will occur')
     else:
         # Root logger logs to stream with level 'warning'
         SDUtils.start_log(level=3, set_handler_level=True)
@@ -746,7 +760,7 @@ if __name__ == '__main__':
     elif user_sym_entry:
         queried_flags[PUtils.sym_entry] = symmetry_factory.get(user_sym_entry)
 
-    sym_entry = queried_flags[PUtils.sym_entry]
+    sym_entry: SymEntry | None = queried_flags[PUtils.sym_entry]
     if not isinstance(sym_entry, SymEntry):  # remove if not an actual SymEntry
         queried_flags.pop(PUtils.sym_entry)
 
@@ -770,13 +784,9 @@ if __name__ == '__main__':
             # change default number to a single sequence/pose when not doing a total selection
             args.select_number = 1
     else:  # [PUtils.nano, 'multicistronic']
+        if not sym_entry:
+            raise RuntimeError(f'When running {PUtils.nano}, the argument -e/--entry/--{PUtils.sym_entry} is required')
         initialize = False
-        # Todo move to top level as args not recognized! run nanohedra query mode
-        if getattr(args, 'query', None):
-            query_flags = [__file__, '-query'] + additional_args
-            logger.debug(f'Query {PUtils.nano.title()}.py with: {", ".join(query_flags)}')
-            query_mode(query_flags)
-            terminate(output=False)
 
     # create JobResources which holds shared program objects and options
     job = JobResources(symdesign_directory, **queried_flags)
@@ -1097,35 +1107,39 @@ if __name__ == '__main__':
                                        location=os.path.join(job.resources.oriented.location, PUtils.orient_log_file),
                                        propagate=True)
         if args.query_codes:
-            if validate_input('Do you want to save the PDB query?', {'y': True, 'n': False}):
+            if validate_input_return_response_value('Do you want to save the PDB query?', {'y': True, 'n': False}):
                 args.save_query = True
             else:
                 args.save_query = False
-            entities1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
-            entities2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+
+            # Todo separate to use query1 and query2?
+            print('\nStarting PDB query for component 1\n')
+            entity_names1 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
+            print('\nStarting PDB query for component 2\n')
+            entity_names2 = retrieve_pdb_entries_by_advanced_query(save=args.save_query, entity=True)
         else:
             if args.pdb_codes1:
-                entities1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
+                entity_names1 = set(SDUtils.to_iterable(args.pdb_codes1, ensure_file=True))
                 # all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
             else:  # args.oligomer1:
-                logger.critical('Ensuring provided file(s) at %s are oriented for Nanohedra Docking'
-                                % args.oligomer1)
+                logger.critical(f'Ensuring provided file(s) at {args.oligomer1} are oriented for Nanohedra Docking')
                 if '.pdb' in args.oligomer1:
                     pdb1_filepaths = [args.oligomer1]
                 else:
-                    pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1, extension='.pdb')
+                    pdb1_filepaths = SDUtils.get_directory_file_paths(args.oligomer1)
                 # Todo this mechanism conflicts with the one in job.resources. The use of both causes their varioius
                 #  nuances to require extensive checks. Ex C1 symmetry, stride file production, asu/oligomer production
                 #  fix the divergence of these mechanisms to one single mechanism relying on entities and filepaths
                 pdb1_oriented_filepaths = [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[0],
                                                            out_dir=job.resources.oriented.location)
                                            for file in pdb1_filepaths]
+
                 # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
-                entities1 = list(map(os.path.basename,
+                entity_names1 = list(map(os.path.basename,
                                      [os.path.splitext(file)[0] for file in filter(None, pdb1_oriented_filepaths)]))
                 # logger.info('%d filepaths found' % len(pdb1_oriented_filepaths))
                 # pdb1_oriented_filepaths = filter(None, pdb1_oriented_filepaths)
-        all_entities.extend(job.resources.orient_entities(entities1, symmetry=symmetry_map[0]))
+        all_entities.extend(job.resources.orient_entities(entity_names1, symmetry=symmetry_map[0]))
 
         single_component_design = False
         if args.oligomer2:
@@ -1135,28 +1149,29 @@ if __name__ == '__main__':
                 if '.pdb' in args.oligomer2:
                     pdb2_filepaths = [args.oligomer2]
                 else:
-                    pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2, extension='.pdb')
+                    pdb2_filepaths = SDUtils.get_directory_file_paths(args.oligomer2)
                 pdb2_oriented_filepaths = \
                     [orient_pdb_file(file, log=orient_log, symmetry=symmetry_map[1],
                                      out_dir=job.resources.oriented.location)
                      for file in pdb2_filepaths]
                 # pull out the entity names and use job.resources.orient_entities to retrieve the entity alone
-                entities2 = list(map(os.path.basename,
-                                     [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
+                entity_names2 = list(map(os.path.basename,
+                                         [os.path.splitext(file)[0] for file in filter(None, pdb2_oriented_filepaths)]))
             else:  # the entities are the same symmetry, or we have single component and bad input
-                entities2 = []
+                entity_names2 = []
+                logger.info('No additional entities requested for docking, treating as single component')
+                single_component_design = True
         elif args.pdb_codes2:
             # Collect all entities required for processing the given commands
-            entities2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
+            entity_names2 = set(SDUtils.to_iterable(args.pdb_codes2, ensure_file=True))
         elif args.query_codes:
             pass
         else:
-            entities2 = []
-            # if not entities2:
+            entity_names2 = []
             logger.info('No additional entities requested for docking, treating as single component')
             single_component_design = True
         # Select entities, orient them, then load each entity to all_entities for further database processing
-        all_entities.extend(job.resources.orient_entities(entities2, symmetry=symmetry_map[1]))
+        all_entities.extend(job.resources.orient_entities(entity_names2, symmetry=symmetry_map[1]))
 
         info_messages = []
         preprocess_instructions, pre_refine, pre_loop_model = \
@@ -1176,9 +1191,34 @@ if __name__ == '__main__':
         # make all possible entity_pairs given input entities
         for entity in all_entities:
             entity.make_oligomer(symmetry=entity.symmetry)
-        entities1 = [entity for entity in all_entities if entity.name in entities1]
-        entities2 = [entity for entity in all_entities if entity.name in entities2]
-        entity_pairs = list(product(entities1, entities2))
+
+        # set up entities for entity_pairs
+        if single_component_design:
+            # entities1 = [entity for entity in all_entities if entity.name in entities1]
+            # ^ doesn't work as entity_id is set in orient_entities, but structure name is entry_id
+            entities1 = []
+            for entity_name in entity_names1:
+                for entity in all_entities:
+                    if entity_name in entity.name:
+                        entities1.append(entity)
+            entity_pairs = list(combinations(entities1, 2))
+        else:
+            entities1 = []
+            for entity_name in entity_names1:
+                for entity in all_entities:
+                    if entity_name in entity.name:
+                        entities1.append(entity)
+                        break
+            entities2 = []
+            for entity_name in entity_names2:
+                for entity in all_entities:
+                    if entity_name in entity.name:
+                        entities2.append(entity)
+                        break
+            # v doesn't work as entity_id is set in orient_entities, but structure name is entry_id
+            # entities1 = [entity for entity in all_entities if entity.name in entities1]
+            # entities2 = [entity for entity in all_entities if entity.name in entities2]
+            entity_pairs = list(product(entities1, entities2))
         location = args.oligomer1
         design_source = os.path.splitext(os.path.basename(location))[0]
     else:
@@ -1332,17 +1372,17 @@ if __name__ == '__main__':
                     # results.append(result)  # DONT need. Results uses pose_directories. There are none and no output
             terminate(results=results, output=False)
         else:  # write all commands to a file and use sbatch
-            design_source = 'Entry%d' % sym_entry.entry_numbe  # used for terminate()
+            design_source = f'Entry{sym_entry.entry_number}'  # used for terminate()
             # script_out_dir = os.path.join(job.docking_master_dir, PUtils.scripts)
             # os.makedirs(script_out_dir, exist_ok=True)
             cmd = ['python', PUtils.nanohedra_dock_file, '-dock']
             kwargs = dict(outdir=job.docking_master_dir, entry=sym_entry.entry_number, rot_step1=args.rotation_step1,
-                          rot_step2=args.rotation_step2, min_matcher=args.min_matched,
+                          rot_step2=args.rotation_step2, min_matched=args.min_matched,
                           high_quality_match_value=args.high_quality_match_value,
                           initial_z_value=args.initial_z_value, output_assembly=args.output_assembly,
                           output_surrounding_uc=args.output_surrounding_uc)
-            cmd.extend(chain.from_iterable([['-%s' % key, str(value)] for key, value in kwargs.items()]))
-            commands = [cmd + [PUtils.nano_entity_flag1, entity1.name, PUtils.nano_entity_flag2, entity2.name] +
+            cmd.extend(chain.from_iterable([[f'-{key}', str(value)] for key, value in kwargs.items()]))
+            commands = [cmd + [PUtils.nano_entity_flag1, entity1.filepath, PUtils.nano_entity_flag2, entity2.filepath] +
                         (['-initial'] if idx == 0 else []) for idx, (entity1, entity2) in enumerate(entity_pairs)]
             terminate(results=commands)
         # # Make single file with names of each directory. Specific for docking due to no established directory

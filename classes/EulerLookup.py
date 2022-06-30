@@ -5,7 +5,7 @@ from SymDesignUtils import start_log
 
 # from numba import njit
 # from numba.experimental import jitclass
-logger = start_log(name=__name__, format_log=False)
+logger = start_log(name=__name__)
 
 
 # @jitclass

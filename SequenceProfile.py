@@ -191,6 +191,7 @@ class SequenceProfile:
     Currently, Entity and Pose contain the necessary .reference_sequence attribute. Any Structure object with a
     .reference_sequence attribute could be used however
     """
+    # fragment_db:  Todo, indicate FragmenDatabase if imports work
     number_of_residues: int
     reference_sequence: str
     structure_sequence: str
@@ -201,7 +202,7 @@ class SequenceProfile:
         self.evolutionary_profile: dict = {}  # position specific scoring matrix
         # self.design_pssm_file = None
         self.profile: dict = {}  # design specific scoring matrix
-        self.fragment_db = None
+        self._fragment_db = None
         # {(ent1, ent2): [{mapped: res_num1, paired: res_num2, cluster: id, match: score}, ...], ...}
         self.fragment_map: dict | None = None  # {}
         self.alpha: dict = {}

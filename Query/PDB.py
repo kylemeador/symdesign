@@ -1,10 +1,12 @@
+from __future__ import annotations
+
 import argparse
 import os
 import sys
 import time
 from copy import deepcopy
 from json import dumps, load
-from typing import Union, List, Dict, Optional
+from typing import Dict, Optional, Any
 
 current_dir = os.path.dirname(os.path.abspath(__file__))
 parent_dir = os.path.dirname(current_dir)
@@ -127,23 +129,44 @@ def find_matching_entities_by_sequence(sequence=None, return_id='polymer_entity'
     if sequence_query_results:
         return parse_pdb_response_for_ids(sequence_query_results)
     else:
-        logger.warning('Sequence not found in PDB API!:\n%s' % sequence)
+        logger.warning(f'Sequence not found in PDB API!:\n{sequence}')
         return [None]
 
 
-def parse_pdb_response_for_ids(response):
+def parse_pdb_response_for_ids(response) -> list[str]:
     return [result['identifier'] for result in response['result_set']]
 
 
-def parse_pdb_response_for_score(response):
+def parse_pdb_response_for_score(response) -> list[float] | list:
     if response:
-        return [result['score'] for result in response['result_set']]
+        return list(map(float, (result['score'] for result in response['result_set'])))
     else:
         return []
 
 
-def query_pdb(_query):
-    """Take a JSON formatted PDB API query and return the results"""
+def query_pdb(_query) -> dict[str, Any]:
+    """Take a JSON formatted PDB API query and return the results
+
+    PDB response can look like:
+    {'query_id': 'ecc736b3-f19c-4a54-a5d6-3db58ce6520b',
+     'result_type': 'entry',
+    'total_count': 104,
+    'result_set': [{'identifier': '4A73', 'score': 1.0,
+                    'services': [{'service_type': 'text', 'nodes': [{'node_id': 11198,
+                                                                     'original_score': 222.23667907714844,
+                                                                     'norm_score': 1.0}]}]},
+                   {'identifier': '5UCQ', 'score': 1.0,
+                    'services': [{'service_type': 'text', 'nodes': [{'node_id': 11198,
+                                                                     'original_score': 222.23667907714844,
+                                                                     'norm_score': 1.0}]}]},
+                   {'identifier': '6P3L', 'score': 1.0,
+                    'services': [{'service_type': 'text', 'nodes': [{'node_id': 11198,
+                                                                     'original_score': 222.23667907714844,
+                                                                     'norm_score': 1.0}]}]},
+                    ...
+                  ]
+    }
+    """
     query_response = None
     iteration = 0
     while True:
@@ -238,18 +261,22 @@ def generate_query(search, return_id='entry', all_matching=True):
     return query_d
 
 
-def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force_schema_update=False, entity=False,
-                                           assembly=False, chain=False, entry=False, **kwargs) \
-        -> Union[str, List, None]:
+def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bool = True,
+                                           force_schema_update: bool = False, entity: bool = False,
+                                           assembly: bool = False, chain: bool = False, entry: bool = False, **kwargs) \
+        -> str | list | None:
     """
 
-    Keyword Args:
-        save=True (bool):
-        return_results=True (bool):
-        force_schema_update=False (bool):
-
+    Args:
+        save:
+        return_results:
+        force_schema_update:
+        entity:
+        assembly:
+        chain:
+        entry:
     Returns:
-        (Union[str, List, None])
+
     """
     # {attribute: {'dtype': 'string', 'description': 'XYZ', 'operators': {'equals',}, 'choices': []}, ...}
 
@@ -345,35 +372,51 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
 
     # Start the user input routine -------------------------------------------------------------------------------------
     schema = get_rcsb_metadata_schema(force_update=force_schema_update)
-    print('\n%s\nThis query will walk you through generating an advanced search query and retrieving the matching'
-          ' set of entry ID\'s from the PDB. If you want to take advantage of a GUI to do this, you can visit:\n%s\n\n'
-          'This function takes advantage of the same functionality, but automatically parses the returned ID\'s for '
-          'downstream use. If you require > 25,000 ID\'s, this will save you some headache. You can also use the GUI '
-          'and this tool in combination, as detailed below. Type "json" into the next prompt to do so. If you have a '
-          'search specified from a prior query that you want to process again, this option may be useful as well. '
-          'Otherwise hit "Enter"\n'
-          % (header_string % 'PDB API Advanced Query', pdb_advanced_search_url))
+    print(f'\n{header_string % "PDB API Advanced Query"}\n'
+          f'This prompt will walk you through generating an advanced search query and retrieving the matching'
+          ' set of entry ID\'s from the PDB. This automatically parses the ID\'s of interest for downstream use, which'
+          ' can save you some headache. If you want to take advantage of the PDB webpage GUI to perform the advanced '
+          f'search, visit:\n{pdb_advanced_search_url}\tThen enter "json" in the prompt below and follow those '
+          'instructions.\n\n'
+          'Otherwise, this command line prompt takes advantage of the same GUI functionality. If you have a '
+          'search specified from a prior query that you want to process again, using "json" will be useful as well. '
+          'To proceed with the command line search just hit "Enter"')
     program_start = input(input_string)
     if program_start.lower() == 'json':
-        # TODO get a method for taking the pasted JSON and formatting accordingly. Pasting now is causing enter on input
-        print('DETAILS: If you want to use this function to save time formatting and/or pipeline '
-              'interruption, a unique solution is to build your Query with the GUI on the PDB then bring '
-              'the resulting JSON back here to submit. To do this, first build your full query, then hit '
-              '"Enter" or the Search icon button (magnifying glass icon). A new section of the search '
-              'page should appear above the Query builder. Clicking the JSON|->| button will open a new '
-              'page with an automatically built JSON representation of your query. Download '
-              'this JSON object to a file to return your chosen ID\'s.\n\n')
+        if entity:
+            return_type = 'Polymer Entities'  # 'polymer_entity'
+        elif assembly:
+            return_type = 'Assemblies'  # 'assembly'
+        elif chain:
+            return_type = 'Polymer Entities'  # This isn't available on web GUI -> 'polymer_instance'
+        elif entry:
+            return_type = 'Structures'  # 'entry'
+        else:
+            return_type = 'Structures'  # 'entry'
+
+        return_type_prompt = f'At the bottom left of the dialog, there is a drop down menu next to "Return". ' \
+                             f'Choose {return_type} '
+        print('DETAILS: To save time formatting and immediately move to your design pipeline, build your Query with the'
+              ' PDB webpage GUI, then save the resulting JSON text to a file. To do this, first build your full query '
+              f'on the advanced search page,{return_type_prompt}then click the Search button (magnifying glass icon). '
+              f'After the page loads, a new section of the search page should appear above the Advanced Search Query '
+              f'Builder dialog. There, click the JSON|->| button to open a new page with an automatically built JSON '
+              f'representation of your query. Save the entirety of this JSON formatted query to a file to return your '
+              f'chosen ID\'s\n')
         # ('Paste your JSON object below. IMPORTANT select from the opening \'{\' to '
         #  '\'"return_type": "entry"\' and paste. Before hitting enter, add a closing \'}\'. This hack '
         #  'ensures ALL results are retrieved with no sorting or pagination applied\n\n%s' %
         #  input_string)
         prior_query = input('Please specify the path where the JSON query file is located%s' % input_string)
-        if os.path.exists(prior_query):
-            with open(prior_query, 'r') as f:
-                json_input = load(f)
-        else:
-            print('The specified path "%s" doesn\'t exist! Please try again.' % prior_query)
-        search_query = query_pdb(json_input)
+        while not os.path.exists(prior_query):
+            prior_query = input(f'The specified path "{prior_query}" doesn\'t exist! Please try again{input_string}')
+
+        with open(prior_query, 'r') as f:
+            json_input = load(f)
+
+        # remove any paginate instructions from the json_input
+        json_input['request_options'].pop('paginate', None)
+        response_d = query_pdb(json_input)
     # elif program_start.lower() == 'previous':
     #     while True:
     #         prior_query = input('Please specify the path where the search file is located%s' % input_string)
@@ -392,19 +435,12 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
         elif entry:
             return_type = 'entry'
         else:
-            return_type = None
-
-        return_identifier_string = '\nFor each set of options, choose the option from the first column for the ' \
-                                   'description in the second.\nWhat type of identifier do you want to search the PDB '\
-                                   'for?%s%s' % (user_input_format % '\n'.join(format_string % item
-                                                                               for item in return_types.items()),
-                                                 input_string)
-        return_type = validate_input(return_identifier_string, return_types)
-        # while return_type not in return_types:
-        #     if return_type in return_types:
-        #         break
-        #     else:
-        #         print(invalid_string)
+            return_identifier_string = '\nFor each set of options, choose the option from the first column for the ' \
+                                       'description in the second.\nWhat type of identifier do you want to search the '\
+                                       'PDB for?%s%s' % (user_input_format % '\n'.join(format_string % item
+                                                                                       for item in return_types.items())
+                                                         , input_string)
+            return_type = validate_input(return_identifier_string, return_types)
 
         terminal_group_queries = []
         # terminal_group_queries = {}
@@ -595,18 +631,17 @@ def retrieve_pdb_entries_by_advanced_query(save=True, return_results=True, force
                 # for k in child_group_nums}
         final_query = recursive_query_tree[-1][1]  #
 
-    search_query = generate_query(final_query, return_id=return_type)
-    response_d = query_pdb(search_query)
-    print('The server returned:\n%s' % response_d)
+        search_query = generate_query(final_query, return_id=return_type)
+        response_d = query_pdb(search_query)
+    logger.debug(f'The server returned:\n{response_d}')
 
     retrieved_ids = parse_pdb_response_for_ids(response_d)
 
     if save:
-        return io_save(retrieved_ids)
+        io_save(retrieved_ids)
+
     if return_results:
         return retrieved_ids
-    else:
-        return
 
 
 def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval to POST
