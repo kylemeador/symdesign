@@ -2399,14 +2399,14 @@ class SymmetricModel(Models):
             if assembly:  # will make models and use next logic steps to write them out
                 self.generate_assembly_symmetry_models(**kwargs)
                 # self.models is populated, use Models.write() to finish
-                super().write(file_handle=handle, **kwargs)
+                super(SymmetricModel, SymmetricModel).write(self, file_handle=handle, **kwargs)
             else:  # skip models, write asu using biomt_record/cryst_record for sym
                 for entity in self.entities:
                     entity.write(file_handle=handle, **kwargs)
 
         def model_write(handle):
             self.write_header(handle, **kwargs)
-            super(Model, Models).write(file_handle=handle, **kwargs)
+            super(Models, Models).write(self, file_handle=handle, **kwargs)
 
         if file_handle:  # Todo should the use of self.write_header() with file_handle be disabled?
             if self.symmetry:
