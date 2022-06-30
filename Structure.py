@@ -2163,7 +2163,7 @@ class Structure(StructureBase):
             self._atom_indices = [idx for residue in self.residues for idx in residue.atom_indices]
         # we are setting up a parent (independent) Structure
         elif residues:  # is not None  # assume the passed residues aren't bound to an existing Structure
-            self._assign_residues(residues)
+            self._assign_residues(residues, atoms=atoms)
             # self._residue_indices = list(range(len(residues)))
             # if isinstance(residues, Residues):  # already have a residues object
             #     # assume it is dependent on another Structure and clear runtime attributes
