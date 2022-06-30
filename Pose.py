@@ -610,16 +610,16 @@ class Model(PDB):
     #     Returns:
     #         The PDB formatted SEQRES record
     #     """
-    #     # if self.pdb.reference_sequence:
+    #     # if self.reference_sequence:
     #     #     formated_reference_sequence = {entity.chain_id: entity.reference_sequence for entity in self.entities}
     #     #     formated_reference_sequence = \
     #     #         {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
     #     #          for chain, sequence in formated_reference_sequence.items()}
-    #     if self.pdb.reference_sequence:
+    #     if self.reference_sequence:
     #         formated_reference_sequence = \
     #             {chain: ' '.join(map(str.upper, (protein_letters_1to3_extended.get(aa, 'XXX') for aa in sequence)))
-    #              for chain, sequence in self.pdb.reference_sequence.items()}  # .reference_sequence doesn't have chains
-    #         chain_lengths = {chain: len(sequence) for chain, sequence in self.pdb.reference_sequence.items()}
+    #              for chain, sequence in self.reference_sequence.items()}  # .reference_sequence doesn't have chains
+    #         chain_lengths = {chain: len(sequence) for chain, sequence in self.reference_sequence.items()}
     #         return '%s\n' \
     #                % '\n'.join('SEQRES{:4d} {:1s}{:5d}  %s         '.format(line_number, chain, chain_lengths[chain])
     #                            % sequence[seq_res_len * (line_number - 1):seq_res_len * line_number]
@@ -659,22 +659,6 @@ class Models(Model):
     def from_models(cls, models: Iterable[Model], **kwargs):
         """Initialize from an iterable of Model"""
         return cls(models=models, **kwargs)
-
-    # @classmethod
-    # def from_file(cls, file, **kwargs):
-    #     """Construct Models from multimodel PDB file using the PDB.chains
-    #     Ex: [Chain1, Chain1, ...]
-    #     """
-    #     pdb = PDB.from_file(file, **kwargs)  # Todo make independent parsing function
-    #     # new_model = cls(models=pdb.chains)
-    #     return cls(models=pdb.chains, **kwargs)
-    #
-    # @classmethod
-    # def from_pdb(cls, pdb, **kwargs):
-    #     """Construct Models from multimodel PDB file using the PDB.chains
-    #     Ex: [Chain1, Chain1, ...]
-    #     """
-    #     return cls(models=pdb.chains, **kwargs)
 
     @property
     def number_of_models(self) -> int:
@@ -1465,14 +1449,14 @@ class SymmetricModel(Models):
             self.log.critical(f'Ensure the output of symmetry mate creation is correct. The copy of a '
                               f'{type(self).__name__} is being taken which is probably relying on PDB.__copy__ or '
                               f'Structure.__copy__. These may not be adequate and need to be overwritten')
-            symmetry_mate_pdb = copy(self)
+            symmetry_mate = copy(self)
             # old-style
             # symmetry_mate_pdb.replace_coords(self.symmetric_coords[(coord_idx * number_of_atoms):
             #                                                        ((coord_idx + 1) * number_of_atoms)])
             # new-style
-            symmetry_mate_pdb.coords = self.symmetric_coords[(coord_idx * number_of_atoms):
-                                                             ((coord_idx + 1) * number_of_atoms)]
-            self.models.append(symmetry_mate_pdb)
+            symmetry_mate.coords = self.symmetric_coords[(coord_idx * number_of_atoms):
+                                                         ((coord_idx + 1) * number_of_atoms)]
+            self.models.append(symmetry_mate)
 
     @property
     def asu_model_index(self) -> int:
@@ -1707,12 +1691,12 @@ class SymmetricModel(Models):
         sym_mates = []
         for coord_set in np.split(sym_coords, number_of_symmetry_mates):  # uc_number):
             # for model_num in range(self.number_of_symmetry_mates):
-            symmetry_mate_pdb = copy(structure)
+            symmetry_mate = copy(structure)
             # old-style
             # symmetry_mate_pdb.replace_coords(coord_set)  # [model_num * coords_length:(model_num + 1) * coords_length])
             # new-style
-            symmetry_mate_pdb.coords = coord_set
-            sym_mates.append(symmetry_mate_pdb)
+            symmetry_mate.coords = coord_set
+            sym_mates.append(symmetry_mate)
 
         if len(sym_mates) != uc_number * self.number_of_symmetry_mates:
             raise SymmetryError(f'Number of models ({len(sym_mates)}) is incorrect! Should be '
@@ -2267,11 +2251,13 @@ class SymmetricModel(Models):
             # print([(entity.name, entity.chain_id) for entity in entities])
         return entities
 
-    def return_contacting_asu(self, **kwargs) -> PDB:
+    def return_contacting_asu(self, **kwargs) -> Model:
         """From the Pose Entities, find the maximal contacting Chain for each of the entities and return the ASU
 
         If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
 
+        Keyword Args:
+            distance=8.0 (float): The distance to check for contacts
         Returns:
             A PDB object with the minimal set of Entities containing the maximally touching configuration
         """
@@ -2284,14 +2270,16 @@ class SymmetricModel(Models):
             else:
                 found_chain_ids.append(entity.chain_id)
 
-        return PDB.from_entities(entities, name='asu', log=self.log, biomt_header=self.format_biomt(),
-                                 cryst_record=self.cryst_record, **kwargs)
+        return Model.from_entities(entities, name='asu', log=self.log, biomt_header=self.format_biomt(),
+                                   cryst_record=self.cryst_record, **kwargs)
 
     def set_contacting_asu(self, **kwargs):
         """From the Pose Entities, find the maximal contacting Chain for each of the entities and set the Pose.asu
 
+        Keyword Args:
+            distance=8.0 (float): The distance to check for contacts
         Sets:
-            self._pdb: To a PDB object with the minimal set of Entities containing the maximally touching configuration
+            self: To a Model with the minimal set of Entities containing the maximally touching configuration
         """
         entities = self.find_contacting_asu(**kwargs)
         # self = PDB.from_entities(entities, name='asu', log=self.log, **kwargs)  # Todo remove .pdb
@@ -3525,8 +3513,8 @@ class Pose(SymmetricModel, SequenceProfile):  # Todo consider moving SequencePro
     #     if pdb_numbering:  # Renumber self.fragment_map and self.fragment_profile to Pose residue numbering
     #         query = self.renumber_fragments_to_pose(query)
     #         # for idx, fragment in enumerate(fragment_source):
-    #         #     fragment['mapped'] = self.pdb.residue_number_from_pdb(fragment['mapped'])
-    #         #     fragment['paired'] = self.pdb.residue_number_from_pdb(fragment['paired'])
+    #         #     fragment['mapped'] = self.residue_number_from_pdb(fragment['mapped'])
+    #         #     fragment['paired'] = self.residue_number_from_pdb(fragment['paired'])
     #         #     fragment_source[idx] = fragment
     #         if entity1 and entity2 and query:
     #             self.fragment_queries[(entity1, entity2)] = query
