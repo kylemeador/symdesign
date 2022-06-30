@@ -2145,7 +2145,7 @@ class SymmetricModel(Models):
 
         return transform_solutions
 
-    def find_contacting_asu(self, distance: int = 8, **kwargs) -> list[Entity]:
+    def find_contacting_asu(self, distance: float = 8., **kwargs) -> list[Entity]:
         """From the Pose Entities, find the maximal contacting Chain for each Entity
 
         Args:
@@ -2204,17 +2204,17 @@ class SymmetricModel(Models):
             # print([(entity.name, entity.chain_id) for entity in entities])
         return entities
 
-    def return_contacting_asu(self, **kwargs) -> Model:
+    def return_contacting_asu(self, distance: float = 8., **kwargs) -> Model:
         """From the Pose Entities, find the maximal contacting Chain for each of the entities and return the ASU
 
         If the chain IDs of the asu are the same, then chain IDs will automatically be renamed
 
-        Keyword Args:
-            distance=8.0 (float): The distance to check for contacts
+        Args:
+            distance: The distance to check for contacts
         Returns:
             A PDB object with the minimal set of Entities containing the maximally touching configuration
         """
-        entities = self.find_contacting_asu(**kwargs)
+        entities = self.find_contacting_asu(distance=distance, **kwargs)
         found_chain_ids = []
         for entity in entities:
             if entity.chain_id in found_chain_ids:
