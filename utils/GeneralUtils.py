@@ -12,6 +12,7 @@ from SymDesignUtils import start_log
 
 # Globals
 logger = start_log(name=__name__)
+number_of_nanohedra_components = 2
 
 
 # @njit
@@ -243,3 +244,28 @@ def write_docking_parameters(pdb1_path, pdb2_path, rot_step_deg1, rot_step_deg2,
     else:
         log.info('%d Degeneracies Found for Oligomer 2\n' % len(sym_entry.degeneracy_matrices2))
     log.info('Retrieving Database of Complete Interface Fragment Cluster Representatives')
+
+
+def get_components_from_nanohedra_docking(pose_file) -> list[str]:
+    """Gather information for the docked Pose from a Nanohedra output. Includes coarse fragment metrics
+
+    Returns:
+        pose_transformation operations
+    """
+    entity_names = []
+    with open(pose_file, 'r') as f:  # self.pose_file
+        for line in f.readlines():
+            if line[:15] == 'DOCKED POSE ID:':
+                pose_id = line[15:].strip().replace('_DEGEN_', '-DEGEN_').replace('_ROT_', '-ROT_').replace('_TX_', '-tx_')
+            elif line[:31] == 'Canonical Orientation PDB1 Path':
+                canonical_pdb1 = line[31:].strip()
+            elif line[:31] == 'Canonical Orientation PDB2 Path':
+                canonical_pdb2 = line[31:].strip()
+
+        if pose_id:
+            entity_names = pose_id.split('-DEGEN_')[0].split('-')
+
+        if len(entity_names) != number_of_nanohedra_components:  # probably old format without use of '-'
+            entity_names = list(map(os.path.basename, [os.path.splitext(canonical_pdb1)[0],
+                                                       os.path.splitext(canonical_pdb2)[0]]))
+    return entity_names

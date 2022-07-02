@@ -21,7 +21,7 @@ from sklearn.neighbors._ball_tree import BinaryTree  # this typing implementatio
 
 from PathUtils import free_sasa_exe_path, stride_exe_path, errat_exe_path, make_symmdef, scout_symmdef, \
     reference_residues_pkl, free_sasa_configuration_path, frag_text_file
-from Query.PDB import get_entity_reference_sequence, get_pdb_info_by_entity, retrieve_entity_id_by_sequence
+from Query.PDB import get_entity_reference_sequence, retrieve_entity_id_by_sequence, query_pdb_by
 from SequenceProfile import SequenceProfile, generate_mutations
 # from ProteinExpression import find_expression_tags, remove_expression_tags
 from SymDesignUtils import start_log, null_log, DesignError, unpickle, parameterize_frag_length
@@ -5063,7 +5063,8 @@ class Entity(Chain, SequenceProfile):  # Todo consider moving SequenceProfile to
         try:
             return self._uniprot_id
         except AttributeError:
-            self.api_entry = get_pdb_info_by_entity(self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+            self.api_entry = query_pdb_by(entity_id=self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
+            # self.api_entry = _get_entity_info(self.name)  # {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
             for chain, api_data in self.api_entry.items():  # [next(iter(self.api_entry))]
                 # print('Retrieving UNP ID for %s\nAPI DATA for chain %s:\n%s' % (self.name, chain, api_data))
                 if api_data.get('db') == 'UNP':

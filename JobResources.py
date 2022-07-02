@@ -930,12 +930,11 @@ class FragmentDatabase(FragmentDB):
 
 
 class FragmentDatabaseFactory:
-    """Return an FragmentDatabase instance by calling the Factory instance with the FragmentDatabase source name
+    """Return a FragmentDatabase instance by calling the Factory instance with the FragmentDatabase source name
 
     Handles creation and allotment to other processes by saving expensive memory load of multiple instances and
     allocating a shared pointer to the named FragmentDatabase
     """
-
     def __init__(self, **kwargs):
         self._databases = {}
 
@@ -971,19 +970,21 @@ class FragmentDatabaseFactory:
 
 
 fragment_factory = FragmentDatabaseFactory()
-# fragment_factory.set(biological_interfaces, unpickle(biological_fragment_db_pickle))
 
 
 class JobResources:
     """The intention of JobResources is to serve as a singular source of design info which is common accross all
     designs. This includes common paths, databases, and design flags which should only be set once in program operation,
     then shared across all member designs"""
-    def __init__(self, program_root, **kwargs):
+    def __init__(self, program_root: str | bytes = None, **kwargs):
         """For common resources for all SymDesign outputs, ensure paths to these resources are available attributes"""
-        if os.path.exists(program_root):
-            self.program_root = program_root
-        else:
-            raise FileNotFoundError(f'Path does not exist!\n\t{program_root}')
+        try:
+            if os.path.exists(program_root):
+                self.program_root = program_root
+            else:
+                raise FileNotFoundError(f'Path does not exist!\n\t{program_root}')
+        except TypeError:
+            raise TypeError(f'Can\'t initialize {JobResources.__name__} without parameter "program_root"')
 
         # program_root subdirectories
         self.protein_data = os.path.join(self.program_root, data.title())
@@ -1093,3 +1094,53 @@ class JobResources:
         """
         if condition:
             os.makedirs(path, exist_ok=True)
+
+
+class JobResourcesFactory:
+    """Return a JobResource instance by calling the Factory instance
+
+    Handles creation and allotment to other processes by making a shared pointer to the JobResource for the current Job
+    """
+    def __init__(self, **kwargs):
+        self._resources = {}
+        self._warn = False
+
+    def __call__(self, **kwargs) -> JobResources:
+        """Return the specified FragmentDatabase object singleton
+
+        Returns:
+            The instance of the specified FragmentDatabase
+        """
+        #         Args:
+        #             source: The FragmentDatabase source name
+        source = 'single'
+        fragment_db = self._resources.get(source)
+        if fragment_db:
+            if kwargs and not self._warn:
+                # try:
+                #     fragment_db.update(kwargs)
+                # except RuntimeError:
+                self._warn = True
+                logger.warning(f'Can\'t pass the new arguments {", ".join(kwargs.keys())} to JobResources '
+                               f'since it was already initialized and is a singleton')
+                # raise RuntimeError(f'Can\'t pass the new arguments {", ".join(kwargs.keys())} to JobResources '
+                #                    f'since it was already initialized')
+            return fragment_db
+        else:
+            logger.info(f'Initializing {JobResources.__name__}')
+            self._resources[source] = JobResources(**kwargs)
+
+        return self._resources[source]
+
+    def get(self, **kwargs) -> JobResources:
+        """Return the specified FragmentDatabase object singleton
+
+        Returns:
+            The instance of the specified FragmentDatabase
+        """
+        #         Keyword Args:
+        #             source: The JobResource source name
+        return self.__call__(**kwargs)
+
+
+job_resources_factory = JobResourcesFactory()

@@ -644,23 +644,106 @@ def retrieve_pdb_entries_by_advanced_query(save: bool = True, return_results: bo
         return retrieved_ids
 
 
-def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval to POST
+def query_pdb_by(entry: str = None, assembly_id: str = None, assembly_integer: int | str = 1, entity_id: str = None,
+                 entity_integer: int | str = 1, chain: str = None, **kwargs) -> dict | None:
+    """Retrieve information from the PDB API by EntryID, AssemblyID, or EntityID
+
+    Args:
+        entry: The 4 character PDB EntryID of interest
+        assembly_id: The AssemblyID to query with format (1ABC-1)
+        assembly_integer: The particular assembly integer to query. Must include entry as well
+        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
+        entity_integer: The entity integer from the EntryID of interest
+        chain: The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of interest
+    Returns:
+        The query result
+    """
+    if entry:
+        if len(entry) == 4:
+            if entity_integer:
+                return _get_entity_info(entry=entry, entity_integer=entity_integer)
+            elif assembly_integer:
+                return _get_assembly_info(entry=entry, assembly=assembly_integer)
+            else:
+                info = _get_entry_info(entry)
+                if chain:
+                    chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
+                    try:
+                        return _get_entity_info(entry=entry, entity_integer=chain_entity[chain])
+                    except KeyError:
+                        raise KeyError(f'No chain "{chain}" found in PDB ID {entry}. '
+                                       f'Possible chains {", ".join(chain_entity)}')
+                else:
+                    return info
+        else:
+            logger.warning(f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
+    elif assembly_id:
+        entry, assembly_integer, *extra = assembly_id.split('_')
+        if not extra and len(entry) == 4:
+            return _get_assembly_info(entry=entry, assembly_integer=assembly_integer)
+
+    elif entity_id:
+        entry, entity_integer, *extra = entity_id.split('_')
+        if not extra and len(entry) == 4:
+            return _get_entity_info(entry=entry, entity_integer=entity_integer)
+
+        logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
+                       f'the PDB API')
+
+
+# def _query_*_id(*_id: str = None, entry: str = None, *_integer: str | int = None) -> dict[str, Any] | None:
+# Ex. entry = '4atz'
+# ex. assembly = 1
+# url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
+# ex. chain
+# url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
+
+
+def _query_assembly_id(assembly_id: str = None, entry: str = None, assembly_integer: str | int = None) -> \
+        requests.Response | None:
+    """Fetches the JSON object for the AssemblyID from the PDB API
+
+    For all method types the following keys are available:
+    {'rcsb_polymer_entity_annotation', 'entity_poly', 'rcsb_polymer_entity', 'entity_src_gen',
+     'rcsb_polymer_entity_feature_summary', 'rcsb_polymer_entity_align', 'rcsb_id', 'rcsb_cluster_membership',
+     'rcsb_polymer_entity_container_identifiers', 'rcsb_entity_host_organism', 'rcsb_latest_revision',
+     'rcsb_entity_source_organism'}
+    NMR only - {'rcsb_polymer_entity_feature'}
+    EM only - set()
+    X-ray_only_keys - {'rcsb_cluster_flexibility'}
+
+    Args:
+        assembly_id: The AssemblyID to query with format (1ABC-1)
+        entry: The 4 character PDB EntryID of interest
+        assembly_integer: The particular assembly integer to query. Must include entry as well
+    Returns:
+        The assembly information according to the PDB
+    """
+    if assembly_id:
+        entry, assembly_integer, *_ = assembly_id.split('_')  # assume that this was passed correctly
+
+    if entry and assembly_integer:
+        return connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/assembly/{entry}/{assembly_integer}')
+
+
+def _get_assembly_info(assembly_id: str = None, entry: str = None, assembly_integer: int = 1) -> dict[int, list[str]] | None:
     """Retrieve information on the assembly for a particular entry from the PDB API
 
     Args:
-        entry (str): The pdb code of interest
-        assembly=1 (int): The particular assembly number to query
-
+        assembly_id: The AssemblyID to query with format (1ABC-1)
+        entry: The pdb code of interest
+        assembly_integer: The particular assembly number to query
     Returns:
-        (mapping[int, list]): The mapped entity number to the chain ID's in the assembly
-            {1: ['A', 'A', 'A', ...]}
+        The mapped entity number to the chain ID's in the assembly. Ex: {1: ['A', 'A', 'A', ...]}
     """
-    assembly_json = connection_exception_handler('http://data.rcsb.org/rest/v1/core/assembly/%s/%d' % (entry, assembly))
-    if not assembly_json:
+    assembly_request = _query_assembly_id(assembly_id=assembly_id, entry=entry, assembly_integer=assembly_integer)
+    if not assembly_request:
         return
+    if not assembly_id:
+        assembly_id = f'{entry}_{assembly_integer}'
 
     entity_clustered_chains = {}
-    for entity_idx, symmetry in enumerate(assembly_json['rcsb_struct_symmetry'], 1):
+    for entity_idx, symmetry in enumerate(assembly_request.json()['rcsb_struct_symmetry'], 1):
         # for symmetry in symmetries:  # [{}, ...]
         # symmetry contains:
         # {symbol: "O", type: 'Octahedral, stoichiometry: [], oligomeric_state: "Homo 24-mer", clusters: [],
@@ -680,46 +763,31 @@ def get_pdb_info_by_assembly(entry, assembly=1):  # Todo change data retrieval t
     return entity_clustered_chains
 
 
-def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data retrieval to POST
-    """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
+def _query_entry_id(entry: str = None) -> requests.Response | None:
+    """Fetches the JSON object for the AssemblyID from the PDB API
 
-    Makes 1 + num_of_entities calls to the PDB API for information
-    The following information is returned:
-    All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
-    {'rcsb_primary_citation', 'pdbx_vrpt_summary', 'pdbx_audit_revision_history', 'audit_author',
-     'pdbx_database_status', 'rcsb_id', 'pdbx_audit_revision_details', 'struct_keywords',
-     'rcsb_entry_container_identifiers', 'entry', 'rcsb_entry_info', 'struct', 'citation', 'exptl',
-     'rcsb_accession_info'}
-    EM only keys:
-    {'em3d_fitting', 'em3d_fitting_list', 'em_image_recording', 'em_specimen', 'em_software', 'em_entity_assembly',
-     'em_vitrification', 'em_single_particle_entity', 'em3d_reconstruction', 'em_experiment', 'pdbx_audit_support',
-     'em_imaging', 'em_ctf_correction'}
-    Xray only keys:
-    {'diffrn_radiation', 'cell', 'reflns', 'diffrn', 'software', 'refine_hist', 'diffrn_source', 'exptl_crystal',
-     'symmetry', 'diffrn_detector', 'refine', 'reflns_shell', 'exptl_crystal_grow'}
-    NMR only keys:
-    {'pdbx_nmr_exptl', 'pdbx_audit_revision_item', 'pdbx_audit_revision_category', 'pdbx_nmr_spectrometer',
-     'pdbx_nmr_refine', 'pdbx_nmr_representative', 'pdbx_nmr_software', 'pdbx_nmr_exptl_sample_conditions',
-     'pdbx_nmr_ensemble'}
-     Args:
-         entry: The PDB code to search for
+    Args:
+        entry: The PDB code to search for
     Returns:
-        {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
-         'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
+        The entry information according to the PDB
     """
-    # Ex. entry = '4atz'
-    # ex. assembly = 1
-    # url = https://data.rcsb.org/rest/v1/core/assembly/4atz/1
-    # ex. chain
-    # url = https://data.rcsb.org/rest/v1/core/polymer_entity_instance/4atz/A
-    entry_json = connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/entry/{entry}')
-    if not entry_json:
-        return
-    # entry_request = requests.get('http://data.rcsb.org/rest/v1/core/entry/%s' % entry)
-    # if entry_request.status_code == 200:
-    #     entry_json = entry_request.json()
-    # else:
-    #     return
+    #     The following information is returned:
+    #     All methods (SOLUTION NMR, ELECTRON MICROSCOPY, X-RAY DIFFRACTION) have the following keys:
+    #     {'rcsb_primary_citation', 'pdbx_vrpt_summary', 'pdbx_audit_revision_history', 'audit_author',
+    #      'pdbx_database_status', 'rcsb_id', 'pdbx_audit_revision_details', 'struct_keywords',
+    #      'rcsb_entry_container_identifiers', 'entry', 'rcsb_entry_info', 'struct', 'citation', 'exptl',
+    #      'rcsb_accession_info'}
+    #     EM only keys:
+    #     {'em3d_fitting', 'em3d_fitting_list', 'em_image_recording', 'em_specimen', 'em_software', 'em_entity_assembly',
+    #      'em_vitrification', 'em_single_particle_entity', 'em3d_reconstruction', 'em_experiment', 'pdbx_audit_support',
+    #      'em_imaging', 'em_ctf_correction'}
+    #     Xray only keys:
+    #     {'diffrn_radiation', 'cell', 'reflns', 'diffrn', 'software', 'refine_hist', 'diffrn_source', 'exptl_crystal',
+    #      'symmetry', 'diffrn_detector', 'refine', 'reflns_shell', 'exptl_crystal_grow'}
+    #     NMR only keys:
+    #     {'pdbx_nmr_exptl', 'pdbx_audit_revision_item', 'pdbx_audit_revision_category', 'pdbx_nmr_spectrometer',
+    #      'pdbx_nmr_refine', 'pdbx_nmr_representative', 'pdbx_nmr_software', 'pdbx_nmr_exptl_sample_conditions',
+    #      'pdbx_nmr_ensemble'}
 
     # entry_json['rcsb_entry_info'] = \
     #     {'assembly_count': 1, 'branched_entity_count': 0, 'cis_peptide_count': 3, 'deposited_atom_count': 8492,
@@ -740,6 +808,26 @@ def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data ret
     #     'software_programs_combined': ['PHASER', 'REFMAC', 'XDS', 'XSCALE'], 'solvent_entity_count': 1,
     #     'diffrn_resolution_high': {'provenance_source': 'Depositor assigned', 'value': 1.95}}
 
+    if entry:
+        return connection_exception_handler(f'http://data.rcsb.org/rest/v1/core/entry/{entry}')
+
+
+def _get_entry_info(entry: str = None, **kwargs) -> dict[str, Any] | None:
+    """Retrieve PDB information from the RCSB API. More info at http://data.rcsb.org/#data-api
+
+    Makes 1 + num_of_entities calls to the PDB API for information
+
+    Args:
+        entry: The PDB code to search for
+    Returns:
+        {'entity': {1: ['A', 'B'], ...}, 'res': resolution, 'dbref': {chain: {'accession': ID, 'db': UNP}, ...},
+         'struct': {'space': space_group, 'a_b_c': (a, b, c), 'ang_a_b_c': (ang_a, ang_b, ang_c)}}
+    """
+    entry_request = _query_entry_id(entry)
+    if not entry_request:
+        return
+
+    entry_json = entry_request.json()
     # if 'method' in entry_json['exptl'][0]:
     if 'experimental_method' in entry_json['rcsb_entry_info']:
         # exptl_method = entry_json['exptl'][0]['method']
@@ -761,7 +849,7 @@ def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data ret
     # I can use 'polymer_entity_count_protein' to further identify the entities in a protein, which gives me the chains
     # for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count_protein']) + 1):
     for entity_idx in range(1, int(entry_json['rcsb_entry_info']['polymer_entity_count']) + 1):
-        entity_ref_d = get_pdb_info_by_entity(f'{entry}_{entity_idx}')
+        entity_ref_d = _get_entity_info(entry=entry, entity_integer=entity_idx)
         ref_d.update(entity_ref_d)
         entity_chain_d[entity_idx] = list(entity_ref_d.keys())  # these are the chains
         # dbref = {chain: {'db': db, 'accession': db_accession_id}}
@@ -771,64 +859,73 @@ def get_pdb_info_by_entry(entry: str) -> Optional[Dict]:  # Todo change data ret
     return {'entity': entity_chain_d, 'res': resolution, 'dbref': ref_d, 'struct': struct_d, 'method': exptl_method}
 
 
-def get_pdb_info_by_entity(entity_id: str) -> Dict:
+def _get_entity_info(entity_id: str = None, entry: str = None, entity_integer: int | str = None) -> \
+        dict[str, dict[str, str]] | dict:
     """Query the PDB API for an EntityID and return the associated chains and reference dictionary
 
     Args:
-        entity_id: The EntityID with the format (PDBCode_Integer)
+        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
+        entry: The 4 character PDB EntryID of interest
+        entity_integer: The entity integer from the EntryID of interest
     Returns:
         {chain: {'accession': 'Q96DC8', 'db': 'UNP'}, ...}
     """
-    entity_json = query_entity_id(entity_id)
-    if entity_json:
-        chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', 'C']
-        database_keys = ['db', 'accession']
-        db_d = {}
-        try:
-            try:
-                uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
-                database = 'UNP'
-                if len(uniprot_id) > 1:  # Todo choose the most accurate if more than 2...
-                    logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
-                                   % (entity_id, uniprot_id))
-                db_d = dict(zip(database_keys, ('UNP', uniprot_id[0])))  # may be an issue where there is more than one
-            except KeyError:  # if no uniprot_id
-                # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
-                # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
-                identifiers = [(ident['database_name'], ident['database_accession'])
-                               for ident in entity_json[
-                                   'rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
-                if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
-                    whatever_else = None
-                    priority_l = [[] for _ in range(len(identifiers))]
-                    for idx, (database, accession) in enumerate(identifiers):
-                        if database == 'UniProt':
-                            priority_l[0].append(idx)
-                            identifiers[idx][0] = 'UNP'
-                        elif database == 'GenBank':
-                            priority_l[1].append(idx)  # two elements are required from above len check, never IndexError
-                            identifiers[idx][0] = 'GB'
-                        elif not whatever_else:
-                            whatever_else = idx
-                    for identifier_idx in priority_l:
-                        if identifier_idx:  # we have found a priority database, choose the corresponding identifier idx
-                            db_d = dict(zip(database_keys, identifiers[identifier_idx[0]]))  # Todo choose most accurate if more than 2...
-                            break
-                    # finally if no solution from priority but something else, choose the other
-                    if not db_d and whatever_else:
-                        db_d = dict(zip(database_keys, identifiers[whatever_else]))
-                else:
-                    db_d = dict(zip(database_keys, identifiers[0]))
-
-            ref_d = {chain: db_d for chain in chains}
-        except KeyError:  # there are no known identifiers found
-            ref_d = {chain: db_d for chain in chains}
-        return ref_d
-    else:
+    entity_request = _query_entity_id(entity_id=entity_id, entry=entry, entity_integer=entity_integer)
+    if not entity_request:
         return {}
 
+    if not entity_id:
+        entity_id = f'{entry}_{entity_integer}'
 
-def query_entity_id(entity_id: str) -> Optional[Dict]:
+    entity_json = entity_request.json()
+    chains = entity_json['rcsb_polymer_entity_container_identifiers']['asym_ids']  # = ['A', 'B', 'C']
+    database_keys = ['db', 'accession']
+    db_d = {}
+    try:
+        try:
+            uniprot_id = entity_json['rcsb_polymer_entity_container_identifiers']['uniprot_ids']
+            database = 'UNP'
+            if len(uniprot_id) > 1:  # Todo choose the most accurate if more than 2...
+                logger.warning('For Entity %s, found multiple UniProt Entries %s. Selecting the first'
+                               % (entity_id, uniprot_id))
+            db_d = dict(zip(database_keys, ('UNP', uniprot_id[0])))  # may be an issue where there is more than one
+        except KeyError:  # if no uniprot_id
+            # GenBank = GB, which is mostly RNA or DNA structures or antibody complexes
+            # Norine = NOR, which is small peptide structures, sometimes bound to proteins...
+            identifiers = [(ident['database_name'], ident['database_accession'])
+                           for ident in entity_json[
+                               'rcsb_polymer_entity_container_identifiers']['reference_sequence_identifiers']]
+            if len(identifiers) > 1:  # we find the most ideal accession_database UniProt > GenBank > Norine > ???
+                whatever_else = None
+                priority_l = [[] for _ in range(len(identifiers))]
+                for idx, (database, accession) in enumerate(identifiers):
+                    if database == 'UniProt':
+                        priority_l[0].append(idx)
+                        identifiers[idx][0] = 'UNP'
+                    elif database == 'GenBank':
+                        priority_l[1].append(idx)  # two elements are required from above len check, never IndexError
+                        identifiers[idx][0] = 'GB'
+                    elif not whatever_else:
+                        whatever_else = idx
+                for identifier_idx in priority_l:
+                    if identifier_idx:  # we have found a priority database, choose the corresponding identifier idx
+                        # Todo choose most accurate if more than 2...
+                        db_d = dict(zip(database_keys, identifiers[identifier_idx[0]]))
+                        break
+                # finally if no solution from priority but something else, choose the other
+                if not db_d and whatever_else:
+                    db_d = dict(zip(database_keys, identifiers[whatever_else]))
+            else:
+                db_d = dict(zip(database_keys, identifiers[0]))
+
+        ref_d = {chain: db_d for chain in chains}
+    except KeyError:  # there are no known identifiers found
+        ref_d = {chain: db_d for chain in chains}
+    return ref_d
+
+
+def _query_entity_id(entity_id: str = None, entry: str = None, entity_integer: str | int = None) -> \
+        requests.Response | None:
     """Fetches the JSON object for the entity_id from the PDB API
      
     For all method types the following keys are available:
@@ -841,87 +938,101 @@ def query_entity_id(entity_id: str) -> Optional[Dict]:
     X-ray_only_keys - {'rcsb_cluster_flexibility'}
     
     Args:
-        entity_id: The entity_id with the format PDBentryID_entityID. Ex: 1abc_1
+        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
+        entry: The 4 character PDB EntryID of interest
+        entity_integer: The integer of the entity_id
     Returns:
         The entity information according to the PDB
     """
-    # Todo change data retrieval to POST
-    entity_split = entity_id.split('_')
-    if len(entity_split) == 2 and len(entity_split[0]) == 4:
-        return connection_exception_handler('http://data.rcsb.org/rest/v1/core/polymer_entity/%s/%s'
-                                            % tuple(entity_split))
-    logger.warning('Entity ID "%s" is not of the required format and will not be found with the PDB API' % entity_id)
-    return
+    if entity_id:
+        entry, entity_integer, *_ = entity_id.split('_')  # assume that this was passed correctly
+
+    if entry and entity_integer:
+        return connection_exception_handler(
+            f'http://data.rcsb.org/rest/v1/core/polymer_entity/{entry}/{entity_integer}')
 
 
-def get_entity_uniprot_id(entity_id=None, pdb=None, entity=None, chain=None):
+# Todo not completely useful in this module
+def get_entity_id(entity_id: str = None, entry: str = None, entity_integer: int | str = None, chain: str = None) -> \
+        tuple[str, str] | None:
+    """Retrieve a UniProtID from the PDB API by passing various PDB identifiers or combinations thereof
+
+    Args:
+        entity_id: The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
+        entry: The 4 character PDB EntryID of interest
+        entity_integer: The entity integer from the EntryID of interest
+        chain: The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of interest
+    Returns:
+        The Entity_ID
+    """
+    if entry:
+        if len(entry) != 4:
+            logger.warning(f'EntryID "{entry}" is not of the required format and will not be found with the PDB API')
+        elif entity_integer:
+            return entry, entity_integer
+            # entity_id = f'{entry}_{entity_integer}'
+        else:
+            info = _get_entry_info(entry)
+            chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
+            if chain:
+                try:
+                    return entry, chain_entity[chain]
+                    # entity_id = f'{entry}_{chain_entity[chain]}'
+                except KeyError:
+                    raise KeyError(f'No chain "{chain}" found in PDB ID {entry}. '
+                                   f'Possible chains {", ".join(chain_entity)}')
+            else:
+                entity_integer = next(iter(chain_entity.values()))
+                logger.warning('Using the argument "entry" without either "entity_integer" or "chain" is not '
+                               f'recommended. Choosing the first EntityID "{entry}_{entity_integer}"')
+                return entry, entity_integer
+                # entity_id = f'{entry}_{entity_integer}'
+
+    elif entity_id:
+        entry, entity_integer, *extra = entity_id.split('_')
+        if not extra and len(entry) == 4:
+            return entry, entity_integer
+
+        logger.warning(f'EntityID "{entry}_{entity_integer}" is not of the required format and will not be found with '
+                       f'the PDB API')
+
+
+# Todo refactor to internal ResourceDB retrieval from existing entity_json
+def get_entity_uniprot_id(**kwargs) -> str | None:
     """Retrieve a UniProtID from the PDB API by passing various PDB identifiers or combinations thereof
 
     Keyword Args:
-        entity_id=None (str): The EntityID with the format (PDBCode_Integer)
-        pdb=None (str): The PDBCode of interest
-        chain=None (str): The chain from the PDBCode of interest
-        entity=None (str): The entity integer from the PDBCode of interest
+        entity_id=None (str): The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
+        entry=None (str): The 4 character PDB EntryID of interest
+        entity_integer=None (str): The entity integer from the EntryID of interest
+        chain=None (str): The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of
+            interest
     Returns:
         The UniProt ID
     """
-    if pdb:
-        if entity:
-            entity_id = '%s_%s' % (pdb, entity)
-        else:
-            info = get_pdb_info_by_entry(pdb)
-            chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
-            if chain:
-                try:
-                    entity_id = '%s_%s' % (pdb, chain_entity[chain])
-                except KeyError:
-                    raise KeyError('No chain "%s" found in PDB ID %s. Possible chains %s' % (chain, pdb, chain_entity))
-            else:
-                all_entities = list(chain_entity.values())
-                entity_id = '%s_%s' % (pdb, all_entities[0])
-                logger.warning('%s: Using the argument "pdb" without either "entity" or "chain" is not '
-                               'recommended. Choosing the first EntityID reported in the PDB (%s)'
-                               % (get_entity_uniprot_id.__name__, all_entities[0]))
-    entity_json = query_entity_id(entity_id)
-
-    return entity_json.get('rcsb_polymer_entity_container_identifiers')['uniprot_id'][0]  # return the first entry
+    entity_request = _query_entity_id(*get_entity_id(**kwargs))
+    if entity_request:
+        # return the first uniprot entry
+        return entity_request.json().get('rcsb_polymer_entity_container_identifiers')['uniprot_id'][0]
 
 
-def get_entity_reference_sequence(entity_id: str = None, pdb: str = None, entity: int = None, chain: str = None) -> \
-        Optional[str]:
+# Todo refactor to internal ResourceDB retrieval from existing entity_json
+def get_entity_reference_sequence(**kwargs) -> str | None:
     """Query the PDB API for the reference amino acid sequence for a specified entity ID (PDB EntryID_Entity_ID)
 
-    Args:
-        entity_id: The formatted entity id which takes the form of PDBentry#_entity#
-        pdb: The 4 character PDB code
-        entity: The integer
-        chain: The polymer "chain" identifier otherwise known as the "asym_id"
+    Keyword Args:
+        entity_id=None (str): The PDB formatted EntityID. Has the format EntryID_Integer (1ABC_1)
+        entry=None (str): The 4 character PDB EntryID of interest
+        entity_integer=None (str): The entity integer from the EntryID of interest
+        chain=None (str): The polymer "chain" identifier otherwise known as the "asym_id" from the PDB EntryID of
+            interest
     Returns:
         One letter amino acid sequence
     """
-    if pdb:
-        if entity:
-            entity_id = '%s_%s' % (pdb, entity)
-        else:
-            info = get_pdb_info_by_entry(pdb)
-            chain_entity = {chain: entity_idx for entity_idx, chains in info.get('entity').items() for chain in chains}
-            if chain:
-                try:
-                    entity_id = '%s_%s' % (pdb, chain_entity[chain])
-                except KeyError:
-                    raise KeyError('No chain "%s" found in PDB ID %s. Possible chains %s' % (chain, pdb, chain_entity))
-            else:
-                all_entities = list(chain_entity.values())
-                entity_id = '%s_%s' % (pdb, all_entities[0])
-                logger.warning('%s: Using the argument "pdb" without either "entity" or "chain" is not '
-                               'recommended. Choosing the first EntityID reported in the PDB (%s)'
-                               % (get_entity_reference_sequence.__name__, all_entities[0]))
-    entity_json = query_entity_id(entity_id)
-    # return entity_json.get('entity_poly')['pdbx_seq_one_letter_code']  # returns non-cannonical amino acids
-    if entity_json:
-        return entity_json.get('entity_poly')['pdbx_seq_one_letter_code_can']  # returns non-cannonical as 'X'
-    else:
-        return
+    entity_request = _query_entity_id(*get_entity_id(**kwargs))
+    if entity_request:
+        return entity_request.json().get('entity_poly')['pdbx_seq_one_letter_code_can']  # returns non-cannonical as 'X'
+        # return entity_json.get('entity_poly')['pdbx_seq_one_letter_code']  # returns non-cannonical amino acids
 
 
 def get_rcsb_metadata_schema(file=os.path.join(current_dir, 'rcsb_schema.pkl'), search_only=True, force_update=False):

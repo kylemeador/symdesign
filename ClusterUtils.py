@@ -1,10 +1,9 @@
 import os
 import subprocess
 from itertools import combinations
-from typing import List, Tuple, Dict, Union
+from typing import Iterable, Any
 from warnings import catch_warnings, simplefilter
 
-import numpy
 import numpy as np
 import pandas as pd
 from sklearn.cluster import DBSCAN
@@ -28,152 +27,155 @@ from utils.GeneralUtils import transform_coordinate_sets
 logger = start_log(name=__name__)
 
 
-def pose_rmsd_mp(all_des_dirs, cores=1):
-    """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
+# def pose_rmsd_mp(pose_directories: list[PoseDirectory], cores: int = 1):
+#     """Map the RMSD for a Nanohedra output based on building block directory (ex 1abc_2xyz)
+#
+#     Args:
+#         pose_directories: List of relevant design directories
+#         cores: Number of multiprocessing cores to run
+#     Returns:
+#         (dict): {composition: {pair1: {pair2: rmsd, ...}, ...}, ...}
+#     """
+#     pose_map = {}
+#     pairs_to_process = []
+#     singlets = {}
+#     for pair1, pair2 in combinations(pose_directories, 2):
+#         if pair1.composition == pair2.composition:
+#             singlets.pop(pair1.composition, None)
+#             pairs_to_process.append((pair1, pair2))
+#         else:
+#             # add all individual poses to a singles pool. pair2 is included in pair1, no need to add additional
+#             singlets[pair1.composition] = pair1
+#     compositions: dict[tuple[str, ...], list[PoseDirectory]] = group_compositions(pose_directories)
+#     pairs_to_process = [grouping for entity_tuple, pose_directories in compositions.items()
+#                         for grouping in combinations(pose_directories, 2)]
+#     # find the rmsd between a pair of poses.  multiprocessing to increase throughput
+#     _results = mp_map(pose_pair_rmsd, pairs_to_process, processes=cores)
+#
+#     # Make dictionary with all pairs
+#     for pair, pair_rmsd in zip(pairs_to_process, _results):
+#         protein_pair_path = os.path.basename(pair[0].building_blocks)
+#         # protein_pair_path = pair[0].composition
+#         # pose_map[result[0]] = result[1]
+#         if protein_pair_path in pose_map:
+#             # # {composition: {(pair1, pair2): rmsd, ...}, ...}
+#             # {composition: {pair1: {pair2: rmsd, ...}, ...}, ...}
+#             if str(pair[0]) in pose_map[protein_pair_path]:
+#                 pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
+#                 if str(pair[1]) not in pose_map[protein_pair_path]:
+#                     pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}  # add the pair with itself
+#         else:
+#             pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}  # add the pair with itself
+#             pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
+#             pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}  # add the pair with itself
+#
+#     # Add all singlets (poses that are missing partners) to the map
+#     for protein_pair in singlets:
+#         protein_path = os.path.basename(protein_pair)
+#         if protein_path in pose_map:
+#             # This logic is impossible??
+#             pose_map[protein_path][str(singlets[protein_pair])] = {str(singlets[protein_pair]): 0.0}
+#         else:
+#             pose_map[protein_path] = {str(singlets[protein_pair]): {str(singlets[protein_pair]): 0.0}}
+#
+#     return pose_map
+
+
+def pose_pair_rmsd(pair: tuple[PoseDirectory, PoseDirectory]) -> float:
+    """Calculate the rmsd between pairs of Poses using CB coordinates. Must be the same length pose
 
     Args:
-        all_des_dirs (list[PoseDirectory]): List of relevant design directories
-    Keyword Args:
-        cores: Number of multiprocessing cores to run
+        pair: Paired PoseDirectory objects from pose processing directories
     Returns:
-        (dict): {composition: {pair1: {pair2: rmsd, ...}, ...}, ...}
+        RMSD value
     """
-    pose_map = {}
-    pairs_to_process = []
-    singlets = {}
-    for pair1, pair2 in combinations(all_des_dirs, 2):
-        if pair1.composition == pair2.composition:
-            singlets.pop(pair1.composition, None)
-            pairs_to_process.append((pair1, pair2))
-        else:
-            # add all individual poses to a singles pool. pair2 is included in pair1, no need to add additional
-            singlets[pair1.composition] = pair1
-    # find the rmsd between a pair of poses.  multiprocessing to increase throughput
-    _results = mp_map(pose_pair_rmsd, pairs_to_process, processes=cores)
+    #  using the intersecting residues at the interface of each pose
 
-    # Make dictionary with all pairs
-    for pair, pair_rmsd in zip(pairs_to_process, _results):
-        protein_pair_path = os.path.basename(pair[0].building_blocks)
-        # protein_pair_path = pair[0].composition
-        # pose_map[result[0]] = result[1]
-        if protein_pair_path in pose_map:
-            # # {composition: {(pair1, pair2): rmsd, ...}, ...}
-            # {composition: {pair1: {pair2: rmsd, ...}, ...}, ...}
-            if str(pair[0]) in pose_map[protein_pair_path]:
-                pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-                if str(pair[1]) not in pose_map[protein_pair_path]:
-                    pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}  # add the pair with itself
-        else:
-            pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}  # add the pair with itself
-            pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-            pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}  # add the pair with itself
-
-    # Add all singlets (poses that are missing partners) to the map
-    for protein_pair in singlets:
-        protein_path = os.path.basename(protein_pair)
-        if protein_path in pose_map:
-            # This logic is impossible??
-            pose_map[protein_path][str(singlets[protein_pair])] = {str(singlets[protein_pair]): 0.0}
-        else:
-            pose_map[protein_path] = {str(singlets[protein_pair]): {str(singlets[protein_pair]): 0.0}}
-
-    return pose_map
+    # # protein_pair_path = pair[0].composition
+    # # Grab designed resides from the pose_directory
+    # design_residues = [set(pose.interface_design_residues) for pose in pair]
+    #
+    # # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
+    # # could use the union as well...?
+    # des_residue_set = index_intersection(design_residues)
+    # if not des_residue_set:  # when the two structures are not overlapped
+    #     return np.nan
+    # else:
+    #     # pdb_parser = PDBParser(QUIET=True)
+    #     # pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+    #     # rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
+    #     #                       if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
+    #     # pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
+    #     #                   for entity_list in rmsd_residue_list]
+    #     #
+    #     # return superimpose(pair_atom_list)
+    return superposition3d(*[pose.pose.cb_coords for pose in pair])[0]
 
 
-def pose_pair_rmsd(pair):
-    """Calculate the rmsd between Nanohedra pose pairs using the intersecting residues at the interface of each pose
-
-    Args:
-        pair (tuple[PoseDirectory.PoseDirectory, PoseDirectory.PoseDirectory]):
-            Paired PoseDirectory objects from pose processing directories
-    Returns:
-        (float): RMSD value
-    """
-    # protein_pair_path = pair[0].composition
-    # Grab designed resides from the pose_directory
-    design_residues = [set(pose.interface_design_residues) for pose in pair]
-
-    # Set up the list of residues undergoing design (interface) on each pair. Return the intersection
-    # could use the union as well...?
-    des_residue_set = index_intersection(design_residues)
-    if not des_residue_set:  # when the two structures are not overlapped
-        return np.nan
-    else:
-        # pdb_parser = PDBParser(QUIET=True)
-        # pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-        # rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-        #                       if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-        # pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-        #                   for entity_list in rmsd_residue_list]
-        #
-        # return superimpose(pair_atom_list)
-        return superposition3d(*[pose.pose.coords for pose in pair])[0]
-
-
-def pose_rmsd_s(all_des_dirs):
-    pose_map = {}
-    for pair in combinations(all_des_dirs, 2):
-        if pair[0].composition == pair[1].composition:
-            protein_pair_path = pair[0].composition
-            # Grab designed resides from the pose_directory
-            pair_rmsd = pose_pair_rmsd(pair)
-            # des_residue_list = [pose.info['des_residues'] for pose in pair]
-            # # could use the union as well...
-            # des_residue_set = index_intersection({pair[n]: set(pose_residues)
-            #                                               for n, pose_residues in enumerate(des_residue_list)})
-            # if des_residue_set == list():  # when the two structures are not significantly overlapped
-            #     pair_rmsd = np.nan
-            # else:
-            #     pdb_parser = PDBParser(QUIET=True)
-            #     # pdb = parser.get_structure(pdb_name, filepath)
-            #     pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
-            #     # returns a list with all ca atoms from a structure
-            #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
-            #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
-            #
-            #     # pair should be a structure...
-            #     # for structure in pair_structures:
-            #     #     for residue in structure.residues:
-            #     #         print(residue)
-            #     #         print(residue[0])
-            #     rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
-            #                           if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
-            #
-            #     # rmsd_residue_list = [[residue for residue in structure.residues
-            #     #                       if residue.get_id()[1] in des_residue_list[n]]
-            #     #                      for n, structure in enumerate(pair_structures)]
-            #
-            #     # print(rmsd_residue_list)
-            #     pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
-            #                       for entity_list in rmsd_residue_list]
-            #     # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
-            #     # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
-            #     # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
-            #
-            #     pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
-            # if not pair_rmsd:
-            #     continue
-            if protein_pair_path in pose_map:
-                # {composition: {(pair1, pair2): rmsd, ...}, ...}
-                if str(pair[0]) in pose_map[protein_pair_path]:
-                    pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-                    if str(pair[1]) not in pose_map[protein_pair_path]:
-                        pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
-                    # else:
-                    #     print('\n' * 6 + 'NEVER ACCESSED' + '\n' * 6)
-                    #     pose_map[pair[0].composition][str(pair[1])][str(pair[1])] = 0.0
-                # else:
-                #     print('\n' * 6 + 'ACCESSED' + '\n' * 6)
-                #     pose_map[pair[0].composition][str(pair[0])] = {str(pair[1]): pair_rmsd}
-                #     pose_map[pair[0].composition][str(pair[0])][str(pair[0])] = 0.0
-                # pose_map[pair[0].composition][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
-            else:
-                pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}
-                pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
-                pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
-                # pose_map[pair[0].composition] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
-
-    return pose_map
+# def pose_rmsd_s(all_des_dirs):
+#     pose_map = {}
+#     for pair in combinations(all_des_dirs, 2):
+#         if pair[0].composition == pair[1].composition:
+#             protein_pair_path = pair[0].composition
+#             # Grab designed resides from the pose_directory
+#             pair_rmsd = pose_pair_rmsd(pair)
+#             # des_residue_list = [pose.info['des_residues'] for pose in pair]
+#             # # could use the union as well...
+#             # des_residue_set = index_intersection({pair[n]: set(pose_residues)
+#             #                                               for n, pose_residues in enumerate(des_residue_list)})
+#             # if des_residue_set == list():  # when the two structures are not significantly overlapped
+#             #     pair_rmsd = np.nan
+#             # else:
+#             #     pdb_parser = PDBParser(QUIET=True)
+#             #     # pdb = parser.get_structure(pdb_name, filepath)
+#             #     pair_structures = [pdb_parser.get_structure(str(pose), pose.asu) for pose in pair]
+#             #     # returns a list with all ca atoms from a structure
+#             #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].asu, pair[1].asu], SDUtils.get_biopdb_ca)
+#             #     # pair_atoms = SDUtils.get_rmsd_atoms([pair[0].path, pair[1].path], SDUtils.get_biopdb_ca)
+#             #
+#             #     # pair should be a structure...
+#             #     # for structure in pair_structures:
+#             #     #     for residue in structure.residues:
+#             #     #         print(residue)
+#             #     #         print(residue[0])
+#             #     rmsd_residue_list = [[residue for residue in structure.residues  # residue.get_id()[1] is res number
+#             #                           if residue.get_id()[1] in des_residue_set] for structure in pair_structures]
+#             #
+#             #     # rmsd_residue_list = [[residue for residue in structure.residues
+#             #     #                       if residue.get_id()[1] in des_residue_list[n]]
+#             #     #                      for n, structure in enumerate(pair_structures)]
+#             #
+#             #     # print(rmsd_residue_list)
+#             #     pair_atom_list = [[atom for atom in unfold_entities(entity_list, 'A') if atom.get_id() == 'CA']
+#             #                       for entity_list in rmsd_residue_list]
+#             #     # [atom for atom in structure.get_atoms if atom.get_id() == 'CA']
+#             #     # pair_atom_list = SDUtils.get_rmsd_atoms(rmsd_residue_list, SDUtils.get_biopdb_ca)
+#             #     # pair_rmsd = SDUtils.superimpose(pair_atoms, threshold)
+#             #
+#             #     pair_rmsd = SDUtils.superimpose(pair_atom_list)  # , threshold)
+#             # if not pair_rmsd:
+#             #     continue
+#             if protein_pair_path in pose_map:
+#                 # {composition: {(pair1, pair2): rmsd, ...}, ...}
+#                 if str(pair[0]) in pose_map[protein_pair_path]:
+#                     pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
+#                     if str(pair[1]) not in pose_map[protein_pair_path]:
+#                         pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
+#                     # else:
+#                     #     print('\n' * 6 + 'NEVER ACCESSED' + '\n' * 6)
+#                     #     pose_map[pair[0].composition][str(pair[1])][str(pair[1])] = 0.0
+#                 # else:
+#                 #     print('\n' * 6 + 'ACCESSED' + '\n' * 6)
+#                 #     pose_map[pair[0].composition][str(pair[0])] = {str(pair[1]): pair_rmsd}
+#                 #     pose_map[pair[0].composition][str(pair[0])][str(pair[0])] = 0.0
+#                 # pose_map[pair[0].composition][(str(pair[0]), str(pair[1]))] = pair_rmsd[2]
+#             else:
+#                 pose_map[protein_pair_path] = {str(pair[0]): {str(pair[0]): 0.0}}
+#                 pose_map[protein_pair_path][str(pair[0])][str(pair[1])] = pair_rmsd
+#                 pose_map[protein_pair_path][str(pair[1])] = {str(pair[1]): 0.0}
+#                 # pose_map[pair[0].composition] = {(str(pair[0]), str(pair[1])): pair_rmsd[2]}
+#
+#     return pose_map
 
 
 def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join(os.getcwd(), 'ialign')):
@@ -225,75 +227,62 @@ def ialign(pdb_file1, pdb_file2, chain1=None, chain2=None, out_path=os.path.join
     #     os.path.splitext(os.path.basename(pdb_file1))[0], os.path.splitext(os.path.basename(pdb_file2))[0]
 
 
-def cluster_poses(pose_map):
-    """Take a pose map calculated by pose_rmsd (_mp or _s) and cluster using DBSCAN algorithm
+def cluster_poses(identifier_pairs: Iterable[tuple[Any, Any]], values: Iterable[float], epsilon: float = 1.) -> \
+        dict[str | PoseDirectory, list[str | PoseDirectory]]:
+    """Take pairs of identifiers and a computed value (such as RMSD) and cluster using DBSCAN algorithm
 
     Args:
-        pose_map (dict): {composition: {pair1: {pair2: rmsd, ...}, ...}, ...}
+        identifier_pairs: The identifiers for each pair measurement
+        values: The corresponding measurement values for each pair of identifiers
+        epsilon: The parameter for DBSCAN to influence the spread of clusters, needs to be tuned for measurement values
     Returns:
-        (dict): {composition: {'poses clustered'}, ... }
+        {PoseDirectory representative: [PoseDirectory members], ... }
     """
-    pose_cluster_map = {}
-    for building_blocks in pose_map:
-        building_block_rmsd_df = pd.DataFrame(pose_map[building_blocks]).fillna(0.0)
+    # BELOW IS THE INPUT FORMAT I WANT FOR cluster_poses()
+    # index = list(combinations(pose_directories, 2)) + list(zip(pose_directories, pose_directories))
+    # values = values + tuple(repeat(0, len(pose_directories)))
+    # pd.Series(values, index=pd.MultiIndex.from_tuples(index)).unstack()
 
-        # PCA analysis of distances
-        # pairwise_sequence_diff_mat = np.zeros((len(designs), len(designs)))
-        # for k, dist in enumerate(pairwise_sequence_diff_np):
-        #     i, j = SDUtils.condensed_to_square(k, len(designs))
-        #     pairwise_sequence_diff_mat[i, j] = dist
-        building_block_rmsd_matrix = sym(building_block_rmsd_df.values)
-        # print(building_block_rmsd_df.values)
-        # print(building_block_rmsd_matrix)
-        # building_block_rmsd_matrix = StandardScaler().fit_transform(building_block_rmsd_matrix)
-        # pca = PCA(PUtils.variance)
-        # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
-        # pca_distance_vector = pdist(building_block_rmsd_pc_np)
-        # epsilon = pca_distance_vector.mean() * 0.5
+    pair_df = pd.Series(values, index=pd.MultiIndex.from_tuples(identifier_pairs)).fillna(0.).unstack()
+    # symmetric_pair_values = sym(pair_df.values)
 
-        # Compute pose clusters using DBSCAN algorithm
-        # logger.info('Finding pose clusters within RMSD of %f' % rmsd_threshold) # TODO
-        dbscan = DBSCAN(eps=rmsd_threshold, min_samples=2, metric='precomputed')
-        dbscan.fit(building_block_rmsd_matrix)
+    # PCA analysis of distances
+    # building_block_rmsd_matrix = StandardScaler().fit_transform(symmetric_pair_values)
+    # pca = PCA(PUtils.variance)
+    # building_block_rmsd_pc_np = pca.fit_transform(building_block_rmsd_matrix)
+    # pca_distance_vector = pdist(building_block_rmsd_pc_np)
+    # epsilon = pca_distance_vector.mean() * 0.5
+    # Compute pose clusters using DBSCAN algorithm
+    # precomputed specifies that a precomputed distance matrix is being passed
+    dbscan = DBSCAN(eps=epsilon, min_samples=2, metric='precomputed')
+    dbscan.fit(sym(pair_df.to_numpy()))
+    # find the cluster representative by minimizing the cluster mean
+    cluster_ids = set(dbscan.labels_)
+    # print(dbscan.labels_)
+    # use of dbscan.core_sample_indices_ returns all core_samples which is not a nearest neighbors mean index
+    # print(dbscan.core_sample_indices_)
+    try:
+        cluster_ids.remove(-1)  # remove outlier label, will add all these later
+    except KeyError:
+        pass
 
-        # find the cluster representative by minimizing the cluster mean
-        cluster_ids = set(dbscan.labels_)
-        # print(dbscan.labels_)
-        # print(dbscan.core_sample_indices_)
-        if -1 in cluster_ids:
-            cluster_ids.remove(-1)  # remove outlier label, will add all these later
-        pose_indices = building_block_rmsd_df.index.to_list()
-        cluster_members_map = {cluster_id: [pose_indices[n] for n, cluster in enumerate(dbscan.labels_)
-                                            if cluster == cluster_id]
-                               for cluster_id in cluster_ids}
+    # Find the cluster representative and members
+    clustered_poses = {}
+    for cluster_id in cluster_ids:
+        # loc_indices = pair_df.index[np.where(cluster_id == dbscan.labels_)]
+        # cluster_representative = pair_df.loc[loc_indices, loc_indices].mean().argmax()
+        iloc_indices = np.where(dbscan.labels_ == cluster_id)
+        # take mean (doesn't matter which axis) and find the minimum (most similar to others) as representative
+        cluster_representative_idx = pair_df.iloc[iloc_indices, iloc_indices].mean().argmin()
+        # set all the cluster members belonging to the cluster representative
+        # pose_cluster_members = pair_df.index[iloc_indices].to_list()
+        clustered_poses[pair_df.index[cluster_representative_idx]] = pair_df.index[iloc_indices].to_list()
 
-        # Find the cluster representative
-        # use of dbscan.core_sample_indices_ returns all core_samples which is not a nearest neighbors mean index
-        clustered_poses = {}
-        for cluster in cluster_members_map:
-            cluster_df = building_block_rmsd_df.loc[cluster_members_map[cluster], cluster_members_map[cluster]]
-            cluster_representative = cluster_df.mean().sort_values().index[0]
-            for member in cluster_members_map[cluster]:
-                clustered_poses[member] = cluster_representative  # includes representative
-            # cluster_representative_map[cluster] = cluster_representative
-            # cluster_representative_map[cluster_representative] = cluster_members_map[cluster]
+    # Add all outliers to the clustered poses as a representative
+    outlier_poses = pair_df.index[np.where(dbscan.labels_ == -1)]
+    clustered_poses.update(dict(zip(outlier_poses, outlier_poses)))
 
-        # make dictionary with the core representative as the label and the matches as a list
-        # clustered_poses = {cluster_representative_map[cluster]: cluster_members_map[cluster]
-        #                    for cluster in cluster_representative_map}
-
-        # clustered_poses = {building_block_rmsd_df.iloc[idx, :].index:
-        #                    building_block_rmsd_df.iloc[idx, [n
-        #                                                      for n, cluster in enumerate(dbscan.labels_)
-        #                                                      if cluster == dbscan.labels_[idx]]].index.to_list()
-        #                    for idx in dbscan.core_sample_indices_}
-
-        # Add all outliers to the clustered poses as a representative
-        clustered_poses.update({building_block_rmsd_df.index[idx]: building_block_rmsd_df.index[idx]
-                                for idx, cluster in enumerate(dbscan.labels_) if cluster == -1})
-        pose_cluster_map[building_blocks] = clustered_poses
-
-    return pose_cluster_map
+    return clustered_poses
 
 
 def predict_best_pose_from_transformation_cluster(train_trajectories_file, training_clusters):
@@ -430,7 +419,7 @@ def cluster_transformation_pairs(transform1, transform2, distance=1.0, minimum_m
     return nearest_neightbors_ball_tree, dbscan_cluster  # .labels_
 
 
-def find_cluster_representatives(transform_tree, cluster) -> Tuple[List, numpy.ndarray]:
+def find_cluster_representatives(transform_tree, cluster) -> tuple[list, np.ndarray]:
     """Return the cluster representative indices and the cluster membership identity for all member data
 
     Args:
@@ -462,19 +451,17 @@ def find_cluster_representatives(transform_tree, cluster) -> Tuple[List, numpy.n
 
 # @handle_design_errors(errors=(DesignError, AssertionError))
 # @handle_errors(errors=(DesignError, ))
-def cluster_designs(composition_designs: List[PoseDirectory], return_pose_id: bool = True) -> \
-        Dict[Union[str, PoseDirectory], List[Union[str, PoseDirectory]]]:
+def cluster_designs(compositions: list[PoseDirectory]) -> dict[str | PoseDirectory, list[str | PoseDirectory]]:
     """From a group of poses with matching protein composition, cluster the designs according to transformational
     parameters to identify the unique poses in each composition
 
     Args:
-        composition_designs: The group of PoseDirectory objects to pull transformation data from
-        return_pose_id: Whether the PoseDirectory object should be returned instead of its name
+        compositions: The group of PoseDirectory objects to pull transformation data from
     Returns:
         Cluster with representative pose as the key and matching poses as the values
     """
     # format all transforms for the selected compositions
-    stacked_transforms = [design_directory.pose_transformation for design_directory in composition_designs]
+    stacked_transforms = [pose_directory.pose_transformation for pose_directory in compositions]
     trans1_rot1, trans1_tx1, trans1_rot2, trans1_tx2 = zip(*[transform[1].values()
                                                              for transform in stacked_transforms])
     trans2_rot1, trans2_tx1, trans2_rot2, trans2_tx2 = zip(*[transform[2].values()
@@ -492,32 +479,32 @@ def cluster_designs(composition_designs: List[PoseDirectory], return_pose_id: bo
 
     representative_labels = cluster_labels[cluster_representative_indices]
     # pull out pose's from the input composition_designs groups (PoseDirectory)
-    if return_pose_id:  # convert all DesignDirectories to pose-id's
-        # don't add the outliers now (-1 labels)
-        composition_map = \
-            {str(composition_designs[rep_idx]):
-                [str(composition_designs[idx]) for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-             for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
-        # add the outliers as separate occurrences
-        composition_map.update({str(composition_designs[idx]): []
-                                for idx in np.flatnonzero(cluster_labels == -1).tolist()})
-    else:  # return the PoseDirectory object
-        composition_map = \
-            {composition_designs[rep_idx]: [composition_designs[idx]
-                                            for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
-             for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
-        composition_map.update({composition_designs[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
+    # if return_pose_id:  # convert all DesignDirectories to pose-id's
+    #     # don't add the outliers now (-1 labels)
+    #     composition_map = \
+    #         {str(compositions[rep_idx]):
+    #             [str(compositions[idx]) for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+    #          for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
+    #     # add the outliers as separate occurrences
+    #     composition_map.update({str(compositions[idx]): []
+    #                             for idx in np.flatnonzero(cluster_labels == -1).tolist()})
+    # else:  # return the PoseDirectory object
+    composition_map = \
+        {compositions[rep_idx]: [compositions[idx] for idx in np.flatnonzero(cluster_labels == rep_label).tolist()]
+         for rep_idx, rep_label in zip(cluster_representative_indices, representative_labels) if rep_label != -1}
+    composition_map.update({compositions[idx]: [] for idx in np.flatnonzero(cluster_labels == -1).tolist()})
 
     return composition_map
 
 
-def group_compositions(pose_directories: List[PoseDirectory]) -> Dict[Tuple, List[PoseDirectory]]:
+def group_compositions(pose_directories: list[PoseDirectory]) -> dict[tuple[str, ...], list[PoseDirectory]]:
     """From a set of DesignDirectories, find all the compositions and group together
 
     Args:
         pose_directories: The PoseDirectory to group according to composition
     Returns:
-        List of similarly named PoseDirectory mapped to their name"""
+        List of similarly named PoseDirectory mapped to their name
+    """
     compositions = {}
     for pose in pose_directories:
         entity_names = tuple(pose.entity_names)
@@ -535,13 +522,13 @@ def group_compositions(pose_directories: List[PoseDirectory]) -> Dict[Tuple, Lis
     return compositions
 
 
-def invert_cluster_map(cluster_map):
+def invert_cluster_map(cluster_map: dict[str | PoseDirectory, list[str | PoseDirectory]]):
     """Return an inverted cluster map where the cluster members map to the representative
 
     Args:
-        cluster_map (dict[mapping[representative DesignDirectoryID, list[member DesignDirectoryID]])
+        cluster_map: The standard pose_cluster_map format
     Returns:
-        (dict[mapping[member DesignDirectoryID, representative DesignDirectoryID]])
+        An invert pose_cluster_map where the members are keys and the representative is the value
     """
     inverted_map = {pose: cluster_rep for cluster_rep, poses in cluster_map.items() for pose in poses}
     inverted_map.update({cluster_rep: cluster_rep for cluster_rep in cluster_map})  # to add all outliers
